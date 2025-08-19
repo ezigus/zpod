@@ -1,0 +1,66 @@
+# Issue 08 - Advanced Search & Discovery | Development Log
+
+## Wave 3 | Issue 08 - Advanced Search (Unified Podcasts/Episodes/Notes) - Design
+**Date:** 2025-08-15
+**Time:** 18:45 UTC
+**Issue:** 08-Advanced Search (Unified Podcasts/Episodes/Notes)
+**Wave:** 3 (after foundation stability)
+**Dependencies Verified:** 
+- ✅ 01-Subscribe: PodcastManager and SubscriptionService provide podcast indexing
+- ✅ 03-Playback: Episode models with metadata available for indexing
+- ✅ Models available: Podcast (title, author), Episode (title, description) with adequate metadata
+**Spec References:** `discovery.md` (Advanced Search), `playback.md` (Advanced Search), `settings.md` (Advanced Search), `spec.md` (search scenarios across sections).
+
+**Goal:** Implement a unified search service returning mixed podcast + episode results with pluggable index sources.
+
+**Implementation Completed (2025-08-15 19:15 UTC):**
+
+All components successfully implemented and verified:
+
+1. **SearchModels.swift**: Core data types including SearchResult enum for heterogeneous results, SearchFilter options, DocumentType/FieldType enums, and Note model placeholder for future expansion.
+
+2. **Tokenizer.swift**: Text processing with stop word filtering (35 common English stop words), punctuation removal, and normalization. Handles edge cases like empty strings and maintains word boundaries.
+
+3. **SearchIndex.swift**: In-memory inverted index with term frequency calculation. Maps terms to IndexedDocument instances containing relevance data for fast lookup.
+
+4. **SearchService.swift**: Main orchestration service with @MainActor annotation for Swift 6 concurrency compliance. Implements relevance scoring algorithm using term frequency × field weights, normalized by document length. Field weights: title (3x), author/description (1x).
+
+5. **SearchIndexSources.swift**: Pluggable data sources including PodcastIndexSource and EpisodeIndexSource that connect to existing PodcastManaging infrastructure. NoteIndexSource placeholder for future notes functionality.
+
+6. **Issue08SearchTests.swift**: Comprehensive test suite covering:
+   - Tokenization (punctuation, stop words, empty strings)
+   - Index operations (add, find, clear)
+   - Basic search functionality
+   - Type filtering (podcasts/episodes only)
+   - Relevance ranking verification
+   - Field weighting (title vs description)
+   - Multi-term queries
+   - Case sensitivity handling
+   - Empty/no-match scenarios
+
+7. **SearchIntegrationExample.swift**: Demonstration of complete integration workflow with existing PodcastManager, showing initialization, index building, and various search patterns.
+
+**Manual Verification:** All core algorithms verified through standalone test script demonstrating tokenization, field weighting, result structure, filtering logic, and index operations work correctly.
+
+**Acceptance Criteria Met:**
+✅ Query returns combined list ordered by basic relevance
+✅ Able to restrict to podcasts only or episodes only
+✅ Unified search interface across podcasts, episodes, and notes (placeholder)
+✅ Pluggable index sources for extensibility
+✅ Field weighting with title prioritization
+✅ Case-insensitive search with multi-term support
+
+**Technical Quality:**
+✅ Swift 6 strict concurrency compliance with @MainActor
+✅ Protocol-oriented design for testability and extensibility
+✅ Memory-efficient in-memory indexing
+✅ Comprehensive error handling and edge cases
+✅ Clean separation of concerns (tokenization, indexing, scoring, filtering)
+
+**Integration Points:**
+✅ Connects to existing PodcastManaging protocol
+✅ Leverages existing Podcast and Episode models
+✅ Maintains consistency with project architectural patterns
+✅ Ready for future Notes functionality expansion
+
+**Status:** ✅ COMPLETE - All Issue 08 requirements implemented with comprehensive test coverage and acceptance criteria validation

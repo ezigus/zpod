@@ -1,0 +1,55 @@
+# Issue 05 - Settings & Customization | Development Log
+
+## Wave 2 | Issue 05 - Per-Podcast & Global Settings Framework (Design)
+**Date:** 2025-08-15
+**Time:** Design Phase
+**Issue:** 05-Per-Podcast & Global Settings Framework (Typed Settings Layer with Cascading Resolution)
+**Wave:** 2 (Critical path, depends on 01)
+**Dependencies Verified:** Issue 01-Subscribe complete (podcast references available). Confirmed via implemented PodcastManager and subscription flow.
+**Spec References:** `settings.md` (Configuring Default Playback Settings, Setting Global Download and Update Frequencies, Per-Podcast Override for Global Settings), `customization.md` (per-podcast customization)
+
+**Goal:** Introduce a comprehensive typed settings layer with cascading resolution (global → per-podcast override) powering playback and download features across the application.
+
+**Implementation Progress:**
+
+**Core Models Implemented:** ✅
+- `DownloadSettings` with validation and default values
+- `PodcastDownloadSettings` for per-podcast overrides
+- `NotificationSettings` with custom sound support
+- `PodcastPlaybackSettings` for per-podcast playback overrides
+- `RetentionPolicy` enum with validation and Codable support
+
+**Services Implemented:** ✅
+- `SettingsRepository` protocol defining storage abstraction
+- `UserDefaultsSettingsRepository` with JSON persistence and change notifications
+- `SettingsManager` with cascading resolution engine and reactive updates
+- `SettingsManagerExtensions` providing convenience methods for service integration
+
+**Test Suite Created:** ✅
+- `Issue05SettingsTests` with comprehensive unit test coverage
+- `Issue05SettingsIntegrationTests` validating service interactions
+- Tests cover domain models, repository operations, cascading logic, reactive updates
+- Edge case validation for invalid settings values
+
+**Architecture Decisions Made:**
+1. **Protocol-Based Storage:** Repository pattern for future cloud sync integration
+2. **Cascading Resolution:** Clear hierarchy with hardcoded defaults → global → per-podcast
+3. **Reactive Updates:** Combine publishers for UI responsiveness
+4. **Validation at Boundaries:** Input validation with clamping to safe ranges
+5. **Convenience Extensions:** Helper methods for easy service integration
+6. **Backward Compatibility:** Seamless integration with existing PlaybackSettings
+
+**Integration Points:** ✅
+- Compatible with existing `PlaybackSettings` model
+- Extension methods for easy service integration
+- Change notifications for reactive UI updates
+- Persistence abstraction for future cloud sync
+
+**Acceptance Criteria Validation:** ✅
+1. **Cascading Resolution:** Global settings apply unless per-podcast override exists
+2. **Change Notifications:** Settings changes trigger reactive updates via Combine
+3. **Persistence:** Settings survive app restart through UserDefaults storage
+4. **Validation:** Invalid values clamped to safe ranges with logging
+5. **Integration:** Backward compatibility with existing playback system maintained
+
+**Status:** ✅ COMPLETE - All Issue 05 requirements implemented with comprehensive test coverage

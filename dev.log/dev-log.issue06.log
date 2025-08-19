@@ -1,0 +1,53 @@
+# Issue 06 - Playlist Management | Development Log
+
+## Wave 2 | Issue 06 - Playlist & Smart Playlist System (Design)
+**Date:** 2025-08-15
+**Time:** Design Phase
+**Issue:** 06-Playlist & Smart Playlist System (Manual Playlists + Rule-Based Smart Playlists)
+**Wave:** 2 (Parallel with 05, depends on 01,03,04)
+**Dependencies Verified:** 
+- ✅ Issue 01-Subscribe complete (Episode model with required properties available)
+- ✅ Issue 03-Playback complete (Playback infrastructure for queue generation available)
+- ✅ Issue 04-Download complete (DownloadState enum for download status rules available)
+- ✅ Issue 05-Settings complete (Settings framework for playlist configurations available)
+
+**Implementation Progress:**
+
+**Core Models Implemented:** ✅
+- `Playlist` model with ordered episode IDs, playback settings (continuousPlayback, shuffleAllowed)
+- `SmartPlaylist` model with rule-based filtering, sort criteria, and episode limits
+- `PlaylistRuleData` for serializable rule configuration with parameters
+- `PlaylistSortCriteria` enum with comprehensive sorting options
+- Immutable update methods following existing patterns (`withEpisodes()`, `withName()`, etc.)
+
+**Rule System Implemented:** ✅
+- `PlaylistRule` protocol for extensible rule evaluation
+- `IsNewRule`: Episodes published within X days (configurable threshold)
+- `IsDownloadedRule`: Episodes with completed download status
+- `IsUnplayedRule`: Episodes not played or with minimal progress (<30s)
+- `PodcastIdRule`: Episodes from specific podcast
+- `DurationRangeRule`: Episodes within min/max duration constraints
+- `PlaylistRuleFactory`: Serialization/deserialization for rule persistence
+
+**Engine & Manager Implemented:** ✅
+- `PlaylistEngine`: Smart playlist evaluation with AND rule logic and comprehensive sorting
+- `PlaylistManager` protocol: CRUD operations with change notifications
+- `InMemoryPlaylistManager`: Full implementation with reactive updates via Combine
+- Queue generation respecting shuffle settings and playlist allowances
+- Missing episode handling (graceful filtering of deleted episodes)
+
+**Test Suite Implemented:** ✅
+- `Issue06PlaylistTests`: 30+ comprehensive unit tests covering:
+  - Model initialization, validation, and Codable roundtrip
+  - Rule evaluation with various episode scenarios and download states
+  - Smart playlist engine with AND logic, sorting, and episode limits
+  - Queue generation with shuffle support and setting respect
+  - Manager CRUD operations and change notification publishing
+  - Acceptance criteria validation for all requirements
+
+**Acceptance Criteria Validated:** ✅
+1. **Manual Playlist CRUD:** ✅ Can create manual playlist, add/remove/reorder episodes
+2. **Smart Playlist Updates:** ✅ Smart playlist updates when underlying data changes
+3. **Shuffle Support:** ✅ Shuffle flag respected when generating playback queue
+
+**Status:** ✅ COMPLETE - All Issue 06 requirements implemented with comprehensive test coverage and acceptance criteria validation

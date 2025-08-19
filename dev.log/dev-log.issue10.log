@@ -1,0 +1,69 @@
+# Issue 10 - Update Frequency & Feed Management | Development Log
+
+## Wave 2 | Issue 10 - Update Frequency & Feed Management
+**Issue:** 10-Update Frequency & Feed Management
+**Wave:** 2 (Core functionality)
+**Status:** Implementation in progress
+**Dependencies:** Issue 01 (Subscribe to New Podcast), Issue 04 (Download Management)
+
+**Goal:** Implement intelligent feed update management with configurable update frequencies and efficient feed polling.
+
+**Scope:**
+- Configurable update frequencies per podcast
+- Intelligent update scheduling based on release patterns
+- Batch update operations
+- Update history and tracking
+- Feed validation and error handling
+- Background update support
+
+**Architecture:**
+- UpdateSchedule models for frequency management
+- FeedUpdateService for polling operations
+- UpdateCoordinator for scheduling and batching
+- Integration with notification system for new episodes
+
+**Testing Strategy:**
+- Issue10UpdateFrequencyTests.swift - Update frequency and scheduling logic
+- Issue10AcceptanceCriteriaTests.swift - End-to-end update scenarios
+
+## Wave 2 | Issue 10 - Per-Podcast Update Frequency Service (Design)
+**Date:** 2025-08-15
+**Time:** Design Phase  
+**Issue:** 10-Per-Podcast Update Frequency Service (Custom feed refresh intervals)
+**Wave:** 2 (depends on 01,05)
+**Dependencies Verified:**
+- ✅ Issue 01-Subscription complete (Podcast model with required ID structure available)
+- ✅ Issue 05-Settings Framework complete (SettingsManager with cascading resolution infrastructure available)
+
+**Goal:** Allow each podcast to define a custom feed refresh interval overriding global default.
+
+**Status:** ✅ COMPLETE - All Issue 10 requirements implemented with comprehensive test coverage
+
+**Implementation Summary:**
+Successfully implemented per-podcast update frequency service with cascading settings resolution and comprehensive scheduling logic.
+
+**Files Created/Modified:**
+- Extended `SettingsModels.swift` with UpdateFrequency enum and settings integration
+- Created `UpdateSchedule.swift` model for tracking refresh schedules
+- Extended `SettingsManager.swift` with effectiveUpdateFrequency resolution
+- Created `UpdateFrequencyService.swift` for schedule management and due podcast detection
+- Added `Issue10UpdateFrequencyTests.swift` with 20+ comprehensive unit tests
+- Added `Issue10AcceptanceCriteriaTests.swift` validating exact acceptance criteria
+
+**Key Components Implemented:**
+1. **UpdateFrequency Enum:** Common intervals (15min, hourly, daily, weekly, manual) with TimeInterval conversion
+2. **Settings Integration:** Extends existing cascade pattern (global → per-podcast override)
+3. **UpdateSchedule Model:** Tracks per-podcast refresh state with last/next due dates
+4. **UpdateFrequencyService:** Core service for refresh logic and due podcast detection
+5. **Comprehensive Tests:** Unit tests for frequency conversion, scheduling, cascading resolution
+
+**Acceptance Criteria Validation:**
+- ✅ Given podcast with custom interval, next refresh uses its interval
+- ✅ Removing custom interval reverts to global default  
+- ✅ Manual frequency disables automatic refresh
+- ✅ Schedule tracking updates after refresh
+
+**Integration Points:**
+- Leverages existing SettingsManager cascading resolution pattern
+- Backward compatible with existing PodcastDownloadSettings usage
+- Ready for external scheduling integration (returns podcast IDs due for update)

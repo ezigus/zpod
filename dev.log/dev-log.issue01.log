@@ -1,0 +1,57 @@
+# Issue 01 - Subscribe to New Podcast | Development Log
+
+## Wave 1 | Issue 01-Subscribe to New Podcast (Design)
+**Date:** 2025-08-10
+**Time:** 12:45 PDT
+**Issue:** 01-Subscribe to New Podcast (Search & Feed Parsing Core)
+**Wave:** 1 (Critical path)
+**Dependencies Verified:** None (foundation issue) – confirmed via `spec/issues-review.md`.
+**Spec References:** `spec/discovery.md` (Subscribing to a New Podcast, Adding Podcast by Direct RSS Feed URL), `spec/spec.md` subscription scenarios.
+
+**Goal:** Provide minimal end-to-end flow: user supplies RSS feed URL (or selects from stub search results) → feed parsed → `Podcast` + `Episode` models produced → stored via `PodcastManaging` → visible through a simple query API (no UI wiring yet beyond placeholders).
+
+**Constraints & Assumptions:**
+- Networking deferred; will simulate feed retrieval with injected string/XML (TDD harness) to avoid premature HTTP concerns.
+- Parsing scope limited to: channel title, description, itunes:author (if present), image (itunes:image/@href or channel/image/url), item GUID/enclosure/url, item title. Categories captured if directly available (itunes:category/@text or <category> text) – minimal.
+- Episode IDs: prefer GUID if present else enclosure URL else generated hash of title+pubDate.
+- Podcast id: feed URL string (unique key) – aligns with existing `Podcast.id` property semantics.
+- Episodes array stored on `Podcast` at subscription time; later updates will come with update frequency service.
+- Episode model currently placeholder (id, title); extend later.
+
+**Design Outline:**
+1. `FeedParser` protocol with `parse(data: Data, sourceURL: URL) -> ParsedFeed` (struct containing Podcast + [Episode]).
+2. `RSSFeedParser` concrete implementation using `XMLParser` (pull-based, minimal memory), focusing only required elements.
+3. `SubscriptionService` orchestrates:
+     - validate URL
+     - retrieve data (injected provider: protocol `FeedDataLoader` with mock returning fixture bytes)
+     - parse feed → map to `Podcast`
+     - persist via `PodcastManaging.add` (ensuring `isSubscribed = true`, `dateAdded = now`)
+4. Errors enumerated: invalidURL, dataLoadFailed, parseFailed, duplicateSubscription.
+5. Tests cover Given/When/Then for: valid feed adds; invalid URL; duplicate feed ignored with error; parse failure surfaced.
+
+**Testing Strategy (TDD):**
+- Add new test file: `Issue01SubscribeTests` in test target.
+- Use inline sample RSS XML fixture (short) to assert parsing.
+- Inject mock data loader returning Data.
+- Simulate duplicate add path.
+
+**Open Questions / Deferred:**
+- Localization of error messages → later.
+- Persistence beyond memory → later (before sync & download phases).
+- Search service stub to produce feed URL suggestions – minimal in this issue (maybe simple static mapping); full advanced search in issue 08.
+
+**Diagram (Initial Subscription Flow):**
+```mermaid
+sequenceDiagram
+    actor User
+    User->>SubscriptionService: subscribe(feedURL)
+    SubscriptionService->>FeedDataLoader: load(feedURL)
+    FeedDataLoader-->>SubscriptionService: Data
+    SubscriptionService->>FeedParser: parse(Data)
+    FeedParser-->>SubscriptionService: ParsedFeed(Podcast,[Episode])
+    SubscriptionService->>PodcastManaging: add(Podcast with episodes, isSubscribed=true)
+    PodcastManaging-->>SubscriptionService: success
+    SubscriptionService-->>User: success / error
+```
+
+**Next Steps:** Implement tests first, then parser & service to satisfy them, commit in this branch, open PR.

@@ -1,0 +1,93 @@
+# Podcast Addict Application Specification
+
+This folder contains the full specification for the Podcast Addict application, organized by major capability. Each section is written in Given/When/Then format for clarity and testability.
+
+## Table of Contents
+
+- [Podcast Discovery and Subscription](discovery.md)
+  - Subscribing to a New Podcast
+  - Importing Subscriptions via OPML
+  - Browsing Popular Podcasts
+  - Adding Podcast by Direct RSS Feed URL
+- [Podcast Playback Control](playback.md)
+  - Playing an Episode with Custom Speed
+  - Skipping Silences and Boosting Volume
+  - Using the Sleep Timer
+  - Setting Alarms for Podcasts
+  - Navigating Episode Chapters
+  - Enhanced Transcript View
+  - Automatically Skipping Intro/Outro Segments
+  - Applying Volume Leveler/Normalization
+  - Using Explicit Rewind/Fast-Forward Buttons
+  - Enabling Shuffle Playback
+  - Manually Marking Episodes as Played/Unplayed
+  - Adjusting In-App Volume Control
+  - Controlling Video Playback Options
+- [Download and Sync Management](download.md)
+  - Automatic Episode Download
+  - Managing Storage and Cleanup
+  - Syncing Data to Cloud
+  - Prioritizing Downloads
+  - Setting Download Conditions
+  - Handling Failed Downloads
+  - Performing Batch Download/Delete Operations
+  - Selecting Streaming Quality
+  - Operating in Offline Mode
+- [Customization and Personalization](customization.md)
+  - Customizing Settings Per Podcast
+  - Creating Custom Playlists
+  - Filtering Episodes by Keywords
+  - Customizing Podcast Information (Metadata)
+  - Managing Notifications
+  - Applying Custom Tags/Groups for Organization
+  - Advanced Episode Filtering Across Library
+  - Creating Smart Playlists/Filters
+  - Sorting Subscribed Podcasts
+- [Content Beyond Podcasts](content.md)
+  - Streaming Live Radio
+  - Reading Integrated News Feeds
+  - Playing YouTube Channels
+  - Adding Local Audio Files as Virtual Podcasts
+- [Advanced User Tools](advanced.md)
+  - Using Bookmarks
+  - Tracking Playback Statistics
+  - Applying Custom Audio Effects
+  - Casting to External Devices
+  - Rating and Reviewing Podcasts
+  - Sharing Podcasts or Episodes
+  - Accessing Error Reports and Logs
+  - Accessing Playback History
+  - Exporting User Data
+- [User Interface and Experience](ui.md)
+  - Navigating with Car Layout
+  - Voice Control for Search
+  - Managing Ads (Free Version)
+  - Using Home Screen Widgets
+  - Customizing App Theme and Appearance
+  - Controlling Playback via Headphones/Bluetooth
+  - Using Lock Screen and Notification Bar Players
+  - Utilizing Android Auto Integration
+  - Using App Shortcuts
+  - Leveraging Accessibility Options
+  - Optimizing for Tablet UI
+  - Customizing Swipe Gestures
+- [Global Application Settings](settings.md)
+  - Configuring Default Playback Settings
+  - Setting Global Download and Update Frequencies
+  - Managing Global Cleanup Policies
+  - Configuring Cloud Backup Defaults
+  - Adjusting Ad Display Preferences (Free Version)
+  - Toggling Car Layout Mode
+  - Managing Notification Settings
+  - Configuring User Interface Display Options
+  - Handling Network Restrictions
+  - Managing RSS Feed Customization
+  - Accessing Beta Program
+  - Protecting App with Password/PIN
+  - Performing Local Backup and Restore
+  - Managing Confirmation Dialogs
+  - Resetting All Settings to Default
+
+---
+
+Each capability is described in its own file for easier reading and maintenance. Use the links above to jump to the relevant section.

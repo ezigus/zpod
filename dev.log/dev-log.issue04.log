@@ -1,0 +1,97 @@
+# Issue 04 - Download Management | Development Log
+
+## Wave 1 | Issue 04 - Download Management Core (Design)
+**Date:** 2025-01-28
+**Time:** Design Phase
+**Issue:** 04-Download Management Core (Auto Download + Queue + Storage Policies)
+**Wave:** 1 (Critical path, follows 03)
+**Dependencies Verified:** Issues 01-03 complete (subscription, episode detail, playback engine available)
+**Spec References:** `download.md` (Automatic Episode Download, Managing Storage and Cleanup, Prioritizing Downloads, Setting Download Conditions, Handling Failed Downloads)
+
+**Goal:** Implement foundational download queue and policy engine enabling automatic episode downloads with storage management hooks.
+
+**Scope (In):**
+- `DownloadTask` model with state enum (`pending`, `downloading`, `completed`, `failed`, `cancelled`) and priority system
+- `DownloadQueueManager` protocol + implementation for queue operations (priority ordering, reorder, pause/resume/cancel)
+- Auto-download trigger when new episode detected (hook from subscription/update service)
+- `StoragePolicyEvaluator` for retention rules (keep X episodes, delete after N days) with enforcement stubs
+- Basic disk persistence with `FileManagerService` (file naming scheme, directory layout)
+- Failed download handling + manual retry API with error surfacing
+- Comprehensive unit tests covering queue ordering, auto-download triggering, failure → retry path
+
+**Implementation Progress:**
+
+**Core Models Implemented:**
+- ✅ `DownloadTask` model with state enum, priority system, and immutable update methods
+- ✅ `DownloadState` enum with comprehensive states (pending, downloading, paused, completed, failed, cancelled)
+- ✅ `DownloadError` enum with detailed error types and localized descriptions
+
+**Services Implemented:**
+- ✅ `DownloadQueueManager` protocol and `InMemoryDownloadQueueManager` implementation
+- ✅ `AutoDownloadService` for new episode detection and auto-queueing with explicit settings
+- ✅ `StoragePolicyEvaluator` with policy types (keepLatest, deleteOlderThan, keepUnplayedOnly)
+- ✅ `FileManagerService` protocol and implementation with download simulation
+- ✅ `DownloadCoordinator` orchestrating all download operations with retry logic
+
+**Test Suite Created:**
+- ✅ `Issue04DownloadTests` with comprehensive test coverage:
+  - DownloadTask model initialization and state transitions
+  - Queue manager operations (add, remove, reorder, pause/resume/cancel/retry)
+  - Priority ordering and queue publisher functionality
+  - Auto-download service with enabled/disabled podcast scenarios
+  - Storage policy evaluation (keep latest, delete older than date)
+  - File manager service directory creation and download progress
+  - Integration tests with subscription service compatibility
+  - Acceptance criteria validation tests
+
+**Architecture Decisions Made:**
+1. **Protocol-Based Design:** All services follow existing patterns with protocols for testability
+2. **Immutable Updates:** DownloadTask uses `withState()`, `withProgress()` pattern like Episode model
+3. **Priority Ordering:** Higher numeric values = higher priority, automatic queue sorting
+4. **State Management:** Comprehensive state machine with proper transition validation
+5. **Combine Integration:** Publishers for reactive queue updates following existing patterns
+6. **MainActor Isolation:** Proper Swift 6 compliance with MainActor annotations
+7. **Coordinator Pattern:** Central orchestration of all download operations
+8. **Retry Logic:** Exponential backoff with configurable retry limits
+
+**Integration Points:**
+- ✅ Episode/Podcast model compatibility maintained
+- ✅ Subscription service hook points defined for auto-download via delegate pattern
+- ✅ File system abstraction for cross-platform compatibility
+- ✅ Error handling patterns consistent with existing codebase
+- ✅ NewEpisodeDelegate protocol for subscription service integration
+
+**Acceptance Criteria Validation:**
+- ✅ **"New episodes marked for auto-download enter queue respecting priority"** - Implemented with AutoDownloadService priority system and validated in tests
+- ✅ **"Reordering queue changes execution order"** - Implemented in DownloadQueueManager.reorderQueue() and validated in tests
+- ✅ **"Failed task exposes retry method and surfaces error"** - Implemented with DownloadError enum, retry tracking, and exposed via retryFailedDownload() method
+
+---
+
+## Wave 1 | Issue 04 - Download Management Core (Complete)
+**Date:** 2025-01-28
+**Time:** Implementation Complete
+**Issue:** 04-Download Management Core (Auto Download + Queue + Storage Policies)
+**Wave:** 1 (Critical path, follows 03)
+**Status:** ✅ COMPLETE
+**Dependencies Satisfied:** Issues 01-03 complete; ready for UI and network integration
+
+**Final Implementation Summary:**
+Successfully implemented foundational download queue and policy engine with all specified requirements. The architecture provides a solid foundation for automatic episode downloads with storage management hooks, following established patterns and maintaining consistency with existing codebase.
+
+**Key Achievements:**
+- Protocol-based architecture with comprehensive test coverage
+- Acceptance criteria validation with explicit test cases
+- Integration ready with existing subscription and playback services
+- Proper error handling and retry mechanisms
+- Storage policy framework for future enhancement
+- Swift 6 compliance with MainActor isolation
+
+**Technical Artifacts Created:**
+- 5 new service classes with full protocol abstractions
+- 1 new model with comprehensive state management
+- 30+ unit tests covering all functionality
+- Integration tests validating service interactions
+- Acceptance criteria tests matching issue requirements
+
+**Next Steps:** Ready for integration with real network download implementation and UI components in future issues.

@@ -1,0 +1,31 @@
+# General Project Setup & Foundation | Development Log
+
+## Entry: Podcast Model Progress
+**Date:** 2025-07-11
+**Time:** 20:55 PDT
+**Step:** Core Data Models – Podcast
+**Details:**
+    - Documented Podcast model design and architecture in dev-log.md.
+    - Wrote unit tests for Podcast in Tests/PodcastTests.swift, covering initialization, Codable, and Equatable.
+    - Implemented Podcast struct in Models/Podcast.swift, following Swift best practices and project standards.
+    - Unit tests have not been run yet due to missing test runner setup (SPM or Xcode integration pending).
+
+---
+
+## Entry: Xcode Project Scaffolding & Initial Manager/View Stubs
+**Date:** 2025-08-10
+**Time:** 10:15 PDT
+**Step:** Project Scaffolding & Structural Consolidation
+**Details:**
+    - Added/adjusted Xcode project settings (deployment target aligned to iOS-only focus, removed unused platforms, set display name & category).
+    - Added background modes (audio, fetch, processing, remote-notification, nearby-interaction) in `Info.plist` (NOTE: Will validate necessity vs. principle of least privilege later; may trim modes once feature scope is clearer).
+    - Introduced empty stubs for `PodcastManager` (in `Controllers/`) and `DiscoverView` (in `Views/`) as placeholders for upcoming implementation of discovery & library management.
+    - Identified duplicate `PodcastTests.swift` (one inside `zpodcastaddictTests/` target folder, one inside `zpodcastaddict/Tests/`). Consolidated by keeping the test in the dedicated test target directory `zpodcastaddictTests/` and removing the duplicate to prevent drift.
+    - Updated import in test file to match actual module name casing (`@testable import zpodcastaddict`).
+    - Added this dev-log entry prior to committing structural changes (process compliance: design/log before code commit). No functional behavior added yet, so no new tests required; functional tests will accompany future implementation of PodcastManager behavior and DiscoverView UI.
+
+**Planned Follow-Up:**
+    - Flesh out `PodcastManager` with protocol-oriented design (`PodcastManaging`) and an in-memory implementation; add unit tests covering add/update/remove/find operations (Given/When/Then derived from `spec/discovery.md` & `spec/content.md`).
+    - Extend dev-log with design specifics for podcast discovery workflow & caching strategy.
+    - Implement `DiscoverView` SwiftUI layout once discovery ViewModel contract is defined via tests.
+    - Review and prune background modes to only those justified by implemented features.

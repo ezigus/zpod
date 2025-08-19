@@ -1,0 +1,13 @@
+# Git attributes for zpodcastaddict project
+
+# Prefer this branch's version of enhanced development script during merges
+scripts/dev-build.sh merge=ours
+
+# Standard Swift and Xcode files
+*.swift diff=swift
+*.pbxproj merge=union
+*.xcscheme merge=union
+*.xcworkspacedata merge=union
+
+# Documentation files
+*.md text eol=lf

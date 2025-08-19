@@ -1,0 +1,133 @@
+# zPodcastAddict Development Log & Design Spec
+
+## Overview
+This document serves as the main index for development logs organized by issue. Each issue has its own dedicated log file in the `dev.log/` directory to maintain clear separation of concerns and easier navigation.
+
+## Build Plan & Order of Implementation
+
+This document tracks the development process, design decisions, and a running log of completed work for the zPodcastAddict application. It is distinct from the application specifications in the `spec` folder and serves as a technical diary and design reference.
+
+### Initial Plan of Attack
+
+1. **Core Data Models (in order):**
+    - **Podcast:** Define the Podcast struct, properties, Codable conformance, and initial unit tests.
+    - **Episode:** Define the Episode struct, properties, Codable conformance, and initial unit tests.
+    - **Playlist:** Define the Playlist struct, properties, Codable conformance, and initial unit tests.
+    - **UserSettings:** Define the UserSettings struct, properties, Codable conformance, and initial unit tests.
+    - **Statistics:** Define the Statistics struct, properties, Codable conformance, and initial unit tests.
+    - Each model will be implemented and tested individually before moving to the next.
+
+2. **Specification-Driven Unit Tests**
+    - Write tests for each model based on Given/When/Then scenarios in the spec files.
+    - Establish TDD workflow for each model.
+
+3. **Utility Services**
+    - Storage, Networking, Parsing, etc.
+    - Mocked for early tests.
+
+4. **Playback Engine**
+    - Audio playback logic and tests (play, pause, skip, speed, etc.).
+    - Built with mock data initially.
+
+5. **Download & Sync Management**
+    - Logic for downloading episodes and syncing progress.
+
+6. **UI Components (Views & ViewModels)**
+    - Start with independent UI components (episode list, podcast details).
+    - Build ViewModels using models and services.
+
+7. **Advanced Features & Integrations**
+    - Recommendations, statistics, sharing, casting, Apple Watch/CarPlay support.
+
+8. **Settings & Customization**
+    - Settings logic and UI, dependent on models/services.
+
+9. **Accessibility & Final Polish**
+    - Ensure UI/features meet accessibility and Apple guidelines.
+
+---
+
+## Development Log Index
+
+### Foundation & Project Setup
+- **File:** `dev.log/dev-log.foundation.log`
+- **Contents:** Initial project scaffolding, core model setup, and foundational infrastructure
+
+### Issue-Specific Development Logs
+
+#### Wave 1 Issues (Critical Path)
+- **Issue 01 - Subscribe to New Podcast**
+  - **File:** `dev.log/dev-log.issue01.log`
+  - **Status:** Design phase completed
+  - **Contents:** RSS feed parsing, subscription service architecture
+
+- **Issue 02 - Episode Detail View & Basic Playback**
+  - **File:** `dev.log/dev-log.issue02.log`
+  - **Status:** Design phase completed
+  - **Contents:** Stub playback service, episode detail UI architecture
+
+- **Issue 03 - Advanced Playback Controls**
+  - **File:** `dev.log/dev-log.issue03.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Real AVFoundation player, speed controls, skip intervals
+
+#### Wave 2 Issues (Core Functionality)
+- **Issue 04 - Download Management**
+  - **File:** `dev.log/dev-log.issue04.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Episode download queue, progress tracking, storage management
+
+- **Issue 05 - Settings & Customization**
+  - **File:** `dev.log/dev-log.issue05.log`
+  - **Status:** Implementation in progress
+  - **Contents:** User preferences, settings persistence, configuration UI
+
+- **Issue 06 - Playlist Management**
+  - **File:** `dev.log/dev-log.issue06.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Playlist creation, queue management, playback integration
+
+- **Issue 10 - Update Frequency & Feed Management**
+  - **File:** `dev.log/dev-log.issue10.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Feed update scheduling, intelligent polling, batch operations
+
+#### Wave 3 Issues (Advanced Features)
+- **Issue 07 - Folder & Tag Organization**
+  - **File:** `dev.log/dev-log.issue07.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Organizational features, folder structures, tag system
+
+- **Issue 08 - Advanced Search & Discovery**
+  - **File:** `dev.log/dev-log.issue08.log`
+  - **Status:** Implementation in progress
+  - **Contents:** Search functionality, podcast discovery, filtering
+
+- **Issue 09 - Sync & Cloud Integration**
+  - **File:** `dev.log/dev-log.issue09.log`
+  - **Status:** Planning/Future implementation
+  - **Contents:** CloudKit integration, cross-device sync, conflict resolution
+
+- **Issue 11 - OPML Import/Export**
+  - **File:** `dev.log/dev-log.issue11.log`
+  - **Status:** Implementation in progress
+  - **Contents:** OPML file handling, subscription import/export
+
+#### Maintenance & Refactors
+- **Issue 11.1 - Rename app from zpodcastaddict to zpod**
+  - **File:** `dev.log/dev-log.issue11.1-rename.log`
+  - **Status:** Planning
+  - **Contents:** Rename targets/modules, Info.plist, tests, folders, project/workspace, SwiftPM, scripts/CI, and docs
+
+- **Issue 11.5 - Modularization Refactor**
+  - **File:** `dev.log/dev-log.issue11.5-refactor.log`
+  - **Status:** Planning/Backlog
+  - **Contents:** Break repository into focused Swift packages for testability and modularity; define boundaries and migration plan
+
+---
+
+## Current Development Status
+For the most recent development status and active work, refer to the individual issue log files listed above.
+
+## Architecture Diagram
+*Current architecture will be maintained in the active issue log files as it evolves*

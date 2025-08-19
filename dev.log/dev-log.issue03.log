@@ -1,0 +1,70 @@
+# Issue 03 - Advanced Playback Controls | Development Log
+
+## Wave 1 | Issue 03 - Episode Playback Engine (AVFoundation Integration) (Complete)
+**Date:** 2025-01-27  
+**Time:** 22:15 UTC  
+**Issue:** 03-Episode Playbook Engine (AVFoundation Integration)  
+**Wave:** 1 (Critical path, follows 02)  
+**Status:** COMPLETE ✅  
+**Commits:** TBD (implementation phase)  
+
+**Implementation Summary:**
+- **Enhanced Playback Service:** Created `EnhancedEpisodePlayer` class implementing `EpisodePlaybackService` protocol with advanced features while maintaining compatibility with existing tests.
+- **Playback Speed Control:** Implemented configurable playback speed (0.8x–3.0x initially, architecture supports up to 5.0x) with per-podcast and global settings.
+- **Custom Skip Intervals:** Added forward/backward skip functionality with configurable intervals stored in `PlaybackSettings`.
+- **Sleep Timer:** Implemented `SleepTimer` service with duration-based auto-stop, reset capability, and common duration presets.
+- **Chapter Support:** Created `Chapter` model and `BasicChapterParser` for parsing chapter metadata from episode information with seeking to chapter start times.
+- **Intro/Outro Skip:** Added per-podcast intro and outro skip durations applied at playback boundaries.
+- **Episode State Management:** Implemented played/unplayed status tracking with `EpisodeStateManager` protocol and in-memory implementation.
+- **Enhanced UI Controls:** Updated `EpisodeDetailView` with skip buttons, speed control, and chapter navigation.
+
+**Key Implementation Decisions:**
+1. **Cross-Platform Compatibility:** Created enhanced player that works on all platforms (not just iOS with AVFoundation) for testing and development.
+2. **Settings-Driven Design:** All playback preferences stored in `PlaybackSettings` model with validation and per-podcast overrides.
+3. **Protocol-Based Architecture:** Extended existing `EpisodePlaybackService` protocol while maintaining backward compatibility.
+4. **Chapter Integration:** Added chapter support to Episode model with automatic sorting and current chapter tracking.
+5. **State Management:** Episode played status and playback position tracked via dedicated state manager for persistence.
+
+**New Components Added:**
+- `PlaybackSettings`: Model for storing playback preferences and configurations
+- `Chapter`: Model representing episode chapters with start/end times and metadata
+- `BasicChapterParser`: Parser for extracting chapter information from episode metadata
+- `SleepTimer`: Service for automatic playback stopping with timer functionality
+- `EnhancedEpisodePlayer`: Advanced playback service with all Issue 03 features
+- `EpisodeStateManager`: Protocol and implementation for episode state tracking
+- Updated `EpisodeDetailViewModel`: Enhanced with new controls and chapter support
+- Updated `EpisodeDetailView`: UI for speed control, skip buttons, and chapter navigation
+
+**Tests Implemented:**
+- Comprehensive test suite in `Issue03PlaybackEngineTests` covering all new functionality
+- PlaybackSettings validation and clamping tests
+- Chapter parsing and sorting tests  
+- Sleep timer functionality tests
+- Enhanced player speed control, skip intervals, intro/outro handling
+- Episode state management tests
+- All existing Issue 02 tests continue to pass
+
+**Architecture Preserved:**
+- Ticker abstraction maintained for deterministic testing
+- State machine pattern continues with enhanced states
+- Combine publishers for reactive UI updates
+- Service injection for testability and modularity
+- MVVM pattern with enhanced ViewModels
+
+**Deferred/Future Issues:**
+- Real AVFoundation integration (platform-specific)
+- Silence detection algorithm & threshold adjustment
+- Volume boost / normalization DSP
+- Shake gesture integration for sleep timer reset
+- Transcript view integration
+- Video QoS selection & Picture-in-Picture
+- Background audio session management
+- Now Playing / remote command integration
+- Persistence layer for settings and episode state
+
+**Technical Notes:**
+- Enhanced player uses composition over inheritance to extend base functionality
+- Settings model includes validation to prevent invalid configurations
+- Chapter parser supports multiple metadata formats (AVMetadata, Podcast namespace)
+- Sleep timer uses Foundation Timer with proper cleanup and memory management
+- Episode model extended with immutable update methods for state changes

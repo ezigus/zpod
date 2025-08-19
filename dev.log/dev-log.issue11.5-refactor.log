@@ -1,0 +1,70 @@
+nd str# Issue 11.5 - Modularization Refactor
+
+Status: Planning/Backlog
+Created: 2025-08-17
+Owner: TBD
+
+Objective
+- Refactor the app into smaller, self-contained Swift packages/modules to improve testability, compile times, clarity, and enforce clean boundaries.
+
+Rationale
+- The codebase is growing and context is easy to lose. Upcoming capabilities will benefit from clear seams and concurrency-safe APIs.
+
+Scope (initial cut)
+- CoreModels: Value types (Podcast, Episode, Playlist, Settings, etc.). Codable/Hashable/Sendable. No platform deps.
+- FeedParsing: RSS/Atom/JSON to CoreModels. Pure async APIs.
+- Networking: URLSession client, caching, request building. No UI.
+- Persistence: UserDefaults/File/DB access, migrations. Typed repositories.
+- SettingsDomain: SettingsManager, cascading logic (global → per-podcast), validation/clamping, publishers. Depends on Persistence/CoreModels.
+- PlaybackEngine: AVFoundation-based player + queue. Actor-isolated.
+- SharedUtilities: Logging, error types, time/date abstractions.
+- TestSupport: Fixtures/builders, fakes for Networking/Persistence.
+- Feature UIs (optional later): Library/Search/Player views + VMs (@MainActor), depending on domain packages.
+
+Dependency Direction
+Utilities → CoreModels → (Networking, Persistence, FeedParsing) → SettingsDomain → Feature UIs → App
+PlaybackEngine used by Feature UIs/App.
+
+Design Guidelines
+- Swift 6 async/await everywhere; avoid callbacks.
+- Mark cross-module value types Sendable; use actors for shared mutable state.
+- Keep domain packages platform-agnostic; gate AVFoundation with #if canImport(AVFoundation).
+- Use typed errors and explicit isolation; @MainActor only at UI boundaries.
+- Prefer protocol seams for testability and to keep deps light.
+
+Acceptance Criteria
+- App builds and existing tests pass after modularization.
+- Each package has its own test target with a minimal happy-path test.
+- Public APIs documented; internal implementation details hidden.
+- No UI target directly depends on Persistence/Networking (must go through domain).
+
+Risks & Mitigations
+- Over-fragmentation: start with 4–6 core modules; split UI later.
+- Previews/resources: keep previews in app or PreviewSupport target.
+- Cross-actor overhead: design async protocols and minimize cross-actor hops.
+- Tooling friction: use local Swift packages in the workspace; keep Package.swift tidy.
+
+Initial Plan (incremental)
+1) Extract CoreModels + TestSupport.
+2) Extract Persistence + SettingsDomain (async APIs, typed errors).
+3) Extract Networking + FeedParsing (protocol-driven, fakes in TestSupport).
+4) Optionally extract PlaybackEngine; consider feature UI separation later.
+
+Task Checklist
+- [ ] Audit current types and group by prospective modules
+- [ ] Define package manifests and add to workspace
+- [ ] Move CoreModels and adapt imports, fix Sendable where needed
+- [ ] Create TestSupport with fixtures and fakes
+- [ ] Extract Persistence + SettingsDomain and wire through app
+- [ ] Extract Networking + FeedParsing with protocol seams
+- [ ] (Optional) Extract PlaybackEngine
+- [ ] Update CI/scripts to test all packages
+- [ ] Document public APIs and boundaries
+
+References
+- Concurrency and testing guidelines: .github/copilot-instructions.md
+- Current issue logs for related domains: dev.log/dev-log.issue05.log (Settings), dev.log/dev-log.issue10.log (Feeds)
+
+Notes
+- Keep changes mechanical at first; avoid redesigns during the initial move.
+- Treat warnings as errors for concurrency; mark isolation explicitly.

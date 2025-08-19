@@ -1,0 +1,36 @@
+# Issue 07 - Folder & Tag Organization | Development Log
+
+## Wave 2 | Issue 07-Folder, Category & Tag Organization (Design)
+**Date:** 2025-08-15
+**Time:** 17:25 UTC
+**Issue:** 07-Folder, Category & Tag Organization
+**Wave:** 2 (Non-critical path)
+**Dependencies Verified:** 01-Subscribe complete (podcasts available). Confirmed via existing test infrastructure.
+**Spec References:** `spec/discovery.md` (Organizing Podcasts into Folders/Categories), `spec/customization.md` (Applying Custom Tags/Groups), `spec/spec.md` customization section.
+
+**Goal:** Provide hierarchical (folders) and flat (tags) organization for subscribed podcasts with filtering APIs.
+
+**Status:** ✅ COMPLETE - All Issue 07 requirements implemented with comprehensive test coverage and manual validation
+
+**Implementation Summary:**
+1. **Data Models:** Created `OrganizationModels.swift` with `Folder` and `Tag` structs, both Codable and Equatable
+2. **Extended Podcast Model:** Added optional `folderId` and `tagIds` properties with backward-compatible serialization
+3. **Management Services:** Implemented `FolderManaging` and `TagManaging` protocols with in-memory implementations
+4. **Filtering APIs:** Extended `PodcastManaging` with folder/tag filtering methods including recursive folder queries
+5. **Comprehensive Tests:** Created `Issue07FolderTagTests.swift` with 400+ lines covering all scenarios
+6. **Manual Validation:** Standalone Swift tests confirmed all functionality works correctly
+
+**Key Architecture Decisions Implemented:**
+- String IDs for folders/tags matching existing patterns
+- Hierarchical folder structure with circular reference prevention  
+- Multiple tag support per podcast with flat organization
+- Immutable value types following existing codebase patterns
+- Protocol-oriented design enabling future extensions
+- Robust error handling and validation
+
+**Given/When/Then Scenarios Satisfied:**
+✅ Multiple podcasts can be organized into hierarchical folders
+✅ Podcasts can be viewed and managed by folder/category  
+✅ Custom tags can be applied for flat organization
+✅ Library can be filtered and organized by tags
+✅ Unorganized content can be identified and managed
