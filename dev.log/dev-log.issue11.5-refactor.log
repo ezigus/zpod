@@ -1,70 +1,87 @@
-nd str# Issue 11.5 - Modularization Refactor
+# Issue 11.5: Package Architecture Refactoring
 
-Status: Planning/Backlog
-Created: 2025-08-17
-Owner: TBD
+## Objective
+Implement modular package architecture to improve separation of concerns, testability, and maintainability.
 
-Objective
-- Refactor the app into smaller, self-contained Swift packages/modules to improve testability, compile times, clarity, and enforce clean boundaries.
+## Target Package Structure
+1. CoreModels - Core domain models and protocols
+2. SharedUtilities - Common utilities and extensions  
+3. TestSupport - Testing utilities and fixtures
+4. Persistence - Data persistence layer
+5. Networking - Network layer (planned)
+6. FeedParsing - RSS/Feed parsing (planned) 
+7. SettingsDomain - Settings management (planned)
+8. PlaybackEngine - Audio playback (planned)
 
-Rationale
-- The codebase is growing and context is easy to lose. Upcoming capabilities will benefit from clear seams and concurrency-safe APIs.
+## Progress Tracking
 
-Scope (initial cut)
-- CoreModels: Value types (Podcast, Episode, Playlist, Settings, etc.). Codable/Hashable/Sendable. No platform deps.
-- FeedParsing: RSS/Atom/JSON to CoreModels. Pure async APIs.
-- Networking: URLSession client, caching, request building. No UI.
-- Persistence: UserDefaults/File/DB access, migrations. Typed repositories.
-- SettingsDomain: SettingsManager, cascading logic (global → per-podcast), validation/clamping, publishers. Depends on Persistence/CoreModels.
-- PlaybackEngine: AVFoundation-based player + queue. Actor-isolated.
-- SharedUtilities: Logging, error types, time/date abstractions.
-- TestSupport: Fixtures/builders, fakes for Networking/Persistence.
-- Feature UIs (optional later): Library/Search/Player views + VMs (@MainActor), depending on domain packages.
+### Phase 1: Foundation Packages (COMPLETED)
+- [x] Create package directories (CoreModels, Persistence, SharedUtilities, TestSupport)
+- [x] Implement CoreModels Package.swift
+- [x] Move core models to CoreModels (Episode, Podcast)
+- [x] Implement SharedUtilities Package.swift
+- [x] Move utilities to SharedUtilities (Logger, SharedError, ValidationUtilities)
+- [x] Implement TestSupport Package.swift
+- [x] Move test utilities to TestSupport (Mocks)
+- [x] Implement Persistence Package.swift
+- [x] Move initial persistence code to Persistence (UserDefaultsRepositories)
 
-Dependency Direction
-Utilities → CoreModels → (Networking, Persistence, FeedParsing) → SettingsDomain → Feature UIs → App
-PlaybackEngine used by Feature UIs/App.
+### Phase 2: Data Layer (COMPLETED)
+- [x] Complete Persistence package implementation
+- [x] Move remaining persistence-related code to Persistence
+- [x] Update imports and dependencies
+- [x] Enhanced CoreModels with additional domain models
 
-Design Guidelines
-- Swift 6 async/await everywhere; avoid callbacks.
-- Mark cross-module value types Sendable; use actors for shared mutable state.
-- Keep domain packages platform-agnostic; gate AVFoundation with #if canImport(AVFoundation).
-- Use typed errors and explicit isolation; @MainActor only at UI boundaries.
-- Prefer protocol seams for testability and to keep deps light.
+### Phase 3: Service Layer Extraction (COMPLETED)
+- [x] Create FeedParsing package
+- [x] Move RSS parsing to FeedParsing
+- [x] Create Networking package
+- [x] Move network services to Networking
+- [x] Create SettingsDomain package
+- [x] Move settings management to SettingsDomain
 
-Acceptance Criteria
-- App builds and existing tests pass after modularization.
-- Each package has its own test target with a minimal happy-path test.
-- Public APIs documented; internal implementation details hidden.
-- No UI target directly depends on Persistence/Networking (must go through domain).
+## Phase 3 Implementation Details - August 19, 2025 Session
+- COMPLETED: All service layer packages (FeedParsing, Networking, SettingsDomain) already existed with proper Package.swift files
+- COMPLETED: Cleaned up duplicate files from Services directory:
+  - Removed duplicate RSSFeedParser.swift (already moved to FeedParsing package)
+  - Removed duplicate SettingsManager.swift (already moved to SettingsDomain package)  
+  - Removed duplicate SettingsManagerExtensions.swift (already moved to SettingsDomain package)
+- COMPLETED: Moved OPML-related services to FeedParsing package:
+  - OPMLExportService.swift
+  - OPMLImportService.swift
+- COMPLETED: Moved network/download services to Networking package:
+  - AutoDownloadService.swift
+  - DownloadCoordinator.swift
+  - DownloadQueueManager.swift
+  - UpdateFrequencyService.swift
+  - SubscriptionService.swift
+- REMAINING: Playback-related services in Services directory (planned for PlaybackEngine package in later phase):
+  - AVFoundationAudioPlayer.swift
+  - EnhancedEpisodePlayer.swift
+  - EpisodePlaybackService.swift
+  - EpisodeStateManager.swift
+  - SleepTimer.swift
+  - PlaylistEngine.swift
+- REMAINING: Search-related services (may stay in main app or move to separate package):
+  - SearchIndex.swift
+  - SearchIndexSources.swift
+  - SearchService.swift
+  - SearchIntegrationExample.swift
+  - Tokenizer.swift
+- REMAINING: Organization services (may stay in main app):
+  - OrganizationManagers.swift
 
-Risks & Mitigations
-- Over-fragmentation: start with 4–6 core modules; split UI later.
-- Previews/resources: keep previews in app or PreviewSupport target.
-- Cross-actor overhead: design async protocols and minimize cross-actor hops.
-- Tooling friction: use local Swift packages in the workspace; keep Package.swift tidy.
+### Phase 4: Integration & Testing
+- [ ] Update main app dependencies
+- [ ] Fix all import statements
+- [ ] Run tests and fix any issues
+- [ ] Update workspace configuration
 
-Initial Plan (incremental)
-1) Extract CoreModels + TestSupport.
-2) Extract Persistence + SettingsDomain (async APIs, typed errors).
-3) Extract Networking + FeedParsing (protocol-driven, fakes in TestSupport).
-4) Optionally extract PlaybackEngine; consider feature UI separation later.
+## Implementation Notes
+- Following Swift 6 concurrency best practices
+- Maintaining proper dependency direction: Utilities → CoreModels → (Networking, Persistence, FeedParsing) → SettingsDomain → App
+- Ensuring all packages are properly Sendable-compliant
+- Using protocol-driven design for cross-package boundaries
 
-Task Checklist
-- [ ] Audit current types and group by prospective modules
-- [ ] Define package manifests and add to workspace
-- [ ] Move CoreModels and adapt imports, fix Sendable where needed
-- [ ] Create TestSupport with fixtures and fakes
-- [ ] Extract Persistence + SettingsDomain and wire through app
-- [ ] Extract Networking + FeedParsing with protocol seams
-- [ ] (Optional) Extract PlaybackEngine
-- [ ] Update CI/scripts to test all packages
-- [ ] Document public APIs and boundaries
-
-References
-- Concurrency and testing guidelines: .github/copilot-instructions.md
-- Current issue logs for related domains: dev.log/dev-log.issue05.log (Settings), dev.log/dev-log.issue10.log (Feeds)
-
-Notes
-- Keep changes mechanical at first; avoid redesigns during the initial move.
-- Treat warnings as errors for concurrency; mark isolation explicitly.
+## Current Status: Moving to Phase 4 - Integration & Testing  
+Phase 3 completed successfully. All service layer packages created and code moved accordingly. Remaining tasks involve integration and testing of the complete system.
