@@ -1,5 +1,41 @@
-// Re-export Chapter from CoreModels and provide parsing functionality
-@_exported import CoreModels
+import Foundation
+
+/// Represents a chapter within a podcast episode
+public struct Chapter: Codable, Equatable, Identifiable, Sendable {
+    /// Unique identifier for the chapter
+    public let id: String
+    
+    /// Chapter title
+    public let title: String
+    
+    /// Start time of the chapter in seconds
+    public let startTime: TimeInterval
+    
+    /// Optional end time of the chapter in seconds
+    public let endTime: TimeInterval?
+    
+    /// Optional chapter artwork URL
+    public let artworkURL: URL?
+    
+    /// Optional chapter link/URL
+    public let linkURL: URL?
+    
+    public init(
+        id: String,
+        title: String,
+        startTime: TimeInterval,
+        endTime: TimeInterval? = nil,
+        artworkURL: URL? = nil,
+        linkURL: URL? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.startTime = max(0, startTime)
+        self.endTime = endTime.map { max(startTime, $0) }
+        self.artworkURL = artworkURL
+        self.linkURL = linkURL
+    }
+}
 
 /// Protocol for parsing chapter information from episode metadata
 public protocol ChapterParser {

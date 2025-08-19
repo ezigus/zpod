@@ -18,14 +18,6 @@ let package = Package(
         ),
     ],
     dependencies: [
-        // Local packages for modularization
-        .package(path: "Packages/CoreModels"),
-        .package(path: "Packages/SharedUtilities"),
-        .package(path: "Packages/Persistence"),
-        .package(path: "Packages/SettingsDomain"),
-        .package(path: "Packages/Networking"),
-        .package(path: "Packages/FeedParsing"),
-        .package(path: "Packages/TestSupport"),
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -33,10 +25,7 @@ let package = Package(
         // Main library target containing core logic
         .target(
             name: "zpodLib",
-            dependencies: [
-                "CoreModels",
-                "SharedUtilities"
-            ],
+            dependencies: [],
             path: "zpod",
             exclude: [
                 // Exclude iOS/SwiftUI specific files that won't compile on Linux
