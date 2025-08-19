@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Unified search service for podcasts, episodes, and notes
 @MainActor

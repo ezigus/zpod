@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Protocol for new episode detection notifications
 @MainActor

@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Protocol for parsing OPML documents
 public protocol OPMLParsing {

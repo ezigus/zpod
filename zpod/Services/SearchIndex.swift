@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// In-memory search index for fast term lookup
 public final class SearchIndex {

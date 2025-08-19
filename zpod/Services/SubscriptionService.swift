@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 // MARK: - Protocols
 public protocol FeedDataLoading {

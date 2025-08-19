@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Tokenizer for processing text into searchable terms
 public final class Tokenizer {

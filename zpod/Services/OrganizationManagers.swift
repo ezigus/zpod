@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Protocol defining folder management responsibilities for hierarchical organization.
 public protocol FolderManaging {

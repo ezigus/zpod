@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Service for importing podcast subscriptions from OPML format
 public final class OPMLImportService {

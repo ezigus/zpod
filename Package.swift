@@ -22,6 +22,7 @@ let package = Package(
         .package(path: "Packages/CoreModels"),
         .package(path: "Packages/SharedUtilities"),
         .package(path: "Packages/TestSupport"),
+        .package(path: "Packages/Persistence"),
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -31,7 +32,8 @@ let package = Package(
             name: "zpodLib",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities"
+                "SharedUtilities",
+                "Persistence"
             ],
             path: "zpod",
             exclude: [
@@ -42,6 +44,7 @@ let package = Package(
                 "Views/", // Uses SwiftUI
                 "ViewModels/", // Uses SwiftUI
                 "Controllers/", // Has dependencies on Services
+                "Services/", // Will be moved to domain packages
                 "Assets.xcassets", // Asset catalog
                 "Preview Content",
                 "Info.plist",
@@ -51,19 +54,7 @@ let package = Package(
                 "spec/",
                 ".github/",
                 ".vscode/",
-                "Models/", // Models are now in CoreModels package
-                // Exclude services that use Combine (not available on Linux)
-                "Services/AVFoundationAudioPlayer.swift",
-                "Services/DownloadCoordinator.swift",
-                "Services/DownloadQueueManager.swift",
-                "Services/EnhancedEpisodePlayer.swift",
-                "Services/EpisodePlaybackService.swift",
-                "Services/FileManagerService.swift",
-                "Services/PlaylistEngine.swift",
-                "Services/SettingsManager.swift",
-                "Services/SettingsRepository.swift",
-                "Services/SleepTimer.swift",
-                "Services/UpdateFrequencyService.swift"
+                "Models/" // Models are now in CoreModels package
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")

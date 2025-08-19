@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Protocol for managing episode state (played status, position, etc.)
 public protocol EpisodeStateManager: Sendable {

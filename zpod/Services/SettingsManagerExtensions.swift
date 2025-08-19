@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Extension to SettingsManager providing convenience methods for service integration
 @MainActor

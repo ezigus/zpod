@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 public final class RSSFeedParser: NSObject, FeedParsing, XMLParserDelegate {
   private var currentElement: String = ""
