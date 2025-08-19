@@ -18,6 +18,10 @@ let package = Package(
         ),
     ],
     dependencies: [
+        // Local packages
+        .package(path: "Packages/CoreModels"),
+        .package(path: "Packages/SharedUtilities"),
+        .package(path: "Packages/TestSupport"),
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -25,7 +29,10 @@ let package = Package(
         // Main library target containing core logic
         .target(
             name: "zpodLib",
-            dependencies: [],
+            dependencies: [
+                "CoreModels",
+                "SharedUtilities"
+            ],
             path: "zpod",
             exclude: [
                 // Exclude iOS/SwiftUI specific files that won't compile on Linux
@@ -35,7 +42,6 @@ let package = Package(
                 "Views/", // Uses SwiftUI
                 "ViewModels/", // Uses SwiftUI
                 "Controllers/", // Has dependencies on Services
-                "Services/", // Uses Combine and AVFoundation
                 "Assets.xcassets", // Asset catalog
                 "Preview Content",
                 "Info.plist",
@@ -44,7 +50,20 @@ let package = Package(
                 "instructions.md",
                 "spec/",
                 ".github/",
-                ".vscode/"
+                ".vscode/",
+                "Models/", // Models are now in CoreModels package
+                // Exclude services that use Combine (not available on Linux)
+                "Services/AVFoundationAudioPlayer.swift",
+                "Services/DownloadCoordinator.swift",
+                "Services/DownloadQueueManager.swift",
+                "Services/EnhancedEpisodePlayer.swift",
+                "Services/EpisodePlaybackService.swift",
+                "Services/FileManagerService.swift",
+                "Services/PlaylistEngine.swift",
+                "Services/SettingsManager.swift",
+                "Services/SettingsRepository.swift",
+                "Services/SleepTimer.swift",
+                "Services/UpdateFrequencyService.swift"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
@@ -54,7 +73,10 @@ let package = Package(
         // Test target
         .testTarget(
             name: "zpodTests",
-            dependencies: ["zpodLib"],
+            dependencies: [
+                "zpodLib",
+                "TestSupport"
+            ],
             path: "zpodTests",
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
