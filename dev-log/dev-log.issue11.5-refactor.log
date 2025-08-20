@@ -1,0 +1,9 @@
+2025-08-20
+---
+Issue: Duplicate package error ('found multiple top-level packages named FeedParsing') during build after refactor.
+
+Diagnosis: Packages/Networking/Package.swift was incorrectly named 'FeedParsing' and exposed a 'FeedParsing' target, causing Xcode to detect two top-level packages named FeedParsing.
+
+Fix: Renamed Networking package to 'Networking', updated product and target names, and added FeedParsing as a dependency instead of a duplicate package.
+
+Next: Committing fix and retrying build/tests to confirm resolution.
