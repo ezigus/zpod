@@ -2,7 +2,6 @@ import XCTest
 @testable import zpod
 
 final class Issue11OPMLTests: XCTestCase {
-    
     // MARK: - Test Data
     
     private let sampleOPMLXML = """
