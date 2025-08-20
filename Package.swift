@@ -23,6 +23,9 @@ let package = Package(
         .package(path: "Packages/SharedUtilities"),
         .package(path: "Packages/TestSupport"),
         .package(path: "Packages/Persistence"),
+        .package(path: "Packages/FeedParsing"), // Re-added FeedParsing dependency
+        .package(path: "Packages/Networking"),
+        .package(path: "Packages/SettingsDomain"),
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -32,8 +35,11 @@ let package = Package(
             name: "zpodLib",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities",
-                "Persistence"
+                "SharedUtilities", 
+                "Persistence",
+                "FeedParsing", // Re-added FeedParsing dependency
+                "Networking",
+                "SettingsDomain"
             ],
             path: "zpod",
             exclude: [
