@@ -2,4 +2,11 @@
 <Workspace version="1.0">
   <!-- Updated to reference the renamed project -->
   <FileRef location="container:zpod.xcodeproj"></FileRef>
+  <FileRef location="group:Packages/CoreModels"></FileRef>
+  <FileRef location="group:Packages/FeedParsing"></FileRef>
+  <FileRef location="group:Packages/Networking"></FileRef>
+  <FileRef location="group:Packages/Persistence"></FileRef>
+  <FileRef location="group:Packages/SettingsDomain"></FileRef>
+  <FileRef location="group:Packages/SharedUtilities"></FileRef>
+  <FileRef location="group:Packages/TestSupport"></FileRef>
 </Workspace>
