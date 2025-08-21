@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "FeedParsing",
+    name: "Networking",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
@@ -10,8 +10,8 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "FeedParsing",
-            targets: ["FeedParsing"]
+            name: "Networking",
+            targets: ["Networking"]
         ),
     ],
     dependencies: [
@@ -20,7 +20,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "FeedParsing",
+            name: "Networking",
             dependencies: [
                 "CoreModels",
                 "SharedUtilities"
