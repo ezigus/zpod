@@ -111,6 +111,19 @@ Implement modular package architecture to improve separation of concerns, testab
 - [ ] Run tests and fix any issues
 - [ ] Update workspace configuration
 
+### Phase 4: Test Migration to Packages (STARTED August 21, 2025)
+- Objective: Move test files from zpodTests to their respective package test targets for improved modularity and isolation.
+- Mapping plan:
+    - CoreModels: PodcastTests.swift, Issue01SubscribeTests.swift, Issue02EpisodeDetailTests.swift
+    - PlaybackEngine: Issue03PlaybackEngineTests.swift, InMemoryPlaylistManager.swift
+    - Persistence: Issue04DownloadTests.swift, Issue10UpdateFrequencyTests.swift
+    - SettingsDomain: Issue05SettingsTests.swift, Issue05SettingsIntegrationTests.swift, Issue10AcceptanceCriteriaTests.swift
+    - FeedParsing: Issue11OPMLTests.swift
+    - SharedUtilities/TestSupport: zpodLibTests.swift, Issue03AdvancedControlsTests.swift, Issue06PlaylistTests.swift, Issue07FolderTagTests.swift, Issue08SearchTests.swift, Issue05AcceptanceCriteriaTests.swift
+- Status: Migration process started. Will update with progress as files are moved and verified.
+- [x] Moved PodcastTests.swift, Issue01SubscribeTests.swift, Issue02EpisodeDetailTests.swift to Packages/CoreModels/Tests/
+    - Updated file locations; will review imports and references next.
+
 ## Implementation Notes
 - Following Swift 6 concurrency best practices
 - Maintaining proper dependency direction: Utilities → CoreModels → (Networking, Persistence, FeedParsing) → SettingsDomain → App
