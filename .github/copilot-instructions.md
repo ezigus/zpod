@@ -92,7 +92,6 @@
 - Platform/resources: Keep CoreModels/Parsing platform-agnostic; gate AVFoundation code with `#if canImport(AVFoundation)`; keep SwiftUI previews in the app or a PreviewSupport target.
 - Migration path (incremental): 1) Extract CoreModels + TestSupport; 2) Extract Persistence + SettingsDomain; 3) Extract Networking + FeedParsing; 4) Optionally extract PlaybackEngine; split feature UIs later if needed.
 - Acceptance criteria: App builds, tests pass; UI targets do not depend directly on Persistence/Networking.
-- Reference: See `dev.log/dev-log.issue11.5-refactor.log` for details and checklist.
 
 ## Property Wrappers
 
@@ -150,3 +149,18 @@
 - Always validate settings values and clamp to safe ranges
 - Ensure settings persist across app restarts
 - Use Combine publishers for UI updates and change notifications
+
+## Logging all updates
+
+- for each issue, create a new dev-log for the issue you are working on.
+- continuously update the dev-log file that was created for each issue
+- document your approach for implementing the issue in bullet format with as many phases as you need and then update where you are in that implemenation
+- keep a log of the changes, include date and time for when those changes were made
+
+## Git commits
+
+- for each set of updates, do git commits
+- these commits should happen in conjunction iwth the dev-log for the issue you are working on
+- the commits should include the updates to the dev-log file
+- after you are done making changes for the issue, push the changes to github
+-  
