@@ -26,6 +26,7 @@
 		785458922E514C6300764945 /* dev-log.issue10.log in Resources */ = {isa = PBXBuildFile; fileRef = 7854587A2E514C6300764945 /* dev-log.issue10.log */; };
 		785458932E514C6300764945 /* setup-merge-strategy.sh in Resources */ = {isa = PBXBuildFile; fileRef = 785458812E514C6300764945 /* setup-merge-strategy.sh */; };
 		785458942E514C6300764945 /* dev-log.issue08.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458782E514C6300764945 /* dev-log.issue08.log */; };
+		786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,7 +69,6 @@
 		786FD1092E22E615008CEE55 /* zpod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = zpod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		786FD11D2E22E617008CEE55 /* zpodTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = zpodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		786FD1272E22E617008CEE55 /* zpodUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = zpodUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		786FD1522E22E6BE008CEE55 /* zPodcastAddict.code-workspace */ = {isa = PBXFileReference; lastKnownFileType = text; path = "zPodcastAddict.code-workspace"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -78,7 +78,6 @@
 				".github/copilot-instructions.md",
 				.vscode/settings.json,
 				Info.plist,
-				instructions.md,
 				README.md,
 				spec,
 			);
@@ -115,6 +114,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				786D3A092E57371F005A436B /* zpodLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,15 +168,22 @@
 			path = scripts;
 			sourceTree = "<group>";
 		};
+		786D3A072E57371F005A436B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		786FD1002E22E615008CEE55 = {
 			isa = PBXGroup;
 			children = (
 				7854587C2E514C6300764945 /* dev.log */,
 				785458822E514C6300764945 /* scripts */,
-				786FD1522E22E6BE008CEE55 /* zPodcastAddict.code-workspace */,
 				786FD10B2E22E615008CEE55 /* zpod */,
 				780150302E2308900025E4FE /* zpodTests */,
 				786FD12A2E22E617008CEE55 /* zpodUITests */,
+				786D3A072E57371F005A436B /* Frameworks */,
 				786FD10A2E22E615008CEE55 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -211,6 +218,7 @@
 			);
 			name = zpod;
 			packageProductDependencies = (
+				786D3A082E57371F005A436B /* zpodLib */,
 			);
 			productName = zpod;
 			productReference = 786FD1092E22E615008CEE55 /* zpod.app */;
@@ -294,6 +302,15 @@
 			);
 			mainGroup = 786FD1002E22E615008CEE55;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				786D3A002E573525005A436B /* XCLocalSwiftPackageReference "Packages/CoreModels" */,
+				786D3A012E573534005A436B /* XCLocalSwiftPackageReference "Packages/FeedParsing" */,
+				786D3A022E57354B005A436B /* XCLocalSwiftPackageReference "Packages/Networking" */,
+				786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */,
+				786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */,
+				786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */,
+				786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 786FD10A2E22E615008CEE55 /* Products */;
 			projectDirPath = "";
@@ -725,6 +742,45 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		786D3A002E573525005A436B /* XCLocalSwiftPackageReference "Packages/CoreModels" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CoreModels;
+		};
+		786D3A012E573534005A436B /* XCLocalSwiftPackageReference "Packages/FeedParsing" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeedParsing;
+		};
+		786D3A022E57354B005A436B /* XCLocalSwiftPackageReference "Packages/Networking" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Networking;
+		};
+		786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Persistence;
+		};
+		786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SettingsDomain;
+		};
+		786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SharedUtilities;
+		};
+		786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../zpod;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		786D3A082E57371F005A436B /* zpodLib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */;
+			productName = zpodLib;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 786FD1012E22E615008CEE55 /* Project object */;
 }

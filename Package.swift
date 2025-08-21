@@ -56,7 +56,6 @@ let package = Package(
                 "Info.plist",
                 "zpod.entitlements",
                 "README.md",
-                "instructions.md",
                 "spec/",
                 ".github/",
                 ".vscode/"
