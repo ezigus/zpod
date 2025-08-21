@@ -18,8 +18,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SharedUtilitiesTests",
-            dependencies: ["SharedUtilities"],
-            path: "Tests"
+            dependencies: ["SharedUtilities"]
         )
     ]
 )

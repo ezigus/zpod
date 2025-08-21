@@ -7,3 +7,16 @@ Diagnosis: Packages/Networking/Package.swift was incorrectly named 'FeedParsing'
 Fix: Renamed Networking package to 'Networking', updated product and target names, and added FeedParsing as a dependency instead of a duplicate package.
 
 Next: Committing fix and retrying build/tests to confirm resolution.
+
+2025-08-21
+---
+Progress Update: Test files have been moved from zpodTests/ to their correct package test folders as part of modularization:
+- Issue05AcceptanceCriteriaTests.swift → SettingsDomain/Tests/
+- Issue08SearchTests.swift → CoreModels/Tests/
+- Issue11OPMLTests.swift → FeedParsing/Tests/
+
+The original files have been removed from zpodTests/ after confirming their presence in the correct locations. Remaining test migration tasks:
+- Review and migrate zpodLibTests.swift (integration test; may need a dedicated IntegrationTests target or remain in main app test target)
+- Confirm all package test folders are up to date and no duplicate tests remain
+
+Next: Commit these changes to git and continue with any remaining test migration or cleanup.

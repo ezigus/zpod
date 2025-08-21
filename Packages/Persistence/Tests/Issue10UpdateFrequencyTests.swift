@@ -1,6 +1,6 @@
 import XCTest
 @preconcurrency import Combine
-@testable import zpod
+@testable import Persistence
 
 @MainActor
 final class Issue10UpdateFrequencyTests: XCTestCase {

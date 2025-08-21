@@ -1,6 +1,6 @@
 @preconcurrency import Combine
 import XCTest
-@testable import zpod
+@testable import Persistence
 
 final class Issue04DownloadTests: XCTestCase {
   var cancellables: Set<AnyCancellable>!

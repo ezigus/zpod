@@ -26,8 +26,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PersistenceTests",
-            dependencies: ["Persistence"],
-            path: "Tests"
+            dependencies: ["Persistence"]
         )
     ]
 )

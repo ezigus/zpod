@@ -88,6 +88,8 @@ Implement modular package architecture to improve separation of concerns, testab
 - [ ] Update import statements to use PlaybackEngine (pending, no direct usages found)
 - [ ] Run and fix tests (IN PROGRESS: build failed due to missing package references, not playback code)
 - [ ] Document completion in dev-log
+- [x] Moved Issue03PlaybackEngineTests.swift, InMemoryPlaylistManager.swift to PlaybackEngine/Tests/
+    - Updated import statements to use @testable import PlaybackEngine.
 
 #### FeedParsing Package Extraction (STARTED August 20, 2025)
 - [ ] Create FeedParsing package directory
@@ -123,6 +125,8 @@ Implement modular package architecture to improve separation of concerns, testab
 - Status: Migration process started. Will update with progress as files are moved and verified.
 - [x] Moved PodcastTests.swift, Issue01SubscribeTests.swift, Issue02EpisodeDetailTests.swift to Packages/CoreModels/Tests/
     - Updated file locations; will review imports and references next.
+- [x] Moved Issue04DownloadTests.swift, Issue10UpdateFrequencyTests.swift to Packages/Persistence/Tests/
+    - Updated import statements to use @testable import Persistence.
 
 ## Implementation Notes
 - Following Swift 6 concurrency best practices
