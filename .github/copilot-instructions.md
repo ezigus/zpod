@@ -152,7 +152,8 @@
 
 ## Logging all updates
 
-- for each issue, create a new dev-log for the issue you are working on.
+- for each issue, create a new dev-log in the dev-log file in the root of this repository 
+- create and then update a  dev-log for each issue you are working on.
 - continuously update the dev-log file that was created for each issue
 - document your approach for implementing the issue in bullet format with as many phases as you need and then update where you are in that implemenation
 - keep a log of the changes, include date and time for when those changes were made

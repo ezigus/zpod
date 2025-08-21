@@ -5,7 +5,6 @@ let package = Package(
     name: "Networking",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
         .watchOS(.v11)
     ],
     products: [

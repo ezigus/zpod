@@ -4,9 +4,8 @@ import PackageDescription
 let package = Package(
     name: "SharedUtilities",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14),
-        .watchOS(.v10)
+        .iOS(.v18),
+        .watchOS(.v11)
     ],
     products: [
         .library(name: "SharedUtilities", targets: ["SharedUtilities"]) 
@@ -18,7 +17,8 @@ let package = Package(
         ),
         .testTarget(
             name: "SharedUtilitiesTests",
-            dependencies: ["SharedUtilities"]
+            dependencies: ["SharedUtilities"],
+            path: "Tests"
         )
     ]
 )

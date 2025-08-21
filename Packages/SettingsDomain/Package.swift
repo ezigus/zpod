@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "SettingsDomain",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14)
+        .iOS(.v18),
+        .watchOS(.v11)
     ],
     products: [
         .library(

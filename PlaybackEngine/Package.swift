@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "PlaybackEngine",
     platforms: [
-        .iOS(.v16), .macOS(.v13)
+        .iOS(.v18), 
+        .watchOS(.v11)
     ],
     products: [
         .library(

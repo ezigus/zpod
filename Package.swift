@@ -7,7 +7,6 @@ let package = Package(
     name: "zpod",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
         .watchOS(.v11)
     ],
     products: [
