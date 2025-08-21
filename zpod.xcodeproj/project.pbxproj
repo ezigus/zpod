@@ -316,6 +316,7 @@
 				786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */,
 				786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */,
 				786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */,
+				78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 786FD10A2E22E615008CEE55 /* Products */;
@@ -781,6 +782,10 @@
 		786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../zpod;
+		};
+		78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PlaybackEngine;
 		};
 /* End XCLocalSwiftPackageReference section */
 

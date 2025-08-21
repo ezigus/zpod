@@ -31,7 +31,7 @@ Next: Commit these changes to git and run all tests to confirm the migration is 
 
 2025-08-21 15:00
 ---
-Progress Update:
+Progress Update: 
 - Diagnosed test failures in CoreModels due to missing PlaybackEngine dependency in Package.swift.
 - Instructed update to CoreModels/Package.swift: add PlaybackEngine as a product dependency for CoreModelsTests target.
 - Attempted build/test after update; encountered manifest syntax error due to incorrect dependencies array formatting.
@@ -79,3 +79,12 @@ Build/Test Attempt: CoreModels
 - Diagnosis: SwiftPM cannot parse manifest; all dependent packages blocked from building/testing.
 - Action Required: User must update PlaybackEngine/Package.swift to use supported platform versions (e.g., .iOS(.v17), .watchOS(.v10)), or update toolchain to Swift 6.0.
 - Next: After user updates PlaybackEngine/Package.swift, retry build/test for CoreModels and proceed to other packages.
+
+2025-08-21 16:10
+---
+Refactor PlaybackEngine as Local Package Dependency
+- Audited PlaybackEngine package structure: confirmed Package.swift, Sources/, and Tests/ exist.
+- Found direct dependency on main app module (`zpod`) in PlaybackEngine/Tests/InMemoryPlaylistManager.swift.
+- Refactored test code to remove `@testable import zpod` since all required types are defined in PlaybackEngine.
+- PlaybackEngine test code is now package-local and does not depend on the app module.
+- Next: Build and test PlaybackEngine independently to confirm all tests pass. If successful, add PlaybackEngine as a local package dependency to the zPod app in its Package.swift, then build and test the main app and all packages to confirm integration.

@@ -13,7 +13,7 @@ let package = Package(
             targets: ["CoreModels"]),
     ],
     dependencies: [
-        .package(path: "../../PlaybackEngine")
+        .package(path: "../PlaybackEngine")
     ],
     targets: [
         .target(
