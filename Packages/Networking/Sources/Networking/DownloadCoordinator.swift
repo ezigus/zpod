@@ -4,6 +4,7 @@
 import Foundation
 import CoreModels
 import Persistence
+import SharedUtilities
 
 /// Coordinates all download-related operations
 @MainActor
@@ -172,14 +173,14 @@ public class DownloadCoordinator {
           do {
             try await fileManagerService.deleteDownloadedFile(for: task)
           } catch {
-            print("Failed to delete file for episode \(episodeId): \(error)")
+            Logger.error("Failed to delete file for episode \(episodeId): \(error)")
           }
           queueManager.removeFromQueue(taskId: task.id)
         }
 
       case .archiveEpisode(let episodeId):
         // Future: Move to archive location
-        print("Archive episode: \(episodeId)")
+        Logger.info("Archive episode: \(episodeId)")
       }
     }
   }

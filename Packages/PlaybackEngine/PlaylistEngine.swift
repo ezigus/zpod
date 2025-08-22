@@ -2,6 +2,9 @@ import Foundation
 #if canImport(Combine)
 @preconcurrency import Combine
 #endif
+#if canImport(os)
+import os.log
+#endif
 
 /// Service for evaluating smart playlists and generating playback queues
 @MainActor
@@ -164,18 +167,30 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     private let changeSubject = PassthroughSubject<PlaylistChange, Never>()
     
+    #if canImport(os)
+    private let logger = Logger(subsystem: "com.zpod.playbackengine", category: "playlist")
+    #endif
+    
     public var playlistsChangedPublisher: AnyPublisher<PlaylistChange, Never> {
         changeSubject.eraseToAnyPublisher()
     }
     
     public init() {}
     
+    private func logWarning(_ message: String) {
+        #if canImport(os)
+        logger.warning("\(message)")
+        #else
+        print("Warning: \(message)")
+        #endif
+    }
+    
     // MARK: - Manual Playlist Operations
     
     public func createPlaylist(_ playlist: Playlist) {
         // Ensure unique ID
         guard !playlists.contains(where: { $0.id == playlist.id }) else {
-            print("Warning: Playlist with ID \(playlist.id) already exists")
+            logWarning("Playlist with ID \(playlist.id) already exists")
             return
         }
         
@@ -185,7 +200,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func updatePlaylist(_ playlist: Playlist) {
         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else {
-            print("Warning: Attempting to update non-existent playlist \(playlist.id)")
+            logWarning("Attempting to update non-existent playlist \(playlist.id)")
             return
         }
         
@@ -195,7 +210,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func deletePlaylist(id: String) {
         guard let index = playlists.firstIndex(where: { $0.id == id }) else {
-            print("Warning: Attempting to delete non-existent playlist \(id)")
+            logWarning("Attempting to delete non-existent playlist \(id)")
             return
         }
         
@@ -209,13 +224,13 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func addEpisode(episodeId: String, to playlistId: String) {
         guard let playlist = findPlaylist(id: playlistId) else {
-            print("Warning: Cannot add episode to non-existent playlist \(playlistId)")
+            logWarning("Cannot add episode to non-existent playlist \(playlistId)")
             return
         }
         
         // Don't add duplicates
         guard !playlist.episodeIds.contains(episodeId) else {
-            print("Warning: Episode \(episodeId) already in playlist \(playlistId)")
+            logWarning("Episode \(episodeId) already in playlist \(playlistId)")
             return
         }
         
@@ -225,7 +240,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func removeEpisode(episodeId: String, from playlistId: String) {
         guard let playlist = findPlaylist(id: playlistId) else {
-            print("Warning: Cannot remove episode from non-existent playlist \(playlistId)")
+            logWarning("Cannot remove episode from non-existent playlist \(playlistId)")
             return
         }
         
@@ -236,7 +251,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
         guard let playlist = findPlaylist(id: playlistId) else {
-            print("Warning: Cannot reorder episodes in non-existent playlist \(playlistId)")
+            logWarning("Cannot reorder episodes in non-existent playlist \(playlistId)")
             return
         }
         
@@ -274,7 +289,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
         // Ensure unique ID
         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else {
-            print("Warning: Smart playlist with ID \(smartPlaylist.id) already exists")
+            logWarning("Smart playlist with ID \(smartPlaylist.id) already exists")
             return
         }
         
@@ -284,7 +299,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else {
-            print("Warning: Attempting to update non-existent smart playlist \(smartPlaylist.id)")
+            logWarning("Attempting to update non-existent smart playlist \(smartPlaylist.id)")
             return
         }
         
@@ -294,7 +309,7 @@ public class InMemoryPlaylistManager: PlaylistManagerProtocol {
     
     public func deleteSmartPlaylist(id: String) {
         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else {
-            print("Warning: Attempting to delete non-existent smart playlist \(id)")
+            logWarning("Attempting to delete non-existent smart playlist \(id)")
             return
         }
         

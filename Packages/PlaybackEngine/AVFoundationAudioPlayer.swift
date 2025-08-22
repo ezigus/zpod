@@ -3,6 +3,9 @@
 #endif
 import Foundation
 import AVFoundation
+#if canImport(os)
+import os.log
+#endif
 
 #if canImport(MediaPlayer)
   import MediaPlayer
@@ -299,7 +302,12 @@ public final class AVFoundationAudioPlayer: NSObject, EpisodePlaybackService, Ob
       try audioSession.setCategory(.playback, mode: .default, options: [])
       try audioSession.setActive(true)
     } catch {
+      #if canImport(os)
+      let logger = Logger(subsystem: "com.zpod.playbackengine", category: "audioSession")
+      logger.error("Failed to setup audio session: \(error.localizedDescription)")
+      #else
       print("Failed to setup audio session: \(error)")
+      #endif
     }
     #endif
     // On macOS, AVAudioSession is not available and not needed

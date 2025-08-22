@@ -3,6 +3,7 @@
 #endif
 import Foundation
 import CoreModels
+import SharedUtilities
 
 /// Service for managing podcast update frequencies and schedules
 @MainActor
@@ -47,8 +48,8 @@ public class UpdateFrequencyService {
         schedules[podcastId] = newSchedule
         
         // Debug: Verify the schedule was stored
-        print("DEBUG: markPodcastRefreshed - stored schedule for \(podcastId): \(newSchedule)")
-        print("DEBUG: markPodcastRefreshed - schedules dictionary now has \(schedules.count) entries")
+        Logger.debug("markPodcastRefreshed - stored schedule for \(podcastId): \(newSchedule)")
+        Logger.debug("markPodcastRefreshed - schedules dictionary now has \(schedules.count) entries")
         
         #if canImport(Combine)
         schedulesChangePublisher.send(newSchedule)
@@ -88,8 +89,8 @@ public class UpdateFrequencyService {
     /// Get current schedule for a podcast
     public func getSchedule(for podcastId: String) -> UpdateSchedule? {
         let schedule = schedules[podcastId]
-        print("DEBUG: getSchedule for \(podcastId): \(schedule?.podcastId ?? "nil")")
-        print("DEBUG: getSchedule - schedules dictionary has \(schedules.count) entries")
+        Logger.debug("getSchedule for \(podcastId): \(schedule?.podcastId ?? "nil")")
+        Logger.debug("getSchedule - schedules dictionary has \(schedules.count) entries")
         return schedule
     }
     

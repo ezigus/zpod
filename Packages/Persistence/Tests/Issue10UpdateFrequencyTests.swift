@@ -451,8 +451,13 @@ final class Issue10UpdateFrequencyTests: XCTestCase {
         
         // Debug: Print some information if the test fails
         if schedule == nil {
-            print("DEBUG: Schedule is nil for nonexistent-podcast")
-            print("DEBUG: Effective frequency: \(settingsManager.effectiveUpdateFrequency(for: "nonexistent-podcast"))")
+            // For test debugging, we'll use XCTAssert to provide better failure messages
+            // instead of print statements
+            let schedule = service.getSchedule(for: "nonexistent-podcast")
+            XCTAssertNil(schedule, "Schedule should be nil for nonexistent-podcast")
+            
+            let effectiveFrequency = settingsManager.effectiveUpdateFrequency(for: "nonexistent-podcast")
+            XCTAssertEqual(effectiveFrequency, .daily, "Effective frequency should default to daily")
         }
         
         XCTAssertNotNil(schedule)

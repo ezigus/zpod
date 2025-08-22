@@ -1,6 +1,7 @@
 import Foundation
 import CoreModels
 import TestSupport
+import SharedUtilities
 
 /// Example integration showing how to set up and use the SearchService with existing data
 @MainActor
@@ -82,29 +83,29 @@ extension SearchIntegrationExample {
     await searchIntegration.initializeSearch()
     
     // 3. Perform searches
-    print("=== Search Integration Demo ===")
+    Logger.info("=== Search Integration Demo ===")
     
     // Search for Swift content
     let swiftResults = await searchIntegration.search(query: "swift")
-    print("Search for 'swift' returned \(swiftResults.count) results")
+    Logger.info("Search for 'swift' returned \(swiftResults.count) results")
     
     for result in swiftResults {
       switch result {
       case .podcast(let podcast, let score):
-        print("  📻 Podcast: \(podcast.title) (score: \(String(format: "%.2f", score)))")
+        Logger.info("  📻 Podcast: \(podcast.title) (score: \(String(format: "%.2f", score)))")
       case .episode(let episode, let score):
-        print("  🎧 Episode: \(episode.title) (score: \(String(format: "%.2f", score)))")
+        Logger.info("  🎧 Episode: \(episode.title) (score: \(String(format: "%.2f", score)))")
       case .note(_, let score):
-        print("  📝 Note (score: \(String(format: "%.2f", score)))")
+        Logger.info("  📝 Note (score: \(String(format: "%.2f", score)))")
       }
     }
     
     // Search only episodes
     let episodeResults = await searchIntegration.searchEpisodes(query: "iOS")
-    print("\nSearch episodes for 'iOS' returned \(episodeResults.count) results")
+    Logger.info("Search episodes for 'iOS' returned \(episodeResults.count) results")
     
     // Search only podcasts  
     let podcastResults = await searchIntegration.searchPodcasts(query: "weekly")
-    print("Search podcasts for 'weekly' returned \(podcastResults.count) results")
+    Logger.info("Search podcasts for 'weekly' returned \(podcastResults.count) results")
   }
 }

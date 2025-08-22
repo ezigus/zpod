@@ -20,7 +20,6 @@ let package = Package(
         // Local packages
         .package(path: "Packages/CoreModels"),
         .package(path: "Packages/SharedUtilities"),
-        .package(path: "Packages/TestSupport"),
         .package(path: "Packages/Persistence"),
         .package(path: "Packages/FeedParsing"), // Re-added FeedParsing dependency
         .package(path: "Packages/Networking"),
@@ -51,7 +50,6 @@ let package = Package(
                 "Views/", // Uses SwiftUI
                 "ViewModels/", // Uses SwiftUI
                 "Controllers/", // Has dependencies on Services
-                "Services/", // Will be moved to domain packages
                 "Assets.xcassets", // Asset catalog
                 "Preview Content",
                 "Info.plist",
@@ -68,21 +66,16 @@ let package = Package(
         
         // Test target
         .testTarget(
-            name: "zpodTests",
+            name: "zpodTests", 
             dependencies: [
-                "zpodLib",
-                "TestSupport"
+                "zpodLib"
             ],
             path: "zpodTests",
             exclude: [
                 // Exclude tests that depend on Combine/UI services which are not in zpodLib
-                "InMemoryPlaylistManager.swift",
                 "Issue03AdvancedControlsTests.swift",
-                "Issue03PlaybackEngineTests.swift",
-                "Issue05SettingsIntegrationTests.swift",
                 "Issue06PlaylistTests.swift",
-                "Issue07FolderTagTests.swift",
-                "Issue10AcceptanceCriteriaTests.swift"
+                "Issue07FolderTagTests.swift"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
