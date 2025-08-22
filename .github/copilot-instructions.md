@@ -165,4 +165,8 @@
 - these commits should happen in conjunction iwth the dev-log for the issue you are working on
 - the commits should include the updates to the dev-log file
 - after you are done making changes for the issue, push the changes to github
--  
+- 
+
+## logging in application
+- use best practices of Swift 6.0/ios for logging of errors, warnings, issues, etc. 
+- use OSLog for this logging approach 
