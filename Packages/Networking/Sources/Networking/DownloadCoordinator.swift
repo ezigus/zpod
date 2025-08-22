@@ -1,4 +1,8 @@
+#if canImport(Combine)
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
+#endif
 import Foundation
 
 /// Coordinates all download-related operations

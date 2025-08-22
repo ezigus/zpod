@@ -1,4 +1,6 @@
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 import Foundation
 
 /// Protocol for managing download queue operations

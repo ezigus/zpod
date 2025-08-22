@@ -2,7 +2,9 @@ import Foundation
 import CoreModels
 import Persistence
 import SharedUtilities
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 
 /// Settings manager providing cascading resolution and reactive updates
 @MainActor

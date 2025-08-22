@@ -1,5 +1,9 @@
 import Foundation
+#if canImport(Combine)
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
+#endif
 import CoreModels
 import SharedUtilities
 

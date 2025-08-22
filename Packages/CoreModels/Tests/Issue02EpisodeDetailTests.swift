@@ -1,5 +1,7 @@
 import XCTest
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 @testable import PlaybackEngine
 
 @MainActor

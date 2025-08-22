@@ -1,4 +1,6 @@
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 import Foundation
 
 /// Represents playback lifecycle states for an episode.

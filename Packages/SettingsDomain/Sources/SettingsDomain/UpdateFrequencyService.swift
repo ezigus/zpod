@@ -1,4 +1,6 @@
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 import Foundation
 
 /// Service for managing podcast update frequencies and schedules
