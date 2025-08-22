@@ -1,80 +1,132 @@
-@preconcurrency import Foundation
+import Foundation
+@preconcurrency import Combine
 
-/// Global download settings
-public struct DownloadSettings: Codable, Equatable, Sendable {
-    public var autoDownloadEnabled: Bool
-    public var downloadQuality: AudioQuality
-    public var downloadOnWiFiOnly: Bool
-    public var maxSimultaneousDownloads: Int
-    public var deleteAfterDays: Int?
-    public var retentionPolicy: RetentionPolicy?
-    public var defaultUpdateFrequency: UpdateFrequency?
+/// In-memory playlist manager for testing
+@MainActor
+public class InMemoryPlaylistManager {
+    @Published public private(set) var playlists: [Playlist] = []
+    @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
     
-    public init(
-        autoDownloadEnabled: Bool = false,
-        downloadQuality: AudioQuality = .standard,
-        downloadOnWiFiOnly: Bool = true,
-        maxSimultaneousDownloads: Int = 3,
-        deleteAfterDays: Int? = nil,
-        retentionPolicy: RetentionPolicy? = nil,
-        defaultUpdateFrequency: UpdateFrequency? = nil
-    ) {
-        self.autoDownloadEnabled = autoDownloadEnabled
-        self.downloadQuality = downloadQuality
-        self.downloadOnWiFiOnly = downloadOnWiFiOnly
-        self.maxSimultaneousDownloads = maxSimultaneousDownloads
-        self.deleteAfterDays = deleteAfterDays
-        self.retentionPolicy = retentionPolicy
-        self.defaultUpdateFrequency = defaultUpdateFrequency
+    private let playlistsChangedSubject = PassthroughSubject<PlaylistChange, Never>()
+    
+    public var playlistsChangedPublisher: AnyPublisher<PlaylistChange, Never> {
+        playlistsChangedSubject.eraseToAnyPublisher()
     }
     
-    public static let `default` = DownloadSettings()
-}
-
-/// Per-podcast download settings that override global settings
-public struct PodcastDownloadSettings: Codable, Equatable, Sendable {
-    public var podcastId: String
-    public var autoDownloadEnabled: Bool?
-    public var downloadQuality: AudioQuality?
-    public var maxEpisodesToKeep: Int?
+    public init() {}
     
-    public init(
-        podcastId: String,
-        autoDownloadEnabled: Bool? = nil,
-        downloadQuality: AudioQuality? = nil,
-        maxEpisodesToKeep: Int? = nil
-    ) {
-        self.podcastId = podcastId
-        self.autoDownloadEnabled = autoDownloadEnabled
-        self.downloadQuality = downloadQuality
-        self.maxEpisodesToKeep = maxEpisodesToKeep
+    // MARK: - Manual Playlists
+    
+    public func createPlaylist(_ playlist: Playlist) {
+        // Don't add duplicates
+        guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+        
+        playlists.append(playlist)
+        playlistsChangedSubject.send(.playlistAdded(playlist))
     }
-}
-
-/// Audio quality options for downloads
-public enum AudioQuality: String, Codable, CaseIterable, Sendable {
-    case low = "low"
-    case standard = "standard" 
-    case high = "high"
     
-    public var displayName: String {
-        switch self {
-        case .low: return "Low Quality"
-        case .standard: return "Standard Quality"
-        case .high: return "High Quality"
+    public func updatePlaylist(_ playlist: Playlist) {
+        guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+        
+        playlists[index] = playlist
+        playlistsChangedSubject.send(.playlistUpdated(playlist))
+    }
+    
+    public func deletePlaylist(id: String) {
+        guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+        
+        playlists.remove(at: index)
+        playlistsChangedSubject.send(.playlistDeleted(id))
+    }
+    
+    public func findPlaylist(id: String) -> Playlist? {
+        return playlists.first { $0.id == id }
+    }
+    
+    public func addEpisode(episodeId: String, to playlistId: String) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        
+        // Don't add duplicates
+        guard !playlist.episodeIds.contains(episodeId) else { return }
+        
+        let updatedPlaylist = playlist.withEpisodes(playlist.episodeIds + [episodeId])
+        updatePlaylist(updatedPlaylist)
+    }
+    
+    public func removeEpisode(episodeId: String, from playlistId: String) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        
+        let updatedEpisodeIds = playlist.episodeIds.filter { $0 != episodeId }
+        let updatedPlaylist = playlist.withEpisodes(updatedEpisodeIds)
+        updatePlaylist(updatedPlaylist)
+    }
+    
+    public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        
+        var episodeIds = playlist.episodeIds
+        moveElements(in: &episodeIds, fromOffsets: source, toOffset: destination)
+        
+        let updatedPlaylist = playlist.withEpisodes(episodeIds)
+        updatePlaylist(updatedPlaylist)
+    }
+    
+    /// Helper method to move elements in an array from source indices to destination
+    /// This implements SwiftUI's move(fromOffsets:toOffset:) behavior correctly
+    private func moveElements<T>(in array: inout [T], fromOffsets source: IndexSet, toOffset destination: Int) {
+        // Extract elements to move in original order
+        let elementsToMove = source.sorted().map { array[$0] }
+        
+        // Remove elements from highest index to lowest to avoid index shifting
+        for index in source.sorted(by: >) {
+            array.remove(at: index)
+        }
+        
+        // Insert elements at the destination position
+        // Clamp destination to valid range after removals
+        let insertPosition = min(destination, array.count)
+        
+        // Insert elements at the calculated position
+        for (offset, element) in elementsToMove.enumerated() {
+            array.insert(element, at: insertPosition + offset)
         }
     }
+    
+    // MARK: - Smart Playlists
+    
+    public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+        // Don't add duplicates
+        guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+        
+        smartPlaylists.append(smartPlaylist)
+        playlistsChangedSubject.send(.smartPlaylistAdded(smartPlaylist))
+    }
+    
+    public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+        guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+        
+        smartPlaylists[index] = smartPlaylist
+        playlistsChangedSubject.send(.smartPlaylistUpdated(smartPlaylist))
+    }
+    
+    public func deleteSmartPlaylist(id: String) {
+        guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+        
+        smartPlaylists.remove(at: index)
+        playlistsChangedSubject.send(.smartPlaylistDeleted(id))
+    }
+    
+    public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+        return smartPlaylists.first { $0.id == id }
+    }
 }
 
-public enum RetentionPolicy: String, Codable, CaseIterable, Sendable {
-    case keepAll
-    case keepLatest
-    case deleteAfterDays
-}
-
-public enum UpdateFrequency: String, Codable, CaseIterable, Sendable {
-    case hourly
-    case daily
-    case weekly
-    case manual
+/// Playlist change events for notifications
+public enum PlaylistChange: Sendable {
+    case playlistAdded(Playlist)
+    case playlistUpdated(Playlist)
+    case playlistDeleted(String)
+    case smartPlaylistAdded(SmartPlaylist)
+    case smartPlaylistUpdated(SmartPlaylist)
+    case smartPlaylistDeleted(String)
 }

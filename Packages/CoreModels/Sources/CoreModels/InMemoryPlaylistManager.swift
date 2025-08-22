@@ -125,13 +125,3 @@ public class InMemoryPlaylistManager {
         return smartPlaylists.first { $0.id == id }
     }
 }
-
-/// Playlist change events for notifications
-public enum PlaylistChange: Sendable {
-    case playlistAdded(Playlist)
-    case playlistUpdated(Playlist)
-    case playlistDeleted(String)
-    case smartPlaylistAdded(SmartPlaylist)
-    case smartPlaylistUpdated(SmartPlaylist)
-    case smartPlaylistDeleted(String)
-}

@@ -138,7 +138,6 @@
 ## Migration Guidelines
 
 - When updating from older Swift versions, address all concurrency warnings
-- Gradually adopt Swift 6 features rather than wholesale rewrites
 - Test thoroughly when migrating async code
 - Update test patterns to match new concurrency model
 
@@ -155,8 +154,10 @@
 - for each issue, create a new dev-log in the dev-log file in the root of this repository 
 - create and then update a  dev-log for each issue you are working on.
 - continuously update the dev-log file that was created for each issue
+- before making any updates, make sure to update the dev-log file first with your approach and then as you make progress, go back to update the progress.
 - document your approach for implementing the issue in bullet format with as many phases as you need and then update where you are in that implemenation
 - keep a log of the changes, include date and time for when those changes were made
+- when doing the updates in the log, make sure to use date and time stamps, with the timestamps based on Eastern Time
 
 ## Git commits
 

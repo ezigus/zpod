@@ -18,7 +18,7 @@ public protocol PlaylistEngineProtocol {
         shuffle: Bool
     ) -> [Episode]
     
-    /// Generate playback queue from smart playlist with shuffle support  
+    /// Generate playback queue from smart playlist with shuffle support
     func generatePlaybackQueue(
         from smartPlaylist: SmartPlaylist,
         episodes: [Episode],

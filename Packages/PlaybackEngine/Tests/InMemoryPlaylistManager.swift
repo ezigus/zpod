@@ -1,6 +1,5 @@
 import Foundation
 @preconcurrency import Combine
-@testable import zpod
 
 /// In-memory playlist manager for testing
 @MainActor
@@ -131,3 +130,4 @@ public enum PlaylistChange: Sendable {
     case smartPlaylistUpdated(SmartPlaylist)
     case smartPlaylistDeleted(String)
 }
+@testable import PlaybackEngine
