@@ -1,9 +1,16 @@
+import Foundation
 import CoreModels
 
 public enum MockPodcast {
     public static func createSample(id: String = "pod-1", title: String = "Sample Podcast") -> Podcast {
-        Podcast(id: id, title: title)
-        
+        Podcast(
+            id: id, 
+            title: title,
+            author: "Sample Author",
+            description: "Sample podcast description",
+            artworkURL: URL(string: "https://example.com/artwork.jpg"),
+            feedURL: URL(string: "https://example.com/feed.xml")!
+        )
     }
 }
 

@@ -5,17 +5,28 @@ import SharedUtilities
 #if canImport(Combine)
 @preconcurrency import Combine
 #endif
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /// Settings manager providing cascading resolution and reactive updates
 @MainActor
-public class SettingsManager: ObservableObject {
+public class SettingsManager {
     internal let repository: SettingsRepository
+    #if canImport(Combine)
     private var cancellables = Set<AnyCancellable>()
+    #endif
     
     // Published properties for reactive UI
+    #if canImport(Combine)
     @Published public private(set) var globalDownloadSettings: DownloadSettings
-    @Published public private(set) var globalNotificationSettings: NotificationSettings
+    @Published public private(set) var globalNotificationSettings: NotificationSettings  
     @Published public private(set) var globalPlaybackSettings: PlaybackSettings
+    #else
+    public private(set) var globalDownloadSettings: DownloadSettings
+    public private(set) var globalNotificationSettings: NotificationSettings
+    public private(set) var globalPlaybackSettings: PlaybackSettings
+    #endif
     
     public init(repository: SettingsRepository) {
         self.repository = repository
@@ -103,8 +114,12 @@ public class SettingsManager: ObservableObject {
         
         // For now, only custom sounds are per-podcast; other settings are global
         return NotificationSettings(
-            newEpisodeNotifications: global.newEpisodeNotifications,
-            downloadCompleteNotifications: global.downloadCompleteNotifications,
+            newEpisodeNotificationsEnabled: global.newEpisodeNotificationsEnabled,
+            downloadCompleteNotificationsEnabled: global.downloadCompleteNotificationsEnabled,
+            playbackNotificationsEnabled: global.playbackNotificationsEnabled,
+            quietHoursEnabled: global.quietHoursEnabled,
+            quietHoursStart: global.quietHoursStart,
+            quietHoursEnd: global.quietHoursEnd,
             soundEnabled: global.soundEnabled,
             customSounds: global.customSounds
         )
@@ -158,7 +173,7 @@ public class SettingsManager: ObservableObject {
     /// Update podcast-specific playback settings (nil removes override)
     public func updatePodcastPlaybackSettings(podcastId: String, _ settings: PodcastPlaybackSettings?) async {
         if let settings = settings {
-            await repository.savePodcastPlaybackSettings(settings)
+            await repository.savePodcastPlaybackSettings(podcastId: podcastId, settings)
         } else {
             await repository.removePodcastPlaybackSettings(podcastId: podcastId)
         }
@@ -167,15 +182,11 @@ public class SettingsManager: ObservableObject {
     // MARK: - Change Notifications
     
     /// Publisher for settings changes (forwarded from repository)
+    #if canImport(Combine)
     public var settingsChangePublisher: AnyPublisher<SettingsChange, Never> {
-        // Create a publisher from the async stream
-        return Publishers.AsyncStreamPublisher(
-            stream: Task {
-                await repository.settingsChangedStream
-            }.value
-        )
-        .eraseToAnyPublisher()
+        return repository.settingsChangedPublisher
     }
+    #endif
     
     // MARK: - Private Methods
     
@@ -197,44 +208,8 @@ public class SettingsManager: ObservableObject {
     }
 }
 
-// MARK: - AsyncStreamPublisher Helper
-extension Publishers {
-    struct AsyncStreamPublisher<Element>: Publisher where Element: Sendable {
-        typealias Output = Element
-        typealias Failure = Never
-        
-        let stream: AsyncStream<Element>
-        
-        func receive<S>(subscriber: S) where S : Subscriber, Never == S.Failure, Element == S.Input {
-            let subscription = AsyncStreamSubscription(stream: stream, subscriber: subscriber)
-            subscriber.receive(subscription: subscription)
-        }
-    }
-}
 
-final class AsyncStreamSubscription<S: Subscriber>: Subscription where S.Input: Sendable, S.Failure == Never {
-    private let subscriber: S
-    private let stream: AsyncStream<S.Input>
-    private var task: Task<Void, Never>?
-    
-    init(stream: AsyncStream<S.Input>, subscriber: S) {
-        self.stream = stream
-        self.subscriber = subscriber
-    }
-    
-    func request(_ demand: Subscribers.Demand) {
-        guard task == nil else { return }
-        
-        task = Task {
-            for await element in stream {
-                _ = subscriber.receive(element)
-            }
-            subscriber.receive(completion: .finished)
-        }
-    }
-    
-    func cancel() {
-        task?.cancel()
-        task = nil
-    }
-}
+// MARK: - ObservableObject Conformance
+#if canImport(SwiftUI)
+extension SettingsManager: ObservableObject {}
+#endif
