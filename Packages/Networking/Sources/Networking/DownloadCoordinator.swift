@@ -1,9 +1,9 @@
 #if canImport(Combine)
-#if canImport(Combine)
 @preconcurrency import Combine
 #endif
-#endif
 import Foundation
+import CoreModels
+import Persistence
 
 /// Coordinates all download-related operations
 @MainActor
@@ -14,7 +14,9 @@ public class DownloadCoordinator {
   public let fileManagerService: FileManagerServicing
   private let autoProcessingEnabled: Bool
 
+  #if canImport(Combine)
   private var cancellables = Set<AnyCancellable>()
+  #endif
   private let maxRetryCount = 3
   private let retryDelays: [TimeInterval] = [5, 15, 60]  // Exponential backoff
 
@@ -70,65 +72,83 @@ public class DownloadCoordinator {
   // MARK: - Private Implementation
 
   private func setupDownloadProcessing() {
+    #if canImport(Combine)
     // Monitor queue changes and process pending downloads
     queueManager.queuePublisher
       .sink { [weak self] queue in
-        self?.processPendingDownloads(queue)
+        Task {
+          await self?.processPendingDownloads(queue)
+        }
       }
       .store(in: &cancellables)
+    #endif
   }
 
   private func setupProgressTracking() {
+    #if canImport(Combine)
     // Monitor download progress and update task states
     fileManagerService.downloadProgressPublisher
       .sink { [weak self] progress in
         self?.updateTaskProgress(progress)
       }
       .store(in: &cancellables)
+    #endif
   }
 
-  private func processPendingDownloads(_ queue: [DownloadTask]) {
+  private func processPendingDownloads(_ queue: [DownloadTask]) async {
     // Find first pending task and start download
-    guard let pendingTask = queue.first(where: { $0.state == .pending }) else { return }
-
-    // Update state to downloading
-    let updatedTask = pendingTask.withState(.downloading)
-    queueManager.removeFromQueue(taskId: pendingTask.id)
-    queueManager.addToQueue(updatedTask)
-
-    // Start actual download
-    fileManagerService.startDownload(updatedTask)
+    for task in queue {
+      if let downloadInfo = queueManager.getTask(id: task.id), downloadInfo.state == .pending {
+        // Update state to downloading
+        let updatedInfo = downloadInfo.withState(.downloading)
+        queueManager.removeFromQueue(taskId: task.id)
+        queueManager.addToQueue(updatedInfo.task)
+        
+        // Start actual download
+        do {
+          try await fileManagerService.startDownload(updatedInfo.task)
+        } catch {
+          handleDownloadFailure(task, error: DownloadError.unknown(error.localizedDescription))
+        }
+        break
+      }
+    }
   }
 
-  private func updateTaskProgress(_ progress: DownloadProgress) {
-    guard var task = queueManager.getTask(id: progress.taskId) else { return }
+  private func updateTaskProgress(_ progress: Persistence.DownloadProgress) {
+    guard var downloadInfo = queueManager.getTask(id: progress.taskId) else { return }
 
     if progress.progress >= 1.0 {
       // Download completed
-      task = task.withState(.completed).withProgress(1.0)
+      downloadInfo = downloadInfo.withState(.completed)
+      downloadInfo.progress = 1.0
     } else {
       // Progress update
-      task = task.withProgress(progress.progress)
+      downloadInfo.progress = progress.progress
+      downloadInfo.bytesDownloaded = progress.bytesDownloaded
+      downloadInfo.totalBytes = progress.totalBytes
     }
 
-    queueManager.removeFromQueue(taskId: task.id)
-    queueManager.addToQueue(task)
+    queueManager.removeFromQueue(taskId: downloadInfo.task.id)
+    queueManager.addToQueue(downloadInfo.task)
 
     // If completed, check for next pending download
-    if task.state == .completed {
+    if downloadInfo.state == .completed {
       let queue = queueManager.getCurrentQueue()
-      processPendingDownloads(queue)
+      Task {
+        await processPendingDownloads(queue)
+      }
     }
   }
 
   private func handleDownloadFailure(_ task: DownloadTask, error: DownloadError) {
-    let failedTask = task.withState(.failed).withError(error)
+    let failedInfo = task.withError(error)
     queueManager.removeFromQueue(taskId: task.id)
-    queueManager.addToQueue(failedTask)
+    queueManager.addToQueue(failedInfo.task)
 
     // Schedule retry if under retry limit
     if task.retryCount < maxRetryCount {
-      scheduleRetry(for: failedTask)
+      scheduleRetry(for: task.withRetry())
     }
   }
 
@@ -142,7 +162,7 @@ public class DownloadCoordinator {
     }
   }
 
-  private func executeStorageActions(_ actions: [StorageAction]) {
+  private func executeStorageActions(_ actions: [Persistence.StorageAction]) {
     for action in actions {
       switch action {
       case .deleteEpisode(let episodeId):

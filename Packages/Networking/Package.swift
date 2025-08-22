@@ -15,14 +15,16 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../CoreModels"),
-        .package(path: "../SharedUtilities")
+        .package(path: "../SharedUtilities"),
+        .package(path: "../Persistence")
     ],
     targets: [
         .target(
             name: "Networking",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities"
+                "SharedUtilities",
+                "Persistence"
             ],
             path: "Sources",
             resources: [

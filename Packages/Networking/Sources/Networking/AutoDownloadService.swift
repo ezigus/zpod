@@ -29,12 +29,15 @@ public class AutoDownloadService: NewEpisodeDelegate {
         
         // Create download task with appropriate priority
         let priority = calculateAutoPriority(for: podcast)
+        let priorityEnum = convertPriorityToEnum(priority)
         let task = DownloadTask(
             id: generateTaskId(for: episode),
             episodeId: episode.id,
             podcastId: podcast.id,
-            state: .pending,
-            priority: priority
+            audioURL: episode.audioURL ?? URL(string: "https://example.com/default.mp3")!,
+            title: episode.title,
+            estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) }, // Rough estimate
+            priority: priorityEnum
         )
         
         queueManager.addToQueue(task)
@@ -61,7 +64,18 @@ public class AutoDownloadService: NewEpisodeDelegate {
     private func calculateAutoPriority(for podcast: Podcast) -> Int {
         // Default auto-download priority (medium)
         // Future: could be configured per podcast based on user preferences
-        return 5
+        return 3
+    }
+    
+    private func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
+        switch priority {
+        case 1...2:
+            return .low
+        case 4...5:
+            return .high
+        default:
+            return .normal
+        }
     }
     
     private func generateTaskId(for episode: Episode) -> String {

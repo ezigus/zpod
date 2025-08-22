@@ -31,7 +31,15 @@ public class SettingsManager {
     public init(repository: SettingsRepository) {
         self.repository = repository
         
-        // Load initial values from repository
+        // Initialize with defaults temporarily
+        self.globalDownloadSettings = DownloadSettings.default
+        self.globalNotificationSettings = NotificationSettings.default
+        self.globalPlaybackSettings = PlaybackSettings()
+        
+        // Note: Repository change notifications would be implemented here
+        // when a proper stream interface is added to SettingsRepository
+        
+        // Load initial values from repository asynchronously after initialization
         Task {
             let downloadSettings = await repository.loadGlobalDownloadSettings()
             let notificationSettings = await repository.loadGlobalNotificationSettings()
@@ -41,18 +49,6 @@ public class SettingsManager {
                 self.globalDownloadSettings = downloadSettings
                 self.globalNotificationSettings = notificationSettings
                 self.globalPlaybackSettings = playbackSettings
-            }
-        }
-        
-        // Initialize with defaults temporarily
-        self.globalDownloadSettings = DownloadSettings()
-        self.globalNotificationSettings = NotificationSettings()
-        self.globalPlaybackSettings = PlaybackSettings()
-        
-        // Subscribe to repository changes to update published properties
-        Task {
-            for await change in await repository.settingsChangedStream {
-                await handleSettingsChange(change)
             }
         }
     }
@@ -85,14 +81,14 @@ public class SettingsManager {
         
         // Apply podcast-specific overrides if present
         if let overrides = podcastOverrides {
-            if let speed = overrides.playbackSpeed {
-                podcastSpeeds[podcastId] = speed
+            if let speed = overrides.speed {
+                podcastSpeeds?[podcastId] = speed
             }
             if let introSkip = overrides.introSkipDuration {
-                introSkips[podcastId] = introSkip
+                introSkips?[podcastId] = introSkip
             }
             if let outroSkip = overrides.outroSkipDuration {
-                outroSkips[podcastId] = outroSkip
+                outroSkips?[podcastId] = outroSkip
             }
         }
         

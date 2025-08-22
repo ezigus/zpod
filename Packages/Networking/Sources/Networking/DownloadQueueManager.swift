@@ -37,13 +37,13 @@ public protocol DownloadQueueManaging {
     func getCurrentQueue() -> [DownloadTask]
     
     /// Get a specific task by ID
-    func getTask(id: String) -> DownloadTask?
+    func getTask(id: String) -> DownloadInfo?
 }
 
 /// In-memory implementation of download queue manager
 @MainActor
 public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
-    private var tasks: [String: DownloadTask] = [:]
+    private var tasks: [String: DownloadInfo] = [:]
     private var queueOrder: [String] = []
     
     #if canImport(Combine)
@@ -57,12 +57,13 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     public init() {}
     
     public func addToQueue(_ task: DownloadTask) {
-        tasks[task.id] = task
+        let downloadInfo = DownloadInfo(task: task, state: .pending)
+        tasks[task.id] = downloadInfo
         
         // Insert based on priority (higher priority first)
         if let insertIndex = queueOrder.firstIndex(where: { taskId in
             guard let existingTask = tasks[taskId] else { return false }
-            return existingTask.priority < task.priority
+            return existingTask.task.priority < task.priority
         }) {
             queueOrder.insert(task.id, at: insertIndex)
         } else {
@@ -110,17 +111,18 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     }
     
     public func retryFailedDownload(taskId: String) {
-        guard var task = tasks[taskId], task.state == .failed else { return }
-        task = task.withState(.pending).withIncrementedRetry()
-        tasks[taskId] = task
+        guard var downloadInfo = tasks[taskId], downloadInfo.state == .failed else { return }
+        let retryTask = downloadInfo.task.withRetry()
+        downloadInfo = DownloadInfo(task: retryTask, state: .pending)
+        tasks[taskId] = downloadInfo
         publishQueueUpdate()
     }
     
     public func getCurrentQueue() -> [DownloadTask] {
-        return queueOrder.compactMap { tasks[$0] }
+        return queueOrder.compactMap { tasks[$0]?.task }
     }
     
-    public func getTask(id: String) -> DownloadTask? {
+    public func getTask(id: String) -> DownloadInfo? {
         return tasks[id]
     }
     

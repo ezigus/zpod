@@ -2,16 +2,18 @@
 @preconcurrency import Combine
 #endif
 import Foundation
+import CoreModels
 
 /// Service for managing podcast update frequencies and schedules
 @MainActor
-public class UpdateFrequencyService: ObservableObject {
+public class UpdateFrequencyService {
     private let settingsManager: SettingsManager
     private var schedules: [String: UpdateSchedule] = [:]
     
-    /// Published property for reactive UI updates
+    #if canImport(Combine)
     /// Publisher for reactive UI updates
     public private(set) var schedulesChangePublisher = PassthroughSubject<UpdateSchedule, Never>()
+    #endif
     
     public init(settingsManager: SettingsManager) {
         self.settingsManager = settingsManager
@@ -20,8 +22,8 @@ public class UpdateFrequencyService: ObservableObject {
     // MARK: - Schedule Computation
     
     /// Compute the next refresh time for a podcast
-    public func computeNextRefreshTime(for podcastId: String) -> Date? {
-        let frequency = settingsManager.effectiveUpdateFrequency(for: podcastId)
+    public func computeNextRefreshTime(for podcastId: String) async -> Date? {
+        let frequency = await settingsManager.effectiveUpdateFrequency(for: podcastId)
         
         // Manual frequency means no automatic refresh
         guard let _ = frequency.timeInterval else {
@@ -35,8 +37,8 @@ public class UpdateFrequencyService: ObservableObject {
     }
     
     /// Mark a podcast as refreshed and update its schedule
-    public func markPodcastRefreshed(_ podcastId: String) {
-        let frequency = settingsManager.effectiveUpdateFrequency(for: podcastId)
+    public func markPodcastRefreshed(_ podcastId: String) async {
+        let frequency = await settingsManager.effectiveUpdateFrequency(for: podcastId)
         
         // Get existing schedule or create initial one if it doesn't exist
         let currentSchedule = schedules[podcastId] ?? UpdateSchedule.initialSchedule(for: podcastId, updateFrequency: frequency)
@@ -48,7 +50,9 @@ public class UpdateFrequencyService: ObservableObject {
         print("DEBUG: markPodcastRefreshed - stored schedule for \(podcastId): \(newSchedule)")
         print("DEBUG: markPodcastRefreshed - schedules dictionary now has \(schedules.count) entries")
         
+        #if canImport(Combine)
         schedulesChangePublisher.send(newSchedule)
+        #endif
     }
     
     /// Get list of podcast IDs due for update
@@ -65,12 +69,14 @@ public class UpdateFrequencyService: ObservableObject {
     }
     
     /// Initialize or update schedule for a podcast (called when subscription changes)
-    public func initializeSchedule(for podcastId: String) {
+    public func initializeSchedule(for podcastId: String) async {
         if schedules[podcastId] == nil {
-            let frequency = settingsManager.effectiveUpdateFrequency(for: podcastId)
+            let frequency = await settingsManager.effectiveUpdateFrequency(for: podcastId)
             let schedule = UpdateSchedule.initialSchedule(for: podcastId, updateFrequency: frequency)
             schedules[podcastId] = schedule
+            #if canImport(Combine)
             schedulesChangePublisher.send(schedule)
+            #endif
         }
     }
     
@@ -88,10 +94,10 @@ public class UpdateFrequencyService: ObservableObject {
     }
     
     /// Update schedule when settings change (manual refresh of due calculations)
-    public func refreshSchedules(for podcastIds: [String]) {
+    public func refreshSchedules(for podcastIds: [String]) async {
         for podcastId in podcastIds {
             if let currentSchedule = schedules[podcastId] {
-                let frequency = settingsManager.effectiveUpdateFrequency(for: podcastId)
+                let frequency = await settingsManager.effectiveUpdateFrequency(for: podcastId)
                 
                 // Recalculate next due date based on current frequency and last check
                 let newNextDue = frequency.timeInterval.map {
@@ -105,7 +111,9 @@ public class UpdateFrequencyService: ObservableObject {
                 )
                 
                 schedules[podcastId] = updatedSchedule
+                #if canImport(Combine)
                 schedulesChangePublisher.send(updatedSchedule)
+                #endif
             }
         }
     }
