@@ -2,34 +2,31 @@
 import PackageDescription
 
 let package = Package(
-    name: "Networking",
+    name: "SearchDomain",
     platforms: [
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "Networking",
-            targets: ["Networking"]
+            name: "SearchDomain",
+            targets: ["SearchDomain"]
         ),
     ],
     dependencies: [
         .package(path: "../CoreModels"),
         .package(path: "../SharedUtilities"),
-        .package(path: "../Persistence")
+        .package(path: "../TestSupport")
     ],
     targets: [
         .target(
-            name: "Networking",
+            name: "SearchDomain",
             dependencies: [
                 "CoreModels",
                 "SharedUtilities",
-                "Persistence"
+                "TestSupport"
             ],
-            path: "Sources",
-            resources: [
-                .process("SampleSubscriptions.opml")
-            ]
+            path: "Sources"
         )
     ]
 )

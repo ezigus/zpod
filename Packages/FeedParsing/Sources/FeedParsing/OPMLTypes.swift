@@ -1,3 +1,5 @@
+import Foundation
+
 public struct OPMLDocument {
     public let version: String
     public let head: OPMLHead

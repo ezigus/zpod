@@ -1,3 +1,6 @@
+import Foundation
+import CoreModels
+
 public protocol FeedParsing {
     func parse(data: Data, sourceURL: URL) throws -> ParsedFeed
 }

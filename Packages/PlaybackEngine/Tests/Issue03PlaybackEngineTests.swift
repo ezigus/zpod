@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 @testable import PlaybackEngine
 
 /// In-memory playlist manager for testing

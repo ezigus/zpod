@@ -1,15 +1,28 @@
 import Foundation
+#if canImport(Combine)
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
+#endif
 
 /// In-memory playlist manager for testing
 @available(macOS 10.15, *)
 @MainActor
 public class InMemoryPlaylistManager {
+    #if canImport(Combine)
     @available(macOS 10.15, *)
     @Published public private(set) var playlists: [Playlist] = []
+    #else
+    public private(set) var playlists: [Playlist] = []
+    #endif
+    #if canImport(Combine)
     @available(macOS 10.15, *)
     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    #else
+    public private(set) var smartPlaylists: [SmartPlaylist] = []
+    #endif
     
+    #if canImport(Combine)
     @available(macOS 10.15, *)
     private let playlistsChangedSubject = PassthroughSubject<PlaylistChange, Never>()
     
@@ -17,6 +30,7 @@ public class InMemoryPlaylistManager {
     public var playlistsChangedPublisher: AnyPublisher<PlaylistChange, Never> {
         playlistsChangedSubject.eraseToAnyPublisher()
     }
+    #endif
     
     public init() {}
     
@@ -27,21 +41,27 @@ public class InMemoryPlaylistManager {
         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
         
         playlists.append(playlist)
+        #if canImport(Combine)
         playlistsChangedSubject.send(.playlistAdded(playlist))
+        #endif
     }
     
     public func updatePlaylist(_ playlist: Playlist) {
         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
         
         playlists[index] = playlist
+        #if canImport(Combine)
         playlistsChangedSubject.send(.playlistUpdated(playlist))
+        #endif
     }
     
     public func deletePlaylist(id: String) {
         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
         
         playlists.remove(at: index)
+        #if canImport(Combine)
         playlistsChangedSubject.send(.playlistDeleted(id))
+        #endif
     }
     
     public func findPlaylist(id: String) -> Playlist? {
@@ -104,21 +124,27 @@ public class InMemoryPlaylistManager {
         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
         
         smartPlaylists.append(smartPlaylist)
+        #if canImport(Combine)
         playlistsChangedSubject.send(.smartPlaylistAdded(smartPlaylist))
+        #endif
     }
     
     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
         
         smartPlaylists[index] = smartPlaylist
+        #if canImport(Combine)
         playlistsChangedSubject.send(.smartPlaylistUpdated(smartPlaylist))
+        #endif
     }
     
     public func deleteSmartPlaylist(id: String) {
         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
         
         smartPlaylists.remove(at: index)
+        #if canImport(Combine)
         playlistsChangedSubject.send(.smartPlaylistDeleted(id))
+        #endif
     }
     
     public func findSmartPlaylist(id: String) -> SmartPlaylist? {

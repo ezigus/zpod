@@ -1,4 +1,6 @@
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 import Foundation
 
 /// Enhanced playback service with advanced controls for Issue 03

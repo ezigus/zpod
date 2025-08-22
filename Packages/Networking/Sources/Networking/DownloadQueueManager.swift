@@ -1,11 +1,16 @@
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 import Foundation
+import CoreModels
 
 /// Protocol for managing download queue operations
 @MainActor
 public protocol DownloadQueueManaging {
+    #if canImport(Combine)
     /// Publisher for queue state changes
     var queuePublisher: AnyPublisher<[DownloadTask], Never> { get }
+    #endif
     
     /// Add a task to the download queue
     func addToQueue(_ task: DownloadTask)
@@ -32,29 +37,33 @@ public protocol DownloadQueueManaging {
     func getCurrentQueue() -> [DownloadTask]
     
     /// Get a specific task by ID
-    func getTask(id: String) -> DownloadTask?
+    func getTask(id: String) -> DownloadInfo?
 }
 
 /// In-memory implementation of download queue manager
 @MainActor
 public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
-    private var tasks: [String: DownloadTask] = [:]
+    private var tasks: [String: DownloadInfo] = [:]
     private var queueOrder: [String] = []
+    
+    #if canImport(Combine)
     private let queueSubject = CurrentValueSubject<[DownloadTask], Never>([])
     
     public var queuePublisher: AnyPublisher<[DownloadTask], Never> {
         queueSubject.eraseToAnyPublisher()
     }
+    #endif
     
     public init() {}
     
     public func addToQueue(_ task: DownloadTask) {
-        tasks[task.id] = task
+        let downloadInfo = DownloadInfo(task: task, state: .pending)
+        tasks[task.id] = downloadInfo
         
         // Insert based on priority (higher priority first)
         if let insertIndex = queueOrder.firstIndex(where: { taskId in
             guard let existingTask = tasks[taskId] else { return false }
-            return existingTask.priority < task.priority
+            return existingTask.task.priority < task.priority
         }) {
             queueOrder.insert(task.id, at: insertIndex)
         } else {
@@ -102,17 +111,18 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     }
     
     public func retryFailedDownload(taskId: String) {
-        guard var task = tasks[taskId], task.state == .failed else { return }
-        task = task.withState(.pending).withIncrementedRetry()
-        tasks[taskId] = task
+        guard var downloadInfo = tasks[taskId], downloadInfo.state == .failed else { return }
+        let retryTask = downloadInfo.task.withRetry()
+        downloadInfo = DownloadInfo(task: retryTask, state: .pending)
+        tasks[taskId] = downloadInfo
         publishQueueUpdate()
     }
     
     public func getCurrentQueue() -> [DownloadTask] {
-        return queueOrder.compactMap { tasks[$0] }
+        return queueOrder.compactMap { tasks[$0]?.task }
     }
     
-    public func getTask(id: String) -> DownloadTask? {
+    public func getTask(id: String) -> DownloadInfo? {
         return tasks[id]
     }
     
@@ -120,6 +130,8 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     
     private func publishQueueUpdate() {
         let currentQueue = getCurrentQueue()
+        #if canImport(Combine)
         queueSubject.send(currentQueue)
+        #endif
     }
 }

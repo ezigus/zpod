@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 
 /// Sleep timer service for automatic playback stopping
 @MainActor

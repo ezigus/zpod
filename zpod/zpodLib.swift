@@ -5,3 +5,4 @@
 @_exported import FeedParsing
 @_exported import Networking
 @_exported import SettingsDomain
+@_exported import SearchDomain

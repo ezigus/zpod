@@ -26,32 +26,35 @@ extension SettingsManager {
     /// Get the effective playback speed for a specific podcast
     public func playbackSpeed(for podcastId: String) async -> Float {
         let settings = await effectivePlaybackSettings(for: podcastId)
-        return settings.playbackSpeed(for: podcastId)
+        return Float(settings.playbackSpeed)
     }
     
     /// Get the effective skip intervals for a specific podcast
     public func skipIntervals(for podcastId: String) async -> (forward: TimeInterval, backward: TimeInterval) {
         let settings = await effectivePlaybackSettings(for: podcastId)
-        return (forward: settings.skipForwardInterval, backward: settings.skipBackwardInterval)
+        return (
+            forward: TimeInterval(settings.skipForwardInterval ?? 30),
+            backward: TimeInterval(settings.skipBackwardInterval ?? 15)
+        )
     }
     
     /// Get intro/outro skip durations for a specific podcast
     public func skipDurations(for podcastId: String) async -> (intro: TimeInterval, outro: TimeInterval) {
         let settings = await effectivePlaybackSettings(for: podcastId)
         return (
-            intro: settings.introSkipDuration(for: podcastId),
-            outro: settings.outroSkipDuration(for: podcastId)
+            intro: TimeInterval(settings.introSkipDurations?[podcastId] ?? settings.skipIntroSeconds),
+            outro: TimeInterval(settings.outroSkipDurations?[podcastId] ?? settings.skipOutroSeconds)
         )
     }
     
     /// Check if new episode notifications are enabled for a specific podcast
     public func areNewEpisodeNotificationsEnabled(for podcastId: String) -> Bool {
-        return effectiveNotificationSettings(for: podcastId).newEpisodeNotifications
+        return effectiveNotificationSettings(for: podcastId).newEpisodeNotificationsEnabled
     }
     
     /// Get custom notification sound for a specific podcast
     public func customNotificationSound(for podcastId: String) -> String? {
-        return effectiveNotificationSettings(for: podcastId).customSounds[podcastId]
+        return effectiveNotificationSettings(for: podcastId).customSounds?[podcastId]
     }
     
     /// Get the maximum number of concurrent downloads allowed
@@ -61,11 +64,11 @@ extension SettingsManager {
     
     /// Get the auto-mark as played threshold
     public var playedThreshold: TimeInterval {
-        return globalPlaybackSettings.playedThreshold
+        return globalPlaybackSettings.playedThreshold ?? 0.9
     }
     
     /// Check if auto-mark as played is enabled globally
     public var isAutoMarkAsPlayedEnabled: Bool {
-        return globalPlaybackSettings.autoMarkAsPlayed
+        return globalPlaybackSettings.autoMarkAsPlayed ?? false
     }
 }

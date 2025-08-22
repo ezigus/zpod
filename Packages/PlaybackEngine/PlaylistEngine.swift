@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Combine)
 @preconcurrency import Combine
+#endif
 
 /// Service for evaluating smart playlists and generating playback queues
 @MainActor

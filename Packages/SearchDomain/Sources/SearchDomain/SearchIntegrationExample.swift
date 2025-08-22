@@ -1,4 +1,6 @@
 import Foundation
+import CoreModels
+import TestSupport
 
 /// Example integration showing how to set up and use the SearchService with existing data
 @MainActor
@@ -61,14 +63,14 @@ extension SearchIntegrationExample {
         Episode(
           id: "ep-001",
           title: "Getting Started with Swift 6",
-          description: "Introduction to the new features in Swift 6 including strict concurrency",
-          podcastId: "swift-weekly"
+          podcastID: "swift-weekly",
+          description: "Introduction to the new features in Swift 6 including strict concurrency"
         ),
         Episode(
           id: "ep-002", 
           title: "Building iOS Apps with SwiftUI",
-          description: "Best practices for creating beautiful iOS applications using SwiftUI",
-          podcastId: "swift-weekly"
+          podcastID: "swift-weekly",
+          description: "Best practices for creating beautiful iOS applications using SwiftUI"
         )
       ]
     )

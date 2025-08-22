@@ -25,6 +25,7 @@ let package = Package(
         .package(path: "Packages/FeedParsing"), // Re-added FeedParsing dependency
         .package(path: "Packages/Networking"),
         .package(path: "Packages/SettingsDomain"),
+        .package(path: "Packages/SearchDomain"),
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -38,7 +39,8 @@ let package = Package(
                 "Persistence",
                 "FeedParsing", // Re-added FeedParsing dependency
                 "Networking",
-                "SettingsDomain"
+                "SettingsDomain",
+                "SearchDomain"
             ],
             path: "zpod",
             exclude: [
@@ -75,21 +77,12 @@ let package = Package(
             exclude: [
                 // Exclude tests that depend on Combine/UI services which are not in zpodLib
                 "InMemoryPlaylistManager.swift",
-                "Issue01SubscribeTests.swift",
-                "Issue02EpisodeDetailTests.swift", 
                 "Issue03AdvancedControlsTests.swift",
                 "Issue03PlaybackEngineTests.swift",
-                "Issue04DownloadTests.swift",
-                "Issue05AcceptanceCriteriaTests.swift",
                 "Issue05SettingsIntegrationTests.swift",
-                "Issue05SettingsTests.swift",
                 "Issue06PlaylistTests.swift",
                 "Issue07FolderTagTests.swift",
-                "Issue08SearchTests.swift",
-                "Issue10AcceptanceCriteriaTests.swift",
-                "Issue10UpdateFrequencyTests.swift",
-                "Issue11OPMLTests.swift",
-                "PodcastTests.swift" // Uses old zpod module
+                "Issue10AcceptanceCriteriaTests.swift"
             ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
