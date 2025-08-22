@@ -170,3 +170,9 @@
 ## logging in application
 - use best practices of Swift 6.0/ios for logging of errors, warnings, issues, etc. 
 - use OSLog for this logging approach 
+
+## Build Results
+- for each build/test - create a file for test and build results. 
+- when creating the log files for tests and build results, call them TestResults with a date/time stamp. 
+- put them in the sub directory TestResults
+- Keep only the latest 30 builds/test results

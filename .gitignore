@@ -13,6 +13,8 @@ xcuserdata/
 
 # Swift Package Manager
 .build/
+TestResults*
+BuildResults*
 
 # CocoaPods
 Pods/
