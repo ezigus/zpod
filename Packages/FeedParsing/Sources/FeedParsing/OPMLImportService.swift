@@ -106,19 +106,7 @@ public final class OPMLImportService {
     
     /// Converts subscription service errors to human-readable descriptions
     private func describeSubscriptionError(_ error: Swift.Error) -> String {
-        if let subscriptionError = error as? SubscriptionService.Error {
-            switch subscriptionError {
-            case .invalidURL:
-                return "Invalid feed URL"
-            case .dataLoadFailed:
-                return "Failed to load feed data"
-            case .parseFailed:
-                return "Failed to parse feed"
-            case .duplicateSubscription:
-                return "Already subscribed"
-            }
-        }
-        
-        return "Unknown error: \(error.localizedDescription)"
+        // Generic error description since SubscriptionService doesn't define specific errors
+        return "Subscription failed: \(error.localizedDescription)"
     }
 }

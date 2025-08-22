@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 import CoreModels
 
 /// Protocol for parsing OPML documents
@@ -8,6 +11,7 @@ public protocol OPMLParsing {
 }
 
 /// XML-based OPML parser implementation
+#if canImport(FoundationXML)
 public final class XMLOPMLParser: NSObject, OPMLParsing {
     
     /// Errors that can occur during OPML parsing
@@ -242,3 +246,4 @@ private extension DateFormatter {
         return formatter
     }()
 }
+#endif

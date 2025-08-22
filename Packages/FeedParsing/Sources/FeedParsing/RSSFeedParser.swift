@@ -27,13 +27,15 @@ public enum RSSParsingError: Error, LocalizedError {
 }
 
 /// RSS Feed parser for podcast feeds
-public class RSSFeedParser: NSObject, Sendable {
+public final class RSSFeedParser: NSObject, @unchecked Sendable {
     
     /// Parse RSS feed from URL
+    #if !os(Linux)
     public static func parseFeed(from url: URL) async throws -> Podcast {
         let (data, _) = try await URLSession.shared.data(from: url)
         return try parseFeed(from: data, feedURL: url)
     }
+    #endif
     
     /// Parse RSS feed from data
     public static func parseFeed(from data: Data, feedURL: URL) throws -> Podcast {
