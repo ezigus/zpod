@@ -2,13 +2,18 @@ import Foundation
 @preconcurrency import Combine
 
 /// In-memory playlist manager for testing
+@available(macOS 10.15, *)
 @MainActor
 public class InMemoryPlaylistManager {
+    @available(macOS 10.15, *)
     @Published public private(set) var playlists: [Playlist] = []
+    @available(macOS 10.15, *)
     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
     
+    @available(macOS 10.15, *)
     private let playlistsChangedSubject = PassthroughSubject<PlaylistChange, Never>()
     
+    @available(macOS 10.15, *)
     public var playlistsChangedPublisher: AnyPublisher<PlaylistChange, Never> {
         playlistsChangedSubject.eraseToAnyPublisher()
     }

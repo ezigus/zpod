@@ -31,7 +31,7 @@ Next: Commit these changes to git and run all tests to confirm the migration is 
 
 2025-08-21 15:00
 ---
-Progress Update: 
+Progress Update:
 - Diagnosed test failures in CoreModels due to missing PlaybackEngine dependency in Package.swift.
 - Instructed update to CoreModels/Package.swift: add PlaybackEngine as a product dependency for CoreModelsTests target.
 - Attempted build/test after update; encountered manifest syntax error due to incorrect dependencies array formatting.
@@ -88,3 +88,17 @@ Refactor PlaybackEngine as Local Package Dependency
 - Refactored test code to remove `@testable import zpod` since all required types are defined in PlaybackEngine.
 - PlaybackEngine test code is now package-local and does not depend on the app module.
 - Next: Build and test PlaybackEngine independently to confirm all tests pass. If successful, add PlaybackEngine as a local package dependency to the zPod app in its Package.swift, then build and test the main app and all packages to confirm integration.
+
+2025-08-22
+---
+Diagnosis: Build failures in CoreModels due to missing Playlist and SmartPlaylist model definitions. These types are required by InMemoryPlaylistManager and related code, but were not present in CoreModels after refactor.
+
+Action: Added minimal stubs for Playlist and SmartPlaylist to CoreModels/Sources/CoreModels. Playlist includes id and episodeIds properties, and a withEpisodes(_:) method. SmartPlaylist includes id property.
+
+Next: Commit these changes, rerun build and tests for CoreModels and FeedParsing, and continue modularization review for other packages.
+
+2025-08-22 17:15
+---
+- Verified all packages and app modules import CoreModels for playlist models; no outdated references to PlaylistModels remain.
+- All code now uses the canonical Playlist and SmartPlaylist models from CoreModels.
+- Next: Commit changes, run build/tests, and push to GitHub.
