@@ -15,14 +15,16 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../CoreModels"),
-        .package(path: "../SharedUtilities")
+        .package(path: "../SharedUtilities"),
+        .package(path: "../TestSupport")
     ],
     targets: [
         .target(
             name: "SearchDomain",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities"
+                "SharedUtilities",
+                "TestSupport"
             ],
             path: "Sources"
         )

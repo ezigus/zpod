@@ -2,12 +2,15 @@
 @preconcurrency import Combine
 #endif
 import Foundation
+import CoreModels
 
 /// Protocol for managing download queue operations
 @MainActor
 public protocol DownloadQueueManaging {
+    #if canImport(Combine)
     /// Publisher for queue state changes
     var queuePublisher: AnyPublisher<[DownloadTask], Never> { get }
+    #endif
     
     /// Add a task to the download queue
     func addToQueue(_ task: DownloadTask)
@@ -42,11 +45,14 @@ public protocol DownloadQueueManaging {
 public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     private var tasks: [String: DownloadTask] = [:]
     private var queueOrder: [String] = []
+    
+    #if canImport(Combine)
     private let queueSubject = CurrentValueSubject<[DownloadTask], Never>([])
     
     public var queuePublisher: AnyPublisher<[DownloadTask], Never> {
         queueSubject.eraseToAnyPublisher()
     }
+    #endif
     
     public init() {}
     
@@ -122,6 +128,8 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     
     private func publishQueueUpdate() {
         let currentQueue = getCurrentQueue()
+        #if canImport(Combine)
         queueSubject.send(currentQueue)
+        #endif
     }
 }

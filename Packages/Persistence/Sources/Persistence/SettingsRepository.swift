@@ -2,7 +2,9 @@
 @preconcurrency import Combine
 #endif
 import Foundation
+#if canImport(os)
 import os.log
+#endif
 import CoreModels
 
 /// Types of settings changes for change notifications

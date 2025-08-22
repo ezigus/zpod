@@ -1,4 +1,5 @@
 import Foundation
+import CoreModels
 
 /// Search index source for podcasts from a PodcastManager
 public final class PodcastIndexSource: SearchIndexSource {
