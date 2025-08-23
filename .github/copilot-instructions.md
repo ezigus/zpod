@@ -1,3 +1,10 @@
+# Coding and Testing Best Practices for zPod
+## Coding Best Practices for zPod
+- Always follow the TDD pattern for writing code, starting with writing the test cases first.  
+- as you do TDD, make sure you are building both unit test cases and when possible integration test cases
+- if you need to, refactor the test cases and/or add integration test cases that might have been missed
+- As you build the system, make sure you are referencing the spec files for the requirements - they are written in given when then. we need to ensure the code matches the expectations of the specs
+
 # Swift 6 Best Practices for zPod
 
 ## Swift 6 Concurrency & Sendable
@@ -172,7 +179,7 @@
 - use OSLog for this logging approach 
 
 ## Build Results
-- for each build/test - create a file for test and build results. 
-- when creating the log files for tests and build results, call them TestResults with a date/time stamp. 
+- for each build/test - create a file for the raw test and build results. 
+- when creating the log files for tests and build results, call them TestResults with a date/time stamp and what you are testing (e.g. if you are testing a package, include a 1 word example of the package)
 - put them in the sub directory TestResults
-- Keep only the latest 30 builds/test results
+- Keep only the latest 3 builds/test results for any set of tests that you did 
