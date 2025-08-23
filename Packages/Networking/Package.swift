@@ -16,7 +16,8 @@ let package = Package(
     dependencies: [
         .package(path: "../CoreModels"),
         .package(path: "../SharedUtilities"),
-        .package(path: "../Persistence")
+        .package(path: "../Persistence"),
+        .package(path: "../TestSupport")
     ],
     targets: [
         .target(
@@ -29,6 +30,15 @@ let package = Package(
             path: "Sources",
             resources: [
                 .process("SampleSubscriptions.opml")
+            ]
+        ),
+        .testTarget(
+            name: "NetworkingTests",
+            dependencies: [
+                "Networking",
+                "CoreModels",
+                "SharedUtilities",
+                "TestSupport"
             ]
         )
     ]

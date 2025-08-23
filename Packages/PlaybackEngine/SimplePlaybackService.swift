@@ -1,0 +1,93 @@
+#if canImport(Combine)
+@preconcurrency import Combine
+#endif
+import Foundation
+import CoreModels
+
+/// Represents playback lifecycle states for an episode.
+public enum EpisodePlaybackState: Equatable, Sendable {
+  case idle(Episode)
+  case playing(Episode, position: TimeInterval, duration: TimeInterval)
+  case paused(Episode, position: TimeInterval, duration: TimeInterval)
+  case finished(Episode, duration: TimeInterval)
+}
+
+/// Abstraction for time tick generation - allows deterministic tests.
+public protocol Ticker: Sendable {
+  func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void)
+  func cancel()
+}
+
+/// Protocol for a playback service with extended controls for speed, seeking, and episode management.
+@MainActor
+public protocol EpisodePlaybackService {
+  #if canImport(Combine)
+  var statePublisher: AnyPublisher<EpisodePlaybackState, Never> { get }
+  #endif
+  func play(episode: Episode, duration: TimeInterval?)
+  func pause()
+}
+
+/// Basic implementation for testing and cross-platform compatibility
+@MainActor
+public final class StubEpisodePlayer: EpisodePlaybackService {
+  #if canImport(Combine)
+  private let subject: CurrentValueSubject<EpisodePlaybackState, Never>
+  
+  public var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+    subject.eraseToAnyPublisher()
+  }
+  #endif
+  
+  private let ticker: Ticker
+  private var currentEpisode: Episode
+  private var isPlaying = false
+  private var currentPosition: TimeInterval = 0
+  private var generation = 0
+
+  public init(initialEpisode: Episode? = nil, ticker: Ticker) {
+    let ep = initialEpisode ?? Episode(id: "stub", title: "Stub", description: "Stub episode")
+    self.currentEpisode = ep
+    self.ticker = ticker
+    #if canImport(Combine)
+    self.subject = CurrentValueSubject(.idle(ep))
+    #endif
+  }
+
+  public func play(episode: Episode, duration maybeDuration: TimeInterval?) {
+    let normalized = (maybeDuration ?? 300) > 0 ? (maybeDuration ?? 300) : 300
+    currentEpisode = episode
+    isPlaying = true
+    generation += 1
+    
+    #if canImport(Combine)
+    subject.send(.playing(episode, position: 0, duration: normalized))
+    #endif
+  }
+
+  public func pause() {
+    isPlaying = false
+    #if canImport(Combine)
+    subject.send(.paused(currentEpisode, position: currentPosition, duration: 300))
+    #endif
+  }
+}
+
+/// Simple timer-based ticker for testing
+public final class TimerTicker: Ticker, @unchecked Sendable {
+  private var timer: Timer?
+  
+  public init() {}
+  
+  public func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void) {
+    cancel()
+    timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
+      tick()
+    }
+  }
+  
+  public func cancel() {
+    timer?.invalidate()
+    timer = nil
+  }
+}

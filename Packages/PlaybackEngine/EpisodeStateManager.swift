@@ -21,7 +21,7 @@ public final class InMemoryEpisodeStateManager: EpisodeStateManager {
     }
     
     public func updatePlaybackPosition(_ episode: Episode, position: TimeInterval) async {
-        let updatedEpisode = episode.withPlaybackPosition(position)
+        let updatedEpisode = episode.withPlaybackPosition(Int(position))
         episodeStates[episode.id] = updatedEpisode
     }
     

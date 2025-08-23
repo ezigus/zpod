@@ -1,16 +1,24 @@
-import Foundation
 #if canImport(Combine)
 @preconcurrency import Combine
 #endif
+import Foundation
 
 /// Sleep timer service for automatic playback stopping
 @MainActor
-public final class SleepTimer: ObservableObject {
+public final class SleepTimer {
+    #if canImport(Combine)
     /// Published remaining time in seconds
     @Published public private(set) var remainingTime: TimeInterval = 0
     
     /// Published timer active state
     @Published public private(set) var isActive: Bool = false
+    #else
+    /// Remaining time in seconds (non-Combine version)
+    public private(set) var remainingTime: TimeInterval = 0
+    
+    /// Timer active state (non-Combine version)
+    public private(set) var isActive: Bool = false
+    #endif
     
     /// Callback to trigger when timer expires
     public var onTimerExpired: (@Sendable () -> Void)?

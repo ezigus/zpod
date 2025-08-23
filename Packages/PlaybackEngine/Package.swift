@@ -13,12 +13,29 @@ let package = Package(
             targets: ["PlaybackEngine"]
         )
     ],
+    dependencies: [
+        .package(path: "../CoreModels"),
+        .package(path: "../SharedUtilities"),
+        .package(path: "../TestSupport")
+    ],
     targets: [
         .target(
             name: "PlaybackEngine",
-            dependencies: [],
+            dependencies: [
+                "CoreModels"
+            ],
             path: ".",
-            exclude: ["Package.swift"]
+            exclude: ["Package.swift", "Tests"]
+        ),
+        .testTarget(
+            name: "PlaybackEngineTests",
+            dependencies: [
+                "PlaybackEngine",
+                "CoreModels",
+                "SharedUtilities",
+                "TestSupport"
+            ],
+            path: "Tests"
         )
     ]
 )
