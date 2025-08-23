@@ -8,13 +8,28 @@ import SharedUtilities
 import TestSupport
 
 @MainActor
+@MainActor
 final class BasicPlaybackEngineTests: XCTestCase {
+    
+    private var episodeStateManager: InMemoryEpisodeStateManager!
+    private var sleepTimer: SleepTimer!
+    private var stubPlayer: StubEpisodePlayer!
     
     #if canImport(Combine)
     private var cancellables: Set<AnyCancellable> = []
     #endif
     
+    override func setUp() {
+        super.setUp()
+        episodeStateManager = InMemoryEpisodeStateManager()
+        sleepTimer = SleepTimer()
+        stubPlayer = StubEpisodePlayer()
+    }
+    
     override func tearDown() {
+        episodeStateManager = nil
+        sleepTimer = nil
+        stubPlayer = nil
         #if canImport(Combine)
         cancellables.removeAll()
         #endif
@@ -25,7 +40,6 @@ final class BasicPlaybackEngineTests: XCTestCase {
     
     func testEpisodeStateManager_setPlayedStatus_updatesCorrectly() async {
         // Given: Episode with unplayed status and state manager
-        let episodeStateManager = InMemoryEpisodeStateManager()
         let episode = Episode(id: "ep1", title: "Test Episode")
         
         // When: Setting played status

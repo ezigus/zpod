@@ -7,7 +7,6 @@ import CoreModels
 import SharedUtilities
 import TestSupport
 
-@MainActor
 final class ComprehensiveNetworkingTests: XCTestCase {
     
     // MARK: - Properties
@@ -24,8 +23,6 @@ final class ComprehensiveNetworkingTests: XCTestCase {
     #endif
     
     override func setUp() async throws {
-        try await super.setUp()
-        
         // Given: Set up mock dependencies
         mockDataLoader = MockFeedDataLoader()
         mockParser = MockFeedParser()
@@ -46,7 +43,6 @@ final class ComprehensiveNetworkingTests: XCTestCase {
         #if canImport(Combine)
         cancellables.removeAll()
         #endif
-        try await super.tearDown()
     }
     
     // MARK: - SubscriptionService Tests
