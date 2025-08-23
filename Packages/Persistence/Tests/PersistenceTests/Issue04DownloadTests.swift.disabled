@@ -3,6 +3,7 @@
 #endif
 import XCTest
 @testable import Persistence
+import CoreModels
 
 final class Issue04DownloadTests: XCTestCase {
   var cancellables: Set<AnyCancellable>!

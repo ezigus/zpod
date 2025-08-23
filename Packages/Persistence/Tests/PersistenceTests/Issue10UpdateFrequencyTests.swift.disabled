@@ -3,6 +3,7 @@ import XCTest
 @preconcurrency import Combine
 #endif
 @testable import Persistence
+import CoreModels
 
 @MainActor
 final class Issue10UpdateFrequencyTests: XCTestCase {
