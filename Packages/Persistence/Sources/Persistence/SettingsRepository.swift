@@ -1,10 +1,6 @@
-#if canImport(Combine)
 @preconcurrency import Combine
-#endif
 import Foundation
-#if canImport(os)
 import os.log
-#endif
 import CoreModels
 
 /// Types of settings changes for change notifications
@@ -38,22 +34,16 @@ public protocol SettingsRepository: Sendable {
     func removePodcastPlaybackSettings(podcastId: String) async
     
     // Change notifications
-    #if canImport(Combine)
-    var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> { get }
-    #endif
+    var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> { get async }
 }
 
 /// UserDefaults-based implementation of SettingsRepository
-public actor UserDefaultsSettingsRepository: SettingsRepository {
+public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository {
     private let userDefaults: UserDefaults
-    #if canImport(Combine)
     private let settingsChangeSubject = PassthroughSubject<SettingsChange, Never>()
-    #endif
     
     // Logger for settings-related errors
-    #if canImport(os)
     private let logger = OSLog(subsystem: "com.zpodcastaddict.settings", category: "SettingsRepository")
-    #endif
     
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
@@ -79,9 +69,7 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             return try JSONDecoder().decode(DownloadSettings.self, from: data)
         } catch {
-            #if canImport(os)
             os_log("Failed to decode global download settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
             return DownloadSettings.default
         }
     }
@@ -90,13 +78,9 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             let data = try JSONEncoder().encode(settings)
             userDefaults.set(data, forKey: Keys.globalDownload)
-            #if canImport(Combine)
             settingsChangeSubject.send(.globalDownload(settings))
-            #endif
         } catch {
-            #if canImport(os)
             os_log("Failed to encode global download settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
         }
     }
     
@@ -108,9 +92,7 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             return try JSONDecoder().decode(NotificationSettings.self, from: data)
         } catch {
-            #if canImport(os)
             os_log("Failed to decode global notification settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
             return NotificationSettings.default
         }
     }
@@ -119,13 +101,9 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             let data = try JSONEncoder().encode(settings)
             userDefaults.set(data, forKey: Keys.globalNotification)
-            #if canImport(Combine)
             settingsChangeSubject.send(.globalNotification(settings))
-            #endif
         } catch {
-            #if canImport(os)
             os_log("Failed to encode global notification settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
         }
     }
     
@@ -137,9 +115,7 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             return try JSONDecoder().decode(PlaybackSettings.self, from: data)
         } catch {
-            #if canImport(os)
             os_log("Failed to decode global playback settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
             return PlaybackSettings()
         }
     }
@@ -148,13 +124,9 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             let data = try JSONEncoder().encode(settings)
             userDefaults.set(data, forKey: Keys.globalPlayback)
-            #if canImport(Combine)
             settingsChangeSubject.send(.globalPlayback(settings))
-            #endif
         } catch {
-            #if canImport(os)
             os_log("Failed to encode global playback settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
         }
     }
     
@@ -169,9 +141,7 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             return try JSONDecoder().decode(PodcastDownloadSettings.self, from: data)
         } catch {
-            #if canImport(os)
             os_log("Failed to decode podcast download settings for %{public}@: %{public}@", log: logger, type: .error, podcastId, error.localizedDescription)
-            #endif
             return nil
         }
     }
@@ -181,22 +151,16 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
             let data = try JSONEncoder().encode(settings)
             let key = Keys.podcastDownloadPrefix + settings.podcastId
             userDefaults.set(data, forKey: key)
-            #if canImport(Combine)
             settingsChangeSubject.send(.podcastDownload(settings.podcastId, settings))
-            #endif
         } catch {
-            #if canImport(os)
             os_log("Failed to encode podcast download settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
         }
     }
     
     public func removePodcastDownloadSettings(podcastId: String) async {
         let key = Keys.podcastDownloadPrefix + podcastId
         userDefaults.removeObject(forKey: key)
-        #if canImport(Combine)
         settingsChangeSubject.send(.podcastDownload(podcastId, nil))
-        #endif
     }
     
     public func loadPodcastPlaybackSettings(podcastId: String) async -> PodcastPlaybackSettings? {
@@ -208,9 +172,7 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
         do {
             return try JSONDecoder().decode(PodcastPlaybackSettings.self, from: data)
         } catch {
-            #if canImport(os)
             os_log("Failed to decode podcast playback settings for %{public}@: %{public}@", log: logger, type: .error, podcastId, error.localizedDescription)
-            #endif
             return nil
         }
     }
@@ -220,29 +182,23 @@ public actor UserDefaultsSettingsRepository: SettingsRepository {
             let data = try JSONEncoder().encode(settings)
             let key = Keys.podcastPlaybackPrefix + podcastId
             userDefaults.set(data, forKey: key)
-            #if canImport(Combine)
             settingsChangeSubject.send(.podcastPlayback(podcastId, settings))
-            #endif
         } catch {
-            #if canImport(os)
             os_log("Failed to encode podcast playback settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
         }
     }
     
     public func removePodcastPlaybackSettings(podcastId: String) async {
         let key = Keys.podcastPlaybackPrefix + podcastId
         userDefaults.removeObject(forKey: key)
-        #if canImport(Combine)
         settingsChangeSubject.send(.podcastPlayback(podcastId, nil))
-        #endif
     }
     
     // MARK: - Change Notifications
     
-    #if canImport(Combine)
     public var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> {
-        return settingsChangeSubject.eraseToAnyPublisher()
+        get async {
+            return settingsChangeSubject.eraseToAnyPublisher()
+        }
     }
-    #endif
 }

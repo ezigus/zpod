@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(Combine)
 @preconcurrency import Combine
-#endif
 import CoreModels
 import SharedUtilities
 
@@ -18,9 +16,7 @@ public struct DownloadProgress: Sendable {
 
 /// Protocol for file management operations
 public protocol FileManagerServicing: Sendable {
-    #if canImport(Combine)
-    var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> { get }
-    #endif
+    var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> { get async }
     func downloadPath(for task: DownloadTask) async -> String
     func createDownloadDirectory(for task: DownloadTask) async throws
     func startDownload(_ task: DownloadTask) async throws
@@ -31,18 +27,16 @@ public protocol FileManagerServicing: Sendable {
 }
 
 /// Implementation of file manager service for downloads
-public actor FileManagerService: FileManagerServicing {
+public actor FileManagerService: @preconcurrency FileManagerServicing {
     private let fileManager = FileManager.default
-    #if canImport(Combine)
     private let progressSubject = PassthroughSubject<DownloadProgress, Never>()
-    #endif
     private let baseDownloadsPath: URL
     
-    #if canImport(Combine)
     public var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
-        return progressSubject.eraseToAnyPublisher()
+        get async {
+            return progressSubject.eraseToAnyPublisher()
+        }
     }
-    #endif
     
     public init() async throws {
         // Use Documents directory for downloads
@@ -122,9 +116,7 @@ public actor FileManagerService: FileManagerServicing {
             let progressValue = Double(i) / 10.0
             let downloadProgress = DownloadProgress(taskId: taskId, progress: progressValue)
             
-            #if canImport(Combine)
             progressSubject.send(downloadProgress)
-            #endif
             
             do {
                 try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds

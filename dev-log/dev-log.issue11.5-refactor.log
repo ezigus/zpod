@@ -147,3 +147,327 @@ Workspace Test Run (scheme: zpod)
 - Result bundle: TestResults_20250822_143317/
 - Log: TestResults_20250822_143317.log
 - Note: Per instructions, no code changes were made; proceeding to per-package build/test to capture independent status.
+
+2025-08-22 10:15 ET
+---
+Summary of Package Issues and Action Plan
+
+Packages in zPod:
+- CoreModels
+- FeedParsing
+- Networking
+- Persistence
+- PlaybackEngine
+- SearchDomain
+- SettingsDomain
+- SharedUtilities
+- TestSupport
+
+Recent Issues:
+- Duplicate package error (Networking/FeedParsing): Fixed by renaming Networking manifest and updating dependencies.
+- Test migration: All tests moved to correct package folders; integration tests now in IntegrationTests target.
+- Dependency issues: CoreModelsTests required PlaybackEngine; manifest syntax and missing package references resolved.
+- Platform consistency: All Package.swift files updated to iOS 18/watchOS 11.
+- Build failures: PlaybackEngine/Package.swift uses unsupported platform versions for current toolchain (SwiftPM 5.9.0), blocking builds.
+
+Action Plan:
+- [ ] 1. PlaybackEngine Manifest Update
+      - Update PlaybackEngine/Package.swift to use supported platform versions (e.g., .iOS(.v17), .watchOS(.v10)) or upgrade toolchain to Swift 6.0.
+      - Progress: Pending. Awaiting manifest update and build/test verification.
+
+- [ ] 2. Dependency Verification
+      - Double-check all Package.swift files for correct dependency declarations and product/target names.
+      - Progress: Pending. Will audit manifests after PlaybackEngine manifest is fixed.
+
+- [ ] 3. Test Suite Validation
+      - Run all package/integration tests to confirm migration and modularization are successful.
+      - Progress: Pending. Will run after build issues are resolved.
+
+- [ ] 4. Platform Consistency
+      - Ensure all packages and main app use the same supported platform versions.
+      - Progress: Pending. Will confirm after manifest updates and dependency audit.
+
+- [ ] 5. Documentation and Logging
+      - Document all changes/decisions in dev-log for issue11.5, with timestamps.
+      - Progress: Ongoing. Approach and progress are being logged with timestamps.
+
+Next: Begin with PlaybackEngine manifest update and log progress here.
+
+2025-08-22 15:10 ET
+---
+Dependency Verification (Step 2)
+
+- All Package.swift manifests specify swift-tools-version: 6.0 and platforms [.iOS(.v18), .watchOS(.v11)], which are compatible with the active Swift 6.1.2 toolchain.
+- Dependencies across packages are correctly declared:
+    - CoreModels depends on PlaybackEngine
+    - FeedParsing, Networking, Persistence, SettingsDomain, TestSupport, SearchDomain depend on CoreModels and SharedUtilities as needed
+    - No duplicate or orphaned dependencies found
+    - Product/target names are consistent
+
+Progress: Dependency verification complete. Ready to run builds/tests for each package.
+
+Next: Proceed to Test Suite Validation (Step 3) and log results.
+
+2025-08-22 19:26 ET
+---
+Action Plan Status Update (Checkboxes)
+
+- [x] 1. PlaybackEngine Manifest Update
+      - Status: Complete. Using swift-tools-version: 6.0 with platforms [.iOS(.v18), .watchOS(.v11)] and active toolchain Swift 6.1.2.
+- [x] 2. Dependency Verification
+      - Status: Complete. All Package.swift manifests validated; dependencies/product names consistent; no duplicates/orphans.
+- [ ] 3. Test Suite Validation
+      - Status: In progress. Running workspace and per-package builds/tests and logging results.
+- [ ] 4. Platform Consistency
+      - Status: Pending. Will finalize after Step 3 completes.
+- [ ] 5. Documentation and Logging
+      - Status: Ongoing. Dev-log and TestResults updated between each run.
+
+2025-08-22 15:20 ET
+---
+Prep for Test Runs (Step 3)
+- Created TestResults directory to store build/test logs.
+- Path: /Users/ericziegler/code/zpod/TestResults/
+
+2025-08-22 19:18 ET
+---
+Workspace Test Run (scheme: zpod) – Attempt 2
+- Device: iPhone 16 (iOS 18.5) Simulator
+- Command: xcodebuild -scheme zpod -workspace zpod.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: FAILED (build failed; tests cancelled)
+- Primary failure: Persistence target – Swift 6 actor isolation
+  • UserDefaultsSettingsRepository.settingsChangedPublisher: actor-isolated property cannot satisfy nonisolated protocol requirement
+  • FileManagerService also reported compile failure (details in log)
+- Logs:
+  • Console log: TestResults/TestResults_20250822_1532.log
+  • xcresult: DerivedData path (see xcodebuild output)
+- Note: Per plan, no code changes made; proceeding with per-package builds to isolate failures.
+
+2025-08-22 19:21 ET
+---
+Package Build: CoreModels
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme CoreModels -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_CoreModels_20250822_1921.log
+
+2025-08-22 19:24 ET
+---
+Package Build: SharedUtilities
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SharedUtilities -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_SharedUtilities_20250822_1924.log
+
+Next (Step 3 continues):
+- Build remaining packages sequentially and log between each run: Persistence, FeedParsing, Networking, SettingsDomain, SearchDomain, TestSupport, PlaybackEngine.
+- After all package runs, re-attempt workspace tests and summarize PASS/FAIL.
+
+2025-08-22 19:28 ET
+---
+Package Build: Persistence
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme Persistence -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: FAIL (BUILD FAILED)
+- Primary errors (Swift 6 actor isolation):
+  • SettingsRepository.swift: actor-isolated property settingsChangedPublisher cannot satisfy nonisolated protocol requirement
+  • FileManagerService.swift: actor-isolated property downloadProgressPublisher cannot satisfy nonisolated protocol requirement
+  • Compiler suggests adding @preconcurrency to conformances to defer isolation checking
+- Log: TestResults/TestResults_Persistence_20250822_1928.log
+- Note: Per plan, no code changes made; proceeding to next packages.
+
+2025-08-22 19:30 ET
+---
+Package Build: FeedParsing
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme FeedParsing -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_FeedParsing_20250822_1930.log
+
+2025-08-22 19:32 ET
+---
+Package Build: Networking
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme Networking -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_Networking_20250822_1932.log
+
+2025-08-22 19:34 ET
+---
+Package Build: SettingsDomain
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SettingsDomain -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_SettingsDomain_20250822_1934.log
+
+2025-08-22 19:36 ET
+---
+Package Build: SearchDomain
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SearchDomain -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_SearchDomain_20250822_1936.log
+
+2025-08-22 19:38 ET
+---
+Package Build: TestSupport
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme TestSupport -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_TestSupport_20250822_1938.log
+
+2025-08-22 19:40 ET
+---
+Package Build: PlaybackEngine
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme PlaybackEngine -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_PlaybackEngine_20250822_1940.log
+
+2025-08-22 19:42 ET
+---
+Workspace Test Re-Attempt (scheme: zpod)
+- Device: iPhone 16 (iOS 18.5) Simulator
+- Command: xcodebuild -scheme zpod -workspace zpod.xcworkspace -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: FAILED (build failed; tests cancelled)
+- Primary failure: Persistence target – Swift 6 actor isolation
+  • UserDefaultsSettingsRepository.settingsChangedPublisher: actor-isolated property cannot satisfy nonisolated requirement from protocol SettingsRepository
+  • FileManagerService also reported compile failure (details in log)
+- Logs:
+  • Console log: TestResults/TestResults_20250822_1942.log
+  • xcresult: DerivedData path (see xcodebuild output)
+- Note: Persistent build/test failures despite individual package build success. Further investigation needed for Persistence package actor isolation issues.
+
+2025-08-22 19:46 ET
+---
+Per-Package Unit Test Plan (Step 3 continued)
+- Objective: Run unit tests for each package scheme where tests exist, without making code changes. Capture logs per run in TestResults/ and summarize PASS/FAIL.
+- Target schemes: CoreModels, SharedUtilities, Persistence, FeedParsing, Networking, SettingsDomain, SearchDomain, TestSupport, PlaybackEngine. Also check for an IntegrationTests scheme.
+- Device: iPhone 16 (iOS 18.5) Simulator
+- Logging: Write console output to TestResults/TestResults_<Scheme>_<YYYYMMDD_HHMM>_tests.log and keep last 30 results.
+- Note: If a scheme has no tests, record "No tests found" and consider the test run as N/A (build success still noted).
+
+Next: List available schemes, then run tests sequentially and log results between each run.
+
+2025-08-22 19:48 ET
+---
+Per-Package Unit Tests: CoreModels (Attempt 1)
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme CoreModels -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (no test summary in output)
+- Observations:
+  • Log shows only Resolve Package Graph and resolved packages; no build/test phases ran
+  • Message present: "Source files for target SharedUtilitiesTests should be located under 'Tests/SharedUtilitiesTests'..." (likely unrelated resolver notice)
+- Log: TestResults/TestResults_CoreModels_20250822_1946_tests.log
+
+2025-08-22 19:48 ET
+---
+Per-Package Unit Tests: CoreModels (Attempt 2)
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme CoreModels -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (same behavior)
+- Observations: Same as Attempt 1; no test targets appear to be configured in scheme's Test action
+- Log: TestResults/TestResults_CoreModels_20250822_1948_tests.log
+
+2025-08-22 19:50 ET
+---
+Per-Package Unit Tests: Persistence (Attempt 1)
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme Persistence -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (no build/test phases ran)
+- Observations:
+  • Log shows Resolve Package Graph only; no compilation or test discovery output
+  • Note: Workspace-level builds previously failed in Persistence due to Swift 6 actor isolation; tests likely blocked by build issues or scheme config
+- Log: TestResults/TestResults_Persistence_20250822_1950_tests.log
+
+2025-08-22 19:56 ET
+---
+Per-Package Unit Tests: FeedParsing
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme FeedParsing -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_FeedParsing_20250822_1956_tests.log
+
+2025-08-22 19:58 ET
+---
+Per-Package Unit Tests: SettingsDomain
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SettingsDomain -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Logs:
+  • TestResults/TestResults_SettingsDomain_20250822_1958_tests.log
+  • Note: An additional log exists at 20:02 created earlier during setup: TestResults/TestResults_SettingsDomain_20250822_2002_tests.log
+
+2025-08-22 20:05 ET
+---
+Per-Package Unit Tests: SharedUtilities
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SharedUtilities -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_SharedUtilities_20250822_2005_tests.log
+
+2025-08-22 20:06 ET
+---
+Per-Package Unit Tests: PlaybackEngine
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme PlaybackEngine -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_PlaybackEngine_20250822_2006_tests.log
+
+2025-08-22 20:08 ET
+---
+Per-Package Unit Tests: Networking
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme Networking -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_Networking_20250822_2008_tests.log
+
+2025-08-22 20:10 ET
+---
+Per-Package Unit Tests: SearchDomain
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme SearchDomain -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_SearchDomain_20250822_2011_tests.log
+
+2025-08-22 20:14 ET
+---
+Per-Package Unit Tests: TestSupport
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme TestSupport -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: NO TESTS EXECUTED (log shows Resolve Package Graph only; no test phases)
+- Log: TestResults/TestResults_TestSupport_20250822_2014_tests.log
+
+2025-08-22 20:16 ET
+---
+IntegrationTests Scheme Attempt
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme IntegrationTests -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: SCHEME NOT FOUND/NO OUTPUT (no CLI output captured; no log created)
+- Notes: IntegrationTests target may not have a shared scheme; requires manual Xcode verification in a future pass.
+
+2025-08-22 20:18 ET
+---
+TestResults Log Rotation – Outcome
+- Evaluation: For each scheme, 3 or fewer logs exist; no deletions required to meet the "keep latest 3" policy.
+- Workspace logs without scheme prefix retained.
+
+2025-08-22 20:23 ET
+---
+Workspace Test Run (scheme: zpod) – Attempt 3
+- Device: iPhone 16 (iOS 18.5) Simulator
+- Command: xcodebuild -workspace zpod.xcworkspace -scheme zpod -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' test
+- Result: FAILED (build failed; tests cancelled)
+- Primary failures observed:
+  • Persistence/FileManagerService.swift: actor-isolated property 'downloadProgressPublisher' cannot satisfy nonisolated requirement from protocol 'FileManagerServicing' (compiler suggests adding '@preconcurrency' to conformance)
+  • TestSupport/InMemoryPodcastManager.swift: SwiftCompile failed with a nonzero exit code (details in log)
+- Log: TestResults/TestResults_zpod_20250822_2023_tests.log
+- Notes: Build advanced further than prior attempt, compiling several package modules before failing on Persistence and TestSupport.
+
+2025-08-22 20:26 ET
+---
+Status Summary (Step 3 to-date)
+- Package builds:
+  • PASS: CoreModels, SharedUtilities, FeedParsing, Networking, SettingsDomain, SearchDomain, TestSupport, PlaybackEngine
+  • FAIL: Persistence (Swift 6 actor isolation on publisher properties)
+- Package tests:
+  • NO TESTS EXECUTED for CoreModels, Persistence, FeedParsing, SettingsDomain, SharedUtilities, Networking, SearchDomain, TestSupport, PlaybackEngine (schemes' Test actions likely lack test targets)
+- Workspace tests (scheme: zpod): FAILED; blocked by Persistence actor-isolation error and a TestSupport compile error; tests cancelled.
+- Logs dir: /Users/ericziegler/code/zpod/TestResults/ (see timestamped *_tests.log and prior build logs)
+
+2025-08-22 20:32 ET
+---
+Persistence Build Failure Fix Plan
+- Symptom: Swift 6 actor isolation errors in Persistence for publisher properties
+  • FileManagerService.downloadProgressPublisher cannot satisfy nonisolated protocol requirement
+  • UserDefaultsSettingsRepository.settingsChangedPublisher cannot satisfy nonisolated protocol requirement
+- Approach:
+  • Ensure protocol publisher requirements use async getter to allow cross-actor access
+  • Add @preconcurrency to protocol conformances to defer isolation/sendability checks for Combine types
+  • Keep @preconcurrency import Combine as-is
+- Files to change:
+  • Packages/Persistence/Sources/Persistence/FileManagerService.swift (conformance annotation)
+  • Packages/Persistence/Sources/Persistence/SettingsRepository.swift (conformance annotation)
+- Validation:
+  • Rebuild Persistence scheme and capture TestResults log
+  • If still failing, revisit protocol requirements and isolation attributes
