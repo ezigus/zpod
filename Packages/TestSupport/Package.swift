@@ -20,6 +20,14 @@ let package = Package(
                 .product(name: "CoreModels", package: "CoreModels")
             ],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "TestSupportTests",
+            dependencies: [
+                "TestSupport",
+                .product(name: "CoreModels", package: "CoreModels")
+            ],
+            path: "Tests"
         )
     ]
 )
