@@ -3,29 +3,57 @@ import Foundation
 @testable import Persistence
 import CoreModels
 
+// Sendable wrapper for UserDefaults for testing
+final class SendableUserDefaults: @unchecked Sendable {
+    private let userDefaults: UserDefaults
+    
+    init(_ userDefaults: UserDefaults) {
+        self.userDefaults = userDefaults
+    }
+    
+    func removePersistentDomain(forName name: String) {
+        userDefaults.removePersistentDomain(forName: name)
+    }
+    
+    func set(_ value: Any?, forKey key: String) {
+        userDefaults.set(value, forKey: key)
+    }
+    
+    func data(forKey key: String) -> Data? {
+        return userDefaults.data(forKey: key)
+    }
+    
+    func removeObject(forKey key: String) {
+        userDefaults.removeObject(forKey: key)
+    }
+    
+    var wrappedValue: UserDefaults { userDefaults }
+}
+
 final class BasicPersistenceTests: XCTestCase {
     
-    var podcastRepository: UserDefaultsPodcastRepository!
-    var episodeRepository: UserDefaultsEpisodeRepository!
-    var userDefaults: UserDefaults!
-    var suiteName: String!
+    private var podcastRepository: UserDefaultsPodcastRepository!
+    private var episodeRepository: UserDefaultsEpisodeRepository!
+    private var userDefaults: SendableUserDefaults!
+    private var suiteName: String!
     
     override func setUp() async throws {
         try await super.setUp()
         
         // Given: Fresh UserDefaults for each test
         suiteName = "test-basic-\(UUID().uuidString)"
-        userDefaults = UserDefaults(suiteName: suiteName)!
+        let rawUserDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults = SendableUserDefaults(rawUserDefaults)
         userDefaults.removePersistentDomain(forName: suiteName)
         
         // Given: Fresh repositories
-        podcastRepository = UserDefaultsPodcastRepository(userDefaults: userDefaults)
-        episodeRepository = UserDefaultsEpisodeRepository(userDefaults: userDefaults)
+        podcastRepository = UserDefaultsPodcastRepository(userDefaults: userDefaults.wrappedValue)
+        episodeRepository = UserDefaultsEpisodeRepository(userDefaults: userDefaults.wrappedValue)
     }
     
     override func tearDown() async throws {
         // Clean up UserDefaults
-        userDefaults.removePersistentDomain(forName: suiteName)
+        userDefaults?.removePersistentDomain(forName: suiteName)
         userDefaults = nil
         podcastRepository = nil
         episodeRepository = nil

@@ -25,6 +25,15 @@ let package = Package(
                 "SharedUtilities"
             ],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "FeedParsingTests",
+            dependencies: [
+                "FeedParsing",
+                "CoreModels",
+                "SharedUtilities"
+            ],
+            path: "Tests"
         )
     ]
 )
