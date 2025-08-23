@@ -12,7 +12,7 @@ public protocol OPMLParsing {
 
 /// XML-based OPML parser implementation
 #if canImport(FoundationXML)
-public final class XMLOPMLParser: NSObject, OPMLParsing {
+public final class XMLOPMLParser: NSObject, OPMLParsing, @unchecked Sendable {
     
     /// Errors that can occur during OPML parsing
     public enum Error: Swift.Error, Equatable {

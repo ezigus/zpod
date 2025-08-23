@@ -31,6 +31,11 @@ let package = Package(
         ),
         .testTarget(
             name: "SettingsDomainTests",
-            dependencies: ["SettingsDomain"])
+            dependencies: [
+                "SettingsDomain",
+                .product(name: "CoreModels", package: "CoreModels"),
+                .product(name: "SharedUtilities", package: "SharedUtilities"),
+                .product(name: "Persistence", package: "Persistence")
+            ])
     ]
 )

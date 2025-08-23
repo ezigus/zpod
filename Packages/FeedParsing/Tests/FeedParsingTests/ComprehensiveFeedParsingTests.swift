@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import CoreModels
 @testable import FeedParsing
 import CoreModels
 import SharedUtilities
