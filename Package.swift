@@ -20,6 +20,7 @@ let package = Package(
         // Local packages
         .package(path: "Packages/CoreModels"),
         .package(path: "Packages/SharedUtilities"),
+        .package(path: "Packages/TestSupport"),
         .package(path: "Packages/Persistence"),
         .package(path: "Packages/FeedParsing"), // Re-added FeedParsing dependency
         .package(path: "Packages/Networking"),
@@ -68,15 +69,23 @@ let package = Package(
         .testTarget(
             name: "zpodTests", 
             dependencies: [
-                "zpodLib"
+                "zpodLib",
+                "TestSupport"
             ],
-            path: "zpodTests",
-            exclude: [
-                // Exclude tests that depend on Combine/UI services which are not in zpodLib
-                "Issue03AdvancedControlsTests.swift",
-                "Issue06PlaylistTests.swift",
-                "Issue07FolderTagTests.swift"
+            path: "Tests/zpodTests",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
+        
+        // Integration test target
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "zpodLib",
+                "TestSupport"
             ],
+            path: "IntegrationTests",
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]
