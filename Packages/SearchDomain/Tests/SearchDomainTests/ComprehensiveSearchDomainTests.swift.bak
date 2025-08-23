@@ -1,0 +1,387 @@
+import XCTest
+import Foundation
+import CoreModels
+import SharedUtilities
+import TestSupport
+@testable import SearchDomain
+
+/// Comprehensive test suite for SearchDomain package covering:
+/// - SearchService functionality with relevance scoring
+/// - SearchIndex document indexing and retrieval
+/// - Tokenizer text processing and normalization
+/// - OrganizationManagers integration
+/// - Cross-platform compatibility and Swift 6 concurrency patterns
+final class ComprehensiveSearchDomainTests: XCTestCase {
+    
+    private var searchService: SearchService!
+    private var searchIndex: SearchIndex!
+    private var tokenizer: Tokenizer!
+    private var mockPodcastManager: InMemoryPodcastManager!
+    
+    override func setUp() {
+        super.setUp()
+        
+        // Create fresh instances for each test
+        searchIndex = SearchIndex()
+        tokenizer = Tokenizer()
+        mockPodcastManager = InMemoryPodcastManager()
+        
+        // Note: SearchService will be created as needed per test with MainActor context
+    }
+    
+    override func tearDown() {
+        searchService = nil
+        searchIndex = nil
+        tokenizer = nil
+        mockPodcastManager = nil
+        super.tearDown()
+    }
+    
+    // MARK: - Tokenizer Tests
+    
+    func testTokenizer_BasicTokenization() {
+        // Given: Text containing mixed case, punctuation, and stop words
+        let text = "The Quick Brown Fox Jumps Over the Lazy Dog!"
+        
+        // When: Tokenizing the text
+        let tokens = tokenizer.tokenize(text)
+        
+        // Then: Should return normalized tokens without stop words
+        let expectedTokens = ["quick", "brown", "fox", "jumps", "lazy", "dog"]
+        XCTAssertEqual(Set(tokens), Set(expectedTokens), "Should tokenize and filter stop words correctly")
+    }
+    
+    func testTokenizer_UnicodeHandling() {
+        // Given: Text with Unicode characters and accents
+        let text = "Café Français 🎧 Podcast"
+        
+        // When: Tokenizing Unicode text
+        let tokens = tokenizer.tokenize(text)
+        
+        // Then: Should handle Unicode characters appropriately
+        XCTAssertTrue(tokens.contains("café") || tokens.contains("cafe"), "Should handle accented characters")
+        XCTAssertTrue(tokens.contains("français") || tokens.contains("francais"), "Should handle French characters")
+        XCTAssertTrue(tokens.contains("podcast"), "Should handle mixed content")
+    }
+    
+    func testTokenizer_EdgeCases() {
+        // Given: Various edge case inputs
+        let emptyText = ""
+        let whitespaceOnly = "   \n\t  "
+        let numbersOnly = "123 456"
+        let punctuationOnly = "!@#$%^&*()"
+        
+        // When: Tokenizing edge cases
+        let emptyTokens = tokenizer.tokenize(emptyText)
+        let whitespaceTokens = tokenizer.tokenize(whitespaceOnly)
+        let numberTokens = tokenizer.tokenize(numbersOnly)
+        let punctuationTokens = tokenizer.tokenize(punctuationOnly)
+        
+        // Then: Should handle edge cases gracefully
+        XCTAssertTrue(emptyTokens.isEmpty, "Empty text should produce no tokens")
+        XCTAssertTrue(whitespaceTokens.isEmpty, "Whitespace-only should produce no tokens")
+        XCTAssertEqual(numberTokens, ["123", "456"], "Should tokenize numbers")
+        XCTAssertTrue(punctuationTokens.isEmpty, "Punctuation-only should produce no tokens")
+    }
+    
+    func testTokenizer_Normalization() {
+        // Given: Text with varying case and formatting
+        let _ = "PODCAST episode" // Unused variable
+        
+        // When: Normalizing individual terms
+        let normalizedPodcast = tokenizer.normalize("PODCAST")
+        let normalizedEpisode = tokenizer.normalize("Episode")
+        
+        // Then: Should normalize to lowercase
+        XCTAssertEqual(normalizedPodcast, "podcast", "Should normalize to lowercase")
+        XCTAssertEqual(normalizedEpisode, "episode", "Should normalize to lowercase")
+    }
+    
+    // MARK: - SearchIndex Tests
+    
+    func testSearchIndex_DocumentIndexing() {
+        // Given: A searchable document
+        let podcast = MockPodcast.createSample(
+            id: "podcast-1",
+            title: "Test Podcast"
+        )
+        let document = SearchableDocument(
+            id: podcast.id,
+            type: .podcast,
+            fields: [
+                .title: podcast.title,
+                .author: podcast.author ?? "",
+                .description: podcast.description ?? ""
+            ],
+            sourceObject: podcast
+        )
+        
+        // When: Adding document to index
+        searchIndex.addDocument(document)
+        
+        // Then: Should be able to search for indexed terms
+        let techResults = searchIndex.findDocuments(for: "technology")
+        let podcastResults = searchIndex.findDocuments(for: "podcast")
+        
+        XCTAssertFalse(techResults.isEmpty, "Should find documents containing 'technology'")
+        XCTAssertFalse(podcastResults.isEmpty, "Should find documents containing 'podcast'")
+        XCTAssertTrue(techResults.contains { $0.id == podcast.id }, "Should find the correct document")
+    }
+    
+    func testSearchIndex_MultipleDocuments() {
+        // Given: Multiple documents with overlapping and unique terms
+        let podcast1 = MockPodcast.createSample(id: "p1", title: "Tech Podcast")
+        let podcast2 = MockPodcast.createSample(id: "p2", title: "Science Show")
+        
+        let doc1 = SearchableDocument(
+            id: podcast1.id,
+            type: .podcast,
+            fields: [.title: podcast1.title, .author: podcast1.author ?? "", .description: podcast1.description ?? ""],
+            sourceObject: podcast1
+        )
+        let doc2 = SearchableDocument(
+            id: podcast2.id,
+            type: .podcast,
+            fields: [.title: podcast2.title, .author: podcast2.author ?? "", .description: podcast2.description ?? ""],
+            sourceObject: podcast2
+        )
+        
+        // When: Adding multiple documents
+        searchIndex.addDocument(doc1)
+        searchIndex.addDocument(doc2)
+        
+        // Then: Should find documents based on different terms
+        let techResults = searchIndex.findDocuments(for: "technology")
+        let scienceResults = searchIndex.findDocuments(for: "science")
+        let podcastResults = searchIndex.findDocuments(for: "podcast")
+        
+        XCTAssertEqual(techResults.count, 2, "Both documents should contain 'technology'")
+        XCTAssertEqual(scienceResults.count, 1, "Only science document should contain 'science'")
+        XCTAssertEqual(podcastResults.count, 1, "Only tech document should contain 'podcast'")
+    }
+    
+    func testSearchIndex_FieldWeighting() {
+        // Given: Document with terms in different fields
+        let podcast = MockPodcast.createSample(id: "swift-pod", title: "Swift Programming")
+        let document = SearchableDocument(
+            id: podcast.id,
+            type: .podcast,
+            fields: [
+                .title: podcast.title,
+                .author: podcast.author ?? "",
+                .description: podcast.description ?? ""
+            ],
+            sourceObject: podcast
+        )
+        
+        // When: Adding document and searching
+        searchIndex.addDocument(document)
+        let results = searchIndex.findDocuments(for: "swift")
+        
+        // Then: Should find the document and consider field weights
+        XCTAssertFalse(results.isEmpty, "Should find document containing 'swift'")
+        let result = results.first { $0.id == podcast.id }
+        XCTAssertNotNil(result, "Should find the specific document")
+    }
+    
+    // MARK: - SearchService Tests
+    
+    @MainActor
+    func testSearchService_BasicSearch() async {
+        // Given: Search service with indexed content
+        let podcast = MockPodcast.createSample(id: "ios-pod", title: "iOS Development")
+        
+        // Create a test index source
+        let testSource = TestSearchIndexSource(documents: [
+            SearchableDocument(
+                id: podcast.id,
+                type: .podcast,
+                fields: [
+                    .title: podcast.title,
+                    .author: podcast.author ?? "",
+                    .description: podcast.description ?? ""
+                ],
+                sourceObject: podcast
+            )
+        ])
+        
+        let searchService = SearchService(indexSources: [testSource])
+        
+        // When: Performing a search
+        let results = await searchService.search(query: "iOS development", filter: nil)
+        
+        // Then: Should return relevant results
+        XCTAssertFalse(results.isEmpty, "Should find results for 'iOS development'")
+        
+        // Check that the result contains the expected podcast
+        let hasExpectedPodcast = results.contains { result in
+            if case .podcast(let foundPodcast, relevanceScore: _) = result {
+                return foundPodcast.id == podcast.id
+            }
+            return false
+        }
+        XCTAssertTrue(hasExpectedPodcast, "Should find the expected podcast in results")
+    }
+    
+    @MainActor
+    func testSearchService_EmptyQuery() async {
+        // Given: Search service
+        let searchService = SearchService(indexSources: [])
+        
+        // When: Searching with empty query
+        let emptyResults = await searchService.search(query: "", filter: nil)
+        let whitespaceResults = await searchService.search(query: "   ", filter: nil)
+        
+        // Then: Should return empty results
+        XCTAssertTrue(emptyResults.isEmpty, "Empty query should return no results")
+        XCTAssertTrue(whitespaceResults.isEmpty, "Whitespace query should return no results")
+    }
+    
+    @MainActor
+    func testSearchService_FilteredSearch() async {
+        // Given: Search service with mixed content types
+        let podcast = MockPodcast.createSample(title: "Test Podcast")
+        let episode = MockEpisode.createSample(title: "Test Episode")
+        
+        let testSource = TestSearchIndexSource(documents: [
+            SearchableDocument(
+                id: podcast.id,
+                type: .podcast,
+                fields: [.title: podcast.title, .description: podcast.description ?? ""],
+                sourceObject: podcast
+            ),
+            SearchableDocument(
+                id: episode.id,
+                type: .episode,
+                fields: [.title: episode.title, .description: episode.description ?? ""],
+                sourceObject: episode
+            )
+        ])
+        
+        let searchService = SearchService(indexSources: [testSource])
+        
+        // When: Searching with type filter
+        let podcastFilter = SearchFilter.podcastsOnly
+        let filteredResults = await searchService.search(query: "technology", filter: podcastFilter)
+        
+        // Then: Should only return filtered content types
+        for result in filteredResults {
+            XCTAssertTrue(result.isPodcast, "Filtered results should only contain podcasts")
+        }
+    }
+    
+    // MARK: - Performance Tests
+    
+    func testSearchIndex_PerformanceBaseline() {
+        // Given: Large number of documents
+        let documentCount = 100
+        var documents: [SearchableDocument] = []
+        
+        for i in 0..<documentCount {
+            let podcast = MockPodcast.createSample(
+                id: "podcast-\(i)",
+                title: "Podcast \(i)"
+            )
+            documents.append(SearchableDocument(
+                id: podcast.id,
+                type: .podcast,
+                fields: [
+                    .title: podcast.title,
+                    .author: podcast.author ?? "",
+                    .description: podcast.description ?? ""
+                ],
+                sourceObject: podcast
+            ))
+        }
+        
+        let startTime = Date()
+        
+        // When: Indexing all documents
+        for document in documents {
+            searchIndex.addDocument(document)
+        }
+        
+        // Perform multiple searches
+        for _ in 0..<10 {
+            let _ = searchIndex.findDocuments(for: "podcast")
+            let _ = searchIndex.findDocuments(for: "description")
+            let _ = searchIndex.findDocuments(for: "keywords")
+        }
+        
+        let endTime = Date()
+        let duration = endTime.timeIntervalSince(startTime)
+        
+        // Then: Should complete within reasonable time
+        XCTAssertLessThan(duration, 5.0, "Indexing and searching should be performant")
+    }
+    
+    // MARK: - Cross-Platform Compatibility Tests
+    
+    func testCrossPlatformCompatibility() {
+        // Given: Search components on current platform
+        let tokenizer = Tokenizer()
+        let _ = SearchIndex() // Create but don't use to avoid warning
+        
+        // When: Using search functionality
+        let tokens = tokenizer.tokenize("cross platform test")
+        let normalizedTerm = tokenizer.normalize("TEST")
+        
+        // Then: Should work across different platforms
+        XCTAssertFalse(tokens.isEmpty, "Tokenization should work on all platforms")
+        XCTAssertEqual(normalizedTerm, "test", "Normalization should work on all platforms")
+        
+        // Platform-specific features should be conditionally available
+        #if canImport(CoreFoundation)
+        XCTAssertTrue(true, "CoreFoundation-dependent features available")
+        #endif
+    }
+    
+    // MARK: - Sendable Compliance Tests
+    
+    func testSendableCompliance() {
+        // Given: Search domain types that should be Sendable
+        let document = SearchableDocument(
+            id: "test-id",
+            type: .podcast,
+            fields: [.title: "Test Title"],
+            sourceObject: MockPodcast.createSample(title: "Test")
+        )
+        
+        // When: Using search types in async context
+        Task {
+            // Should be able to capture and use types across concurrency boundaries
+            let documentId = document.id
+            let documentType = document.type
+            XCTAssertEqual(documentId, "test-id", "Should maintain ID across concurrency boundaries")
+            XCTAssertEqual(documentType, .podcast, "Should maintain type across concurrency boundaries")
+        }
+        
+        // Then: Should compile without Sendable warnings
+        XCTAssertEqual(document.id, "test-id", "Should be Sendable-compliant")
+    }
+}
+
+// MARK: - Test Helpers
+
+/// Test implementation of SearchIndexSource for testing
+private class TestSearchIndexSource: SearchIndexSource {
+    private let testDocuments: [SearchableDocument]
+    
+    init(documents: [SearchableDocument]) {
+        self.testDocuments = documents
+    }
+    
+    func documents() -> [SearchableDocument] {
+        return testDocuments
+    }
+}
+
+/// Extension for SearchResult to check type
+private extension SearchResult {
+    var isPodcast: Bool {
+        if case .podcast = self {
+            return true
+        }
+        return false
+    }
+}

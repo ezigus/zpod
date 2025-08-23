@@ -27,6 +27,15 @@ let package = Package(
                 "TestSupport"
             ],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "SearchDomainTests",
+            dependencies: [
+                "SearchDomain",
+                "CoreModels",
+                "SharedUtilities",
+                "TestSupport"
+            ]
         )
     ]
 )
