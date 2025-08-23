@@ -74,7 +74,72 @@ public struct PlaylistRuleData: Codable, Equatable, Sendable {
     }
 }
 
+/// Smart playlist criteria for dynamic episode selection
+public struct SmartPlaylistCriteria: Codable, Equatable, Sendable {
+    public let maxEpisodes: Int
+    public let orderBy: SmartPlaylistOrderBy
+    public let filterRules: [SmartPlaylistFilterRule]
+    
+    public init(
+        maxEpisodes: Int = 50,
+        orderBy: SmartPlaylistOrderBy = .dateAdded,
+        filterRules: [SmartPlaylistFilterRule] = []
+    ) {
+        self.maxEpisodes = maxEpisodes
+        self.orderBy = orderBy
+        self.filterRules = filterRules
+    }
+}
+
+/// Order options for smart playlists
+public enum SmartPlaylistOrderBy: String, Codable, Sendable {
+    case dateAdded
+    case publicationDate
+    case duration
+    case random
+}
+
+/// Filter rules for smart playlists
+public enum SmartPlaylistFilterRule: Codable, Equatable, Sendable {
+    case isPlayed(Bool)
+    case podcastCategory(String)
+    case dateRange(start: Date, end: Date)
+    case durationRange(min: TimeInterval, max: TimeInterval)
+}
+
 public struct SmartPlaylist: Codable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let name: String
+    public let episodeIds: [String] // Current episodes matching criteria
+    public let continuousPlayback: Bool
+    public let shuffleAllowed: Bool
+    public let createdAt: Date
+    public let updatedAt: Date
+    public let criteria: SmartPlaylistCriteria
+    
+    public init(
+        id: String = UUID().uuidString,
+        name: String,
+        episodeIds: [String] = [],
+        continuousPlayback: Bool = true,
+        shuffleAllowed: Bool = true,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        criteria: SmartPlaylistCriteria = SmartPlaylistCriteria()
+    ) {
+        self.id = id
+        self.name = name
+        self.episodeIds = episodeIds
+        self.continuousPlayback = continuousPlayback
+        self.shuffleAllowed = shuffleAllowed
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.criteria = criteria
+    }
+}
+
+// Legacy SmartPlaylist for compatibility - will be removed
+public struct LegacySmartPlaylist: Codable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String
     public let rules: [PlaylistRuleData]

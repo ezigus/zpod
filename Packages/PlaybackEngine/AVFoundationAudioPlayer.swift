@@ -2,7 +2,9 @@
 @preconcurrency import Combine
 #endif
 import Foundation
+#if canImport(AVFoundation)
 import AVFoundation
+#endif
 #if canImport(os)
 import os.log
 #endif

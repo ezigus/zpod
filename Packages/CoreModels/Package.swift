@@ -13,7 +13,7 @@ let package = Package(
             targets: ["CoreModels"]),
     ],
     dependencies: [
-        .package(path: "../PlaybackEngine")
+        // Remove PlaybackEngine dependency for now to focus on CoreModels tests
     ],
     targets: [
         .target(
@@ -26,8 +26,7 @@ let package = Package(
         .testTarget(
             name: "CoreModelsTests",
             dependencies: [
-                "CoreModels",
-                .product(name: "PlaybackEngine", package: "PlaybackEngine")
+                "CoreModels"
             ]
          )
     ]
