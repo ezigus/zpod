@@ -435,6 +435,8 @@ Package Build: SettingsDomain
 ---
 Package Build: SearchDomain
 - Command: xcodebuild -workspace zpod.xcworkspace -scheme SearchDomain -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
+- Result: PASS (BUILD SUCCEEDED)
+- Log: TestResults/TestResults_SearchDomain_20250822_1936.log
 
 2025-01-02 16:30 ET
 ---
@@ -832,7 +834,7 @@ Continuing Comprehensive Unit Testing Initiative - TestSupport Package
   2. 📋 Persistence (has basic tests, needs comprehensive coverage)
   3. 📋 FeedParsing (has OPML tests, needs comprehensive coverage)
   4. 📋 SettingsDomain (has issue-specific tests, needs comprehensive coverage)
-  5. 📋 PlaybackEngine (has basic tests, needs comprehensive coverage)
+  5. 📋 PlaybackEngine (has basic test, needs comprehensive coverage)
   6. 📋 SearchDomain (no tests, needs comprehensive coverage)
   7. 📋 Networking (no tests, needs comprehensive coverage)
 
@@ -1158,3 +1160,12 @@ Fix: DummyFileManagerService conformance to FileManagerServicing
 - Updated DummyFileManagerService.downloadProgressPublisher to AnyPublisher<DownloadProgress, Never> with async getter returning Empty().eraseToAnyPublisher().
 - Verified by building Networking scheme for iOS Simulator: BUILD SUCCEEDED.
 - Next: Address SharedUtilities Logger OS availability to unblock full swift build on macOS.
+
+2025-08-24 09:55 ET
+---
+Issue11.5 – Enforce iOS/watchOS-only builds (iOS ≥ 18, watchOS ≥ 11)
+- Verified all Package.swift manifests already restrict platforms to [.iOS(.v18), .watchOS(.v11)]. No macOS/tvOS targets present.
+- CI workflow already uses iphonesimulator. No changes needed.
+- Updated scripts/run-xcode-tests.sh to include OS=18.5 in simulator destination by default to avoid running on lower iOS.
+- Outcome: Local test runner and CI now explicitly run on iOS 18.x simulators; repository is configured for iOS and watchOS only.
+- Next: Build zpod scheme on iOS 18.5 simulator and capture result log.

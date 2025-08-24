@@ -3,15 +3,17 @@ set -euo pipefail
 
 # Run full Xcode test suite on a simulator, preferring iPhone 16.
 # Usage:
-#   scripts/run-xcode-tests.sh [SCHEME] [WORKSPACE] [SIM_NAME]
+#   scripts/run-xcode-tests.sh [SCHEME] [WORKSPACE] [SIM_NAME] [IOS_OS_VERSION]
 # Defaults:
 #   SCHEME=zpod
 #   WORKSPACE=zpod.xcworkspace
 #   SIM_NAME=iPhone 16
+#   IOS_OS_VERSION=18.5
 
 SCHEME="${1:-zpod}"
 WORKSPACE="${2:-zpod.xcworkspace}"
 PREFERRED_SIM="${3:-iPhone 16}"
+IOS_OS_VERSION="${4:-18.5}"
 
 FALLBACK_SIMS=(
   "${PREFERRED_SIM}"
@@ -40,18 +42,18 @@ xcodebuild -workspace "${WORKSPACE}" -scheme "${SCHEME}" -showdestinations || tr
 SELECTED_DEST=""
 for name in "${FALLBACK_SIMS[@]}"; do
   if xcrun simctl list devices available | grep -q "${name}"; then
-    SELECTED_DEST="platform=iOS Simulator,name=${name}"
+    SELECTED_DEST="platform=iOS Simulator,name=${name},OS=${IOS_OS_VERSION}"
     break
   fi
   # As a fallback, accept if showdestinations includes the name
   if xcodebuild -workspace "${WORKSPACE}" -scheme "${SCHEME}" -showdestinations 2>/dev/null | grep -q "${name}"; then
-    SELECTED_DEST="platform=iOS Simulator,name=${name}"
+    SELECTED_DEST="platform=iOS Simulator,name=${name},OS=${IOS_OS_VERSION}"
     break
   fi
 done
 
 if [[ -z "${SELECTED_DEST}" ]]; then
-  echo "No preferred simulators found. Please create an iOS simulator (e.g., iPhone 16) in Xcode or pass a specific name as the 3rd arg." >&2
+  echo "No preferred simulators found. Please create an iOS ${IOS_OS_VERSION} simulator (e.g., iPhone 16) in Xcode or pass a specific name and OS as args." >&2
   exit 2
 fi
 
