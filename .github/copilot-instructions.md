@@ -185,6 +185,11 @@
 - Keep only the latest 3 builds/test results for any set of tests that you did 
 # Development Environment Guide
 
+## iOS and WatchOS 
+- Build for iOS v18+ and WatchOS v11+
+- do not build for any other OS's
+- your target build should be for an iPhone 16 
+
 ## xcodebuild Access and Development Tools
 
 This document explains how to access xcodebuild functionality during development and provides alternative tools for different environments.
