@@ -35,7 +35,10 @@ public class DownloadCoordinator {
     if autoProcessingEnabled {
       setupDownloadProcessing()
     }
-    setupProgressTracking()
+    // Start progress tracking asynchronously to access async publisher
+    Task { @MainActor [weak self] in
+      await self?.setupProgressTracking()
+    }
   }
 
   // MARK: - Public API
@@ -88,10 +91,11 @@ public class DownloadCoordinator {
     #endif
   }
 
-  private func setupProgressTracking() {
+  private func setupProgressTracking() async {
     #if canImport(Combine)
     // Monitor download progress and update task states
-    fileManagerService.downloadProgressPublisher
+    let publisher = await fileManagerService.downloadProgressPublisher
+    publisher
       .sink { [weak self] progress in
         self?.updateTaskProgress(progress)
       }
@@ -190,7 +194,10 @@ public class DownloadCoordinator {
 private struct DummyFileManagerService: FileManagerServicing {
   #if canImport(Combine)
   var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
-    Empty().eraseToAnyPublisher()
+    get async {
+      // Explicitly type Empty to satisfy protocol's publisher Output type
+      Empty<DownloadProgress, Never>().eraseToAnyPublisher()
+    }
   }
   #endif
   
