@@ -1,96 +1,90 @@
 # Coding and Testing Best Practices for zPod
+
 ## Coding Best Practices for zPod
-- Always follow the TDD pattern for writing code, starting with writing the test cases first.  
-- as you do TDD, make sure you are building both unit test cases and when possible integration test cases
-- if you need to, refactor the test cases and/or add integration test cases that might have been missed
-- As you build the system, make sure you are referencing the spec files for the requirements - they are written in given when then. we need to ensure the code matches the expectations of the specs
+- Always follow TDD: write failing tests first, then implement code, then refactor.
+- As you do TDD, build both unit tests and, when possible, integration tests.
+- Refactor tests and/or add integration tests if gaps are found.
+- Reference the spec files (Given/When/Then) and ensure the code matches the expectations.
 
 # Swift 6 Best Practices for zPod
 
 ## Swift 6 Concurrency & Sendable
-
-- Always use `async`/`await` for asynchronous operations instead of completion handlers
-- Mark types as `Sendable` when they can be safely passed across concurrency domains
-- Use `@preconcurrency import` for libraries not yet updated for Swift 6 concurrency
-- Prefer `@MainActor` for UI-related classes and methods
-- Use `nonisolated` keyword for methods that don't need actor isolation
-- Always handle potential concurrency warnings and make explicit isolation decisions
+- Always use `async`/`await` for asynchronous operations instead of completion handlers.
+- Mark types as `Sendable` when they can be safely passed across concurrency domains.
+- Use `@preconcurrency import` for libraries not yet updated for Swift 6 concurrency.
+- Prefer `@MainActor` for UI-related classes and methods.
+- Use `nonisolated` for methods that don't need actor isolation.
+- Handle concurrency warnings and make explicit isolation decisions.
 
 ## Actor Usage
-
-- Use actors for mutable shared state that needs thread-safe access
-- Prefer `@MainActor` for view models and UI controllers
-- Use global actors sparingly and only when appropriate
-- Design actor interfaces to minimize cross-actor calls
-- Use `nonisolated` for computed properties that don't access mutable state
+- Use actors for mutable shared state that needs thread-safe access.
+- Prefer `@MainActor` for view models and UI controllers.
+- Use global actors sparingly and only when appropriate.
+- Design actor interfaces to minimize cross-actor calls.
+- Use `nonisolated` for computed properties that don't access mutable state.
 
 ## Error Handling
-
-- Use typed throws (`throws(SpecificError)`) when possible for better error handling
-- Prefer Result types for complex error scenarios
-- Always handle errors at appropriate levels in the call stack
-- Use custom error types that conform to `LocalizedError` for user-facing errors
+- Use typed throws (`throws(SpecificError)`) when possible for better error handling.
+- Prefer Result types for complex error scenarios.
+- Handle errors at appropriate levels in the call stack.
+- Use custom error types that conform to `LocalizedError` for user-facing errors.
 
 ## Testing Best Practices
 
 ### Test Structure and Organization
-- Use descriptive test method names that explain the scenario: `testAcceptanceCriteria1_CascadingResolution()`
-- Organize tests with clear Given/When/Then structure using comments
-- Group related tests using `// MARK:` comments for better navigation
-- Use separate UserDefaults suites for each test to ensure isolation
+- Use descriptive test method names that explain the scenario: `testAcceptanceCriteria1_CascadingResolution()`.
+- Organize tests with clear Given/When/Then structure using comments.
+- Group related tests using `// MARK:` comments for better navigation.
+- Use separate UserDefaults suites for each test to ensure isolation.
 
 ### Async Testing Patterns
-- Always use `async` test methods for testing async code: `func testExample() async`
-- Use `await` for all async operations in tests
-- Set up and tear down async resources properly in `setUp()` and `tearDown()`
+- Use `async` test methods for testing async code: `func testExample() async`.
+- Use `await` for all async operations in tests.
+- Set up and tear down async resources properly in `setUp()` and `tearDown()`.
 
 ### Combine Testing
-- Use `Set<AnyCancellable>` to manage test subscriptions
-- Store publishers in instance variables for proper lifecycle management
-- Always call `store(in: &cancellables)` to prevent memory leaks
-- Test both published properties and custom publishers
+- Use `Set<AnyCancellable>` to manage test subscriptions.
+- Store publishers in instance variables for proper lifecycle management.
+- Always call `store(in: &cancellables)` to prevent memory leaks.
+- Test both published properties and custom publishers.
 
 ### Test Data Management
-- Use unique UserDefaults suite names per test: `UserDefaults(suiteName: "test-criteria-1")`
-- Always clean up test data: `userDefaults.removePersistentDomain(forName: "test-criteria-1")`
-- Create fresh instances for each test to avoid state pollution
+- Use unique UserDefaults suite names per test: `UserDefaults(suiteName: "test-criteria-1")`.
+- Always clean up test data: `userDefaults.removePersistentDomain(forName: "test-criteria-1")`.
+- Create fresh instances for each test to avoid state pollution.
 
 ### Validation Testing
-- Test boundary conditions and invalid inputs
-- Verify that invalid values are properly clamped or rejected
-- Test both positive and negative scenarios
-- Include edge cases in your test coverage
+- Test boundary conditions and invalid inputs.
+- Verify that invalid values are properly clamped or rejected.
+- Test both positive and negative scenarios.
+- Include edge cases in your test coverage.
 
 ### Integration Testing
-- Test end-to-end scenarios that mirror real user workflows
-- Verify that settings persist across app restarts
-- Test cascading behavior (global → per-podcast overrides)
-- Validate backward compatibility with existing APIs
+- Test end-to-end scenarios that mirror real user workflows.
+- Verify that settings persist across app restarts.
+- Test cascading behavior (global → per-podcast overrides).
+- Validate backward compatibility with existing APIs.
 
 ## Memory Management
-
-- Use `weak` references to break retain cycles in closures and delegates
-- Prefer `unowned` only when you're certain the referenced object will outlive the current context
-- Use `@escaping` closures judiciously and always consider memory implications
-- Avoid creating retain cycles with async/await patterns
+- Use `weak` references to break retain cycles in closures and delegates.
+- Prefer `unowned` only when you're certain the referenced object will outlive the current context.
+- Use `@escaping` closures judiciously and always consider memory implications.
+- Avoid creating retain cycles with async/await patterns.
 
 ## SwiftUI Best Practices
-
-- Use `@State` for local view state
-- Use `@StateObject` for creating and owning observable objects
-- Use `@ObservedObject` for objects owned elsewhere
-- Use `@EnvironmentObject` for dependency injection
-- Keep view bodies lightweight and extract complex logic into methods or computed properties
+- Use `@State` for local view state.
+- Use `@StateObject` for creating and owning observable objects.
+- Use `@ObservedObject` for objects owned elsewhere.
+- Use `@EnvironmentObject` for dependency injection.
+- Keep view bodies lightweight and extract complex logic into methods or computed properties.
 
 ## Code Organization
-
-- Use extensions to organize code by functionality
-- Keep related functionality grouped together
-- Use `// MARK:` comments for clear code sections
-- Prefer composition over inheritance where possible
+- Use extensions to organize code by functionality.
+- Keep related functionality grouped together.
+- Use `// MARK:` comments for clear code sections.
+- Prefer composition over inheritance where possible.
 
 ## Modularization & Package Boundaries
-
 - Standard module set (initial): CoreModels, FeedParsing, Networking, Persistence, SettingsDomain, PlaybackEngine, SharedUtilities, TestSupport. Optional feature UI modules (e.g., LibraryFeature, SearchFeature, PlayerFeature).
 - Dependency direction: Utilities → CoreModels → (Networking, Persistence, FeedParsing) → SettingsDomain → Feature UIs → App. PlaybackEngine is used by Feature UIs/App.
 - Concurrency boundaries: Mark cross-package value types `Sendable`; use actors for shared mutable state; limit `@MainActor` to UI modules; define async protocols at seams; minimize cross-actor hops.
@@ -101,102 +95,86 @@
 - Acceptance criteria: App builds, tests pass; UI targets do not depend directly on Persistence/Networking.
 
 ## Property Wrappers
-
-- Use `@Published` for properties that should trigger UI updates
-- Use custom property wrappers for common patterns (like UserDefaults storage)
-- Always consider thread safety when creating custom property wrappers
+- Use `@Published` for properties that should trigger UI updates.
+- Use custom property wrappers for common patterns (like UserDefaults storage).
+- Always consider thread safety when creating custom property wrappers.
 
 ## Combine Framework
-
-- Use `@preconcurrency import Combine` until Combine is fully Swift 6 compatible
-- Prefer async/await over Combine for simple async operations
-- Use Combine for complex data transformation and UI binding scenarios
-- Always manage subscription lifecycle properly
+- Use `@preconcurrency import Combine` until Combine is fully Swift 6 compatible.
+- Prefer async/await over Combine for simple async operations.
+- Use Combine for complex data transformation and UI binding scenarios.
+- Always manage subscription lifecycle properly.
 
 ## Performance Considerations
-
-- Use `lazy` properties for expensive computations that may not be needed
-- Prefer value types (structs) over reference types (classes) when appropriate
-- Use `@inlinable` for small, frequently-called functions
-- Consider using `@frozen` for public structs that won't change
+- Use `lazy` properties for expensive computations that may not be needed.
+- Prefer value types (structs) over reference types (classes) when appropriate.
+- Use `@inlinable` for small, frequently called functions.
+- Consider using `@frozen` for public structs that won't change.
 
 ## API Design
-
-- Use clear, descriptive parameter names
-- Prefer methods that return values over methods that modify state
-- Design APIs that are hard to misuse
-- Use default parameter values to reduce API surface area
-- Follow Swift naming conventions consistently
+- Use clear, descriptive parameter names.
+- Prefer methods that return values over methods that modify state.
+- Design APIs that are hard to misuse.
+- Use default parameter values to reduce API surface area.
+- Follow Swift naming conventions consistently.
 
 ## Documentation
-
-- Use documentation comments (`///`) for public APIs
-- Include usage examples in documentation when helpful
-- Document preconditions and postconditions
-- Explain complex algorithms and business logic
+- Use documentation comments (`///`) for public APIs.
+- Include usage examples in documentation when helpful.
+- Document preconditions and postconditions.
+- Explain complex algorithms and business logic.
 
 ## Package Management
-
-- Keep Package.swift dependencies up to date
-- Use specific version ranges rather than branch dependencies
-- Document why each dependency is needed
-- Regularly audit dependencies for security and maintenance status
+- Keep `Package.swift` dependencies up to date.
+- Use specific version ranges rather than branch dependencies.
+- Document why each dependency is needed.
+- Regularly audit dependencies for security and maintenance status.
 
 ## Migration Guidelines
-
-- When updating from older Swift versions, address all concurrency warnings
-- Test thoroughly when migrating async code
-- Update test patterns to match new concurrency model
+- When updating from older Swift versions, address all concurrency warnings.
+- Test thoroughly when migrating async code.
+- Update test patterns to match the new concurrency model.
 
 ## Project-Specific Guidelines
+- Platform targeting: Build for iOS 18+ and watchOS 11+ only; use `.iOS(.v18)` and `.watchOS(.v11)` in manifests, scripts, and CI.
+- Settings should cascade from global to per-podcast overrides.
+- Use the SettingsManager pattern for centralized configuration.
+- Validate settings values and clamp to safe ranges.
+- Ensure settings persist across app restarts.
+- Use Combine publishers for UI updates and change notifications.
 
-- Settings should cascade from global to per-podcast overrides
-- Use the SettingsManager pattern for centralized configuration
-- Always validate settings values and clamp to safe ranges
-- Ensure settings persist across app restarts
-- Use Combine publishers for UI updates and change notifications
+## Logging All Updates
+- For each issue, create a new dev-log in the `dev-log` directory at the root of this repository.
+- Create and then update a dev-log for each issue you are working on.
+- Continuously update the dev-log file for each issue: write your approach before code changes, then record progress as you go.
+- Document your approach in bullet format with phases; update progress on each phase.
+- Keep a log of changes with date and time stamps (Eastern Time).
 
-## Logging all updates
+## Git Commits
+- For each set of updates, create git commits.
+- Commits should include updates to the dev-log file for the related issue.
+- After finishing changes for an issue, push the changes to GitHub.
 
-- for each issue, create a new dev-log in the dev-log file in the root of this repository 
-- create and then update a  dev-log for each issue you are working on.
-- continuously update the dev-log file that was created for each issue
-- before making any updates, make sure to update the dev-log file first with your approach and then as you make progress, go back to update the progress.
-- document your approach for implementing the issue in bullet format with as many phases as you need and then update where you are in that implemenation
-- keep a log of the changes, include date and time for when those changes were made
-- when doing the updates in the log, make sure to use date and time stamps, with the timestamps based on Eastern Time
-
-## Git commits
-
-- for each set of updates, do git commits
-- these commits should happen in conjunction iwth the dev-log for the issue you are working on
-- the commits should include the updates to the dev-log file
-- after you are done making changes for the issue, push the changes to github
-- 
-
-## logging in application
-- use best practices of Swift 6.0/ios for logging of errors, warnings, issues, etc. 
-- use OSLog for this logging approach 
+## Logging in Application
+- Use best practices of Swift 6/iOS for logging of errors, warnings, and issues.
+- Use `OSLog` for application logging.
 
 ## Build Results
-- for each build/test - create a file for the raw test and build results. 
-- when creating the log files for tests and build results, call them TestResults with a date/time stamp and what you are testing (e.g. if you are testing a package, include a 1 word example of the package)
-- put them in the sub directory TestResults
-- Keep only the latest 3 builds/test results for any set of tests that you did 
+- For each build/test, create a file containing the raw test and build results.
+- Name the log files `TestResults_<timestamp>_<what-you-tested>.log` (e.g., include a one-word package name when relevant).
+- Put them in the `TestResults` subdirectory.
+- Keep only the latest 3 build/test result files for any set of tests that you run.
+
 # Development Environment Guide
 
-## iOS and WatchOS 
-- Build for iOS v18+ and WatchOS v11+
-- do not build for any other OS's
-- your target build should be for an iPhone 16 
+## iOS and watchOS
+- Build for iOS 18+ and watchOS 11+ only.
+- Target device for simulator runs: iPhone 16 (or equivalent iOS 18 simulator).
 
-## xcodebuild Access and Development Tools
-
-This document explains how to access xcodebuild functionality during development and provides alternative tools for different environments.
+## Xcodebuild Access and Development Tools
 
 ### macOS Development (Full xcodebuild Access)
-
-If you're on macOS with Xcode installed:
+If you're on macOS with Xcode installed, you can run:
 
 ```bash
 # Check Xcode version
@@ -205,22 +183,21 @@ xcodebuild -version
 # List available schemes and targets
 xcodebuild -list -project zpod.xcodeproj
 
-# Build the project
+# Build the project (iOS Simulator)
 xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator
 
-# Run tests
-xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation),OS=18.2' test
+# Run tests (update the device name/OS to an installed iOS 18 simulator)
+xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' test
 
 # Clean build
 xcodebuild -project zpod.xcodeproj -scheme zpod clean
 ```
 
 ### Non-macOS Development (Alternative Tools)
-
-For development environments without Xcode (Linux, Windows, etc.), use the provided development script:
+For environments without Xcode (Linux, Windows, etc.), use the development script:
 
 ```bash
-# Check project information and Swift syntax
+# Run all development checks (recommended)
 ./scripts/dev-build.sh all
 
 # Run syntax checking only
@@ -237,19 +214,15 @@ For development environments without Xcode (Linux, Windows, etc.), use the provi
 ```
 
 ### CI/CD Pipeline
-
-The repository includes a properly configured GitHub Actions workflow (`.github/workflows/ci.yml`) that:
-
-1. Runs on `macos-latest` runners with full Xcode access
-2. Uses the latest stable Xcode version
-3. Resolves Swift package dependencies
-4. Builds and tests the iOS application
-5. Uploads test logs and crash reports
-
+The repository includes a GitHub Actions workflow that:
+1. Runs on `macos-latest` with full Xcode access.
+2. Uses the latest stable Xcode version.
+3. Resolves Swift package dependencies.
+4. Builds and tests the iOS application.
+5. Uploads test logs and crash reports.
 
 ### Enhanced Development Script
-
-The `scripts/dev-build.sh` script has been enhanced with Swift 6 concurrency support:
+The `scripts/dev-build.sh` script includes Swift 6 concurrency checks:
 
 ```bash
 # Run all development checks (recommended)
@@ -262,69 +235,43 @@ The `scripts/dev-build.sh` script has been enhanced with Swift 6 concurrency sup
 ./scripts/dev-build.sh test
 ```
 
-**Enhanced Features:**
-- Swift 6 concurrency pattern detection
-- DispatchQueue anti-pattern warnings  
-- Non-exhaustive catch block detection
-- @MainActor timer usage validation
-- Early warning system for compilation issues
-
+Enhanced features include:
+- Swift 6 concurrency pattern detection.
+- DispatchQueue anti-pattern warnings.
+- Non-exhaustive catch block detection.
+- `@MainActor` timer usage validation.
+- Early warning system for compilation issues.
 
 ### Development Workflow
-
-1. **Local Development:**
-   - On macOS: Use Xcode or xcodebuild commands directly<<<<<<< copilot/fix-11
-   - On other platforms: Use `./scripts/dev-build.sh` for syntax and concurrency checking
-
-2. **Real-time Error Checking:**
-   - Enhanced dev script provides Swift 6 concurrency issue detection
-   - The CI pipeline provides comprehensive error checking with every push
-   - Local syntax checking is available via the development script
-   - VS Code extensions provide additional Swift language support
-
-3. **Testing:**
-   - Full test suite runs in CI/CD on macOS with iOS Simulator
-   - Core logic can be syntax-checked locally on any platform
-   - Test files are validated for syntax errors
-   - Swift 6 concurrency patterns are validated locally
-
-### Merge Conflict Resolution
-
-If you encounter merge conflicts with `scripts/dev-build.sh`, use the provided helper:
-
-```bash
-# Resolve merge conflicts and preserve enhanced features
-./scripts/merge-helper.sh
-```
-
-This ensures the enhanced Swift 6 concurrency features are preserved during merges.
+1. On macOS: Use Xcode or xcodebuild commands directly.
+2. On other platforms: Use `./scripts/dev-build.sh` for syntax and concurrency checking.
+3. Real-time error checking:
+   - Enhanced dev script provides Swift 6 concurrency issue detection.
+   - The CI pipeline provides comprehensive checks with every push.
+   - Local syntax checking is available via the development script.
+   - VS Code extensions can provide additional Swift language support.
 
 
 ### File Structure
-
 ```
-zpod.xcodeproj/     # Xcode project file
-zpod/               # Main source code
-zpodTests/          # Unit tests
-scripts/dev-build.sh          # Development build script
-.github/workflows/ci.yml      # CI/CD configuration
-Package.swift                 # Swift Package Manager (experimental)
+zpod.xcodeproj/                # Xcode project file
+zpod/                          # Main source code
+zpodTests/                     # Unit tests
+scripts/dev-build.sh           # Development build script
+.github/workflows/ci.yml       # CI/CD configuration
+Package.swift                  # Swift Package Manager (experimental)
 ```
 
 ### Known Limitations
-
-- SwiftUI, SwiftData, and Combine are not available on non-Apple platforms
-- Full compilation and testing requires macOS with Xcode
-- The Package.swift is experimental and excludes iOS-specific frameworks
-- AVFoundation and other Apple frameworks are iOS/macOS only
+- SwiftUI, SwiftData, and Combine are not available on non-Apple platforms.
+- Full compilation and testing require macOS with Xcode.
+- The `Package.swift` is experimental and excludes iOS-specific frameworks.
+- AVFoundation and other Apple frameworks are iOS/macOS only.
 
 ### Next Steps
-
-1. The CI configuration is correct and working
-2. Development scripts provide syntax checking across platforms
+1. The CI configuration is correct and working.
+2. Development scripts provide syntax checking across platforms.
 3. Real-time error feedback is available through:
-   - CI/CD pipeline for comprehensive testing
-   - Local syntax checking for immediate feedback
-   - VS Code extensions for editor integration
-
-The issue appears to be resolved - you now have access to development tools that provide xcodebuild-like functionality in any environment, with the full power of xcodebuild available through the CI/CD pipeline.
+   - CI/CD pipeline for comprehensive testing.
+   - Local syntax checking for immediate feedback.
+   - Editor integration (VS Code extensions) for language support.
