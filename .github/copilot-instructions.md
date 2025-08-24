@@ -6,6 +6,11 @@
 - Refactor tests and/or add integration tests if gaps are found.
 - Reference the spec files (Given/When/Then) and ensure the code matches the expectations.
 
+## Requirements/Specifications
+- as you read attempt to do each issues, make sure you are referencing the specifications
+- all specificaitons can be found in the spec folder and are given when then format
+- tests should follow these specifications to ensure they work correctly to the specification
+
 # Swift 6 Best Practices for zPod
 
 ## Swift 6 Concurrency & Sendable
