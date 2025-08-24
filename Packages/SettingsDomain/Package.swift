@@ -24,9 +24,6 @@ let package = Package(
                 .product(name: "CoreModels", package: "CoreModels"),
                 .product(name: "SharedUtilities", package: "SharedUtilities"),
                 .product(name: "Persistence", package: "Persistence")
-            ],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
             ]
         ),
         .testTarget(

@@ -59,9 +59,6 @@ let package = Package(
                 "spec/",
                 ".github/",
                 ".vscode/"
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
         
@@ -72,10 +69,7 @@ let package = Package(
                 "zpodLib",
                 "TestSupport"
             ],
-            path: "Tests/zpodTests",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "Tests/zpodTests"
         ),
         
         // Integration test target
@@ -85,10 +79,7 @@ let package = Package(
                 "zpodLib",
                 "TestSupport"
             ],
-            path: "IntegrationTests",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "IntegrationTests"
         ),
     ]
 )
