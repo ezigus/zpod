@@ -1,0 +1,59 @@
+Building for debugging...
+[0/11] Write sources
+[0/11] Copying SampleSubscriptions.opml
+[0/11] Write sources
+[10/11] Write swift-version--1BFCD5C06E9F820A.txt
+[12/28] Emitting module CoreModels
+[13/32] Compiling SharedUtilities ValidationUtilities.swift
+[14/32] Compiling CoreModels PodcastManaging.swift
+[15/32] Compiling CoreModels SearchModels.swift
+[16/32] Compiling CoreModels SettingsModels.swift
+[17/32] Compiling CoreModels UpdateSchedule.swift
+[18/32] Compiling CoreModels Folder.swift
+[19/32] Compiling CoreModels FolderManaging.swift
+[20/32] Compiling CoreModels InMemoryPlaylistManager.swift
+[21/32] Compiling CoreModels OPMLModels.swift
+[22/32] Compiling SharedUtilities Logger.swift
+[23/32] Emitting module SharedUtilities
+[24/32] Compiling SharedUtilities SharedError.swift
+[25/33] Compiling CoreModels OrganizationModels.swift
+[26/33] Compiling CoreModels PlaybackSettings.swift
+[27/33] Compiling CoreModels Playlist.swift
+[28/33] Compiling CoreModels Podcast.swift
+[30/33] Compiling CoreModels Chapter.swift
+[31/33] Compiling CoreModels DownloadSettings.swift
+[32/33] Compiling CoreModels DownloadTask.swift
+[33/33] Compiling CoreModels Episode.swift
+[35/49] Compiling TestSupport InMemoryPodcastManager.swift
+[36/49] Compiling TestSupport Mocks.swift
+[37/49] Compiling TestSupport InMemoryFolderManager.swift
+[38/49] Emitting module TestSupport
+[39/50] Compiling FeedParsing OPMLTypes.swift
+[40/50] Compiling FeedParsing RSSFeedParser.swift
+[42/51] Compiling Persistence SettingsRepository.swift
+[43/51] Compiling Persistence StoragePolicyEvaluator.swift
+[44/51] Compiling Persistence FileManagerService.swift
+[45/51] Emitting module Persistence
+[46/52] Compiling FeedParsing SubscriptionService.swift
+[47/58] Emitting module FeedParsing
+[48/58] Compiling SearchDomain OrganizationManagers.swift
+[49/58] Compiling SearchDomain SearchIndex.swift
+[50/58] Compiling SearchDomain SearchIndexSources.swift
+[51/58] Compiling SearchDomain SearchIntegrationExample.swift
+[52/59] Compiling Persistence UserDefaultsRepositories.swift
+[55/69] Compiling SearchDomain SearchService.swift
+[56/69] Compiling Networking AutoDownloadService.swift
+[57/69] Compiling Networking DownloadCoordinator.swift
+[60/69] Emitting module SearchDomain
+[61/70] Emitting module SettingsDomain
+[62/70] Compiling Networking SubscriptionService.swift
+[63/71] Compiling SettingsDomain UpdateFrequencyService.swift
+[64/71] Compiling SettingsDomain SettingsManagerExtensions.swift
+[65/71] Compiling SearchDomain Tokenizer.swift
+[66/72] Compiling Networking DownloadQueueManager.swift
+[68/72] Compiling SettingsDomain SettingsManager.swift
+[69/73] Compiling Networking resource_bundle_accessor.swift
+[73/73] Emitting module Networking
+[75/76] Emitting module zpodLib
+[76/76] Compiling zpodLib zpodLib.swift
+Build complete! (16.31s)

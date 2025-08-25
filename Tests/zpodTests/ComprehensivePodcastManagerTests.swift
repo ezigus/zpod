@@ -1,9 +1,10 @@
 import XCTest
 @testable import zpodLib
 @testable import TestSupport
+import CoreModels
 
 /// Comprehensive unit tests for PodcastManager - testing protocol compliance and in-memory implementation
-final class ComprehensivePodcastManagerTests: XCTestCase {
+final class ComprehensivePodcastManagerTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Properties
     private var podcastManager: InMemoryPodcastManager!
@@ -122,8 +123,8 @@ final class ComprehensivePodcastManagerTests: XCTestCase {
             id: original.id,
             title: "Updated Title",
             description: original.description,
+            artworkURL: original.artworkURL,
             feedURL: original.feedURL,
-            imageURL: original.imageURL,
             folderId: original.folderId,
             tagIds: original.tagIds
         )
@@ -226,12 +227,12 @@ final class ComprehensivePodcastManagerTests: XCTestCase {
         XCTAssertTrue(emptyFolderPodcasts.isEmpty)
     }
     
-    func testFindByFolderRecursive_WithHierarchy() {
+    func testFindByFolderRecursive_WithHierarchy() throws {
         // Given: Folder hierarchy setup
         let parentFolder = Folder(id: "parent", name: "Parent", parentId: nil)
         let childFolder = Folder(id: "child", name: "Child", parentId: "parent")
-        folderManager.add(parentFolder)
-        folderManager.add(childFolder)
+        try folderManager.add(parentFolder)
+        try folderManager.add(childFolder)
         
         // Podcasts in parent and child folders
         let parentPodcast = Podcast(
@@ -340,12 +341,12 @@ final class ComprehensivePodcastManagerTests: XCTestCase {
         XCTAssertTrue(emptyManager.all().isEmpty)
     }
     
-    func testComplexScenario_MixedOperations() {
+    func testComplexScenario_MixedOperations() throws {
         // Given: Complex organizational structure
         let folder1 = Folder(id: "tech", name: "Technology", parentId: nil)
         let folder2 = Folder(id: "science", name: "Science", parentId: nil)
-        folderManager.add(folder1)
-        folderManager.add(folder2)
+        try folderManager.add(folder1)
+        try folderManager.add(folder2)
         
         samplePodcasts.forEach { podcastManager.add($0) }
         
@@ -359,8 +360,8 @@ final class ComprehensivePodcastManagerTests: XCTestCase {
             id: samplePodcasts[1].id,
             title: "Updated Science Today",
             description: samplePodcasts[1].description,
+            artworkURL: samplePodcasts[1].artworkURL,
             feedURL: samplePodcasts[1].feedURL,
-            imageURL: samplePodcasts[1].imageURL,
             folderId: "science",
             tagIds: ["science-tag"]
         )

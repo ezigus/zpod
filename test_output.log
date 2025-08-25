@@ -1,0 +1,634 @@
+[0/1] Planning build
+Building for debugging...
+[0/21] Write sources
+[2/22] Write swift-version--1BFCD5C06E9F820A.txt
+[3/22] Wrapping AST for TestSupport for debugging
+[3/22] Wrapping AST for zpodLib for debugging
+[5/22] Wrapping AST for SearchDomain for debugging
+[6/26] Wrapping AST for SettingsDomain for debugging
+[7/26] Wrapping AST for SharedUtilities for debugging
+[8/28] Wrapping AST for Networking for debugging
+[9/28] Wrapping AST for Persistence for debugging
+[10/28] Wrapping AST for FeedParsing for debugging
+[11/28] Wrapping AST for CoreModels for debugging
+[13/28] Compiling zpodTests ComprehensivePodcastManagerTests.swift
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:10:32: error: 'InMemoryFolderManager' is ambiguous for type lookup in this context
+  8 |     // MARK: - Properties
+  9 |     private var podcastManager: InMemoryPodcastManager!
+ 10 |     private var folderManager: InMemoryFolderManager!
+    |                                `- error: 'InMemoryFolderManager' is ambiguous for type lookup in this context
+ 11 |     private var samplePodcasts: [Podcast]!
+ 12 |     
+
+/home/runner/work/zpod/zpod/Packages/TestSupport/Sources/TestSupport/InMemoryFolderManager.swift:6:20: note: found this candidate
+  4 | /// In-memory implementation of FolderManaging suitable for testing and early development.
+  5 | /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
+  6 | public final class InMemoryFolderManager: FolderManaging {
+    |                    `- note: found this candidate
+  7 |     private var storage: [String: Folder] = [:]
+  8 |     
+
+/home/runner/work/zpod/zpod/Packages/SearchDomain/Sources/SearchDomain/OrganizationManagers.swift:36:20: note: found this candidate
+ 34 | 
+ 35 | /// In-memory implementation suitable for early development & unit testing.
+ 36 | public final class InMemoryFolderManager: FolderManaging {
+    |                    `- note: found this candidate
+ 37 |   private var storage: [String: Folder] = [:]
+ 38 |   
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:126:32: error: extra argument 'imageURL' in call
+124 |             description: original.description,
+125 |             feedURL: original.feedURL,
+126 |             imageURL: original.imageURL,
+    |                                `- error: extra argument 'imageURL' in call
+127 |             folderId: original.folderId,
+128 |             tagIds: original.tagIds
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:126:32: error: value of type 'Podcast' has no member 'imageURL'
+124 |             description: original.description,
+125 |             feedURL: original.feedURL,
+126 |             imageURL: original.imageURL,
+    |                                `- error: value of type 'Podcast' has no member 'imageURL'
+127 |             folderId: original.folderId,
+128 |             tagIds: original.tagIds
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:363:41: error: extra argument 'imageURL' in call
+361 |             description: samplePodcasts[1].description,
+362 |             feedURL: samplePodcasts[1].feedURL,
+363 |             imageURL: samplePodcasts[1].imageURL,
+    |                                         `- error: extra argument 'imageURL' in call
+364 |             folderId: "science",
+365 |             tagIds: ["science-tag"]
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:363:41: error: value of type 'Podcast' has no member 'imageURL'
+361 |             description: samplePodcasts[1].description,
+362 |             feedURL: samplePodcasts[1].feedURL,
+363 |             imageURL: samplePodcasts[1].imageURL,
+    |                                         `- error: value of type 'Podcast' has no member 'imageURL'
+364 |             folderId: "science",
+365 |             tagIds: ["science-tag"]
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensivePodcastManagerTests.swift:394:23: error: capture of 'self' with non-sendable type 'ComprehensivePodcastManagerTests' in a '@Sendable' closure
+  4 | 
+  5 | /// Comprehensive unit tests for PodcastManager - testing protocol compliance and in-memory implementation
+  6 | final class ComprehensivePodcastManagerTests: XCTestCase {
+    |             `- note: class 'ComprehensivePodcastManagerTests' does not conform to the 'Sendable' protocol
+  7 |     
+  8 |     // MARK: - Properties
+    :
+392 |         // When: Multiple concurrent read operations
+393 |         DispatchQueue.concurrentPerform(iterations: 100) { _ in
+394 |             let all = podcastManager.all()
+    |                       `- error: capture of 'self' with non-sendable type 'ComprehensivePodcastManagerTests' in a '@Sendable' closure
+395 |             let first = podcastManager.find(id: samplePodcasts[0].id)
+396 |             let byFolder = podcastManager.findByFolder(folderId: "folder1")
+[14/29] Compiling zpodTests ComprehensiveEpisodeDetailViewModelTests.swift
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:12:28: error: cannot find type 'EpisodeDetailViewModel' in scope
+ 10 |     
+ 11 |     // MARK: - Properties
+ 12 |     private var viewModel: EpisodeDetailViewModel!
+    |                            `- error: cannot find type 'EpisodeDetailViewModel' in scope
+ 13 |     private var mockPlaybackService: MockEpisodePlaybackService!
+ 14 |     private var mockSleepTimer: MockSleepTimer!
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:15:35: error: cannot find type 'AnyCancellable' in scope
+ 13 |     private var mockPlaybackService: MockEpisodePlaybackService!
+ 14 |     private var mockSleepTimer: MockSleepTimer!
+ 15 |     private var cancellables: Set<AnyCancellable>!
+    |                                   `- error: cannot find type 'AnyCancellable' in scope
+ 16 |     private var sampleEpisode: Episode!
+ 17 |     private var episodeWithChapters: Episode!
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:23:36: error: cannot find 'CurrentValueSubject' in scope
+ 21 |     /// Mock playback service for testing
+ 22 |     private final class MockEpisodePlaybackService: EpisodePlaybackService, @unchecked Sendable {
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+    |                                    `- error: cannot find 'CurrentValueSubject' in scope
+ 24 |         
+ 25 |         var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:23:56: error: cannot find type 'EpisodePlaybackState' in scope
+ 21 |     /// Mock playback service for testing
+ 22 |     private final class MockEpisodePlaybackService: EpisodePlaybackService, @unchecked Sendable {
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+    |                                                       |`- error: cannot find type 'EpisodePlaybackState' in scope
+    |                                                       `- note: while parsing this '<' as a type parameter bracket
+ 24 |         
+ 25 |         var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:23:86: error: cannot infer contextual base in reference to member 'idle'
+ 21 |     /// Mock playback service for testing
+ 22 |     private final class MockEpisodePlaybackService: EpisodePlaybackService, @unchecked Sendable {
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+    |                                                                                      `- error: cannot infer contextual base in reference to member 'idle'
+ 24 |         
+ 25 |         var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:23:91: error: 'nil' requires a contextual type
+ 21 |     /// Mock playback service for testing
+ 22 |     private final class MockEpisodePlaybackService: EpisodePlaybackService, @unchecked Sendable {
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+    |                                                                                           `- error: 'nil' requires a contextual type
+ 24 |         
+ 25 |         var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:22:53: error: cannot find type 'EpisodePlaybackService' in scope
+ 20 |     
+ 21 |     /// Mock playback service for testing
+ 22 |     private final class MockEpisodePlaybackService: EpisodePlaybackService, @unchecked Sendable {
+    |                                                     `- error: cannot find type 'EpisodePlaybackService' in scope
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+ 24 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:25:29: error: cannot find type 'AnyPublisher' in scope
+ 23 |         private let stateSubject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(nil))
+ 24 |         
+ 25 |         var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+    |                             `- error: cannot find type 'AnyPublisher' in scope
+ 26 |             stateSubject.eraseToAnyPublisher()
+ 27 |         }
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:68:80: error: cannot find type 'EnhancedEpisodePlayer' in scope
+ 66 |     
+ 67 |     /// Enhanced mock playback service for testing advanced controls
+ 68 |     private final class MockEnhancedEpisodePlayer: MockEpisodePlaybackService, EnhancedEpisodePlayer {
+    |                                                                                `- error: cannot find type 'EnhancedEpisodePlayer' in scope
+ 69 |         private(set) var skipForwardCalled = false
+ 70 |         private(set) var skipBackwardCalled = false
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:68:25: error: inheritance from a final class 'ComprehensiveEpisodeDetailViewModelTests.MockEpisodePlaybackService'
+ 66 |     
+ 67 |     /// Enhanced mock playback service for testing advanced controls
+ 68 |     private final class MockEnhancedEpisodePlayer: MockEpisodePlaybackService, EnhancedEpisodePlayer {
+    |                         `- error: inheritance from a final class 'ComprehensiveEpisodeDetailViewModelTests.MockEpisodePlaybackService'
+ 69 |         private(set) var skipForwardCalled = false
+ 70 |         private(set) var skipBackwardCalled = false
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:106:41: error: cannot find type 'SleepTimer' in scope
+104 |     
+105 |     /// Mock sleep timer for testing
+106 |     private final class MockSleepTimer: SleepTimer, @unchecked Sendable {
+    |                                         `- error: cannot find type 'SleepTimer' in scope
+107 |         private(set) var isActive = false
+108 |         private(set) var remainingTime: TimeInterval = 0
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:37:32: error: cannot infer contextual base in reference to member 'playing'
+ 35 |             lastPlayedDuration = duration
+ 36 |             isPlaying = true
+ 37 |             stateSubject.send(.playing(episode, position: 0, duration: duration))
+    |                                `- error: cannot infer contextual base in reference to member 'playing'
+ 38 |         }
+ 39 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:43:36: error: cannot infer contextual base in reference to member 'paused'
+ 41 |             isPlaying = false
+ 42 |             if case .playing(let episode, let position, let duration) = stateSubject.value {
+ 43 |                 stateSubject.send(.paused(episode, position: position, duration: duration))
+    |                                    `- error: cannot infer contextual base in reference to member 'paused'
+ 44 |             }
+ 45 |         }
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:49:32: error: cannot infer contextual base in reference to member 'idle'
+ 47 |         func stop() {
+ 48 |             isPlaying = false
+ 49 |             stateSubject.send(.idle(nil))
+    |                                `- error: cannot infer contextual base in reference to member 'idle'
+ 50 |         }
+ 51 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:49:37: error: 'nil' requires a contextual type
+ 47 |         func stop() {
+ 48 |             isPlaying = false
+ 49 |             stateSubject.send(.idle(nil))
+    |                                     `- error: 'nil' requires a contextual type
+ 50 |         }
+ 51 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:55:36: error: cannot infer contextual base in reference to member 'playing'
+ 53 |         func simulateProgress(position: TimeInterval) {
+ 54 |             if case .playing(let episode, _, let duration) = stateSubject.value {
+ 55 |                 stateSubject.send(.playing(episode, position: position, duration: duration))
+    |                                    `- error: cannot infer contextual base in reference to member 'playing'
+ 56 |             }
+ 57 |         }
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:61:36: error: cannot infer contextual base in reference to member 'finished'
+ 59 |         func simulateFinished() {
+ 60 |             if case .playing(let episode, _, let duration) = stateSubject.value {
+ 61 |                 stateSubject.send(.finished(episode, duration: duration))
+    |                                    `- error: cannot infer contextual base in reference to member 'finished'
+ 62 |                 isPlaying = false
+ 63 |             }
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:149:28: error: cannot find type 'AnyCancellable' in scope
+147 |         mockPlaybackService = MockEpisodePlaybackService()
+148 |         mockSleepTimer = MockSleepTimer()
+149 |         cancellables = Set<AnyCancellable>()
+    |                            `- error: cannot find type 'AnyCancellable' in scope
+150 |         
+151 |         // Create test episodes
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:158:23: error: extra argument 'chapters' in call
+156 |             mediaURL: URL(string: "https://example.com/episode1.mp3")!,
+157 |             duration: 1800, // 30 minutes
+158 |             chapters: []
+    |                       `- error: extra argument 'chapters' in call
+159 |         )
+160 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:167:23: error: extra argument 'chapters' in call
+165 |             mediaURL: URL(string: "https://example.com/episode2.mp3")!,
+166 |             duration: 3600, // 60 minutes
+167 |             chapters: [
+    |                       `- error: extra argument 'chapters' in call
+168 |                 Chapter(id: "ch1", title: "Introduction", startTime: 0),
+169 |                 Chapter(id: "ch2", title: "Main Content", startTime: 600), // 10 minutes
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:175:21: error: cannot find 'EpisodeDetailViewModel' in scope
+173 |         )
+174 |         
+175 |         viewModel = EpisodeDetailViewModel(
+    |                     `- error: cannot find 'EpisodeDetailViewModel' in scope
+176 |             playbackService: mockPlaybackService,
+177 |             sleepTimer: mockSleepTimer
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:212:32: error: cannot find 'EpisodeDetailViewModel' in scope
+210 |         
+211 |         // When: Creating view model without explicit services
+212 |         let defaultViewModel = EpisodeDetailViewModel()
+    |                                `- error: cannot find 'EpisodeDetailViewModel' in scope
+213 |         
+214 |         // Then: Should initialize successfully
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:298:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+296 |             }
+297 |             .store(in: &cancellables)
+298 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+299 |         
+300 |         // When: Calling play/pause again
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:326:13: error: argument 'duration' must precede argument 'description'
+324 |             description: "Episode without duration",
+325 |             mediaURL: URL(string: "https://example.com/noduration.mp3")!,
+326 |             duration: nil
+    |             `- error: argument 'duration' must precede argument 'description'
+327 |         )
+328 |         viewModel.loadEpisode(episodeNoDuration)
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:342:33: error: cannot find 'EpisodeDetailViewModel' in scope
+340 |         // Given: View model with enhanced player
+341 |         let mockEnhancedPlayer = MockEnhancedEpisodePlayer()
+342 |         let enhancedViewModel = EpisodeDetailViewModel(
+    |                                 `- error: cannot find 'EpisodeDetailViewModel' in scope
+343 |             playbackService: mockEnhancedPlayer,
+344 |             sleepTimer: mockSleepTimer
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:383:33: error: cannot find 'EpisodeDetailViewModel' in scope
+381 |         // Given: Enhanced player with chapter episode
+382 |         let mockEnhancedPlayer = MockEnhancedEpisodePlayer()
+383 |         let enhancedViewModel = EpisodeDetailViewModel(
+    |                                 `- error: cannot find 'EpisodeDetailViewModel' in scope
+384 |             playbackService: mockEnhancedPlayer,
+385 |             sleepTimer: mockSleepTimer
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:390:49: error: value of type 'Episode' has no member 'chapters'
+388 |         
+389 |         // When: Jumping to chapter
+390 |         let targetChapter = episodeWithChapters.chapters[1]
+    |                                                 `- error: value of type 'Episode' has no member 'chapters'
+391 |         enhancedViewModel.jumpToChapter(targetChapter)
+392 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:465:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+463 |             }
+464 |             .store(in: &cancellables)
+465 |         wait(for: [expectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+466 |         
+467 |         // Then: UI should reflect idle state
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:490:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+488 |             }
+489 |             .store(in: &cancellables)
+490 |         wait(for: [expectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+491 |         
+492 |         // Then: UI should reflect playing state
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:510:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+508 |             }
+509 |             .store(in: &cancellables)
+510 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+511 |         
+512 |         // When: Pausing playback
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:523:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+521 |             }
+522 |             .store(in: &cancellables)
+523 |         wait(for: [pausedExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+524 |         
+525 |         // Then: UI should reflect paused state
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:542:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+540 |             }
+541 |             .store(in: &cancellables)
+542 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+543 |         
+544 |         // When: Episode finishes
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:555:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+553 |             }
+554 |             .store(in: &cancellables)
+555 |         wait(for: [finishedExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+556 |         
+557 |         // Then: UI should reflect finished state
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:578:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+576 |             }
+577 |             .store(in: &cancellables)
+578 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+579 |         
+580 |         // When: Simulating progress
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:591:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+589 |             }
+590 |             .store(in: &cancellables)
+591 |         wait(for: [progressExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+592 |         
+593 |         // Then: Progress should be updated correctly
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:613:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+611 |             }
+612 |             .store(in: &cancellables)
+613 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+614 |         
+615 |         // When: Progress beyond duration (edge case)
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:626:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+624 |             }
+625 |             .store(in: &cancellables)
+626 |         wait(for: [progressExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+627 |         
+628 |         // Then: Progress fraction should be clamped to 1.0
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:648:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+646 |             }
+647 |             .store(in: &cancellables)
+648 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+649 |         
+650 |         // When: Progress to second chapter
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:661:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+659 |             }
+660 |             .store(in: &cancellables)
+661 |         wait(for: [positionExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+662 |         
+663 |         // Then: Current chapter should be updated
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:681:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+679 |             }
+680 |             .store(in: &cancellables)
+681 |         wait(for: [playingExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+682 |         
+683 |         // When: Progress to last chapter
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:694:9: error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+692 |             }
+693 |             .store(in: &cancellables)
+694 |         wait(for: [positionExpectation], timeout: 1.0)
+    |         `- error: instance method 'wait' is unavailable from asynchronous contexts; Use await fulfillment(of:timeout:enforceOrder:) instead.
+695 |         
+696 |         // Then: Should be in conclusion chapter
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:730:17: error: argument 'duration' must precede argument 'description'
+728 |                 description: "Test",
+729 |                 mediaURL: URL(string: "https://example.com/test.mp3")!,
+730 |                 duration: testCase.seconds
+    |                 `- error: argument 'duration' must precede argument 'description'
+731 |             )
+732 |             
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:758:13: error: argument 'duration' must precede argument 'description'
+756 |             description: nil,
+757 |             mediaURL: URL(string: "https://example.com/minimal.mp3")!,
+758 |             duration: 0
+    |             `- error: argument 'duration' must precede argument 'description'
+759 |         )
+760 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:777:13: error: argument 'duration' must precede argument 'description'
+775 |             description: "Episode with zero duration",
+776 |             mediaURL: URL(string: "https://example.com/zero.mp3")!,
+777 |             duration: 0
+    |             `- error: argument 'duration' must precede argument 'description'
+778 |         )
+779 |         
+
+/home/runner/work/zpod/zpod/Tests/zpodTests/ComprehensiveEpisodeDetailViewModelTests.swift:818:23: error: extra argument 'chapters' in call
+816 |             mediaURL: URL(string: "https://example.com/many.mp3")!,
+817 |             duration: 6000,
+818 |             chapters: manyChapters
+    |                       `- error: extra argument 'chapters' in call
+819 |         )
+820 |         
+[15/29] Emitting module IntegrationTests
+[16/29] Compiling IntegrationTests CorePackageIntegrationTests.swift
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:32:27: error: call to main actor-isolated initializer 'init(repository:)' in a synchronous nonisolated context
+ 30 |         folderManager = TestSupport.InMemoryFolderManager()
+ 31 |         searchIndex = SearchIndex()
+ 32 |         settingsManager = SettingsManager(repository: UserDefaultsSettingsRepository(userDefaults: userDefaults))
+    |                           `- error: call to main actor-isolated initializer 'init(repository:)' in a synchronous nonisolated context
+ 33 |     }
+ 34 |     
+
+/home/runner/work/zpod/zpod/Packages/SettingsDomain/Sources/SettingsDomain/SettingsManager.swift:31:12: note: calls to initializer 'init(repository:)' from outside of its actor context are implicitly asynchronous
+ 29 |     #endif
+ 30 |     
+ 31 |     public init(repository: SettingsRepository) {
+    |            `- note: calls to initializer 'init(repository:)' from outside of its actor context are implicitly asynchronous
+ 32 |         self.repository = repository
+ 33 |         
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:37:55: error: value of type 'UserDefaults' has no member 'suiteName'
+ 35 |     override func tearDown() {
+ 36 |         // Clean up test data
+ 37 |         if let suiteName = userDefaults.userDefaults?.suiteName {
+    |                                                       `- error: value of type 'UserDefaults' has no member 'suiteName'
+ 38 |             userDefaults.removePersistentDomain(forName: suiteName)
+ 39 |         }
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:58:13: error: argument 'description' must precede argument 'feedURL'
+ 56 |             title: "Integration Test Podcast",
+ 57 |             feedURL: URL(string: "https://example.com/feed.xml")!,
+ 58 |             description: "A podcast for testing cross-package integration"
+    |             `- error: argument 'description' must precede argument 'feedURL'
+ 59 |         )
+ 60 |         
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:62:34: error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+ 60 |         
+ 61 |         // When: Adding podcast (CoreModels + TestSupport)
+ 62 |         try await podcastManager.addPodcast(testPodcast)
+    |                                  `- error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+ 63 |         
+ 64 |         // Then: Podcast should be stored and searchable
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:65:55: error: value of type 'InMemoryPodcastManager' has no member 'getAllPodcasts'
+ 63 |         
+ 64 |         // Then: Podcast should be stored and searchable
+ 65 |         let storedPodcasts = try await podcastManager.getAllPodcasts()
+    |                                                       `- error: value of type 'InMemoryPodcastManager' has no member 'getAllPodcasts'
+ 66 |         XCTAssertEqual(storedPodcasts.count, 1)
+ 67 |         XCTAssertEqual(storedPodcasts.first?.id, testPodcast.id)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:70:27: error: value of type 'SearchIndex' has no member 'indexDocument'
+ 68 |         
+ 69 |         // When: Indexing podcast for search (SearchDomain + CoreModels)
+ 70 |         await searchIndex.indexDocument(
+    |                           `- error: value of type 'SearchIndex' has no member 'indexDocument'
+ 71 |             id: testPodcast.id,
+ 72 |             content: "\(testPodcast.title) \(testPodcast.description ?? "")"
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:76:47: error: value of type 'SearchIndex' has no member 'search'
+ 74 |         
+ 75 |         // Then: Podcast should be findable through search
+ 76 |         let searchResults = await searchIndex.search(query: "Integration Test")
+    |                                               `- error: value of type 'SearchIndex' has no member 'search'
+ 77 |         XCTAssertFalse(searchResults.isEmpty)
+ 78 |         XCTAssertTrue(searchResults.contains(testPodcast.id))
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:98:34: error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+ 96 |         // When: Creating folder structure (CoreModels + TestSupport)
+ 97 |         try folderManager.add(categoryFolder)
+ 98 |         try await podcastManager.addPodcast(testPodcast)
+    |                                  `- error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+ 99 |         
+100 |         // And: Setting up podcast-specific settings (SettingsDomain + CoreModels)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:101:54: error: extra arguments at positions #2, #3, #4 in call
+ 99 |         
+100 |         // And: Setting up podcast-specific settings (SettingsDomain + CoreModels)
+101 |         let podcastSettings = PodcastPlaybackSettings(
+    |                                                      `- error: extra arguments at positions #2, #3, #4 in call
+102 |             speed: 1.5,
+103 |             skipIntro: 30,
+
+CoreModels.PodcastPlaybackSettings.init:2:10: note: 'init(speed:introSkipDuration:outroSkipDuration:skipForwardInterval:skipBackwardInterval:)' declared here
+1 | struct PodcastPlaybackSettings {
+2 | internal init(speed: Double? = nil, introSkipDuration: Int? = nil, outroSkipDuration: Int? = nil, skipForwardInterval: Int? = nil, skipBackwardInterval: Int? = nil)}
+  |          `- note: 'init(speed:introSkipDuration:outroSkipDuration:skipForwardInterval:skipBackwardInterval:)' declared here
+3 | 
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:107:25: error: value of type 'SettingsManager' has no member 'setPodcastSettings'
+105 |             autoDownload: true
+106 |         )
+107 |         settingsManager.setPodcastSettings(podcastId: testPodcast.id, settings: podcastSettings)
+    |                         `- error: value of type 'SettingsManager' has no member 'setPodcastSettings'
+108 |         
+109 |         // Then: Complete organization should be maintained
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:114:49: error: value of type 'InMemoryPodcastManager' has no member 'getAllPodcasts'
+112 |         XCTAssertEqual(folders.first?.name, "Technology Podcasts")
+113 |         
+114 |         let podcasts = try await podcastManager.getAllPodcasts()
+    |                                                 `- error: value of type 'InMemoryPodcastManager' has no member 'getAllPodcasts'
+115 |         let organizedPodcast = podcasts.first { $0.id == testPodcast.id }
+116 |         XCTAssertEqual(organizedPodcast?.folderId, categoryFolder.id)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:118:49: error: value of type 'SettingsManager' has no member 'getPodcastSettings'
+116 |         XCTAssertEqual(organizedPodcast?.folderId, categoryFolder.id)
+117 |         
+118 |         let retrievedSettings = settingsManager.getPodcastSettings(podcastId: testPodcast.id)
+    |                                                 `- error: value of type 'SettingsManager' has no member 'getPodcastSettings'
+119 |         XCTAssertEqual(retrievedSettings.speed, 1.5)
+120 |         XCTAssertEqual(retrievedSettings.skipIntro, 30)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:133:13: error: argument 'description' must precede argument 'feedURL'
+131 |             title: "Swift Programming",
+132 |             feedURL: URL(string: "https://example.com/swift.xml")!,
+133 |             description: "Learn Swift programming language",
+    |             `- error: argument 'description' must precede argument 'feedURL'
+134 |             folderId: techFolder.id
+135 |         )
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:141:13: error: argument 'description' must precede argument 'feedURL'
+139 |             title: "Daily Tech News",
+140 |             feedURL: URL(string: "https://example.com/news.xml")!,
+141 |             description: "Latest technology news and updates",
+    |             `- error: argument 'description' must precede argument 'feedURL'
+142 |             folderId: newsFolder.id
+143 |         )
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:148:34: error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+146 |         try folderManager.add(techFolder)
+147 |         try folderManager.add(newsFolder)
+148 |         try await podcastManager.addPodcast(techPodcast)
+    |                                  `- error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+149 |         try await podcastManager.addPodcast(newsPodcast)
+150 |         
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:149:34: error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+147 |         try folderManager.add(newsFolder)
+148 |         try await podcastManager.addPodcast(techPodcast)
+149 |         try await podcastManager.addPodcast(newsPodcast)
+    |                                  `- error: value of type 'InMemoryPodcastManager' has no member 'addPodcast'
+150 |         
+151 |         // And: Indexing all content for search (commented out - SearchIndex API needs update)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:194:42: error: value of type 'DownloadSettings' has no member 'autoDownload'
+192 |         let persistedSettings = newSettingsManager.globalDownloadSettings
+193 |         XCTAssertEqual(persistedSettings.defaultUpdateFrequency, .daily)
+194 |         XCTAssertFalse(persistedSettings.autoDownload)
+    |                                          `- error: value of type 'DownloadSettings' has no member 'autoDownload'
+195 |     }
+196 |     
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:189:34: error: expression is 'async' but is not marked with 'await'
+187 |         
+188 |         // And: Simulating app restart by creating new managers with same UserDefaults
+189 |         let newSettingsManager = SettingsManager(repository: UserDefaultsSettingsRepository(userDefaults: userDefaults))
+    |                                  |- error: expression is 'async' but is not marked with 'await'
+    |                                  `- note: calls to initializer 'init(repository:)' from outside of its actor context are implicitly asynchronous
+190 |         
+191 |         // Then: Settings should persist  
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:192:33: error: expression is 'async' but is not marked with 'await'
+190 |         
+191 |         // Then: Settings should persist  
+192 |         let persistedSettings = newSettingsManager.globalDownloadSettings
+    |                                 |- error: expression is 'async' but is not marked with 'await'
+    |                                 `- note: property access is 'async'
+193 |         XCTAssertEqual(persistedSettings.defaultUpdateFrequency, .daily)
+194 |         XCTAssertFalse(persistedSettings.autoDownload)
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:205:40: error: value of type 'InMemoryFolderManager' has no member 'getAll'
+203 |         // Note: InMemoryFolderManager doesn't throw errors, it handles invalid cases gracefully
+204 |         folderManager.add(invalidFolder)
+205 |         let allFolders = folderManager.getAll()
+    |                                        `- error: value of type 'InMemoryFolderManager' has no member 'getAll'
+206 |         XCTAssertTrue(allFolders.contains { $0.id == invalidFolder.id })
+207 |         
+
+/home/runner/work/zpod/zpod/IntegrationTests/CorePackageIntegrationTests.swift:204:9: error: call can throw but is not marked with 'try'
+202 |         // Then: Should handle errors gracefully without crashing
+203 |         // Note: InMemoryFolderManager doesn't throw errors, it handles invalid cases gracefully
+204 |         folderManager.add(invalidFolder)
+    |         |- error: call can throw but is not marked with 'try'
+    |         |- note: did you mean to use 'try'?
+    |         |- note: did you mean to handle error as optional value?
+    |         `- note: did you mean to disable error propagation?
+205 |         let allFolders = folderManager.getAll()
+206 |         XCTAssertTrue(allFolders.contains { $0.id == invalidFolder.id })
+error: fatalError
