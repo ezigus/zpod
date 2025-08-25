@@ -30,8 +30,12 @@ class EpisodeDetailViewModel: ObservableObject {
   ) {
     // Use provided service or create enhanced player (fallback to stub for compatibility)
     self.playbackService = playbackService ?? EnhancedEpisodePlayer()
-    // Avoid calling a @MainActor initializer in a default argument context (Swift 6 strict concurrency)
-    self.sleepTimer = sleepTimer ?? SleepTimer()
+    // Create SleepTimer on MainActor to avoid Swift 6 concurrency violation
+    if let providedTimer = sleepTimer {
+      self.sleepTimer = providedTimer
+    } else {
+      self.sleepTimer = SleepTimer()
+    }
     observePlaybackState()
   }
 
@@ -107,10 +111,11 @@ class EpisodeDetailViewModel: ObservableObject {
 
   private func observePlaybackState() {
     playbackService.statePublisher
-      .receive(on: DispatchQueue.main)
       .sink { [weak self] state in
-        self?.currentState = state
-        self?.updateUI(for: state)
+        Task { @MainActor in
+          self?.currentState = state
+          self?.updateUI(for: state)
+        }
       }
       .store(in: &cancellables)
   }

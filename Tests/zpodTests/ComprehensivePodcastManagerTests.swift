@@ -383,32 +383,29 @@ final class ComprehensivePodcastManagerTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Thread Safety & Performance
     
-    func testConcurrentAccess_ReadOperations() {
+    func testConcurrentAccess_ReadOperations() async {
         // Given: Populated podcast manager
         samplePodcasts.forEach { podcastManager.add($0) }
         
-        let expectation = XCTestExpectation(description: "Concurrent reads")
-        expectation.expectedFulfillmentCount = 100
-        
         // When: Multiple concurrent read operations
-        DispatchQueue.concurrentPerform(iterations: 100) { _ in
-            let all = podcastManager.all()
-            let first = podcastManager.find(id: samplePodcasts[0].id)
-            let byFolder = podcastManager.findByFolder(folderId: "folder1")
-            let byTag = podcastManager.findByTag(tagId: "tag1")
-            let unorganized = podcastManager.findUnorganized()
-            
-            // Then: All operations should succeed
-            XCTAssertEqual(all.count, 3)
-            XCTAssertNotNil(first)
-            XCTAssertEqual(byFolder.count, 2)
-            XCTAssertEqual(byTag.count, 2)
-            XCTAssertEqual(unorganized.count, 1)
-            
-            expectation.fulfill()
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<100 {
+                group.addTask {
+                    let all = podcastManager.all()
+                    let first = podcastManager.find(id: samplePodcasts[0].id)
+                    let byFolder = podcastManager.findByFolder(folderId: "folder1")
+                    let byTag = podcastManager.findByTag(tagId: "tag1")
+                    let unorganized = podcastManager.findUnorganized()
+                    
+                    // Then: All operations should succeed
+                    XCTAssertEqual(all.count, 3)
+                    XCTAssertNotNil(first)
+                    XCTAssertEqual(byFolder.count, 2)
+                    XCTAssertEqual(byTag.count, 2)
+                    XCTAssertEqual(unorganized.count, 1)
+                }
+            }
         }
-        
-        wait(for: [expectation], timeout: 5.0)
     }
     
     // MARK: - Protocol Conformance Validation

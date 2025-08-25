@@ -16,20 +16,7 @@ public class PlaybackSettings {
 
 // MARK: - Chapter Support
 
-/// Represents a chapter in an audio episode
-public struct Chapter: Codable, Sendable {
-    public let title: String
-    public let startTime: TimeInterval
-    public let endTime: TimeInterval
-    public let artworkURL: URL?
-    
-    public init(title: String, startTime: TimeInterval, endTime: TimeInterval, artworkURL: URL? = nil) {
-        self.title = title
-        self.startTime = startTime
-        self.endTime = endTime
-        self.artworkURL = artworkURL
-    }
-}
+// Chapter is now imported from CoreModels
 
 /// Protocol for parsing chapters from episode metadata
 public protocol ChapterParser: Sendable {

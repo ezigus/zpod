@@ -223,7 +223,7 @@ final class ComprehensiveFeedParsingTests: XCTestCase {
     }
     
     @MainActor
-    func testOPMLParser_ConcurrentAccess() throws {
+    func testOPMLParser_ConcurrentAccess() async throws {
         // Given: Multiple parser instances for concurrency testing
         let parser1 = XMLOPMLParser()
         let parser2 = XMLOPMLParser()
@@ -238,35 +238,25 @@ final class ComprehensiveFeedParsingTests: XCTestCase {
         
         // When: Using parsers concurrently
         var results: [OPMLDocument] = []
-        let expectation = self.expectation(description: "Concurrent parsing")
-        expectation.expectedFulfillmentCount = 2
         
-        DispatchQueue.global().async {
-            do {
-                let result = try parser1.parseOPML(data: opmlData)
-                DispatchQueue.main.async {
-                    results.append(result)
-                    expectation.fulfill()
-                }
-            } catch {
-                XCTFail("Parser 1 failed: \(error)")
-            }
-        }
+        // Use proper async/await instead of DispatchQueue
+        async let result1: OPMLDocument = {
+            try parser1.parseOPML(data: opmlData)
+        }()
         
-        DispatchQueue.global().async {
-            do {
-                let result = try parser2.parseOPML(data: opmlData)
-                DispatchQueue.main.async {
-                    results.append(result)
-                    expectation.fulfill()
-                }
-            } catch {
-                XCTFail("Parser 2 failed: \(error)")
-            }
-        }
+        async let result2: OPMLDocument = {
+            try parser2.parseOPML(data: opmlData)
+        }()
         
         // Then: Both parsers complete successfully
-        waitForExpectations(timeout: 5.0)
+        do {
+            let (r1, r2) = try await (result1, result2)
+            results = [r1, r2]
+        } catch {
+            XCTFail("Concurrent parsing failed: \(error)")
+            return
+        }
+        
         XCTAssertEqual(results.count, 2)
         XCTAssertEqual(results[0].head.title, "Concurrent Test")
         XCTAssertEqual(results[1].head.title, "Concurrent Test")
@@ -348,7 +338,7 @@ final class ComprehensiveFeedParsingTests: XCTestCase {
         let document = OPMLDocument(version: "2.0", head: head, body: body)
         
         // When: Using types in concurrent contexts
-        DispatchQueue.global().async {
+        Task {
             // Then: Should compile without Sendable warnings
             let _ = document.head.title
             let _ = document.body.outlines.count
