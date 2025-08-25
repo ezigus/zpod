@@ -1,14 +1,14 @@
 import XCTest
 @testable import zpodLib
-@testable import TestSupport
 import CoreModels
+import TestSupport
 
 /// Comprehensive unit tests for PodcastManager - testing protocol compliance and in-memory implementation
 final class ComprehensivePodcastManagerTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Properties
     private var podcastManager: InMemoryPodcastManager!
-    private var folderManager: InMemoryFolderManager!
+    private var folderManager: TestSupport.InMemoryFolderManager!
     private var samplePodcasts: [Podcast]!
     
     // MARK: - Setup & Teardown
@@ -390,12 +390,12 @@ final class ComprehensivePodcastManagerTests: XCTestCase, @unchecked Sendable {
         // When: Multiple concurrent read operations
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<100 {
-                group.addTask {
-                    let all = podcastManager.all()
-                    let first = podcastManager.find(id: samplePodcasts[0].id)
-                    let byFolder = podcastManager.findByFolder(folderId: "folder1")
-                    let byTag = podcastManager.findByTag(tagId: "tag1")
-                    let unorganized = podcastManager.findUnorganized()
+                group.addTask { [self] in
+                    let all = self.podcastManager.all()
+                    let first = self.podcastManager.find(id: self.samplePodcasts[0].id)
+                    let byFolder = self.podcastManager.findByFolder(folderId: "folder1")
+                    let byTag = self.podcastManager.findByTag(tagId: "tag1")
+                    let unorganized = self.podcastManager.findUnorganized()
                     
                     // Then: All operations should succeed
                     XCTAssertEqual(all.count, 3)

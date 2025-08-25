@@ -63,6 +63,23 @@ For each implementation step, follow this process explicitly:
 - Handle errors at appropriate levels in the call stack
 - Use custom error types that conform to `LocalizedError` for user-facing errors
 
+### Memory Management
+- Use `weak` references to break retain cycles in closures and delegates
+- Prefer `unowned` only when certain the referenced object will outlive the current context
+- Use `@escaping` closures judiciously and always consider memory implications
+- Avoid creating retain cycles with async/await patterns
+
+### Property Wrappers
+- Use `@Published` for properties that should trigger UI updates
+- Use custom property wrappers for common patterns (like UserDefaults storage)
+- Always consider thread safety when creating custom property wrappers
+
+### Combine Framework
+- Use `@preconcurrency import Combine` until Combine is fully Swift 6 compatible
+- Prefer async/await over Combine for simple async operations
+- Use Combine for complex data transformation and UI binding scenarios
+- Always manage subscription lifecycle properly
+
 ## Testing Best Practices
 
 ### Test Structure and Organization
@@ -121,23 +138,18 @@ For each implementation step, follow this process explicitly:
 - Document preconditions and postconditions
 - Explain complex algorithms and business logic
 
-### Error Handling and Safety
-- Avoid using magic numbers or strings; use constants and enums
-- Handle errors gracefully using Swift's error handling mechanisms (try/catch, Result type)
-- Write unit tests for all logic and maintain high test coverage
+### API Design
+- Use clear, descriptive parameter names
+- Prefer methods that return values over methods that modify state
+- Design APIs that are hard to misuse
+- Use default parameter values to reduce API surface area
+- Follow Swift naming conventions consistently
 
-## Memory Management
-
-### Reference Management
-- Use `weak` references to break retain cycles in closures and delegates
-- Prefer `unowned` only when certain the referenced object will outlive the current context
-- Use `@escaping` closures judiciously and always consider memory implications
-- Avoid creating retain cycles with async/await patterns
-
-### Property Wrappers
-- Use `@Published` for properties that should trigger UI updates
-- Use custom property wrappers for common patterns (like UserDefaults storage)
-- Always consider thread safety when creating custom property wrappers
+### Performance Considerations
+- Use `lazy` properties for expensive computations that may not be needed
+- Prefer value types (structs) over reference types (classes) when appropriate
+- Use `@inlinable` for small, frequently called functions
+- Consider using `@frozen` for public structs that won't change
 
 ## SwiftUI Best Practices
 
@@ -150,22 +162,6 @@ For each implementation step, follow this process explicitly:
 
 ### UI Guidelines
 - Ensure all UI code is accessible and follows Apple's Human Interface Guidelines
-
-## Combine Framework
-
-### Usage Patterns
-- Use `@preconcurrency import Combine` until Combine is fully Swift 6 compatible
-- Prefer async/await over Combine for simple async operations
-- Use Combine for complex data transformation and UI binding scenarios
-- Always manage subscription lifecycle properly
-
-## Performance Considerations
-
-### Optimization Techniques
-- Use `lazy` properties for expensive computations that may not be needed
-- Prefer value types (structs) over reference types (classes) when appropriate
-- Use `@inlinable` for small, frequently called functions
-- Consider using `@frozen` for public structs that won't change
 
 ## Code Organization
 
@@ -222,15 +218,6 @@ For each implementation step, follow this process explicitly:
 ### Acceptance Criteria
 - App builds and tests pass
 - UI targets do not depend directly on Persistence/Networking
-
-## API Design
-
-### Design Principles
-- Use clear, descriptive parameter names
-- Prefer methods that return values over methods that modify state
-- Design APIs that are hard to misuse
-- Use default parameter values to reduce API surface area
-- Follow Swift naming conventions consistently
 
 ## Package Management
 
