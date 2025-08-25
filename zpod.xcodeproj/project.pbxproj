@@ -79,7 +79,6 @@
 		786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				".github/copilot-instructions.md",
 				.vscode/settings.json,
 				Info.plist,
 				README.md,

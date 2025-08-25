@@ -1,28 +1,8 @@
 import Foundation
 import CoreModels
 
-/// Protocol defining folder management responsibilities for hierarchical organization.
-public protocol FolderManaging {
-  /// Returns all stored folders.
-  func all() -> [Folder]
-  /// Finds a folder by id.
-  func find(id: String) -> Folder?
-  /// Adds a new folder if it does not already exist (id uniqueness enforced).
-  /// Returns error if parent folder doesn't exist or would create circular reference.
-  func add(_ folder: Folder) throws
-  /// Updates an existing folder (matched by id); no-op if not present.
-  /// Returns error if update would create circular reference.
-  func update(_ folder: Folder) throws
-  /// Removes a folder by id; no-op if absent.
-  /// Returns error if folder has children or contains podcasts.
-  func remove(id: String) throws
-  /// Returns direct children of a folder (one level only).
-  func getChildren(of folderId: String) -> [Folder]
-  /// Returns all descendant folders recursively.
-  func getDescendants(of folderId: String) -> [Folder]
-  /// Returns root-level folders (no parent).
-  func getRootFolders() -> [Folder]
-}
+/// Re-export CoreModels' FolderManaging to avoid duplication and ambiguity across modules.
+public typealias FolderManaging = CoreModels.FolderManaging
 
 /// Folder management errors.
 public enum FolderError: Error, Equatable {

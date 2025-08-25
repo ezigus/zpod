@@ -6,3 +6,4 @@
 @_exported import Networking
 @_exported import SettingsDomain
 @_exported import SearchDomain
+@_exported import PlaybackEngine

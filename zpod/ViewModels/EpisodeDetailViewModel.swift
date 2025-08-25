@@ -1,5 +1,7 @@
 @preconcurrency import Combine
 import Foundation
+import CoreModels
+import PlaybackEngine
 
 /// ViewModel for Episode Detail view, coordinates with EpisodePlaybackService
 @MainActor
@@ -41,7 +43,8 @@ class EpisodeDetailViewModel: ObservableObject {
 
   func loadEpisode(_ episode: Episode) {
     self.episode = episode
-    self.chapters = episode.chapters
+    // Episode currently has no chapters property; set empty and await parsing support
+    self.chapters = []
     updateCurrentChapter()
     updatePlaybackSpeed()
     // Reset UI state when loading a new episode

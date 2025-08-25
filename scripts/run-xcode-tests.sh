@@ -58,7 +58,7 @@ if [[ -z "${SELECTED_DEST}" ]]; then
 fi
 
 echo "Using destination: ${SELECTED_DEST}"
-RESULT_DIR="./TestResults_$(date +%Y%m%d_%H%M%S)"
+RESULT_DIR="./TestResults/TestResults_$(date +%Y%m%d_%H%M%S)"
 
 # Run the full test suite; this will include all test targets attached to the scheme
 set -x

@@ -1,29 +1,9 @@
 import Foundation
+import CoreModels
 
 /// Protocol defining podcast library management responsibilities.
 /// Design reference: dev-log entry "Xcode Project Scaffolding & Initial Manager/View Stubs" (2025-08-10).
-public protocol PodcastManaging {
-  /// Returns all stored podcasts (unordered). May evolve to support sorting & paging.
-  func all() -> [Podcast]
-  /// Finds a podcast by id.
-  func find(id: String) -> Podcast?
-  /// Adds a new podcast if it does not already exist (id uniqueness enforced).
-  func add(_ podcast: Podcast)
-  /// Updates an existing podcast (matched by id); no-op if not present.
-  func update(_ podcast: Podcast)
-  /// Removes a podcast by id; no-op if absent.
-  func remove(id: String)
-  
-  // MARK: - Organization Filtering
-  /// Returns podcasts in a specific folder (direct children only).
-  func findByFolder(folderId: String) -> [Podcast]
-  /// Returns podcasts in a folder and all its subfolders recursively.
-  func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast]
-  /// Returns podcasts with a specific tag.
-  func findByTag(tagId: String) -> [Podcast]
-  /// Returns podcasts that have no folder or tags assigned.
-  func findUnorganized() -> [Podcast]
-}
+public typealias PodcastManaging = CoreModels.PodcastManaging
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.

@@ -15,6 +15,8 @@ public class SettingsManager {
     internal let repository: SettingsRepository
     #if canImport(Combine)
     private var cancellables = Set<AnyCancellable>()
+    // Bridge subject to expose a synchronous publisher without awaiting the repository
+    private let settingsChangeSubject = PassthroughSubject<SettingsChange, Never>()
     #endif
     
     // Published properties for reactive UI
@@ -36,9 +38,6 @@ public class SettingsManager {
         self.globalNotificationSettings = NotificationSettings.default
         self.globalPlaybackSettings = PlaybackSettings()
         
-        // Note: Repository change notifications would be implemented here
-        // when a proper stream interface is added to SettingsRepository
-        
         // Load initial values from repository asynchronously after initialization
         Task {
             let downloadSettings = await repository.loadGlobalDownloadSettings()
@@ -51,6 +50,25 @@ public class SettingsManager {
                 self.globalPlaybackSettings = playbackSettings
             }
         }
+        
+        // Bridge repository change notifications to a synchronous publisher
+        #if canImport(Combine)
+        Task { [weak self] in
+            guard let self else { return }
+            let repoPublisher = await repository.settingsChangedPublisher
+            await MainActor.run {
+                repoPublisher
+                    .sink { [weak self] change in
+                        guard let self else { return }
+                        Task { @MainActor in
+                            await self.handleSettingsChange(change)
+                            self.settingsChangeSubject.send(change)
+                        }
+                    }
+                    .store(in: &self.cancellables)
+            }
+        }
+        #endif
     }
     
     // MARK: - Cascading Resolution
@@ -177,10 +195,10 @@ public class SettingsManager {
     
     // MARK: - Change Notifications
     
-    /// Publisher for settings changes (forwarded from repository)
+    /// Publisher for settings changes (forwarded from repository via bridge)
     #if canImport(Combine)
     public var settingsChangePublisher: AnyPublisher<SettingsChange, Never> {
-        return repository.settingsChangedPublisher
+        settingsChangeSubject.eraseToAnyPublisher()
     }
     #endif
     
