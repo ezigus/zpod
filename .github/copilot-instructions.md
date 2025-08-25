@@ -148,6 +148,7 @@
 - Ensure settings persist across app restarts.
 - Use Combine publishers for UI updates and change notifications.
 
+
 ## Logging All Updates
 - For each issue, create a new dev-log in the `dev-log` directory at the root of this repository.
 - Create and then update a dev-log for each issue you are working on.
@@ -284,6 +285,18 @@ Package.swift                  # Swift Package Manager (experimental)
   
 # Development Instructions for zPodcastAddict
 <!-- these instructions came from the previous version of the copilot-instructions.md file. I have now combined them together into the .github directory -->
+
+- Settings should cascade from global to per-podcast overrides
+- Use the SettingsManager pattern for centralized configuration
+- Always validate settings values and clamp to safe ranges
+- Ensure settings persist across app restarts
+- Use Combine publishers for UI updates and change notifications
+
+# Development Instructions for zPodcastAddict
+
+<!--This portion of the file is coming from a different copilot-instructions.md file. I am combining these two files together. These two files are going to need to be recongciled with updates to reflect one comprehensive set of instructions
+-->
+
 
 ## Overview
 These instructions outline the development process and standards for building the zPodcastAddict application.
