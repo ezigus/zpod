@@ -42,7 +42,7 @@ let package = Package(
                 "Networking",
                 "SettingsDomain",
                 "SearchDomain",
-		"PlaybackEngine"
+		        "PlaybackEngine"
             ],
             path: "zpod",
             exclude: [
