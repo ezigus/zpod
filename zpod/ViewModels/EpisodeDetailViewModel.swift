@@ -1,7 +1,11 @@
 @preconcurrency import Combine
 import Foundation
 import CoreModels
+#if canImport(zpodLib)
+import zpodLib
+#elseif canImport(PlaybackEngine)
 import PlaybackEngine
+#endif
 
 /// ViewModel for Episode Detail view, coordinates with EpisodePlaybackService
 @MainActor

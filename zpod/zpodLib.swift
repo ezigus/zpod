@@ -6,4 +6,7 @@
 @_exported import Networking
 @_exported import SettingsDomain
 @_exported import SearchDomain
+
+#if canImport(PlaybackEngine)
 @_exported import PlaybackEngine
+#endif
