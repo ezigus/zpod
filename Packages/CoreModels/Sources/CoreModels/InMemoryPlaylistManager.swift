@@ -8,7 +8,7 @@ import Foundation
 /// In-memory playlist manager for testing
 @available(macOS 10.15, *)
 @MainActor
-public class InMemoryPlaylistManager {
+public class InMemoryPlaylistManager: ObservableObject {
     #if canImport(Combine)
     @available(macOS 10.15, *)
     @Published public private(set) var playlists: [Playlist] = []

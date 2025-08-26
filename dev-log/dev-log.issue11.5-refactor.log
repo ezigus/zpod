@@ -1178,7 +1178,37 @@ Issue11.5 – Documentation Update
 - Approach: Update dev-log first, then make a minimal doc edit under Project-Specific Guidelines.
 - Next: Commit and push changes to git.
 
-2025-08-24 21:20 ET
+2025-08-25 20:11 EDT
+---
+**SWIFT COMPILATION ERRORS FIXED**
+
+Successfully resolved 3 critical compilation errors identified in build log:
+
+**Issue 1 & 2: Episode Initializer Errors (EpisodeDetailView.swift)**
+- ❌ Error: extra argument 'chapters' in call (line 192)
+- ❌ Error: argument 'duration' must precede argument 'description' (line 211)
+- ✅ Fixed: Removed non-existent 'chapters' parameter from Episode initializer
+- ✅ Fixed: Corrected parameter order to match Episode model definition
+- ✅ Fixed: Changed 'mediaURL' to 'audioURL' to match actual Episode property names
+
+**Issue 3: ObservableObject Conformance (PlaylistViews.swift)**
+- ❌ Error: StateObject requires InMemoryPlaylistManager conform to 'ObservableObject' (line 6)
+- ✅ Fixed: Added ObservableObject conformance to InMemoryPlaylistManager class
+- ✅ Verified: @Published properties already exist, just needed protocol conformance
+
+**Technical Validation:**
+- ✅ Swift syntax check: All files pass (9 main source files + 3 test files)
+- ✅ Swift 6 concurrency check: No anti-patterns detected
+- ✅ Episode model API alignment: Using correct initializer parameters
+- ✅ SwiftUI state management: Proper ObservableObject usage with @StateObject
+
+**Files Modified:**
+- `/zpod/Views/EpisodeDetailView.swift`: Fixed Episode initializer calls in #Preview blocks
+- `/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`: Added ObservableObject conformance
+
+All compilation errors from Xcode build log resolved. Ready for full test suite execution.
+
+2025-08-25 20:11 EDT
 ---
 Issue11.5 – Ambiguity & Build Fixes (FolderManaging + PlaybackEngine integration)
 

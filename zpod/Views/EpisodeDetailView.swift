@@ -187,15 +187,8 @@ struct EpisodeDetailView: View {
         title: "Introduction to Podcast Development",
         description:
           "In this episode, we explore the fundamentals of building a podcast application using SwiftUI and modern iOS development practices. We'll cover architecture patterns, data management, and user interface design.",
-        mediaURL: URL(string: "https://example.com/episode1.mp3"),
         duration: 1800,  // 30 minutes
-        chapters: [
-          Chapter(id: "ch1", title: "Introduction", startTime: 0),
-          Chapter(id: "ch2", title: "Architecture Patterns", startTime: 300),
-          Chapter(id: "ch3", title: "Data Management", startTime: 900),
-          Chapter(id: "ch4", title: "User Interface Design", startTime: 1200),
-          Chapter(id: "ch5", title: "Conclusion", startTime: 1650),
-        ]
+        audioURL: URL(string: "https://example.com/episode1.mp3")
       ))
   }
 }
@@ -207,8 +200,8 @@ struct EpisodeDetailView: View {
         id: "episode-2",
         title: "Advanced SwiftUI Techniques",
         description: nil,
-        mediaURL: URL(string: "https://example.com/episode2.mp3"),
-        duration: 2400  // 40 minutes
+        duration: 2400,  // 40 minutes
+        audioURL: URL(string: "https://example.com/episode2.mp3")
       ))
   }
 }
