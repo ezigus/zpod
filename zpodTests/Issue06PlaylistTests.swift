@@ -28,42 +28,42 @@ final class Issue06PlaylistTests: XCTestCase {
             Episode(
                 id: "ep1",
                 title: "Episode 1",
-                description: "First episode",
-                duration: 1800, // 30 minutes
-                pubDate: Date().addingTimeInterval(-oneDayInSeconds), // 1 day ago
-                isPlayed: false,
+                podcastID: "podcast1",
                 playbackPosition: 0,
-                podcastId: "podcast1"
+                isPlayed: false,
+                pubDate: Date().addingTimeInterval(-oneDayInSeconds), // 1 day ago
+                duration: 1800, // 30 minutes
+                description: "First episode"
             ),
             Episode(
                 id: "ep2",
                 title: "Episode 2",
-                description: "Second episode",
-                duration: 3600, // 60 minutes
-                pubDate: Date().addingTimeInterval(-172800), // 2 days ago
-                isPlayed: true,
+                podcastID: "podcast1", 
                 playbackPosition: 3600,
-                podcastId: "podcast1"
+                isPlayed: true,
+                pubDate: Date().addingTimeInterval(-172800), // 2 days ago
+                duration: 3600, // 60 minutes
+                description: "Second episode"
             ),
             Episode(
                 id: "ep3",
                 title: "Episode 3",
-                description: "Third episode",
-                duration: 2400, // 40 minutes
-                pubDate: Date().addingTimeInterval(-259200), // 3 days ago
-                isPlayed: false,
+                podcastID: "podcast2",
                 playbackPosition: 120, // 2 minutes played
-                podcastId: "podcast2"
+                isPlayed: false,
+                pubDate: Date().addingTimeInterval(-259200), // 3 days ago
+                duration: 2400, // 40 minutes
+                description: "Third episode"
             ),
             Episode(
                 id: "ep4",
                 title: "Episode 4",
-                description: "Fourth episode",
-                duration: 900, // 15 minutes
-                pubDate: Date().addingTimeInterval(-691200), // 8 days ago
-                isPlayed: false,
+                podcastID: "podcast2",
                 playbackPosition: 0,
-                podcastId: "podcast2"
+                isPlayed: false,
+                pubDate: Date().addingTimeInterval(-691200), // 8 days ago
+                duration: 900, // 15 minutes
+                description: "Fourth episode"
             )
         ]
         
@@ -222,7 +222,7 @@ final class Issue06PlaylistTests: XCTestCase {
         XCTAssertFalse(rule.matches(episode: sampleEpisodes[3], downloadStatus: nil))
         
         // Episode with no duration should not match
-        let episodeNoDuration = Episode(id: "test", title: "Test", duration: nil)
+        let episodeNoDuration = Episode(id: "test", title: "Test")
         XCTAssertFalse(rule.matches(episode: episodeNoDuration, downloadStatus: nil))
     }
     

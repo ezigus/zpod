@@ -7,31 +7,25 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   private let sampleEpisode = Episode(
     id: "ep1",
     title: "Test Episode",
-    description: "A test episode",
-    mediaURL: URL(string: "https://example.com/ep1.mp3"),
-    duration: 300,
-    pubDate: Date(),
-    isPlayed: false,
+    podcastID: "podcast1",
     playbackPosition: 0,
-    chapters: [],
-    podcastId: "podcast1"
+    isPlayed: false,
+    pubDate: Date(),
+    duration: 300,
+    description: "A test episode",
+    audioURL: URL(string: "https://example.com/ep1.mp3")
   )
   
   private let episodeWithChapters = Episode(
     id: "ep2",
     title: "Episode with Chapters",
-    description: "Episode containing chapters",
-    mediaURL: URL(string: "https://example.com/ep2.mp3"),
-    duration: 600,
-    pubDate: Date(),
-    isPlayed: false,
+    podcastID: "podcast1", 
     playbackPosition: 0,
-    chapters: [
-      Chapter(id: "ch1", title: "Introduction", startTime: 0, endTime: 120),
-      Chapter(id: "ch2", title: "Main Content", startTime: 120, endTime: 480),
-      Chapter(id: "ch3", title: "Conclusion", startTime: 480, endTime: 600)
-    ],
-    podcastId: "podcast1"
+    isPlayed: false,
+    pubDate: Date(),
+    duration: 600,
+    description: "Episode containing chapters",
+    audioURL: URL(string: "https://example.com/ep2.mp3")
   )
 
   // MARK: - Test Doubles
@@ -135,14 +129,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
       return Episode(
         id: episode.id,
         title: episode.title,
-        description: episode.description,
-        mediaURL: episode.mediaURL,
-        duration: episode.duration,
-        pubDate: episode.pubDate,
-        isPlayed: isPlayed,
+        podcastID: episode.podcastID,
         playbackPosition: position,
-        chapters: episode.chapters,
-        podcastId: episode.podcastId
+        isPlayed: isPlayed,
+        pubDate: episode.pubDate,
+        duration: episode.duration,
+        description: episode.description,
+        audioURL: episode.audioURL
       )
     }
   }
@@ -472,14 +465,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let episode1 = Episode(
       id: "ep1",
       title: "Episode 1",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep1.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "podcast1",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "podcast1"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep1.mp3")
     )
     
     await MainActor.run {
@@ -495,14 +487,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let episode2 = Episode(
       id: "ep2",
       title: "Episode 2",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep2.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "podcast2",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "podcast2"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep2.mp3")
     )
     
     await MainActor.run {
@@ -518,14 +509,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let episode3 = Episode(
       id: "ep3",
       title: "Episode 3",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep3.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "unknown_podcast",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "unknown_podcast"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep3.mp3")
     )
     
     await MainActor.run {
@@ -583,6 +573,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let localPlayer = player!
     let localEpisodeWithChapters = episodeWithChapters
     
+    // Create sample chapters for testing since Episode model doesn't include chapters
+    let sampleChapters = [
+      Chapter(id: "ch1", title: "Introduction", startTime: 0, endTime: 120),
+      Chapter(id: "ch2", title: "Main Content", startTime: 120, endTime: 480),
+      Chapter(id: "ch3", title: "Conclusion", startTime: 480, endTime: 600)
+    ]
+    
     actor StateCollector {
       private var states: [EpisodePlaybackState] = []
       
@@ -610,7 +607,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
       localPlayer.play(episode: localEpisodeWithChapters, duration: 600)
       
       // When: Jumping to chapter
-      let chapter = localEpisodeWithChapters.chapters[1] // Main Content at 120s
+      let chapter = sampleChapters[1] // Main Content at 120s
       localPlayer.jumpToChapter(chapter)
     }
     
