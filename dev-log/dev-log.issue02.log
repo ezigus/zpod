@@ -101,7 +101,7 @@ Successfully resolved comprehensive Swift 6 strict concurrency compilation error
 
 **Testing Results:**
 - ✅ All Issue01SubscribeTests passing (7/7)
-- ✅ All Issue02EpisodeDetailTests passing (8/8) 
+- ✅ All Issue02EpisodeDetailTests passing (8/8)
 - 🔄 Issue03PlaybackEngineTests: 19/28 passing (9 functional failures remain, but compilation successful)
 - 🔄 PodcastTests: 2/3 passing (1 functional failure in testPodcastCodable)
 
@@ -156,7 +156,7 @@ The playback state management system continues to work as designed:
 
 **Tests Passing:**
 - All Issue01SubscribeTests: ✅ (7/7)
-- All Issue02EpisodeDetailTests: ✅ (8/8) 
+- All Issue02EpisodeDetailTests: ✅ (8/8)
 - All PodcastTests: ✅ (3/3) - including stabilized `testPodcastCodable`
 
 **Deferred/Future:**
@@ -171,3 +171,14 @@ The playback state management system continues to work as designed:
 - Updated View default parameter to use optional pattern allowing service injection
 - Resolved compilation errors through proper tuple destructuring for enum associated values
 - Maintained clean separation between playback logic (service) and UI state (ViewModel)
+
+---
+
+## 2025-08-25 | Maintenance Fix: Episode initializer label order in previews
+- Problem: Xcode build failed in zpod target with "argument 'duration' must precede argument 'description'" in EpisodeDetailView.swift previews.
+- Cause: CoreModels.Episode initializer defines parameters with `duration` before `description`. Previews passed `description` first.
+- Change: Reordered arguments in both EpisodeDetailView previews so `duration` precedes `description`.
+- Validation:
+  - Ran scripts/dev-build.sh syntax — All Swift files passed.
+  - Grepped for other `Episode(` initializations — no other ordering issues in app code; tests already use correct order.
+- Impact: UI previews compile; no runtime or API changes.
