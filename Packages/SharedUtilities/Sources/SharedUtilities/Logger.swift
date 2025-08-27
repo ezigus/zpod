@@ -7,36 +7,40 @@ public enum LogLevel: String, Sendable {
     case debug, info, warning, error
     
     #if canImport(os)
+    @usableFromInline
     var osLogType: OSLogType {
         switch self {
-        case .debug:
-            return .debug
-        case .info:
-            return .info
-        case .warning:
-            return .error // OSLogType doesn't have warning, using error
-        case .error:
-            return .fault
+        case .debug: return .debug
+        case .info: return .info
+        case .warning: return .error // OSLogType doesn't have warning, using error
+        case .error: return .fault
         }
     }
     #endif
 }
 
 public enum Logger {
+    // Use an availability-gated accessor to avoid referencing os.Logger on older platforms at compile time
     #if canImport(os)
-    private static let logger = os.Logger(subsystem: "com.zpod.app", category: "general")
+    @available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *)
+    @inline(__always)
+    private static func makeOSLogger() -> os.Logger { os.Logger(subsystem: "com.zpod.app", category: "general") }
     #endif
     
     public static func log(_ message: String, level: LogLevel = .info, file: String = #fileID, function: String = #function, line: Int = #line) {
         let logMessage = "[\(level.rawValue.uppercased())] \(file):\(line) \(function) — \(message)"
         
         #if canImport(os)
-        logger.log(level: level.osLogType, "\(logMessage)")
-        #else
-        // Fallback for non-Apple platforms
+        if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
+            let logger = makeOSLogger()
+            logger.log(level: level.osLogType, "\(logMessage)")
+            return
+        }
+        #endif
+        
+        // Fallback for non-Apple platforms or older Apple OS versions
         #if DEBUG
         print(logMessage)
-        #endif
         #endif
     }
     

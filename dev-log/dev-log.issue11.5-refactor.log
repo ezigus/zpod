@@ -521,7 +521,7 @@ Package Build: TestSupport
 - Result: PASS (BUILD SUCCEEDED)
 - Log: TestResults/TestResults_TestSupport_20250822_1938.log
 
-2025-08-22 19:40 ET
+2025-08-22 19:40
 ---
 Package Build: PlaybackEngine
 - Command: xcodebuild -workspace zpod.xcworkspace -scheme PlaybackEngine -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' build
@@ -1266,3 +1266,16 @@ Verification:
 
 Next:
 - If Xcode still reports module errors, Clean Build Folder and re-resolve packages. The workspace already contains a local package reference to Packages/PlaybackEngine and the app links zpodLib (which pulls PlaybackEngine transitively).
+
+2025-08-26 20:05 ET
+---
+Issue11.5 – Build Fix: Ambiguous InMemoryPodcastManager
+- Problem: Tests in zpodTests referenced InMemoryPodcastManager while two implementations exist:
+  • zpod module: zpod/Controllers/PodcastManager.swift
+  • TestSupport package: Packages/TestSupport/Sources/TestSupport/InMemoryPodcastManager.swift
+  This caused "ambiguous use of 'init(initial:)" in Issue07FolderTagTests.swift and related spots.
+- Decision: Keep both implementations intact for now and disambiguate in app test files by qualifying the type as zpod.InMemoryPodcastManager. This avoids changing package boundaries or introducing app → TestSupport dependencies.
+- Action:
+  • Updated zpodTests/Issue07FolderTagTests.swift: Prefixed all occurrences of InMemoryPodcastManager with zpod.InMemoryPodcastManager.
+  • Updated zpodTests/PodcastManagerCRUDTests.swift similarly for consistency and to preempt ambiguity.
+- Next: Run syntax/build to verify ambiguous errors are resolved; iterate if further issues appear.

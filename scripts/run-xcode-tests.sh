@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run full Xcode test suite on a simulator, preferring iPhone 16.
+# Run full Xcode test suite on an iOS 18.x simulator, preferring iPhone 16 family.
 # Usage:
-#   scripts/run-xcode-tests.sh [SCHEME] [WORKSPACE] [SIM_NAME] [IOS_OS_VERSION]
+#   scripts/run-xcode-tests.sh [SCHEME] [WORKSPACE] [SIM_NAME]
 # Defaults:
 #   SCHEME=zpod
 #   WORKSPACE=zpod.xcworkspace
 #   SIM_NAME=iPhone 16
-#   IOS_OS_VERSION=18.5
 
 SCHEME="${1:-zpod}"
 WORKSPACE="${2:-zpod.xcworkspace}"
 PREFERRED_SIM="${3:-iPhone 16}"
-IOS_OS_VERSION="${4:-18.5}"
 
 FALLBACK_SIMS=(
   "${PREFERRED_SIM}"
   "iPhone 16 Pro"
   "iPhone 16 Plus"
+  "iPhone 16 Pro Max"
+  "iPhone 16e"
   "iPhone 15 Pro"
   "iPhone 15"
 )
@@ -32,33 +32,60 @@ fi
 # Show basic Xcode info
 xcodebuild -version || true
 
-echo "Listing available simulator devices (available only):"
-xcrun simctl list devices available || true
+# Helpers
+list_devices() {
+  xcrun simctl list devices available | cat
+}
 
-echo "Listing destinations for scheme '${SCHEME}':"
-xcodebuild -workspace "${WORKSPACE}" -scheme "${SCHEME}" -showdestinations || true
+# Get the first iOS 18.x runtime header (e.g., "-- iOS 18.0 --") for informational output only
+get_ios18_runtime_header() {
+  list_devices | grep -E "^-- iOS 18(\\.[0-9]+)? --" | head -n1 || true
+}
 
-# Pick the first available simulator from the preferred list
-SELECTED_DEST=""
-for name in "${FALLBACK_SIMS[@]}"; do
-  if xcrun simctl list devices available | grep -q "${name}"; then
-    SELECTED_DEST="platform=iOS Simulator,name=${name},OS=${IOS_OS_VERSION}"
-    break
-  fi
-  # As a fallback, accept if showdestinations includes the name
-  if xcodebuild -workspace "${WORKSPACE}" -scheme "${SCHEME}" -showdestinations 2>/dev/null | grep -q "${name}"; then
-    SELECTED_DEST="platform=iOS Simulator,name=${name},OS=${IOS_OS_VERSION}"
-    break
-  fi
-done
-
-if [[ -z "${SELECTED_DEST}" ]]; then
-  echo "No preferred simulators found. Please create an iOS ${IOS_OS_VERSION} simulator (e.g., iPhone 16) in Xcode or pass a specific name and OS as args." >&2
-  exit 2
+runtime_header="$(get_ios18_runtime_header)"
+if [[ -n "${runtime_header}" ]]; then
+  echo "Detected iOS 18 runtime block: ${runtime_header#-- }"
 fi
 
+echo "Listing available simulator devices (available only):"
+list_devices || true
+
+echo "Listing destinations for scheme '${SCHEME}':"
+destinations_output="$(xcodebuild -workspace "${WORKSPACE}" -scheme "${SCHEME}" -showdestinations | cat || true)"
+echo "${destinations_output}"
+
+# From -showdestinations, pick the first iPhone 16 family device with OS 18.x and extract its exact OS
+SELECTED_NAME=""
+SELECTED_OS=""
+while IFS= read -r sim_name; do
+  # shellcheck disable=SC2001
+  name_trimmed="$(echo "$sim_name" | sed 's/^ *//;s/ *$//')"
+  # try to find a matching destination line containing this name and iOS 18 OS
+  line="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep "name:${name_trimmed}" | grep -E "OS:18(\\.[0-9]+){0,2}")"
+  if [[ -n "${line}" ]]; then
+    os="$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+){0,2}).*/\1/p' | head -n1)"
+    if [[ -n "${os}" && ${os} == 18* ]]; then
+      SELECTED_NAME="$name_trimmed"
+      SELECTED_OS="$os"
+      break
+    fi
+  fi
+# Iterate candidate names
+done < <(printf '%s
+' "${FALLBACK_SIMS[@]}")
+
+if [[ -z "${SELECTED_NAME}" || -z "${SELECTED_OS}" ]]; then
+  echo "No preferred iOS 18.x simulators found via -showdestinations. Please create an iPhone 16 simulator on iOS 18.x or pass a specific name as the 3rd arg." >&2
+  exit 3
+fi
+
+SELECTED_DEST="platform=iOS Simulator,name=${SELECTED_NAME},OS=${SELECTED_OS}"
 echo "Using destination: ${SELECTED_DEST}"
-RESULT_DIR="./TestResults/TestResults_$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p TestResults
+RESULT_STAMP="$(date +%Y%m%d_%H%M%S)"
+RESULT_BUNDLE="TestResults/TestResults_${RESULT_STAMP}_ios_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.xcresult"
+RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_ios18_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.log"
 
 # Run the full test suite; this will include all test targets attached to the scheme
 set -x
@@ -67,9 +94,9 @@ xcodebuild \
   -scheme "${SCHEME}" \
   -sdk iphonesimulator \
   -destination "${SELECTED_DEST}" \
-  -resultBundlePath "${RESULT_DIR}" \
-  clean test | tee "${RESULT_DIR}.log"
+  -resultBundlePath "${RESULT_BUNDLE}" \
+  clean test | tee "${RESULT_LOG}"
 set +x
 
-echo "\nTest results bundle: ${RESULT_DIR}"
-echo "Log: ${RESULT_DIR}.log"
+echo "\nTest results bundle: ${RESULT_BUNDLE}"
+echo "Log: ${RESULT_LOG}"

@@ -325,7 +325,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let podcast2 = Podcast(id: "p2", title: "Podcast 2", feedURL: URL(string: "https://example.com/2")!, folderId: "folder1")
     let podcast3 = Podcast(id: "p3", title: "Podcast 3", feedURL: URL(string: "https://example.com/3")!, folderId: "folder2")
     
-    let manager = InMemoryPodcastManager(initial: [podcast1, podcast2, podcast3])
+    let manager = zpod.InMemoryPodcastManager(initial: [podcast1, podcast2, podcast3])
     
     // When: Finding podcasts by folder
     let folder1Podcasts = manager.findByFolder(folderId: "folder1")
@@ -347,7 +347,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let podcastInChild = Podcast(id: "p2", title: "Podcast 2", feedURL: URL(string: "https://example.com/2")!, folderId: "child")
     let podcastElsewhere = Podcast(id: "p3", title: "Podcast 3", feedURL: URL(string: "https://example.com/3")!, folderId: "other")
     
-    let podcastManager = InMemoryPodcastManager(initial: [podcastInRoot, podcastInChild, podcastElsewhere])
+    let podcastManager = zpod.InMemoryPodcastManager(initial: [podcastInRoot, podcastInChild, podcastElsewhere])
     
     // When: Finding podcasts recursively
     let rootPodcasts = podcastManager.findByFolderRecursive(folderId: "root", folderManager: folderManager)
@@ -365,7 +365,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let podcast2 = Podcast(id: "p2", title: "Podcast 2", feedURL: URL(string: "https://example.com/2")!, tagIds: ["tech"])
     let podcast3 = Podcast(id: "p3", title: "Podcast 3", feedURL: URL(string: "https://example.com/3")!, tagIds: ["entertainment"])
     
-    let manager = InMemoryPodcastManager(initial: [podcast1, podcast2, podcast3])
+    let manager = zpod.InMemoryPodcastManager(initial: [podcast1, podcast2, podcast3])
     
     // When: Finding podcasts by tag
     let techPodcasts = manager.findByTag(tagId: "tech")
@@ -387,7 +387,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let unorganized1 = Podcast(id: "p3", title: "Podcast 3", feedURL: URL(string: "https://example.com/3")!)
     let unorganized2 = Podcast(id: "p4", title: "Podcast 4", feedURL: URL(string: "https://example.com/4")!)
     
-    let manager = InMemoryPodcastManager(initial: [organized1, organized2, unorganized1, unorganized2])
+    let manager = zpod.InMemoryPodcastManager(initial: [organized1, organized2, unorganized1, unorganized2])
     
     // When: Finding unorganized podcasts
     let unorganized = manager.findUnorganized()
@@ -407,7 +407,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let podcast1 = Podcast(id: "p1", title: "Tech Talk", feedURL: URL(string: "https://example.com/1")!)
     let podcast2 = Podcast(id: "p2", title: "Science Hour", feedURL: URL(string: "https://example.com/2")!)
     
-    let podcastManager = InMemoryPodcastManager(initial: [podcast1, podcast2])
+    let podcastManager = zpod.InMemoryPodcastManager(initial: [podcast1, podcast2])
     let folderManager = InMemoryFolderManager()
     
     // When: User creates folders
@@ -438,7 +438,7 @@ final class Issue07FolderTagTests: XCTestCase {
     let podcast1 = Podcast(id: "p1", title: "Daily News", feedURL: URL(string: "https://example.com/1")!)
     let podcast2 = Podcast(id: "p2", title: "Comedy Hour", feedURL: URL(string: "https://example.com/2")!)
     
-    let podcastManager = InMemoryPodcastManager(initial: [podcast1, podcast2])
+    let podcastManager = zpod.InMemoryPodcastManager(initial: [podcast1, podcast2])
     let tagManager = InMemoryTagManager()
     
     // When: User applies tags/groups
