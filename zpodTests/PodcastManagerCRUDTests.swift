@@ -1,15 +1,16 @@
 import XCTest
-@testable import zpod
+import TestSupport
+@testable import zpodLib
 
 final class PodcastManagerCRUDTests: XCTestCase {
     // MARK: - Properties
-    private var podcastManager: zpod.InMemoryPodcastManager!
+    private var podcastManager: InMemoryPodcastManager!
     private var samplePodcasts: [Podcast]!
 
     // MARK: - Setup & Teardown
     override func setUp() {
         super.setUp()
-        podcastManager = zpod.InMemoryPodcastManager()
+        podcastManager = InMemoryPodcastManager()
         samplePodcasts = [
             Podcast(
                 id: "podcast1",
@@ -144,19 +145,19 @@ final class PodcastManagerCRUDTests: XCTestCase {
 
     func testInitialization_WithInitialPodcasts() {
         let initialPodcasts = Array(samplePodcasts[0...1])
-        let managerWithInitial = zpod.InMemoryPodcastManager(initial: initialPodcasts)
+        let managerWithInitial = InMemoryPodcastManager(initial: initialPodcasts)
         XCTAssertEqual(managerWithInitial.all().count, 2)
         XCTAssertNotNil(managerWithInitial.find(id: initialPodcasts[0].id))
         XCTAssertNotNil(managerWithInitial.find(id: initialPodcasts[1].id))
     }
 
     func testInitialization_EmptyInitial() {
-        let emptyManager = zpod.InMemoryPodcastManager(initial: [])
+        let emptyManager = InMemoryPodcastManager(initial: [])
         XCTAssertTrue(emptyManager.all().isEmpty)
     }
 
     func testProtocolConformance_PodcastManaging() {
-        let manager: PodcastManaging = zpod.InMemoryPodcastManager()
+        let manager: PodcastManaging = InMemoryPodcastManager()
         let podcast = samplePodcasts[0]
         manager.add(podcast)
         let found = manager.find(id: podcast.id)

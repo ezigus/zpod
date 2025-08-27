@@ -1279,3 +1279,54 @@ Issue11.5 – Build Fix: Ambiguous InMemoryPodcastManager
   • Updated zpodTests/Issue07FolderTagTests.swift: Prefixed all occurrences of InMemoryPodcastManager with zpod.InMemoryPodcastManager.
   • Updated zpodTests/PodcastManagerCRUDTests.swift similarly for consistency and to preempt ambiguity.
 - Next: Run syntax/build to verify ambiguous errors are resolved; iterate if further issues appear.
+
+2025-08-25 23:50 ET  
+---
+Issue11.5 – CRITICAL: Fix InMemoryFolderManager compilation errors in zpodTests
+
+**✅ RESOLVED: InMemoryFolderManager "cannot find in scope" errors**
+
+**Root Cause Analysis:**
+- Test files importing `@testable import zpod` but `InMemoryFolderManager` defined in TestSupport package
+- Package.swift had wrong test path: `Tests/zpodTests` vs actual `zpodTests` directory
+- Test files needed to import TestSupport and SearchDomain packages directly
+- Tests required `zpodLib` import (not `zpod`) to access re-exported packages
+
+**Comprehensive Fixes Applied:**
+1. **Fixed Package.swift test target path:** `Tests/zpodTests` → `zpodTests`
+2. **Updated test imports pattern:**
+   ```swift
+   import XCTest
+   import TestSupport
+   import SearchDomain
+   @testable import zpodLib
+   ```
+3. **Enhanced TestSupport InMemoryFolderManager:** Added circular reference detection with new `TestSupportError.circularReference` case
+4. **Updated error handling:** Tests now use `TestSupportError` instead of `FolderError` with proper message formats
+5. **Fixed all zpod.InMemoryPodcastManager references:** Updated to direct `InMemoryPodcastManager` access via TestSupport import
+6. **Resolved InMemoryPlaylistManager cross-platform issues:** Separated ObservableObject conformance for Combine vs non-Combine platforms
+7. **Fixed Combine import issues:** Added conditional `#if canImport(Combine)` wrapper around all Combine imports
+
+**Technical Achievements:**
+- ✅ **Issue07FolderTagTests.swift compiles successfully** with all InMemoryFolderManager functionality
+- ✅ **Swift 6 concurrency compliance** maintained throughout TestSupport package
+- ✅ **Cross-platform compatibility** preserved with conditional compilation
+- ✅ **Proper error handling** with localized TestSupportError messages
+- ✅ **Complete folder hierarchy management** with parent-child validation and circular reference detection
+
+**Build Validation:**
+- ✅ `swift build` completes successfully for all packages
+- ✅ Issue07FolderTagTests.swift specifically compiles without errors
+- ✅ InMemoryFolderManager, InMemoryTagManager, and InMemoryPodcastManager all accessible
+- ✅ TestSupport package provides complete test infrastructure
+
+**Files Modified:**
+- `/Package.swift` - Fixed test target path
+- `/zpodTests/Issue07FolderTagTests.swift` - Updated imports and error handling  
+- `/zpodTests/Issue03AdvancedControlsTests.swift` - Fixed Combine imports
+- `/zpodTests/Issue06PlaylistTests.swift` - Fixed Combine imports  
+- `/zpodTests/PodcastManagerCRUDTests.swift` - Updated imports
+- `/Packages/TestSupport/Sources/TestSupport/InMemoryFolderManager.swift` - Added circular reference detection
+- `/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift` - Fixed cross-platform ObservableObject conformance
+
+**RESULT:** Issue07FolderTagTests.swift and all related compilation errors are now resolved. The complete test infrastructure is functional and ready for CI/CD validation.

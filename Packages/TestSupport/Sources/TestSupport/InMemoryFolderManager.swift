@@ -44,9 +44,27 @@ public final class InMemoryFolderManager: FolderManaging {
             guard storage[parentId] != nil else {
                 throw TestSupportError.invalidParent("Parent folder '\(parentId)' does not exist")
             }
+            
+            // Check for circular reference by traversing up the parent chain
+            if wouldCreateCircularReference(folderId: folder.id, proposedParentId: parentId) {
+                throw TestSupportError.circularReference("Updating folder '\(folder.id)' would create a circular reference")
+            }
         }
         
         storage[folder.id] = folder
+    }
+    
+    private func wouldCreateCircularReference(folderId: String, proposedParentId: String) -> Bool {
+        var currentId: String? = proposedParentId
+        
+        while let current = currentId {
+            if current == folderId {
+                return true // Found a cycle
+            }
+            currentId = storage[current]?.parentId
+        }
+        
+        return false
     }
     
     public func remove(id: String) throws {
@@ -89,6 +107,7 @@ public enum TestSupportError: Error, LocalizedError, Sendable {
     case notFound(String)
     case invalidParent(String)
     case hasChildren(String)
+    case circularReference(String)
     
     public var errorDescription: String? {
         switch self {
@@ -100,6 +119,8 @@ public enum TestSupportError: Error, LocalizedError, Sendable {
             return "Invalid Parent: \(message)"
         case .hasChildren(let message):
             return "Has Children: \(message)"
+        case .circularReference(let message):
+            return "Circular Reference: \(message)"
         }
     }
 }

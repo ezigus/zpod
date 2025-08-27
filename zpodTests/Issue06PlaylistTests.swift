@@ -1,6 +1,8 @@
 import XCTest
+#if canImport(Combine)
 @preconcurrency import Combine
-@testable import zpod
+#endif
+@testable import zpodLib
 
 final class Issue06PlaylistTests: XCTestCase {
     private var playlistEngine: PlaylistEngine!

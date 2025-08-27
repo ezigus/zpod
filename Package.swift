@@ -70,7 +70,7 @@ let package = Package(
                 "zpodLib",
                 "TestSupport"
             ],
-            path: "Tests/zpodTests"
+            path: "zpodTests"
         ),
         
         // Integration test target
