@@ -223,8 +223,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   
   func test_skipForward_advancesPosition() async {
     // Given: Episode is playing with skip interval - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
-    let localStateManager = stateManager!
+    _ = ticker!
+    _ = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -243,7 +243,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipForwardInterval: 30)
+      _ = PlaybackSettings(skipForwardInterval: 30)
       return EnhancedEpisodePlayer()
     }
     
@@ -279,8 +279,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   
   func test_skipBackward_retreatsPosition() async {
     // Given: Episode is playing at advanced position with skip interval - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
-    let localStateManager = stateManager!
+    _ = ticker!
+    _ = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -299,7 +299,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipBackwardInterval: 15)
+      _ = PlaybackSettings(skipBackwardInterval: 15)
       return EnhancedEpisodePlayer()
     }
     
@@ -380,7 +380,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   func test_playbackSpeed_affectsTickProgression() async {
     // Given: Player with custom speed and state collection - capture ALL properties outside MainActor.run
     let localPlayer = player!
-    let localTicker = ticker!
+    _ = ticker!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -435,8 +435,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   
   func test_playbackSpeed_perPodcastOverrides() async {
     // Given: Settings with per-podcast speeds - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
-    let localStateManager = stateManager!
+    _ = ticker!
+    _ = stateManager!
     
     let speedPlayer = await MainActor.run {
       let speedSettings = PlaybackSettings(
@@ -519,7 +519,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   func test_markEpisodeAs_updatesPlayedStatus() async {
     // Capture ALL properties outside MainActor.run
     let localPlayer = player!
-    let localStateManager = stateManager!
+    _ = stateManager!
     let localSampleEpisode = sampleEpisode
     
     // Given: Episode is loaded
@@ -614,8 +614,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   func test_skipForward_respectsChapterBoundaries() async {
     // Given: Episode with chapters and skip settings - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
-    let localStateManager = stateManager!
+    _ = ticker!
+    _ = stateManager!
     let localEpisodeWithChapters = episodeWithChapters
     
     actor StateCollector {
@@ -634,7 +634,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipForwardInterval: 60)
+      _ = PlaybackSettings(skipForwardInterval: 60)
       return EnhancedEpisodePlayer()
     }
     
@@ -673,8 +673,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   func test_complexPlaybackScenario_maintainsStateConsistency() async {
     // Given: Complex settings and episode - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
-    let localStateManager = stateManager!
+    _ = ticker!
+    _ = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
