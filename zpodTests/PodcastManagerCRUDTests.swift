@@ -170,14 +170,19 @@ final class PodcastManagerCRUDTests: XCTestCase {
 
     func testConcurrentAccess_ReadOperations() async {
         samplePodcasts.forEach { podcastManager.add($0) }
+        
+        // Capture values locally to avoid capturing self in concurrent tasks
+        let manager = podcastManager!
+        let testPodcastId = samplePodcasts[0].id
+        
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<50 {
-                group.addTask { [self] in
-                    let all = self.podcastManager.all()
-                    let first = self.podcastManager.find(id: self.samplePodcasts[0].id)
-                    let byFolder = self.podcastManager.findByFolder(folderId: "folder1")
-                    let byTag = self.podcastManager.findByTag(tagId: "tag1")
-                    let unorganized = self.podcastManager.findUnorganized()
+                group.addTask {
+                    let all = manager.all()
+                    let first = manager.find(id: testPodcastId)
+                    let byFolder = manager.findByFolder(folderId: "folder1")
+                    let byTag = manager.findByTag(tagId: "tag1")
+                    let unorganized = manager.findUnorganized()
 
                     XCTAssertEqual(all.count, 3)
                     XCTAssertNotNil(first)
