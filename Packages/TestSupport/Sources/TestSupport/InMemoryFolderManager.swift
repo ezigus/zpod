@@ -102,7 +102,7 @@ public final class InMemoryFolderManager: FolderManaging {
     }
 }
 
-public enum TestSupportError: Error, LocalizedError, Sendable {
+public enum TestSupportError: Error, LocalizedError, Sendable, Equatable {
     case duplicateId(String)
     case notFound(String)
     case invalidParent(String)
