@@ -107,7 +107,7 @@ final class PlaylistEngine: @unchecked Sendable {
         switch rule {
         case .isPlayed(let isPlayed):
             return episode.isPlayed == isPlayed
-        case .podcastCategory(let _):
+        case .podcastCategory(_):
             // For testing purposes, always return true
             return true
         case .dateRange(let start, let end):
@@ -959,8 +959,8 @@ final class Issue06PlaylistTests: XCTestCase {
         )
         let smartPlaylist = SmartPlaylist(
             name: "Unplayed Shuffle",
-            criteria: criteria,
-            shuffleAllowed: true
+            shuffleAllowed: true,
+            criteria: criteria
         )
         
         let smartShuffledQueue = await playlistEngine.generatePlaybackQueue(
