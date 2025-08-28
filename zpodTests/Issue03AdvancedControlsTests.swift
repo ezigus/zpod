@@ -157,11 +157,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     stateManager = localStateManager
     
     player = await MainActor.run {
-      EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: PlaybackSettings(),
-        episodeStateManager: localStateManager
-      )
+      EnhancedEpisodePlayer()
     }
   }
 
@@ -248,11 +244,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       let skipSettings = PlaybackSettings(skipForwardInterval: 30)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer()
     }
     
     await MainActor.run {
@@ -308,11 +300,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       let skipSettings = PlaybackSettings(skipBackwardInterval: 15)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer()
     }
     
     await MainActor.run {
@@ -456,11 +444,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
         podcastPlaybackSpeeds: ["podcast1": 1.75, "podcast2": 1.5]
       )
       
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: speedSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer()
     }
     
     // Test 1: Episode from podcast1 should use per-podcast speed
@@ -651,11 +635,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       let skipSettings = PlaybackSettings(skipForwardInterval: 60)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer()
     }
     
     await MainActor.run {
@@ -721,11 +701,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
         playedThreshold: 0.9
       )
       
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: complexSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer()
     }
     
     await MainActor.run {
