@@ -136,6 +136,19 @@ public struct SmartPlaylist: Codable, Equatable, Identifiable, Sendable {
         self.updatedAt = updatedAt
         self.criteria = criteria
     }
+    
+    public func withName(_ name: String) -> SmartPlaylist {
+        SmartPlaylist(
+            id: id,
+            name: name,
+            episodeIds: episodeIds,
+            continuousPlayback: continuousPlayback,
+            shuffleAllowed: shuffleAllowed,
+            createdAt: createdAt,
+            updatedAt: Date(),
+            criteria: criteria
+        )
+    }
 }
 
 // Legacy SmartPlaylist for compatibility - will be removed
