@@ -214,7 +214,9 @@ final class Issue06PlaylistTests: XCTestCase {
     private var playlistEngine: PlaylistEngine!
     private var playlistManager: InMemoryPlaylistManager!
     
+    #if canImport(Combine)
     var cancellables: Set<AnyCancellable>!
+    #endif
     
     // Test data
     var sampleEpisodes: [Episode]!
@@ -225,7 +227,9 @@ final class Issue06PlaylistTests: XCTestCase {
     
     override func setUp() async throws {
         try await super.setUp()
+        #if canImport(Combine)
         cancellables = Set<AnyCancellable>()
+        #endif
         
         // Initialize main actor isolated objects
         playlistEngine = PlaylistEngine()
@@ -285,7 +289,9 @@ final class Issue06PlaylistTests: XCTestCase {
     }
     
     override func tearDown() {
+        #if canImport(Combine)
         cancellables = nil
+        #endif
         sampleEpisodes = nil
         downloadStatuses = nil
         playlistEngine = nil
@@ -811,7 +817,8 @@ final class Issue06PlaylistTests: XCTestCase {
         XCTAssertEqual(smartPlaylists3.count, 0)
     }
     
-    func testPlaylistChangeNotifications() async {
+    func testPlaylistChangeNotifications() async throws {
+        #if canImport(Combine)
         let expectation = XCTestExpectation(description: "Change notification")
         var receivedChanges: [PlaylistChange] = []
         
@@ -849,6 +856,9 @@ final class Issue06PlaylistTests: XCTestCase {
         if case .playlistDeleted = receivedChanges[2] { } else {
             XCTFail("Third notification should be playlistDeleted")
         }
+        #else
+        throw XCTSkip("Combine not available on this platform")
+        #endif
     }
     
     // MARK: - Acceptance Criteria Tests

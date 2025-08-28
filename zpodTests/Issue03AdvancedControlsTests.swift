@@ -170,7 +170,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   // MARK: - Seeking Tests
 
-  func test_seekToPosition_updatesPosition() async {
+  func test_seekToPosition_updatesPosition() async throws {
+    #if canImport(Combine)
     // Given: Episode is playing - capture ALL properties outside MainActor.run
     let localPlayer = player!
     let localSampleEpisode = sampleEpisode
@@ -219,9 +220,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 150) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
-  func test_skipForward_advancesPosition() async {
+  func test_skipForward_advancesPosition() async throws {
+    #if canImport(Combine)
     // Given: Episode is playing with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
     _ = stateManager!
@@ -275,9 +280,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 30) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
-  func test_skipBackward_retreatsPosition() async {
+  func test_skipBackward_retreatsPosition() async throws {
+    #if canImport(Combine)
     // Given: Episode is playing at advanced position with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
     _ = stateManager!
@@ -332,6 +341,9 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 85) < 0.1 })) // 100 - 15 = 85
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
   // MARK: - Speed Control Tests
@@ -377,10 +389,11 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     XCTAssertEqual(clampedMinSpeed, 0.8, accuracy: 0.01)
   }
   
-  func test_playbackSpeed_affectsTickProgression() async {
+  func test_playbackSpeed_affectsTickProgression() async throws {
+    #if canImport(Combine)
     // Given: Player with custom speed and state collection - capture ALL properties outside MainActor.run
     let localPlayer = player!
-    _ = ticker!
+    let localTicker = ticker!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -431,6 +444,9 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 1.25) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
   func test_playbackSpeed_perPodcastOverrides() async {
@@ -439,7 +455,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     _ = stateManager!
     
     let speedPlayer = await MainActor.run {
-      let speedSettings = PlaybackSettings(
+      _ = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         podcastPlaybackSpeeds: ["podcast1": 1.75, "podcast2": 1.5]
       )
@@ -519,7 +535,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   func test_markEpisodeAs_updatesPlayedStatus() async {
     // Capture ALL properties outside MainActor.run
     let localPlayer = player!
-    _ = stateManager!
+    let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
     // Given: Episode is loaded
@@ -554,7 +570,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   // MARK: - Chapter Navigation Tests
 
-  func test_jumpToChapter_seeksToChapterStart() async {
+  func test_jumpToChapter_seeksToChapterStart() async throws {
+    #if canImport(Combine)
     // Given: Episode with chapters is playing - capture ALL properties outside MainActor.run
     let localPlayer = player!
     let localEpisodeWithChapters = episodeWithChapters
@@ -610,9 +627,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 120) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
-  func test_skipForward_respectsChapterBoundaries() async {
+  func test_skipForward_respectsChapterBoundaries() async throws {
+    #if canImport(Combine)
     // Given: Episode with chapters and skip settings - capture ALL properties outside MainActor.run
     _ = ticker!
     _ = stateManager!
@@ -667,11 +688,15 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 150) < 0.1 })) // 90 + 60 = 150
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
   // MARK: - Integration Tests
 
-  func test_complexPlaybackScenario_maintainsStateConsistency() async {
+  func test_complexPlaybackScenario_maintainsStateConsistency() async throws {
+    #if canImport(Combine)
     // Given: Complex settings and episode - capture ALL properties outside MainActor.run
     _ = ticker!
     _ = stateManager!
@@ -735,5 +760,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     XCTAssertEqual(episode.id, localSampleEpisode.id)
     XCTAssertEqual(position, 90, accuracy: 0.1)
     XCTAssertEqual(duration, 300, accuracy: 0.1)
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 }
