@@ -177,7 +177,7 @@ final class PodcastManagerCRUDTests: XCTestCase {
         
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<50 {
-                group.addTask { [manager, testPodcastId] in
+                group.addTask {
                     let all = manager.all()
                     let first = manager.find(id: testPodcastId)
                     let byFolder = manager.findByFolder(folderId: "folder1")

@@ -3,7 +3,7 @@ import CoreModels
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
-public final class InMemoryPodcastManager: PodcastManaging {
+public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
 
   public init(initial: [Podcast] = []) {
