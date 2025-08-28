@@ -125,14 +125,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     func getEpisodeState(_ episode: Episode) async -> Episode {
-      let position = await actor.getPlaybackPosition(episode.id, defaultValue: episode.playbackPosition)
+      let position = await actor.getPlaybackPosition(episode.id, defaultValue: TimeInterval(episode.playbackPosition))
       let isPlayed = await actor.getPlayedStatus(episode.id, defaultValue: episode.isPlayed)
       
       return Episode(
         id: episode.id,
         title: episode.title,
         podcastID: episode.podcastID,
-        playbackPosition: position,
+        playbackPosition: Int(position),
         isPlayed: isPlayed,
         pubDate: episode.pubDate,
         duration: episode.duration,

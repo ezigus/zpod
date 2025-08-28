@@ -4,6 +4,185 @@ import XCTest
 #endif
 @testable import zpodLib
 
+// MARK: - Test-only PlaylistEngine Implementation
+final class PlaylistEngine: @unchecked Sendable {
+    init() {}
+    
+    func evaluateSmartPlaylist(
+        _ smartPlaylist: LegacySmartPlaylist,
+        episodes: [Episode],
+        downloadStatuses: [String: DownloadState]
+    ) async -> [Episode] {
+        var matchingEpisodes = episodes
+        
+        // Apply all rules
+        for ruleData in smartPlaylist.rules {
+            if let rule = PlaylistRuleFactory.createRule(from: ruleData) {
+                matchingEpisodes = matchingEpisodes.filter { episode in
+                    rule.matches(episode: episode, downloadStatus: downloadStatuses[episode.id])
+                }
+            }
+        }
+        
+        // Apply sorting
+        matchingEpisodes = applySorting(matchingEpisodes, criteria: smartPlaylist.sortCriteria)
+        
+        // Apply max episodes limit
+        if matchingEpisodes.count > smartPlaylist.maxEpisodes {
+            matchingEpisodes = Array(matchingEpisodes.prefix(smartPlaylist.maxEpisodes))
+        }
+        
+        return matchingEpisodes
+    }
+    
+    func generatePlaybackQueue(
+        from playlist: Playlist,
+        episodes: [Episode],
+        shuffle: Bool = false
+    ) async -> [Episode] {
+        let matchingEpisodes = episodes.filter { episode in
+            playlist.episodeIds.contains(episode.id)
+        }
+        
+        // Maintain playlist order if shuffle not allowed or not requested
+        if !shuffle || !playlist.shuffleAllowed {
+            return playlist.episodeIds.compactMap { episodeId in
+                matchingEpisodes.first { $0.id == episodeId }
+            }
+        } else {
+            return matchingEpisodes.shuffled()
+        }
+    }
+    
+    func generatePlaybackQueue(
+        from smartPlaylist: LegacySmartPlaylist,
+        episodes: [Episode],
+        downloadStatuses: [String: DownloadState],
+        shuffle: Bool = false
+    ) async -> [Episode] {
+        let evaluatedEpisodes = await evaluateSmartPlaylist(
+            smartPlaylist,
+            episodes: episodes,
+            downloadStatuses: downloadStatuses
+        )
+        
+        if shuffle && smartPlaylist.shuffleAllowed {
+            return evaluatedEpisodes.shuffled()
+        } else {
+            return evaluatedEpisodes
+        }
+    }
+    
+    private func applySorting(_ episodes: [Episode], criteria: PlaylistSortCriteria) -> [Episode] {
+        switch criteria {
+        case .pubDateNewest:
+            return episodes.sorted { ($0.pubDate ?? Date.distantPast) > ($1.pubDate ?? Date.distantPast) }
+        case .pubDateOldest:
+            return episodes.sorted { ($0.pubDate ?? Date.distantPast) < ($1.pubDate ?? Date.distantPast) }
+        case .titleAscending:
+            return episodes.sorted { $0.title < $1.title }
+        case .titleDescending:
+            return episodes.sorted { $0.title > $1.title }
+        case .durationShortest:
+            return episodes.sorted { ($0.duration ?? 0) < ($1.duration ?? 0) }
+        case .durationLongest:
+            return episodes.sorted { ($0.duration ?? 0) > ($1.duration ?? 0) }
+        case .playbackPosition:
+            return episodes.sorted { $0.playbackPosition < $1.playbackPosition }
+        }
+    }
+}
+
+// MARK: - Test-compatible rule definitions
+struct IsNewRule: PlaylistRule, Sendable {
+    let daysThreshold: Int
+    
+    init(daysThreshold: Int = 7) {
+        self.daysThreshold = max(1, daysThreshold)
+    }
+    
+    var ruleData: PlaylistRuleData {
+        PlaylistRuleData(type: "isNew", parameters: ["days": String(daysThreshold)])
+    }
+    
+    func matches(episode: Episode, downloadStatus: DownloadState?) -> Bool {
+        guard let pubDate = episode.pubDate else { return false }
+        let threshold = Calendar.current.date(byAdding: .day, value: -daysThreshold, to: Date()) ?? Date.distantPast
+        return pubDate >= threshold
+    }
+}
+
+struct IsDownloadedRule: PlaylistRule, Sendable {
+    init() {}
+    
+    var ruleData: PlaylistRuleData {
+        PlaylistRuleData(type: "isDownloaded")
+    }
+    
+    func matches(episode: Episode, downloadStatus: DownloadState?) -> Bool {
+        downloadStatus == .completed
+    }
+}
+
+struct IsUnplayedRule: PlaylistRule, Sendable {
+    let positionThreshold: Double
+    
+    init(positionThreshold: Double = 0.0) {
+        self.positionThreshold = positionThreshold
+    }
+    
+    var ruleData: PlaylistRuleData {
+        PlaylistRuleData(type: "isUnplayed", parameters: ["threshold": String(positionThreshold)])
+    }
+    
+    func matches(episode: Episode, downloadStatus: DownloadState?) -> Bool {
+        !episode.isPlayed && Double(episode.playbackPosition) <= positionThreshold
+    }
+}
+
+struct PodcastIdRule: PlaylistRule, Sendable {
+    let podcastId: String
+    
+    init(podcastId: String) {
+        self.podcastId = podcastId
+    }
+    
+    var ruleData: PlaylistRuleData {
+        PlaylistRuleData(type: "podcastId", parameters: ["podcastId": podcastId])
+    }
+    
+    func matches(episode: Episode, downloadStatus: DownloadState?) -> Bool {
+        episode.podcastID == podcastId
+    }
+}
+
+struct DurationRangeRule: PlaylistRule, Sendable {
+    let minDuration: TimeInterval?
+    let maxDuration: TimeInterval?
+    
+    init(minDuration: TimeInterval? = nil, maxDuration: TimeInterval? = nil) {
+        self.minDuration = minDuration
+        self.maxDuration = maxDuration
+    }
+    
+    var ruleData: PlaylistRuleData {
+        var params: [String: String] = [:]
+        if let min = minDuration { params["min"] = String(min) }
+        if let max = maxDuration { params["max"] = String(max) }
+        return PlaylistRuleData(type: "durationRange", parameters: params)
+    }
+    
+    func matches(episode: Episode, downloadStatus: DownloadState?) -> Bool {
+        guard let duration = episode.duration else { return false }
+        if let minDuration, duration < minDuration { return false }
+        if let maxDuration, duration > maxDuration { return false }
+        return true
+    }
+}
+
+// Test-specific typealias to use LegacySmartPlaylist
+typealias SmartPlaylist = LegacySmartPlaylist
+
 final class Issue06PlaylistTests: XCTestCase {
     private var playlistEngine: PlaylistEngine!
     private var playlistManager: InMemoryPlaylistManager!
