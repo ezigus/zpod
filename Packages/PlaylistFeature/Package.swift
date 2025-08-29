@@ -22,7 +22,6 @@ let package = Package(
             name: "PlaylistFeature",
             dependencies: [
                 .product(name: "CoreModels", package: "CoreModels"),
-                .product(name: "TestSupport", package: "TestSupport"),
                 .product(name: "SharedUtilities", package: "SharedUtilities")
             ],
             path: "Sources"
