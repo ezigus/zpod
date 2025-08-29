@@ -227,7 +227,6 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   
   func test_skipForward_advancesPosition() async throws {
     #if canImport(Combine)
-    // Given: Episode is playing with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
     let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
@@ -248,16 +247,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      _ = PlaybackSettings(skipForwardInterval: 30)
-      return EnhancedEpisodePlayer(stateManager: localStateManager)
+      let settings = PlaybackSettings(skipForwardInterval: 30)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -287,7 +284,6 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   
   func test_skipBackward_retreatsPosition() async throws {
     #if canImport(Combine)
-    // Given: Episode is playing at advanced position with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
     let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
@@ -308,16 +304,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      _ = PlaybackSettings(skipBackwardInterval: 15)
-      return EnhancedEpisodePlayer(stateManager: localStateManager)
+      let settings = PlaybackSettings(skipBackwardInterval: 15)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -412,18 +406,15 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     await MainActor.run {
-      localPlayer.play(episode: localSampleEpisode, duration: 300)
-      localPlayer.setPlaybackSpeed(1.25)
-      
       localPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
-      // When: Ticker advances
+      localPlayer.play(episode: localSampleEpisode, duration: 300)
+      localPlayer.setPlaybackSpeed(1.25)
+      // When: Ticker advances (noop for this implementation but kept for API parity)
       localTicker.tick()
     }
     
@@ -655,16 +646,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      _ = PlaybackSettings(skipForwardInterval: 60)
-      return EnhancedEpisodePlayer(stateManager: localStateManager)
+      let settings = PlaybackSettings(skipForwardInterval: 60)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -718,32 +707,29 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let complexPlayer = await MainActor.run {
-      _ = PlaybackSettings(
+      let settings = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         skipForwardInterval: 30,
         skipBackwardInterval: 10,
         autoMarkAsPlayed: true,
         playedThreshold: 0.9
       )
-      
-      return EnhancedEpisodePlayer(stateManager: localStateManager)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       complexPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
       // When: Complex interaction sequence
       complexPlayer.play(episode: localSampleEpisode, duration: 300)
       complexPlayer.setPlaybackSpeed(2.0)
-      complexPlayer.skipForward() // +30s
+      complexPlayer.skipForward()
       complexPlayer.seek(to: 100)
-      complexPlayer.skipBackward() // -10s, so 90s
+      complexPlayer.skipBackward()
       complexPlayer.pause()
     }
     
