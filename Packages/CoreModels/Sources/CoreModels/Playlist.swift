@@ -28,6 +28,13 @@ public struct Playlist: Codable, Equatable, Identifiable, Sendable {
         self.updatedAt = updatedAt
     }
     
+    // Ensure updatedAt is strictly later than the previous value to avoid equality in fast updates
+    private func nextUpdatedAt(from previous: Date) -> Date {
+        let now = Date()
+        if now <= previous { return previous.addingTimeInterval(0.001) }
+        return now
+    }
+    
     public func withEpisodes(_ episodeIds: [String]) -> Playlist {
         Playlist(
             id: id,
@@ -36,7 +43,7 @@ public struct Playlist: Codable, Equatable, Identifiable, Sendable {
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,
             createdAt: createdAt,
-            updatedAt: Date()
+            updatedAt: nextUpdatedAt(from: updatedAt)
         )
     }
     
@@ -48,7 +55,7 @@ public struct Playlist: Codable, Equatable, Identifiable, Sendable {
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,
             createdAt: createdAt,
-            updatedAt: Date()
+            updatedAt: nextUpdatedAt(from: updatedAt)
         )
     }
 }
@@ -102,6 +109,7 @@ public enum SmartPlaylistOrderBy: String, Codable, Sendable {
 /// Filter rules for smart playlists
 public enum SmartPlaylistFilterRule: Codable, Equatable, Sendable {
     case isPlayed(Bool)
+    case isDownloaded // Newly added to support downloaded-based filtering
     case podcastCategory(String)
     case dateRange(start: Date, end: Date)
     case durationRange(min: TimeInterval, max: TimeInterval)
@@ -138,14 +146,18 @@ public struct SmartPlaylist: Codable, Equatable, Identifiable, Sendable {
     }
     
     public func withName(_ name: String) -> SmartPlaylist {
-        SmartPlaylist(
+        // Ensure updatedAt advances even under very fast successive updates
+        let previous = updatedAt
+        let now = Date()
+        let bumped = (now <= previous) ? previous.addingTimeInterval(0.001) : now
+        return SmartPlaylist(
             id: id,
             name: name,
             episodeIds: episodeIds,
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,
             createdAt: createdAt,
-            updatedAt: Date(),
+            updatedAt: bumped,
             criteria: criteria
         )
     }

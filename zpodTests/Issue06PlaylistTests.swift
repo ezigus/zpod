@@ -106,7 +106,14 @@ final class PlaylistEngine: @unchecked Sendable {
     private func matchesFilterRule(_ rule: SmartPlaylistFilterRule, episode: Episode, downloadStatus: DownloadState?) -> Bool {
         switch rule {
         case .isPlayed(let isPlayed):
-            return episode.isPlayed == isPlayed
+            // Treat "unplayed" as not played and with zero (or effectively zero) playback progress.
+            if isPlayed {
+                return episode.isPlayed == true
+            } else {
+                return episode.isPlayed == false && episode.playbackPosition <= 0
+            }
+        case .isDownloaded:
+            return downloadStatus == .completed
         case .podcastCategory(_):
             // For testing purposes, always return true
             return true
@@ -449,22 +456,22 @@ final class Issue06PlaylistTests: XCTestCase {
     
     func testRuleFactoryIsNew() {
         let ruleData = PlaylistRuleData(type: "isNew", parameters: ["days": "5"])
-        let rule = PlaylistRuleFactory.createRule(from: ruleData) as? IsNewRule
+        let rule = PlaylistRuleFactory.createRule(from: ruleData) as? CoreModels.IsNewRule
         
         XCTAssertNotNil(rule)
-        XCTAssertEqual(rule?.daysThreshold, 5)
+        XCTAssertEqual(rule?.days, 5)
     }
     
     func testRuleFactoryIsDownloaded() {
         let ruleData = PlaylistRuleData(type: "isDownloaded")
         let rule = PlaylistRuleFactory.createRule(from: ruleData)
         
-        XCTAssertTrue(rule is IsDownloadedRule)
+        XCTAssertTrue(rule is CoreModels.IsDownloadedRule)
     }
     
     func testRuleFactoryPodcastId() {
         let ruleData = PlaylistRuleData(type: "podcastId", parameters: ["podcastId": "test123"])
-        let rule = PlaylistRuleFactory.createRule(from: ruleData) as? PodcastIdRule
+        let rule = PlaylistRuleFactory.createRule(from: ruleData) as? CoreModels.PodcastIdRule
         
         XCTAssertNotNil(rule)
         XCTAssertEqual(rule?.podcastId, "test123")
@@ -521,7 +528,7 @@ final class Issue06PlaylistTests: XCTestCase {
     
     func testSmartPlaylistEvaluationWithDownloadedRule() async {
         let criteria = SmartPlaylistCriteria(
-            filterRules: [.isPlayed(false)] // Using isPlayed false as a proxy for testing
+            filterRules: [.isDownloaded]
         )
         let smartPlaylist = SmartPlaylist(name: "Downloaded", criteria: criteria)
         
@@ -541,7 +548,7 @@ final class Issue06PlaylistTests: XCTestCase {
         let criteria = SmartPlaylistCriteria(
             filterRules: [
                 .dateRange(start: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date.distantPast, end: Date()),
-                .isPlayed(false)
+                .isDownloaded
             ]
         )
         let smartPlaylist = SmartPlaylist(name: "New Downloaded", criteria: criteria)
@@ -896,7 +903,7 @@ final class Issue06PlaylistTests: XCTestCase {
         // Smart playlist updates when underlying data changes (trigger evaluation helper)
         
         let criteria = SmartPlaylistCriteria(
-            filterRules: [.isPlayed(false)] // Using isPlayed false as a proxy for testing
+            filterRules: [.isDownloaded]
         )
         let smartPlaylist = SmartPlaylist(name: "Downloaded Episodes", criteria: criteria)
         
