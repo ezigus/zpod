@@ -19,8 +19,9 @@ public final class InMemoryFolderManager: FolderManaging {
     }
     
     public func add(_ folder: Folder) throws {
-        // Enforce id uniqueness
-        guard storage[folder.id] == nil else { 
+        // Enforce id uniqueness; allow idempotent re-add of identical value
+        if let existing = storage[folder.id] {
+            if existing == folder { return } // idempotent no-op
             throw TestSupportError.duplicateId("Folder with id '\(folder.id)' already exists")
         }
         

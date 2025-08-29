@@ -54,4 +54,35 @@ public struct Podcast: Codable, Equatable, Sendable {
     self.folderId = folderId
     self.tagIds = tagIds
   }
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case title
+    case author
+    case description
+    case artworkURL
+    case feedURL
+    case categories
+    case episodes
+    case isSubscribed
+    case dateAdded
+    case folderId
+    case tagIds
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.id = try container.decode(String.self, forKey: .id)
+    self.title = try container.decode(String.self, forKey: .title)
+    self.author = try container.decodeIfPresent(String.self, forKey: .author)
+    self.description = try container.decodeIfPresent(String.self, forKey: .description)
+    self.artworkURL = try container.decodeIfPresent(URL.self, forKey: .artworkURL)
+    self.feedURL = try container.decode(URL.self, forKey: .feedURL)
+    self.categories = try container.decodeIfPresent([String].self, forKey: .categories) ?? []
+    self.episodes = try container.decodeIfPresent([Episode].self, forKey: .episodes) ?? []
+    self.isSubscribed = try container.decodeIfPresent(Bool.self, forKey: .isSubscribed) ?? false
+    self.dateAdded = try container.decodeIfPresent(Date.self, forKey: .dateAdded) ?? Date()
+    self.folderId = try container.decodeIfPresent(String.self, forKey: .folderId) // default nil if missing
+    self.tagIds = try container.decodeIfPresent([String].self, forKey: .tagIds) ?? [] // default [] if missing
+  }
 }
