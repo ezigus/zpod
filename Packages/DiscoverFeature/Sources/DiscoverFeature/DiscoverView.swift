@@ -2,8 +2,10 @@ import SwiftUI
 
 /// Placeholder discovery view.
 /// Real implementation deferred until DiscoverViewModel contract & tests are defined.
-struct DiscoverView: View {
-  var body: some View {
+public struct DiscoverView: View {
+  public init() {}
+  
+  public var body: some View {
     NavigationStack {
       VStack(spacing: 16) {
         Text("Discover")
@@ -20,8 +22,8 @@ struct DiscoverView: View {
 }
 
 #if DEBUG
-  struct DiscoverView_Previews: PreviewProvider {
-    static var previews: some View {
+  public struct DiscoverView_Previews: PreviewProvider {
+    public static var previews: some View {
       DiscoverView()
     }
   }

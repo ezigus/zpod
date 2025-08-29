@@ -1,17 +1,19 @@
 import SwiftUI
+import CoreModels
+import PlaybackEngine
 
 /// Episode Detail view showing episode information and playback controls
-struct EpisodeDetailView: View {
+public struct EpisodeDetailView: View {
   @StateObject private var viewModel: EpisodeDetailViewModel
   let episode: Episode
 
-  init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
+  public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
     self._viewModel = StateObject(
       wrappedValue: EpisodeDetailViewModel(playbackService: playbackService))
   }
 
-  var body: some View {
+  public var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
         // Episode title
@@ -185,6 +187,7 @@ struct EpisodeDetailView: View {
       episode: Episode(
         id: "episode-1",
         title: "Introduction to Podcast Development",
+        pubDate: nil,
         duration: 1800,  // 30 minutes
         description:
           "In this episode, we explore the fundamentals of building a podcast application using SwiftUI and modern iOS development practices. We'll cover architecture patterns, data management, and user interface design.",
@@ -199,6 +202,7 @@ struct EpisodeDetailView: View {
       episode: Episode(
         id: "episode-2",
         title: "Advanced SwiftUI Techniques",
+        pubDate: nil,
         duration: 2400,  // 40 minutes
         description: nil,
         audioURL: URL(string: "https://example.com/episode2.mp3")
