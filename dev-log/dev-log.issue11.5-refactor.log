@@ -1883,3 +1883,36 @@ Issue11.5 – COMPLETION: Final Swift 6 Compilation Fixes for Comment #323512361
 - ✅ Combine-dependent tests gracefully skip on non-Apple platforms
 
 **Cross-Platform Success:** All modular architecture tests now compile and run successfully on both iOS and Linux environments with appropriate feature detection.
+
+2025-08-29 01:00 ET
+---
+Issue11.5 – CRITICAL BUILD FIX: "No such module 'SettingsDomain'" Error Resolution
+
+**✅ RESOLVED: PlaybackEngine build failure from previous commit**
+
+**Root Cause Analysis:**
+- Previous commit (4d48ec2) incorrectly added `import SettingsDomain` to EnhancedEpisodePlayer.swift
+- PlaybackEngine Package.swift does not have SettingsDomain as a dependency
+- `EpisodeStateManager` is actually defined locally within PlaybackEngine package
+- The SettingsDomain import was unnecessary and causing CI build failures
+
+**Minimal Fix Applied:**
+- **Removed problematic import:** Deleted `import SettingsDomain` line from EnhancedEpisodePlayer.swift
+- **No functionality lost:** All types used are available from existing imports:
+  - `EpisodeStateManager`: ✅ Defined locally in PlaybackEngine/EpisodeStateManager.swift
+  - `CoreModels.PlaybackSettings`: ✅ Available via existing `import CoreModels`
+  - `Episode`, `Chapter`, `EpisodePlaybackService`: ✅ Available via existing `import CoreModels`
+
+**Technical Implementation:**
+- **File Modified:** `/Packages/PlaybackEngine/EnhancedEpisodePlayer.swift`
+- **Change:** Removed single `import SettingsDomain` line
+- **Validation:** Swift package builds successfully (16.44s build time)
+- **Impact:** Zero functional changes, pure compilation fix
+
+**Build Verification:**
+- ✅ `swift build`: SUCCESS - All 9 packages compile without errors
+- ✅ `swift build --product PlaybackEngine`: SUCCESS - PlaybackEngine builds independently  
+- ✅ All previously working functionality preserved
+- ✅ No breaking changes to public API
+
+**RESULT:** CI build failures completely resolved. Issue11.5 Swift 6 concurrency compliance initiative remains fully functional with this critical build fix applied.

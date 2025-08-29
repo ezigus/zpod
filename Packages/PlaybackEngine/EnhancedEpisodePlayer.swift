@@ -3,7 +3,6 @@
 #endif
 import Foundation
 import CoreModels
-import SettingsDomain
 
 /// Enhanced episode player providing advanced controls.
 @MainActor
