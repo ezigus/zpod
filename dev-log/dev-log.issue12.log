@@ -1,0 +1,104 @@
+# Dev Log: Issue 12 - Recommendations Engine (Baseline Heuristics)
+
+## Design Approach (2024-12-19 EST)
+
+### Problem Statement
+- Implement RecommendationService protocol with baseline heuristics
+- Input: play history, subscription list
+- Output: recommended podcasts + episodes with reason strings
+- Heuristics: recently played categories frequency + unplayed episodes recency + popularity placeholder
+
+### Architecture Plan
+
+```mermaid
+graph TB
+    A[RecommendationService Protocol] --> B[BaselineRecommendationService]
+    B --> C[CategoryFrequencyAnalyzer]
+    B --> D[EpisodeRecencyAnalyzer] 
+    B --> E[PopularityScorer]
+    
+    F[RecommendationModels] --> G[Recommendation]
+    F --> H[RecommendationReason]
+    F --> I[RecommendationCriteria]
+    
+    B --> F
+    
+    J[PodcastManaging] --> B
+    K[PlaybackHistory] --> B
+    L[EpisodeStateManager] --> B
+```
+
+### Implementation Phases
+
+1. **Phase 1: Core Models** ✅ COMPLETED
+   - Created recommendation data models in CoreModels/RecommendationModels.swift
+   - Added to existing CoreModels package following established patterns
+   - Models: Recommendation, RecommendationReason, RecommendationCriteria, PlaybackHistoryEntry
+   - Added RecommendationService protocol definition
+
+2. **Phase 2: Service Package & Implementation** ✅ COMPLETED
+   - Created RecommendationDomain package following existing package structure
+   - Implemented BaselineRecommendationService with all required heuristics
+   - Category frequency analysis with 30-day weighting for recent plays
+   - Recency scoring using exponential decay function (30-day half-life)
+   - Popularity placeholder scoring (static 0.5 for now)
+   - Proper filtering of played episodes when configured
+
+3. **Phase 3: Unit Tests** ✅ COMPLETED
+   - Comprehensive test suite with 8 test cases covering all acceptance criteria
+   - testAcceptanceCriteria1_CategoryWeighting: verifies higher frequency categories get more recommendations
+   - testAcceptanceCriteria2_ExcludePlayedEpisodes: confirms played episodes are excluded when configured
+   - testAcceptanceCriteria3_RecencyPreference: validates newer episodes score higher
+   - testAcceptanceCriteria4_ReasonStringGeneration: ensures meaningful reason strings
+   - Edge case tests: empty history, no podcasts, all episodes played
+   - testDeterministicOrdering_SameInputsSameOutput: verifies consistent results
+   - All tests pass ✅
+
+4. **Phase 4: Integration** ✅ COMPLETED
+   - Added RecommendationDomain to main Package.swift
+   - Build and compilation successful
+   - No breaking changes to existing code
+
+### Implementation Details
+
+#### Scoring Algorithm Implementation:
+1. **Category Frequency Score:**
+   - Counts plays by category with 2x weight for plays within last 30 days
+   - Normalizes to percentage of total weighted plays
+   - Returns highest category score for podcasts with multiple categories
+
+2. **Recency Score:**
+   - Uses exponential decay: score = e^(-days_since_publication/30)
+   - Gives high scores to very recent episodes, gradually decreasing
+   - Episodes without publication dates get score of 0
+
+3. **Combined Score:**
+   - Weighted sum: (category * 0.5) + (recency * 0.3) + (popularity * 0.2)
+   - Configurable weights via RecommendationCriteria
+   - Deterministic sorting by score descending
+
+#### Reason String Generation:
+- Primary message: "Recommended for you"
+- Details include: category matches, "recent episode" for episodes < 7 days old
+- Category weights included for transparency
+- User-friendly display text combining primary + details
+
+### Test Results Summary
+```
+Test Suite 'BaselineRecommendationServiceTests' passed
+Executed 8 tests, with 0 failures (0 unexpected) in 0.003 seconds
+```
+
+All acceptance criteria successfully implemented:
+✅ Category weighting with frequency analysis
+✅ Exclusion of played episodes 
+✅ Recency preference for newer episodes
+✅ Deterministic ordering by score
+✅ Meaningful reason strings for UI
+✅ Edge case handling
+
+### Next Steps
+- Ready for integration with main app
+- Can be extended with ML models, collaborative filtering in future
+- Settings integration for personalization toggles
+- A/B testing framework integration

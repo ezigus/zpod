@@ -26,6 +26,7 @@ let package = Package(
         .package(path: "Packages/Networking"),
         .package(path: "Packages/SettingsDomain"),
         .package(path: "Packages/SearchDomain"),
+        .package(path: "Packages/RecommendationDomain"),
 	.package(path: "Packages/PlaybackEngine")
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
@@ -42,6 +43,7 @@ let package = Package(
                 "Networking",
                 "SettingsDomain",
                 "SearchDomain",
+                "RecommendationDomain",
 		        "PlaybackEngine"
             ],
             path: "zpod",
