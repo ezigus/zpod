@@ -1,24 +1,20 @@
 @preconcurrency import Combine
 import Foundation
 import CoreModels
-#if canImport(zpodLib)
-import zpodLib
-#elseif canImport(PlaybackEngine)
 import PlaybackEngine
-#endif
 
 /// ViewModel for Episode Detail view, coordinates with EpisodePlaybackService
 @MainActor
-class EpisodeDetailViewModel: ObservableObject {
-  @Published var episode: Episode?
-  @Published var isPlaying = false
-  @Published var currentPosition: TimeInterval = 0
-  @Published var progressFraction: Double = 0
-  @Published var formattedCurrentTime = "0:00"
-  @Published var formattedDuration = "0:00"
-  @Published var playbackSpeed: Float = 1.0
-  @Published var chapters: [Chapter] = []
-  @Published var currentChapter: Chapter?
+public class EpisodeDetailViewModel: ObservableObject {
+  @Published public var episode: Episode?
+  @Published public var isPlaying = false
+  @Published public var currentPosition: TimeInterval = 0
+  @Published public var progressFraction: Double = 0
+  @Published public var formattedCurrentTime = "0:00"
+  @Published public var formattedDuration = "0:00"
+  @Published public var playbackSpeed: Float = 1.0
+  @Published public var chapters: [Chapter] = []
+  @Published public var currentChapter: Chapter?
 
   private let playbackService: EpisodePlaybackService
   private let sleepTimer: SleepTimer
@@ -30,7 +26,7 @@ class EpisodeDetailViewModel: ObservableObject {
     return playbackService as? EnhancedEpisodePlayer
   }
 
-  init(
+  public init(
     playbackService: EpisodePlaybackService? = nil,
     sleepTimer: SleepTimer? = nil
   ) {
@@ -45,7 +41,7 @@ class EpisodeDetailViewModel: ObservableObject {
     observePlaybackState()
   }
 
-  func loadEpisode(_ episode: Episode) {
+  public func loadEpisode(_ episode: Episode) {
     self.episode = episode
     // Episode currently has no chapters property; set empty and await parsing support
     self.chapters = []
@@ -55,7 +51,7 @@ class EpisodeDetailViewModel: ObservableObject {
     updateUIFromCurrentState()
   }
 
-  func playPause() {
+  public func playPause() {
     guard let episode = episode else { return }
 
     if isPlaying {
@@ -69,50 +65,50 @@ class EpisodeDetailViewModel: ObservableObject {
 
   // MARK: - Enhanced Controls
 
-  func skipForward() {
+  public func skipForward() {
     enhancedPlayer?.skipForward()
   }
 
-  func skipBackward() {
+  public func skipBackward() {
     enhancedPlayer?.skipBackward()
   }
 
-  func seek(to position: TimeInterval) {
+  public func seek(to position: TimeInterval) {
     enhancedPlayer?.seek(to: position)
   }
 
-  func setPlaybackSpeed(_ speed: Float) {
+  public func setPlaybackSpeed(_ speed: Float) {
     enhancedPlayer?.setPlaybackSpeed(speed)
     self.playbackSpeed = speed
   }
 
-  func jumpToChapter(_ chapter: Chapter) {
+  public func jumpToChapter(_ chapter: Chapter) {
     enhancedPlayer?.jumpToChapter(chapter)
   }
 
-  func markAsPlayed(_ played: Bool) {
+  public func markAsPlayed(_ played: Bool) {
     enhancedPlayer?.markEpisodeAs(played: played)
   }
 
   // MARK: - Sleep Timer
 
-  func startSleepTimer(duration: TimeInterval) {
+  public func startSleepTimer(duration: TimeInterval) {
     sleepTimer.start(duration: duration)
   }
 
-  func stopSleepTimer() {
+  public func stopSleepTimer() {
     sleepTimer.stop()
   }
 
-  func resetSleepTimer() {
+  public func resetSleepTimer() {
     sleepTimer.reset()
   }
 
-  var sleepTimerActive: Bool {
+  public var sleepTimerActive: Bool {
     sleepTimer.isActive
   }
 
-  var sleepTimerRemainingTime: TimeInterval {
+  public var sleepTimerRemainingTime: TimeInterval {
     sleepTimer.remainingTime
   }
 
