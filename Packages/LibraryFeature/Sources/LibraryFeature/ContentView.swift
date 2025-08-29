@@ -7,6 +7,10 @@
 
 import SwiftUI
 import SwiftData
+import CoreModels
+import DiscoverFeature
+import PlayerFeature
+import PlaylistFeature
 
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,6 +19,40 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
+        TabView {
+            // Library Tab (existing functionality)
+            LibraryView()
+                .tabItem {
+                    Label("Library", systemImage: "books.vertical")
+                }
+            
+            // Discover Tab (placeholder UI)
+            DiscoverView()
+                .tabItem {
+                    Label("Discover", systemImage: "safari")
+                }
+            
+            // Playlists Tab (placeholder UI)
+            PlaylistEditView()
+                .tabItem {
+                    Label("Playlists", systemImage: "music.note.list")
+                }
+            
+            // Player Tab (placeholder - shows sample episode)
+            PlayerTabView()
+                .tabItem {
+                    Label("Player", systemImage: "play.circle")
+                }
+        }
+    }
+}
+
+/// The original library view moved to its own component
+struct LibraryView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query private var items: [Item]
+    
+    var body: some View {
         NavigationSplitView {
             List {
                 ForEach(items) { item in
@@ -41,11 +79,12 @@ public struct ContentView: View {
                     }
                 }
             }
+            .navigationTitle("Library")
         } detail: {
             Text("Select an item")
         }
     }
-
+    
     private func addItem() {
         withAnimation {
             let newItem = Item(timestamp: Date())
@@ -59,6 +98,46 @@ public struct ContentView: View {
                 modelContext.delete(items[index])
             }
         }
+    }
+}
+
+/// Player tab that shows the EpisodeDetailView with a sample episode
+struct PlayerTabView: View {
+    var body: some View {
+        NavigationView {
+            VStack {
+                Text("Player")
+                    .font(.largeTitle)
+                    .padding()
+                
+                Text("Select an episode to view player details")
+                    .foregroundColor(.secondary)
+                    .padding()
+                
+                // Show sample player view
+                NavigationLink("Sample Episode Player", destination: sampleEpisodeView)
+                    .buttonStyle(.borderedProminent)
+                    .padding()
+                
+                Spacer()
+            }
+            .navigationTitle("Player")
+        }
+    }
+    
+    private var sampleEpisodeView: some View {
+        EpisodeDetailView(episode: sampleEpisode)
+    }
+    
+    private var sampleEpisode: Episode {
+        Episode(
+            id: "sample-1",
+            title: "Sample Episode",
+            description: "This is a sample episode to demonstrate the player interface.",
+            audioURL: URL(string: "https://example.com/episode.mp3")!,
+            pubDate: Date(),
+            duration: 1800 // 30 minutes
+        )
     }
 }
 
