@@ -1,19 +1,18 @@
 import SwiftUI
 import os.log
-#if canImport(zpodLib)
-import zpodLib
-#else
 import CoreModels
-#endif
+import TestSupport
 
 /// Placeholder view for playlist editing (Issue 06 - UI screens out of scope)
-struct PlaylistEditView: View {
+public struct PlaylistEditView: View {
     @StateObject private var playlistManager = InMemoryPlaylistManager()
     @State private var selectedPlaylist: Playlist?
     
     private let logger = OSLog(subsystem: "com.zpodcastaddict.playlists", category: "PlaylistViews")
     
-    var body: some View {
+    public init() {}
+    
+    public var body: some View {
         NavigationView {
             VStack {
                 Text("Playlist Management")
@@ -84,14 +83,16 @@ struct PlaylistEditView: View {
 }
 
 /// Placeholder view for smart playlist rule editing
-struct SmartPlaylistRuleEditView: View {
+public struct SmartPlaylistRuleEditView: View {
     @State private var selectedRuleType: String = "isNew"
     @State private var daysThreshold: Int = 7
     @State private var podcastId: String = ""
     
     private let ruleTypes = ["isNew", "isDownloaded", "isUnplayed", "podcastId", "durationRange"]
     
-    var body: some View {
+    public init() {}
+    
+    public var body: some View {
         Form {
             Section("Rule Type") {
                 Picker("Rule Type", selection: $selectedRuleType) {
@@ -122,22 +123,22 @@ struct SmartPlaylistRuleEditView: View {
 }
 
 /// Placeholder view for playlist queue preview
-struct PlaylistQueuePreviewView: View {
+public struct PlaylistQueuePreviewView: View {
     let playlist: Playlist?
     let smartPlaylist: SmartPlaylist?
     @State private var shuffleEnabled = false
     
-    init(playlist: Playlist) {
+    public init(playlist: Playlist) {
         self.playlist = playlist
         self.smartPlaylist = nil
     }
     
-    init(smartPlaylist: SmartPlaylist) {
+    public init(smartPlaylist: SmartPlaylist) {
         self.playlist = nil
         self.smartPlaylist = smartPlaylist
     }
     
-    var body: some View {
+    public var body: some View {
         VStack {
             HStack {
                 Text(playlist?.name ?? smartPlaylist?.name ?? "Unknown Playlist")

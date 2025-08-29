@@ -26,7 +26,12 @@ let package = Package(
         .package(path: "Packages/Networking"),
         .package(path: "Packages/SettingsDomain"),
         .package(path: "Packages/SearchDomain"),
-	.package(path: "Packages/PlaybackEngine")
+	.package(path: "Packages/PlaybackEngine"),
+        // UI Feature packages
+        .package(path: "Packages/LibraryFeature"),
+        .package(path: "Packages/PlayerFeature"),
+        .package(path: "Packages/DiscoverFeature"),
+        .package(path: "Packages/PlaylistFeature")
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -42,16 +47,17 @@ let package = Package(
                 "Networking",
                 "SettingsDomain",
                 "SearchDomain",
-		        "PlaybackEngine"
+		        "PlaybackEngine",
+                // UI Feature packages (optional for lib)
+                "LibraryFeature",
+                "PlayerFeature",
+                "DiscoverFeature",
+                "PlaylistFeature"
             ],
             path: "zpod",
             exclude: [
                 // Exclude iOS/SwiftUI specific files that won't compile on Linux
                 "zpodApp.swift",
-                "ContentView.swift",
-                "Item.swift", // Uses SwiftData which is iOS-only
-                "Views/", // Uses SwiftUI
-                "ViewModels/", // Uses SwiftUI
                 "Controllers/", // Has dependencies on Services
                 "Assets.xcassets", // Asset catalog
                 "Preview Content",

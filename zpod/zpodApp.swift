@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import LibraryFeature
 
 @main
 struct zpodApp: App {

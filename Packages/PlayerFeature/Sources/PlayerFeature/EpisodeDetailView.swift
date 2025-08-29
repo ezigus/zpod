@@ -1,17 +1,19 @@
 import SwiftUI
+import CoreModels
+import PlaybackEngine
 
 /// Episode Detail view showing episode information and playback controls
-struct EpisodeDetailView: View {
+public struct EpisodeDetailView: View {
   @StateObject private var viewModel: EpisodeDetailViewModel
   let episode: Episode
 
-  init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
+  public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
     self._viewModel = StateObject(
       wrappedValue: EpisodeDetailViewModel(playbackService: playbackService))
   }
 
-  var body: some View {
+  public var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
         // Episode title
