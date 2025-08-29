@@ -187,6 +187,7 @@ public struct EpisodeDetailView: View {
       episode: Episode(
         id: "episode-1",
         title: "Introduction to Podcast Development",
+        pubDate: nil,
         duration: 1800,  // 30 minutes
         description:
           "In this episode, we explore the fundamentals of building a podcast application using SwiftUI and modern iOS development practices. We'll cover architecture patterns, data management, and user interface design.",
@@ -201,6 +202,7 @@ public struct EpisodeDetailView: View {
       episode: Episode(
         id: "episode-2",
         title: "Advanced SwiftUI Techniques",
+        pubDate: nil,
         duration: 2400,  // 40 minutes
         description: nil,
         audioURL: URL(string: "https://example.com/episode2.mp3")

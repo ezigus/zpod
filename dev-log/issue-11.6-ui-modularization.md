@@ -113,3 +113,15 @@ The modularization successfully separates UI concerns while maintaining the exis
   - Updated `zpod/zpodApp.swift` to conditionally import `LibraryFeature`/`SwiftData` and only create/attach the `ModelContainer` when `LibraryFeature` is present.
   - Outcome: Xcode app now builds regardless of whether `LibraryFeature` is linked; once linked, the real UI is used automatically.
 - Xcode wiring steps: In the zpod app target, add the local `LibraryFeature` package if needed, then link its product in “Link Binary With Libraries”; clean build.
+
+
+### Build Error Fix: Parameter Order in Episode Initializer
+**Date: 2025-01-01 15:30 EST**
+- **Issue**: Xcode build failed with "argument 'pubDate' must precede argument 'description'" in LibraryFeature/ContentView.swift line 138
+- **Root Cause**: Episode initializer parameters were in wrong order in sampleEpisode property
+- **Analysis**: Episode init requires: id, title, podcastID, playbackPosition, isPlayed, pubDate, duration, description, audioURL
+- **Fix**: Reordered parameters in sampleEpisode Episode() call to match proper initializer order:
+  - Moved `pubDate: Date()` before `description:`
+  - Moved `duration: 1800` before `description:`
+  - Kept `audioURL` at the end as it was correct
+- **Files Changed**: `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift` lines 133-141

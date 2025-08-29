@@ -133,10 +133,10 @@ struct PlayerTabView: View {
         Episode(
             id: "sample-1",
             title: "Sample Episode",
-            description: "This is a sample episode to demonstrate the player interface.",
-            audioURL: URL(string: "https://example.com/episode.mp3")!,
             pubDate: Date(),
-            duration: 1800 // 30 minutes
+            duration: 1800, // 30 minutes
+            description: "This is a sample episode to demonstrate the player interface.",
+            audioURL: URL(string: "https://example.com/episode.mp3")!
         )
     }
 }
