@@ -1,0 +1,345 @@
+import XCTest
+import Foundation
+#if canImport(Combine)
+@preconcurrency import Combine
+#endif
+@testable import Persistence
+import CoreModels
+import SharedUtilities
+
+final class ComprehensiveFileManagerServiceTests: XCTestCase {
+    
+    var fileManagerService: FileManagerService!
+    var testTask: DownloadTask!
+    #if canImport(Combine)
+    var cancellables: Set<AnyCancellable>!
+    #endif
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        // Given: Fresh FileManagerService for each test
+        fileManagerService = try await FileManagerService()
+        
+        // Given: Test download task
+        testTask = DownloadTask(
+            id: "test-task-\(UUID().uuidString)",
+            episodeId: "episode-123",
+            podcastId: "podcast-456",
+            audioURL: URL(string: "https://example.com/test.mp3")!,
+            title: "Test Episode",
+            priority: .normal
+        )
+        
+        #if canImport(Combine)
+        cancellables = Set<AnyCancellable>()
+        #endif
+    }
+    
+    override func tearDown() async throws {
+        #if canImport(Combine)
+        cancellables = nil
+        #endif
+        fileManagerService = nil
+        testTask = nil
+        try await super.tearDown()
+    }
+    
+    // MARK: - Download Path Tests
+    
+    func testDownloadPath_GeneratesCorrectPath() async {
+        // Given: A download task for specific podcast and episode
+        // When: Getting download path
+        let path = await fileManagerService.downloadPath(for: testTask)
+        
+        // Then: Path should include podcast and episode IDs
+        XCTAssertTrue(path.contains(testTask.podcastId), "Path should contain podcast ID")
+        XCTAssertTrue(path.contains(testTask.episodeId), "Path should contain episode ID")
+        XCTAssertTrue(path.hasSuffix(".mp3"), "Path should have .mp3 extension")
+    }
+    
+    func testDownloadPath_ConsistentResults() async {
+        // Given: Same download task
+        // When: Getting download path multiple times
+        let path1 = await fileManagerService.downloadPath(for: testTask)
+        let path2 = await fileManagerService.downloadPath(for: testTask)
+        
+        // Then: Paths should be identical
+        XCTAssertEqual(path1, path2, "Path generation should be deterministic")
+    }
+    
+    func testDownloadPath_DifferentTasks() async {
+        // Given: Two different download tasks
+        let task2 = DownloadTask(
+            id: "task-2",
+            episodeId: "episode-789",
+            podcastId: "podcast-012",
+            audioURL: URL(string: "https://example.com/test2.mp3")!,
+            title: "Test Episode 2",
+            priority: .low
+        )
+        
+        // When: Getting paths for both tasks
+        let path1 = await fileManagerService.downloadPath(for: testTask)
+        let path2 = await fileManagerService.downloadPath(for: task2)
+        
+        // Then: Paths should be different
+        XCTAssertNotEqual(path1, path2, "Different tasks should have different paths")
+    }
+    
+    // MARK: - Directory Creation Tests
+    
+    func testCreateDownloadDirectory_Success() async throws {
+        // Given: A download task
+        // When: Creating download directory
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        
+        // Then: Directory should be created without throwing
+        // Test completes successfully if no exception is thrown
+    }
+    
+    func testCreateDownloadDirectory_MultipleCalls() async throws {
+        // Given: A download task
+        // When: Creating download directory multiple times
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        
+        // Then: Should not throw error on subsequent calls
+    }
+    
+    func testCreateDownloadDirectory_DifferentPodcasts() async throws {
+        // Given: Tasks for different podcasts
+        let task2 = DownloadTask(
+            id: "task-2",
+            episodeId: "episode-789", 
+            podcastId: "podcast-different",
+            audioURL: URL(string: "https://example.com/different.mp3")!,
+            title: "Different Episode",
+            priority: .normal
+        )
+        
+        // When: Creating directories for both
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        try await fileManagerService.createDownloadDirectory(for: task2)
+        
+        // Then: Both should succeed
+    }
+    
+    // MARK: - File Existence Tests
+    
+    func testFileExists_InitiallyFalse() async {
+        // Given: A new download task
+        // When: Checking if file exists
+        let exists = await fileManagerService.fileExists(for: testTask)
+        
+        // Then: File should not exist initially
+        XCTAssertFalse(exists, "File should not exist before download")
+    }
+    
+    func testFileExists_AfterDirectoryCreation() async throws {
+        // Given: A download task with created directory
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        
+        // When: Checking if file exists
+        let exists = await fileManagerService.fileExists(for: testTask)
+        
+        // Then: File still should not exist (only directory created)
+        XCTAssertFalse(exists, "File should not exist after creating directory")
+    }
+    
+    // MARK: - File Size Tests
+    
+    func testGetFileSize_NonExistentFile() async {
+        // Given: A task for non-existent file
+        // When: Getting file size
+        let size = await fileManagerService.getFileSize(for: testTask)
+        
+        // Then: Size should be nil
+        XCTAssertNil(size, "Size should be nil for non-existent file")
+    }
+    
+    // MARK: - Download Operations Tests
+    
+    func testStartDownload_Success() async throws {
+        // Given: A download task and created directory
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        
+        // When: Starting download
+        try await fileManagerService.startDownload(testTask)
+        
+        // Then: Should complete without throwing
+        // (This is a mock implementation that simulates download)
+    }
+    
+    func testStartDownload_WithoutDirectory() async throws {
+        // Given: A download task without created directory
+        // When: Starting download
+        try await fileManagerService.startDownload(testTask)
+        
+        // Then: Should still succeed (directory created automatically)
+    }
+    
+    func testCancelDownload_ValidTaskId() async {
+        // Given: A task ID
+        // When: Cancelling download
+        await fileManagerService.cancelDownload(taskId: testTask.id)
+        
+        // Then: Should complete without throwing
+    }
+    
+    func testCancelDownload_InvalidTaskId() async {
+        // Given: An invalid task ID
+        // When: Cancelling download
+        await fileManagerService.cancelDownload(taskId: "non-existent-task")
+        
+        // Then: Should complete without throwing (graceful handling)
+    }
+    
+    // MARK: - Download Progress Publisher Tests
+    
+    #if canImport(Combine)
+    func testDownloadProgressPublisher_Available() async {
+        // Given: FileManagerService
+        // When: Getting download progress publisher
+        let publisher = await fileManagerService.downloadProgressPublisher
+        
+        // Then: Publisher should be available
+        XCTAssertNotNil(publisher, "Download progress publisher should be available")
+    }
+    
+    func testDownloadProgressPublisher_ReceivesProgress() async throws {
+        // Given: FileManagerService and expectation for progress
+        let expectation = expectation(description: "Download progress received")
+        var receivedProgress: [DownloadProgress] = []
+        
+        // When: Subscribing to progress and starting download
+        let publisher = await fileManagerService.downloadProgressPublisher
+        publisher
+            .sink { progress in
+                receivedProgress.append(progress)
+                if receivedProgress.count >= 5 { // Expect at least 5 progress updates
+                    expectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+        
+        try await fileManagerService.createDownloadDirectory(for: testTask)
+        try await fileManagerService.startDownload(testTask)
+        
+        // Then: Should receive progress updates
+        await fulfillment(of: [expectation], timeout: 5.0)
+        XCTAssertGreaterThan(receivedProgress.count, 0, "Should receive progress updates")
+        XCTAssertEqual(receivedProgress.first?.taskId, testTask.id, "Progress should be for correct task")
+    }
+    #endif
+    
+    // MARK: - File Deletion Tests
+    
+    func testDeleteDownloadedFile_NonExistentFile() async throws {
+        // Given: A task for non-existent file
+        // When: Attempting to delete file
+        try await fileManagerService.deleteDownloadedFile(for: testTask)
+        
+        // Then: Should complete without throwing (graceful handling)
+    }
+    
+    // MARK: - Thread Safety Tests
+    
+    func testConcurrentOperations() async throws {
+        // Given: Multiple tasks
+        let tasks = (0..<10).map { index in
+            DownloadTask(
+                id: "concurrent-task-\(index)",
+                episodeId: "episode-\(index)",
+                podcastId: "podcast-\(index)",
+                audioURL: URL(string: "https://example.com/concurrent-\(index).mp3")!,
+                title: "Concurrent Episode \(index)",
+                priority: index % 2 == 0 ? .high : .normal
+            )
+        }
+        
+        // When: Performing concurrent operations
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for task in tasks {
+                group.addTask {
+                    try await self.fileManagerService.createDownloadDirectory(for: task)
+                    _ = await self.fileManagerService.downloadPath(for: task)
+                    _ = await self.fileManagerService.fileExists(for: task)
+                }
+            }
+            
+            try await group.waitForAll()
+        }
+        
+        // Then: All operations should complete successfully
+    }
+    
+    // MARK: - Edge Cases Tests
+    
+    func testDownloadPath_UnicodeContent() async {
+        // Given: Task with Unicode characters in IDs
+        let unicodeTask = DownloadTask(
+            id: "task-🎵",
+            episodeId: "episode-téléchargé",
+            podcastId: "podcast-播客",
+            audioURL: URL(string: "https://example.com/unicode-🎵.mp3")!,
+            title: "Unicode Episode 测试",
+            priority: .normal
+        )
+        
+        // When: Getting download path
+        let path = await fileManagerService.downloadPath(for: unicodeTask)
+        
+        // Then: Path should be generated successfully
+        XCTAssertFalse(path.isEmpty, "Path should be generated for Unicode content")
+    }
+    
+    func testFileOperations_LongIds() async throws {
+        // Given: Task with very long IDs
+        let longId = String(repeating: "a", count: 200)
+        let longTask = DownloadTask(
+            id: "task-\(longId)",
+            episodeId: "episode-\(longId)",
+            podcastId: "podcast-\(longId)",
+            audioURL: URL(string: "https://example.com/long.mp3")!,
+            title: "Long Episode \(longId)",
+            priority: .normal
+        )
+        
+        // When: Performing file operations
+        try await fileManagerService.createDownloadDirectory(for: longTask)
+        let path = await fileManagerService.downloadPath(for: longTask)
+        let exists = await fileManagerService.fileExists(for: longTask)
+        
+        // Then: Operations should handle long IDs gracefully
+        XCTAssertFalse(path.isEmpty, "Path should be generated for long IDs")
+        XCTAssertFalse(exists, "File existence check should work with long IDs")
+    }
+    
+    // MARK: - Performance Tests
+    
+    func testPerformance_PathGeneration() async {
+        // Given: Multiple download tasks
+        let tasks = (0..<1000).map { index in
+            DownloadTask(
+                id: "perf-task-\(index)",
+                episodeId: "episode-\(index)",
+                podcastId: "podcast-\(index % 10)", // 10 different podcasts
+                audioURL: URL(string: "https://example.com/perf-\(index).mp3")!,
+                title: "Performance Episode \(index)",
+                priority: [.low, .normal, .high][index % 3]
+            )
+        }
+        
+        // When: Measuring path generation performance
+        measure {
+            Task {
+                for task in tasks {
+                    _ = await fileManagerService.downloadPath(for: task)
+                }
+            }
+        }
+        
+        // Then: Performance should be acceptable (measured automatically)
+    }
+}

@@ -7,7 +7,6 @@ let package = Package(
     name: "zpod",
     platforms: [
         .iOS(.v18),
-        .macOS(.v15),
         .watchOS(.v11)
     ],
     products: [
@@ -18,6 +17,16 @@ let package = Package(
         ),
     ],
     dependencies: [
+        // Local packages
+        .package(path: "Packages/CoreModels"),
+        .package(path: "Packages/SharedUtilities"),
+        .package(path: "Packages/TestSupport"),
+        .package(path: "Packages/Persistence"),
+        .package(path: "Packages/FeedParsing"), // Re-added FeedParsing dependency
+        .package(path: "Packages/Networking"),
+        .package(path: "Packages/SettingsDomain"),
+        .package(path: "Packages/SearchDomain"),
+	.package(path: "Packages/PlaybackEngine")
         // Add any external dependencies here
         // Example: .package(url: "https://github.com/realm/SwiftLint.git", from: "0.50.0")
     ],
@@ -25,7 +34,16 @@ let package = Package(
         // Main library target containing core logic
         .target(
             name: "zpodLib",
-            dependencies: [],
+            dependencies: [
+                "CoreModels",
+                "SharedUtilities", 
+                "Persistence",
+                "FeedParsing", // Re-added FeedParsing dependency
+                "Networking",
+                "SettingsDomain",
+                "SearchDomain",
+		        "PlaybackEngine"
+            ],
             path: "zpod",
             exclude: [
                 // Exclude iOS/SwiftUI specific files that won't compile on Linux
@@ -35,30 +53,34 @@ let package = Package(
                 "Views/", // Uses SwiftUI
                 "ViewModels/", // Uses SwiftUI
                 "Controllers/", // Has dependencies on Services
-                "Services/", // Uses Combine and AVFoundation
                 "Assets.xcassets", // Asset catalog
                 "Preview Content",
                 "Info.plist",
                 "zpod.entitlements",
                 "README.md",
-                "instructions.md",
                 "spec/",
-                ".github/",
                 ".vscode/"
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
         
         // Test target
         .testTarget(
-            name: "zpodTests",
-            dependencies: ["zpodLib"],
-            path: "zpodTests",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            name: "zpodTests", 
+            dependencies: [
+                "zpodLib",
+                "TestSupport"
+            ],
+            path: "zpodTests"
+        ),
+        
+        // Integration test target
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "zpodLib",
+                "TestSupport"
+            ],
+            path: "IntegrationTests"
         ),
     ]
 )

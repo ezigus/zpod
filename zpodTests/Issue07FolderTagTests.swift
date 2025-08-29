@@ -1,5 +1,7 @@
 import XCTest
-@testable import zpod
+import TestSupport
+import SearchDomain
+@testable import zpodLib
 
 final class Issue07FolderTagTests: XCTestCase {
   
@@ -182,7 +184,7 @@ final class Issue07FolderTagTests: XCTestCase {
     
     // When & Then: Adding child with non-existent parent throws error
     XCTAssertThrowsError(try manager.add(child)) { error in
-      XCTAssertEqual(error as? FolderError, .parentNotFound("nonexistent"))
+      XCTAssertEqual(error as? TestSupportError, .invalidParent("Parent folder 'nonexistent' does not exist"))
     }
   }
   
@@ -199,7 +201,7 @@ final class Issue07FolderTagTests: XCTestCase {
     
     // Then: Update throws circular reference error
     XCTAssertThrowsError(try manager.update(updatedParent)) { error in
-      XCTAssertEqual(error as? FolderError, .circularReference("parent1"))
+      XCTAssertEqual(error as? TestSupportError, .circularReference("Updating folder 'parent1' would create a circular reference"))
     }
   }
   
@@ -267,7 +269,7 @@ final class Issue07FolderTagTests: XCTestCase {
     
     // When & Then: Removing parent with children throws error
     XCTAssertThrowsError(try manager.remove(id: "parent")) { error in
-      XCTAssertEqual(error as? FolderError, .hasChildren("parent"))
+      XCTAssertEqual(error as? TestSupportError, .hasChildren("Cannot remove folder 'parent' that has children"))
     }
     
     // But removing child first should work

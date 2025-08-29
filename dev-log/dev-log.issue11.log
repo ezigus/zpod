@@ -1,0 +1,315 @@
+# Swift 6 Best Practices for zPodcastAddict
+
+## Swift 6 Concurrency & Sendable
+
+- Always use `async`/`await` for asynchronous operations instead of completion handlers
+- Mark types as `Sendable` when they can be safely passed across concurrency domains
+- Use `@preconcurrency import` for libraries not yet updated for Swift 6 concurrency
+- Prefer `@MainActor` for UI-related classes and methods
+- Use `nonisolated` keyword for methods that don't need actor isolation
+- Always handle potential concurrency warnings and make explicit isolation decisions
+- Use `Task { }` for structured concurrency instead of DispatchQueue
+- Prefer `TaskGroup` for concurrent operations that need coordination
+- Use `AsyncSequence` for streaming data operations
+- Always specify isolation context when crossing actor boundaries
+
+## Actor Usage
+
+- Use actors for mutable shared state that needs thread-safe access
+- Prefer `@MainActor` for view models and UI controllers
+- Use global actors sparingly and only when appropriate
+- Design actor interfaces to minimize cross-actor calls
+- Use `nonisolated` for computed properties that don't access mutable state
+- Avoid actor reentrancy issues by minimizing `await` calls within actor methods
+- Use `actor` isolation to replace `DispatchQueue.sync` patterns
+- Design actor APIs to be atomic and minimize state exposure
+- Use `isolated` parameter for methods that require specific actor context
+
+## Sendable Conformance
+
+- Make value types `Sendable` by default when they contain only `Sendable` properties
+- Use `@unchecked Sendable` only when you can guarantee thread safety manually
+- Prefer immutable types for `Sendable` conformance
+- Use `let` properties in `Sendable` types to ensure immutability
+- Make closures `@Sendable` when they capture `Sendable` values
+- Audit legacy types for `Sendable` compliance during migration
+
+## Data Race Prevention
+
+- Eliminate global mutable state or protect it with actors
+- Use value semantics to avoid shared mutable references
+- Replace `@objc` protocols with Swift-native alternatives when possible
+- Use `MainActor.assumeIsolated` only when you're certain of main thread context
+- Avoid `unsafeBitCast` and similar unsafe operations in concurrent code
+- Use proper synchronization primitives for legacy code interop
+
+## Task Management
+
+- Use `Task.detached` only when you need to escape current actor context
+- Prefer structured concurrency with `async let` and `TaskGroup`
+- Always handle task cancellation with `Task.checkCancellation()`
+- Use `Task.yield()` in long-running computations to allow cancellation
+- Avoid creating unnecessary tasks - use direct `await` when possible
+- Use `withTaskCancellationHandler` for proper cleanup
+
+## Error Handling
+
+- Use typed throws (`throws(SpecificError)`) when possible for better error handling
+- Prefer Result types for complex error scenarios
+- Always handle errors at appropriate levels in the call stack
+- Use custom error types that conform to `LocalizedError` for user-facing errors
+- Use `do-catch` blocks with specific error types for better error handling
+- Implement `CancellationError` handling in async operations
+- Use `Result.success` and `Result.failure` for bridging sync/async APIs
+
+## Swift 6 Language Mode
+
+- Enable complete concurrency checking: `SWIFT_UPCOMING_FEATURE_COMPLETE_CONCURRENCY=YES`
+- Use strict concurrency warnings as errors during development
+- Enable region-based isolation for better performance
+- Use the new `transferring` parameter attribute for ownership transfer
+- Adopt `consuming` and `borrowing` parameter attributes for performance
+- Use `@available(*, unavailable)` for deprecated concurrent patterns
+
+## Async/Await Patterns
+
+- Use `async let` for concurrent independent operations
+- Prefer `withTaskGroup` over `Task.detached` for coordinated parallel work
+- Use `AsyncStream` and `AsyncThrowingStream` for bridging callback-based APIs
+- Implement proper backpressure in `AsyncSequence` implementations
+- Use `AsyncIteratorProtocol` for custom async sequences
+- Handle async sequence termination and error cases properly
+
+## Testing Best Practices
+
+### Test Structure and Organization
+- Use descriptive test method names that explain the scenario: `testAcceptanceCriteria1_CascadingResolution()`
+- Organize tests with clear Given/When/Then structure using comments
+- Group related tests using `// MARK:` comments for better navigation
+- Use separate UserDefaults suites for each test to ensure isolation
+
+### Async Testing Patterns
+- Always use `async` test methods for testing async code: `func testExample() async`
+- Use `await` for all async operations in tests
+- Set up and tear down async resources properly in `setUp()` and `tearDown()`
+- Use `XCTAssertThrowsError` with async throwing functions
+- Test cancellation behavior with `withTaskCancellationHandler`
+- Use `expectation(description:)` for complex async coordination in tests
+
+### Combine Testing
+- Use `Set<AnyCancellable>` to manage test subscriptions
+- Store publishers in instance variables for proper lifecycle management
+- Always call `store(in: &cancellables)` to prevent memory leaks
+- Test both published properties and custom publishers
+- Use `@preconcurrency import Combine` in test files
+
+### Test Data Management
+- Use unique UserDefaults suites per test: `UserDefaults(suiteName: "test-criteria-1")`
+- Always clean up test data: `userDefaults.removePersistentDomain(forName: "test-criteria-1")`
+- Create fresh instances for each test to avoid state pollution
+- Use dependency injection for testable designs
+
+### Validation Testing
+- Test boundary conditions and invalid inputs
+- Verify that invalid values are properly clamped or rejected
+- Test both positive and negative scenarios
+- Include edge cases in your test coverage
+
+### Integration Testing
+- Test end-to-end scenarios that mirror real user workflows
+- Verify that settings persist across app restarts
+- Test cascading behavior (global → per-podcast overrides)
+- Validate backward compatibility with existing APIs
+
+### Mock and Test Doubles
+- Use protocols for dependency injection and mocking
+- Create actor-isolated mocks for thread-safe testing
+- Use `@MainActor` test classes when testing UI components
+- Implement proper async mock behaviors
+
+## Memory Management
+
+- Use `weak` references to break retain cycles in closures and delegates
+- Prefer `unowned` only when you're certain the referenced object will outlive the current context
+- Use `@escaping` closures judiciously and always consider memory implications
+- Avoid creating retain cycles with async/await patterns
+- Use `withExtendedLifetime` to control object lifetime in async contexts
+- Be careful with capture semantics in async closures
+
+## SwiftUI Best Practices
+
+- Use `@State` for local view state
+- Use `@StateObject` for creating and owning observable objects
+- Use `@ObservedObject` for objects owned elsewhere
+- Use `@EnvironmentObject` for dependency injection
+- Keep view bodies lightweight and extract complex logic into methods or computed properties
+- Use `@MainActor` for ObservableObject classes
+- Prefer `@Observable` macro over `ObservableObject` when available
+- Use `@Binding` for two-way data flow between parent and child views
+
+## Code Organization
+
+- Use extensions to organize code by functionality
+- Keep related functionality grouped together
+- Use `// MARK:` comments for clear code sections
+- Prefer composition over inheritance where possible
+- Separate actor-isolated code into dedicated files when appropriate
+- Use modules to control access and dependencies
+
+## Property Wrappers
+
+- Use `@Published` for properties that should trigger UI updates
+- Use custom property wrappers for common patterns (like UserDefaults storage)
+- Always consider thread safety when creating custom property wrappers
+- Mark property wrappers as `@MainActor` when they interact with UI
+- Use `@AppStorage` for simple UserDefaults integration
+
+## Combine Framework
+
+- Use `@preconcurrency import Combine` until Combine is fully Swift 6 compatible
+- Prefer async/await over Combine for simple async operations
+- Use Combine for complex data transformation and UI binding scenarios
+- Always manage subscription lifecycle properly
+- Use `@Published` properties with `@MainActor` classes for UI updates
+- Migrate from Combine to AsyncSequence where appropriate
+
+## Performance Considerations
+
+- Use `lazy` properties for expensive computations that may not be needed
+- Prefer value types (structs) over reference types (classes) when appropriate
+- Use `@inlinable` for small, frequently-called functions
+- Consider using `@frozen` for public structs that won't change
+- Use `consuming` and `borrowing` for performance-critical code
+- Profile async code with Instruments to identify bottlenecks
+- Use `Task.yield()` to prevent blocking the cooperative thread pool
+
+## Networking and Data
+
+- Use `URLSession` async methods instead of completion handlers
+- Implement proper request cancellation with Task cancellation
+- Use `AsyncThrowingStream` for streaming network responses
+- Handle network errors gracefully with typed error handling
+- Use `Codable` with async decoding for large JSON responses
+- Implement proper retry logic with exponential backoff
+
+## API Design
+
+- Use clear, descriptive parameter names
+- Prefer methods that return values over methods that modify state
+- Design APIs that are hard to misuse
+- Use default parameter values to reduce API surface area
+- Follow Swift naming conventions consistently
+- Make async functions throwing when they can fail
+- Use `isolated` parameters when actor context is required
+- Design sendable APIs for concurrent use
+
+## Documentation
+
+- Use documentation comments (`///`) for public APIs
+- Include usage examples in documentation when helpful
+- Document preconditions and postconditions
+- Explain complex algorithms and business logic
+- Document actor isolation requirements
+- Include concurrency safety notes in documentation
+
+## Package Management
+
+- Keep Package.swift dependencies up to date
+- Use specific version ranges rather than branch dependencies
+- Document why each dependency is needed
+- Regularly audit dependencies for security and maintenance status
+- Ensure all dependencies support Swift 6 concurrency
+
+## Migration Guidelines
+
+- When updating from older Swift versions, address all concurrency warnings
+- Gradually adopt Swift 6 features rather than wholesale rewrites
+- Test thoroughly when migrating async code
+- Update test patterns to match new concurrency model
+- Use compiler flags to gradually enable strict concurrency checking
+- Migrate `@escaping` closures to async functions where appropriate
+
+## Security Considerations
+
+- Avoid using `@unchecked Sendable` without thorough review
+- Use proper authentication patterns with async/await
+- Implement secure storage patterns with actor isolation
+- Handle sensitive data transfers between isolation domains carefully
+- Use proper cryptographic APIs with async patterns
+
+## Debugging and Development
+
+- Use `print(Thread.current)` to debug actor isolation issues
+- Use Xcode's concurrency debugging tools
+- Enable runtime concurrency checking during development
+- Use `precondition()` and `assert()` for actor state validation
+- Profile concurrent code regularly with Instruments
+
+## Project-Specific Guidelines
+
+- Settings should cascade from global to per-podcast overrides
+- Use the SettingsManager pattern for centralized configuration
+- Always validate settings values and clamp to safe ranges
+- Ensure settings persist across app restarts
+- Use Combine publishers for UI updates and change notifications
+- Implement proper OPML parsing with async/await patterns
+- Use actor-isolated services for thread-safe operations
+
+## Project Update Log
+- 2025-08-16: Synchronized `.github/copilot-instructions.md` with Swift 6 best practices. Coverage includes: concurrency (async/await, Sendable, actor isolation), typed error handling, async testing patterns, Combine usage, SwiftUI guidance, migration flags, performance, security, and OPML-related project specifics.
+
+## 2025-01-27 19:00 ET - Issue 11.5 Modularization Package Compilation Fix
+
+### Current Status
+Working on fixing package compilation errors identified during build testing. Several packages built successfully, but found specific issues that need resolution.
+
+### Build Status Analysis
+- ✅ **CoreModels**: Building successfully (all model types working)
+- ✅ **SharedUtilities**: Building successfully (validation, logging working)  
+- ❌ **TestSupport**: MockPodcast missing required feedURL parameter
+- ❌ **Persistence**: Combine import issues and async getter problems
+- 🔄 **Other packages**: Need to test SearchDomain, Networking, SettingsDomain, etc.
+
+### Phase 4: Package Compilation Fixes
+
+#### Identified Issues:
+1. **TestSupport Package**: MockPodcast.createSample() missing required feedURL parameter for Podcast initializer
+2. **Persistence Package**: 
+   - Duplicate/incorrect Combine imports 
+   - AnyPublisher/PassthroughSubject not found
+   - Async getter pattern incompatible with Swift 6 
+   - Enum case resolution issues
+
+#### Implementation Approach:
+1. Fix TestSupport MockPodcast feedURL requirement
+2. Fix Persistence Combine imports and async patterns  
+3. Test remaining packages (SearchDomain, Networking, etc.)
+4. Ensure all packages compile successfully
+5. Update main project to confirm integration works
+
+#### Progress Log:
+- 19:00 ET: Started package compilation fixes, identified specific build errors
+- 19:05 ET: Analyzing TestSupport and Persistence package issues
+- 19:15 ET: Fixed TestSupport MockPodcast feedURL requirement ✅
+- 19:20 ET: Fixed Persistence Combine imports and async patterns ✅
+- 19:25 ET: Both TestSupport and Persistence packages building successfully ✅
+- 19:30 ET: SearchDomain package building successfully ✅
+- 19:35 ET: Identified issues in remaining packages
+- 19:45 ET: Fixed FeedParsing package Foundation imports and platform compatibility ✅
+- 19:50 ET: **FeedParsing package building successfully** ✅
+
+#### Current Status (6/8 packages building):
+- ✅ **CoreModels**: Building successfully 
+- ✅ **SharedUtilities**: Building successfully
+- ✅ **TestSupport**: Building successfully (fixed MockPodcast)
+- ✅ **Persistence**: Building successfully (fixed Combine/async)
+- ✅ **SearchDomain**: Building successfully  
+- ✅ **FeedParsing**: Building successfully (fixed imports/platform)
+- 🔄 **SettingsDomain**: Need to fix property initialization and mappings
+- ❌ **Networking**: Missing dependency imports
+
+#### Next Actions:
+1. Fix SettingsDomain property initialization and mapping issues
+2. Fix Networking package dependency imports  
+3. Test all packages compile together successfully
+4. Verify main project builds with package structure

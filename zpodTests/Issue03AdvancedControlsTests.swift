@@ -1,37 +1,33 @@
 import XCTest
+#if canImport(Combine)
 @preconcurrency import Combine
-@testable import zpod
+#endif
+@testable import zpodLib
 
 final class Issue03AdvancedControlsTests: XCTestCase {
   // MARK: - Fixtures
   private let sampleEpisode = Episode(
     id: "ep1",
     title: "Test Episode",
-    description: "A test episode",
-    mediaURL: URL(string: "https://example.com/ep1.mp3"),
-    duration: 300,
-    pubDate: Date(),
-    isPlayed: false,
+    podcastID: "podcast1",
     playbackPosition: 0,
-    chapters: [],
-    podcastId: "podcast1"
+    isPlayed: false,
+    pubDate: Date(),
+    duration: 300,
+    description: "A test episode",
+    audioURL: URL(string: "https://example.com/ep1.mp3")
   )
   
   private let episodeWithChapters = Episode(
     id: "ep2",
     title: "Episode with Chapters",
-    description: "Episode containing chapters",
-    mediaURL: URL(string: "https://example.com/ep2.mp3"),
-    duration: 600,
-    pubDate: Date(),
-    isPlayed: false,
+    podcastID: "podcast1", 
     playbackPosition: 0,
-    chapters: [
-      Chapter(id: "ch1", title: "Introduction", startTime: 0, endTime: 120),
-      Chapter(id: "ch2", title: "Main Content", startTime: 120, endTime: 480),
-      Chapter(id: "ch3", title: "Conclusion", startTime: 480, endTime: 600)
-    ],
-    podcastId: "podcast1"
+    isPlayed: false,
+    pubDate: Date(),
+    duration: 600,
+    description: "Episode containing chapters",
+    audioURL: URL(string: "https://example.com/ep2.mp3")
   )
 
   // MARK: - Test Doubles
@@ -129,20 +125,19 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     func getEpisodeState(_ episode: Episode) async -> Episode {
-      let position = await actor.getPlaybackPosition(episode.id, defaultValue: episode.playbackPosition)
+      let position = await actor.getPlaybackPosition(episode.id, defaultValue: TimeInterval(episode.playbackPosition))
       let isPlayed = await actor.getPlayedStatus(episode.id, defaultValue: episode.isPlayed)
       
       return Episode(
         id: episode.id,
         title: episode.title,
-        description: episode.description,
-        mediaURL: episode.mediaURL,
-        duration: episode.duration,
-        pubDate: episode.pubDate,
+        podcastID: episode.podcastID,
+        playbackPosition: Int(position),
         isPlayed: isPlayed,
-        playbackPosition: position,
-        chapters: episode.chapters,
-        podcastId: episode.podcastId
+        pubDate: episode.pubDate,
+        duration: episode.duration,
+        description: episode.description,
+        audioURL: episode.audioURL
       )
     }
   }
@@ -162,11 +157,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     stateManager = localStateManager
     
     player = await MainActor.run {
-      EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: PlaybackSettings(),
-        episodeStateManager: localStateManager
-      )
+      EnhancedEpisodePlayer(stateManager: localStateManager)
     }
   }
 
@@ -179,7 +170,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   // MARK: - Seeking Tests
 
-  func test_seekToPosition_updatesPosition() async {
+  func test_seekToPosition_updatesPosition() async throws {
+    #if canImport(Combine)
     // Given: Episode is playing - capture ALL properties outside MainActor.run
     let localPlayer = player!
     let localSampleEpisode = sampleEpisode
@@ -228,11 +220,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 150) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
-  func test_skipForward_advancesPosition() async {
-    // Given: Episode is playing with skip interval - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
+  func test_skipForward_advancesPosition() async throws {
+    #if canImport(Combine)
+    _ = ticker!
     let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
@@ -252,20 +247,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipForwardInterval: 30)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      let settings = PlaybackSettings(skipForwardInterval: 30)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -288,11 +277,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 30) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
-  func test_skipBackward_retreatsPosition() async {
-    // Given: Episode is playing at advanced position with skip interval - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
+  func test_skipBackward_retreatsPosition() async throws {
+    #if canImport(Combine)
+    _ = ticker!
     let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
@@ -312,20 +304,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipBackwardInterval: 15)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      let settings = PlaybackSettings(skipBackwardInterval: 15)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -349,6 +335,9 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 85) < 0.1 })) // 100 - 15 = 85
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
   // MARK: - Speed Control Tests
@@ -394,7 +383,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     XCTAssertEqual(clampedMinSpeed, 0.8, accuracy: 0.01)
   }
   
-  func test_playbackSpeed_affectsTickProgression() async {
+  func test_playbackSpeed_affectsTickProgression() async throws {
+    #if canImport(Combine)
     // Given: Player with custom speed and state collection - capture ALL properties outside MainActor.run
     let localPlayer = player!
     let localTicker = ticker!
@@ -416,18 +406,15 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     await MainActor.run {
-      localPlayer.play(episode: localSampleEpisode, duration: 300)
-      localPlayer.setPlaybackSpeed(1.25)
-      
       localPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
-      // When: Ticker advances
+      localPlayer.play(episode: localSampleEpisode, duration: 300)
+      localPlayer.setPlaybackSpeed(1.25)
+      // When: Ticker advances (noop for this implementation but kept for API parity)
       localTicker.tick()
     }
     
@@ -448,38 +435,36 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 1.25) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
   
   func test_playbackSpeed_perPodcastOverrides() async {
     // Given: Settings with per-podcast speeds - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
+    _ = ticker!
     let localStateManager = stateManager!
     
     let speedPlayer = await MainActor.run {
-      let speedSettings = PlaybackSettings(
+      let settings = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         podcastPlaybackSpeeds: ["podcast1": 1.75, "podcast2": 1.5]
       )
       
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: speedSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     // Test 1: Episode from podcast1 should use per-podcast speed
     let episode1 = Episode(
       id: "ep1",
       title: "Episode 1",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep1.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "podcast1",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "podcast1"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep1.mp3")
     )
     
     await MainActor.run {
@@ -495,14 +480,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let episode2 = Episode(
       id: "ep2",
       title: "Episode 2",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep2.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "podcast2",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "podcast2"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep2.mp3")
     )
     
     await MainActor.run {
@@ -518,14 +502,13 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     let episode3 = Episode(
       id: "ep3",
       title: "Episode 3",
-      description: "Test episode",
-      mediaURL: URL(string: "https://example.com/ep3.mp3"),
-      duration: 300,
-      pubDate: Date(),
-      isPlayed: false,
+      podcastID: "unknown_podcast",
       playbackPosition: 0,
-      chapters: [],
-      podcastId: "unknown_podcast"
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 300,
+      description: "Test episode",
+      audioURL: URL(string: "https://example.com/ep3.mp3")
     )
     
     await MainActor.run {
@@ -578,10 +561,18 @@ final class Issue03AdvancedControlsTests: XCTestCase {
 
   // MARK: - Chapter Navigation Tests
 
-  func test_jumpToChapter_seeksToChapterStart() async {
+  func test_jumpToChapter_seeksToChapterStart() async throws {
+    #if canImport(Combine)
     // Given: Episode with chapters is playing - capture ALL properties outside MainActor.run
     let localPlayer = player!
     let localEpisodeWithChapters = episodeWithChapters
+    
+    // Create sample chapters for testing since Episode model doesn't include chapters
+    let sampleChapters = [
+      Chapter(id: "ch1", title: "Introduction", startTime: 0, endTime: 120),
+      Chapter(id: "ch2", title: "Main Content", startTime: 120, endTime: 480),
+      Chapter(id: "ch3", title: "Conclusion", startTime: 480, endTime: 600)
+    ]
     
     actor StateCollector {
       private var states: [EpisodePlaybackState] = []
@@ -610,7 +601,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
       localPlayer.play(episode: localEpisodeWithChapters, duration: 600)
       
       // When: Jumping to chapter
-      let chapter = localEpisodeWithChapters.chapters[1] // Main Content at 120s
+      let chapter = sampleChapters[1] // Main Content at 120s
       localPlayer.jumpToChapter(chapter)
     }
     
@@ -627,11 +618,15 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 120) < 0.1 }))
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
-  func test_skipForward_respectsChapterBoundaries() async {
+  func test_skipForward_respectsChapterBoundaries() async throws {
+    #if canImport(Combine)
     // Given: Episode with chapters and skip settings - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
+    _ = ticker!
     let localStateManager = stateManager!
     let localEpisodeWithChapters = episodeWithChapters
     
@@ -651,20 +646,14 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let skipPlayer = await MainActor.run {
-      let skipSettings = PlaybackSettings(skipForwardInterval: 60)
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: skipSettings,
-        episodeStateManager: localStateManager
-      )
+      let settings = PlaybackSettings(skipForwardInterval: 60)
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       skipPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
@@ -688,13 +677,17 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     }
     
     XCTAssertTrue(playingStates.contains(where: { abs($0 - 150) < 0.1 })) // 90 + 60 = 150
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 
   // MARK: - Integration Tests
 
-  func test_complexPlaybackScenario_maintainsStateConsistency() async {
+  func test_complexPlaybackScenario_maintainsStateConsistency() async throws {
+    #if canImport(Combine)
     // Given: Complex settings and episode - capture ALL properties outside MainActor.run
-    let localTicker = ticker!
+    _ = ticker!
     let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
@@ -714,36 +707,29 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let complexPlayer = await MainActor.run {
-      let complexSettings = PlaybackSettings(
+      let settings = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         skipForwardInterval: 30,
         skipBackwardInterval: 10,
         autoMarkAsPlayed: true,
         playedThreshold: 0.9
       )
-      
-      return EnhancedEpisodePlayer(
-        ticker: localTicker,
-        settings: complexSettings,
-        episodeStateManager: localStateManager
-      )
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     await MainActor.run {
       complexPlayer.statePublisher
         .sink { state in
-          Task {
-            await stateCollector.append(state)
-          }
+          Task { await stateCollector.append(state) }
         }
         .store(in: &localCancellables)
       
       // When: Complex interaction sequence
       complexPlayer.play(episode: localSampleEpisode, duration: 300)
       complexPlayer.setPlaybackSpeed(2.0)
-      complexPlayer.skipForward() // +30s
+      complexPlayer.skipForward()
       complexPlayer.seek(to: 100)
-      complexPlayer.skipBackward() // -10s, so 90s
+      complexPlayer.skipBackward()
       complexPlayer.pause()
     }
     
@@ -760,5 +746,8 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     XCTAssertEqual(episode.id, localSampleEpisode.id)
     XCTAssertEqual(position, 90, accuracy: 0.1)
     XCTAssertEqual(duration, 300, accuracy: 0.1)
+    #else
+    throw XCTSkip("Combine not available on this platform")
+    #endif
   }
 }

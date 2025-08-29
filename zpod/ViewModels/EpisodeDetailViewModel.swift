@@ -1,5 +1,11 @@
 @preconcurrency import Combine
 import Foundation
+import CoreModels
+#if canImport(zpodLib)
+import zpodLib
+#elseif canImport(PlaybackEngine)
+import PlaybackEngine
+#endif
 
 /// ViewModel for Episode Detail view, coordinates with EpisodePlaybackService
 @MainActor
@@ -30,14 +36,19 @@ class EpisodeDetailViewModel: ObservableObject {
   ) {
     // Use provided service or create enhanced player (fallback to stub for compatibility)
     self.playbackService = playbackService ?? EnhancedEpisodePlayer()
-    // Avoid calling a @MainActor initializer in a default argument context (Swift 6 strict concurrency)
-    self.sleepTimer = sleepTimer ?? SleepTimer()
+    // Create SleepTimer on MainActor to avoid Swift 6 concurrency violation
+    if let providedTimer = sleepTimer {
+      self.sleepTimer = providedTimer
+    } else {
+      self.sleepTimer = SleepTimer()
+    }
     observePlaybackState()
   }
 
   func loadEpisode(_ episode: Episode) {
     self.episode = episode
-    self.chapters = episode.chapters
+    // Episode currently has no chapters property; set empty and await parsing support
+    self.chapters = []
     updateCurrentChapter()
     updatePlaybackSpeed()
     // Reset UI state when loading a new episode
@@ -107,10 +118,11 @@ class EpisodeDetailViewModel: ObservableObject {
 
   private func observePlaybackState() {
     playbackService.statePublisher
-      .receive(on: DispatchQueue.main)
       .sink { [weak self] state in
-        self?.currentState = state
-        self?.updateUI(for: state)
+        Task { @MainActor in
+          self?.currentState = state
+          self?.updateUI(for: state)
+        }
       }
       .store(in: &cancellables)
   }

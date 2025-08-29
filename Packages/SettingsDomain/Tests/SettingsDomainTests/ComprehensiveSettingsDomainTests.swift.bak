@@ -1,0 +1,586 @@
+import XCTest
+import Foundation
+import CoreModels
+import SharedUtilities
+import Persistence
+@testable import SettingsDomain
+
+#if canImport(Combine)
+import Combine
+#endif
+
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
+
+/// Comprehensive test suite for SettingsDomain package covering:
+/// - SettingsManager functionality and cascading behavior
+/// - UpdateFrequencyService scheduling and validation 
+/// - Settings persistence and change notifications
+/// - Cross-platform compatibility and Swift 6 concurrency patterns
+final class ComprehensiveSettingsDomainTests: XCTestCase {
+    
+    private var settingsManager: SettingsManager!
+    private var updateFrequencyService: UpdateFrequencyService!
+    private var repository: UserDefaultsSettingsRepository!
+    private var userDefaults: UserDefaults!
+    
+    #if canImport(Combine)
+    private var cancellables: Set<AnyCancellable> = []
+    #endif
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        // Given: Fresh test environment with unique UserDefaults suite
+        let suiteName = "test-settings-\(UUID().uuidString)"
+        userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        
+        // Create fresh service instances with proper async initialization
+        repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        settingsManager = await SettingsManager(repository: repository)
+        updateFrequencyService = await UpdateFrequencyService(settingsManager: settingsManager)
+        
+        #if canImport(Combine)
+        cancellables.removeAll()
+        #endif
+    }
+    
+    override func tearDown() async throws {
+        #if canImport(Combine)
+        cancellables.removeAll()
+        #endif
+        
+        // Clean up test data
+        let suiteName = "test-settings-\(UUID().uuidString)"
+        userDefaults.removePersistentDomain(forName: suiteName)
+        
+        settingsManager = nil
+        updateFrequencyService = nil
+        repository = nil
+        userDefaults = nil
+        
+        try await super.tearDown()
+    }
+    
+    // MARK: - SettingsManager Core Functionality Tests
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_GlobalDownloadSettingsBaseline() async {
+        // Given: Fresh SettingsManager with default global settings
+        let manager = settingsManager!
+        
+        // When: Accessing global download settings for the first time
+        let globalDownloadSettings = manager.globalDownloadSettings
+        
+        // Then: Default values should be properly initialized
+        XCTAssertEqual(globalDownloadSettings.autoDownloadEnabled, false, "Auto download should default to false")
+        XCTAssertEqual(globalDownloadSettings.wifiOnly, true, "WiFi only should default to true")
+        XCTAssertEqual(globalDownloadSettings.maxConcurrentDownloads, 3, "Max concurrent downloads should default to 3")
+        XCTAssertEqual(globalDownloadSettings.retentionPolicy, .keepLatest(5), "Retention policy should default to keep latest 5")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_GlobalPlaybackSettingsBaseline() async {
+        // Given: Fresh SettingsManager with default global settings
+        let manager = settingsManager!
+        
+        // When: Accessing global playback settings for the first time
+        let globalPlaybackSettings = manager.globalPlaybackSettings
+        
+        // Then: Default values should be properly initialized
+        XCTAssertEqual(globalPlaybackSettings.playbackSpeed, 1.0, "Playback speed should default to 1.0")
+        XCTAssertEqual(globalPlaybackSettings.skipIntroSeconds, 0, "Skip intro should default to 0 seconds")
+        XCTAssertEqual(globalPlaybackSettings.skipOutroSeconds, 0, "Skip outro should default to 0 seconds")
+        XCTAssertEqual(globalPlaybackSettings.continuousPlayback, true, "Continuous playback should default to true")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_GlobalNotificationSettingsBaseline() async {
+        // Given: Fresh SettingsManager with default global settings
+        let manager = settingsManager!
+        
+        // When: Accessing global notification settings for the first time
+        let globalNotificationSettings = manager.globalNotificationSettings
+        
+        // Then: Default values should be properly initialized
+        XCTAssertEqual(globalNotificationSettings.newEpisodeNotificationsEnabled, true, "New episode notifications should default to true")
+        XCTAssertEqual(globalNotificationSettings.downloadCompleteNotificationsEnabled, true, "Download complete notifications should default to true")
+        XCTAssertEqual(globalNotificationSettings.playbackNotificationsEnabled, true, "Playback notifications should default to true")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_GlobalSettingsUpdate() async {
+        // Given: SettingsManager with baseline settings
+        let manager = settingsManager!
+        
+        // When: Updating global playback settings
+        let updatedSettings = PlaybackSettings(
+            playbackSpeed: 1.25,
+            skipIntroSeconds: 45,
+            skipOutroSeconds: 15,
+            continuousPlayback: false
+        )
+        
+        await manager.updateGlobalPlaybackSettings(updatedSettings)
+        
+        // Then: Settings should be updated
+        let retrievedSettings = manager.globalPlaybackSettings
+        XCTAssertEqual(retrievedSettings.playbackSpeed, 1.25, "Playback speed should be updated")
+        XCTAssertEqual(retrievedSettings.skipIntroSeconds, 45, "Skip intro should be updated")
+        XCTAssertEqual(retrievedSettings.continuousPlayback, false, "Continuous playback should be updated")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_EffectiveSettingsBaseline() async {
+        // Given: SettingsManager and a podcast identifier
+        let manager = settingsManager!
+        let podcastId = "test-podcast-123"
+        
+        // When: Getting effective settings without overrides
+        let effectiveDownloadSettings = await manager.effectiveDownloadSettings(for: podcastId)
+        let effectivePlaybackSettings = await manager.effectivePlaybackSettings(for: podcastId)
+        let effectiveNotificationSettings = manager.effectiveNotificationSettings(for: podcastId)
+        
+        // Then: Should fall back to global settings
+        XCTAssertEqual(effectiveDownloadSettings.autoDownloadEnabled, false, "Should fall back to global auto download")
+        XCTAssertEqual(effectiveDownloadSettings.wifiOnly, true, "Should fall back to global WiFi only")
+        
+        XCTAssertEqual(effectivePlaybackSettings.playbackSpeed, 1.0, "Should fall back to global playback speed")
+        XCTAssertEqual(effectivePlaybackSettings.skipIntroSeconds, 0, "Should fall back to global skip intro")
+        
+        XCTAssertEqual(effectiveNotificationSettings.newEpisodeNotificationsEnabled, true, "Should fall back to global notifications")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_PerPodcastDownloadSettings() async {
+        // Given: SettingsManager and a podcast identifier
+        let manager = settingsManager!
+        let podcastId = "test-podcast-123"
+        
+        // When: Setting per-podcast download overrides
+        let podcastDownloadSettings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            autoDownloadEnabled: true,
+            wifiOnly: false,
+            retentionPolicy: .keepLatest(10),
+            updateFrequency: .daily
+        )
+        
+        await manager.updatePodcastDownloadSettings(podcastId: podcastId, podcastDownloadSettings)
+        
+        // Then: Effective settings should reflect overrides
+        let effectiveSettings = await manager.effectiveDownloadSettings(for: podcastId)
+        XCTAssertEqual(effectiveSettings.autoDownloadEnabled, true, "Should use per-podcast auto download override")
+        XCTAssertEqual(effectiveSettings.wifiOnly, false, "Should use per-podcast WiFi only override")
+        XCTAssertEqual(effectiveSettings.retentionPolicy, .keepLatest(10), "Should use per-podcast retention policy override")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_PerPodcastPlaybackSettingsUpdate() async {
+        // Given: SettingsManager and a podcast with overrides
+        let manager = settingsManager!
+        let podcastId = "test-podcast-456"
+        
+        // Create test data for PodcastPlaybackSettings using JSON encoding/decoding
+        let testData = """
+        {
+            "speed": 1.5,
+            "introSkipDuration": 45,
+            "outroSkipDuration": 30,
+            "skipForwardInterval": 30,
+            "skipBackwardInterval": 15
+        }
+        """.data(using: .utf8)!
+        
+        // When: Decoding and setting per-podcast playback settings
+        let podcastPlaybackSettings = try! JSONDecoder().decode(PodcastPlaybackSettings.self, from: testData)
+        await manager.updatePodcastPlaybackSettings(podcastId: podcastId, podcastPlaybackSettings)
+        
+        // Then: Effective settings should reflect the override
+        let effectiveSettings = await manager.effectivePlaybackSettings(for: podcastId)
+        
+        // The effectiveSettings combines global and podcast-specific settings
+        // Since this creates complex merged settings, we test that the method succeeds
+        XCTAssertNotNil(effectiveSettings, "Effective settings should be available")
+        XCTAssertGreaterThan(effectiveSettings.playbackSpeed, 1.0, "Playbook speed should be influenced by per-podcast settings")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_SettingsRemoval() async {
+        // Given: SettingsManager with per-podcast settings
+        let manager = settingsManager!
+        let podcastId = "removal-test-podcast"
+        
+        // Set initial per-podcast settings
+        let testData = """
+        {
+            "speed": 2.0,
+            "introSkipDuration": 60,
+            "outroSkipDuration": 0,
+            "skipForwardInterval": 30,
+            "skipBackwardInterval": 15
+        }
+        """.data(using: .utf8)!
+        
+        let podcastSettings = try! JSONDecoder().decode(PodcastPlaybackSettings.self, from: testData)
+        await manager.updatePodcastPlaybackSettings(podcastId: podcastId, podcastSettings)
+        
+        // When: Removing per-podcast settings (setting to nil)
+        await manager.updatePodcastPlaybackSettings(podcastId: podcastId, nil)
+        
+        // Then: Should fall back to global settings
+        let effectiveSettings = await manager.effectivePlaybackSettings(for: podcastId)
+        let globalSettings = manager.globalPlaybackSettings
+        XCTAssertEqual(effectiveSettings.playbackSpeed, globalSettings.playbackSpeed, "Should fall back to global speed")
+    }
+    
+    #if canImport(Combine)
+    @MainActor
+    @MainActor
+    func testSettingsManager_ChangeNotifications() async {
+        // Given: SettingsManager with change notifications
+        let manager = settingsManager!
+        let expectation = self.expectation(description: "Settings change notification")
+        expectation.expectedFulfillmentCount = 2
+        
+        // When: Subscribing to change notifications and making changes
+        manager.$globalDownloadSettings
+            .dropFirst()
+            .sink { _ in
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+        
+        manager.$globalPlaybackSettings
+            .dropFirst()
+            .sink { _ in
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+        
+        // Trigger changes
+        await manager.updateGlobalDownloadSettings(DownloadSettings(
+            autoDownloadEnabled: true,
+            wifiOnly: false,
+            maxConcurrentDownloads: 5,
+            retentionPolicy: .keepLatest(10)
+        ))
+        
+        await manager.updateGlobalPlaybackSettings(PlaybackSettings(
+            playbackSpeed: 1.25,
+            skipIntroSeconds: 45,
+            skipOutroSeconds: 15,
+            continuousPlayback: false
+        ))
+        
+        // Then: Should receive change notifications
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    #endif
+    
+    // MARK: - UpdateFrequencyService Tests
+    
+    @MainActor
+    func testUpdateFrequencyService_NextUpdateCalculation() async {
+        // Given: UpdateFrequencyService and test podcast
+        let service = updateFrequencyService!
+        let podcastId = "test-podcast-next-calc"
+        
+        // When: Initializing schedule and computing next refresh time
+        await service.initializeSchedule(for: podcastId)
+        let nextRefreshTime = await service.computeNextRefreshTime(for: podcastId)
+        
+        // Then: Should compute next refresh time correctly
+        XCTAssertNotNil(nextRefreshTime, "Should compute next refresh time for initialized podcast")
+        if let nextTime = nextRefreshTime {
+            let currentTime = Date()
+            XCTAssertGreaterThan(nextTime, currentTime, "Next refresh should be in the future")
+        }
+    }
+    
+    @MainActor  
+    func testUpdateFrequencyService_ScheduleValidation() async {
+        // Given: UpdateFrequencyService and test podcast
+        let service = updateFrequencyService!
+        let podcastId = "test-podcast-validation"
+        
+        // When: Initializing and managing schedule
+        await service.initializeSchedule(for: podcastId)
+        let schedule = service.getSchedule(for: podcastId)
+        
+        // Then: Schedule should be valid and retrievable
+        XCTAssertNotNil(schedule, "Should have valid schedule after initialization")
+        XCTAssertEqual(schedule?.podcastId, podcastId, "Schedule should have correct podcast ID")
+        
+        // When: Marking podcast as refreshed
+        await service.markPodcastRefreshed(podcastId)
+        let updatedSchedule = service.getSchedule(for: podcastId)
+        
+        // Then: Schedule should be updated
+        XCTAssertNotNil(updatedSchedule, "Should have updated schedule after refresh")
+        XCTAssertEqual(updatedSchedule?.podcastId, podcastId, "Updated schedule should maintain podcast ID")
+    }
+        
+        // Test manual schedule
+        let manualSchedule = UpdateSchedule.manual
+        let isManualValid = service.isValidSchedule(manualSchedule)
+        XCTAssertTrue(isManualValid, "Manual schedule should be valid")
+    }
+    
+    func testUpdateFrequencyService_TimeBetweenUpdates() {
+        // Given: UpdateFrequencyService and time intervals
+        let service = updateFrequencyService!
+        let startTime = Date()
+        let endTime = startTime.addingTimeInterval(2 * 3600) // 2 hours later
+        
+        // When: Calculating time between updates
+        let timeBetween = service.timeBetweenUpdates(from: startTime, to: endTime)
+        
+        // Then: Should calculate correct time interval
+        XCTAssertEqual(timeBetween, 2 * 3600, accuracy: 1, "Should calculate 2 hours between updates")
+    }
+    
+    @MainActor
+    func testUpdateFrequencyService_RecommendedFrequency() async {
+        // Given: UpdateFrequencyService and different podcast usage scenarios
+        let service = updateFrequencyService!
+        let heavyUsagePodcast = "heavy-usage-podcast"
+        let lightUsagePodcast = "light-usage-podcast"
+        let moderateUsagePodcast = "moderate-usage-podcast"
+        
+        // When: Initializing schedules for different usage patterns
+        await service.initializeSchedule(for: heavyUsagePodcast)
+        await service.initializeSchedule(for: lightUsagePodcast) 
+        await service.initializeSchedule(for: moderateUsagePodcast)
+        
+        // Then: Should successfully initialize schedules for all usage patterns
+        XCTAssertNotNil(service.getSchedule(for: heavyUsagePodcast), "Should have schedule for heavy usage podcast")
+        XCTAssertNotNil(service.getSchedule(for: lightUsagePodcast), "Should have schedule for light usage podcast")
+        XCTAssertNotNil(service.getSchedule(for: moderateUsagePodcast), "Should have schedule for moderate usage podcast")
+        
+        // When: Computing next refresh times for all podcasts
+        let heavyNextTime = await service.computeNextRefreshTime(for: heavyUsagePodcast)
+        let lightNextTime = await service.computeNextRefreshTime(for: lightUsagePodcast)
+        let moderateNextTime = await service.computeNextRefreshTime(for: moderateUsagePodcast)
+        
+        // Then: Should compute appropriate refresh times based on usage patterns
+        XCTAssertNotNil(heavyNextTime, "Should compute refresh time for heavy usage")
+        XCTAssertNotNil(lightNextTime, "Should compute refresh time for light usage")
+        XCTAssertNotNil(moderateNextTime, "Should compute refresh time for moderate usage")
+    }
+    
+    // MARK: - Settings Persistence Tests
+    
+    @MainActor
+    @MainActor
+    func testSettingsPersistence_AcrossRestarts() async {
+        // Given: SettingsManager with configured settings
+        let manager = settingsManager!
+        
+        // Configure global settings
+        await manager.updateGlobalPlaybackSettings(PlaybackSettings(
+            playbackSpeed: 1.25,
+            skipIntroSeconds: 45,
+            skipOutroSeconds: 15,
+            continuousPlayback: false
+        ))
+        
+        // When: Creating new SettingsManager instance (simulating app restart)
+        let newRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        let newManager = await SettingsManager(repository: newRepository)
+        
+        // Allow time for async loading
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        
+        // Then: Settings should be restored from persistence
+        let restoredGlobal = newManager.globalPlaybackSettings
+        XCTAssertEqual(restoredGlobal.playbackSpeed, 1.25, "Global playback speed should persist")
+        XCTAssertEqual(restoredGlobal.skipIntroSeconds, 45, "Global skip intro should persist")
+    }
+    
+    // MARK: - Edge Cases and Error Handling Tests
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_InvalidPodcastId() async {
+        // Given: SettingsManager and invalid podcast identifiers
+        let manager = settingsManager!
+        
+        // When: Accessing effective settings for empty podcast ID
+        let emptyIdSettings = await manager.effectivePlaybackSettings(for: "")
+        let nilIdSettings = await manager.effectiveDownloadSettings(for: "")
+        
+        // Then: Should handle gracefully and return global settings
+        XCTAssertNotNil(emptyIdSettings, "Empty podcast ID should return effective settings")
+        XCTAssertNotNil(nilIdSettings, "Empty podcast ID should return effective settings")
+        
+        // Should fall back to global values
+        let globalPlayback = manager.globalPlaybackSettings
+        let globalDownload = manager.globalDownloadSettings
+        XCTAssertEqual(emptyIdSettings.playbackSpeed, globalPlayback.playbackSpeed, "Should fall back to global")
+        XCTAssertEqual(nilIdSettings.autoDownloadEnabled, globalDownload.autoDownloadEnabled, "Should fall back to global")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_ExtremePlaybackSpeeds() async {
+        // Given: SettingsManager and extreme playback speed values
+        let manager = settingsManager!
+        
+        // When: Setting extreme playback speeds
+        await manager.updateGlobalPlaybackSettings(PlaybackSettings(
+            playbackSpeed: 0.1, // Very slow
+            skipIntroSeconds: 30,
+            skipOutroSeconds: 30,
+            continuousPlayback: true
+        ))
+        
+        let retrievedSlow = manager.globalPlaybackSettings.playbackSpeed
+        
+        await manager.updateGlobalPlaybackSettings(PlaybackSettings(
+            playbackSpeed: 5.0, // Very fast
+            skipIntroSeconds: 30,
+            skipOutroSeconds: 30,
+            continuousPlayback: true
+        ))
+        
+        let retrievedFast = manager.globalPlaybackSettings.playbackSpeed
+        
+        // Then: Should handle extreme values appropriately
+        XCTAssertEqual(retrievedSlow, 0.1, "Should handle very slow speeds")
+        XCTAssertEqual(retrievedFast, 5.0, "Should handle very fast speeds")
+    }
+    
+    @MainActor
+    @MainActor
+    func testSettingsManager_UnicodeHandling() async {
+        // Given: SettingsManager and Unicode podcast identifiers
+        let manager = settingsManager!
+        let unicodePodcastId = "播客-podcast-🎧-المتصل"
+        
+        // When: Using Unicode podcast ID with effective settings
+        let effectiveSettings = await manager.effectivePlaybackSettings(for: unicodePodcastId)
+        
+        // Then: Should handle Unicode identifiers correctly
+        XCTAssertNotNil(effectiveSettings, "Should handle Unicode podcast IDs")
+        XCTAssertEqual(effectiveSettings.playbackSpeed, 1.0, "Unicode podcast should fall back to global settings")
+    }
+    
+    // MARK: - Concurrency and Performance Tests
+    
+    @MainActor
+    func testSettingsManager_ConcurrentAccess() async {
+        // Given: SettingsManager and concurrent access scenario
+        let manager = settingsManager!
+        
+        // When: Accessing settings concurrently from multiple tasks
+        await withTaskGroup(of: Void.self) { group in
+            // Multiple concurrent reads
+            for i in 0..<10 {
+                group.addTask { @MainActor in
+                    let _ = manager.globalPlaybackSettings
+                    let _ = await manager.effectivePlaybackSettings(for: "concurrent-test-\(i)")
+                }
+            }
+            
+            // Multiple concurrent writes
+            for i in 0..<5 {
+                group.addTask { @MainActor in
+                    let settings = PlaybackSettings(
+                        playbackSpeed: Double(i) + 1.0,
+                        skipIntroSeconds: i * 10 + 30,
+                        skipOutroSeconds: i * 5 + 15,
+                        continuousPlayback: i % 2 == 0
+                    )
+                    await manager.updateGlobalPlaybackSettings(settings)
+                }
+            }
+        }
+        
+        // Then: All operations should complete without data races
+        let finalGlobal = manager.globalPlaybackSettings
+        XCTAssertNotNil(finalGlobal, "Should handle concurrent access safely")
+        XCTAssertGreaterThan(finalGlobal.playbackSpeed, 1.0, "Concurrent writes should have effects")
+    }
+    }
+    
+    #if canImport(CoreFoundation)
+    @MainActor
+    func testUpdateFrequencyService_PerformanceBaseline() async {
+        // Given: UpdateFrequencyService and performance measurement
+        let service = updateFrequencyService!
+        let iterations = 100  // Reduced for async operations
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // When: Performing many frequency calculations
+        for i in 0..<iterations {
+            let podcastId = "perf-test-\(i)"
+            await service.initializeSchedule(for: podcastId)
+            let _ = await service.computeNextRefreshTime(for: podcastId)
+            await service.markPodcastRefreshed(podcastId)
+        }
+        
+        let endTime = CFAbsoluteTimeGetCurrent()
+        let duration = endTime - startTime
+        
+        // Then: Should complete within reasonable time (< 1s for 100 async operations)
+        XCTAssertLessThan(duration, 1.0, "Async frequency calculations should be performant")
+    }
+    #endif
+    
+    // MARK: - Cross-Platform Compatibility Tests
+    
+    @MainActor
+    func testCrossPlatformCompatibility() async {
+        // Given: SettingsManager on current platform
+        let manager = settingsManager!
+        
+        // When: Using settings functionality
+        let globalSettings = manager.globalPlaybackSettings
+        let effectiveSettings = await manager.effectivePlaybackSettings(for: "cross-platform-test")
+        
+        // Then: Should work across different platforms
+        XCTAssertNotNil(globalSettings, "Settings should work on all platforms")
+        XCTAssertNotNil(effectiveSettings, "Effective settings should work on all platforms")
+        
+        // Platform-specific features should be conditionally available
+        #if canImport(Combine)
+        XCTAssertNotNil(manager.$globalPlaybackSettings, "Combine should be available on supported platforms")
+        #endif
+    }
+    
+    // MARK: - Swift 6 Sendable Compliance Tests
+    
+    @MainActor
+    func testSendableCompliance() async {
+        // Given: Settings types that should be Sendable
+        let globalPlaybackSettings = PlaybackSettings(
+            playbackSpeed: 1.5,
+            skipIntroSeconds: 45,
+            skipOutroSeconds: 15,
+            continuousPlayback: true
+        )
+        
+        // When: Using settings in async context
+        let result: Double = await withCheckedContinuation { continuation in
+            Task {
+                // Should be able to capture and use settings across concurrency boundaries
+                let speed = globalPlaybackSettings.playbackSpeed
+                continuation.resume(returning: speed)
+            }
+        }
+        
+        // Then: Should work without Sendable warnings
+        XCTAssertEqual(result, 1.5, "Settings should be Sendable and usable across concurrency boundaries")
+    }
+}

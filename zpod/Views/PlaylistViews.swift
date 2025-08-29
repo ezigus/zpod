@@ -1,5 +1,10 @@
 import SwiftUI
 import os.log
+#if canImport(zpodLib)
+import zpodLib
+#else
+import CoreModels
+#endif
 
 /// Placeholder view for playlist editing (Issue 06 - UI screens out of scope)
 struct PlaylistEditView: View {
@@ -57,16 +62,20 @@ struct PlaylistEditView: View {
         )
         playlistManager.createPlaylist(testPlaylist)
         
-        // Create a test smart playlist
-        let smartRules = [
-            IsNewRule(daysThreshold: 7).ruleData,
-            IsDownloadedRule().ruleData
-        ]
+        // Create a test smart playlist using current CoreModels API
+        let now = Date()
+        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
+        let smartCriteria = SmartPlaylistCriteria(
+            maxEpisodes: 25,
+            orderBy: .publicationDate,
+            filterRules: [
+                .dateRange(start: sevenDaysAgo, end: now),
+                .isPlayed(false)
+            ]
+        )
         let testSmartPlaylist = SmartPlaylist(
-            name: "Recent Downloaded Episodes",
-            rules: smartRules,
-            sortCriteria: .pubDateNewest,
-            maxEpisodes: 25
+            name: "Recent Unplayed Episodes",
+            criteria: smartCriteria
         )
         playlistManager.createSmartPlaylist(testSmartPlaylist)
         

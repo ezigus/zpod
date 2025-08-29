@@ -1,0 +1,487 @@
+import XCTest
+import Foundation
+@testable import Persistence
+import CoreModels
+
+final class ComprehensiveStoragePolicyEvaluatorTests: XCTestCase {
+    
+    var evaluator: StoragePolicyEvaluator!
+    var sampleEpisodes: [Episode]!
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        // Given: Fresh evaluator for each test
+        evaluator = StoragePolicyEvaluator()
+        
+        // Given: Sample episodes for testing
+        let now = Date()
+        sampleEpisodes = [
+            Episode(
+                id: "episode-1",
+                title: "Latest Episode",
+                description: "The most recent episode",
+                pubDate: now,
+                duration: 1800,
+                url: "https://example.com/episode1.mp3",
+                podcastId: "podcast-1",
+                isPlayed: false,
+                playbackPosition: 0,
+                downloadState: .downloaded,
+                chapterMarks: []
+            ),
+            Episode(
+                id: "episode-2", 
+                title: "Recent Episode",
+                description: "A recent episode",
+                pubDate: Calendar.current.date(byAdding: .day, value: -7, to: now)!,
+                duration: 2100,
+                url: "https://example.com/episode2.mp3",
+                podcastId: "podcast-1",
+                isPlayed: true,
+                playbackPosition: 2100,
+                downloadState: .downloaded,
+                chapterMarks: []
+            ),
+            Episode(
+                id: "episode-3",
+                title: "Old Episode",
+                description: "An older episode",
+                pubDate: Calendar.current.date(byAdding: .day, value: -30, to: now)!,
+                duration: 1900,
+                url: "https://example.com/episode3.mp3",
+                podcastId: "podcast-1",
+                isPlayed: false,
+                playbackPosition: 500,
+                downloadState: .downloaded,
+                chapterMarks: []
+            ),
+            Episode(
+                id: "episode-4",
+                title: "Very Old Episode",
+                description: "A very old episode",
+                pubDate: Calendar.current.date(byAdding: .day, value: -90, to: now)!,
+                duration: 2200,
+                url: "https://example.com/episode4.mp3",
+                podcastId: "podcast-1",
+                isPlayed: true,
+                playbackPosition: 2200,
+                downloadState: .downloaded,
+                chapterMarks: []
+            ),
+            Episode(
+                id: "episode-5",
+                title: "Unplayed Recent",
+                description: "An unplayed recent episode",
+                pubDate: Calendar.current.date(byAdding: .day, value: -3, to: now)!,
+                duration: 1750,
+                url: "https://example.com/episode5.mp3",
+                podcastId: "podcast-1",
+                isPlayed: false,
+                playbackPosition: 0,
+                downloadState: .downloaded,
+                chapterMarks: []
+            )
+        ]
+    }
+    
+    override func tearDown() async throws {
+        evaluator = nil
+        sampleEpisodes = nil
+        try await super.tearDown()
+    }
+    
+    // MARK: - Keep Latest Policy Tests
+    
+    func testKeepLatestPolicy_KeepTwo() async {
+        // Given: Policy to keep latest 2 episodes
+        let policy = StoragePolicy.keepLatest(count: 2)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should delete oldest episodes
+        XCTAssertEqual(actions.count, 3, "Should delete 3 episodes to keep latest 2")
+        
+        // Verify correct episodes are marked for deletion
+        let deletedIds = actions.compactMap { action in
+            if case .deleteEpisode(let episodeId) = action {
+                return episodeId
+            }
+            return nil
+        }
+        
+        XCTAssertTrue(deletedIds.contains("episode-3"), "Should delete old episode")
+        XCTAssertTrue(deletedIds.contains("episode-4"), "Should delete very old episode")
+        XCTAssertFalse(deletedIds.contains("episode-1"), "Should keep latest episode")
+    }
+    
+    func testKeepLatestPolicy_KeepAll() async {
+        // Given: Policy to keep more episodes than exist
+        let policy = StoragePolicy.keepLatest(count: 10)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should not delete any episodes
+        XCTAssertEqual(actions.count, 0, "Should not delete any episodes when count is higher than available")
+    }
+    
+    func testKeepLatestPolicy_KeepZero() async {
+        // Given: Policy to keep 0 episodes
+        let policy = StoragePolicy.keepLatest(count: 0)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should delete all episodes
+        XCTAssertEqual(actions.count, sampleEpisodes.count, "Should delete all episodes when keeping 0")
+    }
+    
+    func testKeepLatestPolicy_EmptyEpisodes() async {
+        // Given: Policy and empty episodes array
+        let policy = StoragePolicy.keepLatest(count: 2)
+        
+        // When: Evaluating policy with no episodes
+        let actions = await evaluator.evaluatePolicy(policy, for: [])
+        
+        // Then: Should return no actions
+        XCTAssertEqual(actions.count, 0, "Should return no actions for empty episodes array")
+    }
+    
+    // MARK: - Delete Older Than Policy Tests
+    
+    func testDeleteOlderThanPolicy_RecentCutoff() async {
+        // Given: Policy to delete episodes older than 14 days
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -14, to: Date())!
+        let policy = StoragePolicy.deleteOlderThan(date: cutoffDate)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should delete episodes older than cutoff
+        let deletedIds = actions.compactMap { action in
+            if case .deleteEpisode(let episodeId) = action {
+                return episodeId
+            }
+            return nil
+        }
+        
+        XCTAssertTrue(deletedIds.contains("episode-3"), "Should delete 30-day old episode")
+        XCTAssertTrue(deletedIds.contains("episode-4"), "Should delete 90-day old episode")
+        XCTAssertFalse(deletedIds.contains("episode-1"), "Should keep latest episode")
+        XCTAssertFalse(deletedIds.contains("episode-2"), "Should keep 7-day old episode")
+        XCTAssertFalse(deletedIds.contains("episode-5"), "Should keep 3-day old episode")
+    }
+    
+    func testDeleteOlderThanPolicy_FutureCutoff() async {
+        // Given: Policy with future cutoff date
+        let futureDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let policy = StoragePolicy.deleteOlderThan(date: futureDate)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should delete all episodes (all are older than future date)
+        XCTAssertEqual(actions.count, sampleEpisodes.count, "Should delete all episodes with future cutoff")
+    }
+    
+    func testDeleteOlderThanPolicy_VeryOldCutoff() async {
+        // Given: Policy with very old cutoff date
+        let oldDate = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
+        let policy = StoragePolicy.deleteOlderThan(date: oldDate)
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should not delete any episodes
+        XCTAssertEqual(actions.count, 0, "Should not delete any episodes with very old cutoff")
+    }
+    
+    // MARK: - Keep Unplayed Only Policy Tests
+    
+    func testKeepUnplayedOnlyPolicy() async {
+        // Given: Policy to keep only unplayed episodes
+        let policy = StoragePolicy.keepUnplayedOnly
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should delete played episodes
+        let deletedIds = actions.compactMap { action in
+            if case .deleteEpisode(let episodeId) = action {
+                return episodeId
+            }
+            return nil
+        }
+        
+        XCTAssertTrue(deletedIds.contains("episode-2"), "Should delete played episode-2")
+        XCTAssertTrue(deletedIds.contains("episode-4"), "Should delete played episode-4")
+        XCTAssertFalse(deletedIds.contains("episode-1"), "Should keep unplayed episode-1")
+        XCTAssertFalse(deletedIds.contains("episode-3"), "Should keep unplayed episode-3")
+        XCTAssertFalse(deletedIds.contains("episode-5"), "Should keep unplayed episode-5")
+    }
+    
+    func testKeepUnplayedOnlyPolicy_AllPlayed() async {
+        // Given: All episodes are played
+        let playedEpisodes = sampleEpisodes.map { episode in
+            episode.withPlaybackPosition(episode.duration)
+        }
+        let policy = StoragePolicy.keepUnplayedOnly
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: playedEpisodes)
+        
+        // Then: Should delete all episodes
+        XCTAssertEqual(actions.count, playedEpisodes.count, "Should delete all played episodes")
+    }
+    
+    func testKeepUnplayedOnlyPolicy_AllUnplayed() async {
+        // Given: All episodes are unplayed
+        let unplayedEpisodes = sampleEpisodes.map { episode in
+            episode.withPlaybackPosition(0)
+        }
+        let policy = StoragePolicy.keepUnplayedOnly
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: unplayedEpisodes)
+        
+        // Then: Should not delete any episodes
+        XCTAssertEqual(actions.count, 0, "Should not delete any unplayed episodes")
+    }
+    
+    // MARK: - Custom Policy Tests
+    
+    func testCustomPolicy_BasicRule() async {
+        // Given: Custom policy with basic rule
+        let policy = StoragePolicy.custom(rule: "keep_recent_unplayed")
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should return some actions (implementation-dependent)
+        // Custom policies would be implemented based on specific business rules
+        XCTAssertGreaterThanOrEqual(actions.count, 0, "Custom policy should return valid actions")
+    }
+    
+    func testCustomPolicy_EmptyRule() async {
+        // Given: Custom policy with empty rule
+        let policy = StoragePolicy.custom(rule: "")
+        
+        // When: Evaluating policy
+        let actions = await evaluator.evaluatePolicy(policy, for: sampleEpisodes)
+        
+        // Then: Should handle empty rule gracefully
+        XCTAssertGreaterThanOrEqual(actions.count, 0, "Should handle empty custom rule gracefully")
+    }
+    
+    // MARK: - Storage Policy Codable Tests
+    
+    func testStoragePolicyEncodingDecoding() throws {
+        // Given: Different storage policies
+        let policies: [StoragePolicy] = [
+            .keepLatest(count: 5),
+            .deleteOlderThan(date: Date()),
+            .keepUnplayedOnly,
+            .custom(rule: "test_rule")
+        ]
+        
+        // When: Encoding and decoding policies
+        for policy in policies {
+            let encodedData = try JSONEncoder().encode(policy)
+            let decodedPolicy = try JSONDecoder().decode(StoragePolicy.self, from: encodedData)
+            
+            // Then: Decoded policy should equal original
+            XCTAssertEqual(decodedPolicy, policy, "Decoded policy should equal original")
+        }
+    }
+    
+    // MARK: - Storage Action Tests
+    
+    func testStorageActionEquality() {
+        // Given: Storage actions
+        let action1 = StorageAction.deleteEpisode(episodeId: "episode-1")
+        let action2 = StorageAction.deleteEpisode(episodeId: "episode-1")
+        let action3 = StorageAction.deleteEpisode(episodeId: "episode-2")
+        let action4 = StorageAction.archiveEpisode(episodeId: "episode-1")
+        
+        // When: Comparing actions
+        // Then: Equal actions should be equal
+        XCTAssertEqual(action1, action2, "Same delete actions should be equal")
+        XCTAssertNotEqual(action1, action3, "Different episode delete actions should not be equal")
+        XCTAssertNotEqual(action1, action4, "Different action types should not be equal")
+    }
+    
+    // MARK: - Retention Policy Evaluation Tests
+    
+    func testEvaluateRetentionPolicies_EmptyPodcastId() async {
+        // Given: Empty podcast ID
+        // When: Evaluating retention policies
+        let actions = await evaluator.evaluateRetentionPolicies(for: "")
+        
+        // Then: Should return empty actions (no podcast to evaluate)
+        XCTAssertEqual(actions.count, 0, "Should return no actions for empty podcast ID")
+    }
+    
+    func testEvaluateRetentionPolicies_ValidPodcastId() async {
+        // Given: Valid podcast ID
+        let podcastId = "podcast-test-123"
+        
+        // When: Evaluating retention policies
+        let actions = await evaluator.evaluateRetentionPolicies(for: podcastId)
+        
+        // Then: Should return actions (implementation-dependent)
+        XCTAssertGreaterThanOrEqual(actions.count, 0, "Should return valid actions for podcast ID")
+    }
+    
+    // MARK: - Cleanup Scheduling Tests
+    
+    func testScheduleCleanup() async {
+        // Given: Storage policy evaluator
+        // When: Scheduling cleanup
+        await evaluator.scheduleCleanup()
+        
+        // Then: Should complete without throwing
+        // (Implementation would schedule background cleanup tasks)
+    }
+    
+    // MARK: - Concurrent Policy Evaluation Tests
+    
+    func testConcurrentPolicyEvaluation() async throws {
+        // Given: Multiple policies and episode sets
+        let policies: [StoragePolicy] = [
+            .keepLatest(count: 2),
+            .deleteOlderThan(date: Calendar.current.date(byAdding: .day, value: -30, to: Date())!),
+            .keepUnplayedOnly,
+            .custom(rule: "concurrent_test")
+        ]
+        
+        // When: Evaluating policies concurrently
+        try await withThrowingTaskGroup(of: [StorageAction].self) { group in
+            for policy in policies {
+                group.addTask {
+                    return await self.evaluator.evaluatePolicy(policy, for: self.sampleEpisodes)
+                }
+            }
+            
+            var allActions: [[StorageAction]] = []
+            for try await actions in group {
+                allActions.append(actions)
+            }
+            
+            // Then: All evaluations should complete successfully
+            XCTAssertEqual(allActions.count, policies.count, "All policy evaluations should complete")
+        }
+    }
+    
+    // MARK: - Edge Cases Tests
+    
+    func testPolicyEvaluation_UnicodeEpisodeIds() async {
+        // Given: Episodes with Unicode IDs
+        let unicodeEpisodes = [
+            Episode(
+                id: "episode-🎵",
+                title: "Unicode Episode",
+                description: "Episode with Unicode ID",
+                pubDate: Date(),
+                duration: 1800,
+                url: "https://example.com/unicode.mp3",
+                podcastId: "podcast-unicode",
+                isPlayed: false,
+                playbackPosition: 0,
+                downloadState: .downloaded,
+                chapterMarks: []
+            ),
+            Episode(
+                id: "episode-téléchargé",
+                title: "French Episode",
+                description: "Episode with French characters",
+                pubDate: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+                duration: 2100,
+                url: "https://example.com/french.mp3",
+                podcastId: "podcast-unicode",
+                isPlayed: true,
+                playbackPosition: 2100,
+                downloadState: .downloaded,
+                chapterMarks: []
+            )
+        ]
+        
+        let policy = StoragePolicy.keepUnplayedOnly
+        
+        // When: Evaluating policy with Unicode content
+        let actions = await evaluator.evaluatePolicy(policy, for: unicodeEpisodes)
+        
+        // Then: Should handle Unicode content correctly
+        XCTAssertEqual(actions.count, 1, "Should correctly handle Unicode episode IDs")
+        
+        if case .deleteEpisode(let episodeId) = actions.first {
+            XCTAssertEqual(episodeId, "episode-téléchargé", "Should correctly identify Unicode episode for deletion")
+        }
+    }
+    
+    func testPolicyEvaluation_LargeEpisodeCount() async {
+        // Given: Large number of episodes
+        let largeEpisodeSet = (0..<1000).map { index in
+            Episode(
+                id: "episode-\(index)",
+                title: "Episode \(index)",
+                description: "Description for episode \(index)",
+                pubDate: Calendar.current.date(byAdding: .hour, value: -index, to: Date())!,
+                duration: 1800 + index,
+                url: "https://example.com/episode\(index).mp3",
+                podcastId: "podcast-large",
+                isPlayed: index % 3 == 0, // Every third episode is played
+                playbackPosition: index % 3 == 0 ? 1800 + index : index * 10,
+                downloadState: .downloaded,
+                chapterMarks: []
+            )
+        }
+        
+        let policy = StoragePolicy.keepLatest(count: 100)
+        
+        // When: Evaluating policy with large dataset
+        let actions = await evaluator.evaluatePolicy(policy, for: largeEpisodeSet)
+        
+        // Then: Should handle large datasets efficiently
+        XCTAssertEqual(actions.count, 900, "Should correctly calculate actions for large dataset")
+    }
+    
+    // MARK: - Performance Tests
+    
+    func testPerformance_PolicyEvaluation() async {
+        // Given: Large episode dataset
+        let episodes = (0..<500).map { index in
+            Episode(
+                id: "perf-episode-\(index)",
+                title: "Performance Episode \(index)",
+                description: "Description \(index)",
+                pubDate: Calendar.current.date(byAdding: .minute, value: -index, to: Date())!,
+                duration: 1800,
+                url: "https://example.com/perf\(index).mp3",
+                podcastId: "podcast-perf",
+                isPlayed: index % 2 == 0,
+                playbackPosition: index % 2 == 0 ? 1800 : index * 5,
+                downloadState: .downloaded,
+                chapterMarks: []
+            )
+        }
+        
+        let policies: [StoragePolicy] = [
+            .keepLatest(count: 50),
+            .deleteOlderThan(date: Calendar.current.date(byAdding: .day, value: -7, to: Date())!),
+            .keepUnplayedOnly
+        ]
+        
+        // When: Measuring policy evaluation performance
+        measure {
+            Task {
+                for policy in policies {
+                    _ = await evaluator.evaluatePolicy(policy, for: episodes)
+                }
+            }
+        }
+        
+        // Then: Performance should be acceptable (measured automatically)
+    }
+}

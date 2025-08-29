@@ -1,0 +1,507 @@
+import XCTest
+import Foundation
+#if canImport(Combine)
+@preconcurrency import Combine
+#endif
+@testable import Persistence
+import CoreModels
+
+final class ComprehensiveSettingsRepositoryTests: XCTestCase {
+    
+    var repository: UserDefaultsSettingsRepository!
+    var userDefaults: UserDefaults!
+    var suiteName: String!
+    #if canImport(Combine)
+    var cancellables: Set<AnyCancellable>!
+    #endif
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        // Given: Fresh UserDefaults for each test
+        suiteName = "test-settings-\(UUID().uuidString)"
+        userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        
+        // Given: Fresh repository
+        repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        
+        #if canImport(Combine)
+        cancellables = Set<AnyCancellable>()
+        #endif
+    }
+    
+    override func tearDown() async throws {
+        #if canImport(Combine)
+        cancellables = nil
+        #endif
+        
+        // Clean up UserDefaults
+        userDefaults.removePersistentDomain(forName: suiteName)
+        userDefaults = nil
+        repository = nil
+        suiteName = nil
+        
+        try await super.tearDown()
+    }
+    
+    // MARK: - Global Download Settings Tests
+    
+    func testLoadGlobalDownloadSettings_DefaultValues() async {
+        // Given: Fresh repository with no saved settings
+        // When: Loading global download settings
+        let settings = await repository.loadGlobalDownloadSettings()
+        
+        // Then: Should return default settings
+        XCTAssertEqual(settings, DownloadSettings.default, "Should return default settings when none saved")
+    }
+    
+    func testSaveAndLoadGlobalDownloadSettings() async {
+        // Given: Custom download settings
+        let customSettings = DownloadSettings(
+            downloadOnWiFiOnly: false,
+            maxDownloads: 10,
+            deleteAfterPlaying: true,
+            downloadQuality: .high
+        )
+        
+        // When: Saving and loading settings
+        await repository.saveGlobalDownloadSettings(customSettings)
+        let loadedSettings = await repository.loadGlobalDownloadSettings()
+        
+        // Then: Loaded settings should match saved settings
+        XCTAssertEqual(loadedSettings, customSettings, "Loaded settings should match saved settings")
+    }
+    
+    func testSaveGlobalDownloadSettings_Persistence() async {
+        // Given: Custom settings and fresh repository
+        let customSettings = DownloadSettings(
+            downloadOnWiFiOnly: true,
+            maxDownloads: 5,
+            deleteAfterPlaying: false,
+            downloadQuality: .medium
+        )
+        await repository.saveGlobalDownloadSettings(customSettings)
+        
+        // When: Creating new repository instance
+        let newRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        let loadedSettings = await newRepository.loadGlobalDownloadSettings()
+        
+        // Then: Settings should persist across repository instances
+        XCTAssertEqual(loadedSettings, customSettings, "Settings should persist across repository instances")
+    }
+    
+    // MARK: - Global Notification Settings Tests
+    
+    func testLoadGlobalNotificationSettings_DefaultValues() async {
+        // Given: Fresh repository with no saved settings
+        // When: Loading global notification settings
+        let settings = await repository.loadGlobalNotificationSettings()
+        
+        // Then: Should return default settings
+        XCTAssertEqual(settings, NotificationSettings.default, "Should return default notification settings")
+    }
+    
+    func testSaveAndLoadGlobalNotificationSettings() async {
+        // Given: Custom notification settings
+        let customSettings = NotificationSettings(
+            enableNotifications: false,
+            newEpisodeNotifications: true,
+            downloadCompleteNotifications: false,
+            notificationTiming: .immediately
+        )
+        
+        // When: Saving and loading settings
+        await repository.saveGlobalNotificationSettings(customSettings)
+        let loadedSettings = await repository.loadGlobalNotificationSettings()
+        
+        // Then: Loaded settings should match saved settings
+        XCTAssertEqual(loadedSettings, customSettings, "Loaded notification settings should match saved")
+    }
+    
+    // MARK: - Global Playback Settings Tests
+    
+    func testLoadGlobalPlaybackSettings_DefaultValues() async {
+        // Given: Fresh repository with no saved settings
+        // When: Loading global playback settings
+        let settings = await repository.loadGlobalPlaybackSettings()
+        
+        // Then: Should return default settings
+        XCTAssertEqual(settings, PlaybackSettings.default, "Should return default playback settings")
+    }
+    
+    func testSaveAndLoadGlobalPlaybackSettings() async {
+        // Given: Custom playback settings
+        let customSettings = PlaybackSettings(
+            playbackSpeed: 1.5,
+            autoPlay: false,
+            smartSpeed: true,
+            skipIntro: 15,
+            skipOutro: 30
+        )
+        
+        // When: Saving and loading settings
+        await repository.saveGlobalPlaybackSettings(customSettings)
+        let loadedSettings = await repository.loadGlobalPlaybackSettings()
+        
+        // Then: Loaded settings should match saved settings
+        XCTAssertEqual(loadedSettings, customSettings, "Loaded playback settings should match saved")
+    }
+    
+    // MARK: - Per-Podcast Download Settings Tests
+    
+    func testLoadPodcastDownloadSettings_NoSettings() async {
+        // Given: Repository with no podcast-specific settings
+        let podcastId = "podcast-123"
+        
+        // When: Loading podcast download settings
+        let settings = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        
+        // Then: Should return nil
+        XCTAssertNil(settings, "Should return nil when no podcast settings saved")
+    }
+    
+    func testSaveAndLoadPodcastDownloadSettings() async {
+        // Given: Podcast-specific download settings
+        let podcastId = "podcast-456"
+        let podcastSettings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            downloadOnWiFiOnly: true,
+            maxDownloads: 3,
+            deleteAfterPlaying: true,
+            downloadQuality: .low
+        )
+        
+        // When: Saving and loading podcast settings
+        await repository.savePodcastDownloadSettings(podcastSettings)
+        let loadedSettings = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        
+        // Then: Loaded settings should match saved settings
+        XCTAssertEqual(loadedSettings, podcastSettings, "Loaded podcast settings should match saved")
+    }
+    
+    func testRemovePodcastDownloadSettings() async {
+        // Given: Saved podcast settings
+        let podcastId = "podcast-789"
+        let podcastSettings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            downloadOnWiFiOnly: false,
+            maxDownloads: 8,
+            deleteAfterPlaying: false,
+            downloadQuality: .high
+        )
+        await repository.savePodcastDownloadSettings(podcastSettings)
+        
+        // When: Removing podcast settings
+        await repository.removePodcastDownloadSettings(podcastId: podcastId)
+        let loadedSettings = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        
+        // Then: Settings should be removed
+        XCTAssertNil(loadedSettings, "Settings should be removed after deletion")
+    }
+    
+    // MARK: - Per-Podcast Playback Settings Tests
+    
+    func testLoadPodcastPlaybackSettings_NoSettings() async {
+        // Given: Repository with no podcast-specific playback settings
+        let podcastId = "podcast-playback-123"
+        
+        // When: Loading podcast playback settings
+        let settings = await repository.loadPodcastPlaybackSettings(podcastId: podcastId)
+        
+        // Then: Should return nil
+        XCTAssertNil(settings, "Should return nil when no podcast playback settings saved")
+    }
+    
+    func testSaveAndLoadPodcastPlaybackSettings() async {
+        // Given: Podcast-specific playback settings
+        let podcastId = "podcast-playback-456"
+        let podcastSettings = PodcastPlaybackSettings(
+            podcastId: podcastId,
+            playbackSpeed: 2.0,
+            autoPlay: true,
+            smartSpeed: false,
+            skipIntro: 45,
+            skipOutro: 60
+        )
+        
+        // When: Saving and loading podcast playback settings
+        await repository.savePodcastPlaybackSettings(podcastId, podcastSettings)
+        let loadedSettings = await repository.loadPodcastPlaybackSettings(podcastId: podcastId)
+        
+        // Then: Loaded settings should match saved settings
+        XCTAssertEqual(loadedSettings, podcastSettings, "Loaded podcast playback settings should match saved")
+    }
+    
+    func testRemovePodcastPlaybackSettings() async {
+        // Given: Saved podcast playback settings
+        let podcastId = "podcast-playback-789"
+        let podcastSettings = PodcastPlaybackSettings(
+            podcastId: podcastId,
+            playbackSpeed: 0.75,
+            autoPlay: false,
+            smartSpeed: true,
+            skipIntro: 0,
+            skipOutro: 15
+        )
+        await repository.savePodcastPlaybackSettings(podcastId, podcastSettings)
+        
+        // When: Removing podcast playback settings
+        await repository.removePodcastPlaybackSettings(podcastId: podcastId)
+        let loadedSettings = await repository.loadPodcastPlaybackSettings(podcastId: podcastId)
+        
+        // Then: Settings should be removed
+        XCTAssertNil(loadedSettings, "Playback settings should be removed after deletion")
+    }
+    
+    // MARK: - Settings Change Notifications Tests
+    
+    #if canImport(Combine)
+    func testSettingsChangedPublisher_GlobalDownload() async {
+        // Given: Settings change expectation
+        let expectation = expectation(description: "Settings change notification")
+        var receivedChanges: [SettingsChange] = []
+        
+        // When: Subscribing to changes and modifying settings
+        let publisher = await repository.settingsChangedPublisher
+        publisher
+            .sink { change in
+                receivedChanges.append(change)
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+        
+        let newSettings = DownloadSettings(
+            downloadOnWiFiOnly: true,
+            maxDownloads: 7,
+            deleteAfterPlaying: true,
+            downloadQuality: .medium
+        )
+        await repository.saveGlobalDownloadSettings(newSettings)
+        
+        // Then: Should receive change notification
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedChanges.count, 1, "Should receive one change notification")
+        
+        if case .globalDownload(let settings) = receivedChanges.first {
+            XCTAssertEqual(settings, newSettings, "Change notification should contain correct settings")
+        } else {
+            XCTFail("Should receive globalDownload change notification")
+        }
+    }
+    
+    func testSettingsChangedPublisher_PodcastSettings() async {
+        // Given: Settings change expectation
+        let expectation = expectation(description: "Podcast settings change notification")
+        var receivedChanges: [SettingsChange] = []
+        
+        // When: Subscribing to changes and modifying podcast settings
+        let publisher = await repository.settingsChangedPublisher
+        publisher
+            .sink { change in
+                receivedChanges.append(change)
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+        
+        let podcastId = "podcast-notification-test"
+        let podcastSettings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            downloadOnWiFiOnly: false,
+            maxDownloads: 2,
+            deleteAfterPlaying: false,
+            downloadQuality: .high
+        )
+        await repository.savePodcastDownloadSettings(podcastSettings)
+        
+        // Then: Should receive change notification
+        await fulfillment(of: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedChanges.count, 1, "Should receive one change notification")
+        
+        if case .podcastDownload(let id, let settings) = receivedChanges.first {
+            XCTAssertEqual(id, podcastId, "Change notification should contain correct podcast ID")
+            XCTAssertEqual(settings, podcastSettings, "Change notification should contain correct settings")
+        } else {
+            XCTFail("Should receive podcastDownload change notification")
+        }
+    }
+    
+    func testSettingsChangedPublisher_MultipleChanges() async {
+        // Given: Multiple settings changes expectation
+        let expectation = expectation(description: "Multiple settings changes")
+        expectation.expectedFulfillmentCount = 3
+        var receivedChanges: [SettingsChange] = []
+        
+        // When: Subscribing to changes and making multiple modifications
+        let publisher = await repository.settingsChangedPublisher
+        publisher
+            .sink { change in
+                receivedChanges.append(change)
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+        
+        // Make multiple changes
+        await repository.saveGlobalDownloadSettings(DownloadSettings.default)
+        await repository.saveGlobalNotificationSettings(NotificationSettings.default)
+        await repository.saveGlobalPlaybackSettings(PlaybackSettings.default)
+        
+        // Then: Should receive multiple change notifications
+        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertEqual(receivedChanges.count, 3, "Should receive three change notifications")
+    }
+    #endif
+    
+    // MARK: - Concurrent Access Tests
+    
+    func testConcurrentSettingsAccess() async throws {
+        // Given: Multiple concurrent operations
+        let podcastIds = (0..<10).map { "podcast-concurrent-\($0)" }
+        
+        // When: Performing concurrent settings operations
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            // Concurrent global settings
+            group.addTask {
+                await self.repository.saveGlobalDownloadSettings(DownloadSettings.default)
+                _ = await self.repository.loadGlobalDownloadSettings()
+            }
+            
+            // Concurrent per-podcast settings
+            for podcastId in podcastIds {
+                group.addTask {
+                    let settings = PodcastDownloadSettings(
+                        podcastId: podcastId,
+                        downloadOnWiFiOnly: true,
+                        maxDownloads: 5,
+                        deleteAfterPlaying: false,
+                        downloadQuality: .medium
+                    )
+                    await self.repository.savePodcastDownloadSettings(settings)
+                    _ = await self.repository.loadPodcastDownloadSettings(podcastId: podcastId)
+                }
+            }
+            
+            try await group.waitForAll()
+        }
+        
+        // Then: All operations should complete successfully
+        // Verify some settings persisted correctly
+        let finalSettings = await repository.loadGlobalDownloadSettings()
+        XCTAssertEqual(finalSettings, DownloadSettings.default, "Global settings should be correct after concurrent access")
+    }
+    
+    // MARK: - Edge Cases and Error Handling Tests
+    
+    func testInvalidDataHandling() async {
+        // Given: Invalid data in UserDefaults
+        userDefaults.set("invalid-json-data", forKey: "global_download_settings")
+        
+        // When: Loading settings with invalid data
+        let settings = await repository.loadGlobalDownloadSettings()
+        
+        // Then: Should return default settings (graceful error handling)
+        XCTAssertEqual(settings, DownloadSettings.default, "Should return default settings when data is corrupted")
+    }
+    
+    func testUnicodeSettingsHandling() async {
+        // Given: Settings with Unicode content
+        let podcastId = "podcast-unicode-🎵-téléchargé-播客"
+        let podcastSettings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            downloadOnWiFiOnly: true,
+            maxDownloads: 3,
+            deleteAfterPlaying: false,
+            downloadQuality: .high
+        )
+        
+        // When: Saving and loading Unicode settings
+        await repository.savePodcastDownloadSettings(podcastSettings)
+        let loadedSettings = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        
+        // Then: Unicode content should be handled correctly
+        XCTAssertEqual(loadedSettings, podcastSettings, "Unicode content should be handled correctly")
+    }
+    
+    func testLargeDataHandling() async {
+        // Given: Settings with large podcast ID
+        let largePodcastId = String(repeating: "a", count: 1000)
+        let podcastSettings = PodcastDownloadSettings(
+            podcastId: largePodcastId,
+            downloadOnWiFiOnly: false,
+            maxDownloads: 1,
+            deleteAfterPlaying: true,
+            downloadQuality: .low
+        )
+        
+        // When: Saving and loading large data
+        await repository.savePodcastDownloadSettings(podcastSettings)
+        let loadedSettings = await repository.loadPodcastDownloadSettings(podcastId: largePodcastId)
+        
+        // Then: Large data should be handled correctly
+        XCTAssertEqual(loadedSettings, podcastSettings, "Large data should be handled correctly")
+    }
+    
+    // MARK: - Settings Cascading Tests
+    
+    func testSettingsCascading_GlobalToPerPodcast() async {
+        // Given: Global settings and per-podcast overrides
+        let globalSettings = DownloadSettings(
+            downloadOnWiFiOnly: true,
+            maxDownloads: 5,
+            deleteAfterPlaying: false,
+            downloadQuality: .medium
+        )
+        await repository.saveGlobalDownloadSettings(globalSettings)
+        
+        let podcastId = "podcast-override"
+        let podcastOverride = PodcastDownloadSettings(
+            podcastId: podcastId,
+            downloadOnWiFiOnly: false,  // Override global
+            maxDownloads: 10,           // Override global
+            deleteAfterPlaying: false,  // Same as global
+            downloadQuality: .high      // Override global
+        )
+        await repository.savePodcastDownloadSettings(podcastOverride)
+        
+        // When: Loading both settings
+        let loadedGlobal = await repository.loadGlobalDownloadSettings()
+        let loadedPodcast = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        
+        // Then: Both should be available for cascading logic
+        XCTAssertEqual(loadedGlobal, globalSettings, "Global settings should be preserved")
+        XCTAssertEqual(loadedPodcast, podcastOverride, "Podcast overrides should be available")
+        
+        // Verify cascading behavior (this would be implemented in SettingsManager)
+        XCTAssertNotEqual(loadedGlobal.downloadOnWiFiOnly, loadedPodcast?.downloadOnWiFiOnly, "Override should differ from global")
+    }
+    
+    // MARK: - Performance Tests
+    
+    func testPerformance_SaveAndLoadSettings() async {
+        // Given: Multiple settings to save/load
+        let settingsCount = 100
+        let settings = (0..<settingsCount).map { index in
+            PodcastDownloadSettings(
+                podcastId: "podcast-perf-\(index)",
+                downloadOnWiFiOnly: index % 2 == 0,
+                maxDownloads: index % 10 + 1,
+                deleteAfterPlaying: index % 3 == 0,
+                downloadQuality: [.low, .medium, .high][index % 3]
+            )
+        }
+        
+        // When: Measuring save/load performance
+        measure {
+            Task {
+                for setting in settings {
+                    await repository.savePodcastDownloadSettings(setting)
+                }
+                for setting in settings {
+                    _ = await repository.loadPodcastDownloadSettings(podcastId: setting.podcastId)
+                }
+            }
+        }
+        
+        // Then: Performance should be acceptable (measured automatically)
+    }
+}

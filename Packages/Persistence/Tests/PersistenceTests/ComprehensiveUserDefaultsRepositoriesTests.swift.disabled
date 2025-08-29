@@ -1,0 +1,559 @@
+import XCTest
+import Foundation
+@testable import Persistence
+import CoreModels
+import SharedUtilities
+
+final class ComprehensiveUserDefaultsRepositoriesTests: XCTestCase {
+    
+    var podcastRepository: UserDefaultsPodcastRepository!
+    var episodeRepository: UserDefaultsEpisodeRepository!
+    var userDefaults: UserDefaults!
+    var suiteName: String!
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        // Given: Fresh UserDefaults for each test
+        suiteName = "test-repositories-\(UUID().uuidString)"
+        userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        
+        // Given: Fresh repositories
+        podcastRepository = UserDefaultsPodcastRepository(userDefaults: userDefaults)
+        episodeRepository = UserDefaultsEpisodeRepository(userDefaults: userDefaults)
+    }
+    
+    override func tearDown() async throws {
+        // Clean up UserDefaults
+        userDefaults.removePersistentDomain(forName: suiteName)
+        userDefaults = nil
+        podcastRepository = nil
+        episodeRepository = nil
+        suiteName = nil
+        
+        try await super.tearDown()
+    }
+    
+    // MARK: - Test Helper Methods
+    
+    private func createTestPodcast(
+        id: String = "test-podcast",
+        title: String = "Test Podcast",
+        author: String = "Test Author",
+        description: String = "Test Description",
+        isSubscribed: Bool = true
+    ) -> Podcast {
+        return Podcast(
+            id: id,
+            title: title,
+            author: author,
+            description: description,
+            artworkURL: URL(string: "https://example.com/\(id).jpg"),
+            feedURL: URL(string: "https://example.com/\(id).xml")!,
+            categories: ["Technology"],
+            isSubscribed: isSubscribed,
+            dateAdded: Date()
+        )
+    }
+    
+    // MARK: - Podcast Repository Tests
+    
+    func testSavePodcast_Success() async throws {
+        // Given: A podcast to save
+        let podcast = createTestPodcast(
+            id: "podcast-123",
+            title: "Test Podcast",
+            description: "A test podcast for unit testing"
+        )
+        
+        // When: Saving the podcast
+        try await podcastRepository.savePodcast(podcast)
+        
+        // Then: Should save without throwing
+        // Success is indicated by no exception being thrown
+    }
+    
+    func testSaveAndLoadPodcast_Success() async throws {
+        // Given: A podcast to save and load
+        let originalPodcast = Podcast(
+            id: "podcast-save-load",
+            title: "Save Load Test",
+            description: "Testing save and load functionality",
+            author: "Test Author",
+            feedURL: "https://example.com/save-load.xml",
+            artworkURL: "https://example.com/save-load.jpg",
+            categories: ["Testing"],
+            language: "en",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 5,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        // When: Saving and loading the podcast
+        try await podcastRepository.savePodcast(originalPodcast)
+        let loadedPodcast = try await podcastRepository.loadPodcast(id: originalPodcast.id)
+        
+        // Then: Loaded podcast should match saved podcast
+        XCTAssertNotNil(loadedPodcast, "Loaded podcast should not be nil")
+        XCTAssertEqual(loadedPodcast?.id, originalPodcast.id, "Podcast ID should match")
+        XCTAssertEqual(loadedPodcast?.title, originalPodcast.title, "Podcast title should match")
+        XCTAssertEqual(loadedPodcast?.description, originalPodcast.description, "Podcast description should match")
+        XCTAssertEqual(loadedPodcast?.author, originalPodcast.author, "Podcast author should match")
+        XCTAssertEqual(loadedPodcast?.feedURL, originalPodcast.feedURL, "Podcast feed URL should match")
+        XCTAssertEqual(loadedPodcast?.isSubscribed, originalPodcast.isSubscribed, "Subscription status should match")
+    }
+    
+    func testLoadPodcast_NonExistent() async throws {
+        // Given: A non-existent podcast ID
+        let nonExistentId = "non-existent-podcast"
+        
+        // When: Loading non-existent podcast
+        let podcast = try await podcastRepository.loadPodcast(id: nonExistentId)
+        
+        // Then: Should return nil
+        XCTAssertNil(podcast, "Non-existent podcast should return nil")
+    }
+    
+    func testSavePodcast_OverwriteExisting() async throws {
+        // Given: A podcast saved and then modified
+        let originalPodcast = Podcast(
+            id: "podcast-overwrite",
+            title: "Original Title",
+            description: "Original description",
+            author: "Original Author",
+            feedURL: "https://example.com/original.xml",
+            artworkURL: "https://example.com/original.jpg",
+            categories: ["Original"],
+            language: "en",
+            isSubscribed: false,
+            dateAdded: Date(),
+            episodeCount: 1,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        let updatedPodcast = Podcast(
+            id: "podcast-overwrite", // Same ID
+            title: "Updated Title",
+            description: "Updated description",
+            author: "Updated Author",
+            feedURL: "https://example.com/updated.xml",
+            artworkURL: "https://example.com/updated.jpg",
+            categories: ["Updated"],
+            language: "en",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 2,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        // When: Saving original, then saving updated version
+        try await podcastRepository.savePodcast(originalPodcast)
+        try await podcastRepository.savePodcast(updatedPodcast)
+        let loadedPodcast = try await podcastRepository.loadPodcast(id: "podcast-overwrite")
+        
+        // Then: Should return updated version
+        XCTAssertEqual(loadedPodcast?.title, "Updated Title", "Should have updated title")
+        XCTAssertEqual(loadedPodcast?.author, "Updated Author", "Should have updated author")
+        XCTAssertEqual(loadedPodcast?.isSubscribed, true, "Should have updated subscription status")
+    }
+    
+    // MARK: - Episode Repository Tests
+    
+    func testSaveEpisode_Success() async throws {
+        // Given: An episode to save
+        let episode = Episode(
+            id: "episode-123",
+            title: "Test Episode",
+            description: "A test episode for unit testing",
+            pubDate: Date(),
+            duration: 1800,
+            url: "https://example.com/episode.mp3",
+            podcastId: "podcast-123",
+            isPlayed: false,
+            playbackPosition: 0,
+            downloadState: .notDownloaded,
+            chapterMarks: []
+        )
+        
+        // When: Saving the episode
+        try await episodeRepository.saveEpisode(episode)
+        
+        // Then: Should save without throwing
+        // Success is indicated by no exception being thrown
+    }
+    
+    func testSaveAndLoadEpisode_Success() async throws {
+        // Given: An episode to save and load
+        let originalEpisode = Episode(
+            id: "episode-save-load",
+            title: "Save Load Episode",
+            description: "Testing episode save and load",
+            pubDate: Date(),
+            duration: 2400,
+            url: "https://example.com/save-load.mp3",
+            podcastId: "podcast-test",
+            isPlayed: true,
+            playbackPosition: 1200,
+            downloadState: .downloaded,
+            chapterMarks: [
+                Chapter(startTime: 0, title: "Introduction", url: nil),
+                Chapter(startTime: 300, title: "Main Content", url: nil)
+            ]
+        )
+        
+        // When: Saving and loading the episode
+        try await episodeRepository.saveEpisode(originalEpisode)
+        let loadedEpisode = try await episodeRepository.loadEpisode(id: originalEpisode.id)
+        
+        // Then: Loaded episode should match saved episode
+        XCTAssertNotNil(loadedEpisode, "Loaded episode should not be nil")
+        XCTAssertEqual(loadedEpisode?.id, originalEpisode.id, "Episode ID should match")
+        XCTAssertEqual(loadedEpisode?.title, originalEpisode.title, "Episode title should match")
+        XCTAssertEqual(loadedEpisode?.description, originalEpisode.description, "Episode description should match")
+        XCTAssertEqual(loadedEpisode?.duration, originalEpisode.duration, "Episode duration should match")
+        XCTAssertEqual(loadedEpisode?.podcastId, originalEpisode.podcastId, "Episode podcast ID should match")
+        XCTAssertEqual(loadedEpisode?.isPlayed, originalEpisode.isPlayed, "Episode played status should match")
+        XCTAssertEqual(loadedEpisode?.playbackPosition, originalEpisode.playbackPosition, "Episode playback position should match")
+        XCTAssertEqual(loadedEpisode?.downloadState, originalEpisode.downloadState, "Episode download state should match")
+        XCTAssertEqual(loadedEpisode?.chapterMarks.count, originalEpisode.chapterMarks.count, "Episode chapter count should match")
+    }
+    
+    func testLoadEpisode_NonExistent() async throws {
+        // Given: A non-existent episode ID
+        let nonExistentId = "non-existent-episode"
+        
+        // When: Loading non-existent episode
+        let episode = try await episodeRepository.loadEpisode(id: nonExistentId)
+        
+        // Then: Should return nil
+        XCTAssertNil(episode, "Non-existent episode should return nil")
+    }
+    
+    func testSaveEpisode_OverwriteExisting() async throws {
+        // Given: An episode saved and then modified
+        let originalEpisode = Episode(
+            id: "episode-overwrite",
+            title: "Original Episode",
+            description: "Original description",
+            pubDate: Date(),
+            duration: 1800,
+            url: "https://example.com/original.mp3",
+            podcastId: "podcast-test",
+            isPlayed: false,
+            playbackPosition: 0,
+            downloadState: .notDownloaded,
+            chapterMarks: []
+        )
+        
+        let updatedEpisode = Episode(
+            id: "episode-overwrite", // Same ID
+            title: "Updated Episode",
+            description: "Updated description",
+            pubDate: Date(),
+            duration: 2100,
+            url: "https://example.com/updated.mp3",
+            podcastId: "podcast-test",
+            isPlayed: true,
+            playbackPosition: 1050,
+            downloadState: .downloaded,
+            chapterMarks: [Chapter(startTime: 0, title: "New Chapter", url: nil)]
+        )
+        
+        // When: Saving original, then saving updated version
+        try await episodeRepository.saveEpisode(originalEpisode)
+        try await episodeRepository.saveEpisode(updatedEpisode)
+        let loadedEpisode = try await episodeRepository.loadEpisode(id: "episode-overwrite")
+        
+        // Then: Should return updated version
+        XCTAssertEqual(loadedEpisode?.title, "Updated Episode", "Should have updated title")
+        XCTAssertEqual(loadedEpisode?.duration, 2100, "Should have updated duration")
+        XCTAssertEqual(loadedEpisode?.isPlayed, true, "Should have updated played status")
+        XCTAssertEqual(loadedEpisode?.playbackPosition, 1050, "Should have updated playback position")
+        XCTAssertEqual(loadedEpisode?.downloadState, .downloaded, "Should have updated download state")
+    }
+    
+    // MARK: - Error Handling Tests
+    
+    func testSavePodcast_EncodingError() async {
+        // Given: A repository that might encounter encoding issues
+        // Note: This test verifies that encoding errors are properly handled and rethrown
+        
+        // When/Then: Normal podcasts should save successfully
+        let normalPodcast = Podcast(
+            id: "normal-podcast",
+            title: "Normal Podcast",
+            description: "A normal podcast",
+            author: "Normal Author",
+            feedURL: "https://example.com/normal.xml",
+            artworkURL: "https://example.com/normal.jpg",
+            categories: ["Normal"],
+            language: "en",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 1,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        do {
+            try await podcastRepository.savePodcast(normalPodcast)
+            // Should succeed for normal podcast
+        } catch {
+            XCTFail("Normal podcast should save successfully: \(error)")
+        }
+    }
+    
+    func testLoadPodcast_DecodingError() async throws {
+        // Given: Invalid data in UserDefaults
+        userDefaults.set("invalid-json-data", forKey: "podcast:invalid-podcast")
+        
+        // When: Loading podcast with invalid data
+        do {
+            let podcast = try await podcastRepository.loadPodcast(id: "invalid-podcast")
+            XCTAssertNil(podcast, "Should return nil for invalid data")
+        } catch {
+            // Should either return nil or throw SharedError.persistenceError
+            if let sharedError = error as? SharedError,
+               case .persistenceError = sharedError {
+                // Expected error type
+            } else {
+                XCTFail("Should throw SharedError.persistenceError for invalid data: \(error)")
+            }
+        }
+    }
+    
+    // MARK: - Concurrent Access Tests
+    
+    func testConcurrentPodcastOperations() async throws {
+        // Given: Multiple podcast operations
+        let podcastIds = (0..<10).map { "concurrent-podcast-\($0)" }
+        let podcasts = podcastIds.map { id in
+            Podcast(
+                id: id,
+                title: "Concurrent Podcast \(id)",
+                description: "Testing concurrent access",
+                author: "Concurrent Author",
+                feedURL: "https://example.com/\(id).xml",
+                artworkURL: "https://example.com/\(id).jpg",
+                categories: ["Concurrent"],
+                language: "en",
+                isSubscribed: true,
+                dateAdded: Date(),
+                episodeCount: 1,
+                settings: nil,
+                folders: [],
+                tags: []
+            )
+        }
+        
+        // When: Performing concurrent operations
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            // Concurrent saves
+            for podcast in podcasts {
+                group.addTask {
+                    try await self.podcastRepository.savePodcast(podcast)
+                }
+            }
+            
+            // Concurrent loads (after some saves complete)
+            for podcastId in podcastIds {
+                group.addTask {
+                    _ = try await self.podcastRepository.loadPodcast(id: podcastId)
+                }
+            }
+            
+            try await group.waitForAll()
+        }
+        
+        // Then: All operations should complete successfully
+        // Verify some podcasts were saved correctly
+        let loadedPodcast = try await podcastRepository.loadPodcast(id: podcastIds.first!)
+        XCTAssertNotNil(loadedPodcast, "At least one podcast should be saved correctly")
+    }
+    
+    func testConcurrentEpisodeOperations() async throws {
+        // Given: Multiple episode operations
+        let episodeIds = (0..<10).map { "concurrent-episode-\($0)" }
+        let episodes = episodeIds.map { id in
+            Episode(
+                id: id,
+                title: "Concurrent Episode \(id)",
+                description: "Testing concurrent episode access",
+                pubDate: Date(),
+                duration: 1800,
+                url: "https://example.com/\(id).mp3",
+                podcastId: "concurrent-podcast",
+                isPlayed: false,
+                playbackPosition: 0,
+                downloadState: .notDownloaded,
+                chapterMarks: []
+            )
+        }
+        
+        // When: Performing concurrent operations
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            // Concurrent saves
+            for episode in episodes {
+                group.addTask {
+                    try await self.episodeRepository.saveEpisode(episode)
+                }
+            }
+            
+            // Concurrent loads
+            for episodeId in episodeIds {
+                group.addTask {
+                    _ = try await self.episodeRepository.loadEpisode(id: episodeId)
+                }
+            }
+            
+            try await group.waitForAll()
+        }
+        
+        // Then: All operations should complete successfully
+        // Verify some episodes were saved correctly
+        let loadedEpisode = try await episodeRepository.loadEpisode(id: episodeIds.first!)
+        XCTAssertNotNil(loadedEpisode, "At least one episode should be saved correctly")
+    }
+    
+    // MARK: - Data Persistence Tests
+    
+    func testDataPersistence_AcrossRepositoryInstances() async throws {
+        // Given: Data saved with one repository instance
+        let podcast = Podcast(
+            id: "persistence-test",
+            title: "Persistence Test",
+            description: "Testing data persistence",
+            author: "Persistence Author",
+            feedURL: "https://example.com/persistence.xml",
+            artworkURL: "https://example.com/persistence.jpg",
+            categories: ["Persistence"],
+            language: "en",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 1,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        try await podcastRepository.savePodcast(podcast)
+        
+        // When: Creating new repository instance
+        let newRepository = UserDefaultsPodcastRepository(userDefaults: userDefaults)
+        let loadedPodcast = try await newRepository.loadPodcast(id: podcast.id)
+        
+        // Then: Data should persist across instances
+        XCTAssertNotNil(loadedPodcast, "Data should persist across repository instances")
+        XCTAssertEqual(loadedPodcast?.title, podcast.title, "Persisted data should match original")
+    }
+    
+    // MARK: - Edge Cases Tests
+    
+    func testUnicodeContent_PodcastHandling() async throws {
+        // Given: Podcast with Unicode content
+        let unicodePodcast = Podcast(
+            id: "podcast-unicode-🎵",
+            title: "播客测试",
+            description: "Émission française avec caractères spéciaux: café, naïveté",
+            author: "作者名字",
+            feedURL: "https://example.com/unicode-測試.xml",
+            artworkURL: "https://example.com/艺术品.jpg",
+            categories: ["Éducation", "技术"],
+            language: "zh-CN",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 1,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        // When: Saving and loading Unicode content
+        try await podcastRepository.savePodcast(unicodePodcast)
+        let loadedPodcast = try await podcastRepository.loadPodcast(id: unicodePodcast.id)
+        
+        // Then: Unicode content should be preserved
+        XCTAssertEqual(loadedPodcast?.title, "播客测试", "Unicode title should be preserved")
+        XCTAssertEqual(loadedPodcast?.description, "Émission française avec caractères spéciaux: café, naïveté", "Unicode description should be preserved")
+        XCTAssertEqual(loadedPodcast?.author, "作者名字", "Unicode author should be preserved")
+    }
+    
+    func testLargeDataHandling() async throws {
+        // Given: Podcast with large data
+        let largeDescription = String(repeating: "Large description content with lots of text. ", count: 100)
+        let manyCategories = (0..<50).map { "Category \($0)" }
+        
+        let largePodcast = Podcast(
+            id: "large-podcast",
+            title: "Large Data Test",
+            description: largeDescription,
+            author: "Large Data Author",
+            feedURL: "https://example.com/large.xml",
+            artworkURL: "https://example.com/large.jpg",
+            categories: manyCategories,
+            language: "en",
+            isSubscribed: true,
+            dateAdded: Date(),
+            episodeCount: 1000,
+            settings: nil,
+            folders: [],
+            tags: []
+        )
+        
+        // When: Saving and loading large data
+        try await podcastRepository.savePodcast(largePodcast)
+        let loadedPodcast = try await podcastRepository.loadPodcast(id: largePodcast.id)
+        
+        // Then: Large data should be handled correctly
+        XCTAssertNotNil(loadedPodcast, "Large data should be saved and loaded successfully")
+        XCTAssertEqual(loadedPodcast?.description.count, largeDescription.count, "Large description should be preserved")
+        XCTAssertEqual(loadedPodcast?.categories.count, manyCategories.count, "Many categories should be preserved")
+    }
+    
+    // MARK: - Performance Tests
+    
+    func testPerformance_PodcastSaveLoad() async {
+        // Given: Multiple podcasts for performance testing
+        let podcasts = (0..<100).map { index in
+            Podcast(
+                id: "perf-podcast-\(index)",
+                title: "Performance Podcast \(index)",
+                description: "Testing save/load performance",
+                author: "Performance Author",
+                feedURL: "https://example.com/perf\(index).xml",
+                artworkURL: "https://example.com/perf\(index).jpg",
+                categories: ["Performance"],
+                language: "en",
+                isSubscribed: index % 2 == 0,
+                dateAdded: Date(),
+                episodeCount: index,
+                settings: nil,
+                folders: [],
+                tags: []
+            )
+        }
+        
+        // When: Measuring save/load performance
+        measure {
+            Task {
+                for podcast in podcasts {
+                    try? await podcastRepository.savePodcast(podcast)
+                }
+                for podcast in podcasts {
+                    _ = try? await podcastRepository.loadPodcast(id: podcast.id)
+                }
+            }
+        }
+        
+        // Then: Performance should be acceptable (measured automatically)
+    }
+}

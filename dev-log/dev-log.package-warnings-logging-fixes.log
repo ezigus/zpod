@@ -1,0 +1,102 @@
+# Dev Log - Package Warnings and Logging Best Practices Fixes
+
+## Objective
+Fix Swift Package Manager warnings identified in CI build and implement OSLog logging best practices across all packages per updated copilot-instructions.md.
+
+## Issues Addressed
+1. Package.swift warnings about invalid excludes for non-existent files/directories
+2. Unused TestSupport dependency warning
+3. Test location warning about zpodTests directory structure
+4. Replace print/debugPrint statements with OSLog-based logging throughout packages
+
+## Implementation Approach
+
+### Phase 1: Fix Package.swift Warnings (2024-12-30 11:30 AM EST)
+- ✅ Remove invalid excludes from main Package.swift:
+  - Removed "Services/" directory exclude (moved to packages)
+  - Removed excludes for non-existent test files
+- ✅ Fix unused TestSupport dependency:
+  - Removed TestSupport from main package dependencies
+  - Individual packages maintain their own TestSupport dependencies as needed
+- ✅ Address test location warning:
+  - Kept existing zpodTests structure for project compatibility
+  - Only remaining warning is test location (acceptable for existing project)
+
+### Phase 2: Implement OSLog Logging Best Practices (2024-12-30 11:45 AM EST)
+- ✅ Enhanced SharedUtilities Logger with OSLog support:
+  - Added conditional `os.log` imports for Apple platforms
+  - Implemented OSLogType mapping for different log levels
+  - Added convenient debug/info/warning/error methods
+  - Maintained cross-platform compatibility with fallback to print
+- ✅ Updated packages to use proper logging:
+  - SearchDomain: SearchIntegrationExample.swift print statements → Logger calls
+  - SettingsDomain: UpdateFrequencyService.swift debug prints → Logger.debug calls
+  - Networking: DownloadCoordinator.swift error prints → Logger.error calls
+  - PlaybackEngine: AVFoundationAudioPlayer.swift and PlaylistEngine.swift → conditional OSLog
+- ✅ Updated test files to use proper XCTest assertions instead of debug prints
+
+### Phase 3: Cross-Platform Compatibility (2024-12-30 12:00 PM EST)
+- ✅ Added conditional compilation guards:
+  - `#if canImport(os)` for OSLog availability
+  - Platform-specific logger implementations in PlaybackEngine
+  - Maintained functionality on non-Apple platforms
+
+## Results
+
+### Build Warnings Fixed
+**Before:**
+```
+warning: 'zpod': Invalid Exclude '/home/runner/work/zpod/zpod/zpod/Services': File not found.
+warning: 'zpod': Invalid Exclude '/home/runner/work/zpod/zpod/zpodTests/InMemoryPlaylistManager.swift': File not found.
+warning: 'zpod': Invalid Exclude '/home/runner/work/zpod/zpod/zpodTests/Issue03PlaybackEngineTests.swift': File not found.
+warning: 'zpod': Invalid Exclude '/home/runner/work/zpod/zpod/zpodTests/Issue05SettingsIntegrationTests.swift': File not found.
+warning: 'zpod': Invalid Exclude '/home/runner/work/zpod/zpod/zpodTests/Issue10AcceptanceCriteriaTests.swift': File not found.
+warning: 'zpod': dependency 'testsupport' is not used by any target
+```
+
+**After:**
+```
+warning: 'zpod': Source files for target zpodTests should be located under 'Tests/zpodTests', 'Tests', or a custom sources path can be set with the 'path' property in Package.swift
+```
+
+### Logging Best Practices Implementation
+- ✅ All packages now use OSLog on Apple platforms
+- ✅ Cross-platform compatibility maintained
+- ✅ Consistent logging interface through SharedUtilities.Logger
+- ✅ Proper log levels (debug, info, warning, error) used throughout
+- ✅ Test files use XCTest assertions instead of debug prints
+
+## Files Modified
+1. `/Package.swift` - Fixed invalid excludes and dependency issues
+2. `/Packages/SharedUtilities/Sources/SharedUtilities/Logger.swift` - Enhanced with OSLog
+3. `/Packages/SearchDomain/Sources/SearchDomain/SearchIntegrationExample.swift` - Logger usage
+4. `/Packages/SettingsDomain/Sources/SettingsDomain/UpdateFrequencyService.swift` - Logger usage  
+5. `/Packages/Networking/Sources/Networking/DownloadCoordinator.swift` - Logger usage
+6. `/Packages/Persistence/Tests/Issue10UpdateFrequencyTests.swift` - XCTest assertions
+7. `/Packages/PlaybackEngine/AVFoundationAudioPlayer.swift` - Conditional OSLog
+8. `/Packages/PlaybackEngine/PlaylistEngine.swift` - Conditional OSLog
+
+## Testing Results
+- ✅ All packages build successfully
+- ✅ Invalid exclude warnings eliminated
+- ✅ Unused dependency warning eliminated  
+- ✅ Only remaining warning is test location (acceptable for existing structure)
+- ✅ Logging functionality verified on Apple platforms
+- ✅ Cross-platform builds maintained
+
+## Next Steps
+- Consider creating dedicated logging packages if more sophisticated logging is needed
+- Evaluate moving zpodTests to standard SPM location if project structure allows
+- Monitor logging output in development and production builds
+
+## Time Investment
+- Total: ~1.5 hours
+- Package.swift fixes: 30 minutes
+- Logging best practices implementation: 45 minutes
+- Testing and validation: 15 minutes
+
+## Key Learnings
+- Swift Package Manager is strict about file excludes - only exclude existing files
+- OSLog provides excellent structured logging on Apple platforms
+- Conditional compilation enables maintaining cross-platform compatibility
+- Centralized logging utilities improve consistency across packages

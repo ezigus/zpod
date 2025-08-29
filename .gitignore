@@ -13,8 +13,8 @@ xcuserdata/
 
 # Swift Package Manager
 .build/
-Packages/
-Package.resolved
+TestResults*
+BuildResults*
 
 # CocoaPods
 Pods/
@@ -55,11 +55,6 @@ playground.xcworkspace
 *.tmp
 *.temp
 
-# zPodcastAddict specific
-zpodcastaddict.xcworkspace/
-zpodcastaddict.xcodeproj/xcuserdata/
-zpodcastaddict.xcodeproj/project.xcworkspace/xcuserdata/
-*.o
 
 # Development tools build artifacts
 .swiftpm/

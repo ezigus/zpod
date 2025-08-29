@@ -8,24 +8,23 @@
 
 /* Begin PBXBuildFile section */
 		78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */ = {isa = PBXBuildFile; fileRef = 78294E062E52A4160022CF1B /* run-xcode-tests.sh */; };
-		785458832E514C6300764945 /* dev-log.issue11.log in Resources */ = {isa = PBXBuildFile; fileRef = 7854587B2E514C6300764945 /* dev-log.issue11.log */; };
-		785458842E514C6300764945 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458722E514C6300764945 /* dev-log.issue02.log */; };
-		785458852E514C6300764945 /* merge-helper.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7854587F2E514C6300764945 /* merge-helper.sh */; };
-		785458862E514C6300764945 /* dev-log.issue05.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458752E514C6300764945 /* dev-log.issue05.log */; };
-		785458872E514C6300764945 /* dev-log.issue04.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458742E514C6300764945 /* dev-log.issue04.log */; };
-		785458882E514C6300764945 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 785458802E514C6300764945 /* README.md */; };
-		785458892E514C6300764945 /* dev-log.md in Resources */ = {isa = PBXBuildFile; fileRef = 7854586F2E514C6300764945 /* dev-log.md */; };
-		7854588A2E514C6300764945 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458762E514C6300764945 /* dev-log.issue06.log */; };
-		7854588B2E514C6300764945 /* dev-log.issue03.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458732E514C6300764945 /* dev-log.issue03.log */; };
-		7854588C2E514C6300764945 /* dev-log.issue07.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458772E514C6300764945 /* dev-log.issue07.log */; };
-		7854588D2E514C6300764945 /* dev-log.issue01.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458712E514C6300764945 /* dev-log.issue01.log */; };
-		7854588E2E514C6300764945 /* dev-log.issue09.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458792E514C6300764945 /* dev-log.issue09.log */; };
-		7854588F2E514C6300764945 /* dev-log.foundation.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458702E514C6300764945 /* dev-log.foundation.log */; };
-		785458902E514C6300764945 /* dev-build.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7854587D2E514C6300764945 /* dev-build.sh */; };
 		785458912E514C6300764945 /* dev-build-enhanced.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7854587E2E514C6300764945 /* dev-build-enhanced.sh */; };
-		785458922E514C6300764945 /* dev-log.issue10.log in Resources */ = {isa = PBXBuildFile; fileRef = 7854587A2E514C6300764945 /* dev-log.issue10.log */; };
-		785458932E514C6300764945 /* setup-merge-strategy.sh in Resources */ = {isa = PBXBuildFile; fileRef = 785458812E514C6300764945 /* setup-merge-strategy.sh */; };
-		785458942E514C6300764945 /* dev-log.issue08.log in Resources */ = {isa = PBXBuildFile; fileRef = 785458782E514C6300764945 /* dev-log.issue08.log */; };
+		786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
+		78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E102E575000001DB480 /* dev-log.issue06.log */; };
+		78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0C2E575000001DB480 /* dev-log.issue02.log */; };
+		78BF3E1B2E575000001DB480 /* dev-log.issue11.1-rename.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */; };
+		78BF3E1C2E575000001DB480 /* dev-log.issue03.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0D2E575000001DB480 /* dev-log.issue03.log */; };
+		78BF3E1D2E575000001DB480 /* dev-log.foundation.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0A2E575000001DB480 /* dev-log.foundation.log */; };
+		78BF3E1E2E575000001DB480 /* dev-log.issue09.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E132E575000001DB480 /* dev-log.issue09.log */; };
+		78BF3E1F2E575000001DB480 /* dev-log.issue05.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0F2E575000001DB480 /* dev-log.issue05.log */; };
+		78BF3E202E575000001DB480 /* dev-log.issue08.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E122E575000001DB480 /* dev-log.issue08.log */; };
+		78BF3E212E575000001DB480 /* dev-log.issue01.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0B2E575000001DB480 /* dev-log.issue01.log */; };
+		78BF3E222E575000001DB480 /* dev-log.issue04.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0E2E575000001DB480 /* dev-log.issue04.log */; };
+		78BF3E232E575000001DB480 /* dev-log.md in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E092E575000001DB480 /* dev-log.md */; };
+		78BF3E242E575000001DB480 /* dev-log.issue10.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E142E575000001DB480 /* dev-log.issue10.log */; };
+		78BF3E252E575000001DB480 /* dev-log.issue11.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E152E575000001DB480 /* dev-log.issue11.log */; };
+		78BF3E262E575000001DB480 /* dev-log.issue11.5-refactor.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */; };
+		78BF3E272E575000001DB480 /* dev-log.issue07.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E112E575000001DB480 /* dev-log.issue07.log */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -47,38 +46,33 @@
 
 /* Begin PBXFileReference section */
 		78294E062E52A4160022CF1B /* run-xcode-tests.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "run-xcode-tests.sh"; sourceTree = "<group>"; };
-		7854586F2E514C6300764945 /* dev-log.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "dev-log.md"; sourceTree = "<group>"; };
-		785458702E514C6300764945 /* dev-log.foundation.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.foundation.log"; sourceTree = "<group>"; };
-		785458712E514C6300764945 /* dev-log.issue01.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue01.log"; sourceTree = "<group>"; };
-		785458722E514C6300764945 /* dev-log.issue02.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue02.log"; sourceTree = "<group>"; };
-		785458732E514C6300764945 /* dev-log.issue03.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue03.log"; sourceTree = "<group>"; };
-		785458742E514C6300764945 /* dev-log.issue04.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue04.log"; sourceTree = "<group>"; };
-		785458752E514C6300764945 /* dev-log.issue05.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue05.log"; sourceTree = "<group>"; };
-		785458762E514C6300764945 /* dev-log.issue06.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue06.log"; sourceTree = "<group>"; };
-		785458772E514C6300764945 /* dev-log.issue07.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue07.log"; sourceTree = "<group>"; };
-		785458782E514C6300764945 /* dev-log.issue08.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue08.log"; sourceTree = "<group>"; };
-		785458792E514C6300764945 /* dev-log.issue09.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue09.log"; sourceTree = "<group>"; };
-		7854587A2E514C6300764945 /* dev-log.issue10.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue10.log"; sourceTree = "<group>"; };
-		7854587B2E514C6300764945 /* dev-log.issue11.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.log"; sourceTree = "<group>"; };
-		7854587D2E514C6300764945 /* dev-build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "dev-build.sh"; sourceTree = "<group>"; };
 		7854587E2E514C6300764945 /* dev-build-enhanced.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "dev-build-enhanced.sh"; sourceTree = "<group>"; };
-		7854587F2E514C6300764945 /* merge-helper.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "merge-helper.sh"; sourceTree = "<group>"; };
-		785458802E514C6300764945 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		785458812E514C6300764945 /* setup-merge-strategy.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "setup-merge-strategy.sh"; sourceTree = "<group>"; };
 		786FD1092E22E615008CEE55 /* zpod.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = zpod.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		786FD11D2E22E617008CEE55 /* zpodTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = zpodTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		786FD1272E22E617008CEE55 /* zpodUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = zpodUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		786FD1522E22E6BE008CEE55 /* zPodcastAddict.code-workspace */ = {isa = PBXFileReference; lastKnownFileType = text; path = "zPodcastAddict.code-workspace"; sourceTree = "<group>"; };
+		78BF3E092E575000001DB480 /* dev-log.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "dev-log.md"; sourceTree = "<group>"; };
+		78BF3E0A2E575000001DB480 /* dev-log.foundation.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.foundation.log"; sourceTree = "<group>"; };
+		78BF3E0B2E575000001DB480 /* dev-log.issue01.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue01.log"; sourceTree = "<group>"; };
+		78BF3E0C2E575000001DB480 /* dev-log.issue02.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue02.log"; sourceTree = "<group>"; };
+		78BF3E0D2E575000001DB480 /* dev-log.issue03.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue03.log"; sourceTree = "<group>"; };
+		78BF3E0E2E575000001DB480 /* dev-log.issue04.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue04.log"; sourceTree = "<group>"; };
+		78BF3E0F2E575000001DB480 /* dev-log.issue05.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue05.log"; sourceTree = "<group>"; };
+		78BF3E102E575000001DB480 /* dev-log.issue06.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue06.log"; sourceTree = "<group>"; };
+		78BF3E112E575000001DB480 /* dev-log.issue07.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue07.log"; sourceTree = "<group>"; };
+		78BF3E122E575000001DB480 /* dev-log.issue08.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue08.log"; sourceTree = "<group>"; };
+		78BF3E132E575000001DB480 /* dev-log.issue09.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue09.log"; sourceTree = "<group>"; };
+		78BF3E142E575000001DB480 /* dev-log.issue10.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue10.log"; sourceTree = "<group>"; };
+		78BF3E152E575000001DB480 /* dev-log.issue11.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.log"; sourceTree = "<group>"; };
+		78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.1-rename.log"; sourceTree = "<group>"; };
+		78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.5-refactor.log"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				".github/copilot-instructions.md",
 				.vscode/settings.json,
 				Info.plist,
-				instructions.md,
 				README.md,
 				spec,
 			);
@@ -115,6 +109,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				786D3A092E57371F005A436B /* zpodLib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,49 +130,32 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		7854587C2E514C6300764945 /* dev.log */ = {
-			isa = PBXGroup;
-			children = (
-				7854586F2E514C6300764945 /* dev-log.md */,
-				785458702E514C6300764945 /* dev-log.foundation.log */,
-				785458712E514C6300764945 /* dev-log.issue01.log */,
-				785458722E514C6300764945 /* dev-log.issue02.log */,
-				785458732E514C6300764945 /* dev-log.issue03.log */,
-				785458742E514C6300764945 /* dev-log.issue04.log */,
-				785458752E514C6300764945 /* dev-log.issue05.log */,
-				785458762E514C6300764945 /* dev-log.issue06.log */,
-				785458772E514C6300764945 /* dev-log.issue07.log */,
-				785458782E514C6300764945 /* dev-log.issue08.log */,
-				785458792E514C6300764945 /* dev-log.issue09.log */,
-				7854587A2E514C6300764945 /* dev-log.issue10.log */,
-				7854587B2E514C6300764945 /* dev-log.issue11.log */,
-			);
-			path = dev.log;
-			sourceTree = "<group>";
-		};
 		785458822E514C6300764945 /* scripts */ = {
 			isa = PBXGroup;
 			children = (
 				78294E062E52A4160022CF1B /* run-xcode-tests.sh */,
-				7854587D2E514C6300764945 /* dev-build.sh */,
 				7854587E2E514C6300764945 /* dev-build-enhanced.sh */,
-				7854587F2E514C6300764945 /* merge-helper.sh */,
-				785458802E514C6300764945 /* README.md */,
-				785458812E514C6300764945 /* setup-merge-strategy.sh */,
 			);
 			path = scripts;
+			sourceTree = "<group>";
+		};
+		786D3A072E57371F005A436B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		786FD1002E22E615008CEE55 = {
 			isa = PBXGroup;
 			children = (
-				7854587C2E514C6300764945 /* dev.log */,
 				785458822E514C6300764945 /* scripts */,
-				786FD1522E22E6BE008CEE55 /* zPodcastAddict.code-workspace */,
 				786FD10B2E22E615008CEE55 /* zpod */,
 				780150302E2308900025E4FE /* zpodTests */,
 				786FD12A2E22E617008CEE55 /* zpodUITests */,
+				786D3A072E57371F005A436B /* Frameworks */,
 				786FD10A2E22E615008CEE55 /* Products */,
+				78BF3E182E575000001DB480 /* dev-log */,
 			);
 			sourceTree = "<group>";
 		};
@@ -189,6 +167,28 @@
 				786FD1272E22E617008CEE55 /* zpodUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		78BF3E182E575000001DB480 /* dev-log */ = {
+			isa = PBXGroup;
+			children = (
+				78BF3E092E575000001DB480 /* dev-log.md */,
+				78BF3E0A2E575000001DB480 /* dev-log.foundation.log */,
+				78BF3E0B2E575000001DB480 /* dev-log.issue01.log */,
+				78BF3E0C2E575000001DB480 /* dev-log.issue02.log */,
+				78BF3E0D2E575000001DB480 /* dev-log.issue03.log */,
+				78BF3E0E2E575000001DB480 /* dev-log.issue04.log */,
+				78BF3E0F2E575000001DB480 /* dev-log.issue05.log */,
+				78BF3E102E575000001DB480 /* dev-log.issue06.log */,
+				78BF3E112E575000001DB480 /* dev-log.issue07.log */,
+				78BF3E122E575000001DB480 /* dev-log.issue08.log */,
+				78BF3E132E575000001DB480 /* dev-log.issue09.log */,
+				78BF3E142E575000001DB480 /* dev-log.issue10.log */,
+				78BF3E152E575000001DB480 /* dev-log.issue11.log */,
+				78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */,
+				78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */,
+			);
+			path = "dev-log";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -211,6 +211,7 @@
 			);
 			name = zpod;
 			packageProductDependencies = (
+				786D3A082E57371F005A436B /* zpodLib */,
 			);
 			productName = zpod;
 			productReference = 786FD1092E22E615008CEE55 /* zpod.app */;
@@ -294,6 +295,16 @@
 			);
 			mainGroup = 786FD1002E22E615008CEE55;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				786D3A002E573525005A436B /* XCLocalSwiftPackageReference "Packages/CoreModels" */,
+				786D3A012E573534005A436B /* XCLocalSwiftPackageReference "Packages/FeedParsing" */,
+				786D3A022E57354B005A436B /* XCLocalSwiftPackageReference "Packages/Networking" */,
+				786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */,
+				786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */,
+				786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */,
+				786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */,
+				78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 786FD10A2E22E615008CEE55 /* Products */;
 			projectDirPath = "";
@@ -311,25 +322,23 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				785458832E514C6300764945 /* dev-log.issue11.log in Resources */,
-				785458842E514C6300764945 /* dev-log.issue02.log in Resources */,
-				785458852E514C6300764945 /* merge-helper.sh in Resources */,
-				785458862E514C6300764945 /* dev-log.issue05.log in Resources */,
-				785458872E514C6300764945 /* dev-log.issue04.log in Resources */,
-				785458882E514C6300764945 /* README.md in Resources */,
-				785458892E514C6300764945 /* dev-log.md in Resources */,
-				7854588A2E514C6300764945 /* dev-log.issue06.log in Resources */,
-				7854588B2E514C6300764945 /* dev-log.issue03.log in Resources */,
-				7854588C2E514C6300764945 /* dev-log.issue07.log in Resources */,
-				7854588D2E514C6300764945 /* dev-log.issue01.log in Resources */,
-				7854588E2E514C6300764945 /* dev-log.issue09.log in Resources */,
-				7854588F2E514C6300764945 /* dev-log.foundation.log in Resources */,
-				785458902E514C6300764945 /* dev-build.sh in Resources */,
+				78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */,
+				78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */,
+				78BF3E1B2E575000001DB480 /* dev-log.issue11.1-rename.log in Resources */,
+				78BF3E1C2E575000001DB480 /* dev-log.issue03.log in Resources */,
+				78BF3E1D2E575000001DB480 /* dev-log.foundation.log in Resources */,
+				78BF3E1E2E575000001DB480 /* dev-log.issue09.log in Resources */,
+				78BF3E1F2E575000001DB480 /* dev-log.issue05.log in Resources */,
+				78BF3E202E575000001DB480 /* dev-log.issue08.log in Resources */,
+				78BF3E212E575000001DB480 /* dev-log.issue01.log in Resources */,
+				78BF3E222E575000001DB480 /* dev-log.issue04.log in Resources */,
+				78BF3E232E575000001DB480 /* dev-log.md in Resources */,
+				78BF3E242E575000001DB480 /* dev-log.issue10.log in Resources */,
+				78BF3E252E575000001DB480 /* dev-log.issue11.log in Resources */,
+				78BF3E262E575000001DB480 /* dev-log.issue11.5-refactor.log in Resources */,
+				78BF3E272E575000001DB480 /* dev-log.issue07.log in Resources */,
 				785458912E514C6300764945 /* dev-build-enhanced.sh in Resources */,
 				78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */,
-				785458922E514C6300764945 /* dev-log.issue10.log in Resources */,
-				785458932E514C6300764945 /* setup-merge-strategy.sh in Resources */,
-				785458942E514C6300764945 /* dev-log.issue08.log in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -392,7 +401,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = zpod/zpod.entitlements;
+				CODE_SIGN_ENTITLEMENTS = zpod/entitlements.min.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -435,7 +444,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = zpod/zpod.entitlements;
+				CODE_SIGN_ENTITLEMENTS = zpod/entitlements.min.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -533,6 +542,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -588,6 +598,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -725,6 +736,49 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		786D3A002E573525005A436B /* XCLocalSwiftPackageReference "Packages/CoreModels" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CoreModels;
+		};
+		786D3A012E573534005A436B /* XCLocalSwiftPackageReference "Packages/FeedParsing" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FeedParsing;
+		};
+		786D3A022E57354B005A436B /* XCLocalSwiftPackageReference "Packages/Networking" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Networking;
+		};
+		786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Persistence;
+		};
+		786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SettingsDomain;
+		};
+		786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SharedUtilities;
+		};
+		786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../zpod;
+		};
+		78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/PlaybackEngine;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		786D3A082E57371F005A436B /* zpodLib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */;
+			productName = zpodLib;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 786FD1012E22E615008CEE55 /* Project object */;
 }
