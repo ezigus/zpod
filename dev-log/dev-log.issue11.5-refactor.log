@@ -348,6 +348,51 @@ Next: Proceed to Test Suite Validation (Step 3) and log results.
 
 2025-08-22 19:26 ET
 ---
+
+2025-08-29 00:30 ET  
+---
+Issue03AdvancedControlsTests Suite Resolution (Issue11.5 Continuation)
+
+Addressed final compilation errors and test failures in Issue03AdvancedControlsTests.swift to complete Swift 6 concurrency compliance:
+
+✅ **Fixed unused variable warning:**
+- Replaced `let complexSettings = PlaybackSettings(...)` with `_ = PlaybackSettings(...)`
+- Eliminated compiler warning about unused variable initialization
+
+✅ **Fixed playback speed clamping (spec compliance):**
+- Updated EnhancedEpisodePlayer.setPlaybackSpeed() to clamp speeds to 0.8-5.0 range per spec
+- Previous implementation used incorrect range: 0.5-3.0
+- Spec requirement: "Playback speed (0.8x–5.0x)" from zpod/spec/playback.md
+
+✅ **Implemented markEpisodeAs functionality:**
+- Enhanced EnhancedEpisodePlayer to optionally accept EpisodeStateManager
+- markEpisodeAs(played:) method now actually updates episode state via stateManager.setPlayedStatus()
+- test_markEpisodeAs_updatesPlayedStatus now passes
+
+✅ **Implemented per-podcast speed overrides:**
+- Enhanced EnhancedEpisodePlayer to optionally accept CoreModels.PlaybackSettings  
+- play() method now sets per-podcast speeds from settings.podcastPlaybackSpeeds
+- Fallback to globalPlaybackSpeed when no per-podcast setting exists
+- test_playbackSpeed_perPodcastOverrides now passes
+
+✅ **Fixed Swift 6 concurrency data races:**
+- Captured stateManager references outside MainActor.run closures
+- Pattern: `let localStateManager = stateManager!` before MainActor.run
+- All concurrency warnings eliminated
+
+**Test Results:**
+- Issue03AdvancedControlsTests: 3 passing, 7 properly skipped (Combine unavailable), 0 failures
+- All non-Combine dependent tests now working correctly
+- Complete Swift 6 concurrency compliance achieved
+
+**Architecture Enhancement:**
+- EnhancedEpisodePlayer now supports dependency injection for:
+  - EpisodeStateManager (for episode state persistence)
+  - PlaybackSettings (for per-podcast configuration)
+- Backward compatible: both parameters optional with default nil values
+
+Next: Proceed to other test suites methodically as requested (Issue06PlaylistTests, etc.).
+
 Action Plan Status Update (Checkboxes)
 
 - [x] 1. PlaybackEngine Manifest Update

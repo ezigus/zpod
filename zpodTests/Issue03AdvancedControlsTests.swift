@@ -157,7 +157,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     stateManager = localStateManager
     
     player = await MainActor.run {
-      EnhancedEpisodePlayer()
+      EnhancedEpisodePlayer(stateManager: localStateManager)
     }
   }
 
@@ -229,7 +229,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     #if canImport(Combine)
     // Given: Episode is playing with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
-    _ = stateManager!
+    let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -249,7 +249,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       _ = PlaybackSettings(skipForwardInterval: 30)
-      return EnhancedEpisodePlayer()
+      return EnhancedEpisodePlayer(stateManager: localStateManager)
     }
     
     await MainActor.run {
@@ -289,7 +289,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     #if canImport(Combine)
     // Given: Episode is playing at advanced position with skip interval - capture ALL properties outside MainActor.run
     _ = ticker!
-    _ = stateManager!
+    let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -309,7 +309,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       _ = PlaybackSettings(skipBackwardInterval: 15)
-      return EnhancedEpisodePlayer()
+      return EnhancedEpisodePlayer(stateManager: localStateManager)
     }
     
     await MainActor.run {
@@ -452,15 +452,15 @@ final class Issue03AdvancedControlsTests: XCTestCase {
   func test_playbackSpeed_perPodcastOverrides() async {
     // Given: Settings with per-podcast speeds - capture ALL properties outside MainActor.run
     _ = ticker!
-    _ = stateManager!
+    let localStateManager = stateManager!
     
     let speedPlayer = await MainActor.run {
-      _ = PlaybackSettings(
+      let settings = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         podcastPlaybackSpeeds: ["podcast1": 1.75, "podcast2": 1.5]
       )
       
-      return EnhancedEpisodePlayer()
+      return EnhancedEpisodePlayer(stateManager: localStateManager, playbackSettings: settings)
     }
     
     // Test 1: Episode from podcast1 should use per-podcast speed
@@ -636,7 +636,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     #if canImport(Combine)
     // Given: Episode with chapters and skip settings - capture ALL properties outside MainActor.run
     _ = ticker!
-    _ = stateManager!
+    let localStateManager = stateManager!
     let localEpisodeWithChapters = episodeWithChapters
     
     actor StateCollector {
@@ -656,7 +656,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     
     let skipPlayer = await MainActor.run {
       _ = PlaybackSettings(skipForwardInterval: 60)
-      return EnhancedEpisodePlayer()
+      return EnhancedEpisodePlayer(stateManager: localStateManager)
     }
     
     await MainActor.run {
@@ -699,7 +699,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     #if canImport(Combine)
     // Given: Complex settings and episode - capture ALL properties outside MainActor.run
     _ = ticker!
-    _ = stateManager!
+    let localStateManager = stateManager!
     let localSampleEpisode = sampleEpisode
     
     actor StateCollector {
@@ -718,7 +718,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
     var localCancellables = Set<AnyCancellable>()
     
     let complexPlayer = await MainActor.run {
-      let complexSettings = PlaybackSettings(
+      _ = PlaybackSettings(
         globalPlaybackSpeed: 1.0,
         skipForwardInterval: 30,
         skipBackwardInterval: 10,
@@ -726,7 +726,7 @@ final class Issue03AdvancedControlsTests: XCTestCase {
         playedThreshold: 0.9
       )
       
-      return EnhancedEpisodePlayer()
+      return EnhancedEpisodePlayer(stateManager: localStateManager)
     }
     
     await MainActor.run {
