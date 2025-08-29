@@ -1,3 +1,5 @@
+
+
 # Development Log - Issue 11.6: UI Modularization
 
 ## Date: 2025-08-29
@@ -55,7 +57,7 @@ Successfully modularized the UI components of the zpod application into separate
 
 #### Project Structure Updates
 - Updated `Package.swift` root manifest to include new UI feature packages
-- Updated `zpodApp.swift` to import LibraryFeature
+- Updated `zpodApp.swift` to conditionally import LibraryFeature/SwiftData and rely on a ContentView bridge
 - Removed empty `Views/` and `ViewModels/` directories from main app
 - Updated Package.swift exclude list to reflect moved files
 
@@ -102,3 +104,12 @@ Main App → LibraryFeature (+ all packages via zpodLib)
 - **Scalability**: Easy to add new UI features as separate packages
 
 The modularization successfully separates UI concerns while maintaining the existing functionality and following Swift package best practices.
+
+### Reconciliation + Fix: Xcode build vs. test script
+- Symptom: Xcode app build failed with “No such module 'LibraryFeature'” in `zpodApp.swift`, while `scripts/run-xcode-tests.sh` ran tests to completion.
+- Root cause: The script successfully built and ran tests focused on SPM targets (e.g., zpodLib and package tests) that exclude iOS-only app files. The IDE’s app target compiled `zpodApp.swift`, which directly imported `LibraryFeature` even though the app target did not have the `LibraryFeature` product linked yet.
+- Fix: 
+  - Added `zpod/ContentViewBridge.swift` that aliases `LibraryFeature.ContentView` when available, otherwise provides a small SwiftUI placeholder (and a non-SwiftUI stub for non-Apple builds).
+  - Updated `zpod/zpodApp.swift` to conditionally import `LibraryFeature`/`SwiftData` and only create/attach the `ModelContainer` when `LibraryFeature` is present.
+  - Outcome: Xcode app now builds regardless of whether `LibraryFeature` is linked; once linked, the real UI is used automatically.
+- Xcode wiring steps: In the zpod app target, add the local `LibraryFeature` package if needed, then link its product in “Link Binary With Libraries”; clean build.
