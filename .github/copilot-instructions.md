@@ -82,44 +82,109 @@ For each implementation step, follow this process explicitly:
 
 ## Testing Best Practices
 
-### Test Structure and Organization
-- Use descriptive test method names: `testAcceptanceCriteria1_CascadingResolution()`
+### Main Application Testing Framework
+
+#### Test Organization and Structure
+- **Specification-Based Testing**: Organize tests around specifications rather than development issues
+- Map each test file to specific sections in `spec/` directory
+- Use descriptive test method names that reflect specification scenarios: `testAcceptanceCriteria_CompleteNavigationFlow()`
 - Organize tests with clear Given/When/Then structure using comments
 - Group related tests using `// MARK:` comments for better navigation
-- Use separate UserDefaults suites for each test to ensure isolation
+- Include comprehensive documentation of what each test validates
 
-### Async Testing Patterns
+#### Main App Test Categories
+
+**Unit Tests (`zpodTests/`)**
+- Test individual components and their interactions within the main application
+- Focus on business logic and component behavior
+- Use isolated test data and mock services
+- Examples: `PlaybackControlTests`, `PlaylistManagementTests`, `ContentOrganizationTests`, `PodcastManagementTests`
+
+**UI Tests (`zpodUITests/`)**
+- Test user interface behavior and complete user workflows
+- Focus on accessibility compliance and platform-specific features
+- Test navigation flows, user interactions, and visual feedback
+- Examples: `CoreUINavigationTests`, `PlaybackUITests`, `ContentDiscoveryUITests`
+
+**Integration Tests (`IntegrationTests/`)**
+- Test end-to-end workflows and cross-component interactions
+- Focus on data consistency and component integration
+- Test platform integrations (CarPlay, Apple Watch, etc.)
+- Examples: `CoreWorkflowIntegrationTests`, `PlatformIntegrationTests`
+
+#### Test Data Management
+- Use separate UserDefaults suites for each test to ensure isolation
+- Create fresh instances for each test to avoid state pollution
+- Use consistent test fixtures and mock data across related tests
+- Clean up test data after each test run
+
+#### Async Testing Patterns
 - Use `async` test methods for testing async code: `func testExample() async`
 - Use `await` for all async operations in tests
 - Set up and tear down async resources properly in `setUp()` and `tearDown()`
+- Handle concurrency with proper isolation and synchronization
 
-### Combine Testing
+#### Combine Testing
 - Use `Set<AnyCancellable>` to manage test subscriptions
 - Store publishers in instance variables for proper lifecycle management
 - Always call `store(in: &cancellables)` to prevent memory leaks
 - Test both published properties and custom publishers
 
-### Test Data Management
-- Use unique UserDefaults suite names per test: `UserDefaults(suiteName: "test-criteria-1")`
-- Always clean up test data: `userDefaults.removePersistentDomain(forName: "test-criteria-1")`
-- Create fresh instances for each test to avoid state pollution
+#### Mock Objects and Test Doubles
+- Use mock objects when verifying behavior involving external dependencies
+- Use mocks when testing interactions that cross boundaries between Models, Views, ViewModels, and Services
+- Mocks should be protocol-based and injected via dependency injection where possible
+- Create reusable mock implementations in test support files
 
-### Validation Testing
+#### UI Testing Best Practices
+- Test accessibility compliance with VoiceOver labels and navigation
+- Verify platform-specific adaptations (iPhone, iPad, CarPlay)
+- Test error states and edge cases in user interfaces
+- Include performance validation for UI responsiveness
+- Test dark mode and appearance adaptations
+
+#### Integration Testing Best Practices
+- Test complete user workflows that span multiple components
+- Verify data persistence across app sessions and component boundaries
+- Test platform service integrations (notifications, background tasks, etc.)
+- Validate cross-component data synchronization
+- Test performance under realistic usage patterns
+
+#### Validation Testing
 - Test boundary conditions and invalid inputs
 - Verify that invalid values are properly clamped or rejected
 - Test both positive and negative scenarios
 - Include edge cases in your test coverage
+- Test error handling and recovery scenarios
 
-### Integration Testing
-- Test end-to-end scenarios that mirror real user workflows
-- Verify that settings persist across app restarts
-- Test cascading behavior (global → per-podcast overrides)
-- Validate backward compatibility with existing APIs
+#### Test Documentation Requirements
+- Each test directory must include a `TestSummary.md` file
+- Document which specifications each test file covers
+- Explain the purpose and scope of each test category
+- Map test methods to specific specification scenarios
+- Include coverage analysis and gaps identification
 
-### Mock Objects
-- Use mock objects when verifying behavior involving external dependencies (network, storage, system APIs)
-- Use mocks when testing interactions that cross boundaries between Models, Views, ViewModels, and Services
-- Mocks should be protocol-based and injected via dependency injection where possible
+### Package Testing vs Main App Testing
+
+#### Package Tests
+- Focus on individual package functionality in isolation
+- Test public APIs and contracts between packages
+- Use package-specific test utilities and fixtures
+- Keep tests independent of main application concerns
+- Located in `Packages/*/Tests/`
+
+#### Main App Tests
+- Focus on application-level workflows and integration
+- Test how packages work together in the context of the full app
+- Include UI testing and user experience validation
+- Test platform-specific features and integrations
+- Located in `zpodTests/`, `zpodUITests/`, and `IntegrationTests/`
+
+#### Key Differences
+- **Scope**: Package tests are narrow and focused; main app tests are broad and integrative
+- **Dependencies**: Package tests minimize dependencies; main app tests include full application context
+- **Platform Features**: Package tests avoid platform-specific code; main app tests embrace platform integration
+- **User Workflows**: Package tests focus on API contracts; main app tests focus on user scenarios
 
 ## Swift Coding Standards
 

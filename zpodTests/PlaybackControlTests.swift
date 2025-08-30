@@ -241,7 +241,7 @@ final class PlaybackControlTests: XCTestCase {
     }
     
     // Allow async state update to complete
-    try? await Task.sleep(for: .milliseconds(10)
+    try? await Task.sleep(for: .milliseconds(10))
     
     // Then: Should update played status
     let revertedEpisode = await localStateManager.getEpisodeState(localSampleEpisode)

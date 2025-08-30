@@ -277,7 +277,7 @@ final class CoreUINavigationTests: XCTestCase {
     // MARK: - Performance Tests
     // Covers: UI responsiveness from ui spec
     
-    @MainAactor
+    @MainActor
     func testNavigationPerformance() throws {
         // Given: App is loaded
         let startTime = CFAbsoluteTimeGetCurrent()
