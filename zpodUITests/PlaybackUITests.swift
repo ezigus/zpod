@@ -15,14 +15,17 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        app = XCUIApplication()
-        app.launch()
-        
-        // Navigate to player interface for testing
-        let tabBar = app.tabBars["Main Tab Bar"]
-        let playerTab = tabBar.buttons["Player"]
-        if playerTab.exists {
-            playerTab.tap()
+        // Perform UI operations synchronously on main thread
+        DispatchQueue.main.sync {
+            app = XCUIApplication()
+            app.launch()
+            
+            // Navigate to player interface for testing
+            let tabBar = app.tabBars["Main Tab Bar"]
+            let playerTab = tabBar.buttons["Player"]
+            if playerTab.exists {
+                playerTab.tap()
+            }
         }
     }
 

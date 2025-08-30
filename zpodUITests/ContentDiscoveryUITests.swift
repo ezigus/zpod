@@ -15,14 +15,17 @@ final class ContentDiscoveryUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        app = XCUIApplication()
-        app.launch()
-        
-        // Navigate to discovery interface for testing
-        let tabBar = app.tabBars["Main Tab Bar"]
-        let discoverTab = tabBar.buttons["Discover"]
-        if discoverTab.exists {
-            discoverTab.tap()
+        // Perform UI operations synchronously on main thread
+        DispatchQueue.main.sync {
+            app = XCUIApplication()
+            app.launch()
+            
+            // Navigate to discovery interface for testing
+            let tabBar = app.tabBars["Main Tab Bar"]
+            let discoverTab = tabBar.buttons["Discover"]
+            if discoverTab.exists {
+                discoverTab.tap()
+            }
         }
     }
 
