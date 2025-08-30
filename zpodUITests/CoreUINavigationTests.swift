@@ -11,6 +11,7 @@ final class CoreUINavigationTests: XCTestCase {
     
     nonisolated(unsafe) private var app: XCUIApplication!
 
+    @MainActor
     override func setUpWithError() throws {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
@@ -20,6 +21,7 @@ final class CoreUINavigationTests: XCTestCase {
         app.launch()
     }
 
+    @MainActor
     override func tearDownWithError() throws {
         app = nil
     }

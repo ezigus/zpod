@@ -12,6 +12,7 @@ final class PlaybackUITests: XCTestCase {
     
     nonisolated(unsafe) private var app: XCUIApplication!
 
+    @MainActor
     override func setUpWithError() throws {
         continueAfterFailure = false
         
@@ -26,6 +27,7 @@ final class PlaybackUITests: XCTestCase {
         }
     }
 
+    @MainActor
     override func tearDownWithError() throws {
         app = nil
     }

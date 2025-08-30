@@ -377,4 +377,46 @@ final class ContentDiscoveryUITests: XCTestCase {
 - ✅ All UI test files updated with consistent patterns
 - 🔄 Ready for build validation on actual Xcode environment
 
-The specification-based testing framework now handles Swift 6 concurrency requirements correctly while maintaining comprehensive UI test coverage and accessibility testing patterns.
+### Additional Swift 6 Concurrency Fixes (Round 3)
+**Date: 2025-08-30 12:50 EST**
+
+#### Current Issues Identified
+User reported continued Swift 6 concurrency errors despite previous fixes:
+- Main actor isolation errors with `XCUIApplication()` initialization in setup methods
+- UI element access (`app.tabBars`, `app.buttons`) conflicts with nonisolated context
+- Property compatibility issue: `XCUIElement` has no member `isFocused`
+
+#### Root Cause Analysis
+The previous fixes using `nonisolated(unsafe)` for the app property were not sufficient. The core issue is that `XCUIApplication` initialization and all its property access are marked as `@MainActor` in Swift 6, which conflicts with the nonisolated `setUpWithError()` method from `XCTestCase`.
+
+#### Updated Solution Applied
+1. **Main Actor Isolation in Setup**: Added `@MainActor` to `setUpWithError()` and `tearDownWithError()` methods across all UI test classes to ensure all UI operations run in the proper actor context
+
+2. **Property Compatibility**: Replaced `isFocused` (which doesn't exist on `XCUIElement`) with simple existence checking for search field validation
+
+#### Files Updated
+1. **ContentDiscoveryUITests.swift**:
+   - Added `@MainActor` to `setUpWithError()` and `tearDownWithError()`
+   - Fixed `isFocused` → existence checking for search field
+   - Maintained `nonisolated(unsafe)` app property pattern
+
+2. **CoreUINavigationTests.swift**:
+   - Added `@MainActor` to `setUpWithError()` and `tearDownWithError()`
+   - Maintained all navigation and accessibility testing
+
+3. **PlaybackUITests.swift**:
+   - Added `@MainActor` to `setUpWithError()` and `tearDownWithError()`
+   - Maintained all playback interface testing
+
+#### Validation Status
+- ✅ Applied consistent `@MainActor` pattern to all UI test setup methods
+- ✅ Fixed property compatibility issues with search field testing
+- ✅ Maintained comprehensive test coverage and accessibility compliance
+- 🔄 Ready for validation through CI system with full Xcode environment
+
+#### Next Steps
+- Monitor CI build results for successful Swift 6 compilation
+- Validate that all UI tests execute properly with new concurrency patterns
+- Ensure no regression in test functionality or coverage
+
+The specification-based testing framework continues to evolve with proper Swift 6 concurrency handling while maintaining its comprehensive test coverage and clear organization structure.
