@@ -26,7 +26,8 @@ let package = Package(
         .package(path: "Packages/Networking"),
         .package(path: "Packages/SettingsDomain"),
         .package(path: "Packages/SearchDomain"),
-	.package(path: "Packages/PlaybackEngine"),
+        .package(path: "Packages/RecommendationDomain"),
+        .package(path: "Packages/PlaybackEngine"),
         // UI Feature packages
         .package(path: "Packages/LibraryFeature"),
         .package(path: "Packages/PlayerFeature"),
@@ -47,7 +48,8 @@ let package = Package(
                 "Networking",
                 "SettingsDomain",
                 "SearchDomain",
-		        "PlaybackEngine",
+                "RecommendationDomain",
+                "PlaybackEngine",
                 // UI Feature packages (optional for lib)
                 "LibraryFeature",
                 "PlayerFeature",
