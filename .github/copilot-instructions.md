@@ -50,12 +50,25 @@ For each implementation step, follow this process explicitly:
 - Use `nonisolated` for methods that don't need actor isolation
 - Handle concurrency warnings and make explicit isolation decisions
 
+#### Critical Concurrency Patterns
+- **Actor Isolation Override Rules**: Never change actor isolation when overriding methods (e.g., `XCTestCase.setUpWithError()` must remain nonisolated)
+- **Closure Capture Safety**: Avoid capturing `self` in closures that cross actor boundaries; use local variables when possible
+- **Main Thread UI Operations**: Use `DispatchQueue.main.sync` for synchronous UI operations in nonisolated contexts
+- **Test Double Isolation**: Mark test mock objects with `@unchecked Sendable` and use proper locking for thread safety
+- **Cross-Actor Property Access**: Use `nonisolated(unsafe)` sparingly and only for properties that need cross-context access
+
 ### Actor Usage
 - Use actors for mutable shared state that needs thread-safe access
 - Prefer `@MainActor` for view models and UI controllers
 - Use global actors sparingly and only when appropriate
 - Design actor interfaces to minimize cross-actor calls
 - Use `nonisolated` for computed properties that don't access mutable state
+
+#### UI Testing Actor Patterns
+- **Setup Methods**: Keep `setUpWithError()` and `tearDownWithError()` nonisolated to match `XCTestCase` base class
+- **App Instance Management**: Use local variables in setup, then assign to `nonisolated(unsafe)` properties to avoid capture issues
+- **Individual Test Methods**: Mark with `@MainActor` for safe UI element access
+- **Synchronous UI Setup**: Use `DispatchQueue.main.sync` pattern for UI operations in nonisolated setup methods
 
 ### Error Handling
 - Use typed throws (`throws(SpecificError)`) when possible for better error handling
@@ -123,6 +136,41 @@ For each implementation step, follow this process explicitly:
 - Use `await` for all async operations in tests
 - Set up and tear down async resources properly in `setUp()` and `tearDown()`
 - Handle concurrency with proper isolation and synchronization
+
+#### Swift 6 Concurrency in Testing
+- **UI Test Setup Pattern**: Use local variables with `DispatchQueue.main.sync` to avoid capturing `self` in closures
+- **Test Double Concurrency**: Mark mock objects with `@unchecked Sendable` and implement proper thread safety with locks
+- **Actor Isolation in Tests**: Individual test methods should use `@MainActor` for UI access, setup/teardown must remain nonisolated
+- **Cross-Context Property Access**: Use `nonisolated(unsafe)` for test properties that need access from different actor contexts
+- **Protocol Conformance**: Ensure test doubles properly implement protocol method signatures for Swift 6 compliance
+
+#### Recommended UI Test Setup Pattern
+```swift
+final class ExampleUITests: XCTestCase {
+    nonisolated(unsafe) private var app: XCUIApplication!
+    
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        
+        // Create app instance and perform UI operations synchronously on main thread
+        let appInstance = XCUIApplication()
+        DispatchQueue.main.sync {
+            appInstance.launch()
+            // ... UI setup operations using appInstance
+        }
+        
+        // Assign to instance property after main thread operations complete
+        app = appInstance
+    }
+    
+    @MainActor
+    func testUIBehavior() throws {
+        // Test methods use @MainActor for safe UI access
+        let button = app.buttons["Example"]
+        button.tap()
+    }
+}
+```
 
 #### Combine Testing
 - Use `Set<AnyCancellable>` to manage test subscriptions

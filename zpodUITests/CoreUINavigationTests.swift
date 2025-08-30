@@ -15,12 +15,15 @@ final class CoreUINavigationTests: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // Perform UI operations synchronously on main thread
+        // Create app instance and perform UI operations synchronously on main thread
+        let appInstance = XCUIApplication()
         DispatchQueue.main.sync {
             // Launch the application
-            app = XCUIApplication()
-            app.launch()
+            appInstance.launch()
         }
+        
+        // Assign to instance property after main thread operations complete
+        app = appInstance
     }
 
     override func tearDownWithError() throws {
