@@ -12,7 +12,6 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     private var app: XCUIApplication!
 
-    @MainActor
     override func setUpWithError() throws {
         continueAfterFailure = false
         
@@ -27,7 +26,6 @@ final class ContentDiscoveryUITests: XCTestCase {
         }
     }
 
-    @MainActor
     override func tearDownWithError() throws {
         app = nil
     }
