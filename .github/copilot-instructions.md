@@ -397,6 +397,47 @@ Package.swift                  # Swift Package Manager (experimental)
 - The `Package.swift` is experimental and excludes iOS-specific frameworks
 - AVFoundation and other Apple frameworks are iOS/macOS only
 
+## Issue Management and Workflow
+
+### Issue Creation Standards
+As items are identified that need to be worked on, follow these standards for creating new issues:
+
+#### When to Create New Issues
+Create new issues in the `Issues` folder based on the following criteria (non-exhaustive):
+- Work is being done on another issue and the specific body of work does not fit into the scope of the current issue
+- The new issue doesn't have an issue already defined for it
+- Something needs to be implemented (e.g., has not been implemented, or is something that is in the spec that doesn't have a defined issue for it)
+
+#### Issue Numbering System
+- **Existing standard**: Number issues in the order they should be completed
+- **New sub-issue standard**: Any new issue that needs or should be done between 2 existing issues should be numbered with 2 digits (xx) and then a sub-digit (y) in format `xx.y`
+  - Example: An issue identified between issue 17 and 18 would be numbered 17.1
+  - If another issue is needed between 17 and 18, it would be numbered 17.2
+  - This allows for proper sequencing without renumbering existing issues
+
+#### Issue Documentation Requirements
+- Follow the existing standard format established in previous issues
+- Be as descriptive as possible when creating new issues
+- Include clear acceptance criteria and implementation details
+- Reference relevant specification sections
+
+### TODO Tag Management
+
+#### Adding TODO Tags
+- When identifying work that needs to be done, add TODO comments in the code where the implementation should occur
+- Format: `// TODO: [Issue #xx.y] Description of what needs to be implemented`
+- Link each TODO to its corresponding issue number
+
+#### Removing TODO Tags
+- When an issue is implemented that resolves a TODO tag, the TODO should be removed
+- Verify that all related TODOs are addressed before marking an issue as complete
+- Update the issue documentation to reflect completion of TODO items
+
+### Issue File Organization
+- Store all issues in the `Issues` folder in the repository root
+- Use descriptive filenames that include the issue number: `xx.y-brief-description.md`
+- Maintain consistency with existing issue documentation patterns
+
 ## Logging and Documentation
 
 ### Development Logging

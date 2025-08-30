@@ -92,3 +92,6 @@ let package = Package(
         ),
     ]
 )
+
+// TODO: [Issue #12.5] Add cross-platform testing support for package tests
+// This would enable testing of core packages on non-Apple platforms while excluding iOS-specific frameworks
