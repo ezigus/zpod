@@ -10,7 +10,7 @@ import XCTest
 /// - Content recommendation displays
 final class ContentDiscoveryUITests: XCTestCase {
     
-    private var app: XCUIApplication!
+    nonisolated(unsafe) private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -43,7 +43,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             searchField.tap()
             
             // Then: Search field should be functional
-            XCTAssertTrue(searchField.hasKeyboardFocus, "Search field should gain focus")
+            XCTAssertTrue(searchField.isFocused, "Search field should gain focus")
             XCTAssertNotNil(searchField.placeholderValue, "Search field should have placeholder text")
             
             // Test search input
@@ -141,10 +141,10 @@ final class ContentDiscoveryUITests: XCTestCase {
         
         if featuredSection.exists || featuredCarousel.exists {
             // When: Interacting with featured content
-            let featuredItems = app.buttons.matching(NSPredicate(format: "accessibilityTraits CONTAINS %@", UIAccessibilityTraits.button.rawValue))
+            let featuredItems = app.buttons.allElementsBoundByIndex
             
             if featuredItems.count > 0 {
-                let firstFeaturedItem = featuredItems.element(boundBy: 0)
+                let firstFeaturedItem = featuredItems[0]
                 if firstFeaturedItem.exists {
                     firstFeaturedItem.tap()
                     
@@ -176,7 +176,7 @@ final class ContentDiscoveryUITests: XCTestCase {
                     
                     // Then: Chart item should be accessible
                     Thread.sleep(forTimeInterval: 0.5)
-                    XCTAssertTrue(app.state == .runningForeground, "App should remain stable when accessing chart items")
+                    XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "App should remain stable when accessing chart items")
                 }
             }
         }
@@ -232,7 +232,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             }
             
             Thread.sleep(forTimeInterval: 0.5)
-            XCTAssertTrue(app.state == .runningForeground, "Unsubscribe workflow should complete successfully")
+            XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "Unsubscribe workflow should complete successfully")
         }
     }
     
@@ -265,7 +265,7 @@ final class ContentDiscoveryUITests: XCTestCase {
                     
                     // Should return to previous view
                     Thread.sleep(forTimeInterval: 0.3)
-                    XCTAssertTrue(app.state == .runningForeground, "Detail view navigation should work")
+                    XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "Detail view navigation should work")
                 }
             }
         }
@@ -298,7 +298,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             if !availableOptions.isEmpty {
                 availableOptions[0].tap()
                 Thread.sleep(forTimeInterval: 0.5)
-                XCTAssertTrue(app.state == .runningForeground, "Sort selection should work")
+                XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "Sort selection should work")
             }
         }
     }
@@ -341,7 +341,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         for element in interactiveElements.prefix(5) {
             if element.exists {
                 XCTAssertTrue(element.isAccessibilityElement || 
-                             !element.accessibilityElements.isEmpty,
+                             !(element.accessibilityElements?.isEmpty ?? true),
                              "Discovery elements should be accessible to VoiceOver")
             }
         }
@@ -356,13 +356,13 @@ final class ContentDiscoveryUITests: XCTestCase {
         let searchField = app.searchFields.firstMatch
         
         if searchField.exists {
-            let startTime = CFAbsoluteTimeGetCurrent()
+            let startTime = Date().timeIntervalSince1970
             
             // When: Performing search
             searchField.tap()
             searchField.typeText("Technology")
             
-            let endTime = CFAbsoluteTimeGetCurrent()
+            let endTime = Date().timeIntervalSince1970
             let searchTime = endTime - startTime
             
             // Then: Search should be responsive
@@ -436,7 +436,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         }
         
         // Then: All discovery workflows should work smoothly
-        XCTAssertTrue(app.state == .runningForeground, "Discovery workflow should complete without crashes")
+        XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "Discovery workflow should complete without crashes")
         
         // Verify we can still access main discovery interface
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -471,7 +471,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         // Check content list accessibility
         let contentCells = app.tables.cells.allElementsBoundByIndex
         for cell in contentCells.prefix(2) {
-            if cell.exists && (cell.isAccessibilityElement || !cell.accessibilityElements.isEmpty) {
+            if cell.exists && (cell.isAccessibilityElement || !(cell.accessibilityElements?.isEmpty ?? true)) {
                 accessibilityScore += 1
             }
         }

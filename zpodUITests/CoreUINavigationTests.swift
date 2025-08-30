@@ -9,7 +9,7 @@ import XCTest
 /// - Quick action handling and app shortcuts
 final class CoreUINavigationTests: XCTestCase {
     
-    private var app: XCUIApplication!
+    nonisolated(unsafe) private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         // Stop immediately when a failure occurs

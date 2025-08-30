@@ -10,7 +10,7 @@ import XCTest
 /// - Bluetooth and external control handling
 final class PlaybackUITests: XCTestCase {
     
-    private var app: XCUIApplication!
+    nonisolated(unsafe) private var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -42,8 +42,8 @@ final class PlaybackUITests: XCTestCase {
             // When: Checking for essential playback controls
             let playButton = app.buttons["Play"] 
             let pauseButton = app.buttons["Pause"]
-            let _ = app.buttons["Skip Forward"]
-            let _ = app.buttons["Skip Backward"]
+            let skipForwardButton = app.buttons["Skip Forward"]
+            let skipBackwardButton = app.buttons["Skip Backward"]
             
             // Then: Controls should be present and accessible
             XCTAssertTrue(playButton.exists || pauseButton.exists, 
@@ -340,7 +340,7 @@ final class PlaybackUITests: XCTestCase {
             app.buttons["Play"],
             app.buttons["Pause"], 
             app.buttons["Skip Forward"]
-        ].compactMap { $0.exists ? $0 : nil }
+        ].filter { $0.exists }
         
         // Then: Controls should be in logical order for VoiceOver
         for control in playbackControls {
@@ -360,7 +360,7 @@ final class PlaybackUITests: XCTestCase {
     @MainActor
     func testPlaybackUIPerformance() throws {
         // Given: Playback interface is loaded
-        let startTime = CFAbsoluteTimeGetCurrent()
+        let startTime = Date().timeIntervalSince1970
         
         // When: Interacting with playback controls
         let playButton = app.buttons["Play"]
@@ -368,7 +368,7 @@ final class PlaybackUITests: XCTestCase {
             playButton.tap()
         }
         
-        let endTime = CFAbsoluteTimeGetCurrent()
+        let endTime = Date().timeIntervalSince1970
         let responseTime = endTime - startTime
         
         // Then: UI should respond quickly
@@ -415,7 +415,7 @@ final class PlaybackUITests: XCTestCase {
             }
             
             // Then: All controls should work without crashing
-            XCTAssertTrue(app.state == .runningForeground, "App should remain stable during playback control")
+            XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "App should remain stable during playback control")
             XCTAssertTrue(playerInterface.exists, "Player interface should remain available")
         }
     }
