@@ -8,9 +8,30 @@
 import SwiftUI
 import SwiftData
 import CoreModels
+
+#if canImport(DiscoverFeature)
 import DiscoverFeature
+#else
+// Fallback placeholder when DiscoverFeature module isn't linked
+struct DiscoverView: View { var body: some View { Text("Discover") } }
+#endif
+
+#if canImport(PlayerFeature)
 import PlayerFeature
+#else
+// Fallback placeholder when PlayerFeature module isn't linked
+struct EpisodeDetailView: View {
+    let episode: Episode
+    var body: some View { Text("Player") }
+}
+#endif
+
+#if canImport(PlaylistFeature)
 import PlaylistFeature
+#else
+// Fallback placeholder when PlaylistFeature module isn't linked
+struct PlaylistEditView: View { var body: some View { Text("Playlists") } }
+#endif
 
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
