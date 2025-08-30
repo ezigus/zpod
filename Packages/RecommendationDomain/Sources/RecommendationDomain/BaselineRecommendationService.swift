@@ -4,6 +4,9 @@ import CoreModels
 /// Baseline implementation of recommendation service using simple heuristics
 public final class BaselineRecommendationService: RecommendationService {
     
+    /// Threshold for determining relevant categories based on user listening patterns
+    private static let categoryRelevanceThreshold: Double = 0.1
+    
     public init() {}
     
     public func generateRecommendations(
@@ -164,7 +167,7 @@ public final class BaselineRecommendationService: RecommendationService {
         var details: [String] = []
         
         // Add category-based reasoning
-        let relevantCategories = podcast.categories.filter { categoryWeights[$0] ?? 0 > 0.1 }
+        let relevantCategories = podcast.categories.filter { categoryWeights[$0] ?? 0 > Self.categoryRelevanceThreshold }
         if !relevantCategories.isEmpty {
             details.append("matches your interest in \(relevantCategories.joined(separator: ", "))")
         }
