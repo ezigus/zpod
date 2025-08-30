@@ -210,7 +210,7 @@ final class PodcastManagementTests: XCTestCase {
         
         // When: Finding by folder
         let folder1Podcasts = podcastManager.findByFolder(folderId: "folder1")
-        let unorganizedPodcasts = podcastManager.findByFolder(folderId: nil)
+        let unorganizedPodcasts = podcastManager.findUnorganized()
         
         // Then: Should return podcasts in specified folder
         XCTAssertEqual(folder1Podcasts.count, 2)
@@ -270,7 +270,7 @@ final class PodcastManagementTests: XCTestCase {
         XCTAssertEqual(podcast.id, id)
         XCTAssertEqual(podcast.title, title)
         XCTAssertEqual(podcast.feedURL, feedURL)
-        XCTAssertTrue(podcast.description.isEmpty)
+        XCTAssertTrue(podcast.description?.isEmpty ?? true)
         XCTAssertTrue(podcast.categories.isEmpty)
         XCTAssertTrue(podcast.episodes.isEmpty)
         XCTAssertFalse(podcast.isSubscribed)
