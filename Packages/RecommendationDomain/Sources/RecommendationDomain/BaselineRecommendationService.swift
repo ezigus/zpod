@@ -7,6 +7,9 @@ public final class BaselineRecommendationService: RecommendationService {
     /// Threshold for determining relevant categories based on user listening patterns
     private static let categoryRelevanceThreshold: Double = 0.1
     
+    /// Default popularity score placeholder for episodes when popularity data is not available
+    private static let defaultPopularityScore: Double = 0.5
+    
     public init() {}
     
     public func generateRecommendations(
@@ -137,7 +140,7 @@ public final class BaselineRecommendationService: RecommendationService {
         let recencyScore = calculateRecencyScore(episode: episode)
         
         // Popularity placeholder score (static for now)
-        let popularityScore = 0.5
+        let popularityScore = Self.defaultPopularityScore
         
         // Weighted combination
         return (categoryScore * criteria.categoryFrequencyWeight) +

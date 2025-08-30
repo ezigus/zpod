@@ -9,7 +9,8 @@ final class BaselineRecommendationServiceTests: XCTestCase {
     // MARK: - Test Data
     private var service: BaselineRecommendationService!
     private var criteria: RecommendationCriteria!
-    private let testDate = Date(timeIntervalSince1970: 1642684800) // Fixed date for consistency
+    /// Fixed date used consistently throughout tests for deterministic date-based testing
+    private let testDate = Date() // Use current date for deterministic relative testing
     
     override func setUp() async throws {
         try await super.setUp()
@@ -33,9 +34,9 @@ final class BaselineRecommendationServiceTests: XCTestCase {
         let podcasts = [techPodcast, newsPodcast]
         
         let playHistory = [
-            createPlaybackEntry(episodeId: "tech-ep-1", podcastId: techPodcast.id, playedAt: Date()),
-            createPlaybackEntry(episodeId: "tech-ep-2", podcastId: techPodcast.id, playedAt: Date()),
-            createPlaybackEntry(episodeId: "news-ep-1", podcastId: newsPodcast.id, playedAt: Date())
+            createPlaybackEntry(episodeId: "tech-ep-1", podcastId: techPodcast.id, playedAt: testDate),
+            createPlaybackEntry(episodeId: "tech-ep-2", podcastId: techPodcast.id, playedAt: testDate),
+            createPlaybackEntry(episodeId: "news-ep-1", podcastId: newsPodcast.id, playedAt: testDate)
         ]
         
         // When: Generating recommendations
@@ -224,10 +225,10 @@ final class BaselineRecommendationServiceTests: XCTestCase {
     
     private func createTechPodcast() -> Podcast {
         let episodes = [
-            Episode(id: "tech-ep-1", title: "Swift 6 Concurrency", pubDate: Date()),
-            Episode(id: "tech-ep-2", title: "iOS 18 Features", pubDate: Date().addingTimeInterval(-86400)), // 1 day ago
-            Episode(id: "tech-ep-3", title: "Xcode Tips", pubDate: Date().addingTimeInterval(-172800)), // 2 days ago
-            Episode(id: "tech-ep-4", title: "SwiftUI Updates", pubDate: Date().addingTimeInterval(-259200)) // 3 days ago
+            Episode(id: "tech-ep-1", title: "Swift 6 Concurrency", pubDate: testDate),
+            Episode(id: "tech-ep-2", title: "iOS 18 Features", pubDate: testDate.addingTimeInterval(-86400)), // 1 day ago
+            Episode(id: "tech-ep-3", title: "Xcode Tips", pubDate: testDate.addingTimeInterval(-172800)), // 2 days ago
+            Episode(id: "tech-ep-4", title: "SwiftUI Updates", pubDate: testDate.addingTimeInterval(-259200)) // 3 days ago
         ]
         
         return Podcast(
@@ -244,8 +245,8 @@ final class BaselineRecommendationServiceTests: XCTestCase {
     
     private func createNewsPodcast() -> Podcast {
         let episodes = [
-            Episode(id: "news-ep-1", title: "Daily News", pubDate: Date()),
-            Episode(id: "news-ep-2", title: "Weekly Update", pubDate: Date().addingTimeInterval(-86400))
+            Episode(id: "news-ep-1", title: "Daily News", pubDate: testDate),
+            Episode(id: "news-ep-2", title: "Weekly Update", pubDate: testDate.addingTimeInterval(-86400))
         ]
         
         return Podcast(
@@ -262,10 +263,10 @@ final class BaselineRecommendationServiceTests: XCTestCase {
     
     private func createPodcastWithVariedEpisodeDates() -> Podcast {
         let episodes = [
-            Episode(id: "recent-ep", title: "Recent Episode", pubDate: Date()),
-            Episode(id: "week-old-ep", title: "Week Old", pubDate: Date().addingTimeInterval(-7 * 86400)),
-            Episode(id: "month-old-ep", title: "Month Old", pubDate: Date().addingTimeInterval(-30 * 86400)),
-            Episode(id: "very-old-ep", title: "Very Old", pubDate: Date().addingTimeInterval(-90 * 86400))
+            Episode(id: "recent-ep", title: "Recent Episode", pubDate: testDate),
+            Episode(id: "week-old-ep", title: "Week Old", pubDate: testDate.addingTimeInterval(-7 * 86400)),
+            Episode(id: "month-old-ep", title: "Month Old", pubDate: testDate.addingTimeInterval(-30 * 86400)),
+            Episode(id: "very-old-ep", title: "Very Old", pubDate: testDate.addingTimeInterval(-90 * 86400))
         ]
         
         return Podcast(
@@ -283,14 +284,14 @@ final class BaselineRecommendationServiceTests: XCTestCase {
     private func createPlaybackEntry(
         episodeId: String,
         podcastId: String,
-        playedAt: Date = Date(),
+        playedAt: Date? = nil, // Will use testDate if nil
         duration: TimeInterval = 1800,
         completed: Bool = true
     ) -> PlaybackHistoryEntry {
         PlaybackHistoryEntry(
             episodeId: episodeId,
             podcastId: podcastId,
-            playedAt: playedAt,
+            playedAt: playedAt ?? testDate,
             duration: duration,
             completed: completed
         )

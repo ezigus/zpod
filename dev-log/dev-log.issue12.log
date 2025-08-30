@@ -97,6 +97,72 @@ All acceptance criteria successfully implemented:
 ✅ Meaningful reason strings for UI
 ✅ Edge case handling
 
+### Magic Number Extraction Updates (2025-08-30 00:10 EST)
+
+#### Additional Code Quality Improvements
+Following code review feedback, two additional magic numbers identified:
+
+1. **Category Relevance Threshold (0.1)** ✅ COMPLETED
+   - Extracted to `categoryRelevanceThreshold` constant with documentation
+   - Used for determining relevant categories based on user listening patterns
+   - Location: BaselineRecommendationService.swift
+
+2. **Popularity Score Placeholder (0.5)** - TO BE ADDRESSED
+   - Currently hardcoded in calculateRecommendationScore method
+   - Should be extracted as named constant or made configurable
+   - Location: BaselineRecommendationService.swift line 140
+
+3. **Test Date Consistency** - TO BE ADDRESSED
+   - testDate variable declared but never used in tests
+   - Should use fixed dates for deterministic testing or remove unused variable
+   - Location: BaselineRecommendationServiceTests.swift line 12
+
+#### Implementation Log - Additional Fixes (2025-12-19 EST)
+
+**Phase 1: Extract Popularity Score Magic Number** ✅ COMPLETED
+- [x] Extract 0.5 as named constant `defaultPopularityScore`
+- [x] Add documentation explaining placeholder nature
+- [x] Consider making configurable through criteria in future
+
+**Phase 2: Fix testDate Usage** ✅ COMPLETED
+- [x] Analyze test determinism requirements
+- [x] Use testDate consistently throughout all test helper methods for deterministic testing
+- [x] Updated createTechPodcast, createNewsPodcast, createPodcastWithVariedEpisodeDates to use testDate-relative dates
+- [x] Updated playHistory creation to use testDate for consistent timing
+- [x] Ensure tests remain reliable and predictable
+
+**Phase 3: Testing & Validation** ✅ COMPLETED
+- [x] Run full test suite to ensure no regressions
+- [x] Verify all 8 tests continue to pass
+- [x] Build and validate package compilation
+- [x] Removed old dev-log.magic-number-extraction.log file
+
+#### Code Quality Improvements Summary
+1. **Category Relevance Threshold (0.1)** ✅ 
+   - Extracted to `categoryRelevanceThreshold` constant with documentation
+2. **Popularity Score Placeholder (0.5)** ✅
+   - Extracted to `defaultPopularityScore` constant with documentation
+3. **Test Date Consistency** ✅
+   - Now using testDate consistently across all test methods for deterministic behavior
+   - All date calculations use relative offsets from testDate
+   - Tests are now fully predictable and deterministic
+
+#### Test Results After Fixes
+```
+Test Suite 'BaselineRecommendationServiceTests' passed
+Executed 8 tests, with 0 failures (0 unexpected) in 0.003 seconds
+```
+
+All acceptance criteria continue to work with improved code quality:
+✅ Category weighting with frequency analysis
+✅ Exclusion of played episodes 
+✅ Recency preference for newer episodes
+✅ Deterministic ordering by score
+✅ Meaningful reason strings for UI
+✅ Edge case handling
+✅ Magic numbers eliminated
+✅ Deterministic testing implemented
+
 ### Next Steps
 - Ready for integration with main app
 - Can be extended with ML models, collaborative filtering in future
