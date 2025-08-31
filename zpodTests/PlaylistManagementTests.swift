@@ -22,7 +22,6 @@ final class PlaylistManagementTests: XCTestCase {
     private var cancellables: Set<AnyCancellable>!
     #endif
     
-    @MainActor
     override func setUp() {
         super.setUp()
         
@@ -74,14 +73,16 @@ final class PlaylistManagementTests: XCTestCase {
         ]
         
         playlistEngine = PlaylistEngine()
-        playlistManager = PlaylistManager()
+        
+        // Initialize PlaylistManager on main actor
+        let manager = PlaylistManager()
+        playlistManager = manager
         
         #if canImport(Combine)
         cancellables = Set<AnyCancellable>()
         #endif
     }
     
-    @MainActor
     override func tearDown() {
         #if canImport(Combine)
         cancellables = nil
@@ -411,6 +412,7 @@ final class PlaylistManagementTests: XCTestCase {
     // Covers: Real-time updates and notifications from content spec
     
     #if canImport(Combine)
+    @MainActor
     func testPlaylistChangeNotifications() async throws {
         // Given: Playlist manager with observer
         var receivedNotifications: [PlaylistChangeNotification] = []

@@ -48,6 +48,23 @@ Transform the existing issue-specific test structure into a maintainable, specif
 1. **zpodTests/** (Unit Tests)
    - `Issue03AdvancedControlsTests.swift` → `PlaybackControlTests.swift`
    - `Issue06PlaylistTests.swift` → `PlaylistManagementTests.swift`
+
+#### Swift 6 Concurrency Compliance Issues & Resolutions
+
+**Final Concurrency Issues Fixed: 2025-08-30 18:45 EST**
+- **Setup/Teardown Actor Isolation**: Fixed main actor-isolated `setUp()` and `tearDown()` methods in `PlaylistManagementTests.swift` that were overriding nonisolated base class methods from `XCTestCase`
+- **Publisher Access**: Fixed `@MainActor` class property access in `testPlaylistChangeNotifications()` by adding proper `@MainActor` annotation to the test method
+- **Actor Override Rules**: Reinforced that override methods cannot change actor isolation from their base class declarations
+
+**Resolution Pattern Applied:**
+- Removed `@MainActor` from `setUp()` and `tearDown()` overrides to match base class isolation
+- Added `@MainActor` to test methods that access main actor-isolated properties
+- Maintained safe initialization patterns for `@MainActor` objects in setup
+
+**Comprehensive Review Completed:**
+- All test files validated for Swift 6 concurrency compliance
+- No additional actor isolation or data race issues found
+- Testing framework now fully compatible with Swift 6.1.2 strict concurrency
    - `Issue07FolderTagTests.swift` → `ContentOrganizationTests.swift`
    - `PodcastManagerCRUDTests.swift` → `PodcastManagementTests.swift`
    - Added `TestSummary.md` documentation
