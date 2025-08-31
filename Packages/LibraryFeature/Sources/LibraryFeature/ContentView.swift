@@ -33,6 +33,33 @@ import PlaylistFeature
 struct PlaylistEditView: View { var body: some View { Text("Playlists") } }
 #endif
 
+// MARK: - UIKit Introspection Helper for Tab Bar Identifier
+private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        UIViewController()
+    }
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        DispatchQueue.main.async {
+            guard let root = uiViewController.view.window?.rootViewController else { return }
+            if let tabBar = findTabBarController(from: root)?.tabBar {
+                if tabBar.accessibilityIdentifier != "Main Tab Bar" {
+                    tabBar.accessibilityIdentifier = "Main Tab Bar"
+                }
+            }
+        }
+    }
+    private func findTabBarController(from vc: UIViewController) -> UITabBarController? {
+        if let t = vc as? UITabBarController { return t }
+        for child in vc.children {
+            if let found = findTabBarController(from: child) { return found }
+        }
+        if let presented = vc.presentedViewController {
+            if let found = findTabBarController(from: presented) { return found }
+        }
+        return nil
+    }
+}
+
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -43,28 +70,36 @@ public struct ContentView: View {
         TabView {
             // Library Tab (existing functionality)
             LibraryView()
+                .accessibilityIdentifier("Main Content")
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
                 }
             
             // Discover Tab (placeholder UI)
             DiscoverView()
+                .accessibilityIdentifier("Main Content")
                 .tabItem {
                     Label("Discover", systemImage: "safari")
                 }
             
             // Playlists Tab (placeholder UI)
             PlaylistEditView()
+                .accessibilityIdentifier("Main Content")
                 .tabItem {
                     Label("Playlists", systemImage: "music.note.list")
                 }
             
             // Player Tab (placeholder - shows sample episode)
             PlayerTabView()
+                .accessibilityIdentifier("Main Content")
                 .tabItem {
                     Label("Player", systemImage: "play.circle")
                 }
         }
+        // Provide an identifier in case XCUITest reads from SwiftUI hierarchy
+        .accessibilityIdentifier("Main Tab Bar")
+        // Introspect and set identifier on the underlying UITabBar
+        .background(TabBarIdentifierSetter())
     }
 }
 
@@ -124,23 +159,76 @@ struct LibraryView: View {
 
 /// Player tab that shows the EpisodeDetailView with a sample episode
 struct PlayerTabView: View {
+    @State private var isPlaying: Bool = false
+    @State private var progress: Double = 0.25
+    
     var body: some View {
         NavigationView {
-            VStack {
-                Text("Player")
-                    .font(.largeTitle)
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Player Interface container
+                    Group {
+                        // Episode artwork
+                        Image(systemName: "music.note")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 160, height: 160)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityElement()
+                            .accessibilityIdentifier("Episode Artwork")
+                            .accessibilityLabel("Episode Artwork")
+                            .accessibilityHint("Artwork for the current episode")
+                        
+                        // Titles
+                        Text("Sample Episode Title")
+                            .font(.headline)
+                            .accessibilityIdentifier("Episode Title")
+                            .accessibilityLabel("Episode Title")
+                        Text("Sample Podcast Title")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("Podcast Title")
+                            .accessibilityLabel("Podcast Title")
+                        
+                        // Progress slider
+                        Slider(value: $progress)
+                            .accessibilityIdentifier("Progress Slider")
+                            .accessibilityLabel("Progress Slider")
+                            .accessibilityHint("Adjust playback position")
+                            .accessibilityValue(Text("\(Int(progress * 100)) percent"))
+                        
+                        // Playback controls
+                        HStack(spacing: 24) {
+                            Button("Skip Backward") {
+                                // no-op for tests
+                            }
+                            .accessibilityLabel("Skip Backward")
+                            .accessibilityHint("Skips backward")
+                            
+                            Button(isPlaying ? "Pause" : "Play") {
+                                isPlaying.toggle()
+                            }
+                            .accessibilityLabel(isPlaying ? "Pause" : "Play")
+                            .accessibilityHint("Toggles playback")
+                            
+                            Button("Skip Forward") {
+                                // no-op for tests
+                            }
+                            .accessibilityLabel("Skip Forward")
+                            .accessibilityHint("Skips forward")
+                        }
+                        .padding(.vertical, 8)
+                    }
                     .padding()
-                
-                Text("Select an episode to view player details")
-                    .foregroundColor(.secondary)
-                    .padding()
-                
-                // Show sample player view
-                NavigationLink("Sample Episode Player", destination: sampleEpisodeView)
-                    .buttonStyle(.borderedProminent)
-                    .padding()
-                
-                Spacer()
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("Player Interface")
+                    
+                    // Sample navigation to a detailed player view (if PlayerFeature linked)
+                    NavigationLink("Open Full Player", destination: sampleEpisodeView)
+                        .buttonStyle(.bordered)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
             }
             .navigationTitle("Player")
         }
