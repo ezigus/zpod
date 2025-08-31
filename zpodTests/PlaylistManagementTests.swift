@@ -22,6 +22,7 @@ final class PlaylistManagementTests: XCTestCase {
     private var cancellables: Set<AnyCancellable>!
     #endif
     
+    @MainActor
     override func setUp() {
         super.setUp()
         
@@ -68,7 +69,7 @@ final class PlaylistManagementTests: XCTestCase {
         
         downloadStatuses = [
             "ep1": .completed,
-            "ep2": .inProgress,
+            "ep2": .downloading,
             "ep3": .completed
         ]
         
@@ -80,6 +81,7 @@ final class PlaylistManagementTests: XCTestCase {
         #endif
     }
     
+    @MainActor
     override func tearDown() {
         #if canImport(Combine)
         cancellables = nil
