@@ -29,7 +29,22 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         podcastManager = InMemoryPodcastManager()
         folderManager = InMemoryFolderManager()
         searchIndex = SearchIndex()
-        playlistManager = PlaylistManager()
+        
+        // Initialize PlaylistManager using Task pattern for main actor access
+        let managerInstance: PlaylistManager = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var managerResult: PlaylistManager!
+            
+            Task { @MainActor in
+                managerResult = PlaylistManager()
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return managerResult
+        }()
+        
+        playlistManager = managerInstance
         episodeStateManager = MockEpisodeStateManager()
     }
     
@@ -48,7 +63,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
     func testCompleteSubscriptionWorkflow() throws {
         // Given: User discovers a podcast and wants to organize their library
         let techFolder = Folder(id: "tech", name: "Technology")
-        let programmingTag = Tag(id: "programming", name: "Programming", color: "#007ACC")
+        let programmingTag = Tag(id: "programming", name: "Programming")
         
         try folderManager.add(techFolder)
         

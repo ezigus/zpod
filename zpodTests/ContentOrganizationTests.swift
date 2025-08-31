@@ -61,29 +61,30 @@ final class ContentOrganizationTests: XCTestCase {
     // Given: Valid tag parameters
     let id = "tag1"
     let name = "Technology"
-    let color = "#FF5733"
+    let dateCreated = Date()
     
     // When: Creating a tag
-    let tag = Tag(id: id, name: name, color: color)
+    let tag = Tag(id: id, name: name, dateCreated: dateCreated)
     
     // Then: All properties are set correctly
     XCTAssertEqual(tag.id, id)
     XCTAssertEqual(tag.name, name)
-    XCTAssertEqual(tag.color, color)
+    XCTAssertEqual(tag.dateCreated, dateCreated)
   }
   
-  func testTagDefaultColor() {
-    // Given: Tag without specified color
+  func testTagDefaultDate() {
+    // Given: Tag without specified date
     let tag = Tag(id: "tag1", name: "Technology")
     
-    // Then: Default color is applied
-    XCTAssertFalse(tag.color.isEmpty)
-    XCTAssertTrue(tag.color.hasPrefix("#"))
+    // Then: Default date is applied
+    XCTAssertNotNil(tag.dateCreated)
+    // Date should be recent (within last minute)
+    XCTAssertTrue(tag.dateCreated.timeIntervalSinceNow > -60)
   }
   
   func testTagCodable() throws {
     // Given: A tag
-    let tag = Tag(id: "test1", name: "Test Tag", color: "#FF5733")
+    let tag = Tag(id: "test1", name: "Test Tag")
     
     // When: Encoding and decoding
     let data = try JSONEncoder().encode(tag)
@@ -255,7 +256,7 @@ final class ContentOrganizationTests: XCTestCase {
   func testTagManagerBasicOperations() throws {
     // Given: Empty tag manager
     let manager = InMemoryTagManager()
-    let tag = Tag(id: "tag1", name: "Technology", color: "#FF5733")
+    let tag = Tag(id: "tag1", name: "Technology")
     
     // When: Adding tag
     try manager.add(tag)
@@ -267,22 +268,22 @@ final class ContentOrganizationTests: XCTestCase {
   
   func testTagManagerUpdate() throws {
     // Given: Manager with existing tag
-    let originalTag = Tag(id: "tag1", name: "Tech", color: "#FF5733")
+    let originalTag = Tag(id: "tag1", name: "Tech")
     let manager = InMemoryTagManager(initial: [originalTag])
     
     // When: Updating tag
-    let updatedTag = Tag(id: "tag1", name: "Technology", color: "#00FF00")
+    let updatedTag = Tag(id: "tag1", name: "Technology")
     try manager.update(updatedTag)
     
     // Then: Tag is updated
     let found = manager.find(id: "tag1")
     XCTAssertEqual(found?.name, "Technology")
-    XCTAssertEqual(found?.color, "#00FF00")
+    XCTAssertEqual(found?.id, "tag1")
   }
   
   func testTagManagerRemove() throws {
     // Given: Manager with existing tag
-    let tag = Tag(id: "tag1", name: "Technology", color: "#FF5733")
+    let tag = Tag(id: "tag1", name: "Technology")
     let manager = InMemoryTagManager(initial: [tag])
     
     // When: Removing tag
@@ -535,8 +536,8 @@ final class ContentOrganizationTests: XCTestCase {
     let podcastManager = InMemoryPodcastManager()
     
     // When: Creating tags and organizing podcasts
-    let programmingTag = Tag(id: "programming", name: "Programming", color: "#007ACC")
-    let entertainmentTag = Tag(id: "entertainment", name: "Entertainment", color: "#FF6B6B")
+    let programmingTag = Tag(id: "programming", name: "Programming")
+    let entertainmentTag = Tag(id: "entertainment", name: "Entertainment")
     
     try? tagManager.add(programmingTag)
     try? tagManager.add(entertainmentTag)

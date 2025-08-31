@@ -282,6 +282,16 @@ final class PlaybackUITests: XCTestCase {
             XCTAssertTrue(pauseButton.frame.height >= 44, "Pause button should be large enough for CarPlay")
         }
         
+        if skipForwardButton.exists {
+            XCTAssertTrue(skipForwardButton.frame.height >= 44, "Skip forward button should be large enough for CarPlay")
+            XCTAssertFalse(skipForwardButton.label.isEmpty, "Skip forward should have clear label for CarPlay")
+        }
+        
+        if skipBackwardButton.exists {
+            XCTAssertTrue(skipBackwardButton.frame.height >= 44, "Skip backward button should be large enough for CarPlay")
+            XCTAssertFalse(skipBackwardButton.label.isEmpty, "Skip backward should have clear label for CarPlay")
+        }
+        
         // Test that text is readable for CarPlay
         let episodeTitle = app.staticTexts["Episode Title"]
         if episodeTitle.exists {
