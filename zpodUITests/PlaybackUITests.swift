@@ -15,31 +15,27 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
+        // Perform @MainActor UI setup without blocking the main thread
+        let exp = expectation(description: "Launch app on main actor")
+        var appResult: XCUIApplication?
+        
+        Task { @MainActor in
+            let instance = XCUIApplication()
+            instance.launch()
             
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                
-                // Navigate to player interface for testing
-                let tabBar = appResult.tabBars["Main Tab Bar"]
-                let playerTab = tabBar.buttons["Player"]
-                if playerTab.exists {
-                    playerTab.tap()
-                }
-                
-                semaphore.signal()
+            // Navigate to player interface for testing
+            let tabBar = instance.tabBars["Main Tab Bar"]
+            let playerTab = tabBar.buttons["Player"]
+            if playerTab.exists {
+                playerTab.tap()
             }
             
-            semaphore.wait()
-            return appResult
-        }()
+            appResult = instance
+            exp.fulfill()
+        }
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        wait(for: [exp], timeout: 15.0)
+        app = appResult
     }
 
     override func tearDownWithError() throws {
@@ -56,13 +52,13 @@ final class PlaybackUITests: XCTestCase {
         
         if playerInterface.exists {
             // When: Checking for essential playback controls
-            let playButton = app.buttons["Play"] 
+            let playButton = app.buttons["Play"]
             let pauseButton = app.buttons["Pause"]
             let skipForwardButton = app.buttons["Skip Forward"]
             let skipBackwardButton = app.buttons["Skip Backward"]
             
             // Then: Controls should be present and accessible
-            XCTAssertTrue(playButton.exists || pauseButton.exists, 
+            XCTAssertTrue(playButton.exists || pauseButton.exists,
                          "Play/Pause button should be available")
             
             // Verify skip controls existence and properties
@@ -216,14 +212,14 @@ final class PlaybackUITests: XCTestCase {
         
         if playButton.exists || pauseButton.exists {
             // Then: Media controls should be accessible for system integration
-            XCTAssertTrue(playButton.exists || pauseButton.exists, 
+            XCTAssertTrue(playButton.exists || pauseButton.exists,
                          "Media controls should be available for system integration")
         }
         
         // Test that episode information is available for system display
         let episodeTitle = app.staticTexts["Episode Title"]
         if episodeTitle.exists {
-            XCTAssertFalse(episodeTitle.label.isEmpty, 
+            XCTAssertFalse(episodeTitle.label.isEmpty,
                           "Episode title should be available for control center")
         }
     }
@@ -243,22 +239,22 @@ final class PlaybackUITests: XCTestCase {
         
         // Then: Media info should be suitable for lock screen display
         if episodeTitle.exists {
-            XCTAssertFalse(episodeTitle.label.isEmpty, 
+            XCTAssertFalse(episodeTitle.label.isEmpty,
                           "Episode title should be available for lock screen")
         }
         
         if podcastTitle.exists {
-            XCTAssertFalse(podcastTitle.label.isEmpty, 
+            XCTAssertFalse(podcastTitle.label.isEmpty,
                           "Podcast title should be available for lock screen")
         }
         
         if episodeArtwork.exists {
-            XCTAssertTrue(episodeArtwork.exists, 
+            XCTAssertTrue(episodeArtwork.exists,
                          "Artwork should be available for lock screen")
         }
     }
     
-    // MARK: - CarPlay Interface Tests  
+    // MARK: - CarPlay Interface Tests
     // Covers: CarPlay integration from ui spec
     
     @MainActor
@@ -295,7 +291,7 @@ final class PlaybackUITests: XCTestCase {
         // Test that text is readable for CarPlay
         let episodeTitle = app.staticTexts["Episode Title"]
         if episodeTitle.exists {
-            XCTAssertTrue(episodeTitle.label.count <= 50, 
+            XCTAssertTrue(episodeTitle.label.count <= 50,
                          "Episode title should be concise for CarPlay display")
         }
     }
@@ -314,7 +310,7 @@ final class PlaybackUITests: XCTestCase {
         
         // Then: Essential controls should be available
         if playButton.exists || pauseButton.exists {
-            XCTAssertTrue(playButton.exists || pauseButton.exists, 
+            XCTAssertTrue(playButton.exists || pauseButton.exists,
                          "Essential playback controls should be available for Watch")
         }
         
@@ -365,14 +361,14 @@ final class PlaybackUITests: XCTestCase {
         let playbackControls = [
             app.buttons["Skip Backward"],
             app.buttons["Play"],
-            app.buttons["Pause"], 
+            app.buttons["Pause"],
             app.buttons["Skip Forward"]
         ].filter { $0.exists }
         
         // Then: Controls should be in logical order for VoiceOver
         for control in playbackControls {
             if control.isAccessibilityElement {
-                XCTAssertTrue(control.isAccessibilityElement, 
+                XCTAssertTrue(control.isAccessibilityElement,
                              "Playback control should be accessible to VoiceOver")
                 if let label = control.accessibilityLabel {
                     XCTAssertFalse(label.isEmpty, "Control should have descriptive label")
@@ -480,7 +476,7 @@ final class PlaybackUITests: XCTestCase {
         }
         
         // Then: App should have sufficient elements for platform integration
-        XCTAssertGreaterThanOrEqual(integrationElements, 3, 
+        XCTAssertGreaterThanOrEqual(integrationElements, 3,
                                    "App should have sufficient elements for platform media integration")
     }
     
@@ -513,7 +509,7 @@ final class PlaybackUITests: XCTestCase {
         }
         
         // Then: Interface should have strong accessibility support
-        XCTAssertGreaterThanOrEqual(accessibilityScore, 6, 
+        XCTAssertGreaterThanOrEqual(accessibilityScore, 6,
                                    "Playback interface should have comprehensive accessibility support")
     }
 }

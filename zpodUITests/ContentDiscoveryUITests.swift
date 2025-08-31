@@ -5,7 +5,7 @@ import XCTest
 /// **Specifications Covered**: `spec/ui.md` - Search and discovery sections
 /// - Search interface and results display testing
 /// - Browse and category navigation verification
-/// - Subscription management interface testing  
+/// - Subscription management interface testing
 /// - Filter and sort controls validation
 /// - Content recommendation displays
 final class ContentDiscoveryUITests: XCTestCase {
@@ -15,31 +15,27 @@ final class ContentDiscoveryUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
+        // Perform @MainActor UI setup without blocking the main thread
+        let exp = expectation(description: "Launch app on main actor")
+        var appResult: XCUIApplication?
+        
+        Task { @MainActor in
+            let instance = XCUIApplication()
+            instance.launch()
             
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                
-                // Navigate to discovery interface for testing
-                let tabBar = appResult.tabBars["Main Tab Bar"]
-                let discoverTab = tabBar.buttons["Discover"]
-                if discoverTab.exists {
-                    discoverTab.tap()
-                }
-                
-                semaphore.signal()
+            // Navigate to discovery interface for testing
+            let tabBar = instance.tabBars["Main Tab Bar"]
+            let discoverTab = tabBar.buttons["Discover"]
+            if discoverTab.exists {
+                discoverTab.tap()
             }
             
-            semaphore.wait()
-            return appResult
-        }()
+            appResult = instance
+            exp.fulfill()
+        }
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        wait(for: [exp], timeout: 15.0)
+        app = appResult
     }
 
     override func tearDownWithError() throws {
@@ -69,7 +65,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             let searchResults = app.tables["Search Results"]
             let noResultsMessage = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'No results' OR label CONTAINS 'no results'")).firstMatch
             
-            XCTAssertTrue(searchResults.exists || noResultsMessage.exists, 
+            XCTAssertTrue(searchResults.exists || noResultsMessage.exists,
                          "Search should show results or appropriate feedback")
         }
     }
@@ -87,7 +83,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             let voiceInterface = app.otherElements["Voice Search Interface"]
             let microphoneIndicator = app.images.matching(NSPredicate(format: "label CONTAINS 'Microphone'")).firstMatch
             
-            XCTAssertTrue(voiceInterface.exists || microphoneIndicator.exists, 
+            XCTAssertTrue(voiceInterface.exists || microphoneIndicator.exists,
                          "Voice search interface should be activated")
         }
     }
@@ -220,8 +216,8 @@ final class ContentDiscoveryUITests: XCTestCase {
             let feedbackMessage = app.alerts.firstMatch
             let toastMessage = app.otherElements.matching(NSPredicate(format: "label CONTAINS 'Subscribed' OR label CONTAINS 'Added'")).firstMatch
             
-            XCTAssertTrue(initialLabel != updatedLabel || 
-                         feedbackMessage.exists || 
+            XCTAssertTrue(initialLabel != updatedLabel ||
+                         feedbackMessage.exists ||
                          toastMessage.exists,
                          "Subscribe action should provide feedback")
         }
@@ -348,7 +344,7 @@ final class ContentDiscoveryUITests: XCTestCase {
     @MainActor
     func testVoiceOverNavigationInDiscovery() throws {
         // Given: Discovery interface for VoiceOver users
-        let interactiveElements = app.buttons.allElementsBoundByIndex + 
+        let interactiveElements = app.buttons.allElementsBoundByIndex +
                                  app.searchFields.allElementsBoundByIndex +
                                  app.tables.allElementsBoundByIndex
         
@@ -356,7 +352,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         // Then: Elements should be in logical order
         for element in interactiveElements.prefix(5) {
             if element.exists {
-                XCTAssertTrue(element.isAccessibilityElement || 
+                XCTAssertTrue(element.isAccessibilityElement ||
                              !(element.accessibilityElements?.isEmpty ?? true),
                              "Discovery elements should be accessible to VoiceOver")
             }
@@ -493,7 +489,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         }
         
         // Then: Discovery interface should have strong accessibility support
-        XCTAssertGreaterThanOrEqual(accessibilityScore, 3, 
+        XCTAssertGreaterThanOrEqual(accessibilityScore, 3,
                                    "Discovery interface should have comprehensive accessibility support")
     }
 }

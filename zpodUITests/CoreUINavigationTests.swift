@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Core UI navigation and accessibility tests for the main application interface
 ///
@@ -15,24 +16,19 @@ final class CoreUINavigationTests: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                // Launch the application
-                appResult.launch()
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
+        // Perform @MainActor UI setup without blocking the main thread
+        let exp = expectation(description: "Launch app on main actor")
+        var appResult: XCUIApplication?
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        Task { @MainActor in
+            let instance = XCUIApplication()
+            instance.launch()
+            appResult = instance
+            exp.fulfill()
+        }
+        
+        wait(for: [exp], timeout: 15.0)
+        app = appResult
     }
 
     override func tearDownWithError() throws {
@@ -68,7 +64,7 @@ final class CoreUINavigationTests: XCTestCase {
         if playerTab.exists {
             playerTab.tap()
             // Player interface may have different structure
-            XCTAssertTrue(app.otherElements["Player Interface"].exists || 
+            XCTAssertTrue(app.otherElements["Player Interface"].exists ||
                          app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'")).firstMatch.exists,
                          "Player interface should be displayed")
         }
@@ -128,7 +124,7 @@ final class CoreUINavigationTests: XCTestCase {
         // Test main content areas have accessibility labels
         let mainContent = app.otherElements["Main Content"]
         if mainContent.exists {
-            XCTAssertTrue(mainContent.isAccessibilityElement || 
+            XCTAssertTrue(mainContent.isAccessibilityElement ||
                          mainContent.accessibilityLabel != nil,
                          "Main content should be accessible")
         }
@@ -143,7 +139,7 @@ final class CoreUINavigationTests: XCTestCase {
         // Then: Interactive elements should have helpful hints
         let libraryTab = tabBar.buttons["Library"]
         if libraryTab.exists && libraryTab.accessibilityHint != nil {
-            XCTAssertFalse(libraryTab.accessibilityHint!.isEmpty, 
+            XCTAssertFalse(libraryTab.accessibilityHint!.isEmpty,
                           "Library tab hint should provide guidance")
         }
         
@@ -163,7 +159,7 @@ final class CoreUINavigationTests: XCTestCase {
         // When: Using keyboard navigation (simulated through accessibility)
         
         // Test that focusable elements are properly configured
-        let interactiveElements = app.buttons.allElementsBoundByIndex + 
+        let interactiveElements = app.buttons.allElementsBoundByIndex +
                                  app.textFields.allElementsBoundByIndex +
                                  app.tables.allElementsBoundByIndex
         
@@ -202,7 +198,7 @@ final class CoreUINavigationTests: XCTestCase {
             let mainContent = app.otherElements["Main Content"]
             if mainContent.exists {
                 // On iPad, content should use available space effectively
-                XCTAssertTrue(mainContent.frame.width > 600, 
+                XCTAssertTrue(mainContent.frame.width > 600,
                              "iPad content should utilize larger screen width")
             }
         } else {
@@ -364,7 +360,7 @@ final class CoreUINavigationTests: XCTestCase {
         }
         
         // Check for proper heading structure
-        let headings = app.otherElements.matching(NSPredicate(format: "accessibilityTraits CONTAINS %@", 
+        let headings = app.otherElements.matching(NSPredicate(format: "accessibilityTraits CONTAINS %@",
                                                              UIAccessibilityTraits.header.rawValue))
         
         // Then: App should have proper accessibility structure
@@ -375,5 +371,5 @@ final class CoreUINavigationTests: XCTestCase {
 // TODO: [Issue #12.3] Add performance testing patterns for UI responsiveness validation
 // This would include testing animation performance, scroll performance, and touch responsiveness
 
-// TODO: [Issue #12.4] Implement automated accessibility testing integration  
+// TODO: [Issue #12.4] Implement automated accessibility testing integration
 // This would add automated VoiceOver testing and accessibility audit capabilities
