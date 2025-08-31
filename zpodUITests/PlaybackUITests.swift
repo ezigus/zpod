@@ -15,18 +15,28 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations synchronously on main thread
-        let appInstance = XCUIApplication()
-        DispatchQueue.main.sync {
-            appInstance.launch()
+        // Create app instance and perform UI operations using Task for main actor access
+        let appInstance: XCUIApplication = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var appResult: XCUIApplication!
             
-            // Navigate to player interface for testing
-            let tabBar = appInstance.tabBars["Main Tab Bar"]
-            let playerTab = tabBar.buttons["Player"]
-            if playerTab.exists {
-                playerTab.tap()
+            Task { @MainActor in
+                appResult = XCUIApplication()
+                appResult.launch()
+                
+                // Navigate to player interface for testing
+                let tabBar = appResult.tabBars["Main Tab Bar"]
+                let playerTab = tabBar.buttons["Player"]
+                if playerTab.exists {
+                    playerTab.tap()
+                }
+                
+                semaphore.signal()
             }
-        }
+            
+            semaphore.wait()
+            return appResult
+        }()
         
         // Assign to instance property after main thread operations complete
         app = appInstance
@@ -55,6 +65,7 @@ final class PlaybackUITests: XCTestCase {
             XCTAssertTrue(playButton.exists || pauseButton.exists, 
                          "Play/Pause button should be available")
             
+            // Verify skip controls existence and properties
             if skipForwardButton.exists {
                 XCTAssertTrue(skipForwardButton.isEnabled, "Skip forward should be enabled")
                 XCTAssertFalse(skipForwardButton.label.isEmpty, "Skip forward should have label")

@@ -15,12 +15,21 @@ final class CoreUINavigationTests: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations synchronously on main thread
-        let appInstance = XCUIApplication()
-        DispatchQueue.main.sync {
-            // Launch the application
-            appInstance.launch()
-        }
+        // Create app instance and perform UI operations using Task for main actor access
+        let appInstance: XCUIApplication = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var appResult: XCUIApplication!
+            
+            Task { @MainActor in
+                appResult = XCUIApplication()
+                // Launch the application
+                appResult.launch()
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return appResult
+        }()
         
         // Assign to instance property after main thread operations complete
         app = appInstance

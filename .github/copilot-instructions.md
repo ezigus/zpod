@@ -54,6 +54,7 @@ For each implementation step, follow this process explicitly:
 - **Actor Isolation Override Rules**: Never change actor isolation when overriding methods (e.g., `XCTestCase.setUpWithError()` must remain nonisolated)
 - **Closure Capture Safety**: Avoid capturing `self` in closures that cross actor boundaries; use local variables when possible
 - **Main Thread UI Operations**: Use `DispatchQueue.main.sync` for synchronous UI operations in nonisolated contexts
+- **XCUIApplication Initialization**: Use Task-based pattern for `@MainActor` isolated XCUIApplication operations in nonisolated setup methods
 - **Test Double Isolation**: Mark test mock objects with `@unchecked Sendable` and use proper locking for thread safety
 - **Cross-Actor Property Access**: Use `nonisolated(unsafe)` sparingly and only for properties that need cross-context access
 
@@ -67,8 +68,9 @@ For each implementation step, follow this process explicitly:
 #### UI Testing Actor Patterns
 - **Setup Methods**: Keep `setUpWithError()` and `tearDownWithError()` nonisolated to match `XCTestCase` base class
 - **App Instance Management**: Use local variables in setup, then assign to `nonisolated(unsafe)` properties to avoid capture issues
+- **XCUIApplication Creation**: Use Task-based pattern with semaphore synchronization for `@MainActor` isolated operations in nonisolated contexts
 - **Individual Test Methods**: Mark with `@MainActor` for safe UI element access
-- **Synchronous UI Setup**: Use `DispatchQueue.main.sync` pattern for UI operations in nonisolated setup methods
+- **Synchronous UI Setup**: Use Task pattern for UI operations when `DispatchQueue.main.sync` causes actor isolation conflicts
 
 ### Error Handling
 - Use typed throws (`throws(SpecificError)`) when possible for better error handling
@@ -152,12 +154,21 @@ final class ExampleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations synchronously on main thread
-        let appInstance = XCUIApplication()
-        DispatchQueue.main.sync {
-            appInstance.launch()
-            // ... UI setup operations using appInstance
-        }
+        // Create app instance and perform UI operations using Task for main actor access
+        let appInstance: XCUIApplication = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var appResult: XCUIApplication!
+            
+            Task { @MainActor in
+                appResult = XCUIApplication()
+                appResult.launch()
+                // ... UI setup operations using appResult
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return appResult
+        }()
         
         // Assign to instance property after main thread operations complete
         app = appInstance
