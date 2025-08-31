@@ -625,11 +625,8 @@ final class PlaylistEngine: @unchecked Sendable {
     private func matchesFilterRule(_ rule: SmartPlaylistFilterRule, episode: Episode, downloadStatus: DownloadState?) -> Bool {
         switch rule {
         case .isPlayed(let isPlayed):
-            if isPlayed {
-                return episode.isPlayed == true
-            } else {
-                return episode.isPlayed == false && episode.playbackPosition <= 0
-            }
+            // Treat unplayed as simply not marked played, regardless of playback position
+            return episode.isPlayed == isPlayed
         case .isDownloaded:
             return downloadStatus == .completed
         case .podcastCategory(_):
