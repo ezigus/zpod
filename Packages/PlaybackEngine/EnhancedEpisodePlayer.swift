@@ -76,6 +76,17 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService {
     }
   }
 
+  // Automatically mark episode as played when reaching the end
+  private func checkForCompletion() {
+    guard let ep = currentEpisode, duration > 0 else { return }
+    // Allow tiny epsilon to account for floating point rounding
+    if position >= duration - 0.001 {
+      // Snap to exact end and mark as played asynchronously
+      position = duration
+      markEpisodeAs(played: true)
+    }
+  }
+
   public func play(episode: Episode, duration: TimeInterval?) {
     currentEpisode = episode
     self.duration = max(0, duration ?? 0)
@@ -105,6 +116,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService {
   public func skipForward(interval: TimeInterval = -1) {
     let step = interval >= 0 ? interval : forwardInterval
     position = min(position + step, duration)
+    checkForCompletion()
     emitPlaying()
   }
   public func skipBackward(interval: TimeInterval = -1) {
@@ -114,6 +126,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService {
   }
   public func seek(to newPosition: TimeInterval) {
     position = min(max(0, newPosition), duration)
+    checkForCompletion()
     emitPlaying()
   }
   public func setPlaybackSpeed(_ newSpeed: Float) {
@@ -121,6 +134,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService {
     // Simulate one tick of progress to reflect speed impact in tests
     if currentEpisode != nil {
       position = min(position + TimeInterval(speed), duration)
+      checkForCompletion()
       emitPlaying()
     }
   }

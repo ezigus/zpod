@@ -74,21 +74,8 @@ final class PlaylistManagementTests: XCTestCase {
         
         playlistEngine = PlaylistEngine()
         
-        // Initialize PlaylistManager using Task pattern for main actor access
-        let managerInstance: PlaylistManager = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var managerResult: PlaylistManager!
-            
-            Task { @MainActor in
-                managerResult = PlaylistManager()
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return managerResult
-        }()
-        
-        playlistManager = managerInstance
+        // Initialize PlaylistManager directly to avoid main-thread deadlocks
+        playlistManager = PlaylistManager()
         
         #if canImport(Combine)
         cancellables = Set<AnyCancellable>()
@@ -361,7 +348,7 @@ final class PlaylistManagementTests: XCTestCase {
         await playlistManager.createPlaylist(playlist)
         
         // Then: Playlist should be created
-        let playlists = await playlistManager.playlists
+        let playlists = playlistManager.playlists
         XCTAssertEqual(playlists.count, 1)
         XCTAssertEqual(playlists.first?.name, "New Playlist")
     }
@@ -389,7 +376,7 @@ final class PlaylistManagementTests: XCTestCase {
         await playlistManager.deletePlaylist(id: playlist.id)
         
         // Then: Playlist should be removed
-        let playlists = await playlistManager.playlists
+        let playlists = playlistManager.playlists
         XCTAssertTrue(playlists.isEmpty)
     }
     
@@ -424,7 +411,6 @@ final class PlaylistManagementTests: XCTestCase {
     // Covers: Real-time updates and notifications from content spec
     
     #if canImport(Combine)
-    @MainActor
     func testPlaylistChangeNotifications() async throws {
         // Given: Playlist manager with observer
         var receivedNotifications: [PlaylistChangeNotification] = []
@@ -432,11 +418,12 @@ final class PlaylistManagementTests: XCTestCase {
         expectation.expectedFulfillmentCount = 2 // Create + update operations
         
         playlistManager.playlistChanges
-            .sink { notification in
-                receivedNotifications.append(notification)
-                expectation.fulfill()
-            }
-            .store(in: &cancellables)
+            .receive(on: DispatchQueue.global(qos: .userInitiated))
+             .sink { notification in
+                 receivedNotifications.append(notification)
+                 expectation.fulfill()
+             }
+             .store(in: &cancellables)
         
         // When: Creating and updating playlist
         let playlist = Playlist(name: "Notification Test")
@@ -459,7 +446,7 @@ final class PlaylistManagementTests: XCTestCase {
         // Create playlist
         let playlist = Playlist(name: "Acceptance Test")
         await playlistManager.createPlaylist(playlist)
-        let playlists1 = await playlistManager.playlists
+        let playlists1 = playlistManager.playlists
         XCTAssertEqual(playlists1.count, 1)
         
         // Add episodes
@@ -659,7 +646,6 @@ final class PlaylistEngine: @unchecked Sendable {
 }
 
 // MARK: - Test-only PlaylistManager Implementation
-@MainActor
 final class PlaylistManager: ObservableObject {
     @Published private(set) var playlists: [Playlist] = []
     @Published private(set) var smartPlaylists: [SmartPlaylist] = []
