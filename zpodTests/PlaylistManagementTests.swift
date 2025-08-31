@@ -74,9 +74,21 @@ final class PlaylistManagementTests: XCTestCase {
         
         playlistEngine = PlaylistEngine()
         
-        // Initialize PlaylistManager on main actor
-        let manager = PlaylistManager()
-        playlistManager = manager
+        // Initialize PlaylistManager using Task pattern for main actor access
+        let managerInstance: PlaylistManager = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var managerResult: PlaylistManager!
+            
+            Task { @MainActor in
+                managerResult = PlaylistManager()
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return managerResult
+        }()
+        
+        playlistManager = managerInstance
         
         #if canImport(Combine)
         cancellables = Set<AnyCancellable>()
