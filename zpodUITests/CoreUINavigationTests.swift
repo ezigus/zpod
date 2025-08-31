@@ -242,8 +242,9 @@ final class CoreUINavigationTests: XCTestCase {
     @MainActor
     func testAppearanceAdaptation() throws {
         // Given: App supports appearance changes
-        // When: Checking current appearance
-        let currentStyle = app.windows.firstMatch.accessibilityUserInterfaceStyle
+        // When: Checking that UI elements are visible and functional regardless of appearance
+        // Note: XCUITest doesn't provide direct access to interface style, so we verify
+        // that elements are visible and interactive which indicates proper appearance adaptation
         
         // Then: App should adapt to system appearance
         // Verify that content is visible in current appearance mode
@@ -295,7 +296,7 @@ final class CoreUINavigationTests: XCTestCase {
     @MainActor
     func testNavigationPerformance() throws {
         // Given: App is loaded
-        let startTime = CFAbsoluteTimeGetCurrent()
+        let startTime = Date().timeIntervalSince1970
         
         // When: Performing navigation actions
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -306,7 +307,7 @@ final class CoreUINavigationTests: XCTestCase {
             }
         }
         
-        let endTime = CFAbsoluteTimeGetCurrent()
+        let endTime = Date().timeIntervalSince1970
         let navigationTime = endTime - startTime
         
         // Then: Navigation should be responsive
