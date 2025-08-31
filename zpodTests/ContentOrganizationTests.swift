@@ -259,7 +259,7 @@ final class ContentOrganizationTests: XCTestCase {
     let tag = Tag(id: "tag1", name: "Technology")
     
     // When: Adding tag
-    try manager.add(tag)
+    manager.add(tag)
     
     // Then: Tag is stored
     XCTAssertEqual(manager.find(id: "tag1"), tag)
@@ -273,7 +273,7 @@ final class ContentOrganizationTests: XCTestCase {
     
     // When: Updating tag
     let updatedTag = Tag(id: "tag1", name: "Technology")
-    try manager.update(updatedTag)
+    manager.update(updatedTag)
     
     // Then: Tag is updated
     let found = manager.find(id: "tag1")
@@ -287,7 +287,7 @@ final class ContentOrganizationTests: XCTestCase {
     let manager = InMemoryTagManager(initial: [tag])
     
     // When: Removing tag
-    try manager.remove(id: "tag1")
+    manager.remove(id: "tag1")
     
     // Then: Tag is removed
     XCTAssertNil(manager.find(id: "tag1"))
@@ -539,8 +539,8 @@ final class ContentOrganizationTests: XCTestCase {
     let programmingTag = Tag(id: "programming", name: "Programming")
     let entertainmentTag = Tag(id: "entertainment", name: "Entertainment")
     
-    try? tagManager.add(programmingTag)
-    try? tagManager.add(entertainmentTag)
+    tagManager.add(programmingTag)
+    tagManager.add(entertainmentTag)
     
     let podcast1 = Podcast(
       id: "podcast1",
@@ -634,10 +634,43 @@ extension InMemoryPodcastManager {
 }
 
 extension SearchIndex {
+  /// Index a single podcast into the search index for test purposes
+  func indexPodcast(_ podcast: Podcast) {
+    let doc = SearchableDocument(
+      id: podcast.id,
+      type: .podcast,
+      fields: [
+        .title: podcast.title,
+        .author: podcast.author ?? "",
+        .description: podcast.description ?? ""
+      ],
+      sourceObject: podcast
+    )
+    addDocument(doc)
+  }
+  
+  /// Base search for podcasts by free-text query
+  func searchPodcasts(query: String) -> [Podcast] {
+    let tokenizer = Tokenizer()
+    let terms = tokenizer.tokenize(query)
+    guard !terms.isEmpty else { return [] }
+    var seen: Set<String> = []
+    var docs: [IndexedDocument] = []
+    for term in terms {
+      for doc in findDocuments(for: term) where doc.type == .podcast {
+        if !seen.contains(doc.id) {
+          seen.insert(doc.id)
+          docs.append(doc)
+        }
+      }
+    }
+    // Map to Podcast preserving insertion order
+    return docs.compactMap { $0.sourceObject as? Podcast }
+  }
+  
   func searchPodcasts(query: String, folderId: String? = nil) -> [Podcast] {
     // Basic search implementation for testing
-    // In real implementation, this would use proper search indexing
-    let allResults = searchPodcasts(query: query)
+    let allResults: [Podcast] = self.searchPodcasts(query: query)
     
     if let folderId = folderId {
       return allResults.filter { $0.folderId == folderId }
@@ -648,7 +681,7 @@ extension SearchIndex {
   
   func searchPodcasts(query: String, tagId: String? = nil) -> [Podcast] {
     // Basic search implementation for testing
-    let allResults = searchPodcasts(query: query)
+    let allResults: [Podcast] = self.searchPodcasts(query: query)
     
     if let tagId = tagId {
       return allResults.filter { $0.tagIds.contains(tagId) }

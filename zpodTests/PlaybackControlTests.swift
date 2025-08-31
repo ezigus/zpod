@@ -40,54 +40,32 @@ final class PlaybackControlTests: XCTestCase {
 
   // MARK: - Test Doubles
   private final class ManualTicker: Ticker, @unchecked Sendable {
-    private let lock = NSLock()
+    // Simple manual ticker used only for protocol conformance in some tests.
+    // No locking needed for these tests.
     private var _tickHandler: (@Sendable () -> Void)?
     private var _isScheduled = false
     
-    var tickHandler: (@Sendable () -> Void)? {
-      lock.lock()
-      defer { lock.unlock() }
-      return _tickHandler
-    }
-    
-    var isScheduled: Bool {
-      lock.lock()
-      defer { lock.unlock() }
-      return _isScheduled
-    }
+    var tickHandler: (@Sendable () -> Void)? { _tickHandler }
+    var isScheduled: Bool { _isScheduled }
     
     func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void) {
-      lock.lock()
-      defer { lock.unlock() }
       _tickHandler = tick
       _isScheduled = true
     }
     
     func cancel() {
-      lock.lock()
-      defer { lock.unlock() }
       _tickHandler = nil
       _isScheduled = false
     }
     
-    func tick() {
-      let handler: (@Sendable () -> Void)?
-      lock.lock()
-      handler = _tickHandler
-      lock.unlock()
-      
-      handler?()
-    }
+    func tick() { _tickHandler?() }
   }
 
-  private final class MockEpisodeStateManager: EpisodeStateManager, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _episodes: [String: Episode] = [:]
+  private actor MockEpisodeStateManager: EpisodeStateManager {
+    private var episodes: [String: Episode] = [:]
     
     func setPlayedStatus(_ episode: Episode, isPlayed: Bool) async {
-      lock.lock()
-      defer { lock.unlock() }
-      let updatedEpisode = Episode(
+      let updated = Episode(
         id: episode.id,
         title: episode.title,
         podcastID: episode.podcastID,
@@ -98,13 +76,11 @@ final class PlaybackControlTests: XCTestCase {
         description: episode.description,
         audioURL: episode.audioURL
       )
-      _episodes[episode.id] = updatedEpisode
+      episodes[episode.id] = updated
     }
     
     func updatePlaybackPosition(_ episode: Episode, position: TimeInterval) async {
-      lock.lock()
-      defer { lock.unlock() }
-      let updatedEpisode = Episode(
+      let updated = Episode(
         id: episode.id,
         title: episode.title,
         podcastID: episode.podcastID,
@@ -115,23 +91,11 @@ final class PlaybackControlTests: XCTestCase {
         description: episode.description,
         audioURL: episode.audioURL
       )
-      _episodes[episode.id] = updatedEpisode
+      episodes[episode.id] = updated
     }
     
     func getEpisodeState(_ episode: Episode) async -> Episode {
-      lock.lock()
-      defer { lock.unlock() }
-      return _episodes[episode.id] ?? Episode(
-        id: episode.id,
-        title: episode.title,
-        podcastID: episode.podcastID,
-        playbackPosition: episode.playbackPosition,
-        isPlayed: episode.isPlayed,
-        pubDate: episode.pubDate,
-        duration: episode.duration,
-        description: episode.description,
-        audioURL: episode.audioURL
-      )
+      episodes[episode.id] ?? episode
     }
   }
 
