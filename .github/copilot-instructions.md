@@ -57,6 +57,9 @@ For each implementation step, follow this process explicitly:
 - **XCUIApplication Initialization**: Use Task-based pattern for `@MainActor` isolated XCUIApplication operations in nonisolated setup methods
 - **Test Double Isolation**: Mark test mock objects with `@unchecked Sendable` and use proper locking for thread safety
 - **Cross-Actor Property Access**: Use `nonisolated(unsafe)` sparingly and only for properties that need cross-context access
+- **API Verification**: Always verify enum cases, method signatures, and property types before use - DO NOT assume API existence
+- **Type Safety**: Check optional types and use safe unwrapping patterns (`?.` operator, `?? default`)
+- **Compilation Early & Often**: Build tests immediately after changes to catch API mismatches before they accumulate
 
 ### Actor Usage
 - Use actors for mutable shared state that needs thread-safe access
@@ -145,6 +148,20 @@ For each implementation step, follow this process explicitly:
 - **Actor Isolation in Tests**: Individual test methods should use `@MainActor` for UI access, setup/teardown must remain nonisolated
 - **Cross-Context Property Access**: Use `nonisolated(unsafe)` for test properties that need access from different actor contexts
 - **Protocol Conformance**: Ensure test doubles properly implement protocol method signatures for Swift 6 compliance
+
+#### API Compatibility Verification
+**CRITICAL: Always verify API compatibility before using classes/methods in tests**
+- **Enum Values**: Check actual enum definitions - common mistakes: `.inProgress` (doesn't exist) vs `.downloading` (exists)
+- **Method Signatures**: Verify parameter types and names exactly match the actual implementation
+- **Optional Parameters**: Use correct syntax for optional parameters (e.g., `String?` vs `String`)
+- **Actor Isolation**: Ensure `@MainActor` classes are instantiated in proper actor context
+- **Property Access**: Verify property names and types match actual implementation before use
+
+**Before writing test code:**
+1. Check the actual model/manager implementation files
+2. Verify enum cases, method signatures, and property types
+3. Test compilation early and frequently to catch API mismatches
+4. When errors occur, fix ALL similar patterns throughout the codebase, not just the immediate error
 
 #### Recommended UI Test Setup Pattern
 ```swift

@@ -449,15 +449,49 @@ User reported additional Swift 6 compilation errors in PodcastManagementTests.sw
    - Line 213: Fixed `findByFolder(folderId: nil)` → `findUnorganized()`
    - Line 273: Fixed `description.isEmpty` → `description?.isEmpty ?? true`
 
+2. **PlaylistManagementTests.swift** (2025-08-31 00:30:00 ET):
+   - Line 71: Fixed enum case `.inProgress` → `.downloading` 
+   - Line 25: Added `@MainActor` to `setUp()` method to resolve actor isolation for PlaylistManager()
+   - Line 83: Added `@MainActor` to `tearDown()` method for consistency
+
 #### Validation Results
 - ✅ Syntax validation passes for all updated files
 - ✅ Method calls now use correct API signatures  
 - ✅ Optional property access follows Swift 6 safe patterns
 - ✅ Test functionality preserved with proper type safety
 - ✅ No additional similar issues found in comprehensive review
+- ✅ Actor isolation properly handled for @MainActor classes
+- ✅ Enum cases match actual DownloadState definition
 
 #### Comprehensive Review Conducted
 Performed thorough examination of all files modified for issue 12.2:
+
+### Enhanced Copilot Instructions (2025-08-31 00:35:00 ET)
+
+Based on repeated API compatibility issues, added comprehensive guidance to `.github/copilot-instructions.md`:
+
+#### New API Compatibility Section
+- **API Verification**: Critical requirement to check actual implementations before coding
+- **Enum Values**: Specific guidance on verifying enum cases (common error: `.inProgress` vs `.downloading`)
+- **Method Signatures**: Must verify parameter types and names exactly
+- **Optional Parameters**: Correct syntax patterns for optional types
+- **Actor Isolation**: Proper instantiation context for `@MainActor` classes
+
+#### Enhanced Critical Concurrency Patterns
+- **API Verification**: Always verify enum cases, method signatures, and property types before use
+- **Type Safety**: Check optional types and use safe unwrapping patterns
+- **Compilation Early & Often**: Build tests immediately after changes to catch API mismatches
+
+#### Rationale
+The repeated pattern of API compatibility errors (wrong enum cases, incorrect method calls, type mismatches) indicated need for stronger preventive guidance. These issues were causing build failures that could be avoided with systematic API verification before writing test code.
+
+#### Impact
+- Establishes clear process for API verification before coding
+- Provides specific examples of common mistakes to avoid
+- Emphasizes early compilation to catch issues quickly
+- Should prevent future API compatibility errors through improved development process
+
+### Final Status (2025-08-31 00:40:00 ET)
 - ✅ All UI test files maintain proper Swift 6 concurrency patterns
 - ✅ All unit test files use correct type handling for optional properties
 - ✅ All method signatures match actual API contracts
