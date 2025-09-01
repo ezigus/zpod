@@ -65,6 +65,26 @@ Transform the existing issue-specific test structure into a maintainable, specif
 - All test files validated for Swift 6 concurrency compliance
 - No additional actor isolation or data race issues found
 - Testing framework now fully compatible with Swift 6.1.2 strict concurrency
+
+#### Swift Compilation Issues & Resolutions
+
+**Complex Expression Type-Checking Issue Fixed: 2025-08-30 21:00 EST**
+- **Issue**: Swift compiler error "The compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions" in ContentView.swift
+- **Root Cause**: Complex closure expression with immediate execution pattern `item.title ?? { switch... }()` in TabBarIdentifierSetter was too complex for Swift's type checker
+- **Resolution**: Broke complex expression into simpler sub-expressions:
+  - Separated switch statement into a `defaultTitle` variable
+  - Split optional property access into individual variables (`currentLabel`, `currentHint`)
+  - Eliminated closure-based conditional assignment pattern
+
+**Pattern Applied:**
+- Replace `let value = optional ?? { complex_expression }()` with separate variable declarations
+- Use intermediate variables for complex conditional logic
+- Avoid nested closure expressions in property assignments
+
+**Build Status:**
+- ✅ Swift syntax validation passes
+- ✅ Complex expression compilation errors resolved
+- ✅ All accessibility functionality maintained
    - `Issue07FolderTagTests.swift` → `ContentOrganizationTests.swift`
    - `PodcastManagerCRUDTests.swift` → `PodcastManagementTests.swift`
    - Added `TestSummary.md` documentation

@@ -50,18 +50,22 @@ private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
                 let items = tabBar.items ?? []
                 for (index, item) in items.enumerated() {
                     // Derive a reasonable title if missing
-                    let currentTitle = item.title ?? {
-                        switch index {
-                        case 0: return "Library"
-                        case 1: return "Discover"
-                        case 2: return "Playlists"
-                        case 3: return "Player"
-                        default: return "Tab \(index + 1)"
-                        }
-                    }()
+                    let defaultTitle: String
+                    switch index {
+                    case 0: defaultTitle = "Library"
+                    case 1: defaultTitle = "Discover"
+                    case 2: defaultTitle = "Playlists"
+                    case 3: defaultTitle = "Player"
+                    default: defaultTitle = "Tab \(index + 1)"
+                    }
+                    
+                    let currentTitle = item.title ?? defaultTitle
+                    let currentLabel = item.accessibilityLabel ?? ""
+                    let currentHint = item.accessibilityHint ?? ""
+                    
                     if (item.title ?? "").isEmpty { item.title = currentTitle }
-                    if (item.accessibilityLabel ?? "").isEmpty { item.accessibilityLabel = currentTitle }
-                    if (item.accessibilityHint ?? "").isEmpty { item.accessibilityHint = "Opens \(currentTitle)" }
+                    if currentLabel.isEmpty { item.accessibilityLabel = currentTitle }
+                    if currentHint.isEmpty { item.accessibilityHint = "Opens \(currentTitle)" }
                     // Mark as button for assistive technologies
                     item.accessibilityTraits.insert(.button)
                 }
