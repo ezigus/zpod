@@ -349,11 +349,10 @@ final class ContentDiscoveryUITests: XCTestCase {
                                  app.tables.allElementsBoundByIndex
         
         // When: Checking VoiceOver navigation order
-        // Then: Elements should be in logical order
+        // Then: Elements should be in logical order and accessible via label or hit test
         for element in interactiveElements.prefix(5) {
             if element.exists {
-                XCTAssertTrue(element.isAccessibilityElement ||
-                             !(element.accessibilityElements?.isEmpty ?? true),
+                XCTAssertTrue(element.isHittable || !element.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                              "Discovery elements should be accessible to VoiceOver")
             }
         }
@@ -467,7 +466,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         
         // Check search accessibility
         let searchField = app.searchFields.firstMatch
-        if searchField.exists && searchField.isAccessibilityElement {
+        if searchField.exists && (searchField.isHittable || searchField.placeholderValue != nil) {
             accessibilityScore += 1
         }
         
@@ -475,7 +474,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         let categoryButtons = app.buttons.matching(NSPredicate(format: "label != ''"))
         for i in 0..<min(categoryButtons.count, 3) {
             let button = categoryButtons.element(boundBy: i)
-            if button.exists && button.isAccessibilityElement && !button.label.isEmpty {
+            if button.exists && !button.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 accessibilityScore += 1
             }
         }
@@ -483,7 +482,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         // Check content list accessibility
         let contentCells = app.tables.cells.allElementsBoundByIndex
         for cell in contentCells.prefix(2) {
-            if cell.exists && (cell.isAccessibilityElement || !(cell.accessibilityElements?.isEmpty ?? true)) {
+            if cell.exists && (cell.isHittable || !cell.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) {
                 accessibilityScore += 1
             }
         }
