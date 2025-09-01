@@ -41,9 +41,29 @@ private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
         DispatchQueue.main.async {
             guard let root = uiViewController.view.window?.rootViewController else { return }
-            if let tabBar = findTabBarController(from: root)?.tabBar {
+            if let tabBarController = findTabBarController(from: root) {
+                let tabBar = tabBarController.tabBar
                 if tabBar.accessibilityIdentifier != "Main Tab Bar" {
                     tabBar.accessibilityIdentifier = "Main Tab Bar"
+                }
+                // Ensure each tab bar item is properly accessible
+                let items = tabBar.items ?? []
+                for (index, item) in items.enumerated() {
+                    // Derive a reasonable title if missing
+                    let currentTitle = item.title ?? {
+                        switch index {
+                        case 0: return "Library"
+                        case 1: return "Discover"
+                        case 2: return "Playlists"
+                        case 3: return "Player"
+                        default: return "Tab \(index + 1)"
+                        }
+                    }()
+                    if (item.title ?? "").isEmpty { item.title = currentTitle }
+                    if (item.accessibilityLabel ?? "").isEmpty { item.accessibilityLabel = currentTitle }
+                    if (item.accessibilityHint ?? "").isEmpty { item.accessibilityHint = "Opens \(currentTitle)" }
+                    // Mark as button for assistive technologies
+                    item.accessibilityTraits.insert(.button)
                 }
             }
         }
@@ -70,30 +90,51 @@ public struct ContentView: View {
         TabView {
             // Library Tab (existing functionality)
             LibraryView()
+                // Mark the primary content area as an accessibility element
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("Main Content")
+                .accessibilityLabel("Main Content")
+                .accessibilityHint("Primary content area")
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
+                        .accessibilityLabel("Library")
+                        .accessibilityHint("Opens Library")
                 }
             
             // Discover Tab (placeholder UI)
             DiscoverView()
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("Main Content")
+                .accessibilityLabel("Main Content")
+                .accessibilityHint("Primary content area")
                 .tabItem {
                     Label("Discover", systemImage: "safari")
+                        .accessibilityLabel("Discover")
+                        .accessibilityHint("Opens Discover")
                 }
             
             // Playlists Tab (placeholder UI)
             PlaylistEditView()
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("Main Content")
+                .accessibilityLabel("Main Content")
+                .accessibilityHint("Primary content area")
                 .tabItem {
                     Label("Playlists", systemImage: "music.note.list")
+                        .accessibilityLabel("Playlists")
+                        .accessibilityHint("Opens Playlists")
                 }
             
             // Player Tab (placeholder - shows sample episode)
             PlayerTabView()
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("Main Content")
+                .accessibilityLabel("Main Content")
+                .accessibilityHint("Primary content area")
                 .tabItem {
                     Label("Player", systemImage: "play.circle")
+                        .accessibilityLabel("Player")
+                        .accessibilityHint("Opens Player")
                 }
         }
         // Provide an identifier in case XCUITest reads from SwiftUI hierarchy
@@ -110,15 +151,25 @@ struct LibraryView: View {
     
     var body: some View {
         NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+            VStack(spacing: 0) {
+                // Add an accessible heading element to satisfy header trait checks
+                Text("Library")
+                    .font(.largeTitle).bold()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("Heading Library")
+                
+                List {
+                    ForEach(items) { item in
+                        NavigationLink {
+                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        } label: {
+                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        }
                     }
+                    .onDelete(perform: deleteItems)
                 }
-                .onDelete(perform: deleteItems)
             }
 #if os(macOS)
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
@@ -174,7 +225,7 @@ struct PlayerTabView: View {
                             .scaledToFit()
                             .frame(width: 160, height: 160)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .accessibilityElement()
+                            .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("Episode Artwork")
                             .accessibilityLabel("Episode Artwork")
                             .accessibilityHint("Artwork for the current episode")
@@ -182,41 +233,73 @@ struct PlayerTabView: View {
                         // Titles
                         Text("Sample Episode Title")
                             .font(.headline)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("Episode Title")
                             .accessibilityLabel("Episode Title")
+                            // Declare as a header to ensure at least one accessible heading exists
+                            .accessibilityAddTraits(.isHeader)
                         Text("Sample Podcast Title")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("Podcast Title")
                             .accessibilityLabel("Podcast Title")
                         
                         // Progress slider
                         Slider(value: $progress)
+                            .accessibilityElement(children: .ignore)
                             .accessibilityIdentifier("Progress Slider")
                             .accessibilityLabel("Progress Slider")
                             .accessibilityHint("Adjust playback position")
                             .accessibilityValue(Text("\(Int(progress * 100)) percent"))
+                            .accessibilityAddTraits(.adjustable)
                         
                         // Playback controls
                         HStack(spacing: 24) {
-                            Button("Skip Backward") {
+                            Button(action: {
                                 // no-op for tests
+                            }) {
+                                Text("Skip Backward")
+                                    .accessibilityHidden(true)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier("Skip Backward")
                             .accessibilityLabel("Skip Backward")
                             .accessibilityHint("Skips backward")
+                            .accessibilityAddTraits(.isButton)
+                            .frame(minWidth: 80, minHeight: 56)
+                            .contentShape(Rectangle())
                             
-                            Button(isPlaying ? "Pause" : "Play") {
+                            Button(action: {
                                 isPlaying.toggle()
+                            }) {
+                                Text(isPlaying ? "Pause" : "Play")
+                                    .accessibilityHidden(true)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier(isPlaying ? "Pause" : "Play")
                             .accessibilityLabel(isPlaying ? "Pause" : "Play")
                             .accessibilityHint("Toggles playback")
+                            .accessibilityAddTraits(.isButton)
+                            .frame(minWidth: 120, minHeight: 56)
+                            .contentShape(Rectangle())
                             
-                            Button("Skip Forward") {
+                            Button(action: {
                                 // no-op for tests
+                            }) {
+                                Text("Skip Forward")
+                                    .accessibilityHidden(true)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier("Skip Forward")
                             .accessibilityLabel("Skip Forward")
                             .accessibilityHint("Skips forward")
+                            .accessibilityAddTraits(.isButton)
+                            .frame(minWidth: 80, minHeight: 56)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                         .padding(.vertical, 8)
                     }
                     .padding()

@@ -475,3 +475,30 @@ The specification-based testing framework continues to evolve with proper Swift 
 ### Validation
 - Local syntax/concurrency checks: PASS (dev-build-enhanced.sh test)
 - Expected effect: Acceptance tests that update metadata after subscribing no longer lose subscription status; dateAdded remains stable.
+
+### Accessibility Fixes for ContentDiscoveryUITests
+**Date: 2025-08-31 19:30 ET**
+
+#### Context
+Two UI tests failed in ContentDiscoveryUITests:
+- testAcceptanceCriteria_AccessibleDiscovery: Accessibility score too low
+- testVoiceOverNavigationInDiscovery: First interactive elements not accessible
+
+#### Changes Implemented
+- Updated Discover placeholder UI in `zpod/ContentViewBridge.swift`:
+  - Ensured search field is always present with `.searchable(..., displayMode: .always)` and prompt "Search".
+  - Marked toolbar actions (Browse, Sort, Filter, Voice) as explicit accessibility elements with `.accessibilityAddTraits(.isButton)` and labels/hints.
+  - Added category buttons for Technology/Entertainment/News with high accessibility sort priority, identifiers, and clear labels/hints.
+  - Made the "Search Results" List explicitly identifiable and accessible with `.accessibilityIdentifier("Search Results")`, `.accessibilityElement(children: .contain)`, and per-row identifiers like `SearchResult_<item>`.
+  - Added accessibility sort priorities to establish a logical VoiceOver order (categories first, then rows, then toolbar).
+
+#### Rationale
+- Tests query `app.searchFields.firstMatch`, `app.buttons` (first few), and `app.tables["Search Results"]` and also verify VoiceOver accessibility. The adjustments guarantee these elements exist and are reported as accessible.
+
+#### Validation
+- Ran dev enhanced script: syntax + concurrency checks PASS for all Swift files, including ContentViewBridge.swift.
+- Local reasoning confirms at least three accessible elements are present on Discover: search field, multiple buttons (tab bar/category/toolbar), and at least two table cells.
+
+#### Next Steps
+- Run UI tests on macOS/Xcode to confirm both failing tests pass.
+- If needed, further tweak accessibility ordering or identifiers to match test expectations.

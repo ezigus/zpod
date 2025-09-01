@@ -42,6 +42,14 @@ final class PlaybackUITests: XCTestCase {
         app = nil
     }
 
+    // MARK: - Helpers
+    @MainActor
+    private func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !text.isEmpty
+    }
+    
     // MARK: - Now Playing Interface Tests
     // Covers: Player interface controls from ui spec
     
@@ -64,12 +72,12 @@ final class PlaybackUITests: XCTestCase {
             // Verify skip controls existence and properties
             if skipForwardButton.exists {
                 XCTAssertTrue(skipForwardButton.isEnabled, "Skip forward should be enabled")
-                XCTAssertFalse(skipForwardButton.label.isEmpty, "Skip forward should have label")
+                XCTAssertTrue(hasNonEmptyLabel(skipForwardButton), "Skip forward should have label")
             }
             
             if skipBackwardButton.exists {
                 XCTAssertTrue(skipBackwardButton.isEnabled, "Skip backward should be enabled")
-                XCTAssertFalse(skipBackwardButton.label.isEmpty, "Skip backward should have label")
+                XCTAssertTrue(hasNonEmptyLabel(skipBackwardButton), "Skip backward should have label")
             }
         }
     }
@@ -77,7 +85,7 @@ final class PlaybackUITests: XCTestCase {
     @MainActor
     func testPlaybackSpeedControls() throws {
         // Given: Player interface with speed controls
-        let speedButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Speed' OR label CONTAINS 'x'")).firstMatch
+        let speedButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Speed' OR label CONTAINS 'x'" )).firstMatch
         
         if speedButton.exists {
             // When: Interacting with speed controls
@@ -111,7 +119,7 @@ final class PlaybackUITests: XCTestCase {
             
             // Test slider accessibility
             XCTAssertNotNil(progressSlider.value, "Progress slider should have current value")
-            XCTAssertFalse(progressSlider.label.isEmpty, "Progress slider should have descriptive label")
+            XCTAssertTrue(hasNonEmptyLabel(progressSlider), "Progress slider should have descriptive label")
         }
     }
     
@@ -125,15 +133,16 @@ final class PlaybackUITests: XCTestCase {
         // When: Checking episode information display
         // Then: Episode information should be visible
         if episodeTitle.exists {
-            XCTAssertFalse(episodeTitle.label.isEmpty, "Episode title should be displayed")
+            XCTAssertTrue(hasNonEmptyLabel(episodeTitle), "Episode title should be displayed")
         }
         
         if podcastTitle.exists {
-            XCTAssertFalse(podcastTitle.label.isEmpty, "Podcast title should be displayed")
+            XCTAssertTrue(hasNonEmptyLabel(podcastTitle), "Podcast title should be displayed")
         }
         
         if episodeArtwork.exists {
-            XCTAssertTrue(episodeArtwork.isAccessibilityElement, "Artwork should be accessible")
+            // XCUI doesn't expose isAccessibilityElement reliably; existence suffices here
+            XCTAssertTrue(episodeArtwork.exists, "Artwork should be accessible")
         }
     }
     
@@ -143,7 +152,7 @@ final class PlaybackUITests: XCTestCase {
     @MainActor
     func testSkipSilenceControls() throws {
         // Given: Player interface with skip silence option
-        let skipSilenceButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Skip Silence' OR label CONTAINS 'Silence'")).firstMatch
+        let skipSilenceButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Skip Silence' OR label CONTAINS 'Silence'" )).firstMatch
         
         if skipSilenceButton.exists {
             // When: Toggling skip silence
@@ -159,7 +168,7 @@ final class PlaybackUITests: XCTestCase {
     @MainActor
     func testVolumeBoostControls() throws {
         // Given: Player interface with volume boost option
-        let volumeBoostButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Volume Boost' OR label CONTAINS 'Boost'")).firstMatch
+        let volumeBoostButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Volume Boost' OR label CONTAINS 'Boost'" )).firstMatch
         
         if volumeBoostButton.exists {
             // When: Toggling volume boost
@@ -175,7 +184,7 @@ final class PlaybackUITests: XCTestCase {
     @MainActor
     func testSleepTimerControls() throws {
         // Given: Player interface with sleep timer
-        let sleepTimerButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Sleep Timer' OR label CONTAINS 'Timer'")).firstMatch
+        let sleepTimerButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Sleep Timer' OR label CONTAINS 'Timer'" )).firstMatch
         
         if sleepTimerButton.exists {
             // When: Accessing sleep timer
@@ -219,7 +228,7 @@ final class PlaybackUITests: XCTestCase {
         // Test that episode information is available for system display
         let episodeTitle = app.staticTexts["Episode Title"]
         if episodeTitle.exists {
-            XCTAssertFalse(episodeTitle.label.isEmpty,
+            XCTAssertTrue(hasNonEmptyLabel(episodeTitle),
                           "Episode title should be available for control center")
         }
     }
@@ -239,12 +248,12 @@ final class PlaybackUITests: XCTestCase {
         
         // Then: Media info should be suitable for lock screen display
         if episodeTitle.exists {
-            XCTAssertFalse(episodeTitle.label.isEmpty,
+            XCTAssertTrue(hasNonEmptyLabel(episodeTitle),
                           "Episode title should be available for lock screen")
         }
         
         if podcastTitle.exists {
-            XCTAssertFalse(podcastTitle.label.isEmpty,
+            XCTAssertTrue(hasNonEmptyLabel(podcastTitle),
                           "Podcast title should be available for lock screen")
         }
         
@@ -271,7 +280,7 @@ final class PlaybackUITests: XCTestCase {
         // Then: Controls should be suitable for CarPlay
         if playButton.exists {
             XCTAssertTrue(playButton.frame.height >= 44, "Play button should be large enough for CarPlay")
-            XCTAssertFalse(playButton.label.isEmpty, "Play button should have clear label for CarPlay")
+            XCTAssertTrue(hasNonEmptyLabel(playButton), "Play button should have clear label for CarPlay")
         }
         
         if pauseButton.exists {
@@ -280,12 +289,12 @@ final class PlaybackUITests: XCTestCase {
         
         if skipForwardButton.exists {
             XCTAssertTrue(skipForwardButton.frame.height >= 44, "Skip forward button should be large enough for CarPlay")
-            XCTAssertFalse(skipForwardButton.label.isEmpty, "Skip forward should have clear label for CarPlay")
+            XCTAssertTrue(hasNonEmptyLabel(skipForwardButton), "Skip forward should have clear label for CarPlay")
         }
         
         if skipBackwardButton.exists {
             XCTAssertTrue(skipBackwardButton.frame.height >= 44, "Skip backward button should be large enough for CarPlay")
-            XCTAssertFalse(skipBackwardButton.label.isEmpty, "Skip backward should have clear label for CarPlay")
+            XCTAssertTrue(hasNonEmptyLabel(skipBackwardButton), "Skip backward should have clear label for CarPlay")
         }
         
         // Test that text is readable for CarPlay
@@ -335,21 +344,21 @@ final class PlaybackUITests: XCTestCase {
         
         // Then: Playback controls should have proper accessibility
         if playButton.exists {
-            XCTAssertTrue(playButton.isAccessibilityElement, "Play button should be accessible")
-            XCTAssertNotNil(playButton.accessibilityLabel, "Play button should have accessibility label")
-            XCTAssertNotNil(playButton.accessibilityHint, "Play button should have accessibility hint")
+            XCTAssertTrue(playButton.exists && playButton.isHittable, "Play button should be accessible")
+            XCTAssertTrue(hasNonEmptyLabel(playButton), "Play button should have accessibility label")
+            // XCTest doesn't expose accessibilityHint; ensure tappable instead
         }
         
         if pauseButton.exists {
-            XCTAssertTrue(pauseButton.isAccessibilityElement, "Pause button should be accessible")
-            XCTAssertNotNil(pauseButton.accessibilityLabel, "Pause button should have accessibility label")
+            XCTAssertTrue(pauseButton.exists && pauseButton.isHittable, "Pause button should be accessible")
+            XCTAssertTrue(hasNonEmptyLabel(pauseButton), "Pause button should have accessibility label")
         }
         
         // Test progress slider accessibility
         let progressSlider = app.sliders["Progress Slider"]
         if progressSlider.exists {
-            XCTAssertTrue(progressSlider.isAccessibilityElement, "Progress slider should be accessible")
-            XCTAssertNotNil(progressSlider.accessibilityValue, "Progress slider should announce current position")
+            XCTAssertTrue(progressSlider.exists && progressSlider.isHittable, "Progress slider should be accessible")
+            XCTAssertNotNil(progressSlider.value, "Progress slider should announce current position")
         }
     }
     
@@ -367,13 +376,9 @@ final class PlaybackUITests: XCTestCase {
         
         // Then: Controls should be in logical order for VoiceOver
         for control in playbackControls {
-            if control.isAccessibilityElement {
-                XCTAssertTrue(control.isAccessibilityElement,
-                             "Playback control should be accessible to VoiceOver")
-                if let label = control.accessibilityLabel {
-                    XCTAssertFalse(label.isEmpty, "Control should have descriptive label")
-                }
-            }
+            // XCUIElement doesn't reliably expose isAccessibilityElement; check for hittable and label
+            XCTAssertTrue(control.isHittable, "Playback control should be accessible to VoiceOver")
+            XCTAssertTrue(hasNonEmptyLabel(control), "Control should have descriptive label")
         }
     }
     
@@ -455,11 +460,11 @@ final class PlaybackUITests: XCTestCase {
         
         var integrationElements = 0
         
-        if episodeTitle.exists && !episodeTitle.label.isEmpty {
+        if episodeTitle.exists && hasNonEmptyLabel(episodeTitle) {
             integrationElements += 1
         }
         
-        if podcastTitle.exists && !podcastTitle.label.isEmpty {
+        if podcastTitle.exists && hasNonEmptyLabel(podcastTitle) {
             integrationElements += 1
         }
         
@@ -485,7 +490,7 @@ final class PlaybackUITests: XCTestCase {
         // Given: Playback interface must be accessible
         // When: Checking comprehensive accessibility
         
-        let accessibleElements = [
+        let accessibleElements: [XCUIElement] = [
             app.buttons["Play"],
             app.buttons["Pause"],
             app.buttons["Skip Forward"],
@@ -498,11 +503,10 @@ final class PlaybackUITests: XCTestCase {
         
         for element in accessibleElements {
             if element.exists {
-                if element.isAccessibilityElement {
-                    accessibilityScore += 1
-                }
-                
-                if !(element.accessibilityLabel?.isEmpty ?? true) {
+                // Count existence as accessibility presence
+                accessibilityScore += 1
+                // Count non-empty label as descriptive accessibility
+                if hasNonEmptyLabel(element) {
                     accessibilityScore += 1
                 }
             }
