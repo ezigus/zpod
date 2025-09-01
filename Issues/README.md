@@ -35,9 +35,28 @@ xx.y-brief-description.md
 - **Estimated Effort**: Complexity and time estimation
 - **Success Metrics**: How completion will be measured
 
-## Current Issues
+## Current Issues Overview
+
+### Total Issue Count: 30 Issues
+- **UI Implementation Issues**: 25 (01.1-25.1)
+- **Testing Framework Issues**: 4 (12.2, 12.4-12.6)
+- **Backend/Infrastructure Issues**: 1 (estimated additional backend needs)
+
+### Priority Distribution
+- **High Priority**: 5 issues (core user flows)
+- **Medium Priority**: 15 issues (essential features and platform integration)
+- **Low Priority**: 5 issues (enhancement and specialized features)
+
+### Implementation Phases
+1. **Phase 1 - Core Functionality**: Issues 01.1-05.1 (Subscription, Episodes, Player, Downloads, Settings)
+2. **Phase 2 - Content Management**: Issues 06.1-09.1 (Playlists, Organization, Search, Discovery)
+3. **Phase 3 - Advanced Features**: Issues 10.1-15.1 (Statistics, Bookmarks, Sharing, Sleep Timer, Chapters, Accessibility)
+4. **Phase 4 - Platform Integration**: Issues 16.1-20.1 (Apple Watch, CarPlay, Widgets, Notifications, Themes)
+5. **Phase 5 - Extended Content**: Issues 21.1-25.1 (Live Radio, Local Files, Audio Effects, Export, Parental Controls)
 
 ### UI Implementation Issues (xx.1 series)
+
+#### Core User Interface Issues (01.1-10.1)
 - **01.1**: Subscription Management UI 🔄 Planned
 - **02.1**: Episode List Management UI 🔄 Planned
 - **03.1**: Player Interface UI 🔄 Planned
@@ -48,6 +67,8 @@ xx.y-brief-description.md
 - **08.1**: Advanced Search Interface UI 🔄 Planned
 - **09.1**: Discovery and Browse Interface UI 🔄 Planned
 - **10.1**: Statistics and History UI 🔄 Planned
+
+#### Advanced Feature Issues (11.1-20.1)
 - **11.1**: Bookmarks and Notes UI 🔄 Planned
 - **12.1**: Sharing and Social Features UI 🔄 Planned
 - **13.1**: Sleep Timer and Smart Controls UI 🔄 Planned
@@ -58,6 +79,13 @@ xx.y-brief-description.md
 - **18.1**: Widgets and Home Screen Integration UI 🔄 Planned
 - **19.1**: Notification Management UI 🔄 Planned
 - **20.1**: Theme and Appearance Customization UI 🔄 Planned
+
+#### Extended Content and Feature Issues (21.1-25.1)
+- **21.1**: Live Radio and News Feeds UI 🔄 Planned
+- **22.1**: Local Audio Files and Virtual Podcasts UI 🔄 Planned
+- **23.1**: Advanced Audio Effects and Equalizer UI 🔄 Planned
+- **24.1**: Comprehensive Data Export and Backup UI 🔄 Planned
+- **25.1**: Parental Controls and Content Filtering UI 🔄 Planned
 
 ### Testing Framework Issues (12.x series)
 - **12.2**: Testing Framework Refactoring ✅ Completed
