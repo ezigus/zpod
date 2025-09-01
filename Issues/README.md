@@ -37,11 +37,33 @@ xx.y-brief-description.md
 
 ## Current Issues
 
+### UI Implementation Issues (xx.1 series)
+- **01.1**: Subscription Management UI 🔄 Planned
+- **02.1**: Episode List Management UI 🔄 Planned
+- **03.1**: Player Interface UI 🔄 Planned
+- **04.1**: Download Management UI 🔄 Planned
+- **05.1**: Settings Interface UI 🔄 Planned
+- **06.1**: Playlist Interface UI 🔄 Planned
+- **07.1**: Content Organization UI 🔄 Planned
+- **08.1**: Advanced Search Interface UI 🔄 Planned
+- **09.1**: Discovery and Browse Interface UI 🔄 Planned
+- **10.1**: Statistics and History UI 🔄 Planned
+- **11.1**: Bookmarks and Notes UI 🔄 Planned
+- **12.1**: Sharing and Social Features UI 🔄 Planned
+- **13.1**: Sleep Timer and Smart Controls UI 🔄 Planned
+- **14.1**: Chapter Navigation Interface UI 🔄 Planned
+- **15.1**: Accessibility and Voice Control UI 🔄 Planned
+- **16.1**: Apple Watch and Wearable UI 🔄 Planned
+- **17.1**: CarPlay Interface UI 🔄 Planned
+- **18.1**: Widgets and Home Screen Integration UI 🔄 Planned
+- **19.1**: Notification Management UI 🔄 Planned
+- **20.1**: Theme and Appearance Customization UI 🔄 Planned
+
 ### Testing Framework Issues (12.x series)
 - **12.2**: Testing Framework Refactoring ✅ Completed
-- **12.3**: Performance Testing Patterns 🔄 Planned
-- **12.4**: Automated Accessibility Testing 🔄 Planned  
-- **12.5**: Cross-Platform Testing Support 🔄 Planned
+- **12.4**: Performance Testing Patterns 🔄 Planned
+- **12.5**: Automated Accessibility Testing 🔄 Planned  
+- **12.6**: Cross-Platform Testing Support 🔄 Planned
 
 ## TODO Tag Integration
 
