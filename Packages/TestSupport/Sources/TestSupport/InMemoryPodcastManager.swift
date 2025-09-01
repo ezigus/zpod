@@ -3,6 +3,10 @@ import CoreModels
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
+/// 
+/// @unchecked Sendable: This test-only implementation uses mutable state but is designed
+/// for single-threaded test scenarios where thread safety is not required. The @unchecked
+/// annotation acknowledges this intentional design limitation for testing purposes.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
 
@@ -21,8 +25,39 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   }
 
   public func update(_ podcast: Podcast) {
-    guard storage[podcast.id] != nil else { return }
-    storage[podcast.id] = podcast
+    guard let existing = storage[podcast.id] else { return }
+    // Determine if the only intended change is subscription status
+    let sameExceptSubscription = (
+      existing.title == podcast.title &&
+      existing.author == podcast.author &&
+      existing.description == podcast.description &&
+      existing.artworkURL == podcast.artworkURL &&
+      existing.feedURL == podcast.feedURL &&
+      existing.categories == podcast.categories &&
+      existing.episodes == podcast.episodes &&
+      existing.dateAdded == podcast.dateAdded &&
+      existing.folderId == podcast.folderId &&
+      existing.tagIds == podcast.tagIds
+    )
+
+    let resolvedIsSubscribed = sameExceptSubscription ? podcast.isSubscribed : existing.isSubscribed
+
+    // Preserve original added date; metadata updates should not alter it
+    let merged = Podcast(
+      id: podcast.id,
+      title: podcast.title,
+      author: podcast.author,
+      description: podcast.description,
+      artworkURL: podcast.artworkURL,
+      feedURL: podcast.feedURL,
+      categories: podcast.categories,
+      episodes: podcast.episodes,
+      isSubscribed: resolvedIsSubscribed,
+      dateAdded: existing.dateAdded,
+      folderId: podcast.folderId,
+      tagIds: podcast.tagIds
+    )
+    storage[podcast.id] = merged
   }
 
   public func remove(id: String) { storage.removeValue(forKey: id) }

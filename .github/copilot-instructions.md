@@ -50,12 +50,30 @@ For each implementation step, follow this process explicitly:
 - Use `nonisolated` for methods that don't need actor isolation
 - Handle concurrency warnings and make explicit isolation decisions
 
+#### Critical Concurrency Patterns
+- **Actor Isolation Override Rules**: Never change actor isolation when overriding methods (e.g., `XCTestCase.setUpWithError()` must remain nonisolated)
+- **Closure Capture Safety**: Avoid capturing `self` in closures that cross actor boundaries; use local variables when possible
+- **Main Thread UI Operations**: Use `DispatchQueue.main.sync` for synchronous UI operations in nonisolated contexts
+- **XCUIApplication Initialization**: Use Task-based pattern for `@MainActor` isolated XCUIApplication operations in nonisolated setup methods
+- **Test Double Isolation**: Mark test mock objects with `@unchecked Sendable` and use proper locking for thread safety
+- **Cross-Actor Property Access**: Use `nonisolated(unsafe)` sparingly and only for properties that need cross-context access
+- **API Verification**: Always verify enum cases, method signatures, and property types before use - DO NOT assume API existence
+- **Type Safety**: Check optional types and use safe unwrapping patterns (`?.` operator, `?? default`)
+- **Compilation Early & Often**: Build tests immediately after changes to catch API mismatches before they accumulate
+
 ### Actor Usage
 - Use actors for mutable shared state that needs thread-safe access
 - Prefer `@MainActor` for view models and UI controllers
 - Use global actors sparingly and only when appropriate
 - Design actor interfaces to minimize cross-actor calls
 - Use `nonisolated` for computed properties that don't access mutable state
+
+#### UI Testing Actor Patterns
+- **Setup Methods**: Keep `setUpWithError()` and `tearDownWithError()` nonisolated to match `XCTestCase` base class
+- **App Instance Management**: Use local variables in setup, then assign to `nonisolated(unsafe)` properties to avoid capture issues
+- **XCUIApplication Creation**: Use Task-based pattern with semaphore synchronization for `@MainActor` isolated operations in nonisolated contexts
+- **Individual Test Methods**: Mark with `@MainActor` for safe UI element access
+- **Synchronous UI Setup**: Use Task pattern for UI operations when `DispatchQueue.main.sync` causes actor isolation conflicts
 
 ### Error Handling
 - Use typed throws (`throws(SpecificError)`) when possible for better error handling
@@ -82,44 +100,167 @@ For each implementation step, follow this process explicitly:
 
 ## Testing Best Practices
 
-### Test Structure and Organization
-- Use descriptive test method names: `testAcceptanceCriteria1_CascadingResolution()`
+### Main Application Testing Framework
+
+#### Test Organization and Structure
+- **Specification-Based Testing**: Organize tests around specifications rather than development issues
+- Map each test file to specific sections in `spec/` directory
+- Use descriptive test method names that reflect specification scenarios: `testAcceptanceCriteria_CompleteNavigationFlow()`
 - Organize tests with clear Given/When/Then structure using comments
 - Group related tests using `// MARK:` comments for better navigation
-- Use separate UserDefaults suites for each test to ensure isolation
+- Include comprehensive documentation of what each test validates
 
-### Async Testing Patterns
+#### Main App Test Categories
+
+**Unit Tests (`zpodTests/`)**
+- Test individual components and their interactions within the main application
+- Focus on business logic and component behavior
+- Use isolated test data and mock services
+- Examples: `PlaybackControlTests`, `PlaylistManagementTests`, `ContentOrganizationTests`, `PodcastManagementTests`
+
+**UI Tests (`zpodUITests/`)**
+- Test user interface behavior and complete user workflows
+- Focus on accessibility compliance and platform-specific features
+- Test navigation flows, user interactions, and visual feedback
+- Examples: `CoreUINavigationTests`, `PlaybackUITests`, `ContentDiscoveryUITests`
+
+**Integration Tests (`IntegrationTests/`)**
+- Test end-to-end workflows and cross-component interactions
+- Focus on data consistency and component integration
+- Test platform integrations (CarPlay, Apple Watch, etc.)
+- Examples: `CoreWorkflowIntegrationTests`, `PlatformIntegrationTests`
+
+#### Test Data Management
+- Use separate UserDefaults suites for each test to ensure isolation
+- Create fresh instances for each test to avoid state pollution
+- Use consistent test fixtures and mock data across related tests
+- Clean up test data after each test run
+
+#### Async Testing Patterns
 - Use `async` test methods for testing async code: `func testExample() async`
 - Use `await` for all async operations in tests
 - Set up and tear down async resources properly in `setUp()` and `tearDown()`
+- Handle concurrency with proper isolation and synchronization
 
-### Combine Testing
+#### Swift 6 Concurrency in Testing
+- **UI Test Setup Pattern**: Use local variables with `DispatchQueue.main.sync` to avoid capturing `self` in closures
+- **Test Double Concurrency**: Mark mock objects with `@unchecked Sendable` and implement proper thread safety with locks
+- **Actor Isolation in Tests**: Individual test methods should use `@MainActor` for UI access, setup/teardown must remain nonisolated
+- **Cross-Context Property Access**: Use `nonisolated(unsafe)` for test properties that need access from different actor contexts
+- **Protocol Conformance**: Ensure test doubles properly implement protocol method signatures for Swift 6 compliance
+
+#### API Compatibility Verification
+**CRITICAL: Always verify API compatibility before using classes/methods in tests**
+- **Enum Values**: Check actual enum definitions - common mistakes: `.inProgress` (doesn't exist) vs `.downloading` (exists)
+- **Method Signatures**: Verify parameter types and names exactly match the actual implementation
+- **Optional Parameters**: Use correct syntax for optional parameters (e.g., `String?` vs `String`)
+- **Actor Isolation**: Ensure `@MainActor` classes are instantiated in proper actor context
+- **Property Access**: Verify property names and types match actual implementation before use
+
+**Before writing test code:**
+1. Check the actual model/manager implementation files
+2. Verify enum cases, method signatures, and property types
+3. Test compilation early and frequently to catch API mismatches
+4. When errors occur, fix ALL similar patterns throughout the codebase, not just the immediate error
+
+#### Recommended UI Test Setup Pattern
+```swift
+final class ExampleUITests: XCTestCase {
+    nonisolated(unsafe) private var app: XCUIApplication!
+    
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        
+        // Create app instance and perform UI operations using Task for main actor access
+        let appInstance: XCUIApplication = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var appResult: XCUIApplication!
+            
+            Task { @MainActor in
+                appResult = XCUIApplication()
+                appResult.launch()
+                // ... UI setup operations using appResult
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return appResult
+        }()
+        
+        // Assign to instance property after main thread operations complete
+        app = appInstance
+    }
+    
+    @MainActor
+    func testUIBehavior() throws {
+        // Test methods use @MainActor for safe UI access
+        let button = app.buttons["Example"]
+        button.tap()
+    }
+}
+```
+
+#### Combine Testing
 - Use `Set<AnyCancellable>` to manage test subscriptions
 - Store publishers in instance variables for proper lifecycle management
 - Always call `store(in: &cancellables)` to prevent memory leaks
 - Test both published properties and custom publishers
 
-### Test Data Management
-- Use unique UserDefaults suite names per test: `UserDefaults(suiteName: "test-criteria-1")`
-- Always clean up test data: `userDefaults.removePersistentDomain(forName: "test-criteria-1")`
-- Create fresh instances for each test to avoid state pollution
+#### Mock Objects and Test Doubles
+- Use mock objects when verifying behavior involving external dependencies
+- Use mocks when testing interactions that cross boundaries between Models, Views, ViewModels, and Services
+- Mocks should be protocol-based and injected via dependency injection where possible
+- Create reusable mock implementations in test support files
 
-### Validation Testing
+#### UI Testing Best Practices
+- Test accessibility compliance with VoiceOver labels and navigation
+- Verify platform-specific adaptations (iPhone, iPad, CarPlay)
+- Test error states and edge cases in user interfaces
+- Include performance validation for UI responsiveness
+- Test dark mode and appearance adaptations
+
+#### Integration Testing Best Practices
+- Test complete user workflows that span multiple components
+- Verify data persistence across app sessions and component boundaries
+- Test platform service integrations (notifications, background tasks, etc.)
+- Validate cross-component data synchronization
+- Test performance under realistic usage patterns
+
+#### Validation Testing
 - Test boundary conditions and invalid inputs
 - Verify that invalid values are properly clamped or rejected
 - Test both positive and negative scenarios
 - Include edge cases in your test coverage
+- Test error handling and recovery scenarios
 
-### Integration Testing
-- Test end-to-end scenarios that mirror real user workflows
-- Verify that settings persist across app restarts
-- Test cascading behavior (global → per-podcast overrides)
-- Validate backward compatibility with existing APIs
+#### Test Documentation Requirements
+- Each test directory must include a `TestSummary.md` file
+- Document which specifications each test file covers
+- Explain the purpose and scope of each test category
+- Map test methods to specific specification scenarios
+- Include coverage analysis and gaps identification
 
-### Mock Objects
-- Use mock objects when verifying behavior involving external dependencies (network, storage, system APIs)
-- Use mocks when testing interactions that cross boundaries between Models, Views, ViewModels, and Services
-- Mocks should be protocol-based and injected via dependency injection where possible
+### Package Testing vs Main App Testing
+
+#### Package Tests
+- Focus on individual package functionality in isolation
+- Test public APIs and contracts between packages
+- Use package-specific test utilities and fixtures
+- Keep tests independent of main application concerns
+- Located in `Packages/*/Tests/`
+
+#### Main App Tests
+- Focus on application-level workflows and integration
+- Test how packages work together in the context of the full app
+- Include UI testing and user experience validation
+- Test platform-specific features and integrations
+- Located in `zpodTests/`, `zpodUITests/`, and `IntegrationTests/`
+
+#### Key Differences
+- **Scope**: Package tests are narrow and focused; main app tests are broad and integrative
+- **Dependencies**: Package tests minimize dependencies; main app tests include full application context
+- **Platform Features**: Package tests avoid platform-specific code; main app tests embrace platform integration
+- **User Workflows**: Package tests focus on API contracts; main app tests focus on user scenarios
 
 ## Swift Coding Standards
 
@@ -331,6 +472,47 @@ Package.swift                  # Swift Package Manager (experimental)
 - Full compilation and testing require macOS with Xcode
 - The `Package.swift` is experimental and excludes iOS-specific frameworks
 - AVFoundation and other Apple frameworks are iOS/macOS only
+
+## Issue Management and Workflow
+
+### Issue Creation Standards
+As items are identified that need to be worked on, follow these standards for creating new issues:
+
+#### When to Create New Issues
+Create new issues in the `Issues` folder based on the following criteria (non-exhaustive):
+- Work is being done on another issue and the specific body of work does not fit into the scope of the current issue
+- The new issue doesn't have an issue already defined for it
+- Something needs to be implemented (e.g., has not been implemented, or is something that is in the spec that doesn't have a defined issue for it)
+
+#### Issue Numbering System
+- **Existing standard**: Number issues in the order they should be completed
+- **New sub-issue standard**: Any new issue that needs or should be done between 2 existing issues should be numbered with 2 digits (xx) and then a sub-digit (y) in format `xx.y`
+  - Example: An issue identified between issue 17 and 18 would be numbered 17.1
+  - If another issue is needed between 17 and 18, it would be numbered 17.2
+  - This allows for proper sequencing without renumbering existing issues
+
+#### Issue Documentation Requirements
+- Follow the existing standard format established in previous issues
+- Be as descriptive as possible when creating new issues
+- Include clear acceptance criteria and implementation details
+- Reference relevant specification sections
+
+### TODO Tag Management
+
+#### Adding TODO Tags
+- When identifying work that needs to be done, add TODO comments in the code where the implementation should occur
+- Format: `// TODO: [Issue #xx.y] Description of what needs to be implemented`
+- Link each TODO to its corresponding issue number
+
+#### Removing TODO Tags
+- When an issue is implemented that resolves a TODO tag, the TODO should be removed
+- Verify that all related TODOs are addressed before marking an issue as complete
+- Update the issue documentation to reflect completion of TODO items
+
+### Issue File Organization
+- Store all issues in the `Issues` folder in the repository root
+- Use descriptive filenames that include the issue number: `xx.y-brief-description.md`
+- Maintain consistency with existing issue documentation patterns
 
 ## Logging and Documentation
 
