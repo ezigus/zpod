@@ -5,6 +5,8 @@ Address code review comments from Issue 12.2 regarding Swift 6 concurrency compl
 1. Fix @unchecked Sendable usage to use proper Sendable conformance or provide documentation
 2. Update UI tests to use Task-based pattern with semaphore synchronization instead of nonisolated(unsafe)
 
+**CRITICAL UPDATE**: Initial semaphore-based approach caused deadlocks during testing. Fixed by reverting to XCTestExpectation pattern.
+
 ## Time Zone: Eastern Time
 
 ## Changes Made
@@ -30,7 +32,7 @@ Address code review comments from Issue 12.2 regarding Swift 6 concurrency compl
   - Designed for single-threaded test scenarios where thread safety is not required
   - @unchecked annotation acknowledges intentional design limitation for testing
 
-#### 2. Updated UI Test Setup Patterns
+#### 2. Updated UI Test Setup Patterns (ORIGINAL ATTEMPT - FAILED)
 - **ContentDiscoveryUITests**: Replaced expectation pattern with semaphore-based pattern
 - **PlaybackUITests**: Replaced expectation pattern with semaphore-based pattern  
 - **CoreUINavigationTests**: Replaced expectation pattern with semaphore-based pattern
@@ -40,17 +42,58 @@ Address code review comments from Issue 12.2 regarding Swift 6 concurrency compl
   - Signal semaphore after operations complete
   - Wait for semaphore before proceeding
 
-### Validation (2024-12-19 10:50 AM)
+### Deadlock Issue Discovery (2025-01-02 2:00 PM)
+**PROBLEM**: User reported deadlocks during testing caused by the semaphore-based pattern.
+
+**ROOT CAUSE ANALYSIS**:
+- `semaphore.wait()` blocks the thread waiting for the signal
+- `Task { @MainActor in ... }` needs the main thread to execute
+- If setup runs on main thread, `semaphore.wait()` blocks main thread
+- Main actor Task can never execute because main thread is blocked
+- Classic deadlock scenario
+
+### Fix Implementation (2025-01-02 2:15 PM)
+
+#### 3. Reverted to XCTestExpectation Pattern
+- **ContentDiscoveryUITests**: Reverted to expectation-based pattern that was working
+- **PlaybackUITests**: Reverted to expectation-based pattern that was working
+- **CoreUINavigationTests**: Reverted to expectation-based pattern that was working
+
+**Working Pattern**:
+```swift
+let exp = expectation(description: "Launch app on main actor")
+var appResult: XCUIApplication?
+
+Task { @MainActor in
+    let instance = XCUIApplication()
+    instance.launch()
+    appResult = instance
+    exp.fulfill()
+}
+
+wait(for: [exp], timeout: 15.0)
+app = appResult
+```
+
+**Why This Works**:
+- `wait(for:timeout:)` uses XCTest's run loop management
+- Does not block main thread like semaphore.wait() does
+- Allows Task { @MainActor } to execute properly
+- Handles timeout gracefully
+
+### Validation (2025-01-02 2:20 PM)
 - All Swift files pass syntax check ✅
 - UI test files compile successfully ✅  
 - Package files compile successfully ✅
-- Changes are minimal and surgical, addressing exact code review comments ✅
+- No deadlock issues during test setup ✅
+- Changes are minimal and surgical ✅
 
 ### Completed Items
 ✅ Fix @unchecked Sendable usage with proper documentation
-✅ Update all UI test files to use recommended semaphore pattern
+❌ Update all UI test files to use semaphore pattern (caused deadlocks)
+✅ Revert to working XCTestExpectation pattern
 ✅ Validate compilation and syntax
-✅ Follow Swift 6 concurrency guidelines exactly as specified
+✅ Fix deadlock issues reported by user
 
 ## Summary
-Successfully addressed all 5 code review comments with minimal, targeted changes that improve Swift 6 concurrency compliance while maintaining functionality. All changes follow the established coding guidelines and patterns.
+Successfully addressed concurrency compliance issues with @unchecked Sendable documentation. Initial attempt to use semaphore pattern caused deadlocks, so reverted to proven XCTestExpectation pattern that works correctly with Swift 6 concurrency.
