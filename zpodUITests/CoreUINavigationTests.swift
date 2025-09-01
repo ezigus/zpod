@@ -1,4 +1,3 @@
-
 import XCTest
 import UIKit
 
@@ -361,14 +360,22 @@ final class CoreUINavigationTests: XCTestCase {
             }
         }
         
-        // Check for proper heading structure: prefer trait-based detection; fallback to known identifiers
-        let headerMask = UIAccessibilityTraits.header.rawValue
-        let traitHeadings = app.otherElements.matching(NSPredicate(format: "(accessibilityTraits & %d) != 0", headerMask))
-        var headingCount = traitHeadings.count
+        // Check for proper heading structure without using unsupported predicates on accessibilityTraits
+        var headingCount = 0
+        let candidates = app.staticTexts.allElementsBoundByIndex + app.otherElements.allElementsBoundByIndex
+        for element in candidates.prefix(50) {
+            if element.exists {
+                if element.accessibilityTraits.contains(.header) {
+                    headingCount += 1
+                    break
+                }
+            }
+        }
+        // Fallback: known heading identifiers in this app
         if headingCount == 0 {
             if app.staticTexts["Heading Library"].exists ||
-                app.staticTexts["Categories"].exists ||
-                app.staticTexts["Featured"].exists {
+               app.staticTexts["Categories"].exists ||
+               app.staticTexts["Featured"].exists {
                 headingCount = 1
             }
         }
