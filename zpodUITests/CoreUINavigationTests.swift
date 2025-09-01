@@ -16,19 +16,23 @@ final class CoreUINavigationTests: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // Perform @MainActor UI setup without blocking the main thread
-        let exp = expectation(description: "Launch app on main actor")
-        var appResult: XCUIApplication?
+        // Create app instance and perform UI operations using Task for main actor access
+        let appInstance: XCUIApplication = {
+            let semaphore = DispatchSemaphore(value: 0)
+            var appResult: XCUIApplication!
+            
+            Task { @MainActor in
+                appResult = XCUIApplication()
+                appResult.launch()
+                semaphore.signal()
+            }
+            
+            semaphore.wait()
+            return appResult
+        }()
         
-        Task { @MainActor in
-            let instance = XCUIApplication()
-            instance.launch()
-            appResult = instance
-            exp.fulfill()
-        }
-        
-        wait(for: [exp], timeout: 15.0)
-        app = appResult
+        // Assign to instance property after main thread operations complete
+        app = appInstance
     }
 
     override func tearDownWithError() throws {
