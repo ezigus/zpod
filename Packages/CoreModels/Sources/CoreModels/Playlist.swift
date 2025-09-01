@@ -92,7 +92,8 @@ public struct SmartPlaylistCriteria: Codable, Equatable, Sendable {
         orderBy: SmartPlaylistOrderBy = .dateAdded,
         filterRules: [SmartPlaylistFilterRule] = []
     ) {
-        self.maxEpisodes = maxEpisodes
+        // Clamp to a sane range to avoid invalid values
+        self.maxEpisodes = max(1, min(500, maxEpisodes))
         self.orderBy = orderBy
         self.filterRules = filterRules
     }
