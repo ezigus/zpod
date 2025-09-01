@@ -74,6 +74,10 @@ public final class StubEpisodePlayer: EpisodePlaybackService {
 }
 
 /// Simple timer-based ticker for testing
+/// 
+/// @unchecked Sendable: This class manages a single Timer instance that is accessed
+/// from a single actor context. Timer invalidation and assignment are atomic operations,
+/// making cross-actor access safe despite Timer not being Sendable.
 public final class TimerTicker: Ticker, @unchecked Sendable {
   private var timer: Timer?
   

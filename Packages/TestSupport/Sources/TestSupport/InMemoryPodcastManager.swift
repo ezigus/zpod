@@ -3,6 +3,10 @@ import CoreModels
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
+/// 
+/// @unchecked Sendable: This test-only implementation uses mutable state but is designed
+/// for single-threaded test scenarios where thread safety is not required. The @unchecked
+/// annotation acknowledges this intentional design limitation for testing purposes.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
 
