@@ -339,6 +339,7 @@ struct DiscoverView_Previews: PreviewProvider {
 }
 
 // Mock implementations for previews
+@MainActor
 private class MockSearchService: SearchServicing {
     func search(query: String, filter: SearchFilter?) async -> [SearchResult] {
         // Mock search results
@@ -371,7 +372,7 @@ private class MockRSSParser: RSSFeedParsing {
     }
 }
 
-private class MockPodcastManager: PodcastManaging {
+private class MockPodcastManager: PodcastManaging, @unchecked Sendable {
     func all() -> [Podcast] { [] }
     func find(id: String) -> Podcast? { nil }
     func add(_ podcast: Podcast) { }

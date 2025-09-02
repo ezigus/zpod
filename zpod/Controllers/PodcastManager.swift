@@ -7,7 +7,11 @@ public typealias PodcastManaging = CoreModels.PodcastManaging
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
-public final class InMemoryPodcastManager: PodcastManaging {
+/// 
+/// @unchecked Sendable: This implementation uses mutable state but is designed for
+/// single-threaded access patterns during early development. Production implementations
+/// should use proper synchronization mechanisms.
+public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
 
   public init(initial: [Podcast] = []) {

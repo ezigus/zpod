@@ -6,7 +6,7 @@ import SearchDomain
 import FeedParsing
 
 /// Protocol for RSS feed parsing to support dependency injection
-public protocol RSSFeedParsing {
+public protocol RSSFeedParsing: Sendable {
     func parseFeed(from url: URL) async throws -> Podcast
 }
 
