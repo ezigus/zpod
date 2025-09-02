@@ -9,10 +9,26 @@ import LibraryFeature
 public typealias ContentView = LibraryFeature.ContentView
 #elseif canImport(SwiftUI)
 import SwiftUI
+import CoreModels
+import SearchDomain
+import DiscoverFeature
 
 public struct ContentView: View {
     @State private var searchText: String = ""
-    public init() {}
+    
+    // Service instances
+    private let podcastManager: PodcastManaging
+    private let searchService: SearchServicing
+    
+    public init() {
+        // Initialize services
+        self.podcastManager = InMemoryPodcastManager()
+        
+        // Create search index sources (empty for now, will be populated as content is added)
+        let searchSources: [SearchIndexSource] = []
+        self.searchService = SearchService(indexSources: searchSources)
+    }
+    
     public var body: some View {
         TabView {
             // Library Tab
@@ -23,39 +39,11 @@ public struct ContentView: View {
             .tabItem { Label("Library", systemImage: "books.vertical") }
             .tag(0)
 
-            // Discover Tab
-            NavigationStack {
-                DiscoverPlaceholderView(searchText: $searchText)
-                    .navigationTitle("Discover")
-                    .toolbar {
-                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-                            Button("Browse") {}
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityAddTraits(.isButton)
-                                .accessibilitySortPriority(90)
-                                .accessibilityLabel("Browse")
-                                .accessibilityHint("Browse categories")
-                            Button("Sort") {}
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityAddTraits(.isButton)
-                                .accessibilitySortPriority(90)
-                                .accessibilityLabel("Sort")
-                                .accessibilityHint("Sort results")
-                            Button("Filter") {}
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityAddTraits(.isButton)
-                                .accessibilitySortPriority(90)
-                                .accessibilityLabel("Filter")
-                                .accessibilityHint("Filter search results")
-                            Button("Voice") {}
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityAddTraits(.isButton)
-                                .accessibilitySortPriority(90)
-                                .accessibilityLabel("Voice")
-                                .accessibilityHint("Activate voice search")
-                        }
-                    }
-            }
+            // Discover Tab - Now uses real DiscoverView
+            DiscoverView(
+                searchService: searchService,
+                podcastManager: podcastManager
+            )
             .tabItem { Label("Discover", systemImage: "sparkles") }
             .tag(1)
 
