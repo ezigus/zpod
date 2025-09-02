@@ -91,8 +91,9 @@ public struct SearchResultView: View {
         switch searchResult {
         case .podcast(let podcast, _):
             return podcast.artworkURL
-        case .episode(let episode, _):
-            return episode.artworkURL
+        case .episode(_, _):
+            // Episodes don't have their own artwork URL in the current model
+            return nil
         case .note(_, _):
             return nil
         }
@@ -114,7 +115,9 @@ public struct SearchResultView: View {
         case .podcast(let podcast, _):
             return podcast.author
         case .episode(let episode, _):
-            return episode.podcastTitle
+            // Episode model only has podcastID, not podcastTitle
+            // Using podcastID as a fallback, or could be enhanced later to resolve the actual title
+            return episode.podcastID
         case .note(_, _):
             return nil
         }
@@ -178,11 +181,12 @@ struct SearchResultView_Previews: PreviewProvider {
                     Episode(
                         id: "test-episode",
                         title: "Understanding Actors in Swift",
-                        description: "Deep dive into Swift's actor model for concurrency.",
-                        podcastId: "test-podcast",
-                        podcastTitle: "Swift Talk",
-                        publishedAt: Date(),
-                        duration: 1800
+                        podcastID: "test-podcast",
+                        playbackPosition: 0,
+                        isPlayed: false,
+                        pubDate: Date(),
+                        duration: 1800,
+                        description: "Deep dive into Swift's actor model for concurrency."
                     ),
                     relevanceScore: 0.87
                 ),
