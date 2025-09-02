@@ -362,7 +362,7 @@ private class MockSearchService: SearchServicing {
     }
 }
 
-private class MockRSSParser: RSSFeedParsing {
+private final class MockRSSParser: RSSFeedParsing, @unchecked Sendable {
     func parseFeed(from url: URL) async throws -> Podcast {
         return Podcast(
             id: "mock-podcast",
@@ -372,7 +372,7 @@ private class MockRSSParser: RSSFeedParsing {
     }
 }
 
-private class MockPodcastManager: PodcastManaging, @unchecked Sendable {
+private final class MockPodcastManager: PodcastManaging, @unchecked Sendable {
     func all() -> [Podcast] { [] }
     func find(id: String) -> Podcast? { nil }
     func add(_ podcast: Podcast) { }
