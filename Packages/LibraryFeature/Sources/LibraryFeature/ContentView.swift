@@ -11,6 +11,8 @@ import CoreModels
 
 #if canImport(DiscoverFeature)
 import DiscoverFeature
+import SearchDomain
+import TestSupport
 #else
 // Fallback placeholder when DiscoverFeature module isn't linked
 struct DiscoverView: View {
@@ -130,8 +132,19 @@ private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
+    
+    // Service instances for dependency injection
+    private let podcastManager: PodcastManaging
+    private let searchService: SearchServicing
 
-    public init() {}
+    public init() {
+        // Initialize services following the same pattern as ContentViewBridge
+        self.podcastManager = InMemoryPodcastManager()
+        
+        // Create search index sources (empty for now, will be populated as content is added)
+        let searchSources: [SearchIndexSource] = []
+        self.searchService = SearchService(indexSources: searchSources)
+    }
 
     public var body: some View {
         TabView {
@@ -149,7 +162,10 @@ public struct ContentView: View {
                 }
             
             // Discover Tab (placeholder UI)
-            DiscoverView()
+            DiscoverView(
+                searchService: searchService,
+                podcastManager: podcastManager
+            )
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("Main Content")
                 .accessibilityLabel("Main Content")
