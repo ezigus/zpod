@@ -287,7 +287,6 @@ final class ContentDiscoveryUITests: XCTestCase {
         }
     }
 }
-        let searchField = app.searchFields.firstMatch
         
         if searchField.exists {
             // When: Interacting with search field
