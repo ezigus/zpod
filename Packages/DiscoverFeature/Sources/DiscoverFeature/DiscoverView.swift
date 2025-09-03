@@ -54,8 +54,10 @@ public struct DiscoverView: View {
                         .disabled(viewModel.searchHistory.isEmpty)
                     } label: {
                         Image(systemName: "plus.circle")
+                            .accessibilityLabel("Discovery options")
                     }
-                    .accessibilityLabel("Discovery options")
+                    .accessibilityIdentifier("discovery-options-menu")
+                    .accessibilityHint("Opens menu with podcast discovery options")
                 }
             }
             .sheet(isPresented: $showingRSSAddSheet) {
