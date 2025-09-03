@@ -82,7 +82,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         searchField.typeText("test")
         
         // When: I tap the clear button (if it exists)
-        let clearButton = app.buttons.matching(NSPredicate(format: "accessibilityLabel == 'Clear search'")).firstMatch
+        let clearButton = app.buttons.matching(NSPredicate(format: "label == 'Clear search'")).firstMatch
         if clearButton.exists {
             clearButton.tap()
             
@@ -102,7 +102,7 @@ final class ContentDiscoveryUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Discover"].exists)
         
         // When: I tap the discovery options menu
-        let optionsButton = app.buttons.matching(NSPredicate(format: "accessibilityLabel == 'Discovery options'")).firstMatch
+        let optionsButton = app.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
         if optionsButton.exists {
             optionsButton.tap()
             
@@ -119,7 +119,7 @@ final class ContentDiscoveryUITests: XCTestCase {
     @MainActor
     func testRSSFeedAddition_GivenOptionsMenu_WhenSelectingAddRSSFeed_ThenShowsRSSSheet() throws {
         // Given: I have access to the options menu
-        let optionsButton = app.buttons.matching(NSPredicate(format: "accessibilityLabel == 'Discovery options'")).firstMatch
+        let optionsButton = app.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
         
         if optionsButton.exists {
             optionsButton.tap()
@@ -144,7 +144,7 @@ final class ContentDiscoveryUITests: XCTestCase {
     @MainActor
     func testRSSURLInput_GivenRSSSheet_WhenEnteringURL_ThenAcceptsInput() throws {
         // Navigate to RSS sheet if available
-        let optionsButton = app.buttons.matching(NSPredicate(format: "accessibilityLabel == 'Discovery options'")).firstMatch
+        let optionsButton = app.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
         if optionsButton.exists {
             optionsButton.tap()
             
@@ -204,7 +204,7 @@ final class ContentDiscoveryUITests: XCTestCase {
     @MainActor
     func testSearchHistoryAccess_GivenOptionsMenu_WhenSelectingHistory_ThenShowsHistory() throws {
         // Given: I have access to the options menu
-        let optionsButton = app.buttons.matching(NSPredicate(format: "accessibilityLabel == 'Discovery options'")).firstMatch
+        let optionsButton = app.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
         
         if optionsButton.exists {
             optionsButton.tap()
