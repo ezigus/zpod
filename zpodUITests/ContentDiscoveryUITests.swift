@@ -260,9 +260,9 @@ final class ContentDiscoveryUITests: XCTestCase {
         
         // Then: Should show empty state elements (these might include welcome text, icons, etc.)
         // Note: The exact empty state UI may vary, so we check for common patterns
-        let hasEmptyStateElements = app.staticTexts.containing("Discover").count > 0 ||
+        let hasEmptyStateElements = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Discover'")).count > 0 ||
                                    app.images.count > 0 ||
-                                   app.buttons.containing("Add").count > 0
+                                   app.buttons.containing(NSPredicate(format: "label CONTAINS 'Add'")).count > 0
         
         XCTAssertTrue(hasEmptyStateElements, "Discover tab should show some content or empty state")
     }
