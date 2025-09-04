@@ -28,8 +28,8 @@ jobs:
             -project zpod.xcodeproj \
             -scheme zpod \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
-            clean test | xcbeautify
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)
