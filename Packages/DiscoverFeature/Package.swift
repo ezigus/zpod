@@ -14,20 +14,30 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../CoreModels"),
-        .package(path: "../SharedUtilities")
+        .package(path: "../SharedUtilities"),
+        .package(path: "../SearchDomain"),
+        .package(path: "../FeedParsing"),
+        .package(path: "../TestSupport")
     ],
     targets: [
         .target(
             name: "DiscoverFeature",
             dependencies: [
                 .product(name: "CoreModels", package: "CoreModels"),
-                .product(name: "SharedUtilities", package: "SharedUtilities")
+                .product(name: "SharedUtilities", package: "SharedUtilities"),
+                .product(name: "SearchDomain", package: "SearchDomain"),
+                .product(name: "FeedParsing", package: "FeedParsing")
             ],
             path: "Sources"
         ),
         .testTarget(
             name: "DiscoverFeatureTests",
-            dependencies: ["DiscoverFeature"]
+            dependencies: [
+                "DiscoverFeature",
+                .product(name: "CoreModels", package: "CoreModels"),
+                .product(name: "SearchDomain", package: "SearchDomain"),
+                .product(name: "TestSupport", package: "TestSupport")
+            ]
         )
     ]
 )

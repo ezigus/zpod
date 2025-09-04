@@ -230,6 +230,7 @@ public protocol SearchIndexSource {
 }
 
 /// Protocol for search service functionality  
+@MainActor
 public protocol SearchServicing {
   func search(query: String, filter: SearchFilter?) async -> [SearchResult]
   func rebuildIndex() async

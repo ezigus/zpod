@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol FolderManaging {
+public protocol FolderManaging: Sendable {
     func all() -> [Folder]
     func find(id: String) -> Folder?
     func add(_ folder: Folder) throws

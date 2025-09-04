@@ -3,7 +3,11 @@ import CoreModels
 
 /// In-memory implementation of FolderManaging suitable for testing and early development.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
-public final class InMemoryFolderManager: FolderManaging {
+/// 
+/// @unchecked Sendable: This test-only implementation uses mutable state but is designed
+/// for single-threaded test scenarios where thread safety is not required. The @unchecked
+/// annotation acknowledges this intentional design limitation for testing purposes.
+public final class InMemoryFolderManager: FolderManaging, @unchecked Sendable {
     private var storage: [String: Folder] = [:]
     
     public init(initial: [Folder] = []) {

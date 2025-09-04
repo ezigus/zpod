@@ -15,6 +15,8 @@ let package = Package(
     dependencies: [
         .package(path: "../CoreModels"),
         .package(path: "../SharedUtilities"),
+        .package(path: "../SearchDomain"),
+        .package(path: "../TestSupport"),
         .package(path: "../DiscoverFeature"),
         .package(path: "../PlayerFeature"),
         .package(path: "../PlaylistFeature")
@@ -25,6 +27,8 @@ let package = Package(
             dependencies: [
                 .product(name: "CoreModels", package: "CoreModels"),
                 .product(name: "SharedUtilities", package: "SharedUtilities"),
+                .product(name: "SearchDomain", package: "SearchDomain"),
+                .product(name: "TestSupport", package: "TestSupport"),
                 .product(name: "DiscoverFeature", package: "DiscoverFeature"),
                 .product(name: "PlayerFeature", package: "PlayerFeature"),
                 .product(name: "PlaylistFeature", package: "PlaylistFeature")
