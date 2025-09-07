@@ -428,7 +428,7 @@ final class ContentDiscoveryUITests: XCTestCase {
             // Then: Verify the interface is responsive by checking that the text was entered
             // This tests UI responsiveness rather than automation speed
             let textEntered = searchField.value as? String == "test" || 
-                             searchField.value as? String?.contains("test") == true ||
+                             (searchField.value as? String)?.contains("test") == true ||
                              app.staticTexts["test"].exists
             
             XCTAssertTrue(textEntered, "Search interface should be responsive - text should appear in the field")
