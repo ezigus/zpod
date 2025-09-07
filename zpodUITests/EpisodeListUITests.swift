@@ -13,23 +13,9 @@ final class EpisodeListUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
-        
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
     }
     
     override func tearDownWithError() throws {

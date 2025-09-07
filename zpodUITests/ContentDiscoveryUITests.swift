@@ -15,30 +15,16 @@ final class ContentDiscoveryUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                
-                // Navigate to discovery interface for testing
-                let tabBar = appResult.tabBars["Main Tab Bar"]
-                let discoverTab = tabBar.buttons["Discover"]
-                if discoverTab.exists {
-                    discoverTab.tap()
-                }
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // Navigate to discovery interface for testing
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let discoverTab = tabBar.buttons["Discover"]
+        if discoverTab.exists {
+            discoverTab.tap()
+        }
     }
 
     override func tearDownWithError() throws {

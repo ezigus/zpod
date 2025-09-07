@@ -173,24 +173,17 @@ final class ExampleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                // ... UI setup operations using appResult
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        // CRITICAL: Do NOT use Task + semaphore pattern as it causes deadlocks
+        app = XCUIApplication()
+        app.launch()
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // Perform any navigation setup directly
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let targetTab = tabBar.buttons["Target Tab"]
+        if targetTab.exists {
+            targetTab.tap()
+        }
     }
     
     @MainActor
@@ -201,6 +194,15 @@ final class ExampleUITests: XCTestCase {
     }
 }
 ```
+
+#### CRITICAL: Avoiding UI Test Deadlocks
+**NEVER use Task + semaphore pattern in UI test setup methods as it causes deadlocks:**
+- ❌ Main thread calls `semaphore.wait()` which blocks the main thread
+- ❌ `Task { @MainActor }` needs the main thread to execute, but it's blocked
+- ❌ Creates circular dependency causing test deadlocks
+- ✅ `XCUIApplication` does NOT require `@MainActor` isolation
+- ✅ Create `XCUIApplication` directly in `setUpWithError()` method
+- ✅ Individual test methods can use `@MainActor` for UI operations
 
 #### Combine Testing
 - Use `Set<AnyCancellable>` to manage test subscriptions

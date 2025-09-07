@@ -15,30 +15,16 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                
-                // Navigate to player interface for testing
-                let tabBar = appResult.tabBars["Main Tab Bar"]
-                let playerTab = tabBar.buttons["Player"]
-                if playerTab.exists {
-                    playerTab.tap()
-                }
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // Navigate to player interface for testing
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let playerTab = tabBar.buttons["Player"]
+        if playerTab.exists {
+            playerTab.tap()
+        }
     }
 
     override func tearDownWithError() throws {
