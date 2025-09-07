@@ -304,15 +304,13 @@ struct PodcastRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Podcast artwork placeholder
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.secondary.opacity(0.2))
-                .frame(width: 50, height: 50)
-                .overlay {
-                    Image(systemName: "mic.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityHidden(true)
+            // Podcast artwork with async loading
+            AsyncImageView(
+                url: podcast.artworkURL,
+                width: 50,
+                height: 50,
+                cornerRadius: 8
+            )
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(podcast.title)
@@ -355,6 +353,7 @@ func createSamplePodcasts() -> [Podcast] {
         title: "Swift Talk",
         author: "Swift Community",
         description: "Weekly discussions about Swift programming",
+        artworkURL: URL(string: "https://picsum.photos/200/200?random=1"),
         feedURL: URL(string: "https://example.com/swift-talk.xml")!,
         episodes: [
             Episode(
@@ -363,7 +362,8 @@ func createSamplePodcasts() -> [Podcast] {
                 podcastID: "swift-talk",
                 pubDate: Date(),
                 duration: 1800,
-                description: "In this episode, we explore the new features and improvements in Swift 6, including enhanced concurrency support and performance optimizations."
+                description: "In this episode, we explore the new features and improvements in Swift 6, including enhanced concurrency support and performance optimizations.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=11")
             ),
             Episode(
                 id: "st-002",
@@ -372,7 +372,8 @@ func createSamplePodcasts() -> [Podcast] {
                 playbackPosition: 450,
                 pubDate: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
                 duration: 2100,
-                description: "Learn about modern navigation patterns in SwiftUI, including NavigationStack and NavigationSplitView."
+                description: "Learn about modern navigation patterns in SwiftUI, including NavigationStack and NavigationSplitView.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=12")
             ),
             Episode(
                 id: "st-003",
@@ -381,7 +382,8 @@ func createSamplePodcasts() -> [Podcast] {
                 isPlayed: true,
                 pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()),
                 duration: 2700,
-                description: "Deep dive into Swift's actor system and how to write safe concurrent code."
+                description: "Deep dive into Swift's actor system and how to write safe concurrent code.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=13")
             ),
             Episode(
                 id: "st-004",
@@ -389,7 +391,8 @@ func createSamplePodcasts() -> [Podcast] {
                 podcastID: "swift-talk",
                 pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()),
                 duration: 1950,
-                description: "Exploring Swift Package Manager and best practices for organizing your code into packages."
+                description: "Exploring Swift Package Manager and best practices for organizing your code into packages.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=14")
             )
         ],
         isSubscribed: true
@@ -400,6 +403,7 @@ func createSamplePodcasts() -> [Podcast] {
         title: "iOS Dev Weekly",
         author: "iOS Development Team",
         description: "Weekly iOS development news and tips",
+        artworkURL: URL(string: "https://picsum.photos/200/200?random=2"),
         feedURL: URL(string: "https://example.com/ios-dev-weekly.xml")!,
         episodes: [
             Episode(
@@ -408,7 +412,8 @@ func createSamplePodcasts() -> [Podcast] {
                 podcastID: "ios-dev-weekly",
                 pubDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()),
                 duration: 2250,
-                description: "Comprehensive overview of new features in iOS 18 and how they affect app development."
+                description: "Comprehensive overview of new features in iOS 18 and how they affect app development.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=21")
             ),
             Episode(
                 id: "idw-102",
@@ -417,7 +422,8 @@ func createSamplePodcasts() -> [Podcast] {
                 playbackPosition: 675,
                 pubDate: Calendar.current.date(byAdding: .day, value: -8, to: Date()),
                 duration: 1800,
-                description: "Discover hidden gems and productivity tips in Xcode 16."
+                description: "Discover hidden gems and productivity tips in Xcode 16.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=22")
             )
         ],
         isSubscribed: true
@@ -428,6 +434,7 @@ func createSamplePodcasts() -> [Podcast] {
         title: "Tech News Daily",
         author: "Tech News Network",
         description: "Daily technology news and analysis",
+        artworkURL: URL(string: "https://picsum.photos/200/200?random=3"),
         feedURL: URL(string: "https://example.com/tech-news.xml")!,
         episodes: [
             Episode(
@@ -436,7 +443,8 @@ func createSamplePodcasts() -> [Podcast] {
                 podcastID: "tech-news",
                 pubDate: Date(),
                 duration: 900,
-                description: "Latest developments in artificial intelligence and machine learning."
+                description: "Latest developments in artificial intelligence and machine learning.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=31")
             )
         ],
         isSubscribed: false

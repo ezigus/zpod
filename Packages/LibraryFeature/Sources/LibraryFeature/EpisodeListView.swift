@@ -172,14 +172,12 @@ public struct EpisodeRowView: View {
     }
     
     private var episodeArtwork: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(.secondary.opacity(0.2))
-            .frame(width: 60, height: 60)
-            .overlay {
-                Image(systemName: "waveform")
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityHidden(true)
+        AsyncImageView(
+            url: episode.artworkURL,
+            width: 60,
+            height: 60,
+            cornerRadius: 8
+        )
     }
     
     private var episodeTitle: some View {
@@ -281,15 +279,12 @@ public struct EpisodeCardView: View {
     }
     
     private var episodeArtwork: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(.secondary.opacity(0.2))
-            .frame(height: 120)
-            .overlay {
-                Image(systemName: "waveform")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityHidden(true)
+        AsyncImageView(
+            url: episode.artworkURL,
+            width: 300, // Full width of card
+            height: 120,
+            cornerRadius: 8
+        )
     }
     
     private var episodeTitle: some View {
@@ -363,6 +358,7 @@ public struct EpisodeCardView: View {
         title: "Sample Podcast",
         author: "Sample Author",
         description: "A sample podcast for testing",
+        artworkURL: URL(string: "https://picsum.photos/200/200?random=99"),
         feedURL: URL(string: "https://example.com/feed.xml")!,
         episodes: [
             Episode(
@@ -371,7 +367,8 @@ public struct EpisodeCardView: View {
                 podcastID: "sample-podcast",
                 pubDate: Date(),
                 duration: 1800,
-                description: "In this episode, we introduce the basics of Swift programming language."
+                description: "In this episode, we introduce the basics of Swift programming language.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=91")
             ),
             Episode(
                 id: "ep2",
@@ -380,7 +377,8 @@ public struct EpisodeCardView: View {
                 playbackPosition: 300,
                 pubDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()),
                 duration: 2400,
-                description: "Learn about SwiftUI and building modern iOS apps."
+                description: "Learn about SwiftUI and building modern iOS apps.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=92")
             ),
             Episode(
                 id: "ep3",
@@ -389,7 +387,8 @@ public struct EpisodeCardView: View {
                 isPlayed: true,
                 pubDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()),
                 duration: 3000,
-                description: "Deep dive into advanced Swift programming concepts and best practices."
+                description: "Deep dive into advanced Swift programming concepts and best practices.",
+                artworkURL: URL(string: "https://picsum.photos/300/300?random=93")
             )
         ]
     )

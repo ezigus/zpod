@@ -10,6 +10,7 @@ public struct Episode: Codable, Equatable, Sendable {
     public var duration: TimeInterval?
     public var description: String?
     public var audioURL: URL?
+    public var artworkURL: URL?
 
     public init(
         id: String, 
@@ -20,7 +21,8 @@ public struct Episode: Codable, Equatable, Sendable {
         pubDate: Date? = nil,
         duration: TimeInterval? = nil,
         description: String? = nil,
-        audioURL: URL? = nil
+        audioURL: URL? = nil,
+        artworkURL: URL? = nil
     ) {
         self.id = id
         self.title = title
@@ -31,6 +33,7 @@ public struct Episode: Codable, Equatable, Sendable {
         self.duration = duration
         self.description = description
         self.audioURL = audioURL
+        self.artworkURL = artworkURL
     }
 
     public func withPlaybackPosition(_ position: Int) -> Episode {
