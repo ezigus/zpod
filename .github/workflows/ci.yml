@@ -28,8 +28,8 @@ jobs:
             -project zpod.xcodeproj \
             -scheme zpod \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation),OS=18.2' \
-            clean test | xcbeautify
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)

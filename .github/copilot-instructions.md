@@ -57,6 +57,8 @@ For each implementation step, follow this process explicitly:
 - **XCUIApplication Initialization**: Use Task-based pattern for `@MainActor` isolated XCUIApplication operations in nonisolated setup methods
 - **Test Double Isolation**: Mark test mock objects with `@unchecked Sendable` and use proper locking for thread safety
 - **Cross-Actor Property Access**: Use `nonisolated(unsafe)` sparingly and only for properties that need cross-context access
+- **Protocol Design for Concurrency**: Mark protocols as `Sendable` when implementations can be safely used across actor boundaries, or use `@MainActor` when all implementations should be main actor isolated
+- **Dependency Injection with Sendable**: When injecting dependencies into `@MainActor` classes, ensure protocols are properly marked `Sendable` or `@MainActor` to avoid data race warnings
 - **API Verification**: Always verify enum cases, method signatures, and property types before use - DO NOT assume API existence
 - **Type Safety**: Check optional types and use safe unwrapping patterns (`?.` operator, `?? default`)
 - **Compilation Early & Often**: Build tests immediately after changes to catch API mismatches before they accumulate
@@ -285,6 +287,13 @@ final class ExampleUITests: XCTestCase {
 - Design APIs that are hard to misuse
 - Use default parameter values to reduce API surface area
 - Follow Swift naming conventions consistently
+
+#### Protocol Design for Swift 6 Concurrency
+- **Sendable Protocols**: Mark protocols as `Sendable` when implementations can be safely used across actor boundaries (e.g., `PodcastManaging`, `FolderManaging`)
+- **Actor-Isolated Protocols**: Use `@MainActor` for protocols when all implementations should be main actor isolated (e.g., `SearchServicing` for UI-related search services)
+- **Cross-Actor Dependency Injection**: When injecting dependencies into `@MainActor` classes, ensure protocols are properly annotated to prevent data race warnings
+- **Mock Objects**: Mark test doubles with `@unchecked Sendable` and implement proper thread safety with locks when needed
+- **Protocol Conformance**: Ensure all protocol implementations respect the concurrency annotations of the protocol
 
 ### Performance Considerations
 - Use `lazy` properties for expensive computations that may not be needed

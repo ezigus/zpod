@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol PodcastManaging {
+public protocol PodcastManaging: Sendable {
     func all() -> [Podcast]
     func find(id: String) -> Podcast?
     func add(_ podcast: Podcast)
