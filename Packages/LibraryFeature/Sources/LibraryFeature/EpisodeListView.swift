@@ -44,33 +44,21 @@ public struct EpisodeListView: View {
     }
     
     private var episodeList: some View {
-        Group {
-            #if os(iOS)
-            if UIDevice.current.userInterfaceIdiom == .pad {
-                // iPad layout with responsive columns
-                LazyVGrid(columns: adaptiveColumns, spacing: 16) {
-                    ForEach(episodes, id: \.id) { episode in
-                        NavigationLink(destination: episodeDetailView(for: episode)) {
-                            EpisodeCardView(episode: episode)
-                        }
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                    }
-                }
-                .padding()
-                .accessibilityIdentifier("Episode Grid")
-            } else {
-                // iPhone layout with standard list
-                List(episodes, id: \.id) { episode in
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            // iPad layout with responsive columns
+            LazyVGrid(columns: adaptiveColumns, spacing: 16) {
+                ForEach(episodes, id: \.id) { episode in
                     NavigationLink(destination: episodeDetailView(for: episode)) {
-                        EpisodeRowView(episode: episode)
+                        EpisodeCardView(episode: episode)
                     }
                     .accessibilityIdentifier("Episode-\(episode.id)")
                 }
-                .listStyle(.insetGrouped)
-                .accessibilityIdentifier("Episode List")
             }
-            #else
-            // Default list for other platforms
+            .padding()
+            .accessibilityIdentifier("Episode Grid")
+        } else {
+            // iPhone layout with standard list
             List(episodes, id: \.id) { episode in
                 NavigationLink(destination: episodeDetailView(for: episode)) {
                     EpisodeRowView(episode: episode)
@@ -79,8 +67,18 @@ public struct EpisodeListView: View {
             }
             .listStyle(.insetGrouped)
             .accessibilityIdentifier("Episode List")
-            #endif
         }
+        #else
+        // watchOS and CarPlay use simple list layout
+        List(episodes, id: \.id) { episode in
+            NavigationLink(destination: episodeDetailView(for: episode)) {
+                EpisodeRowView(episode: episode)
+            }
+            .accessibilityIdentifier("Episode-\(episode.id)")
+        }
+        .listStyle(.insetGrouped)
+        .accessibilityIdentifier("Episode List")
+        #endif
     }
     
     // Adaptive columns for iPad grid layout

@@ -49,6 +49,13 @@ final class CoreUINavigationTests: XCTestCase {
         let libraryTab = tabBar.buttons["Library"]
         if libraryTab.exists {
             libraryTab.tap()
+            
+            // Wait for loading to complete on Library tab
+            let loadingIndicator = app.otherElements["Loading View"]
+            if loadingIndicator.exists {
+                XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10), "Loading should complete")
+            }
+            
             XCTAssertTrue(app.navigationBars["Library"].exists, "Library screen should be displayed")
         }
         

@@ -211,11 +211,10 @@ public struct ContentView: View {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
-    @State private var samplePodcasts: [Podcast] = createSamplePodcasts()
+    @State private var samplePodcasts: [Podcast] = []
+    @State private var isLoading = true
     
     var body: some View {
-#if os(iOS)
-        // Use NavigationStack on iOS for better UI test compatibility
         NavigationStack {
             libraryContent
                 .navigationTitle("Library")
@@ -229,23 +228,12 @@ struct LibraryView: View {
                         }
                     }
                 }
-        }
-#else
-        // Use NavigationSplitView on other platforms
-        NavigationSplitView {
-            libraryContent
-                .navigationTitle("Library")
-                .toolbar {
-                    ToolbarItem {
-                        Button(action: addItem) {
-                            Label("Add Item", systemImage: "plus")
-                        }
+                .onAppear {
+                    Task {
+                        await loadPodcasts()
                     }
                 }
-        } detail: {
-            Text("Select a podcast to view episodes")
         }
-#endif
     }
     
     @ViewBuilder
@@ -259,34 +247,70 @@ struct LibraryView: View {
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("Heading Library")
             
-            List {
-                // Podcasts section
-                Section("Podcasts") {
-                    ForEach(samplePodcasts, id: \.id) { podcast in
-                        NavigationLink {
-                            EpisodeListView(podcast: podcast)
-                        } label: {
-                            PodcastRowView(podcast: podcast)
-                        }
-                        .accessibilityIdentifier("Podcast-\(podcast.id)")
+            if isLoading {
+                loadingView
+            } else {
+                podcastList
+            }
+        }
+    }
+    
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .accessibilityIdentifier("Loading Indicator")
+            
+            Text("Loading podcasts...")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("Loading Text")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Loading View")
+    }
+    
+    private var podcastList: some View {
+        List {
+            // Podcasts section
+            Section("Podcasts") {
+                ForEach(samplePodcasts, id: \.id) { podcast in
+                    NavigationLink {
+                        EpisodeListView(podcast: podcast)
+                    } label: {
+                        PodcastRowView(podcast: podcast)
                     }
+                    .accessibilityIdentifier("Podcast-\(podcast.id)")
                 }
-                
-                // Legacy items section (for backwards compatibility)
-                if !items.isEmpty {
-                    Section("Items") {
-                        ForEach(items) { item in
-                            NavigationLink {
-                                Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                            } label: {
-                                Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                            }
+            }
+            
+            // Legacy items section (for backwards compatibility)
+            if !items.isEmpty {
+                Section("Items") {
+                    ForEach(items) { item in
+                        NavigationLink {
+                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        } label: {
+                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
                         }
-                        .onDelete(perform: deleteItems)
                     }
+                    .onDelete(perform: deleteItems)
                 }
             }
         }
+    }
+    
+    @MainActor
+    private func loadPodcasts() async {
+        isLoading = true
+        
+        // Simulate realistic async loading delay
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        
+        // Load the sample podcasts
+        samplePodcasts = createSamplePodcasts()
+        isLoading = false
     }
     }
     

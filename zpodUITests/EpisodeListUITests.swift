@@ -33,6 +33,12 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(libraryTab.exists, "Library tab should exist")
         libraryTab.tap()
         
+        // Wait for loading to complete
+        let loadingIndicator = app.otherElements["Loading View"]
+        if loadingIndicator.exists {
+            XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10), "Loading should complete within 10 seconds")
+        }
+        
         // When: I tap on a podcast in the library
         let podcastRow = app.cells.matching(identifier: "Podcast-swift-talk").firstMatch
         XCTAssertTrue(podcastRow.waitForExistence(timeout: 5), "Swift Talk podcast should be visible")
@@ -214,6 +220,12 @@ final class EpisodeListUITests: XCTestCase {
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
         XCTAssertTrue(libraryTab.exists, "Library tab should exist")
         libraryTab.tap()
+        
+        // Wait for loading to complete
+        let loadingIndicator = app.otherElements["Loading View"]
+        if loadingIndicator.exists {
+            XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10), "Loading should complete within 10 seconds")
+        }
         
         // Wait for library content to load
         app.tables.firstMatch.waitForExistence(timeout: 5)

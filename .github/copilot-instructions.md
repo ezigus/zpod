@@ -212,6 +212,37 @@ final class ExampleUITests: XCTestCase {
 - ✅ Use @MainActor helper methods for XCUIApplication operations
 - ✅ Individual test methods can use @MainActor for UI operations
 
+#### Data Loading and UI Testing Best Practices
+**Proper Async Data Loading Patterns:**
+- ✅ Use realistic async loading in production: `@State private var data: [Item] = []` with `onAppear { await loadData() }`
+- ✅ Include loading state indicators: `@State private var isLoading = true` and show `ProgressView()` while loading
+- ✅ UI tests wait for loading completion: `loadingIndicator.waitForNonExistence(timeout: 10)`
+- ❌ DON'T force synchronous data loading just for tests: `@State private var data = createData()` masks real race conditions
+- ❌ DON'T make app behavior different in tests vs production for data loading
+
+**Correct Pattern:**
+```swift
+// Production code - realistic async loading
+@State private var podcasts: [Podcast] = []
+@State private var isLoading = true
+
+var body: some View {
+    if isLoading {
+        ProgressView()
+            .accessibilityIdentifier("Loading View")
+    } else {
+        List(podcasts) { ... }
+    }
+}
+.onAppear { Task { await loadPodcasts() } }
+
+// UI tests - wait for loading completion
+let loadingIndicator = app.otherElements["Loading View"]
+if loadingIndicator.exists {
+    XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10))
+}
+```
+
 #### Combine Testing
 - Use `Set<AnyCancellable>` to manage test subscriptions
 - Store publishers in instance variables for proper lifecycle management
