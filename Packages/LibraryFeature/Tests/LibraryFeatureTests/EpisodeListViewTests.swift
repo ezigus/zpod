@@ -10,7 +10,6 @@ import SwiftUI
 @testable import LibraryFeature
 import CoreModels
 
-@MainActor
 final class EpisodeListViewTests: XCTestCase {
     
     // Test data
@@ -64,6 +63,7 @@ final class EpisodeListViewTests: XCTestCase {
     
     // MARK: - EpisodeListView Tests
     
+    @MainActor
     func testEpisodeListViewInitialization() throws {
         // Given: A podcast with episodes
         // When: Creating an EpisodeListView
@@ -73,6 +73,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertNotNil(episodeListView)
     }
     
+    @MainActor
     func testEpisodeListWithEpisodes() throws {
         // Given: A podcast with episodes
         let episodeListView = EpisodeListView(podcast: samplePodcast)
@@ -86,6 +87,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertEqual(samplePodcast.episodes[1].id, "ep2")
     }
     
+    @MainActor
     func testEpisodeListWithEmptyPodcast() throws {
         // Given: A podcast with no episodes
         let episodeListView = EpisodeListView(podcast: emptyPodcast)
@@ -98,6 +100,7 @@ final class EpisodeListViewTests: XCTestCase {
     
     // MARK: - EpisodeRowView Tests
     
+    @MainActor
     func testEpisodeRowViewWithBasicEpisode() throws {
         // Given: A basic episode
         let episode = Episode(
@@ -114,6 +117,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertNotNil(rowView)
     }
     
+    @MainActor
     func testEpisodeRowViewWithPlayedEpisode() throws {
         // Given: A played episode
         let episode = Episode(
@@ -132,6 +136,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertTrue(episode.isPlayed)
     }
     
+    @MainActor
     func testEpisodeRowViewWithInProgressEpisode() throws {
         // Given: An episode in progress
         let episode = Episode(
@@ -153,6 +158,7 @@ final class EpisodeListViewTests: XCTestCase {
     
     // MARK: - Duration Formatting Tests
     
+    @MainActor
     func testDurationFormattingForMinutes() throws {
         // Given: An episode with duration in minutes
         let episode = Episode(
@@ -168,6 +174,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertEqual(episode.duration, 900)
     }
     
+    @MainActor
     func testDurationFormattingForHours() throws {
         // Given: An episode with duration in hours
         let episode = Episode(
@@ -184,6 +191,7 @@ final class EpisodeListViewTests: XCTestCase {
     
     // MARK: - PodcastRowView Tests
     
+    @MainActor
     func testPodcastRowViewCreation() throws {
         // Given: A podcast
         // When: Creating a PodcastRowView
@@ -193,6 +201,7 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertNotNil(rowView)
     }
     
+    @MainActor
     func testPodcastRowViewWithSubscribedPodcast() throws {
         // Given: A subscribed podcast
         let subscribedPodcast = Podcast(

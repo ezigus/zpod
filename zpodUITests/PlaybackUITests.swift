@@ -15,27 +15,16 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Perform @MainActor UI setup without blocking the main thread
-        let exp = expectation(description: "Launch app on main actor")
-        var appResult: XCUIApplication?
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
         
-        Task { @MainActor in
-            let instance = XCUIApplication()
-            instance.launch()
-            
-            // Navigate to player interface for testing
-            let tabBar = instance.tabBars["Main Tab Bar"]
-            let playerTab = tabBar.buttons["Player"]
-            if playerTab.exists {
-                playerTab.tap()
-            }
-            
-            appResult = instance
-            exp.fulfill()
+        // Navigate to player interface for testing
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let playerTab = tabBar.buttons["Player"]
+        if playerTab.exists {
+            playerTab.tap()
         }
-        
-        wait(for: [exp], timeout: 15.0)
-        app = appResult
     }
 
     override func tearDownWithError() throws {

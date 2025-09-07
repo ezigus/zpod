@@ -7,30 +7,15 @@
 
 import XCTest
 
-@MainActor
 final class EpisodeListUITests: XCTestCase {
     nonisolated(unsafe) private var app: XCUIApplication!
     
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
-        
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
     }
     
     override func tearDownWithError() throws {
@@ -39,6 +24,7 @@ final class EpisodeListUITests: XCTestCase {
     
     // MARK: - Episode List Navigation Tests
     
+    @MainActor
     func testNavigationToPodcastEpisodeList() throws {
         // Given: The app is launched and showing the Library tab
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
@@ -55,6 +41,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should be displayed")
     }
     
+    @MainActor
     func testEpisodeListDisplaysEpisodes() throws {
         // Given: I navigate to a podcast's episode list
         navigateToPodcastEpisodes("swift-talk")
@@ -72,6 +59,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeTitle.exists, "Episode title should be visible")
     }
     
+    @MainActor
     func testEpisodeListScrolling() throws {
         // Given: I'm viewing an episode list with multiple episodes
         navigateToPodcastEpisodes("swift-talk")
@@ -86,6 +74,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeList.exists, "Episode list should still exist after scrolling")
     }
     
+    @MainActor
     func testEpisodeDetailNavigation() throws {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
@@ -100,6 +89,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeDetailView.waitForExistence(timeout: 5), "Episode detail view should be displayed")
     }
     
+    @MainActor
     func testEpisodeStatusIndicators() throws {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
@@ -113,6 +103,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeList.exists, "Episode list should display status indicators")
     }
     
+    @MainActor
     func testEmptyEpisodeListState() throws {
         // Given: I navigate to a podcast with no episodes (if available)
         // This test would need specific test data setup
@@ -124,6 +115,7 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
     }
     
+    @MainActor
     func testPullToRefreshFunctionality() throws {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
@@ -145,6 +137,7 @@ final class EpisodeListUITests: XCTestCase {
     
     // MARK: - iPad Responsive Design Tests
     
+    @MainActor
     func testIPadLayout() throws {
         // Skip this test on iPhone
         guard UIDevice.current.userInterfaceIdiom == .pad else {
@@ -165,6 +158,7 @@ final class EpisodeListUITests: XCTestCase {
     
     // MARK: - Accessibility Tests
     
+    @MainActor
     func testEpisodeListAccessibility() throws {
         // Given: I navigate to episode list
         navigateToPodcastEpisodes("swift-talk")

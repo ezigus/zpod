@@ -15,27 +15,16 @@ final class ContentDiscoveryUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Perform @MainActor UI setup without blocking the main thread
-        let exp = expectation(description: "Launch app on main actor")
-        var appResult: XCUIApplication?
+        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        app = XCUIApplication()
+        app.launch()
         
-        Task { @MainActor in
-            let instance = XCUIApplication()
-            instance.launch()
-            
-            // Navigate to discovery interface for testing
-            let tabBar = instance.tabBars["Main Tab Bar"]
-            let discoverTab = tabBar.buttons["Discover"]
-            if discoverTab.exists {
-                discoverTab.tap()
-            }
-            
-            appResult = instance
-            exp.fulfill()
+        // Navigate to discovery interface for testing
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let discoverTab = tabBar.buttons["Discover"]
+        if discoverTab.exists {
+            discoverTab.tap()
         }
-        
-        wait(for: [exp], timeout: 15.0)
-        app = appResult
     }
 
     override func tearDownWithError() throws {
