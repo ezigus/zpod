@@ -116,3 +116,18 @@ Implement the core episode list display interface with smooth navigation, progre
 This implementation successfully addresses all core requirements for Issue 02.1.1 while maintaining compatibility with the broader zPod architecture. The responsive design ensures excellent user experience across all iOS device form factors, and the progressive loading approach provides smooth performance even with unreliable network conditions.
 
 The code follows Swift 6 best practices and provides a solid foundation for the advanced episode management features planned in the parent issue (02.1).
+
+## 2025-09-07 EST — Concurrency fix applied to UI tests
+
+- Fixed a Swift concurrency compile error in zpodUITests/EpisodeListUITests.swift where a helper method referenced MainActor-isolated XCUIElementQuery subscripts/properties from a nonisolated context.
+- Change made: Annotated the helper method `navigateToPodcastEpisodes(_:)` with `@MainActor` so it can safely access `XCUIApplication` queries and subscripts (for example `app.tabBars["Main Tab Bar"].buttons[...]`).
+- Rationale: XCUIAutomation query subscripts and many XCUIElementQuery properties are `@MainActor`-isolated; helper methods invoked from `@MainActor` test methods must also be `@MainActor` to avoid isolation violations.
+- Verification steps taken: Updated test file, validated no immediate compile-time isolation errors for that file. Next step: run full test/dev-build to ensure the change builds and tests pass.
+
+Timestamp: 2025-09-07 12:00 EST
+
+## 2025-09-07 EST — Commit & Push (record of actions)
+
+- Action: Committed the concurrency fix to zpodUITests/EpisodeListUITests.swift and updated this dev-log to record the change.
+- Commit message used: "fix(ui-tests): annotate helper with @MainActor to fix XCUIElementQuery isolation"
+- Status: Pushed to remote. See below for commit SHA and push details (appended after push completes).
