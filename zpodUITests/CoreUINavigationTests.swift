@@ -16,20 +16,30 @@ final class CoreUINavigationTests: XCTestCase {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // XCUIApplication doesn't require @MainActor, so we can create it directly
-        app = XCUIApplication()
-        app.launch()
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
     }
 
     override func tearDownWithError() throws {
         app = nil
     }
 
+    // MARK: - Helper Methods
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+    }
+    
     // MARK: - Main Navigation Tests
     // Covers: Basic navigation flow from ui spec
     
     @MainActor
     func testMainTabBarNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is launched and main interface is visible
         // When: User taps different tab bar items
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -68,6 +78,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testNavigationStackManagement() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: User is on a detail screen
         let tabBar = app.tabBars["Main Tab Bar"]
         let libraryTab = tabBar.buttons["Library"]
@@ -97,6 +110,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testVoiceOverLabels() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App interface is loaded
         // When: Checking accessibility labels
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -122,6 +138,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAccessibilityHints() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Interactive elements are visible
         // When: Checking accessibility hints
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -144,6 +163,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testKeyboardNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports keyboard navigation
         // When: Using keyboard navigation (simulated through accessibility)
         
@@ -168,6 +190,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testIPadLayoutAdaptation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is running on iPad (or iPad simulator)
         let deviceType = UIDevice.current.userInterfaceIdiom
         
@@ -202,6 +227,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAppShortcutHandling() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports quick actions
         // Note: Quick actions are typically tested through app launch with shortcut items
         // This test verifies the app can handle shortcut-triggered launches
@@ -226,6 +254,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAppearanceAdaptation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports appearance changes
         // When: Checking that UI elements are visible and functional regardless of appearance
         // Note: XCUITest doesn't provide direct access to interface style, so we verify
@@ -253,6 +284,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testErrorStateNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App may encounter error states
         // When: Checking for error handling in navigation
         
@@ -280,6 +314,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testNavigationPerformance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is loaded
         // When: Performing navigation actions
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -305,6 +342,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_CompleteNavigationFlow() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: User wants to navigate through main app features
         let tabBar = app.tabBars["Main Tab Bar"]
         XCTAssertTrue(tabBar.exists, "Main tab bar should be available")
@@ -333,6 +373,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_AccessibilityCompliance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App must be accessible to all users
         // When: Checking accessibility compliance
         

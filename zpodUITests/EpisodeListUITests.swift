@@ -13,9 +13,8 @@ final class EpisodeListUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // XCUIApplication doesn't require @MainActor, so we can create it directly
-        app = XCUIApplication()
-        app.launch()
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
     }
     
     override func tearDownWithError() throws {
@@ -26,6 +25,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testNavigationToPodcastEpisodeList() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: The app is launched and showing the Library tab
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
         XCTAssertTrue(libraryTab.exists, "Library tab should exist")
@@ -43,6 +45,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEpisodeListDisplaysEpisodes() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I navigate to a podcast's episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -61,6 +66,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEpisodeListScrolling() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I'm viewing an episode list with multiple episodes
         navigateToPodcastEpisodes("swift-talk")
         
@@ -76,6 +84,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEpisodeDetailNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -91,6 +102,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEpisodeStatusIndicators() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -105,6 +119,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEmptyEpisodeListState() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I navigate to a podcast with no episodes (if available)
         // This test would need specific test data setup
         
@@ -117,6 +134,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testPullToRefreshFunctionality() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -144,6 +164,9 @@ final class EpisodeListUITests: XCTestCase {
             throw XCTSkip("This test is only for iPad")
         }
         
+        // Initialize the app
+        initializeApp()
+        
         // Given: I'm on iPad and navigate to episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -160,6 +183,9 @@ final class EpisodeListUITests: XCTestCase {
     
     @MainActor
     func testEpisodeListAccessibility() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I navigate to episode list
         navigateToPodcastEpisodes("swift-talk")
         
@@ -176,6 +202,13 @@ final class EpisodeListUITests: XCTestCase {
     
     // MARK: - Helper Methods
     
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+    }
+    
+    @MainActor
     private func navigateToPodcastEpisodes(_ podcastId: String) {
         // Navigate to Library tab
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]

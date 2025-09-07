@@ -126,8 +126,61 @@ The code follows Swift 6 best practices and provides a solid foundation for the 
 
 Timestamp: 2025-09-07 12:00 EST
 
-## 2025-09-07 EST — Commit & Push (record of actions)
+## 2025-09-07 EST — Swift 6 Concurrency Fix for XCUIApplication Isolation
 
-- Action: Committed the concurrency fix to zpodUITests/EpisodeListUITests.swift and updated this dev-log to record the change.
-- Commit message used: "fix(ui-tests): annotate helper with @MainActor to fix XCUIElementQuery isolation"
-- Status: Pushed to remote. See below for commit SHA and push details (appended after push completes).
+### Issue Description
+The current Xcode/iOS SDK now marks XCUIApplication and all its methods as `@MainActor` isolated, but UI test setup methods must remain nonisolated to match the `XCTestCase` base class. This created compilation errors throughout the UI test suite.
+
+### Root Cause Analysis
+- `XCUIApplication()` init is now `@MainActor` isolated
+- `app.launch()` is now `@MainActor` isolated  
+- All XCUIApplication query properties (`.tabBars`, `.buttons`, etc.) are now `@MainActor` isolated
+- All XCUIElement methods (`.tap()`, `.waitForExistence()`, etc.) are now `@MainActor` isolated
+- Setup methods `setUpWithError()` must remain nonisolated to match XCTestCase base class
+
+### Solution Applied
+**EpisodeListUITests.swift Changes:**
+1. **Removed `@MainActor` calls from setup method**: Setup now only sets basic test configuration
+2. **Created `@MainActor initializeApp()` helper**: Handles XCUIApplication creation and launch
+3. **Made `navigateToPodcastEpisodes()` helper `@MainActor`**: Can now safely call XCUIApplication APIs
+4. **Updated all test methods**: Each test method calls `initializeApp()` first before proceeding
+
+**Pattern Applied:**
+```swift
+// Setup: nonisolated (matches XCTestCase)
+override func setUpWithError() throws {
+    continueAfterFailure = false
+    // No XCUIApplication calls here
+}
+
+// Helper: @MainActor (can call XCUIApplication APIs)
+@MainActor
+private func initializeApp() {
+    app = XCUIApplication()
+    app.launch()
+}
+
+// Test methods: @MainActor (can call helpers and UI APIs)
+@MainActor
+func testExample() throws {
+    initializeApp()
+    // ... rest of test
+}
+```
+
+### Benefits of This Approach
+- ✅ **No deadlocks**: Avoids Task + semaphore patterns that caused previous deadlocks
+- ✅ **Clean separation**: Setup stays nonisolated, UI operations are properly isolated 
+- ✅ **Maintainable**: Clear pattern that can be applied to all UI test files
+- ✅ **Swift 6 compliant**: Follows proper actor isolation without workarounds
+
+### Files Fixed
+- ✅ `zpodUITests/EpisodeListUITests.swift` - All compilation errors resolved
+
+### Remaining Work
+Need to apply same pattern to other UI test files that have similar errors:
+- `zpodUITests/CoreUINavigationTests.swift`
+- `zpodUITests/ContentDiscoveryUITests.swift` 
+- `zpodUITests/PlaybackUITests.swift`
+
+Timestamp: 2025-09-07 12:15 EST

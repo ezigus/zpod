@@ -15,7 +15,18 @@ final class PlaybackUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
+    }
+
+    override func tearDownWithError() throws {
+        app = nil
+    }
+
+    // MARK: - Helpers
+    
+    @MainActor
+    private func initializeApp() {
         app = XCUIApplication()
         app.launch()
         
@@ -26,12 +37,7 @@ final class PlaybackUITests: XCTestCase {
             playerTab.tap()
         }
     }
-
-    override func tearDownWithError() throws {
-        app = nil
-    }
-
-    // MARK: - Helpers
+    
     @MainActor
     private func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
         guard element.exists else { return false }
@@ -50,6 +56,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testNowPlayingControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Now playing interface is visible
         let playerInterface = app.otherElements["Player Interface"]
         
@@ -79,6 +88,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testPlaybackSpeedControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Player interface with speed controls
         let speedButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Speed' OR label CONTAINS 'x'" )).firstMatch
         

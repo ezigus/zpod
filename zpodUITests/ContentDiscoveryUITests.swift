@@ -15,7 +15,18 @@ final class ContentDiscoveryUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // XCUIApplication doesn't require @MainActor, so we can create it directly
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
+    }
+
+    override func tearDownWithError() throws {
+        app = nil
+    }
+
+    // MARK: - Helper Methods
+    
+    @MainActor
+    private func initializeApp() {
         app = XCUIApplication()
         app.launch()
         
@@ -26,16 +37,15 @@ final class ContentDiscoveryUITests: XCTestCase {
             discoverTab.tap()
         }
     }
-
-    override func tearDownWithError() throws {
-        app = nil
-    }
-
+    
     // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
     // Given/When/Then: Basic Podcast Search and Discovery
     
     @MainActor
     func testBasicPodcastSearchInterface_GivenDiscoverTab_WhenSearching_ThenShowsSearchInterface() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
         XCTAssertTrue(app.navigationBars["Discover"].exists, "Should be on Discover tab")
         
@@ -49,6 +59,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchFieldInput_GivenSearchInterface_WhenTyping_ThenAcceptsInput() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Search interface is available
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         XCTAssertTrue(searchField.exists, "Search field should exist")
@@ -65,6 +78,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchClearButton_GivenSearchText_WhenTappingClear_ThenClearsSearch() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have typed in the search field
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         searchField.tap()
@@ -87,6 +103,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoveryOptionsMenu_GivenDiscoverTab_WhenTappingOptions_ThenShowsMenu() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
         XCTAssertTrue(app.navigationBars["Discover"].exists)
         
@@ -155,6 +174,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testRSSFeedAddition_GivenOptionsMenu_WhenSelectingAddRSSFeed_ThenShowsRSSSheet() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have access to the options menu
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -214,6 +236,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testRSSURLInput_GivenRSSSheet_WhenEnteringURL_ThenAcceptsInput() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Navigate to RSS sheet if available
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -273,6 +298,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchFilters_GivenSearchResults_WhenFilteringByType_ThenShowsFilters() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have started a search
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         if searchField.exists {
@@ -303,6 +331,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchHistoryAccess_GivenOptionsMenu_WhenSelectingHistory_ThenShowsHistory() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have access to the options menu
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -360,6 +391,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoverTabAccessibility_GivenApp_WhenNavigating_ThenSupportsAccessibility() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: The app is launched
         // When: I check accessibility elements on Discover tab
         let discoverNavBar = app.navigationBars["Discover"]
@@ -377,6 +411,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoverTabTitle_GivenDiscoverTab_WhenViewing_ThenShowsCorrectTitle() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
         // When: I check the navigation title
         let discoverTitle = app.navigationBars["Discover"]
@@ -389,6 +426,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testEmptyDiscoverState_GivenNoSearch_WhenViewingDiscover_ThenShowsEmptyState() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab with no active search
         // When: I look at the empty state
         
@@ -405,6 +445,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchResponsiveness_GivenSearchField_WhenTyping_ThenRespondsQuickly() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Search interface is available
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         
