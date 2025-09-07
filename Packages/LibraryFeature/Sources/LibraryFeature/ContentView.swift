@@ -207,10 +207,11 @@ public struct ContentView: View {
     }
 }
 
-/// The original library view moved to its own component
+/// The library view showing podcasts and allowing navigation to episode lists
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
+    @State private var samplePodcasts: [Podcast] = []
     
     var body: some View {
         NavigationSplitView {
@@ -224,14 +225,31 @@ struct LibraryView: View {
                     .accessibilityIdentifier("Heading Library")
                 
                 List {
-                    ForEach(items) { item in
-                        NavigationLink {
-                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                        } label: {
-                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                    // Podcasts section
+                    Section("Podcasts") {
+                        ForEach(samplePodcasts, id: \.id) { podcast in
+                            NavigationLink {
+                                EpisodeListView(podcast: podcast)
+                            } label: {
+                                PodcastRowView(podcast: podcast)
+                            }
+                            .accessibilityIdentifier("Podcast-\(podcast.id)")
                         }
                     }
-                    .onDelete(perform: deleteItems)
+                    
+                    // Legacy items section (for backwards compatibility)
+                    if !items.isEmpty {
+                        Section("Items") {
+                            ForEach(items) { item in
+                                NavigationLink {
+                                    Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                                } label: {
+                                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                                }
+                            }
+                            .onDelete(perform: deleteItems)
+                        }
+                    }
                 }
             }
 #if os(macOS)
@@ -250,8 +268,11 @@ struct LibraryView: View {
                 }
             }
             .navigationTitle("Library")
+            .onAppear {
+                setupSamplePodcasts()
+            }
         } detail: {
-            Text("Select an item")
+            Text("Select a podcast to view episodes")
         }
     }
     
@@ -269,6 +290,159 @@ struct LibraryView: View {
             }
         }
     }
+    
+    private func setupSamplePodcasts() {
+        if samplePodcasts.isEmpty {
+            samplePodcasts = createSamplePodcasts()
+        }
+    }
+}
+
+/// Individual podcast row view for the library list
+struct PodcastRowView: View {
+    let podcast: Podcast
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Podcast artwork placeholder
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.secondary.opacity(0.2))
+                .frame(width: 50, height: 50)
+                .overlay {
+                    Image(systemName: "mic.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityHidden(true)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(podcast.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("Podcast Title")
+                
+                if let author = podcast.author {
+                    Text(author)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("Podcast Author")
+                }
+                
+                Text("\(podcast.episodes.count) episodes")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("Episode Count")
+            }
+            
+            Spacer()
+            
+            if podcast.isSubscribed {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Subscribed")
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Podcast Row-\(podcast.id)")
+    }
+}
+
+/// Creates sample podcasts for testing and development
+func createSamplePodcasts() -> [Podcast] {
+    let swiftPodcast = Podcast(
+        id: "swift-talk",
+        title: "Swift Talk",
+        author: "Swift Community",
+        description: "Weekly discussions about Swift programming",
+        feedURL: URL(string: "https://example.com/swift-talk.xml")!,
+        episodes: [
+            Episode(
+                id: "st-001",
+                title: "Getting Started with Swift 6",
+                podcastID: "swift-talk",
+                pubDate: Date(),
+                duration: 1800,
+                description: "In this episode, we explore the new features and improvements in Swift 6, including enhanced concurrency support and performance optimizations."
+            ),
+            Episode(
+                id: "st-002",
+                title: "SwiftUI Navigation Patterns",
+                podcastID: "swift-talk",
+                playbackPosition: 450,
+                pubDate: Calendar.current.date(byAdding: .day, value: -3, to: Date()),
+                duration: 2100,
+                description: "Learn about modern navigation patterns in SwiftUI, including NavigationStack and NavigationSplitView."
+            ),
+            Episode(
+                id: "st-003",
+                title: "Concurrency and Actors",
+                podcastID: "swift-talk",
+                isPlayed: true,
+                pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()),
+                duration: 2700,
+                description: "Deep dive into Swift's actor system and how to write safe concurrent code."
+            ),
+            Episode(
+                id: "st-004",
+                title: "Package Management Best Practices",
+                podcastID: "swift-talk",
+                pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()),
+                duration: 1950,
+                description: "Exploring Swift Package Manager and best practices for organizing your code into packages."
+            )
+        ],
+        isSubscribed: true
+    )
+    
+    let iosPodcast = Podcast(
+        id: "ios-dev-weekly",
+        title: "iOS Dev Weekly",
+        author: "iOS Development Team",
+        description: "Weekly iOS development news and tips",
+        feedURL: URL(string: "https://example.com/ios-dev-weekly.xml")!,
+        episodes: [
+            Episode(
+                id: "idw-101",
+                title: "iOS 18 New Features Overview",
+                podcastID: "ios-dev-weekly",
+                pubDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()),
+                duration: 2250,
+                description: "Comprehensive overview of new features in iOS 18 and how they affect app development."
+            ),
+            Episode(
+                id: "idw-102",
+                title: "Xcode 16 Tips and Tricks",
+                podcastID: "ios-dev-weekly",
+                playbackPosition: 675,
+                pubDate: Calendar.current.date(byAdding: .day, value: -8, to: Date()),
+                duration: 1800,
+                description: "Discover hidden gems and productivity tips in Xcode 16."
+            )
+        ],
+        isSubscribed: true
+    )
+    
+    let techPodcast = Podcast(
+        id: "tech-news",
+        title: "Tech News Daily",
+        author: "Tech News Network",
+        description: "Daily technology news and analysis",
+        feedURL: URL(string: "https://example.com/tech-news.xml")!,
+        episodes: [
+            Episode(
+                id: "tnd-501",
+                title: "AI Developments This Week",
+                podcastID: "tech-news",
+                pubDate: Date(),
+                duration: 900,
+                description: "Latest developments in artificial intelligence and machine learning."
+            )
+        ],
+        isSubscribed: false
+    )
+    
+    return [swiftPodcast, iosPodcast, techPodcast]
 }
 
 /// Player tab that shows the EpisodeDetailView with a sample episode
