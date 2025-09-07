@@ -184,3 +184,94 @@ Need to apply same pattern to other UI test files that have similar errors:
 - `zpodUITests/PlaybackUITests.swift`
 
 Timestamp: 2025-09-07 12:15 EST
+
+## 2025-09-07 EST — SwiftUI Syntax Compilation Error Fix
+
+### Issue Description
+Received compilation error for EpisodeListView.swift at line 48: "conflicting arguments to generic parameter 'τ_0_0' ('ModifiedContent". This is a classic SwiftUI type inference error that occurs when computed properties return different view types in conditional branches without proper @ViewBuilder annotation.
+
+### Root Cause Analysis
+The `episodeList` computed property was returning different view types in its conditional branches:
+1. `LazyVGrid` with `.padding()` and `.accessibilityIdentifier()` modifiers (iPad branch)
+2. `List` with `.listStyle()` and `.accessibilityIdentifier()` modifiers (iPhone branch)
+3. Another `List` with identical modifiers (non-iOS branch)
+
+Without `@ViewBuilder`, SwiftUI couldn't reconcile these different return types, causing the generic parameter conflict.
+
+### Solution Applied
+**EpisodeListView.swift Changes:**
+1. **Added `@ViewBuilder` annotation**: Annotated the `episodeList` computed property with `@ViewBuilder` to allow multiple return types
+2. **Verified consistent structure**: Ensured all conditional branches return compatible view hierarchies
+
+**Pattern Applied:**
+```swift
+// Before (caused compilation error):
+private var episodeList: some View {
+    #if os(iOS)
+    if UIDevice.current.userInterfaceIdiom == .pad {
+        LazyVGrid(...) { ... }.padding().accessibilityIdentifier(...)
+    } else {
+        List(...) { ... }.listStyle(...).accessibilityIdentifier(...)
+    }
+    #else
+    List(...) { ... }.listStyle(...).accessibilityIdentifier(...)
+    #endif
+}
+
+// After (compiles successfully):
+@ViewBuilder
+private var episodeList: some View {
+    // ... same content with @ViewBuilder annotation
+}
+```
+
+### Enhanced Build Script for Future Prevention
+**dev-build-enhanced.sh Improvements:**
+1. **Added SwiftUI syntax checking**: New `check_swiftui_patterns()` function detects common SwiftUI compilation issues
+2. **Enhanced `@ViewBuilder` detection**: Identifies computed properties with conditional views that may need `@ViewBuilder`
+3. **Comprehensive Swift file scanning**: Updated to scan all Swift files in the project, not just main source directories
+4. **New `swiftui` command**: Added dedicated command for SwiftUI-specific syntax checking
+5. **Integrated into test suite**: SwiftUI checks now included in the main `test` command
+
+**Additional Syntax Checks Added:**
+- Missing `@ViewBuilder` annotations on conditional computed properties
+- NavigationView usage (deprecated in iOS 16+)
+- Potential unmatched braces
+- SwiftUI closure syntax issues
+
+### Verification Steps
+- ✅ EpisodeListView.swift compiles without errors
+- ✅ Enhanced build script detects SwiftUI syntax patterns
+- ✅ All existing Swift files pass enhanced syntax checking
+- ✅ New SwiftUI-specific checking integrated into development workflow
+
+### Copilot Instructions Update
+Updated the project's syntax checking capabilities to prevent recurrence of similar issues:
+1. Enhanced the build script to catch SwiftUI type conflicts early
+2. Added comprehensive scanning of all Swift files in packages
+3. Improved detection of common SwiftUI anti-patterns
+4. Integrated SwiftUI checks into the main development testing workflow
+
+### Benefits of This Fix
+- ✅ **Immediate resolution**: EpisodeListView compiles without type conflicts
+- ✅ **Future prevention**: Enhanced build script catches similar issues early
+- ✅ **Better developer experience**: Clear warnings about potential SwiftUI syntax issues
+- ✅ **Comprehensive coverage**: All Swift files in the project are now scanned
+
+### Files Updated
+- ✅ `Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift` - Added `@ViewBuilder` annotation
+- ✅ `scripts/dev-build-enhanced.sh` - Enhanced with SwiftUI syntax checking capabilities
+
+### Commands for Future Use
+```bash
+# Check SwiftUI syntax specifically
+./scripts/dev-build-enhanced.sh swiftui
+
+# Run comprehensive syntax tests (includes SwiftUI)
+./scripts/dev-build-enhanced.sh test
+
+# Run all development checks
+./scripts/dev-build-enhanced.sh all
+```
+
+Timestamp: 2025-09-07 13:30 EST

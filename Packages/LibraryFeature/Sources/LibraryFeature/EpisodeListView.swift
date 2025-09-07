@@ -43,6 +43,7 @@ public struct EpisodeListView: View {
         }
     }
     
+    @ViewBuilder
     private var episodeList: some View {
         #if os(iOS)
         if UIDevice.current.userInterfaceIdiom == .pad {

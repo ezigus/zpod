@@ -488,7 +488,39 @@ xcodebuild -project zpod.xcodeproj -scheme zpod clean
 - DispatchQueue anti-pattern warnings
 - Non-exhaustive catch block detection
 - `@MainActor` timer usage validation
+- **SwiftUI syntax checking** - detects missing `@ViewBuilder` annotations and common SwiftUI compilation issues
+- **Comprehensive syntax validation** - scans all Swift files including packages for syntax errors
+- **Enhanced error prevention** - catches SwiftUI type conflicts and generic parameter issues before compilation
 - Early warning system for compilation issues
+
+#### Syntax Checking Commands
+```bash
+# Check Swift syntax for all files (recommended before committing)
+./scripts/dev-build-enhanced.sh syntax
+
+# Check SwiftUI-specific syntax patterns
+./scripts/dev-build-enhanced.sh swiftui
+
+# Check Swift 6 concurrency patterns
+./scripts/dev-build-enhanced.sh concurrency
+
+# Run comprehensive development tests (syntax + swiftui + concurrency)
+./scripts/dev-build-enhanced.sh test
+```
+
+#### Common Syntax Issues Prevention
+The enhanced build script now detects and prevents:
+- **SwiftUI Type Conflicts**: Missing `@ViewBuilder` annotations on computed properties with conditional views
+- **Generic Parameter Conflicts**: SwiftUI modifier chains that cause `τ_0_0` compilation errors
+- **Navigation Deprecation**: Usage of deprecated `NavigationView` (recommends `NavigationStack`)
+- **Brace Mismatches**: Unmatched opening/closing braces that cause parsing errors
+- **Concurrency Violations**: `@MainActor` isolation issues and async/await anti-patterns
+
+#### Development Best Practices for Syntax
+- **Always run syntax check before committing**: Use `./scripts/dev-build-enhanced.sh syntax`
+- **Fix SwiftUI type conflicts early**: Add `@ViewBuilder` to computed properties returning different view types
+- **Use enhanced script for early detection**: Run `./scripts/dev-build-enhanced.sh test` during development
+- **Address warnings proactively**: The script provides warnings for potential future compilation issues
 
 ### CI/CD Pipeline
 The repository includes a GitHub Actions workflow that:
