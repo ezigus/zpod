@@ -312,7 +312,6 @@ struct LibraryView: View {
         samplePodcasts = createSamplePodcasts()
         isLoading = false
     }
-    }
     
     private func addItem() {
         withAnimation {

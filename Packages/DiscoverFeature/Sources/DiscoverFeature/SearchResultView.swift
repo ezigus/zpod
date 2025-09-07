@@ -71,7 +71,7 @@ public struct SearchResultView: View {
                         }
                         .buttonStyle(.borderless)
                         .accessibilityLabel("Subscribe to \(podcast.title)")
-                    } else if case let .podcast(_, _) = searchResult {
+                    } else if case .podcast(_, _) = searchResult {
                         Label("Subscribed", systemImage: "checkmark.circle.fill")
                             .font(.caption)
                             .foregroundColor(.green)
