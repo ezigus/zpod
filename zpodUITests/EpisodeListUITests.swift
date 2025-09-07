@@ -212,14 +212,16 @@ final class EpisodeListUITests: XCTestCase {
     private func navigateToPodcastEpisodes(_ podcastId: String) {
         // Navigate to Library tab
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
-        if libraryTab.exists {
-            libraryTab.tap()
-        }
+        XCTAssertTrue(libraryTab.exists, "Library tab should exist")
+        libraryTab.tap()
         
-        // Wait for and tap podcast row
+        // Wait for library content to load
+        app.tables.firstMatch.waitForExistence(timeout: 5)
+        
+        // Wait for and tap podcast row with better error messaging
         let podcastRow = app.cells.matching(identifier: "Podcast-\(podcastId)").firstMatch
-        if podcastRow.waitForExistence(timeout: 5) {
-            podcastRow.tap()
-        }
+        XCTAssertTrue(podcastRow.waitForExistence(timeout: 10), 
+                     "Podcast row with ID 'Podcast-\(podcastId)' should be visible. Available cells: \(app.cells.allElementsBoundByIndex.map { $0.identifier })")
+        podcastRow.tap()
     }
 }

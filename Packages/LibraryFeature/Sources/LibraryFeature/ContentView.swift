@@ -211,69 +211,83 @@ public struct ContentView: View {
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
-    @State private var samplePodcasts: [Podcast] = []
+    @State private var samplePodcasts: [Podcast] = createSamplePodcasts()
     
     var body: some View {
-        NavigationSplitView {
-            VStack(spacing: 0) {
-                // Add an accessible heading element to satisfy header trait checks
-                Text("Library")
-                    .font(.largeTitle).bold()
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("Heading Library")
-                
-                List {
-                    // Podcasts section
-                    Section("Podcasts") {
-                        ForEach(samplePodcasts, id: \.id) { podcast in
-                            NavigationLink {
-                                EpisodeListView(podcast: podcast)
-                            } label: {
-                                PodcastRowView(podcast: podcast)
-                            }
-                            .accessibilityIdentifier("Podcast-\(podcast.id)")
-                        }
-                    }
-                    
-                    // Legacy items section (for backwards compatibility)
-                    if !items.isEmpty {
-                        Section("Items") {
-                            ForEach(items) { item in
-                                NavigationLink {
-                                    Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                                } label: {
-                                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                                }
-                            }
-                            .onDelete(perform: deleteItems)
-                        }
-                    }
-                }
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
 #if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+        // Use NavigationStack on iOS for better UI test compatibility
+        NavigationStack {
+            libraryContent
+                .navigationTitle("Library")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        EditButton()
+                    }
+                    ToolbarItem {
+                        Button(action: addItem) {
+                            Label("Add Item", systemImage: "plus")
+                        }
                     }
                 }
-            }
-            .navigationTitle("Library")
-            .onAppear {
-                setupSamplePodcasts()
-            }
+        }
+#else
+        // Use NavigationSplitView on other platforms
+        NavigationSplitView {
+            libraryContent
+                .navigationTitle("Library")
+                .toolbar {
+                    ToolbarItem {
+                        Button(action: addItem) {
+                            Label("Add Item", systemImage: "plus")
+                        }
+                    }
+                }
         } detail: {
             Text("Select a podcast to view episodes")
         }
+#endif
+    }
+    
+    @ViewBuilder
+    private var libraryContent: some View {
+        VStack(spacing: 0) {
+            // Add an accessible heading element to satisfy header trait checks
+            Text("Library")
+                .font(.largeTitle).bold()
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("Heading Library")
+            
+            List {
+                // Podcasts section
+                Section("Podcasts") {
+                    ForEach(samplePodcasts, id: \.id) { podcast in
+                        NavigationLink {
+                            EpisodeListView(podcast: podcast)
+                        } label: {
+                            PodcastRowView(podcast: podcast)
+                        }
+                        .accessibilityIdentifier("Podcast-\(podcast.id)")
+                    }
+                }
+                
+                // Legacy items section (for backwards compatibility)
+                if !items.isEmpty {
+                    Section("Items") {
+                        ForEach(items) { item in
+                            NavigationLink {
+                                Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                            } label: {
+                                Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                            }
+                        }
+                        .onDelete(perform: deleteItems)
+                    }
+                }
+            }
+        }
+    }
     }
     
     private func addItem() {
@@ -288,12 +302,6 @@ struct LibraryView: View {
             for index in offsets {
                 modelContext.delete(items[index])
             }
-        }
-    }
-    
-    private func setupSamplePodcasts() {
-        if samplePodcasts.isEmpty {
-            samplePodcasts = createSamplePodcasts()
         }
     }
 }
