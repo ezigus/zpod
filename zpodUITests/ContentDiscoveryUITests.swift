@@ -155,7 +155,7 @@ final class ContentDiscoveryUITests: XCTestCase {
                          "Discovery options menu should contain expected items")
         } else {
             // If no options button found, skip this test gracefully
-            XCTSkip("Discovery options button not found or not accessible")
+            throw XCTSkip("Discovery options button not found or not accessible")
         }
     }
     
@@ -213,10 +213,10 @@ final class ContentDiscoveryUITests: XCTestCase {
                 let urlField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
                 XCTAssertTrue(urlField.exists, "URL input field should be present")
             } else {
-                XCTSkip("Add RSS Feed option not found in menu")
+                throw XCTSkip("Add RSS Feed option not found in menu")
             }
         } else {
-            XCTSkip("Discovery options button not found or not accessible")
+            throw XCTSkip("Discovery options button not found or not accessible")
         }
     }
     
@@ -266,13 +266,13 @@ final class ContentDiscoveryUITests: XCTestCase {
                                  app.staticTexts["https://example.com/feed.xml"].exists,
                                  "URL field should contain entered URL")
                 } else {
-                    XCTSkip("URL field not found in RSS sheet")
+                    throw XCTSkip("URL field not found in RSS sheet")
                 }
             } else {
-                XCTSkip("Add RSS Feed option not found in menu")
+                throw XCTSkip("Add RSS Feed option not found in menu")
             }
         } else {
-            XCTSkip("Discovery options button not found or not accessible")
+            throw XCTSkip("Discovery options button not found or not accessible")
         }
     }
     
@@ -359,10 +359,10 @@ final class ContentDiscoveryUITests: XCTestCase {
                 XCTAssertTrue(historySheet.waitForExistence(timeout: 3.0), 
                              "Search history sheet should appear")
             } else {
-                XCTSkip("Search History option not found in menu")
+                throw XCTSkip("Search History option not found in menu")
             }
         } else {
-            XCTSkip("Discovery options button not found or not accessible")
+            throw XCTSkip("Discovery options button not found or not accessible")
         }
     }
     
@@ -440,7 +440,7 @@ final class ContentDiscoveryUITests: XCTestCase {
                          app.staticTexts["test"].exists,
                          "Search field should contain the typed text")
         } else {
-            XCTSkip("Search field not found - skipping responsiveness test")
+            throw XCTSkip("Search field not found - skipping responsiveness test")
         }
     }
 }
