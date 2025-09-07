@@ -116,6 +116,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testProgressSlider() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Player interface with progress controls
         let progressSlider = app.sliders["Progress Slider"]
         
@@ -132,6 +135,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testEpisodeInformation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Episode is playing
         let episodeTitle = app.staticTexts["Episode Title"]
         let podcastTitle = app.staticTexts["Podcast Title"]
@@ -158,6 +164,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testSkipSilenceControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Player interface with skip silence option
         let skipSilenceButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Skip Silence' OR label CONTAINS 'Silence'" )).firstMatch
         
@@ -174,6 +183,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testVolumeBoostControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Player interface with volume boost option
         let volumeBoostButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Volume Boost' OR label CONTAINS 'Boost'" )).firstMatch
         
@@ -190,6 +202,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testSleepTimerControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Player interface with sleep timer
         let sleepTimerButton = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Sleep Timer' OR label CONTAINS 'Timer'" )).firstMatch
         
@@ -218,6 +233,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testControlCenterCompatibility() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is playing audio
         // When: Testing control center compatibility
         // Note: Control center testing requires background audio capability
@@ -245,6 +263,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testLockScreenMediaInfo() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is configured for lock screen media display
         // When: Checking media information availability
         
@@ -275,6 +296,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testCarPlayCompatibleInterface() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App interface should be CarPlay compatible
         // When: Checking for CarPlay-suitable controls
         
@@ -317,6 +341,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testWatchCompatibleControls() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App should support Apple Watch companion
         // When: Checking for Watch-suitable interface elements
         
@@ -343,6 +370,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testPlaybackAccessibility() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Playback interface is accessible
         // When: Checking accessibility features
         
@@ -371,6 +401,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testVoiceOverPlaybackNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: VoiceOver user navigating playback controls
         // When: Checking VoiceOver navigation order
         
@@ -394,6 +427,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testPlaybackUIPerformance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Playback interface is loaded
         // When: Interacting with playback controls
         let playButton = app.buttons["Play"]
@@ -427,6 +463,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_CompletePlaybackWorkflow() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: User wants to control podcast playback
         let playerInterface = app.otherElements["Player Interface"]
         
@@ -476,6 +515,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_PlatformIntegrationReadiness() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App should integrate with platform media systems
         // When: Checking platform integration readiness
         
@@ -502,6 +544,9 @@ final class PlaybackUITests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_AccessibilityCompliance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Playback interface must be accessible
         // When: Checking comprehensive accessibility
         
