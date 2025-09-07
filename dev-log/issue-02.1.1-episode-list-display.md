@@ -360,3 +360,76 @@ func testAnyUIBehavior() throws {
 ```
 
 Timestamp: 2025-09-07 16:45 EST
+
+## 2025-09-07 EST — EpisodeListUITests Navigation Architecture Fix
+
+### Issue Description
+The `testEmptyEpisodeListState` test was failing because it was timing out while waiting for a Table element with accessibility identifier "Episode List" to exist. The test was successfully navigating to the Library tab, waiting for loading to complete, and tapping on a podcast, but then couldn't find the expected episode list table.
+
+### Root Cause Analysis
+After investigation, the core architectural issue was:
+1. **Navigation Nesting Problem**: `EpisodeListView` was wrapping its content in a `NavigationView`, but it was being navigated to from `LibraryView` which already uses `NavigationStack`
+2. **Nested Navigation Issues**: The nested navigation structure (`NavigationStack` → `NavigationLink` → `NavigationView`) was causing unpredictable UI test behavior where elements weren't accessible as expected
+3. **Platform Compatibility**: Since the app targets only iOS, CarPlay, and watchOS (all supporting NavigationStack), the NavigationView wrapper was unnecessary
+
+### Solution Applied
+**Architecture Simplification:**
+1. **Removed NavigationView wrapper**: Updated `EpisodeListView.swift` to eliminate the unnecessary `NavigationView` wrapper since it's already being navigated to within a `NavigationStack`
+2. **Consistent Navigation Pattern**: Now the navigation flow is clean: `NavigationStack` → `NavigationLink` → Direct view content
+3. **Enhanced build script**: Improved the SwiftUI syntax checking to properly detect @ViewBuilder annotations on the previous line
+
+**Pattern Applied:**
+```swift
+// Before (problematic nested navigation):
+public var body: some View {
+    NavigationView {
+        episodeListContent
+            .navigationTitle(podcast.title)
+            // ...
+    }
+}
+
+// After (clean navigation):
+public var body: some View {
+    episodeListContent
+        .navigationTitle(podcast.title)
+        // ...
+}
+```
+
+### Benefits of This Approach
+- ✅ **Eliminates navigation nesting**: Clean single-level navigation structure
+- ✅ **Predictable UI test behavior**: Episode list elements now accessible as expected
+- ✅ **Platform consistency**: Unified NavigationStack approach across all target platforms
+- ✅ **Follows copilot-instructions**: Architectural solution rather than functional test changes
+- ✅ **Maintains functionality**: All existing behavior preserved with better architecture
+
+### Enhanced Build Script
+**Improved SwiftUI @ViewBuilder Detection:**
+- Fixed false positive detection when @ViewBuilder annotation is on the line before the property declaration
+- Now properly checks the previous line for @ViewBuilder before flagging potential issues
+- More accurate detection of missing @ViewBuilder annotations for conditional computed properties
+
+### Files Updated
+- ✅ `Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift` - Removed NavigationView wrapper
+- ✅ `scripts/dev-build-enhanced.sh` - Enhanced @ViewBuilder detection logic
+
+### Architectural Benefits
+This change addresses the user's request to be "smart and architectural in nature" by:
+1. **Simplifying navigation architecture**: Removed unnecessary navigation layer
+2. **Following platform best practices**: Using NavigationStack consistently across all target platforms
+3. **Enabling reliable UI testing**: Clean view hierarchy for predictable test behavior
+4. **Maintaining backward compatibility**: No changes to existing test functionality
+5. **Future-proofing**: Simplified architecture is easier to maintain and extend
+
+### Expected Test Results
+The EpisodeListUITests should now find the episode list table elements reliably because:
+- No more nested navigation confusion
+- Direct accessibility to list elements
+- Predictable view hierarchy for UI automation
+
+### Next Steps
+- Build and test to verify the UI test failures are resolved
+- Ensure all EpisodeListUITests pass with the simplified navigation architecture
+
+Timestamp: 2025-09-07 17:15 EST

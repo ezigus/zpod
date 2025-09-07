@@ -133,12 +133,16 @@ check_swiftui_patterns() {
     
     if [[ -n "$view_files" ]]; then
         for file in $view_files; do
-            # Look for computed properties (not body property) with conditional returns that lack @ViewBuilder
-            if grep -n "private var.*: some View" "$file" | grep -v "@ViewBuilder" > /dev/null; then
-                # Check if the property has conditional statements that could cause type conflicts
-                local var_lines
-                var_lines=$(grep -n "private var.*: some View" "$file" | grep -v "@ViewBuilder" | cut -d: -f1)
-                for line_num in $var_lines; do
+            # Look for private computed properties (not body property) with conditional returns that lack @ViewBuilder
+            local var_lines
+            var_lines=$(grep -n "private var.*: some View" "$file" | cut -d: -f1)
+            for line_num in $var_lines; do
+                # Check if the line before has @ViewBuilder annotation
+                local prev_line_num=$((line_num - 1))
+                local has_viewbuilder
+                has_viewbuilder=$(sed -n "${prev_line_num}p" "$file" | grep "@ViewBuilder" || true)
+                
+                if [[ -z "$has_viewbuilder" ]]; then
                     # Get the property content (simplified check)
                     local property_content
                     property_content=$(sed -n "${line_num},+20p" "$file" | grep -E "(if |else |switch |case )" || true)
@@ -146,8 +150,8 @@ check_swiftui_patterns() {
                         echo -e "${YELLOW}⚠️  File $(basename "$file"):$line_num private computed property may need @ViewBuilder for conditional views${NC}"
                         ((issues_found++))
                     fi
-                done
-            fi
+                fi
+            done
         done
     fi
     

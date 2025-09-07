@@ -24,14 +24,12 @@ public struct EpisodeListView: View {
     }
     
     public var body: some View {
-        NavigationView {
-            episodeListContent
-                .navigationTitle(podcast.title)
-                .navigationBarTitleDisplayMode(.large)
-                .refreshable {
-                    await refreshEpisodes()
-                }
-        }
+        episodeListContent
+            .navigationTitle(podcast.title)
+            .navigationBarTitleDisplayMode(.large)
+            .refreshable {
+                await refreshEpisodes()
+            }
     }
     
     @ViewBuilder
