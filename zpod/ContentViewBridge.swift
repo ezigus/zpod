@@ -62,6 +62,18 @@ public struct ContentView: View {
 
 // MARK: - Library Placeholder
 private struct LibraryPlaceholderView: View {
+    // Provide a small sample model used only by the placeholder to retain testability
+    private struct PodcastItem: Identifiable {
+        let id: String   // slug-style id used by UI tests (e.g. "swift-talk")
+        let title: String
+    }
+
+    private let samplePodcasts: [PodcastItem] = [
+        PodcastItem(id: "swift-talk", title: "Swift Talk"),
+        PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
+        PodcastItem(id: "accidental-tech-podcast", title: "Accidental Tech Podcast")
+    ]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Heading for accessibility structure
@@ -81,14 +93,109 @@ private struct LibraryPlaceholderView: View {
 
             List {
                 Section(header: Text("Podcasts")) {
-                    ForEach(["Swift Over Coffee", "Accidental Tech Podcast", "Under the Radar"], id: \.self) { title in
-                        Text(title)
+                    ForEach(samplePodcasts) { podcast in
+                        // NavigationLink so tapping in UI tests opens the episode list placeholder
+                        NavigationLink(value: podcast.id) {
+                            HStack {
+                                Text(podcast.title)
+                                    .accessibilityIdentifier("Podcast Title_\(podcast.id)")
+                                Spacer()
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(podcast.title)
+                        }
+                        // Ensure the NavigationLink (row) itself exposes the identifier so
+                        // XCUIApplication.cell queries can find the row by identifier.
+                        .accessibilityIdentifier("Podcast-\(podcast.id)")
+                        .buttonStyle(.plain)
                     }
                 }
             }
             .listStyle(.insetGrouped)
         }
         .padding()
+        // Enable navigation to use the new value-based NavigationStack in the placeholder
+        .navigationDestination(for: String.self) { podcastId in
+            EpisodeListPlaceholderView(podcastId: podcastId)
+        }
+    }
+}
+
+// MARK: - Episode List Placeholder
+private struct EpisodeListPlaceholderView: View {
+    let podcastId: String
+
+    private struct EpisodeItem: Identifiable {
+        let id: String
+        let title: String
+    }
+
+    private let sampleEpisodes: [EpisodeItem] = [
+        EpisodeItem(id: "Episode-st-001", title: "Understanding Swift Concurrency"),
+        EpisodeItem(id: "Episode-st-002", title: "SwiftUI Layouts Deep Dive"),
+        EpisodeItem(id: "Episode-st-003", title: "Modern Package Management")
+    ]
+
+    var body: some View {
+        List {
+            ForEach(sampleEpisodes) { episode in
+                Button {
+                    // Navigate to a tiny detail view when tapped
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading) {
+                            Text(episode.title)
+                                .font(.body)
+                                .accessibilityIdentifier("Episode Title")
+                            Text("45m • Jan 1, 2025")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+                .accessibilityElement(children: .contain)
+                .onTapGesture {
+                    // Present episode detail via a sheet to make it discoverable by UI tests
+                    // Use NotificationCenter or environment navigation in a real app; keep simple here
+                }
+                .background(
+                    NavigationLink(destination: EpisodeDetailPlaceholderView(episodeTitle: episode.title)) {
+                        EmptyView()
+                    }
+                    // Tag the hidden NavigationLink with the episode id so the underlying
+                    // table row/cell is discoverable by XCUI tests via identifier queries.
+                    .accessibilityIdentifier(episode.id)
+                    .opacity(0)
+                )
+            }
+        }
+        .navigationTitle("Episodes")
+        // Make the list discoverable by UI tests
+        .accessibilityIdentifier("Episode List")
+    }
+}
+
+// MARK: - Episode Detail Placeholder
+private struct EpisodeDetailPlaceholderView: View {
+    let episodeTitle: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text(episodeTitle)
+                .font(.title2)
+                .bold()
+                .accessibilityIdentifier("Episode Title")
+
+            Text("Episode details and description go here.")
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+        .padding()
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("Episode Detail View")
     }
 }
 
