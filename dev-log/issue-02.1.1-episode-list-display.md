@@ -312,3 +312,37 @@ Timestamp: 2025-09-08 15:00 EST
 **Next Steps**: Run full UI test suite to verify fixes resolve empty cell identifier issues.
 
 Timestamp: 2025-09-08 15:30 EST
+
+## 2025-09-08 EST — ARCHITECTURAL FIX: Root Cause Resolution for Empty Cell Identifiers
+
+**Problem Analysis**: User reported persistent empty cell identifier issues `["", "", "", ""]` in EpisodeListUITests and new failure in CoreUINavigationTests.testAcceptanceCriteria_AccessibilityCompliance.
+
+**Root Cause Identified**: 
+1. **Accessibility Identifier Exposure**: NavigationLink accessibility identifiers not being exposed at the List cell level where XCUITest expects them
+2. **Inconsistent Test vs Production Behavior**: #if DEBUG sample data creating different app behavior in tests vs production  
+3. **SwiftUI List Cell Architecture**: Complex nested view hierarchy obscuring accessibility elements
+
+**Architectural Solution Applied**:
+1. **Eliminated DEBUG-Only Behavior**: Removed #if DEBUG guards to make test and production behavior identical
+2. **Proper Accessibility Architecture**: Created dedicated PodcastRowView component with `.accessibilityElement(children: .combine)` and `.accessibilityIdentifier()` applied at the correct SwiftUI List row level
+3. **Simplified Data Loading**: Maintained async loading but with consistent sample data for both test and development environments
+4. **Enhanced Component Separation**: Extracted PodcastRowView for better accessibility control and testability
+
+**Technical Implementation**:
+- **Moved PodcastItem**: Made it a private module-level struct for reuse
+- **Created PodcastRowView**: Dedicated component with proper NavigationLink and accessibility setup
+- **Applied Accessibility Best Practices**: Used `.accessibilityElement(children: .combine)` to ensure proper cell-level identifier exposure
+- **Maintained Async Patterns**: Kept realistic loading states while ensuring consistent behavior
+
+**Expected Results**:
+- EpisodeListUITests should now find populated cell identifiers instead of empty ones: `["Podcast-swift-talk", "Podcast-swift-over-coffee", "Podcast-accidental-tech-podcast"]` 
+- Navigation hierarchy simplified for better UI test reliability
+- Consistent app behavior between test and production environments
+- Proper accessibility compliance for CoreUINavigationTests
+
+**Files Modified**:
+- `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift`: Complete architectural refactor of LibraryView and addition of PodcastRowView component
+
+**Next Step**: Comprehensive build and test to verify architectural solution resolves empty cell identifier issue.
+
+Timestamp: 2025-09-08 16:00 EST

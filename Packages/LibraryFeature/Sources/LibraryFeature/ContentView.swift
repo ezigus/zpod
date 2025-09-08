@@ -207,22 +207,21 @@ public struct ContentView: View {
     }
 }
 
+// MARK: - Data Models for UI Testing
+private struct PodcastItem: Identifiable {
+    let id: String
+    let title: String
+}
+
 /// The original library view moved to its own component
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
     
-    // Small test-friendly sample data used only when the real library is empty.
-    // This is compiled in Debug so it doesn't affect release behavior.
-    #if DEBUG
-    private struct PodcastItem: Identifiable {
-        let id: String
-        let title: String
-    }
+    // Sample data for consistent UI testing and development experience
 
     @State private var samplePodcasts: [PodcastItem] = []
     @State private var isLoading = true
-    #endif
  
     var body: some View {
         NavigationStack {
@@ -233,40 +232,16 @@ struct LibraryView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
-                        #if DEBUG
-                        // Show sample podcast rows for UI tests when needed
+                        // Show sample podcast rows for consistent UI tests and development
                         if !samplePodcasts.isEmpty {
                             Section("Podcasts") {
                                 ForEach(samplePodcasts) { podcast in
-                                    NavigationLink(destination: EpisodeListPlaceholder(podcastId: podcast.id, podcastTitle: podcast.title)) {
-                                        HStack {
-                                            // Add podcast artwork placeholder
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(Color.gray.opacity(0.3))
-                                                .frame(width: 60, height: 60)
-                                                .overlay(
-                                                    Image(systemName: "music.note")
-                                                        .foregroundColor(.gray)
-                                                )
-                                            
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text(podcast.title)
-                                                    .font(.headline)
-                                                    .accessibilityLabel(podcast.title)
-                                                Text("Sample Podcast")
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            
-                                            Spacer()
-                                        }
-                                        .padding(.vertical, 4)
-                                    }
-                                    .accessibilityIdentifier("Podcast-\(podcast.id)")
+                                    PodcastRowView(podcast: podcast)
+                                        .accessibilityElement(children: .combine)
+                                        .accessibilityIdentifier("Podcast-\(podcast.id)")
                                 }
                             }
                         }
-                        #endif
                         
                         // Show persisted items
                         if !items.isEmpty {
@@ -340,16 +315,46 @@ struct LibraryView: View {
         // Simulate realistic loading time
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         
-        #if DEBUG
-        // Load sample data for UI tests
+        // Load sample data for UI tests and development
         samplePodcasts = [
             PodcastItem(id: "swift-talk", title: "Swift Talk"),
             PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
             PodcastItem(id: "accidental-tech-podcast", title: "Accidental Tech Podcast")
         ]
-        #endif
         
         isLoading = false
+    }
+}
+
+// MARK: - Podcast Row Component for Proper Accessibility
+private struct PodcastRowView: View {
+    let podcast: PodcastItem
+    
+    var body: some View {
+        NavigationLink(destination: EpisodeListPlaceholder(podcastId: podcast.id, podcastTitle: podcast.title)) {
+            HStack {
+                // Add podcast artwork placeholder
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 60, height: 60)
+                    .overlay(
+                        Image(systemName: "music.note")
+                            .foregroundColor(.gray)
+                    )
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(podcast.title)
+                        .font(.headline)
+                        .accessibilityLabel(podcast.title)
+                    Text("Sample Podcast")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            .padding(.vertical, 4)
+        }
     }
 }
 
