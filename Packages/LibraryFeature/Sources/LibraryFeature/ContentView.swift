@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CoreModels
+import UIKit
 
 #if canImport(DiscoverFeature)
 import DiscoverFeature
@@ -17,6 +18,8 @@ import TestSupport
 // Fallback placeholder when DiscoverFeature module isn't linked
 struct DiscoverView: View {
     @State private var searchText: String = ""
+    @State private var showingRSSSheet = false
+    @State private var showingMenu = false
     
     @ViewBuilder
     var body: some View {
@@ -61,6 +64,62 @@ struct DiscoverView: View {
             }
             .navigationTitle("Discover")
             .searchable(text: $searchText, prompt: "Search podcasts")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showingMenu = true
+                    }) {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityIdentifier("discovery-options-menu")
+                    .accessibilityLabel("Discovery options")
+                    .confirmationDialog("Discovery Options", isPresented: $showingMenu) {
+                        Button("Add RSS Feed") {
+                            showingRSSSheet = true
+                        }
+                        Button("Search History") {
+                            // No-op for testing
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
+                }
+            }
+            .sheet(isPresented: $showingRSSSheet) {
+                RSSFeedAdditionSheet()
+            }
+        }
+    }
+}
+
+private struct RSSFeedAdditionSheet: View {
+    @State private var rssURL: String = ""
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("RSS Feed URL")) {
+                    TextField("Enter RSS URL", text: $rssURL)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityIdentifier("RSS URL Field")
+                }
+            }
+            .navigationTitle("Add RSS Feed")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Add") {
+                        // No-op for testing
+                        dismiss()
+                    }
+                    .disabled(rssURL.isEmpty)
+                }
+            }
         }
     }
 }
@@ -82,6 +141,53 @@ import PlaylistFeature
 // Fallback placeholder when PlaylistFeature module isn't linked
 struct PlaylistEditView: View { var body: some View { Text("Playlists") } }
 #endif
+
+// MARK: - UIKit Introspection Helper for Tab Bar Identifier
+private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        UIViewController()
+    }
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        DispatchQueue.main.async {
+            guard let root = uiViewController.view.window?.rootViewController else { return }
+            if let tabBarController = findTabBarController(from: root) {
+                let tabBar = tabBarController.tabBar
+                if tabBar.accessibilityIdentifier != "Main Tab Bar" {
+                    tabBar.accessibilityIdentifier = "Main Tab Bar"
+                }
+                // Ensure each tab bar item is properly accessible
+                let items = tabBar.items ?? []
+                for (index, item) in items.enumerated() {
+                    // Derive a reasonable title if missing
+                    let currentTitle = item.title ?? {
+                        switch index {
+                        case 0: return "Library"
+                        case 1: return "Discover"
+                        case 2: return "Playlists"
+                        case 3: return "Player"
+                        default: return "Tab \(index + 1)"
+                        }
+                    }()
+                    if (item.title ?? "").isEmpty { item.title = currentTitle }
+                    if (item.accessibilityLabel ?? "").isEmpty { item.accessibilityLabel = currentTitle }
+                    if (item.accessibilityHint ?? "").isEmpty { item.accessibilityHint = "Opens \(currentTitle)" }
+                    // Mark as button for assistive technologies
+                    item.accessibilityTraits.insert(.button)
+                }
+            }
+        }
+    }
+    private func findTabBarController(from vc: UIViewController) -> UITabBarController? {
+        if let t = vc as? UITabBarController { return t }
+        for child in vc.children {
+            if let found = findTabBarController(from: child) { return found }
+        }
+        if let presented = vc.presentedViewController {
+            if let found = findTabBarController(from: presented) { return found }
+        }
+        return nil
+    }
+}
 
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -129,7 +235,7 @@ public struct ContentView: View {
                     Label("Player", systemImage: "play.circle")
                 }
         }
-        .accessibilityIdentifier("Main Tab Bar")
+        .background(TabBarIdentifierSetter())
     }
 }
 

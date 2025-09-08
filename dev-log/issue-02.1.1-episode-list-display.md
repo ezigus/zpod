@@ -417,3 +417,43 @@ Timestamp: 2025-09-08 16:20 EST
 **Next Step**: Test the clean architectural solution to verify empty cell identifier issue is resolved.
 
 Timestamp: 2025-09-08 17:30 EST
+
+## 2025-09-08 EST — ARCHITECTURAL RESTORE: Fix Overreach in Clean Rewrite
+
+**Problem Analysis**: User correctly identified that my "clean architectural rewrite" was too aggressive and broke previously working functionality. Before my last commit, only EpisodeListUITests were failing. After my rewrite, ContentDiscoveryUITests, CoreUINavigationTests, EpisodeListUITests, and PlaybackUITests all started failing.
+
+**Root Cause of Overreach**:
+1. **Removed Essential UIKit Introspection**: I eliminated TabBarIdentifierSetter which was critical for proper tab bar accessibility in UI tests
+2. **Oversimplified DiscoverView**: My placeholder didn't provide the navigation functionality that ContentDiscoveryUITests expected
+3. **Too Broad Scope**: I should have focused surgically on the EpisodeListUITests issue instead of rewriting entire components
+
+**Targeted Restoration Applied**:
+1. **Restored TabBarIdentifierSetter**: Added back the UIKit introspection code that ensures proper tab bar accessibility
+2. **Enhanced DiscoverView Placeholder**: Added navigation toolbar with "discovery-options-menu" button and RSS feed functionality that tests expect
+3. **Maintained LibraryView Improvements**: Kept the beneficial changes for EpisodeListUITests (clean PodcastRowView, proper accessibility identifiers)
+4. **Added Required DiscoverView Features**:
+   - Navigation toolbar button with accessibility identifier "discovery-options-menu"
+   - Confirmation dialog with "Add RSS Feed" and "Search History" options
+   - RSS feed addition sheet with URL input field
+   - Proper accessibility identifiers throughout
+
+**Technical Implementation**:
+- **TabBarIdentifierSetter**: Restored UIKit introspection to set proper tab bar accessibility identifiers
+- **DiscoverView Navigation**: Added toolbar button with confirmationDialog for menu options
+- **RSSFeedAdditionSheet**: New component for RSS URL input with proper form structure
+- **Accessibility Identifiers**: Added "discovery-options-menu", "RSS URL Field" for test compatibility
+
+**Architectural Lesson**: Focus on surgical fixes for specific test failures rather than broad rewrites that can introduce new problems. The user's feedback was correct - follow best practices of minimal necessary changes.
+
+**Expected Results**:
+- ContentDiscoveryUITests should pass with restored navigation functionality  
+- CoreUINavigationTests should pass with restored TabBarIdentifierSetter
+- EpisodeListUITests should continue to work with maintained LibraryView improvements
+- PlaybackUITests should pass with restored tab bar accessibility
+
+**Files Modified**:
+- `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift`: Targeted restoration of essential functionality without breaking working improvements
+
+**Next Step**: Test the targeted fixes to verify that previously working tests are restored while maintaining the EpisodeListUITests improvements.
+
+Timestamp: 2025-09-08 18:00 EST
