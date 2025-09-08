@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CoreModels
+import UIKit
 
 #if canImport(DiscoverFeature)
 import DiscoverFeature
@@ -129,6 +130,77 @@ private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     }
 }
 
+// Helper to set the underlying UITableViewCell's accessibilityIdentifier for a SwiftUI List row.
+// Placing this small UIView in the row's background allows us to find the nearest UITableViewCell
+// at runtime and assign a stable identifier that XCUI tests can query.
+private struct CellIdentifierSetter: UIViewRepresentable {
+    let identifier: String
+
+    func makeUIView(context: Context) -> UIView {
+        // Use a minimal non-zero size so the view is mounted into the UIKit view hierarchy
+        let v = UIView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+        v.backgroundColor = .clear
+        v.isHidden = false
+        v.isUserInteractionEnabled = false
+        return v
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            // Walk up the view hierarchy to find the UITableViewCell/UICollectionViewCell
+            var view: UIView? = uiView
+            while let v = view {
+                if let tableCell = v as? UITableViewCell {
+                    // Set identifier on the cell and its contentView to maximize
+                    // the chance XCUI sees it regardless of which view it queries.
+                    if tableCell.accessibilityIdentifier != identifier {
+                        tableCell.accessibilityIdentifier = identifier
+                    }
+                    if tableCell.contentView.accessibilityIdentifier != identifier {
+                        tableCell.contentView.accessibilityIdentifier = identifier
+                    }
+                    // Ensure the cell exposes a label and traits for assistive tech
+                    if (tableCell.accessibilityLabel ?? "").isEmpty {
+                        tableCell.accessibilityLabel = identifier
+                    }
+                    tableCell.isAccessibilityElement = true
+                    tableCell.accessibilityTraits.insert(.button)
+
+                    // Also set identifiers on visible textual subviews where possible
+                    for sub in tableCell.contentView.subviews {
+                        if sub.accessibilityIdentifier != identifier {
+                            sub.accessibilityIdentifier = identifier
+                        }
+                    }
+
+                    break
+                } else if let collectionCell = v as? UICollectionViewCell {
+                    // UICollectionViewCell backing for SwiftUI List/ForEach on newer SDKs
+                    if collectionCell.accessibilityIdentifier != identifier {
+                        collectionCell.accessibilityIdentifier = identifier
+                    }
+                    if collectionCell.contentView.accessibilityIdentifier != identifier {
+                        collectionCell.contentView.accessibilityIdentifier = identifier
+                    }
+                    if (collectionCell.accessibilityLabel ?? "").isEmpty {
+                        collectionCell.accessibilityLabel = identifier
+                    }
+                    collectionCell.isAccessibilityElement = true
+                    collectionCell.accessibilityTraits.insert(.button)
+                    for sub in collectionCell.contentView.subviews {
+                        if sub.accessibilityIdentifier != identifier {
+                            sub.accessibilityIdentifier = identifier
+                        }
+                    }
+
+                    break
+                }
+                view = v.superview
+            }
+        }
+    }
+}
+
 public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -225,6 +297,15 @@ struct LibraryView: View {
  
     var body: some View {
         NavigationStack {
+            // Accessible heading required by UI tests
+            // This provides a stable, discoverable heading that XCUITest can find
+            Text("Heading Library")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .accessibilityIdentifier("Heading Library")
+                .accessibilityAddTraits(.isHeader)
+                .padding(.top, 8)
+            
             ZStack {
                 if isLoading {
                     ProgressView("Loading...")
@@ -237,8 +318,6 @@ struct LibraryView: View {
                             Section("Podcasts") {
                                 ForEach(samplePodcasts) { podcast in
                                     PodcastRowView(podcast: podcast)
-                                        .accessibilityElement(children: .combine)
-                                        .accessibilityIdentifier("Podcast-\(podcast.id)")
                                 }
                             }
                         }
@@ -329,7 +408,7 @@ struct LibraryView: View {
 // MARK: - Podcast Row Component for Proper Accessibility
 private struct PodcastRowView: View {
     let podcast: PodcastItem
-    
+
     var body: some View {
         NavigationLink(destination: EpisodeListPlaceholder(podcastId: podcast.id, podcastTitle: podcast.title)) {
             HStack {
@@ -341,7 +420,7 @@ private struct PodcastRowView: View {
                         Image(systemName: "music.note")
                             .foregroundColor(.gray)
                     )
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(podcast.title)
                         .font(.headline)
@@ -350,12 +429,38 @@ private struct PodcastRowView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
+
                 Spacer()
             }
             .padding(.vertical, 4)
+            // Ensure the visible row content also carries the identifier in case
+            // SwiftUI wraps the NavigationLink and hides modifiers placed directly
+            // on it. Applying the identifier to the label content and the list
+            // row background increases the chance XCUI will see it on the cell.
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("Podcast-\(podcast.id)")
+            // Insert the UIKit helper as a background view to set the UITableViewCell id
+            .background(CellIdentifierSetter(identifier: "Podcast-\(podcast.id)"))
         }
-    }
+        // Keep NavigationLink accessibility settings as well (defensive)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("Podcast-\(podcast.id)")
+        // Also attach the identifier to the list row background as a last resort
+        // (this creates a runtime element bound to the row that XCUI can observe).
+        .listRowBackground(
+            ZStack {
+                Color.clear
+                // Place the UIKit helper directly into the list row background so
+                // it becomes part of the UITableViewCell's view hierarchy and can
+                // reliably set the cell's accessibilityIdentifier at runtime.
+                CellIdentifierSetter(identifier: "Podcast-\(podcast.id)")
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityElement()
+            .accessibilityIdentifier("Podcast-\(podcast.id)-row-bg")
+        )
+     }
 }
 
 /// Player tab that shows the EpisodeDetailView with a sample episode
