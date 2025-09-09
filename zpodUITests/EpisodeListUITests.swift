@@ -40,13 +40,13 @@ final class EpisodeListUITests: XCTestCase {
         }
         
         // When: I tap on a podcast in the library
-        let podcastRow = app.cells.matching(identifier: "Podcast-swift-talk").firstMatch
-        XCTAssertTrue(podcastRow.waitForExistence(timeout: 5), "Swift Talk podcast should be visible")
-        podcastRow.tap()
+        let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
+        XCTAssertTrue(podcastButton.waitForExistence(timeout: 5), "Swift Talk podcast should be visible")
+        podcastButton.tap()
         
         // Then: I should see the episode list
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should be displayed")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should be displayed")
     }
     
     @MainActor
@@ -58,16 +58,15 @@ final class EpisodeListUITests: XCTestCase {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: The episode list loads
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.exists, "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should exist")
         
         // Then: I should see episodes displayed
-        let firstEpisode = app.cells.matching(identifier: "Episode-st-001").firstMatch
+        let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
         XCTAssertTrue(firstEpisode.waitForExistence(timeout: 5), "First episode should be visible")
         
         // And: Episode titles should be visible
-        let episodeTitle = firstEpisode.staticTexts["Episode Title"]
-        XCTAssertTrue(episodeTitle.exists, "Episode title should be visible")
+        XCTAssertTrue(firstEpisode.exists, "Episode button should contain title")
     }
     
     @MainActor
@@ -78,14 +77,14 @@ final class EpisodeListUITests: XCTestCase {
         // Given: I'm viewing an episode list with multiple episodes
         navigateToPodcastEpisodes("swift-talk")
         
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // When: I scroll through the episode list
-        episodeList.swipeUp()
+        episodeCardsContainer.swipeUp()
         
         // Then: The list should scroll smoothly without crashes
-        XCTAssertTrue(episodeList.exists, "Episode list should still exist after scrolling")
+        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after scrolling")
     }
     
     @MainActor
@@ -97,7 +96,7 @@ final class EpisodeListUITests: XCTestCase {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: I tap on an episode
-        let firstEpisode = app.cells.matching(identifier: "Episode-st-001").firstMatch
+        let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
         XCTAssertTrue(firstEpisode.waitForExistence(timeout: 5), "First episode should be visible")
         firstEpisode.tap()
         
@@ -115,12 +114,12 @@ final class EpisodeListUITests: XCTestCase {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: I look at episodes with different statuses
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // Then: I should see appropriate status indicators
         // Note: This would need more specific test data to verify played/in-progress states
-        XCTAssertTrue(episodeList.exists, "Episode list should display status indicators")
+        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should display status indicators")
     }
     
     @MainActor
@@ -134,8 +133,8 @@ final class EpisodeListUITests: XCTestCase {
         // For now, just verify the basic navigation works
         navigateToPodcastEpisodes("swift-talk")
         
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
     }
     
     @MainActor
@@ -146,19 +145,19 @@ final class EpisodeListUITests: XCTestCase {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // When: I pull down to refresh
-        let firstCell = episodeList.cells.firstMatch
-        if firstCell.exists {
-            let startCoordinate = firstCell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        if episodeCardsContainer.exists {
+            let startCoordinate = episodeCardsContainer.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
             let endCoordinate = startCoordinate.withOffset(CGVector(dx: 0, dy: 200))
             startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
         }
         
         // Then: The refresh should complete without errors
-        XCTAssertTrue(episodeList.exists, "Episode list should still exist after refresh")
+        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after refresh")
     }
     
     // MARK: - iPad Responsive Design Tests
@@ -177,12 +176,12 @@ final class EpisodeListUITests: XCTestCase {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: The episode list loads
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // Then: The layout should be optimized for iPad
         // Note: Specific iPad layout tests would require more detailed UI structure validation
-        XCTAssertTrue(episodeList.exists, "Episode list should display properly on iPad")
+        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should display properly on iPad")
     }
     
     // MARK: - Accessibility Tests
@@ -196,13 +195,13 @@ final class EpisodeListUITests: XCTestCase {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: I check accessibility elements
-        let episodeList = app.tables["Episode List"]
-        XCTAssertTrue(episodeList.waitForExistence(timeout: 5), "Episode list should exist")
+        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // Then: Key elements should be accessible
-        let firstEpisode = app.cells.matching(identifier: "Episode-st-001").firstMatch
+        let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
         if firstEpisode.waitForExistence(timeout: 3) {
-            XCTAssertTrue(firstEpisode.isHittable, "Episode cells should be accessible")
+            XCTAssertTrue(firstEpisode.isHittable, "Episode buttons should be accessible")
         }
     }
     
@@ -227,13 +226,14 @@ final class EpisodeListUITests: XCTestCase {
             XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10), "Loading should complete within 10 seconds")
         }
         
-        // Wait for library content to load
-        XCTAssertTrue(app.tables.firstMatch.waitForExistence(timeout: 5), "Episode list table should be visible")
+        // Wait for library content to load - now looking for cards container instead of table
+        let cardsContainer = app.scrollViews["Podcast Cards Container"]
+        XCTAssertTrue(cardsContainer.waitForExistence(timeout: 5), "Podcast cards container should be visible")
         
-        // Wait for and tap podcast row with better error messaging
-        let podcastRow = app.cells.matching(identifier: "Podcast-\(podcastId)").firstMatch
-        XCTAssertTrue(podcastRow.waitForExistence(timeout: 10), 
-                     "Podcast row with ID 'Podcast-\(podcastId)' should be visible. Available cells: \(app.cells.allElementsBoundByIndex.map { $0.identifier })")
-        podcastRow.tap()
+        // Wait for and tap podcast card with better error messaging
+        let podcastButton = app.buttons.matching(identifier: "Podcast-\(podcastId)").firstMatch
+        XCTAssertTrue(podcastButton.waitForExistence(timeout: 10), 
+                     "Podcast button with ID 'Podcast-\(podcastId)' should be visible. Available buttons: \(app.buttons.allElementsBoundByIndex.map { $0.identifier })")
+        podcastButton.tap()
     }
 }

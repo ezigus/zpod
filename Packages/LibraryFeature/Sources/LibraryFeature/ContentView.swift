@@ -245,7 +245,7 @@ private struct PodcastItem: Identifiable {
     let title: String
 }
 
-/// Library view using ultra-simple List for reliable XCUITest Table element discovery
+/// Library view using card-based button layout instead of table for XCUITest compatibility
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -261,33 +261,47 @@ struct LibraryView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .navigationTitle("Library")
             } else {
-                // Ultra-simple List structure for XCUITest Table discovery
-                List {
-                    // Accessible heading required by UI tests
-                    Text("Heading Library")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .accessibilityIdentifier("Heading Library")
-                        .accessibilityAddTraits(.isHeader)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                    
-                    // Direct ForEach of podcasts - no sections, no nesting
-                    ForEach(samplePodcasts) { podcast in
-                        PodcastRowView(podcast: podcast)
-                            .listRowBackground(Color(.systemBackground))
-                    }
-                    
-                    // Show persisted items directly in list
-                    ForEach(items) { item in
-                        NavigationLink {
-                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                        } label: {
-                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        // Accessible heading required by UI tests
+                        Text("Heading Library")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .accessibilityIdentifier("Heading Library")
+                            .accessibilityAddTraits(.isHeader)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal)
+                        
+                        // Card-based podcast layout (no table structure)
+                        ForEach(samplePodcasts) { podcast in
+                            PodcastCardView(podcast: podcast)
+                                .padding(.horizontal)
+                        }
+                        
+                        // Show persisted items as cards
+                        ForEach(items) { item in
+                            NavigationLink {
+                                Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                            } label: {
+                                VStack(alignment: .leading) {
+                                    Text("Data Item")
+                                        .font(.headline)
+                                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal)
                         }
                     }
+                    .padding(.vertical)
                 }
-                .listStyle(.plain)
+                .accessibilityIdentifier("Podcast Cards Container")
                 .navigationTitle("Library")
                 .toolbar {
                     ToolbarItem {
@@ -336,42 +350,52 @@ struct LibraryView: View {
     }
 }
 
-// MARK: - Simplified Podcast Row for XCUITest Compatibility
-private struct PodcastRowView: View {
+// MARK: - Podcast Card View for Button-Based Layout (No Table Structure)
+private struct PodcastCardView: View {
     let podcast: PodcastItem
 
     var body: some View {
-        NavigationLink(destination: EpisodeListPlaceholder(podcastId: podcast.id, podcastTitle: podcast.title)) {
-            HStack {
+        NavigationLink(destination: EpisodeListCardContainer(podcastId: podcast.id, podcastTitle: podcast.title)) {
+            HStack(spacing: 16) {
                 // Podcast artwork placeholder
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(Color.gray.opacity(0.3))
-                    .frame(width: 60, height: 60)
+                    .frame(width: 80, height: 80)
                     .overlay(
                         Image(systemName: "music.note")
+                            .font(.title2)
                             .foregroundColor(.gray)
                     )
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(podcast.title)
                         .font(.headline)
-                    Text("Sample Podcast")
+                        .foregroundColor(.primary)
+                    Text("Sample Podcast Description")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                    Text("42 episodes")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(16)
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier("Podcast-\(podcast.id)")
         .accessibilityLabel(podcast.title)
         .accessibilityHint("Opens episode list for \(podcast.title)")
         .accessibilityAddTraits(.isButton)
-        .background(Color(.systemBackground))
-     }
+    }
 }
 
 /// Player tab that shows the EpisodeDetailView with a sample episode
@@ -527,8 +551,8 @@ private struct PlaybackControlsView: View {
     }
 }
 
-// MARK: - Episode List Placeholder using ultra-simple List for XCUITest Table compatibility
-struct EpisodeListPlaceholder: View {
+// MARK: - Episode List Card Container (No Table Structure)
+struct EpisodeListCardContainer: View {
     let podcastId: String
     let podcastTitle: String
     
@@ -543,7 +567,7 @@ struct EpisodeListPlaceholder: View {
     }
     
     var body: some View {
-        Group {
+        NavigationStack {
             if isLoading {
                 ProgressView("Loading Episodes...")
                     .accessibilityIdentifier("Loading View")
@@ -551,32 +575,16 @@ struct EpisodeListPlaceholder: View {
                     .navigationTitle(podcastTitle)
                     .navigationBarTitleDisplayMode(.large)
             } else {
-                // Ultra-simple List structure for XCUITest Table discovery
-                List {
-                    ForEach(episodes) { episode in
-                        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(episode.title)
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                HStack {
-                                    Text(episode.duration)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(episode.date)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(episodes) { episode in
+                            EpisodeCardView(episode: episode)
+                                .padding(.horizontal)
                         }
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                        .accessibilityLabel(episode.title)
-                        .accessibilityHint("Opens episode detail")
                     }
+                    .padding(.vertical)
                 }
-                .listStyle(.plain)
-                .accessibilityIdentifier("Episode List")
+                .accessibilityIdentifier("Episode Cards Container")
                 .navigationTitle(podcastTitle)
                 .navigationBarTitleDisplayMode(.large)
             }
@@ -603,6 +611,46 @@ struct EpisodeListPlaceholder: View {
         ]
         
         isLoading = false
+    }
+}
+
+// MARK: - Episode Card View for Button-Based Layout (No Table Structure)
+private struct EpisodeCardView: View {
+    let episode: EpisodeListCardContainer.EpisodeItem
+
+    var body: some View {
+        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(episode.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                HStack {
+                    Label(episode.duration, systemImage: "clock")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(episode.date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("Episode-\(episode.id)")
+        .accessibilityLabel(episode.title)
+        .accessibilityHint("Opens episode detail")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
