@@ -228,7 +228,7 @@ final class EpisodeListUITests: XCTestCase {
         }
         
         // Wait for library content to load
-        app.tables.firstMatch.waitForExistence(timeout: 5)
+        XCTAssertTrue(app.tables.firstMatch.waitForExistence(timeout: 5), "Episode list table should be visible")
         
         // Wait for and tap podcast row with better error messaging
         let podcastRow = app.cells.matching(identifier: "Podcast-\(podcastId)").firstMatch
