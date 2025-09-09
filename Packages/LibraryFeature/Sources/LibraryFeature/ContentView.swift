@@ -543,41 +543,43 @@ struct EpisodeListPlaceholder: View {
     }
     
     var body: some View {
-        if isLoading {
-            ProgressView("Loading Episodes...")
-                .accessibilityIdentifier("Loading View")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .navigationTitle(podcastTitle)
-                .navigationBarTitleDisplayMode(.large)
-        } else {
-            // Ultra-simple List structure for XCUITest Table discovery
-            List {
-                ForEach(episodes) { episode in
-                    NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(episode.title)
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            HStack {
-                                Text(episode.duration)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text(episode.date)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+        Group {
+            if isLoading {
+                ProgressView("Loading Episodes...")
+                    .accessibilityIdentifier("Loading View")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .navigationTitle(podcastTitle)
+                    .navigationBarTitleDisplayMode(.large)
+            } else {
+                // Ultra-simple List structure for XCUITest Table discovery
+                List {
+                    ForEach(episodes) { episode in
+                        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(episode.title)
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack {
+                                    Text(episode.duration)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(episode.date)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
+                        .accessibilityIdentifier("Episode-\(episode.id)")
+                        .accessibilityLabel(episode.title)
+                        .accessibilityHint("Opens episode detail")
                     }
-                    .accessibilityIdentifier("Episode-\(episode.id)")
-                    .accessibilityLabel(episode.title)
-                    .accessibilityHint("Opens episode detail")
                 }
+                .listStyle(.plain)
+                .accessibilityIdentifier("Episode List")
+                .navigationTitle(podcastTitle)
+                .navigationBarTitleDisplayMode(.large)
             }
-            .listStyle(.plain)
-            .accessibilityIdentifier("Episode List")
-            .navigationTitle(podcastTitle)
-            .navigationBarTitleDisplayMode(.large)
         }
         .onAppear {
             Task {
