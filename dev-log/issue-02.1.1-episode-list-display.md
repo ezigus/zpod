@@ -457,3 +457,37 @@ Timestamp: 2025-09-08 17:30 EST
 **Next Step**: Test the targeted fixes to verify that previously working tests are restored while maintaining the EpisodeListUITests improvements.
 
 Timestamp: 2025-09-08 18:00 EST
+
+## 2025-09-08 EST — SURGICAL ACCESSIBILITY FIX: Simplify List Structure for XCUITest Compatibility
+
+**Problem Analysis**: Despite all previous architectural fixes, EpisodeListUITests are still failing with empty cell identifiers `["", "", "", ""]` and inability to find Table elements. The tests are timing out waiting for `Table (First Match) to exist`.
+
+**Root Cause Identified**: 
+1. **Complex List Structure**: The List was wrapped in NavigationStack -> ZStack -> List with multiple Section containers, creating accessibility hierarchy that XCUITest couldn't navigate properly
+2. **Section Interference**: SwiftUI Sections with headers can interfere with XCUITest's ability to find individual cells as Table elements
+3. **ZStack Masking**: Loading state ZStack was preventing proper Table element exposure even after loading completed
+
+**Surgical Solution Applied**:
+1. **Eliminated ZStack**: Removed the conditional ZStack wrapper, using direct conditional rendering in NavigationStack
+2. **Simplified List Structure**: Removed Section containers that were complicating accessibility hierarchy
+3. **Direct ForEach**: Used direct ForEach in List without complex sectioning to ensure proper cell exposure
+4. **Enhanced Accessibility**: Added proper accessibility labels and hints for better VoiceOver support
+5. **Plain List Style**: Applied `.listStyle(.plain)` to ensure consistent Table element behavior
+
+**Technical Implementation**:
+- **Removed**: `ZStack { if isLoading { ... } else { List { ... } } }`
+- **Applied**: `if isLoading { ProgressView } else { List { ... } }` directly in NavigationStack
+- **Simplified**: `ForEach(samplePodcasts) { podcast in PodcastRowView(podcast: podcast) }` without Section wrappers
+- **Enhanced**: Added `.accessibilityLabel()` and `.accessibilityHint()` to PodcastRowView for comprehensive accessibility support
+
+**Expected Results**:
+- XCUITest should find `Table (First Match)` element properly without timeout
+- Cell identifiers should be exposed as `["Podcast-swift-talk", "Podcast-swift-over-coffee", "Podcast-accidental-tech-podcast"]` instead of empty strings
+- NavigationLink accessibility should be properly aggregated at cell level
+- Loading state should not interfere with Table element discovery after loading completes
+
+**Architectural Insight**: The issue was not SwiftUI accessibility patterns but rather complex view hierarchy that masked the List from XCUITest's Table element discovery. By simplifying the container structure while maintaining accessibility best practices, we enable proper UI test compatibility.
+
+**Next Step**: Test the simplified List structure to verify EpisodeListUITests can find and interact with Table/Cell elements properly.
+
+Timestamp: 2025-09-08 20:30 EST

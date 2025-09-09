@@ -255,79 +255,72 @@ struct LibraryView: View {
  
     var body: some View {
         NavigationStack {
-            ZStack {
-                if isLoading {
-                    ProgressView("Loading...")
-                        .accessibilityIdentifier("Loading View")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        // Accessible heading required by UI tests
-                        Section {
-                            Text("Heading Library")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .accessibilityIdentifier("Heading Library")
-                                .accessibilityAddTraits(.isHeader)
+            if isLoading {
+                ProgressView("Loading...")
+                    .accessibilityIdentifier("Loading View")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    // Accessible heading required by UI tests
+                    Text("Heading Library")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .accessibilityIdentifier("Heading Library")
+                        .accessibilityAddTraits(.isHeader)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
+                    
+                    // Sample podcast rows for consistent UI tests and development  
+                    ForEach(samplePodcasts) { podcast in
+                        PodcastRowView(podcast: podcast)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    }
+                    
+                    // Show persisted items
+                    ForEach(items) { item in
+                        NavigationLink {
+                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        } label: {
+                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
                         }
-                        
-                        // Sample podcast rows for consistent UI tests and development
-                        if !samplePodcasts.isEmpty {
-                            Section("Podcasts") {
-                                ForEach(samplePodcasts) { podcast in
-                                    PodcastRowView(podcast: podcast)
-                                }
-                            }
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    }
+                    .onDelete(perform: deleteItems)
+                    
+                    // Show empty state when needed
+                    if samplePodcasts.isEmpty && items.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "books.vertical")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray)
+                            Text("No Podcasts Yet")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            Text("Your podcast library will appear here")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         }
-                        
-                        // Show persisted items
-                        if !items.isEmpty {
-                            Section("Saved Items") {
-                                ForEach(items) { item in
-                                    NavigationLink {
-                                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                                    } label: {
-                                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                                    }
-                                }
-                                .onDelete(perform: deleteItems)
-                            }
-                        }
-                        
-                        // Show empty state when needed
-                        if samplePodcasts.isEmpty && items.isEmpty {
-                            Section {
-                                VStack(spacing: 16) {
-                                    Image(systemName: "books.vertical")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.gray)
-                                    Text("No Podcasts Yet")
-                                        .font(.headline)
-                                        .foregroundColor(.secondary)
-                                    Text("Your podcast library will appear here")
-                                        .font(.body)
-                                        .foregroundColor(.secondary)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .padding(.vertical, 32)
-                                .frame(maxWidth: .infinity)
-                            }
+                        .padding(.vertical, 32)
+                        .frame(maxWidth: .infinity)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 32, trailing: 16))
+                    }
+                }
+                .listStyle(.plain)
+                .navigationTitle("Library")
+                .toolbar {
+                    ToolbarItem {
+                        Button(action: addItem) {
+                            Label("Add Item", systemImage: "plus")
                         }
                     }
                 }
             }
-            .navigationTitle("Library")
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-            .onAppear {
-                Task {
-                    await loadData()
-                }
+        }
+        .onAppear {
+            Task {
+                await loadData()
             }
         }
     }
@@ -393,6 +386,8 @@ private struct PodcastRowView: View {
         }
         .accessibilityIdentifier("Podcast-\(podcast.id)")
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(podcast.title)
+        .accessibilityHint("Opens episode list for \(podcast.title)")
      }
 }
 
