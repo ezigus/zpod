@@ -149,7 +149,6 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // When: I pull down to refresh
-        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
         if episodeCardsContainer.exists {
             let startCoordinate = episodeCardsContainer.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
             let endCoordinate = startCoordinate.withOffset(CGVector(dx: 0, dy: 200))
