@@ -556,10 +556,10 @@ struct EpisodeListCardContainer: View {
     let podcastId: String
     let podcastTitle: String
     
-    @State private var episodes: [EpisodeItem] = []
+    @State private var episodes: [SimpleEpisodeItem] = []
     @State private var isLoading = true
     
-    private struct EpisodeItem: Identifiable {
+    struct SimpleEpisodeItem: Identifiable {
         let id: String
         let title: String
         let duration: String
@@ -578,7 +578,7 @@ struct EpisodeListCardContainer: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(episodes) { episode in
-                            EpisodeCardView(episode: episode)
+                            SimpleEpisodeCardView(episode: episode)
                                 .padding(.horizontal)
                         }
                     }
@@ -603,20 +603,20 @@ struct EpisodeListCardContainer: View {
         
         // Load sample episodes for UI tests
         episodes = [
-            EpisodeItem(id: "st-001", title: "Episode 1: Introduction", duration: "45:23", date: "Dec 8"),
-            EpisodeItem(id: "st-002", title: "Episode 2: Swift Basics", duration: "52:17", date: "Dec 1"),
-            EpisodeItem(id: "st-003", title: "Episode 3: Advanced Topics", duration: "61:42", date: "Nov 24"),
-            EpisodeItem(id: "st-004", title: "Episode 4: Performance", duration: "38:56", date: "Nov 17"),
-            EpisodeItem(id: "st-005", title: "Episode 5: Testing", duration: "44:33", date: "Nov 10")
+            SimpleEpisodeItem(id: "st-001", title: "Episode 1: Introduction", duration: "45:23", date: "Dec 8"),
+            SimpleEpisodeItem(id: "st-002", title: "Episode 2: Swift Basics", duration: "52:17", date: "Dec 1"),
+            SimpleEpisodeItem(id: "st-003", title: "Episode 3: Advanced Topics", duration: "61:42", date: "Nov 24"),
+            SimpleEpisodeItem(id: "st-004", title: "Episode 4: Performance", duration: "38:56", date: "Nov 17"),
+            SimpleEpisodeItem(id: "st-005", title: "Episode 5: Testing", duration: "44:33", date: "Nov 10")
         ]
         
         isLoading = false
     }
 }
 
-// MARK: - Episode Card View for Button-Based Layout (No Table Structure)
-private struct EpisodeCardView: View {
-    let episode: EpisodeListCardContainer.EpisodeItem
+// MARK: - Simple Episode Card View for Button-Based Layout (No Table Structure)
+private struct SimpleEpisodeCardView: View {
+    let episode: EpisodeListCardContainer.SimpleEpisodeItem
 
     var body: some View {
         NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
