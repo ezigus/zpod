@@ -8,7 +8,7 @@ import XCTest
 /// - Subscription management interface testing
 /// - Filter and sort controls validation
 /// - Content recommendation displays
-final class ContentDiscoveryUITests: XCTestCase {
+final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     
     nonisolated(unsafe) private var app: XCUIApplication!
 
@@ -107,67 +107,37 @@ final class ContentDiscoveryUITests: XCTestCase {
         initializeApp()
         
         // Given: I am on the Discover tab
-        XCTAssertTrue(app.navigationBars["Discover"].exists)
+        XCTAssertTrue(waitForNavigationToComplete(expectedScreen: "Discover"), "Should navigate to Discover tab")
         
-        // When: I look for the discovery options menu in navigation bar
-        let navBar = app.navigationBars["Discover"]
-        
-        // Try multiple strategies to find the options button
-        var optionsButton: XCUIElement?
-        
-        // Strategy 1: Look for button with accessibility identifier (most reliable)
-        let identifiedButton = navBar.buttons["discovery-options-menu"]
-        if identifiedButton.exists && identifiedButton.isHittable {
-            optionsButton = identifiedButton
-        }
-        
-        // Strategy 2: Look for button with accessibility label
-        if optionsButton == nil {
-            let labeledButton = navBar.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
-            if labeledButton.exists && labeledButton.isHittable {
-                optionsButton = labeledButton
-            }
-        }
-        
-        // Strategy 3: Look for button with plus icon if first strategies fail
-        if optionsButton == nil {
-            let iconButton = navBar.buttons.matching(NSPredicate(format: "label CONTAINS 'plus' OR identifier CONTAINS 'plus'")).firstMatch
-            if iconButton.exists && iconButton.isHittable {
-                optionsButton = iconButton
-            }
-        }
-        
-        // Strategy 4: Use the last button in navigation bar (typically trailing toolbar item)
-        if optionsButton == nil {
-            let navButtons = navBar.buttons.allElementsBoundByIndex
-            for button in navButtons.reversed() {
-                if button.exists && button.isHittable {
-                    optionsButton = button
-                    break
-                }
-            }
-        }
+        // When: I look for the discovery options menu using smart discovery
+        let optionsButton = findAccessibleElement(
+            in: app.navigationBars["Discover"],
+            byIdentifier: "discovery-options-menu",
+            byLabel: "Discovery options",
+            byPartialLabel: "options",
+            ofType: .button
+        )
         
         if let button = optionsButton {
-            button.tap()
-            
-            // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["Add RSS Feed"]
-            let searchHistoryOption = app.buttons["Search History"]
-            
-            // Wait for at least one menu option to appear
-            let menuAppeared = addRSSOption.waitForExistence(timeout: 2.0) || 
-                              searchHistoryOption.waitForExistence(timeout: 2.0)
+            // Use navigation pattern for menu interaction
+            let menuAppeared = navigateAndWaitForResult(
+                triggerAction: { button.tap() },
+                expectedElements: [
+                    app.buttons["Add RSS Feed"],
+                    app.buttons["Search History"]
+                ],
+                timeout: adaptiveShortTimeout,
+                description: "discovery options menu"
+            )
             
             if menuAppeared {
                 // Then: I should see menu options including RSS feed addition
-                XCTAssertTrue(addRSSOption.exists || searchHistoryOption.exists, 
-                             "Discovery options menu should contain expected items")
+                let hasMenuOptions = app.buttons["Add RSS Feed"].exists || app.buttons["Search History"].exists
+                XCTAssertTrue(hasMenuOptions, "Discovery options menu should contain expected items")
             } else {
-                throw XCTSkip("Menu options did not appear within timeout - may need UI adjustments")
+                throw XCTSkip("Menu options did not appear - may need UI adjustments")
             }
         } else {
-            // If no options button found, skip this test gracefully
             throw XCTSkip("Discovery options button not found or not accessible")
         }
     }

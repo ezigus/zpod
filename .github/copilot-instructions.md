@@ -255,6 +255,142 @@ if loadingIndicator.exists {
 - Mocks should be protocol-based and injected via dependency injection where possible
 - Create reusable mock implementations in test support files
 
+#### UI Testing Best Practices - CRITICAL for Robust Tests
+
+**NEVER Use Arbitrary Timeouts or Sleep Calls**
+- ❌ **BAD**: `sleep(1)`, `waitForExistence(timeout: 5)` without checking state
+- ❌ **BAD**: Fixed timeout values that don't adapt to environment
+- ❌ **BAD**: Single element waiting without fallback strategies
+- ✅ **GOOD**: Use `UITestHelpers.swift` smart waiting patterns
+- ✅ **GOOD**: Wait for actual app state changes, not arbitrary time
+- ✅ **GOOD**: Environment-adaptive timeouts (CI vs local)
+
+**Smart Waiting Patterns (Use UITestHelpers.swift)**
+```swift
+// ✅ CORRECT: Wait for any of multiple conditions
+waitForAnyCondition([
+    { element1.exists },
+    { element2.exists },
+    { loadingComplete }
+])
+
+// ✅ CORRECT: Wait for element with alternatives
+waitForElementOrAlternatives(
+    primary: app.buttons["Primary"],
+    alternatives: [app.buttons["Alternative1"], app.buttons["Alternative2"]]
+)
+
+// ✅ CORRECT: Wait for loading using multiple indicators
+waitForLoadingToComplete(in: app)
+
+// ✅ CORRECT: Navigation with state verification
+navigateAndWaitForResult(
+    triggerAction: { button.tap() },
+    expectedElements: [targetElement1, targetElement2]
+)
+```
+
+**Element Discovery Best Practices**
+- ✅ **Use Smart Discovery**: `findAccessibleElement()` with multiple strategies (identifier, label, partial label)
+- ✅ **Fallback Strategies**: Always provide alternative ways to find elements
+- ✅ **Accessibility-First**: Prioritize accessibility identifiers and labels
+- ❌ **Avoid Brittle Selectors**: Don't rely on exact index positions or fragile hierarchies
+
+**Content Loading Patterns**
+```swift
+// ✅ CORRECT: Robust content loading
+waitForContentToLoad(
+    containerIdentifier: "Episode Cards Container",
+    itemIdentifiers: ["Episode-st-001", "Episode-st-002"] 
+)
+
+// ❌ WRONG: Brittle loading check
+episodeCardsContainer.waitForExistence(timeout: 5)
+```
+
+**Environment Adaptation**
+- ✅ **Use Adaptive Timeouts**: `adaptiveTimeout` and `adaptiveShortTimeout` properties
+- ✅ **CI Environment Awareness**: Longer timeouts automatically applied in CI
+- ✅ **Stability Checks**: `waitForStableState()` for animation completion
+- ❌ **Fixed Values**: Never use hardcoded timeout values across environments
+
+**Navigation Testing**
+```swift
+// ✅ CORRECT: Smart navigation testing
+let navigationSucceeded = navigateAndWaitForResult(
+    triggerAction: { tabButton.tap() },
+    expectedElements: [expectedScreen, alternativeIndicator],
+    description: "navigation to target screen"
+)
+
+// ❌ WRONG: Brittle navigation
+tabButton.tap()
+sleep(1) // BAD!
+XCTAssertTrue(expectedScreen.exists) // May fail due to timing
+```
+
+**Test Method Structure**
+- All UI test classes should conform to `SmartUITesting` protocol
+- Use `@MainActor` for UI test methods
+- Keep `setUpWithError()` and `tearDownWithError()` nonisolated
+- Call `initializeApp()` at start of each test method
+
+#### Updated UI Test Setup Pattern
+```swift
+final class ExampleUITests: XCTestCase, SmartUITesting {
+    nonisolated(unsafe) private var app: XCUIApplication!
+    
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+    }
+    
+    @MainActor
+    func testUIBehavior() throws {
+        initializeApp()
+        
+        // Use smart waiting patterns from UITestHelpers
+        XCTAssertTrue(
+            waitForContentToLoad(containerIdentifier: "Content Container"),
+            "Content should load successfully"
+        )
+    }
+}
+```
+
+#### CRITICAL: Avoiding UI Test Deadlocks and Timing Issues
+**NEVER use these anti-patterns:**
+- ❌ **sleep() calls**: `sleep(1)` - Use `waitForStableState()` instead
+- ❌ **Task + semaphore in setup**: Causes deadlocks in XCUITest environment
+- ❌ **Fixed timeout dependencies**: `waitForExistence(timeout: 5)` without fallbacks
+- ❌ **Single element dependencies**: Always provide alternative element strategies
+
+**Use these reliable patterns:**
+- ✅ **State-based waiting**: Wait for app state changes, not time passage
+- ✅ **Multiple condition checking**: `waitForAnyCondition()` with several success criteria
+- ✅ **Progressive discovery**: Try multiple ways to find the same logical element
+- ✅ **Environment adaptation**: Different timeouts for CI vs local testing
+
+**Data Loading and UI Testing Best Practices**
+```swift
+// ✅ CORRECT: Smart loading detection
+XCTAssertTrue(
+    waitForLoadingToComplete(in: app, timeout: adaptiveTimeout),
+    "Content should load successfully"
+)
+
+// ❌ WRONG: Brittle timeout waiting
+let loadingIndicator = app.otherElements["Loading View"]
+if loadingIndicator.exists {
+    XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10))
+}
+```
+
 #### UI Testing Best Practices
 - Test accessibility compliance with VoiceOver labels and navigation
 - Verify platform-specific adaptations (iPhone, iPad, CarPlay)

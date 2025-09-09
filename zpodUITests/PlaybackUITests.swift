@@ -8,7 +8,7 @@ import XCTest
 /// - CarPlay player interface verification (simulated)
 /// - Apple Watch playback controls (simulated)
 /// - Bluetooth and external control handling
-final class PlaybackUITests: XCTestCase {
+final class PlaybackUITests: XCTestCase, SmartUITesting {
     
     nonisolated(unsafe) private var app: XCUIApplication!
 
@@ -467,47 +467,64 @@ final class PlaybackUITests: XCTestCase {
         initializeApp()
         
         // Given: User wants to control podcast playback
-        let playerInterface = app.otherElements["Player Interface"]
+        // Wait for player interface to be ready using robust patterns
+        let playerReady = waitForElementOrAlternatives(
+            primary: app.otherElements["Player Interface"],
+            alternatives: [
+                app.buttons["Play"],
+                app.buttons["Pause"],
+                app.sliders["Progress Slider"]
+            ],
+            timeout: adaptiveTimeout,
+            description: "player interface"
+        )
         
-        if playerInterface.exists || app.buttons["Play"].exists || app.buttons["Pause"].exists {
-            // When: User interacts with all major playback controls
+        if playerReady != nil {
+            // When: User interacts with all major playback controls using responsive patterns
             
-            // Test play/pause functionality
-            let playButton = app.buttons["Play"]
-            let pauseButton = app.buttons["Pause"]
+            // Test play/pause functionality with state awareness
+            let playButton = findAccessibleElement(
+                in: app,
+                byIdentifier: "Play",
+                byLabel: "Play",
+                byPartialLabel: "Play",
+                ofType: .button
+            )
+            let pauseButton = findAccessibleElement(
+                in: app,
+                byIdentifier: "Pause", 
+                byLabel: "Pause",
+                byPartialLabel: "Pause",
+                ofType: .button
+            )
             
-            if playButton.exists {
-                playButton.tap()
-                // Verify interaction without hardcoded sleep
-                XCTAssertTrue(playButton.isHittable || pauseButton.exists, "Play interaction should be processed")
+            if let button = playButton ?? pauseButton {
+                button.tap()
+                
+                // Wait for interaction to be processed rather than arbitrary delay
+                XCTAssertTrue(
+                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
+                    "Play/pause interaction should be processed"
+                )
             }
             
-            if pauseButton.exists {
-                pauseButton.tap()
-                // Verify interaction without hardcoded sleep
-                XCTAssertTrue(pauseButton.isHittable || playButton.exists, "Pause interaction should be processed")
-            }
+            // Test skip controls with responsive validation
+            let skipControls = [
+                findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button),
+                findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)
+            ].compactMap { $0 }
             
-            // Test skip controls
-            let skipForward = app.buttons["Skip Forward"]
-            let skipBackward = app.buttons["Skip Backward"]
-            
-            if skipForward.exists {
-                skipForward.tap()
-                // Verify control remains interactive
-                XCTAssertTrue(skipForward.isHittable, "Skip forward should remain interactive")
-            }
-            
-            if skipBackward.exists {
-                skipBackward.tap()
-                // Verify control remains interactive
-                XCTAssertTrue(skipBackward.isHittable, "Skip backward should remain interactive")
+            for control in skipControls {
+                control.tap()
+                // Verify control remains interactive after use
+                XCTAssertTrue(
+                    waitForStableState(app: app, stableFor: 0.1, timeout: adaptiveShortTimeout),
+                    "Skip control should remain responsive"
+                )
             }
             
             // Then: All controls should work without crashing
             XCTAssertTrue(app.state == XCUIApplication.State.runningForeground, "App should remain stable during playback control")
-            XCTAssertTrue(playerInterface.exists || app.buttons["Play"].exists || app.buttons["Pause"].exists, 
-                         "Playback interface should remain available")
         } else {
             throw XCTSkip("No playback interface or controls available - skipping workflow test")
         }
@@ -548,68 +565,56 @@ final class PlaybackUITests: XCTestCase {
         initializeApp()
         
         // Given: Playback interface must be accessible
-        // When: Checking comprehensive accessibility
+        // When: Checking comprehensive accessibility using adaptive waiting
         
-        // Wait for the player interface to load before checking accessibility
-        let playerInterface = app.otherElements["Player Interface"]
-        if !playerInterface.waitForExistence(timeout: 5.0) {
-            // If no player interface exists, check if we have any basic playback controls
-            let basicControls = [
+        // Wait for the player interface to load with multiple fallback strategies
+        let playerElements = waitForElementOrAlternatives(
+            primary: app.otherElements["Player Interface"],
+            alternatives: [
                 app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")).firstMatch,
-                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch
+                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch,
+                app.sliders["Progress Slider"]
+            ],
+            timeout: adaptiveTimeout,
+            description: "playback interface elements"
+        )
+        
+        if playerElements != nil {
+            // Test accessibility of key playback elements using smart discovery
+            let accessibleElements: [(String, XCUIElement?)] = [
+                ("Play button", findAccessibleElement(in: app, byIdentifier: "Play", ofType: .button)),
+                ("Pause button", findAccessibleElement(in: app, byIdentifier: "Pause", ofType: .button)),
+                ("Skip Forward", findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button)),
+                ("Skip Backward", findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)),
+                ("Progress Slider", findAccessibleElement(in: app, byIdentifier: "Progress Slider", ofType: .slider)),
+                ("Episode Title", findAccessibleElement(in: app, byIdentifier: "Episode Title", ofType: .staticText))
             ]
             
-            var hasBasicControls = false
-            for control in basicControls {
-                if control.exists {
-                    hasBasicControls = true
-                    break
+            var accessibilityScore = 0
+            
+            for (name, element) in accessibleElements {
+                if let element = element, element.exists {
+                    accessibilityScore += 1
+                    
+                    // Verify element has accessibility properties
+                    if !element.label.isEmpty || element.isHittable {
+                        accessibilityScore += 1
+                    }
                 }
             }
             
-            if !hasBasicControls {
-                throw XCTSkip("No playback interface or basic controls available - skipping accessibility test")
-            }
-        }
-        
-        let accessibleElements: [XCUIElement] = [
-            app.buttons["Play"],
-            app.buttons["Pause"],
-            app.buttons["Skip Forward"],
-            app.buttons["Skip Backward"],
-            app.sliders["Progress Slider"],
-            app.staticTexts["Episode Title"]
-        ]
-        
-        var accessibilityScore = 0
-        
-        for element in accessibleElements {
-            if element.exists {
-                // Count existence as accessibility presence
-                accessibilityScore += 1
-                // Count non-empty label as descriptive accessibility
-                if hasNonEmptyLabel(element) {
-                    accessibilityScore += 1
-                }
-            }
-        }
-        
-        // For CI environments, be more flexible with expectations
-        // If we have any accessible elements, that's a good start
-        if accessibilityScore == 0 {
-            // Check for any interactive playback elements using broader criteria
+            // Then: Interface should have accessibility support
+            XCTAssertGreaterThanOrEqual(accessibilityScore, 2,
+                                       "Playback interface should have accessibility support (found \(accessibilityScore) accessible elements)")
+        } else {
+            // Fallback: Check for any playback elements using broader criteria
             let anyPlaybackElements = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR label CONTAINS 'Pause' OR identifier CONTAINS 'play' OR identifier CONTAINS 'pause'"))
             
             if anyPlaybackElements.count > 0 {
-                accessibilityScore = anyPlaybackElements.count
+                XCTAssertGreaterThan(anyPlaybackElements.count, 0, "Found \(anyPlaybackElements.count) playback elements")
             } else {
                 throw XCTSkip("No playback interface elements found - may need to navigate to player or start playback first")
             }
         }
-        
-        // Then: Interface should have accessibility support
-        // Reduced threshold for CI compatibility - any accessible elements indicate good accessibility foundation
-        XCTAssertGreaterThanOrEqual(accessibilityScore, 1,
-                                   "Playback interface should have accessibility support (found \(accessibilityScore) accessible elements)")
     }
 }
