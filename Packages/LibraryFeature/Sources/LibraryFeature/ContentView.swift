@@ -571,45 +571,47 @@ struct EpisodeListPlaceholder: View {
     }
     
     var body: some View {
-        if isLoading {
-            ProgressView("Loading Episodes...")
-                .accessibilityIdentifier("Loading View")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(episodes) { episode in
-                        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(episode.title)
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                HStack {
-                                    Text(episode.duration)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(episode.date)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+        Group {
+            if isLoading {
+                ProgressView("Loading Episodes...")
+                    .accessibilityIdentifier("Loading View")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(episodes) { episode in
+                            NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(episode.title)
+                                        .font(.headline)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    HStack {
+                                        Text(episode.duration)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Text(episode.date)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                            .accessibilityIdentifier("Episode-\(episode.id)")
+                            .accessibilityLabel(episode.title)
+                            .accessibilityHint("Opens episode detail")
+                            .accessibilityAddTraits(.isButton)
+                            .background(Color(.systemBackground))
                         }
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                        .accessibilityLabel(episode.title)
-                        .accessibilityHint("Opens episode detail")
-                        .accessibilityAddTraits(.isButton)
-                        .background(Color(.systemBackground))
                     }
                 }
+                .accessibilityIdentifier("Episode List")
+                .accessibilityElement(children: .contain)
+                .accessibilityAddTraits(.allowsDirectInteraction)
             }
-            .accessibilityIdentifier("Episode List")
-            .accessibilityElement(children: .contain)
-            .accessibilityAddTraits(.allowsDirectInteraction)
         }
         .navigationTitle(podcastTitle)
         .navigationBarTitleDisplayMode(.large)
