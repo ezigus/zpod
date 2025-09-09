@@ -245,7 +245,7 @@ private struct PodcastItem: Identifiable {
     let title: String
 }
 
-/// Clean library view with pure SwiftUI accessibility patterns
+/// Library view using ScrollView + LazyVStack for reliable XCUITest Table element discovery
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -260,54 +260,62 @@ struct LibraryView: View {
                     .accessibilityIdentifier("Loading View")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List {
-                    // Accessible heading required by UI tests
-                    Text("Heading Library")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .accessibilityIdentifier("Heading Library")
-                        .accessibilityAddTraits(.isHeader)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
-                    
-                    // Sample podcast rows for consistent UI tests and development  
-                    ForEach(samplePodcasts) { podcast in
-                        PodcastRowView(podcast: podcast)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    }
-                    
-                    // Show persisted items
-                    ForEach(items) { item in
-                        NavigationLink {
-                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                        } label: {
-                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        // Accessible heading required by UI tests
+                        Text("Heading Library")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .accessibilityIdentifier("Heading Library")
+                            .accessibilityAddTraits(.isHeader)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 16)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                        
+                        // Sample podcast rows for consistent UI tests and development  
+                        ForEach(samplePodcasts) { podcast in
+                            PodcastRowView(podcast: podcast)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color(.systemBackground))
                         }
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    }
-                    .onDelete(perform: deleteItems)
-                    
-                    // Show empty state when needed
-                    if samplePodcasts.isEmpty && items.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "books.vertical")
-                                .font(.system(size: 48))
-                                .foregroundColor(.gray)
-                            Text("No Podcasts Yet")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                            Text("Your podcast library will appear here")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                        
+                        // Show persisted items
+                        ForEach(items) { item in
+                            NavigationLink {
+                                Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                            } label: {
+                                Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                            }
+                            .background(Color(.systemBackground))
                         }
-                        .padding(.vertical, 32)
-                        .frame(maxWidth: .infinity)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 32, trailing: 16))
+                        
+                        // Show empty state when needed
+                        if samplePodcasts.isEmpty && items.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "books.vertical")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.gray)
+                                Text("No Podcasts Yet")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Text("Your podcast library will appear here")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical, 32)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 16)
+                        }
                     }
                 }
-                .listStyle(.plain)
+                .accessibilityElement(children: .contain)
+                .accessibilityAddTraits(.allowsDirectInteraction)
                 .navigationTitle("Library")
                 .toolbar {
                     ToolbarItem {
@@ -356,7 +364,7 @@ struct LibraryView: View {
     }
 }
 
-// MARK: - Clean Podcast Row Component with Pure SwiftUI Accessibility
+// MARK: - Simplified Podcast Row for XCUITest Compatibility
 private struct PodcastRowView: View {
     let podcast: PodcastItem
 
@@ -383,11 +391,14 @@ private struct PodcastRowView: View {
                 Spacer()
             }
             .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .accessibilityIdentifier("Podcast-\(podcast.id)")
-        .accessibilityElement(children: .combine)
         .accessibilityLabel(podcast.title)
         .accessibilityHint("Opens episode list for \(podcast.title)")
+        .accessibilityAddTraits(.isButton)
+        .background(Color(.systemBackground))
      }
 }
 
@@ -544,7 +555,7 @@ private struct PlaybackControlsView: View {
     }
 }
 
-// MARK: - Episode List Placeholder for UI Tests
+// MARK: - Episode List Placeholder using ScrollView for XCUITest Compatibility
 struct EpisodeListPlaceholder: View {
     let podcastId: String
     let podcastTitle: String
@@ -560,38 +571,45 @@ struct EpisodeListPlaceholder: View {
     }
     
     var body: some View {
-        ZStack {
-            if isLoading {
-                ProgressView("Loading Episodes...")
-                    .accessibilityIdentifier("Loading View")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                List {
-                    Section {
-                        ForEach(episodes) { episode in
-                            NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(episode.title)
-                                        .font(.headline)
-                                        .accessibilityIdentifier("Episode Title")
-                                    HStack {
-                                        Text(episode.duration)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                        Text(episode.date)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
+        if isLoading {
+            ProgressView("Loading Episodes...")
+                .accessibilityIdentifier("Loading View")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(episodes) { episode in
+                        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(episode.title)
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                HStack {
+                                    Text(episode.duration)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(episode.date)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
-                                .padding(.vertical, 4)
                             }
-                            .accessibilityIdentifier("Episode-\(episode.id)")
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
+                        .accessibilityIdentifier("Episode-\(episode.id)")
+                        .accessibilityLabel(episode.title)
+                        .accessibilityHint("Opens episode detail")
+                        .accessibilityAddTraits(.isButton)
+                        .background(Color(.systemBackground))
                     }
                 }
-                .accessibilityIdentifier("Episode List")
             }
+            .accessibilityIdentifier("Episode List")
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.allowsDirectInteraction)
         }
         .navigationTitle(podcastTitle)
         .navigationBarTitleDisplayMode(.large)
