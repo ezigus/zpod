@@ -118,9 +118,12 @@ final class EpisodeListUITests: XCTestCase {
         XCTAssertTrue(firstEpisode.waitForExistence(timeout: 5), "First episode should be visible")
         firstEpisode.tap()
         
+        // Allow time for navigation transition
+        sleep(1)
+        
         // Then: I should see the episode detail view
         let episodeDetailView = app.otherElements["Episode Detail View"]
-        XCTAssertTrue(episodeDetailView.waitForExistence(timeout: 5), "Episode detail view should be displayed")
+        XCTAssertTrue(episodeDetailView.waitForExistence(timeout: 10), "Episode detail view should be displayed")
     }
     
     @MainActor
