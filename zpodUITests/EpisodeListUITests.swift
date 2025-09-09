@@ -57,9 +57,15 @@ final class EpisodeListUITests: XCTestCase {
         // Given: I navigate to a podcast's episode list
         navigateToPodcastEpisodes("swift-talk")
         
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
+        
         // When: The episode list loads
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
-        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should exist")
+        XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
         
         // Then: I should see episodes displayed
         let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
@@ -76,6 +82,12 @@ final class EpisodeListUITests: XCTestCase {
         
         // Given: I'm viewing an episode list with multiple episodes
         navigateToPodcastEpisodes("swift-talk")
+        
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
         
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
         XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
@@ -95,6 +107,12 @@ final class EpisodeListUITests: XCTestCase {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
+        
         // When: I tap on an episode
         let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
         XCTAssertTrue(firstEpisode.waitForExistence(timeout: 5), "First episode should be visible")
@@ -112,6 +130,12 @@ final class EpisodeListUITests: XCTestCase {
         
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
+        
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
         
         // When: I look at episodes with different statuses
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
@@ -133,6 +157,12 @@ final class EpisodeListUITests: XCTestCase {
         // For now, just verify the basic navigation works
         navigateToPodcastEpisodes("swift-talk")
         
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
+        
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
         XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
     }
@@ -144,6 +174,12 @@ final class EpisodeListUITests: XCTestCase {
         
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
+        
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
         
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
         XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
@@ -174,6 +210,12 @@ final class EpisodeListUITests: XCTestCase {
         // Given: I'm on iPad and navigate to episode list
         navigateToPodcastEpisodes("swift-talk")
         
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
+        
         // When: The episode list loads
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
         XCTAssertTrue(episodeCardsContainer.waitForExistence(timeout: 5), "Episode cards container should exist")
@@ -192,6 +234,12 @@ final class EpisodeListUITests: XCTestCase {
         
         // Given: I navigate to episode list
         navigateToPodcastEpisodes("swift-talk")
+        
+        // Wait for episode loading to complete
+        let episodeLoadingIndicator = app.otherElements["Loading View"]
+        if episodeLoadingIndicator.exists {
+            XCTAssertTrue(episodeLoadingIndicator.waitForNonExistence(timeout: 10), "Episode loading should complete within 10 seconds")
+        }
         
         // When: I check accessibility elements
         let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
