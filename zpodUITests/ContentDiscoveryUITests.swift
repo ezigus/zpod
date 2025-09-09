@@ -10,7 +10,7 @@ import XCTest
 /// - Content recommendation displays
 final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     
-    nonisolated(unsafe) private var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false

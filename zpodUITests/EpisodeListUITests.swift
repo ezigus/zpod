@@ -8,7 +8,7 @@
 import XCTest
 
 final class EpisodeListUITests: XCTestCase, SmartUITesting {
-    nonisolated(unsafe) private var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
     
     override func setUpWithError() throws {
         continueAfterFailure = false

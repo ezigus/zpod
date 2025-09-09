@@ -10,7 +10,7 @@ import UIKit
 /// - Quick action handling and app shortcuts
 final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     
-    nonisolated(unsafe) private var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
         // Stop immediately when a failure occurs
