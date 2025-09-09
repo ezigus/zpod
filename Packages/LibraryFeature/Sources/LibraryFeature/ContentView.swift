@@ -245,7 +245,7 @@ private struct PodcastItem: Identifiable {
     let title: String
 }
 
-/// Library view using ScrollView + LazyVStack for reliable XCUITest Table element discovery
+/// Library view using ultra-simple List for reliable XCUITest Table element discovery
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -255,78 +255,45 @@ struct LibraryView: View {
  
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView("Loading...")
-                        .accessibilityIdentifier("Loading View")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    // Use VStack with explicit Table accessibility instead of ScrollView
-                    VStack(spacing: 0) {
-                        // Accessible heading required by UI tests
-                        Text("Heading Library")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .accessibilityIdentifier("Heading Library")
-                            .accessibilityAddTraits(.isHeader)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 16)
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
-                        
-                        // Simple VStack of podcast rows - no complex scrolling
-                        ForEach(samplePodcasts) { podcast in
-                            PodcastRowView(podcast: podcast)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color(.systemBackground))
-                        }
-                        
-                        // Show persisted items
-                        ForEach(items) { item in
-                            NavigationLink {
-                                Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                            } label: {
-                                Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                            }
-                            .background(Color(.systemBackground))
-                        }
-                        
-                        // Show empty state when needed
-                        if samplePodcasts.isEmpty && items.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "books.vertical")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.gray)
-                                Text("No Podcasts Yet")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                Text("Your podcast library will appear here")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.vertical, 32)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 16)
-                        }
-                        
-                        Spacer()
+            if isLoading {
+                ProgressView("Loading...")
+                    .accessibilityIdentifier("Loading View")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .navigationTitle("Library")
+            } else {
+                // Ultra-simple List structure for XCUITest Table discovery
+                List {
+                    // Accessible heading required by UI tests
+                    Text("Heading Library")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .accessibilityIdentifier("Heading Library")
+                        .accessibilityAddTraits(.isHeader)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    
+                    // Direct ForEach of podcasts - no sections, no nesting
+                    ForEach(samplePodcasts) { podcast in
+                        PodcastRowView(podcast: podcast)
+                            .listRowBackground(Color(.systemBackground))
                     }
-                    // Apply Table accessibility traits to the VStack container
-                    .accessibilityIdentifier("Table")
-                    .accessibilityElement(children: .contain)
-                    .accessibilityAddTraits(.allowsDirectInteraction)
+                    
+                    // Show persisted items directly in list
+                    ForEach(items) { item in
+                        NavigationLink {
+                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                        } label: {
+                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                        }
+                    }
                 }
-            }
-            .navigationTitle("Library")
-            .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                .listStyle(.plain)
+                .navigationTitle("Library")
+                .toolbar {
+                    ToolbarItem {
+                        Button(action: addItem) {
+                            Label("Add Item", systemImage: "plus")
+                        }
                     }
                 }
             }
@@ -560,7 +527,7 @@ private struct PlaybackControlsView: View {
     }
 }
 
-// MARK: - Episode List Placeholder using ScrollView for XCUITest Compatibility
+// MARK: - Episode List Placeholder using ultra-simple List for XCUITest Table compatibility
 struct EpisodeListPlaceholder: View {
     let podcastId: String
     let podcastTitle: String
@@ -576,52 +543,42 @@ struct EpisodeListPlaceholder: View {
     }
     
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Loading Episodes...")
-                    .accessibilityIdentifier("Loading View")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                // Simple VStack instead of ScrollView for better XCUITest Table discovery  
-                VStack(spacing: 0) {
-                    ForEach(episodes) { episode in
-                        NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(episode.title)
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                HStack {
-                                    Text(episode.duration)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                    Text(episode.date)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
+        if isLoading {
+            ProgressView("Loading Episodes...")
+                .accessibilityIdentifier("Loading View")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationTitle(podcastTitle)
+                .navigationBarTitleDisplayMode(.large)
+        } else {
+            // Ultra-simple List structure for XCUITest Table discovery
+            List {
+                ForEach(episodes) { episode in
+                    NavigationLink(destination: EpisodeDetailPlaceholder(episodeId: episode.id, episodeTitle: episode.title)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(episode.title)
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack {
+                                Text(episode.duration)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(episode.date)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
                         }
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                        .accessibilityLabel(episode.title)
-                        .accessibilityHint("Opens episode detail")
-                        .accessibilityAddTraits(.isButton)
-                        .background(Color(.systemBackground))
                     }
-                    
-                    Spacer()
+                    .accessibilityIdentifier("Episode-\(episode.id)")
+                    .accessibilityLabel(episode.title)
+                    .accessibilityHint("Opens episode detail")
                 }
-                // Apply explicit Table accessibility identifier for XCUITest discovery
-                .accessibilityIdentifier("Episode List")
-                .accessibilityElement(children: .contain)
-                .accessibilityAddTraits(.allowsDirectInteraction)
             }
+            .listStyle(.plain)
+            .accessibilityIdentifier("Episode List")
+            .navigationTitle(podcastTitle)
+            .navigationBarTitleDisplayMode(.large)
         }
-        .navigationTitle(podcastTitle)
-        .navigationBarTitleDisplayMode(.large)
         .onAppear {
             Task {
                 await loadEpisodes()
