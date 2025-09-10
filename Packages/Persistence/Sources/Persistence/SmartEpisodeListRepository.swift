@@ -163,7 +163,10 @@ public class SmartEpisodeListManager: ObservableObject {
     }
     
     deinit {
-        updateTimer?.invalidate()
+        // Timer must be invalidated on main actor since it's not Sendable
+        Task { @MainActor in
+            updateTimer?.invalidate()
+        }
     }
     
     // MARK: - Public Methods
