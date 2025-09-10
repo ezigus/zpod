@@ -12,6 +12,15 @@ public protocol EpisodeFilterService: Sendable {
     
     /// Sort episodes by criteria
     func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode]
+    
+    /// Search episodes by text query
+    func searchEpisodes(_ episodes: [Episode], query: String, filter: EpisodeFilter?) -> [Episode]
+    
+    /// Update smart list with new episodes
+    func updateSmartList(_ smartList: SmartEpisodeList, allEpisodes: [Episode]) -> [Episode]
+    
+    /// Check if smart list needs updating based on refresh interval
+    func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool
 }
 
 // MARK: - Default Implementation
@@ -83,6 +92,47 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         }
     }
     
+    /// Search episodes by text query
+    nonisolated public func searchEpisodes(
+        _ episodes: [Episode],
+        query: String,
+        filter: EpisodeFilter? = nil
+    ) -> [Episode] {
+        let searchResults = episodes.filter { episode in
+            searchMatches(episode: episode, query: query)
+        }
+        
+        if let filter = filter {
+            return filterAndSort(episodes: searchResults, using: filter)
+        } else {
+            // Default sort by relevance (we could implement scoring here)
+            return searchResults
+        }
+    }
+    
+    /// Update smart list with new episodes
+    nonisolated public func updateSmartList(
+        _ smartList: SmartEpisodeList,
+        allEpisodes: [Episode]
+    ) -> [Episode] {
+        var filteredEpisodes = filterAndSort(episodes: allEpisodes, using: smartList.filter)
+        
+        // Apply max episode limit if specified
+        if let maxEpisodes = smartList.maxEpisodes, filteredEpisodes.count > maxEpisodes {
+            filteredEpisodes = Array(filteredEpisodes.prefix(maxEpisodes))
+        }
+        
+        return filteredEpisodes
+    }
+    
+    /// Check if smart list needs updating based on refresh interval
+    nonisolated public func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool {
+        guard smartList.autoUpdate else { return false }
+        
+        let timeSinceUpdate = Date().timeIntervalSince(smartList.lastUpdated)
+        return timeSinceUpdate >= smartList.refreshInterval
+    }
+    
     // MARK: - Private Methods
     
     nonisolated private func applyFilter(_ episodes: [Episode], filter: EpisodeFilter) -> [Episode] {
@@ -141,28 +191,6 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         case .failed: return 3
         }
     }
-}
-
-// MARK: - Episode Search Extension
-
-public extension DefaultEpisodeFilterService {
-    /// Search episodes by text query
-    nonisolated func searchEpisodes(
-        _ episodes: [Episode],
-        query: String,
-        filter: EpisodeFilter? = nil
-    ) -> [Episode] {
-        let searchResults = episodes.filter { episode in
-            searchMatches(episode: episode, query: query)
-        }
-        
-        if let filter = filter {
-            return filterAndSort(episodes: searchResults, using: filter)
-        } else {
-            // Default sort by relevance (we could implement scoring here)
-            return searchResults
-        }
-    }
     
     nonisolated private func searchMatches(episode: Episode, query: String) -> Bool {
         let searchText = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -180,32 +208,5 @@ public extension DefaultEpisodeFilterService {
         }
         
         return false
-    }
-}
-
-// MARK: - Smart List Updates
-
-public extension DefaultEpisodeFilterService {
-    /// Update smart list with new episodes
-    nonisolated func updateSmartList(
-        _ smartList: SmartEpisodeList,
-        allEpisodes: [Episode]
-    ) -> [Episode] {
-        var filteredEpisodes = filterAndSort(episodes: allEpisodes, using: smartList.filter)
-        
-        // Apply max episode limit if specified
-        if let maxEpisodes = smartList.maxEpisodes, filteredEpisodes.count > maxEpisodes {
-            filteredEpisodes = Array(filteredEpisodes.prefix(maxEpisodes))
-        }
-        
-        return filteredEpisodes
-    }
-    
-    /// Check if smart list needs updating based on refresh interval
-    nonisolated func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool {
-        guard smartList.autoUpdate else { return false }
-        
-        let timeSinceUpdate = Date().timeIntervalSince(smartList.lastUpdated)
-        return timeSinceUpdate >= smartList.refreshInterval
     }
 }
