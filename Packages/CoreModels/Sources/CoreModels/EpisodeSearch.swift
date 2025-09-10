@@ -128,8 +128,8 @@ public struct SearchHistoryEntry: Sendable, Codable, Identifiable {
     }
 }
 
-/// Search suggestions based on history and common patterns
-public struct SearchSuggestion: Sendable, Identifiable {
+/// Enhanced search suggestions based on history and common patterns
+public struct EpisodeSearchSuggestion: Sendable, Identifiable {
     public let id = UUID()
     public let text: String
     public let type: SuggestionType
@@ -276,19 +276,19 @@ public struct SearchQueryFormatter {
 
 // MARK: - Built-in Search Suggestions
 
-extension SearchSuggestion {
+extension EpisodeSearchSuggestion {
     
     /// Common search patterns for podcast episodes
-    public static let commonSuggestions: [SearchSuggestion] = [
-        SearchSuggestion(text: "title:news", type: .fieldQuery, frequency: 10),
-        SearchSuggestion(text: "title:interview", type: .fieldQuery, frequency: 8),
-        SearchSuggestion(text: "title:review", type: .fieldQuery, frequency: 6),
-        SearchSuggestion(text: "description:tutorial", type: .fieldQuery, frequency: 5),
-        SearchSuggestion(text: "description:how to", type: .fieldQuery, frequency: 7),
-        SearchSuggestion(text: "podcast:\"The Daily\"", type: .fieldQuery, frequency: 4),
-        SearchSuggestion(text: "duration:\"30 minutes\"", type: .fieldQuery, frequency: 3),
-        SearchSuggestion(text: "unplayed episodes", type: .common, frequency: 15),
-        SearchSuggestion(text: "downloaded content", type: .common, frequency: 12),
-        SearchSuggestion(text: "recent episodes", type: .common, frequency: 9)
+    public static let commonSuggestions: [EpisodeSearchSuggestion] = [
+        EpisodeSearchSuggestion(text: "title:news", type: .fieldQuery, frequency: 10),
+        EpisodeSearchSuggestion(text: "title:interview", type: .fieldQuery, frequency: 8),
+        EpisodeSearchSuggestion(text: "title:review", type: .fieldQuery, frequency: 6),
+        EpisodeSearchSuggestion(text: "description:tutorial", type: .fieldQuery, frequency: 5),
+        EpisodeSearchSuggestion(text: "description:how to", type: .fieldQuery, frequency: 7),
+        EpisodeSearchSuggestion(text: "podcast:\"The Daily\"", type: .fieldQuery, frequency: 4),
+        EpisodeSearchSuggestion(text: "duration:\"30 minutes\"", type: .fieldQuery, frequency: 3),
+        EpisodeSearchSuggestion(text: "unplayed episodes", type: .common, frequency: 15),
+        EpisodeSearchSuggestion(text: "downloaded content", type: .common, frequency: 12),
+        EpisodeSearchSuggestion(text: "recent episodes", type: .common, frequency: 9)
     ]
 }

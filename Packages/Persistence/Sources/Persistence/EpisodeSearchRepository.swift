@@ -24,7 +24,7 @@ public protocol EpisodeSearchRepository: Sendable {
     func removeSearchHistory(_ entryId: UUID) async throws
     
     /// Get search suggestions based on input and history
-    func getSearchSuggestions(for input: String, limit: Int) async throws -> [SearchSuggestion]
+    func getSearchSuggestions(for input: String, limit: Int) async throws -> [EpisodeSearchSuggestion]
     
     /// Update suggestion frequency
     func incrementSuggestionFrequency(for text: String) async throws
@@ -82,19 +82,19 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
         userDefaults.set(encoded, forKey: historyKey)
     }
     
-    public func getSearchSuggestions(for input: String, limit: Int = 10) async throws -> [SearchSuggestion] {
+    public func getSearchSuggestions(for input: String, limit: Int = 10) async throws -> [EpisodeSearchSuggestion] {
         let lowercaseInput = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !lowercaseInput.isEmpty else {
-            return Array(SearchSuggestion.commonSuggestions.prefix(limit))
+            return Array(EpisodeSearchSuggestion.commonSuggestions.prefix(limit))
         }
         
-        var suggestions: [SearchSuggestion] = []
+        var suggestions: [EpisodeSearchSuggestion] = []
         
         // Add history-based suggestions
         let history = try await getSearchHistory(limit: 50)
         let historySuggestions = history
             .filter { $0.query.lowercased().contains(lowercaseInput) }
-            .map { SearchSuggestion(text: $0.query, type: .history, frequency: 1) }
+            .map { EpisodeSearchSuggestion(text: $0.query, type: .history, frequency: 1) }
         suggestions.append(contentsOf: historySuggestions)
         
         // Add completion suggestions
@@ -102,7 +102,7 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
         suggestions.append(contentsOf: completionSuggestions)
         
         // Add common suggestions that match
-        let matchingCommon = SearchSuggestion.commonSuggestions
+        let matchingCommon = EpisodeSearchSuggestion.commonSuggestions
             .filter { $0.text.lowercased().contains(lowercaseInput) }
         suggestions.append(contentsOf: matchingCommon)
         
@@ -142,13 +142,13 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
         
         if let index = customSuggestions.firstIndex(where: { $0.text.lowercased() == text.lowercased() }) {
             let existingSuggestion = customSuggestions[index]
-            customSuggestions[index] = SearchSuggestion(
+            customSuggestions[index] = EpisodeSearchSuggestion(
                 text: existingSuggestion.text,
                 type: existingSuggestion.type,
                 frequency: existingSuggestion.frequency + 1
             )
         } else {
-            customSuggestions.append(SearchSuggestion(
+            customSuggestions.append(EpisodeSearchSuggestion(
                 text: text,
                 type: .common,
                 frequency: 1
@@ -160,13 +160,13 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
     
     // MARK: - Private Methods
     
-    private func generateCompletionSuggestions(for input: String) -> [SearchSuggestion] {
-        var suggestions: [SearchSuggestion] = []
+    private func generateCompletionSuggestions(for input: String) -> [EpisodeSearchSuggestion] {
+        var suggestions: [EpisodeSearchSuggestion] = []
         
         // Generate field-specific completions
         for field in SearchField.allCases {
             if field.rawValue.hasPrefix(input) {
-                suggestions.append(SearchSuggestion(
+                suggestions.append(EpisodeSearchSuggestion(
                     text: "\(field.rawValue):",
                     type: .fieldQuery,
                     frequency: 5
@@ -177,7 +177,7 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
         // Generate boolean operator completions
         for op in BooleanOperator.allCases {
             if op.displayName.lowercased().hasPrefix(input) {
-                suggestions.append(SearchSuggestion(
+                suggestions.append(EpisodeSearchSuggestion(
                     text: op.rawValue,
                     type: .completion,
                     frequency: 3
@@ -188,20 +188,20 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
         return suggestions
     }
     
-    private func getCustomSuggestions(for input: String) async throws -> [SearchSuggestion] {
+    private func getCustomSuggestions(for input: String) async throws -> [EpisodeSearchSuggestion] {
         let customSuggestions = try await loadCustomSuggestions()
         return customSuggestions.filter { $0.text.lowercased().contains(input) }
     }
     
-    private func loadCustomSuggestions() async throws -> [SearchSuggestion] {
+    private func loadCustomSuggestions() async throws -> [EpisodeSearchSuggestion] {
         guard let data = userDefaults.data(forKey: suggestionsKey) else {
             return []
         }
         
-        return try JSONDecoder().decode([SearchSuggestion].self, from: data)
+        return try JSONDecoder().decode([EpisodeSearchSuggestion].self, from: data)
     }
     
-    private func saveCustomSuggestions(_ suggestions: [SearchSuggestion]) async throws {
+    private func saveCustomSuggestions(_ suggestions: [EpisodeSearchSuggestion]) async throws {
         let encoded = try JSONEncoder().encode(suggestions)
         userDefaults.set(encoded, forKey: suggestionsKey)
     }
@@ -214,7 +214,7 @@ public actor UserDefaultsEpisodeSearchRepository: EpisodeSearchRepository {
 public class EpisodeSearchManager: ObservableObject {
     
     @Published public var searchHistory: [SearchHistoryEntry] = []
-    @Published public var searchSuggestions: [SearchSuggestion] = []
+    @Published public var searchSuggestions: [EpisodeSearchSuggestion] = []
     @Published public var isLoadingSuggestions = false
     
     private let repository: EpisodeSearchRepository

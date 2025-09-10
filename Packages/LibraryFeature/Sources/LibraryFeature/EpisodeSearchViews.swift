@@ -131,7 +131,7 @@ public struct EpisodeSearchView: View {
                     .padding(.horizontal)
                     .padding(.top)
                 
-                ForEach(SearchSuggestion.commonSuggestions.prefix(8), id: \.text) { suggestion in
+                ForEach(EpisodeSearchSuggestion.commonSuggestions.prefix(8), id: \.text) { suggestion in
                     SearchSuggestionRow(suggestion: suggestion) {
                         viewModel.selectSuggestion(suggestion)
                     }
@@ -218,7 +218,7 @@ public struct EpisodeSearchView: View {
 // MARK: - Search Suggestion Row
 
 struct SearchSuggestionRow: View {
-    let suggestion: SearchSuggestion
+    let suggestion: EpisodeSearchSuggestion
     let onSelect: () -> Void
     
     var body: some View {

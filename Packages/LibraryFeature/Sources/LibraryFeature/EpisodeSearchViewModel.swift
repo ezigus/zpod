@@ -18,7 +18,7 @@ public class EpisodeSearchViewModel: ObservableObject {
     
     @Published public var searchText: String = ""
     @Published public var searchResults: [EpisodeSearchResult] = []
-    @Published public var searchSuggestions: [SearchSuggestion] = []
+    @Published public var searchSuggestions: [EpisodeSearchSuggestion] = []
     @Published public var searchHistory: [SearchHistoryEntry] = []
     @Published public var isSearching: Bool = false
     @Published public var currentAdvancedQuery: EpisodeSearchQuery?
@@ -137,7 +137,7 @@ public class EpisodeSearchViewModel: ObservableObject {
     }
     
     /// Select a search suggestion
-    public func selectSuggestion(_ suggestion: SearchSuggestion) {
+    public func selectSuggestion(_ suggestion: EpisodeSearchSuggestion) {
         switch suggestion.type {
         case .fieldQuery:
             // Parse as advanced query if it contains field syntax
