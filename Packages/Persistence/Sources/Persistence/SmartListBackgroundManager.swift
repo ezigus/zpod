@@ -5,7 +5,7 @@
 //  Comprehensive background service manager for smart list automation
 //
 
-import Foundation
+@preconcurrency import Foundation
 import CoreModels
 
 #if canImport(UIKit)
@@ -56,8 +56,8 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
     private let episodeProvider: EpisodeProvider
     
     private var _configuration: SmartListRefreshConfiguration
-    private var foregroundObserver: NSObjectProtocol?
-    private var backgroundObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var backgroundObserver: NSObjectProtocol?
     
     // MARK: - Initialization
     
@@ -199,7 +199,9 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            Task { await self?.handleSmartListUpdate(notification) }
+            Task { @MainActor in
+                await self?.handleSmartListUpdate(notification)
+            }
         }
     }
     
