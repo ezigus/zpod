@@ -1,5 +1,4 @@
 import Foundation
-import CoreModels
 
 // MARK: - Episode Filtering Protocol
 
@@ -21,17 +20,17 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
     
     public init() {}
     
-    public func filterAndSort(episodes: [Episode], using filter: EpisodeFilter) -> [Episode] {
+    nonisolated public func filterAndSort(episodes: [Episode], using filter: EpisodeFilter) -> [Episode] {
         let filteredEpisodes = applyFilter(episodes, filter: filter)
         return sortEpisodes(filteredEpisodes, by: filter.sortBy)
     }
     
-    public func episodeMatches(_ episode: Episode, condition: EpisodeFilterCondition) -> Bool {
+    nonisolated public func episodeMatches(_ episode: Episode, condition: EpisodeFilterCondition) -> Bool {
         let matches = evaluateCondition(episode, condition.criteria)
         return condition.isNegated ? !matches : matches
     }
     
-    public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode] {
+    nonisolated public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode] {
         switch sortBy {
         case .pubDateNewest:
             return episodes.sorted { (lhs, rhs) in
@@ -86,7 +85,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
     
     // MARK: - Private Methods
     
-    private func applyFilter(_ episodes: [Episode], filter: EpisodeFilter) -> [Episode] {
+    nonisolated private func applyFilter(_ episodes: [Episode], filter: EpisodeFilter) -> [Episode] {
         guard !filter.isEmpty else { return episodes }
         
         return episodes.filter { episode in
@@ -103,7 +102,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         }
     }
     
-    private func evaluateCondition(_ episode: Episode, _ criteria: EpisodeFilterCriteria) -> Bool {
+    nonisolated private func evaluateCondition(_ episode: Episode, _ criteria: EpisodeFilterCriteria) -> Bool {
         switch criteria {
         case .unplayed:
             return !episode.isPlayed
@@ -124,7 +123,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         }
     }
     
-    private func playStatusValue(_ episode: Episode) -> Int {
+    nonisolated private func playStatusValue(_ episode: Episode) -> Int {
         if !episode.isPlayed && episode.playbackPosition == 0 {
             return 0 // unplayed
         } else if episode.isInProgress {
@@ -134,7 +133,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         }
     }
     
-    private func downloadStatusValue(_ status: EpisodeDownloadStatus) -> Int {
+    nonisolated private func downloadStatusValue(_ status: EpisodeDownloadStatus) -> Int {
         switch status {
         case .downloaded: return 0
         case .downloading: return 1
@@ -148,7 +147,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
 
 public extension DefaultEpisodeFilterService {
     /// Search episodes by text query
-    func searchEpisodes(
+    nonisolated func searchEpisodes(
         _ episodes: [Episode],
         query: String,
         filter: EpisodeFilter? = nil
@@ -165,7 +164,7 @@ public extension DefaultEpisodeFilterService {
         }
     }
     
-    private func searchMatches(episode: Episode, query: String) -> Bool {
+    nonisolated private func searchMatches(episode: Episode, query: String) -> Bool {
         let searchText = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !searchText.isEmpty else { return true }
         
@@ -188,7 +187,7 @@ public extension DefaultEpisodeFilterService {
 
 public extension DefaultEpisodeFilterService {
     /// Update smart list with new episodes
-    func updateSmartList(
+    nonisolated func updateSmartList(
         _ smartList: SmartEpisodeList,
         allEpisodes: [Episode]
     ) -> [Episode] {
@@ -203,7 +202,7 @@ public extension DefaultEpisodeFilterService {
     }
     
     /// Check if smart list needs updating based on refresh interval
-    func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool {
+    nonisolated func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool {
         guard smartList.autoUpdate else { return false }
         
         let timeSinceUpdate = Date().timeIntervalSince(smartList.lastUpdated)
