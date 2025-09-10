@@ -1,4 +1,4 @@
-# Issue 01.1: Subscription Management UI
+Complete # Issue 01.1: Subscription Management UI
 
 ## Priority
 High
