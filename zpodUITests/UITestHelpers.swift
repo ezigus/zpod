@@ -16,29 +16,31 @@ extension XCTestCase {
     /// This is much more robust than fixed timeouts as it adapts to actual app state
     @MainActor
     func waitForAnyCondition(
-        _ conditions: [() -> Bool],
+        _ conditions: [@Sendable @MainActor () -> Bool],
         timeout: TimeInterval = 10.0,
         description: String = "any condition"
     ) -> Bool {
         let expectation = XCTestExpectation(description: description)
-        
-        // Use RunLoop-based polling instead of blocking Thread.sleep
         let startTime = Date()
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if Date().timeIntervalSince(startTime) >= timeout {
-                timer.invalidate()
-                XCTFail("Timeout waiting for \(description) after \(timeout) seconds")
-                expectation.fulfill()
-                return
+        
+        // Use Task-based polling for proper Swift 6 concurrency
+        Task { @MainActor in
+            while Date().timeIntervalSince(startTime) < timeout {
+                // Check all conditions on MainActor
+                for condition in conditions {
+                    if condition() {
+                        expectation.fulfill()
+                        return
+                    }
+                }
+                
+                // Brief pause between checks using Task.sleep
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             }
             
-            for condition in conditions {
-                if condition() {
-                    timer.invalidate()
-                    expectation.fulfill()
-                    return
-                }
-            }
+            // Timeout reached
+            XCTFail("Timeout waiting for \(description) after \(timeout) seconds")
+            expectation.fulfill()
         }
         
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
@@ -58,7 +60,7 @@ extension XCTestCase {
         
         let conditions = [primary] + alternatives
         let found = waitForAnyCondition(
-            conditions.map { element in { element.exists } },
+            conditions.map { element in { @MainActor in element.exists } },
             timeout: timeout,
             description: desc
         )
@@ -91,7 +93,7 @@ extension XCTestCase {
         
         // Wait for ALL loading indicators to disappear
         return waitForAnyCondition(
-            [{ loadingIndicators.allSatisfy { !$0.exists } }],
+            [{ @MainActor in loadingIndicators.allSatisfy { !$0.exists } }],
             timeout: timeout,
             description: "loading to complete"
         )
@@ -116,7 +118,7 @@ extension XCTestCase {
         return waitForAnyCondition(
             [
                 // Check if any expected elements now exist that didn't before
-                {
+                { @MainActor in
                     for (index, element) in expectedElements.enumerated() {
                         if element.exists && !initialStates[index] {
                             return true
@@ -125,7 +127,7 @@ extension XCTestCase {
                     return false
                 },
                 // Check if navigation bar title changed (indicates navigation occurred)
-                {
+                { @MainActor in
                     expectedElements.contains { $0.exists }
                 }
             ],
@@ -143,32 +145,33 @@ extension XCTestCase {
         timeout: TimeInterval = 10.0
     ) -> Bool {
         let expectation = XCTestExpectation(description: "UI stable state")
+        let startTime = Date()
         var lastElementCount = 0
         var stableStartTime: Date?
-        let startTime = Date()
         
-        // Use RunLoop-based polling instead of blocking Thread.sleep
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            if Date().timeIntervalSince(startTime) >= timeout {
-                timer.invalidate()
-                expectation.fulfill()
-                return
-            }
-            
-            let currentElementCount = app.buttons.count + app.staticTexts.count + app.otherElements.count
-            
-            if currentElementCount == lastElementCount {
-                if stableStartTime == nil {
-                    stableStartTime = Date()
-                } else if Date().timeIntervalSince(stableStartTime!) >= stableFor {
-                    timer.invalidate()
-                    expectation.fulfill()
-                    return
+        // Use Task-based polling for proper Swift 6 concurrency
+        Task { @MainActor in
+            while Date().timeIntervalSince(startTime) < timeout {
+                let currentElementCount = app.buttons.count + app.staticTexts.count + app.otherElements.count
+                
+                if currentElementCount == lastElementCount {
+                    if stableStartTime == nil {
+                        stableStartTime = Date()
+                    } else if Date().timeIntervalSince(stableStartTime!) >= stableFor {
+                        expectation.fulfill()
+                        return
+                    }
+                } else {
+                    stableStartTime = nil // Reset stability timer
+                    lastElementCount = currentElementCount
                 }
-            } else {
-                stableStartTime = nil // Reset stability timer
-                lastElementCount = currentElementCount
+                
+                // Brief pause between checks using Task.sleep
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             }
+            
+            // Timeout reached
+            expectation.fulfill()
         }
         
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
