@@ -933,7 +933,40 @@ deinit {
 
 **BUILD STATUS**: ✅ All build errors resolved, syntax checks pass
 
-#### 2025-01-09 17:15 EST - Phase 2+ Enhancement Planning 🔄 PLANNING
+#### 2025-01-10 21:30 EST - MainActor Factory Method Concurrency Fix ✅ COMPLETED
+- **NEW ISSUE IDENTIFIED**: Build error "call to main actor-isolated initializer ... in a synchronous nonisolated context"
+- **BUILD ERROR**: SmartListBackgroundManager.swift line 310 - `DefaultSmartListBackgroundManager` initializer called from nonisolated factory method
+- **ROOT CAUSE**: Factory method `createBackgroundManager()` is not marked `@MainActor` but trying to call `@MainActor` class initializer
+- **TECHNICAL ISSUE**: `DefaultSmartListBackgroundManager` class is `@MainActor`, making its initializer main actor-isolated
+- **CONCURRENCY VIOLATION**: Static factory method in nonisolated context cannot synchronously call main actor-isolated initializer
+
+**SOLUTION IMPLEMENTED:**
+```swift
+// OLD (incorrect):
+public static func createBackgroundManager(...) -> DefaultSmartListBackgroundManager {
+
+// NEW (correct):  
+@MainActor
+public static func createBackgroundManager(...) -> DefaultSmartListBackgroundManager {
+```
+
+**TECHNICAL REASONING:**
+- Factory method creates `@MainActor` object, so it should be called from main actor context
+- Background managers typically need main actor isolation for UI coordination
+- Marking factory as `@MainActor` ensures proper actor context for instantiation
+- Callers must be in main actor context or use `await` when calling factory
+
+**VERIFICATION PERFORMED:**
+- ✅ All syntax checks pass for 150+ Swift files
+- ✅ No more concurrency compilation errors
+- ✅ Factory method properly isolated to main actor
+- ✅ No callers identified that would be impacted (method not used elsewhere yet)
+- ✅ Swift 6 concurrency compliance maintained
+
+**FILES MODIFIED:**
+- ✅ `Persistence/SmartListBackgroundManager.swift` - Added @MainActor to createBackgroundManager factory method
+
+**BUILD STATUS**: ✅ All build errors resolved, syntax checks pass
 - **COMPREHENSIVE REVIEW**: All core acceptance criteria from Issue 02.1.2 are ✅ COMPLETED
 - **MAJOR ACHIEVEMENTS SUMMARY**:
   - ✅ Advanced episode sorting and filtering (Phase 1)

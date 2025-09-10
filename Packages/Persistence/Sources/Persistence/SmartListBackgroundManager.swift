@@ -290,6 +290,7 @@ public actor PodcastManagerEpisodeProvider: EpisodeProvider {
 public enum SmartListBackgroundServiceFactory {
     
     /// Create a complete background manager with all dependencies
+    @MainActor
     public static func createBackgroundManager(
         filterService: EpisodeFilterService,
         smartListRepository: any SmartEpisodeListRepository,
