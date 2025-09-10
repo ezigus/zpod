@@ -147,7 +147,7 @@ public class SmartEpisodeListManager: ObservableObject {
     
     private let repository: SmartEpisodeListRepository
     private let filterService: EpisodeFilterService
-    private var updateTimer: Timer?
+    private nonisolated(unsafe) var updateTimer: Timer?
     
     public init(
         repository: SmartEpisodeListRepository = UserDefaultsSmartEpisodeListRepository(),
@@ -163,12 +163,7 @@ public class SmartEpisodeListManager: ObservableObject {
     }
     
     deinit {
-        // Capture timer locally to avoid capturing self in Task closure
-        let timer = updateTimer
-        // Timer must be invalidated on main actor since it's not Sendable
-        Task { @MainActor in
-            timer?.invalidate()
-        }
+        updateTimer?.invalidate()
     }
     
     // MARK: - Public Methods
