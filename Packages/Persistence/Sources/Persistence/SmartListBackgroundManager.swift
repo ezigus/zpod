@@ -273,12 +273,11 @@ public actor PodcastManagerEpisodeProvider: EpisodeProvider {
     }
     
     public func getAllEpisodes() async -> [Episode] {
-        let podcasts = await podcastManager.getAllPodcasts()
+        let podcasts = podcastManager.all()
         var allEpisodes: [Episode] = []
         
         for podcast in podcasts {
-            let episodes = await podcastManager.getEpisodes(for: podcast.id)
-            allEpisodes.append(contentsOf: episodes)
+            allEpisodes.append(contentsOf: podcast.episodes)
         }
         
         return allEpisodes

@@ -87,6 +87,8 @@ public actor SmartListPerformanceMonitor {
     private var evaluationTimes: [String: [TimeInterval]] = [:]
     private let maxStoredTimes = 10
     
+    public init() {}
+    
     /// Record evaluation time for a smart list
     public func recordEvaluationTime(_ time: TimeInterval, for smartListId: String) {
         var times = evaluationTimes[smartListId] ?? []
