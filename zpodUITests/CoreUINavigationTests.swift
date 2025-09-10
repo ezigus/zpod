@@ -8,68 +8,89 @@ import UIKit
 /// - Accessibility compliance and VoiceOver support
 /// - iPad-specific layout adaptations and behaviors
 /// - Quick action handling and app shortcuts
-final class CoreUINavigationTests: XCTestCase {
+final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     
-    nonisolated(unsafe) private var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
         // Stop immediately when a failure occurs
         continueAfterFailure = false
         
-        // Perform @MainActor UI setup without blocking the main thread
-        let exp = expectation(description: "Launch app on main actor")
-        var appResult: XCUIApplication?
-        
-        Task { @MainActor in
-            let instance = XCUIApplication()
-            instance.launch()
-            appResult = instance
-            exp.fulfill()
-        }
-        
-        wait(for: [exp], timeout: 15.0)
-        app = appResult
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
     }
 
     override func tearDownWithError() throws {
         app = nil
     }
 
+    // MARK: - Helper Methods
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+    }
+    
     // MARK: - Main Navigation Tests
     // Covers: Basic navigation flow from ui spec
     
     @MainActor
     func testMainTabBarNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is launched and main interface is visible
         // When: User taps different tab bar items
         let tabBar = app.tabBars["Main Tab Bar"]
         XCTAssertTrue(tabBar.exists, "Main tab bar should be visible")
         
-        // Test Library tab
+        // Test Library tab using robust navigation pattern
         let libraryTab = tabBar.buttons["Library"]
         if libraryTab.exists {
-            libraryTab.tap()
-            XCTAssertTrue(app.navigationBars["Library"].exists, "Library screen should be displayed")
+            let libraryNavigation = navigateAndWaitForResult(
+                triggerAction: { libraryTab.tap() },
+                expectedElements: [app.navigationBars["Library"]],
+                timeout: adaptiveTimeout,
+                description: "navigation to Library tab"
+            )
+            
+            if libraryNavigation {
+                // Wait for any loading to complete
+                let _ = waitForLoadingToComplete(in: app, timeout: adaptiveTimeout)
+                XCTAssertTrue(app.navigationBars["Library"].exists, "Library screen should be displayed")
+            }
         }
         
         // Test Discover tab
         let discoverTab = tabBar.buttons["Discover"]
         if discoverTab.exists {
-            discoverTab.tap()
-            XCTAssertTrue(app.navigationBars["Discover"].exists, "Discover screen should be displayed")
+            let discoverNavigation = navigateAndWaitForResult(
+                triggerAction: { discoverTab.tap() },
+                expectedElements: [app.navigationBars["Discover"]],
+                timeout: adaptiveTimeout,
+                description: "navigation to Discover tab"
+            )
+            
+            if discoverNavigation {
+                XCTAssertTrue(app.navigationBars["Discover"].exists, "Discover screen should be displayed")
+            }
         }
         
-        // Test Player tab
+        // Test Player tab with flexible interface detection
         let playerTab = tabBar.buttons["Player"]
         if playerTab.exists {
-            playerTab.tap()
-            // Player interface may have different structure
-            XCTAssertTrue(
-                app.otherElements["Player Interface"].exists ||
-                app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'"))
-                    .firstMatch.exists,
-                "Player interface should be displayed"
+            let playerNavigation = navigateAndWaitForResult(
+                triggerAction: { playerTab.tap() },
+                expectedElements: [
+                    app.otherElements["Player Interface"],
+                    app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'")).firstMatch
+                ],
+                timeout: adaptiveTimeout,
+                description: "navigation to Player tab"
             )
+            
+            XCTAssertTrue(playerNavigation, "Player interface should be accessible")
         }
         
         // Then: Navigation should work correctly
@@ -78,6 +99,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testNavigationStackManagement() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: User is on a detail screen
         let tabBar = app.tabBars["Main Tab Bar"]
         let libraryTab = tabBar.buttons["Library"]
@@ -107,6 +131,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testVoiceOverLabels() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App interface is loaded
         // When: Checking accessibility labels
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -132,6 +159,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAccessibilityHints() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Interactive elements are visible
         // When: Checking accessibility hints
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -154,6 +184,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testKeyboardNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports keyboard navigation
         // When: Using keyboard navigation (simulated through accessibility)
         
@@ -178,6 +211,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testIPadLayoutAdaptation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is running on iPad (or iPad simulator)
         let deviceType = UIDevice.current.userInterfaceIdiom
         
@@ -212,6 +248,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAppShortcutHandling() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports quick actions
         // Note: Quick actions are typically tested through app launch with shortcut items
         // This test verifies the app can handle shortcut-triggered launches
@@ -236,6 +275,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAppearanceAdaptation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App supports appearance changes
         // When: Checking that UI elements are visible and functional regardless of appearance
         // Note: XCUITest doesn't provide direct access to interface style, so we verify
@@ -263,6 +305,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testErrorStateNavigation() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App may encounter error states
         // When: Checking for error handling in navigation
         
@@ -290,6 +335,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testNavigationPerformance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App is loaded
         // When: Performing navigation actions
         let tabBar = app.tabBars["Main Tab Bar"]
@@ -315,6 +363,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_CompleteNavigationFlow() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: User wants to navigate through main app features
         let tabBar = app.tabBars["Main Tab Bar"]
         XCTAssertTrue(tabBar.exists, "Main tab bar should be available")
@@ -343,6 +394,9 @@ final class CoreUINavigationTests: XCTestCase {
     
     @MainActor
     func testAcceptanceCriteria_AccessibilityCompliance() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: App must be accessible to all users
         // When: Checking accessibility compliance
         

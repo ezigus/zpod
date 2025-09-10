@@ -33,45 +33,27 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         folderManager = InMemoryFolderManager()
         searchIndex = SearchIndex()
         
-        // Initialize PlaylistManager using Task pattern for main actor access
-        let managerInstance: PlaylistManager = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var managerResult: PlaylistManager!
-            
-            Task { @MainActor in
-                managerResult = PlaylistManager()
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return managerResult
-        }()
+        // Initialize managers on main actor using async setup
+        // This approach avoids deadlocks compared to semaphore patterns
+        let setupExpectation = expectation(description: "Setup main actor components")
         
-        playlistManager = managerInstance
+        Task { @MainActor in
+            playlistManager = PlaylistManager()
+            
+            // Initialize search components
+            searchService = SearchService(indexSources: [PodcastIndexSource(podcastManager: podcastManager)])
+            
+            searchViewModel = SearchViewModel(
+                searchService: searchService,
+                podcastManager: podcastManager,
+                rssParser: MockRSSParser()
+            )
+            
+            setupExpectation.fulfill()
+        }
+        
+        wait(for: [setupExpectation], timeout: 5.0)
         episodeStateManager = MockEpisodeStateManager()
-        
-        // Initialize search components
-        searchService = SearchService(indexSources: [PodcastIndexSource(podcastManager: podcastManager)])
-        
-        // Initialize SearchViewModel using Task pattern for main actor access
-        let viewModelInstance: SearchViewModel = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var viewModelResult: SearchViewModel!
-            
-            Task { @MainActor in
-                viewModelResult = SearchViewModel(
-                    searchService: searchService,
-                    podcastManager: podcastManager,
-                    rssParser: MockRSSParser()
-                )
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return viewModelResult
-        }()
-        
-        searchViewModel = viewModelInstance
     }
     
     override func tearDown() {

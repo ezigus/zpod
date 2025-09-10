@@ -34,10 +34,13 @@ check_swift_syntax() {
     
     local error_count=0
     
-    # Check main source files
-    if [[ -d "$SWIFT_FILES_DIR" ]]; then
-        echo "Checking main source files..."
-        while IFS= read -r -d '' file; do
+    # Check all Swift files in the project
+    local all_swift_files
+    all_swift_files=$(find "$PROJECT_ROOT" -name "*.swift" -type f | grep -v ".build" | grep -v "build" | grep -v ".swiftpm")
+    
+    echo "Checking Swift files for syntax errors..."
+    while IFS= read -r file; do
+        if [[ -n "$file" ]]; then
             echo "Checking: $(basename "$file")"
             # Basic syntax check
             if ! swift -frontend -parse "$file" > /dev/null 2>&1; then
@@ -47,24 +50,8 @@ check_swift_syntax() {
             else
                 echo -e "${GREEN}✅ $(basename "$file")${NC}"
             fi
-        done < <(find "$SWIFT_FILES_DIR" -name "*.swift" -type f -print0)
-    fi
-    
-    # Check test files
-    if [[ -d "$TEST_FILES_DIR" ]]; then
-        echo
-        echo "Checking test files..."
-        while IFS= read -r -d '' file; do
-            echo "Checking: $(basename "$file")"
-            if ! swift -frontend -parse "$file" > /dev/null 2>&1; then
-                echo -e "${RED}❌ Syntax error in $file${NC}"
-                swift -frontend -parse "$file" 2>&1 | head -10
-                ((error_count++))
-            else
-                echo -e "${GREEN}✅ $(basename "$file")${NC}"
-            fi
-        done < <(find "$TEST_FILES_DIR" -name "*.swift" -type f -print0)
-    fi
+        fi
+    done <<< "$all_swift_files"
     
     echo
     if [[ $error_count -eq 0 ]]; then
@@ -84,13 +71,13 @@ check_concurrency_patterns() {
     echo "Checking for common concurrency anti-patterns..."
     
     # Check for DispatchQueue.global().async without proper isolation
-    if grep -rn "DispatchQueue\.global()\.async" "$SWIFT_FILES_DIR" "$TEST_FILES_DIR" 2>/dev/null; then
+    if grep -rn "DispatchQueue\.global()\.async" "$PROJECT_ROOT" --include="*.swift" 2>/dev/null; then
         echo -e "${YELLOW}⚠️  Found DispatchQueue.global().async - consider using Task.detached or proper actor isolation${NC}"
         ((issues_found++))
     fi
     
     # Check for DispatchQueue.main.async without @MainActor context
-    if grep -rn "DispatchQueue\.main\.async" "$SWIFT_FILES_DIR" "$TEST_FILES_DIR" 2>/dev/null; then
+    if grep -rn "DispatchQueue\.main\.async" "$PROJECT_ROOT" --include="*.swift" 2>/dev/null; then
         echo -e "${YELLOW}⚠️  Found DispatchQueue.main.async - consider using Task { @MainActor in ... }${NC}"
         ((issues_found++))
     fi
@@ -104,13 +91,13 @@ check_concurrency_patterns() {
             echo "    Consider handling specific error types when possible"
             ((issues_found++))
         fi
-    done < <(grep -rn "} catch {" "$SWIFT_FILES_DIR" "$TEST_FILES_DIR" 2>/dev/null || true)
+    done < <(grep -rn "} catch {" "$PROJECT_ROOT" --include="*.swift" 2>/dev/null || true)
     
     # Check for @MainActor classes without proper async task patterns
     echo
     echo "Checking for async patterns in @MainActor classes..."
     local mainactor_files
-    mainactor_files=$(grep -l "@MainActor" "$SWIFT_FILES_DIR"/*.swift 2>/dev/null || true)
+    mainactor_files=$(grep -l "@MainActor" "$PROJECT_ROOT"/**/*.swift 2>/dev/null || true)
     
     if [[ -n "$mainactor_files" ]]; then
         for file in $mainactor_files; do
@@ -128,6 +115,85 @@ check_concurrency_patterns() {
         echo -e "${YELLOW}⚠️  Found $issues_found potential concurrency issues (warnings only)${NC}"
         echo "    These are potential issues that may cause Swift 6 compilation errors"
         echo "    Review the flagged patterns and consider using Swift 6 concurrency best practices"
+    fi
+}
+
+# Function to check for SwiftUI syntax issues
+check_swiftui_patterns() {
+    print_section "Checking SwiftUI Syntax Patterns"
+    
+    local issues_found=0
+    
+    echo "Checking for common SwiftUI syntax issues..."
+    
+    # Check for computed properties that return different view types without @ViewBuilder
+    echo "Checking for missing @ViewBuilder annotations..."
+    local view_files
+    view_files=$(grep -l "some View" "$PROJECT_ROOT" --include="*.swift" -r 2>/dev/null || true)
+    
+    if [[ -n "$view_files" ]]; then
+        for file in $view_files; do
+            # Look for private computed properties (not body property) with conditional returns that lack @ViewBuilder
+            local var_lines
+            var_lines=$(grep -n "private var.*: some View" "$file" | cut -d: -f1)
+            for line_num in $var_lines; do
+                # Check if the line before has @ViewBuilder annotation
+                local prev_line_num=$((line_num - 1))
+                local has_viewbuilder
+                has_viewbuilder=$(sed -n "${prev_line_num}p" "$file" | grep "@ViewBuilder" || true)
+                
+                if [[ -z "$has_viewbuilder" ]]; then
+                    # Get the property content (simplified check)
+                    local property_content
+                    property_content=$(sed -n "${line_num},+20p" "$file" | grep -E "(if |else |switch |case )" || true)
+                    if [[ -n "$property_content" ]]; then
+                        echo -e "${YELLOW}⚠️  File $(basename "$file"):$line_num private computed property may need @ViewBuilder for conditional views${NC}"
+                        ((issues_found++))
+                    fi
+                fi
+            done
+        done
+    fi
+    
+    # Check for trailing closures that might cause parsing issues
+    echo "Checking for potential SwiftUI closure syntax issues..."
+    if grep -rn "}\s*\..*{\s*$" "$PROJECT_ROOT" --include="*.swift" 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  Found potential closure syntax issues - check modifier chaining${NC}"
+        ((issues_found++))
+    fi
+    
+    # Check for NavigationView usage (deprecated in iOS 16+)
+    if grep -rn "NavigationView" "$PROJECT_ROOT" --include="*.swift" 2>/dev/null; then
+        echo -e "${YELLOW}⚠️  Found NavigationView usage - consider using NavigationStack for iOS 16+${NC}"
+        ((issues_found++))
+    fi
+    
+    # Check for unmatched braces (simplified check)
+    echo "Checking for potential unmatched braces..."
+    local swift_files
+    swift_files=$(find "$PROJECT_ROOT" -name "*.swift" -type f | grep -v ".build" | grep -v "build")
+    
+    while IFS= read -r file; do
+        if [[ -n "$file" ]]; then
+            local open_braces
+            local close_braces
+            open_braces=$(grep -o "{" "$file" 2>/dev/null | wc -l)
+            close_braces=$(grep -o "}" "$file" 2>/dev/null | wc -l)
+            
+            if [[ $open_braces -ne $close_braces ]]; then
+                echo -e "${YELLOW}⚠️  File $(basename "$file") has unmatched braces: $open_braces open, $close_braces close${NC}"
+                ((issues_found++))
+            fi
+        fi
+    done <<< "$swift_files"
+    
+    echo
+    if [[ $issues_found -eq 0 ]]; then
+        echo -e "${GREEN}✅ No obvious SwiftUI syntax issues found${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Found $issues_found potential SwiftUI syntax issues (warnings only)${NC}"
+        echo "    These patterns may cause SwiftUI compilation errors"
+        echo "    Review the flagged patterns and consider using proper SwiftUI syntax"
     fi
 }
 
@@ -229,6 +295,7 @@ run_syntax_tests() {
     echo
     
     check_swift_syntax
+    check_swiftui_patterns
     check_concurrency_patterns
 }
 
@@ -262,6 +329,9 @@ case "${1:-help}" in
     "syntax")
         check_swift_syntax
         ;;
+    "swiftui")
+        check_swiftui_patterns
+        ;;
     "concurrency")
         check_concurrency_patterns
         ;;
@@ -288,6 +358,7 @@ case "${1:-help}" in
         check_ci_config
         simulate_xcodebuild_list
         check_swift_syntax
+        check_swiftui_patterns
         check_concurrency_patterns
         run_spm_commands
         ;;
@@ -295,16 +366,17 @@ case "${1:-help}" in
         echo "Usage: $0 [command]"
         echo
         echo "Commands:"
-        echo "  syntax    - Check Swift syntax for all files"
+        echo "  syntax      - Check Swift syntax for all files"
+        echo "  swiftui     - Check for SwiftUI syntax patterns and potential issues"
         echo "  concurrency - Check for Swift 6 concurrency patterns"
-        echo "  info      - Show project information"
-        echo "  list      - Show targets and schemes (simulated)"
-        echo "  test      - Run development tests (syntax + concurrency)"
-        echo "  spm       - Run Swift Package Manager commands"
-        echo "  ci        - Check CI/CD configuration"
-        echo "  xcode     - Show xcodebuild equivalent commands"
-        echo "  all       - Run all checks"
-        echo "  help      - Show this help message"
+        echo "  info        - Show project information"
+        echo "  list        - Show targets and schemes (simulated)"
+        echo "  test        - Run development tests (syntax + swiftui + concurrency)"
+        echo "  spm         - Run Swift Package Manager commands"
+        echo "  ci          - Check CI/CD configuration"
+        echo "  xcode       - Show xcodebuild equivalent commands"
+        echo "  all         - Run all checks"
+        echo "  help        - Show this help message"
         echo
         echo "This script provides xcodebuild-like functionality for development"
         echo "environments without Xcode. For full building and testing, use"

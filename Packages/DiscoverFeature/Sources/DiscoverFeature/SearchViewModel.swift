@@ -99,28 +99,20 @@ public final class SearchViewModel: ObservableObject {
             errorMessage = nil
         }
         
-        do {
-            let results = await searchService.search(query: searchText, filter: currentFilter)
+        let results = await searchService.search(query: searchText, filter: currentFilter)
+        
+        await MainActor.run {
+            searchResults = results
+            isSearching = false
             
-            await MainActor.run {
-                searchResults = results
-                isSearching = false
-                
-                // Add to search history if not already present
-                if !searchHistory.contains(searchText) {
-                    searchHistory.insert(searchText, at: 0)
-                    // Keep only last 10 searches
-                    if searchHistory.count > 10 {
-                        searchHistory = Array(searchHistory.prefix(10))
-                    }
-                    saveSearchHistory()
+            // Add to search history if not already present
+            if !searchHistory.contains(searchText) {
+                searchHistory.insert(searchText, at: 0)
+                // Keep only last 10 searches
+                if searchHistory.count > 10 {
+                    searchHistory = Array(searchHistory.prefix(10))
                 }
-            }
-        } catch {
-            await MainActor.run {
-                searchResults = []
-                isSearching = false
-                errorMessage = "Search failed: \(error.localizedDescription)"
+                saveSearchHistory()
             }
         }
     }

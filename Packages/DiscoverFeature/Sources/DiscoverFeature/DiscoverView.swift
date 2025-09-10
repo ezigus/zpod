@@ -80,6 +80,7 @@ public struct DiscoverView: View {
     
     // MARK: - View Components
     
+    @ViewBuilder
     private var searchHeaderView: some View {
         VStack(spacing: 12) {
             // Search bar

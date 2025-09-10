@@ -173,32 +173,73 @@ final class ExampleUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Create app instance and perform UI operations using Task for main actor access
-        let appInstance: XCUIApplication = {
-            let semaphore = DispatchSemaphore(value: 0)
-            var appResult: XCUIApplication!
-            
-            Task { @MainActor in
-                appResult = XCUIApplication()
-                appResult.launch()
-                // ... UI setup operations using appResult
-                semaphore.signal()
-            }
-            
-            semaphore.wait()
-            return appResult
-        }()
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
+    }
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
         
-        // Assign to instance property after main thread operations complete
-        app = appInstance
+        // Perform any navigation setup
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let targetTab = tabBar.buttons["Target Tab"]
+        if targetTab.exists {
+            targetTab.tap()
+        }
     }
     
     @MainActor
     func testUIBehavior() throws {
+        // Initialize app first in each test method
+        initializeApp()
+        
         // Test methods use @MainActor for safe UI access
         let button = app.buttons["Example"]
         button.tap()
     }
+}
+```
+
+#### CRITICAL: Avoiding UI Test Deadlocks
+**NEVER use Task + semaphore pattern in UI test setup methods as it causes deadlocks:**
+- ❌ Main thread calls `semaphore.wait()` which blocks the main thread
+- ❌ `Task { @MainActor }` needs the main thread to execute, but it's blocked
+- ❌ Creates circular dependency causing test deadlocks
+- ✅ **XCUIApplication IS now @MainActor isolated** (changed in recent Xcode/iOS SDK)
+- ✅ Keep setup methods nonisolated to match XCTestCase base class
+- ✅ Use @MainActor helper methods for XCUIApplication operations
+- ✅ Individual test methods can use @MainActor for UI operations
+
+#### Data Loading and UI Testing Best Practices
+**Proper Async Data Loading Patterns:**
+- ✅ Use realistic async loading in production: `@State private var data: [Item] = []` with `onAppear { await loadData() }`
+- ✅ Include loading state indicators: `@State private var isLoading = true` and show `ProgressView()` while loading
+- ✅ UI tests wait for loading completion: `loadingIndicator.waitForNonExistence(timeout: 10)`
+- ❌ DON'T force synchronous data loading just for tests: `@State private var data = createData()` masks real race conditions
+- ❌ DON'T make app behavior different in tests vs production for data loading
+
+**Correct Pattern:**
+```swift
+// Production code - realistic async loading
+@State private var podcasts: [Podcast] = []
+@State private var isLoading = true
+
+var body: some View {
+    if isLoading {
+        ProgressView()
+            .accessibilityIdentifier("Loading View")
+    } else {
+        List(podcasts) { ... }
+    }
+}
+.onAppear { Task { await loadPodcasts() } }
+
+// UI tests - wait for loading completion
+let loadingIndicator = app.otherElements["Loading View"]
+if loadingIndicator.exists {
+    XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10))
 }
 ```
 
@@ -213,6 +254,142 @@ final class ExampleUITests: XCTestCase {
 - Use mocks when testing interactions that cross boundaries between Models, Views, ViewModels, and Services
 - Mocks should be protocol-based and injected via dependency injection where possible
 - Create reusable mock implementations in test support files
+
+#### UI Testing Best Practices - CRITICAL for Robust Tests
+
+**NEVER Use Arbitrary Timeouts or Sleep Calls**
+- ❌ **BAD**: `sleep(1)`, `waitForExistence(timeout: 5)` without checking state
+- ❌ **BAD**: Fixed timeout values that don't adapt to environment
+- ❌ **BAD**: Single element waiting without fallback strategies
+- ✅ **GOOD**: Use `UITestHelpers.swift` smart waiting patterns
+- ✅ **GOOD**: Wait for actual app state changes, not arbitrary time
+- ✅ **GOOD**: Environment-adaptive timeouts (CI vs local)
+
+**Smart Waiting Patterns (Use UITestHelpers.swift)**
+```swift
+// ✅ CORRECT: Wait for any of multiple conditions
+waitForAnyCondition([
+    { element1.exists },
+    { element2.exists },
+    { loadingComplete }
+])
+
+// ✅ CORRECT: Wait for element with alternatives
+waitForElementOrAlternatives(
+    primary: app.buttons["Primary"],
+    alternatives: [app.buttons["Alternative1"], app.buttons["Alternative2"]]
+)
+
+// ✅ CORRECT: Wait for loading using multiple indicators
+waitForLoadingToComplete(in: app)
+
+// ✅ CORRECT: Navigation with state verification
+navigateAndWaitForResult(
+    triggerAction: { button.tap() },
+    expectedElements: [targetElement1, targetElement2]
+)
+```
+
+**Element Discovery Best Practices**
+- ✅ **Use Smart Discovery**: `findAccessibleElement()` with multiple strategies (identifier, label, partial label)
+- ✅ **Fallback Strategies**: Always provide alternative ways to find elements
+- ✅ **Accessibility-First**: Prioritize accessibility identifiers and labels
+- ❌ **Avoid Brittle Selectors**: Don't rely on exact index positions or fragile hierarchies
+
+**Content Loading Patterns**
+```swift
+// ✅ CORRECT: Robust content loading
+waitForContentToLoad(
+    containerIdentifier: "Episode Cards Container",
+    itemIdentifiers: ["Episode-st-001", "Episode-st-002"] 
+)
+
+// ❌ WRONG: Brittle loading check
+episodeCardsContainer.waitForExistence(timeout: 5)
+```
+
+**Environment Adaptation**
+- ✅ **Use Adaptive Timeouts**: `adaptiveTimeout` and `adaptiveShortTimeout` properties
+- ✅ **CI Environment Awareness**: Longer timeouts automatically applied in CI
+- ✅ **Stability Checks**: `waitForStableState()` for animation completion
+- ❌ **Fixed Values**: Never use hardcoded timeout values across environments
+
+**Navigation Testing**
+```swift
+// ✅ CORRECT: Smart navigation testing
+let navigationSucceeded = navigateAndWaitForResult(
+    triggerAction: { tabButton.tap() },
+    expectedElements: [expectedScreen, alternativeIndicator],
+    description: "navigation to target screen"
+)
+
+// ❌ WRONG: Brittle navigation
+tabButton.tap()
+sleep(1) // BAD!
+XCTAssertTrue(expectedScreen.exists) // May fail due to timing
+```
+
+**Test Method Structure**
+- All UI test classes should conform to `SmartUITesting` protocol
+- Use `@MainActor` for UI test methods
+- Keep `setUpWithError()` and `tearDownWithError()` nonisolated
+- Call `initializeApp()` at start of each test method
+
+#### Updated UI Test Setup Pattern
+```swift
+final class ExampleUITests: XCTestCase, SmartUITesting {
+    nonisolated(unsafe) private var app: XCUIApplication!
+    
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+    }
+    
+    @MainActor
+    func testUIBehavior() throws {
+        initializeApp()
+        
+        // Use smart waiting patterns from UITestHelpers
+        XCTAssertTrue(
+            waitForContentToLoad(containerIdentifier: "Content Container"),
+            "Content should load successfully"
+        )
+    }
+}
+```
+
+#### CRITICAL: Avoiding UI Test Deadlocks and Timing Issues
+**NEVER use these anti-patterns:**
+- ❌ **sleep() calls**: `sleep(1)` - Use `waitForStableState()` instead
+- ❌ **Task + semaphore in setup**: Causes deadlocks in XCUITest environment
+- ❌ **Fixed timeout dependencies**: `waitForExistence(timeout: 5)` without fallbacks
+- ❌ **Single element dependencies**: Always provide alternative element strategies
+
+**Use these reliable patterns:**
+- ✅ **State-based waiting**: Wait for app state changes, not time passage
+- ✅ **Multiple condition checking**: `waitForAnyCondition()` with several success criteria
+- ✅ **Progressive discovery**: Try multiple ways to find the same logical element
+- ✅ **Environment adaptation**: Different timeouts for CI vs local testing
+
+**Data Loading and UI Testing Best Practices**
+```swift
+// ✅ CORRECT: Smart loading detection
+XCTAssertTrue(
+    waitForLoadingToComplete(in: app, timeout: adaptiveTimeout),
+    "Content should load successfully"
+)
+
+// ❌ WRONG: Brittle timeout waiting
+let loadingIndicator = app.otherElements["Loading View"]
+if loadingIndicator.exists {
+    XCTAssertTrue(loadingIndicator.waitForNonExistence(timeout: 10))
+}
+```
 
 #### UI Testing Best Practices
 - Test accessibility compliance with VoiceOver labels and navigation
@@ -447,7 +624,39 @@ xcodebuild -project zpod.xcodeproj -scheme zpod clean
 - DispatchQueue anti-pattern warnings
 - Non-exhaustive catch block detection
 - `@MainActor` timer usage validation
+- **SwiftUI syntax checking** - detects missing `@ViewBuilder` annotations and common SwiftUI compilation issues
+- **Comprehensive syntax validation** - scans all Swift files including packages for syntax errors
+- **Enhanced error prevention** - catches SwiftUI type conflicts and generic parameter issues before compilation
 - Early warning system for compilation issues
+
+#### Syntax Checking Commands
+```bash
+# Check Swift syntax for all files (recommended before committing)
+./scripts/dev-build-enhanced.sh syntax
+
+# Check SwiftUI-specific syntax patterns
+./scripts/dev-build-enhanced.sh swiftui
+
+# Check Swift 6 concurrency patterns
+./scripts/dev-build-enhanced.sh concurrency
+
+# Run comprehensive development tests (syntax + swiftui + concurrency)
+./scripts/dev-build-enhanced.sh test
+```
+
+#### Common Syntax Issues Prevention
+The enhanced build script now detects and prevents:
+- **SwiftUI Type Conflicts**: Missing `@ViewBuilder` annotations on computed properties with conditional views
+- **Generic Parameter Conflicts**: SwiftUI modifier chains that cause `τ_0_0` compilation errors
+- **Navigation Deprecation**: Usage of deprecated `NavigationView` (recommends `NavigationStack`)
+- **Brace Mismatches**: Unmatched opening/closing braces that cause parsing errors
+- **Concurrency Violations**: `@MainActor` isolation issues and async/await anti-patterns
+
+#### Development Best Practices for Syntax
+- **Always run syntax check before committing**: Use `./scripts/dev-build-enhanced.sh syntax`
+- **Fix SwiftUI type conflicts early**: Add `@ViewBuilder` to computed properties returning different view types
+- **Use enhanced script for early detection**: Run `./scripts/dev-build-enhanced.sh test` during development
+- **Address warnings proactively**: The script provides warnings for potential future compilation issues
 
 ### CI/CD Pipeline
 The repository includes a GitHub Actions workflow that:

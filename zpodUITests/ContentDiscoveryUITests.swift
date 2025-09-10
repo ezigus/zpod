@@ -8,45 +8,44 @@ import XCTest
 /// - Subscription management interface testing
 /// - Filter and sort controls validation
 /// - Content recommendation displays
-final class ContentDiscoveryUITests: XCTestCase {
+final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     
-    nonisolated(unsafe) private var app: XCUIApplication!
+    nonisolated(unsafe) var app: XCUIApplication!
 
     override func setUpWithError() throws {
         continueAfterFailure = false
         
-        // Perform @MainActor UI setup without blocking the main thread
-        let exp = expectation(description: "Launch app on main actor")
-        var appResult: XCUIApplication?
-        
-        Task { @MainActor in
-            let instance = XCUIApplication()
-            instance.launch()
-            
-            // Navigate to discovery interface for testing
-            let tabBar = instance.tabBars["Main Tab Bar"]
-            let discoverTab = tabBar.buttons["Discover"]
-            if discoverTab.exists {
-                discoverTab.tap()
-            }
-            
-            appResult = instance
-            exp.fulfill()
-        }
-        
-        wait(for: [exp], timeout: 15.0)
-        app = appResult
+        // Initialize app without @MainActor calls in setup
+        // XCUIApplication creation and launch will be done in test methods
     }
 
     override func tearDownWithError() throws {
         app = nil
     }
 
+    // MARK: - Helper Methods
+    
+    @MainActor
+    private func initializeApp() {
+        app = XCUIApplication()
+        app.launch()
+        
+        // Navigate to discovery interface for testing
+        let tabBar = app.tabBars["Main Tab Bar"]
+        let discoverTab = tabBar.buttons["Discover"]
+        if discoverTab.exists {
+            discoverTab.tap()
+        }
+    }
+    
     // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
     // Given/When/Then: Basic Podcast Search and Discovery
     
     @MainActor
     func testBasicPodcastSearchInterface_GivenDiscoverTab_WhenSearching_ThenShowsSearchInterface() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
         XCTAssertTrue(app.navigationBars["Discover"].exists, "Should be on Discover tab")
         
@@ -60,6 +59,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchFieldInput_GivenSearchInterface_WhenTyping_ThenAcceptsInput() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Search interface is available
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         XCTAssertTrue(searchField.exists, "Search field should exist")
@@ -76,6 +78,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchClearButton_GivenSearchText_WhenTappingClear_ThenClearsSearch() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have typed in the search field
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         searchField.tap()
@@ -98,74 +103,50 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoveryOptionsMenu_GivenDiscoverTab_WhenTappingOptions_ThenShowsMenu() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
-        XCTAssertTrue(app.navigationBars["Discover"].exists)
+        XCTAssertTrue(waitForNavigationToComplete(expectedScreen: "Discover"), "Should navigate to Discover tab")
         
-        // When: I look for the discovery options menu in navigation bar
-        let navBar = app.navigationBars["Discover"]
-        
-        // Try multiple strategies to find the options button
-        var optionsButton: XCUIElement?
-        
-        // Strategy 1: Look for button with accessibility identifier (most reliable)
-        let identifiedButton = navBar.buttons["discovery-options-menu"]
-        if identifiedButton.exists && identifiedButton.isHittable {
-            optionsButton = identifiedButton
-        }
-        
-        // Strategy 2: Look for button with accessibility label
-        if optionsButton == nil {
-            let labeledButton = navBar.buttons.matching(NSPredicate(format: "label == 'Discovery options'")).firstMatch
-            if labeledButton.exists && labeledButton.isHittable {
-                optionsButton = labeledButton
-            }
-        }
-        
-        // Strategy 3: Look for button with plus icon if first strategies fail
-        if optionsButton == nil {
-            let iconButton = navBar.buttons.matching(NSPredicate(format: "label CONTAINS 'plus' OR identifier CONTAINS 'plus'")).firstMatch
-            if iconButton.exists && iconButton.isHittable {
-                optionsButton = iconButton
-            }
-        }
-        
-        // Strategy 4: Use the last button in navigation bar (typically trailing toolbar item)
-        if optionsButton == nil {
-            let navButtons = navBar.buttons.allElementsBoundByIndex
-            for button in navButtons.reversed() {
-                if button.exists && button.isHittable {
-                    optionsButton = button
-                    break
-                }
-            }
-        }
+        // When: I look for the discovery options menu using smart discovery
+        let optionsButton = findAccessibleElement(
+            in: app,
+            byIdentifier: "discovery-options-menu",
+            byLabel: "Discovery options",
+            byPartialLabel: "options",
+            ofType: .button
+        )
         
         if let button = optionsButton {
-            button.tap()
-            
-            // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["Add RSS Feed"]
-            let searchHistoryOption = app.buttons["Search History"]
-            
-            // Wait for at least one menu option to appear
-            let menuAppeared = addRSSOption.waitForExistence(timeout: 2.0) || 
-                              searchHistoryOption.waitForExistence(timeout: 2.0)
+            // Use navigation pattern for menu interaction
+            let menuAppeared = navigateAndWaitForResult(
+                triggerAction: { button.tap() },
+                expectedElements: [
+                    app.buttons["Add RSS Feed"],
+                    app.buttons["Search History"]
+                ],
+                timeout: adaptiveShortTimeout,
+                description: "discovery options menu"
+            )
             
             if menuAppeared {
                 // Then: I should see menu options including RSS feed addition
-                XCTAssertTrue(addRSSOption.exists || searchHistoryOption.exists, 
-                             "Discovery options menu should contain expected items")
+                let hasMenuOptions = app.buttons["Add RSS Feed"].exists || app.buttons["Search History"].exists
+                XCTAssertTrue(hasMenuOptions, "Discovery options menu should contain expected items")
             } else {
-                throw XCTSkip("Menu options did not appear within timeout - may need UI adjustments")
+                throw XCTSkip("Menu options did not appear - may need UI adjustments")
             }
         } else {
-            // If no options button found, skip this test gracefully
             throw XCTSkip("Discovery options button not found or not accessible")
         }
     }
     
     @MainActor
     func testRSSFeedAddition_GivenOptionsMenu_WhenSelectingAddRSSFeed_ThenShowsRSSSheet() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have access to the options menu
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -225,6 +206,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testRSSURLInput_GivenRSSSheet_WhenEnteringURL_ThenAcceptsInput() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Navigate to RSS sheet if available
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -284,6 +268,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchFilters_GivenSearchResults_WhenFilteringByType_ThenShowsFilters() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have started a search
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         if searchField.exists {
@@ -314,6 +301,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchHistoryAccess_GivenOptionsMenu_WhenSelectingHistory_ThenShowsHistory() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I have access to the options menu
         let navBar = app.navigationBars["Discover"]
         XCTAssertTrue(navBar.exists)
@@ -371,6 +361,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoverTabAccessibility_GivenApp_WhenNavigating_ThenSupportsAccessibility() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: The app is launched
         // When: I check accessibility elements on Discover tab
         let discoverNavBar = app.navigationBars["Discover"]
@@ -388,6 +381,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testDiscoverTabTitle_GivenDiscoverTab_WhenViewing_ThenShowsCorrectTitle() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab
         // When: I check the navigation title
         let discoverTitle = app.navigationBars["Discover"]
@@ -400,6 +396,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testEmptyDiscoverState_GivenNoSearch_WhenViewingDiscover_ThenShowsEmptyState() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: I am on the Discover tab with no active search
         // When: I look at the empty state
         
@@ -416,6 +415,9 @@ final class ContentDiscoveryUITests: XCTestCase {
     
     @MainActor
     func testSearchResponsiveness_GivenSearchField_WhenTyping_ThenRespondsQuickly() throws {
+        // Initialize the app
+        initializeApp()
+        
         // Given: Search interface is available
         let searchField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
         

@@ -1,19 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Workspace version="1.0">
-  <!-- Updated to reference the renamed project -->
-  <FileRef location="container:zpod.xcodeproj"></FileRef>
-  <FileRef location="group:Packages/CoreModels"></FileRef>
-  <FileRef location="group:Packages/DiscoverFeature"></FileRef>
-  <FileRef location="group:Packages/FeedParsing"></FileRef>
-  <FileRef location="group:Packages/LibraryFeature"></FileRef>
-  <FileRef location="group:Packages/Networking"></FileRef>
-  <FileRef location="group:Packages/Persistence"></FileRef>
-  <FileRef location="group:Packages/PlaybackEngine"></FileRef>
-  <FileRef location="group:Packages/PlayerFeature"></FileRef>
-  <FileRef location="group:Packages/PlaylistFeature"></FileRef>
-  <FileRef location="group:Packages/RecommendationDomain"></FileRef>
-  <FileRef location="group:Packages/SearchDomain"></FileRef>
-  <FileRef location="group:Packages/SettingsDomain"></FileRef>
-  <FileRef location="group:Packages/SharedUtilities"></FileRef>
-  <FileRef location="group:Packages/TestSupport"></FileRef>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "container:zpod.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/CoreModels">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/DiscoverFeature">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/FeedParsing">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/LibraryFeature">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/Networking">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/Persistence">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/PlaybackEngine">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/PlayerFeature">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/PlaylistFeature">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/RecommendationDomain">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/SearchDomain">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/SettingsDomain">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/SharedUtilities">
+   </FileRef>
+   <FileRef
+      location = "group:Packages/TestSupport">
+   </FileRef>
 </Workspace>
