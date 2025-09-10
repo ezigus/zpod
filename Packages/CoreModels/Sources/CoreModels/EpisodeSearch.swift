@@ -129,7 +129,7 @@ public struct SearchHistoryEntry: Sendable, Codable, Identifiable {
 }
 
 /// Enhanced search suggestions based on history and common patterns
-public struct EpisodeSearchSuggestion: Sendable, Identifiable {
+public struct EpisodeSearchSuggestion: Sendable, Identifiable, Codable {
     public let id = UUID()
     public let text: String
     public let type: SuggestionType
@@ -142,7 +142,7 @@ public struct EpisodeSearchSuggestion: Sendable, Identifiable {
     }
 }
 
-public enum SuggestionType: Sendable, CaseIterable {
+public enum SuggestionType: Sendable, CaseIterable, Codable {
     case history     // from search history
     case common      // common search patterns
     case fieldQuery  // field-specific queries like "title:news"
