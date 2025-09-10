@@ -18,23 +18,31 @@ extension XCTestCase {
     func waitForAnyCondition(
         _ conditions: [() -> Bool],
         timeout: TimeInterval = 10.0,
-        pollInterval: TimeInterval = 0.1,
         description: String = "any condition"
     ) -> Bool {
-        let startTime = Date()
+        let expectation = XCTestExpectation(description: description)
         
-        while Date().timeIntervalSince(startTime) < timeout {
+        // Use RunLoop-based polling instead of blocking Thread.sleep
+        let startTime = Date()
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if Date().timeIntervalSince(startTime) >= timeout {
+                timer.invalidate()
+                XCTFail("Timeout waiting for \(description) after \(timeout) seconds")
+                expectation.fulfill()
+                return
+            }
+            
             for condition in conditions {
                 if condition() {
-                    return true
+                    timer.invalidate()
+                    expectation.fulfill()
+                    return
                 }
             }
-            // Use small poll interval to check frequently without being wasteful
-            Thread.sleep(forTimeInterval: pollInterval)
         }
         
-        XCTFail("Timeout waiting for \(description) after \(timeout) seconds")
-        return false
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
+        return result == .completed
     }
     
     /// Waits for an element to exist OR alternative elements that indicate the expected state
@@ -134,28 +142,37 @@ extension XCTestCase {
         stableFor: TimeInterval = 0.5,
         timeout: TimeInterval = 10.0
     ) -> Bool {
+        let expectation = XCTestExpectation(description: "UI stable state")
         var lastElementCount = 0
         var stableStartTime: Date?
         let startTime = Date()
         
-        while Date().timeIntervalSince(startTime) < timeout {
+        // Use RunLoop-based polling instead of blocking Thread.sleep
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if Date().timeIntervalSince(startTime) >= timeout {
+                timer.invalidate()
+                expectation.fulfill()
+                return
+            }
+            
             let currentElementCount = app.buttons.count + app.staticTexts.count + app.otherElements.count
             
             if currentElementCount == lastElementCount {
                 if stableStartTime == nil {
                     stableStartTime = Date()
                 } else if Date().timeIntervalSince(stableStartTime!) >= stableFor {
-                    return true // UI has been stable for required duration
+                    timer.invalidate()
+                    expectation.fulfill()
+                    return
                 }
             } else {
                 stableStartTime = nil // Reset stability timer
                 lastElementCount = currentElementCount
             }
-            
-            Thread.sleep(forTimeInterval: 0.1)
         }
         
-        return false
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
+        return result == .completed
     }
     
     // MARK: - Accessibility-First Element Discovery

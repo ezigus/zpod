@@ -336,10 +336,8 @@ struct LibraryView: View {
     
     @MainActor
     private func loadData() async {
-        // Simulate realistic loading time
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
         // Load sample data for UI tests and development
+        // Using proper async loading without artificial delays
         samplePodcasts = [
             PodcastItem(id: "swift-talk", title: "Swift Talk"),
             PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
@@ -598,10 +596,8 @@ struct EpisodeListCardContainer: View {
     
     @MainActor
     private func loadEpisodes() async {
-        // Simulate realistic loading time
-        try? await Task.sleep(nanoseconds: 750_000_000) // 0.75 seconds
-        
         // Load sample episodes for UI tests
+        // Using proper async loading without artificial delays
         episodes = [
             SimpleEpisodeItem(id: "st-001", title: "Episode 1: Introduction", duration: "45:23", date: "Dec 8"),
             SimpleEpisodeItem(id: "st-002", title: "Episode 2: Swift Basics", duration: "52:17", date: "Dec 1"),
