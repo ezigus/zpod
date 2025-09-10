@@ -33,8 +33,8 @@ final class EpisodeFilteringTests: XCTestCase {
         let playedEpisode = testEpisodes[2] // Episode 3 is played
         
         // Then: Should match correctly
-        let unplayedMatches = await filterService.episodeMatches(unplayedEpisode, condition: condition)
-        let playedMatches = await filterService.episodeMatches(playedEpisode, condition: condition)
+        let unplayedMatches = filterService.episodeMatches(unplayedEpisode, condition: condition)
+        let playedMatches = filterService.episodeMatches(playedEpisode, condition: condition)
         
         XCTAssertTrue(unplayedMatches, "Unplayed episode should match unplayed filter")
         XCTAssertFalse(playedMatches, "Played episode should not match unplayed filter")
@@ -49,8 +49,8 @@ final class EpisodeFilteringTests: XCTestCase {
         let nonFavoritedEpisode = testEpisodes[0] // Episode 1 is not favorited
         
         // Then: Should match correctly
-        let favoritedMatches = await filterService.episodeMatches(favoritedEpisode, condition: condition)
-        let nonFavoritedMatches = await filterService.episodeMatches(nonFavoritedEpisode, condition: condition)
+        let favoritedMatches = filterService.episodeMatches(favoritedEpisode, condition: condition)
+        let nonFavoritedMatches = filterService.episodeMatches(nonFavoritedEpisode, condition: condition)
         
         XCTAssertTrue(favoritedMatches, "Favorited episode should match favorited filter")
         XCTAssertFalse(nonFavoritedMatches, "Non-favorited episode should not match favorited filter")
@@ -66,9 +66,9 @@ final class EpisodeFilteringTests: XCTestCase {
         let playedEpisode = testEpisodes[2] // Episode 3 is played
         
         // Then: Should match correctly
-        let inProgressMatches = await filterService.episodeMatches(inProgressEpisode, condition: condition)
-        let unplayedMatches = await filterService.episodeMatches(unplayedEpisode, condition: condition)
-        let playedMatches = await filterService.episodeMatches(playedEpisode, condition: condition)
+        let inProgressMatches = filterService.episodeMatches(inProgressEpisode, condition: condition)
+        let unplayedMatches = filterService.episodeMatches(unplayedEpisode, condition: condition)
+        let playedMatches = filterService.episodeMatches(playedEpisode, condition: condition)
         
         XCTAssertTrue(inProgressMatches, "In-progress episode should match in-progress filter")
         XCTAssertFalse(unplayedMatches, "Unplayed episode should not match in-progress filter")
@@ -84,8 +84,8 @@ final class EpisodeFilteringTests: XCTestCase {
         let playedEpisode = testEpisodes[2] // Episode 3 is played
         
         // Then: Should match negated condition
-        let unplayedMatches = await filterService.episodeMatches(unplayedEpisode, condition: condition)
-        let playedMatches = await filterService.episodeMatches(playedEpisode, condition: condition)
+        let unplayedMatches = filterService.episodeMatches(unplayedEpisode, condition: condition)
+        let playedMatches = filterService.episodeMatches(playedEpisode, condition: condition)
         
         XCTAssertFalse(unplayedMatches, "Unplayed episode should not match negated unplayed filter")
         XCTAssertTrue(playedMatches, "Played episode should match negated unplayed filter")
@@ -96,7 +96,7 @@ final class EpisodeFilteringTests: XCTestCase {
     func testSortEpisodes_ByPubDateNewest() async {
         // Given: Episodes with different publication dates
         // When: Sorting by newest publication date
-        let sortedEpisodes = await filterService.sortEpisodes(testEpisodes, by: .pubDateNewest)
+        let sortedEpisodes = filterService.sortEpisodes(testEpisodes, by: .pubDateNewest)
         
         // Then: Should be sorted newest first
         XCTAssertEqual(sortedEpisodes[0].id, "ep4", "Newest episode should be first")
@@ -108,7 +108,7 @@ final class EpisodeFilteringTests: XCTestCase {
     func testSortEpisodes_ByPubDateOldest() async {
         // Given: Episodes with different publication dates
         // When: Sorting by oldest publication date
-        let sortedEpisodes = await filterService.sortEpisodes(testEpisodes, by: .pubDateOldest)
+        let sortedEpisodes = filterService.sortEpisodes(testEpisodes, by: .pubDateOldest)
         
         // Then: Should be sorted oldest first
         XCTAssertEqual(sortedEpisodes[0].id, "ep1", "Oldest episode should be first")
@@ -120,7 +120,7 @@ final class EpisodeFilteringTests: XCTestCase {
     func testSortEpisodes_ByDuration() async {
         // Given: Episodes with different durations
         // When: Sorting by duration
-        let sortedEpisodes = await filterService.sortEpisodes(testEpisodes, by: .duration)
+        let sortedEpisodes = filterService.sortEpisodes(testEpisodes, by: .duration)
         
         // Then: Should be sorted by duration (shortest first)
         XCTAssertTrue(sortedEpisodes[0].duration! <= sortedEpisodes[1].duration!, "First episode should have shortest or equal duration")
@@ -130,7 +130,7 @@ final class EpisodeFilteringTests: XCTestCase {
     func testSortEpisodes_ByTitle() async {
         // Given: Episodes with different titles
         // When: Sorting by title
-        let sortedEpisodes = await filterService.sortEpisodes(testEpisodes, by: .title)
+        let sortedEpisodes = filterService.sortEpisodes(testEpisodes, by: .title)
         
         // Then: Should be sorted alphabetically
         for i in 0..<sortedEpisodes.count-1 {
@@ -152,7 +152,7 @@ final class EpisodeFilteringTests: XCTestCase {
         let filter = EpisodeFilter(conditions: conditions, logic: .and, sortBy: .title)
         
         // When: Applying filter
-        let filteredEpisodes = await filterService.filterAndSort(episodes: testEpisodes, using: filter)
+        let filteredEpisodes = filterService.filterAndSort(episodes: testEpisodes, using: filter)
         
         // Then: Should only include episodes matching ALL conditions
         for episode in filteredEpisodes {
@@ -170,7 +170,7 @@ final class EpisodeFilteringTests: XCTestCase {
         let filter = EpisodeFilter(conditions: conditions, logic: .or, sortBy: .title)
         
         // When: Applying filter
-        let filteredEpisodes = await filterService.filterAndSort(episodes: testEpisodes, using: filter)
+        let filteredEpisodes = filterService.filterAndSort(episodes: testEpisodes, using: filter)
         
         // Then: Should include episodes matching ANY condition
         for episode in filteredEpisodes {
@@ -184,7 +184,7 @@ final class EpisodeFilteringTests: XCTestCase {
         let filter = EpisodeFilter()
         
         // When: Applying filter
-        let filteredEpisodes = await filterService.filterAndSort(episodes: testEpisodes, using: filter)
+        let filteredEpisodes = filterService.filterAndSort(episodes: testEpisodes, using: filter)
         
         // Then: Should return all episodes sorted by default
         XCTAssertEqual(filteredEpisodes.count, testEpisodes.count, "Empty filter should return all episodes")
@@ -197,7 +197,7 @@ final class EpisodeFilteringTests: XCTestCase {
         let query = "Swift"
         
         // When: Searching episodes
-        let searchResults = await filterService.searchEpisodes(testEpisodes, query: query)
+        let searchResults = filterService.searchEpisodes(testEpisodes, query: query)
         
         // Then: Should return episodes with matching titles
         XCTAssertTrue(searchResults.count > 0, "Should find episodes with matching titles")
@@ -212,7 +212,7 @@ final class EpisodeFilteringTests: XCTestCase {
         let query = "programming"
         
         // When: Searching episodes
-        let searchResults = await filterService.searchEpisodes(testEpisodes, query: query)
+        let searchResults = filterService.searchEpisodes(testEpisodes, query: query)
         
         // Then: Should return episodes with matching descriptions
         for episode in searchResults {
@@ -233,7 +233,7 @@ final class EpisodeFilteringTests: XCTestCase {
         )
         
         // When: Searching with filter
-        let searchResults = await filterService.searchEpisodes(testEpisodes, query: query, filter: filter)
+        let searchResults = filterService.searchEpisodes(testEpisodes, query: query, filter: filter)
         
         // Then: Should return episodes matching both search and filter
         for episode in searchResults {

@@ -210,8 +210,8 @@ public class SmartEpisodeListManager: ObservableObject {
     }
     
     /// Evaluate smart list and return matching episodes
-    public func evaluateSmartList(_ smartList: SmartEpisodeListV2, allEpisodes: [Episode]) async -> [Episode] {
-        return await filterService.evaluateSmartListV2(smartList, allEpisodes: allEpisodes)
+    public func evaluateSmartList(_ smartList: SmartEpisodeListV2, allEpisodes: [Episode]) -> [Episode] {
+        return filterService.evaluateSmartListV2(smartList, allEpisodes: allEpisodes)
     }
     
     /// Update all smart lists that need updating
@@ -241,9 +241,9 @@ public class SmartEpisodeListManager: ObservableObject {
     public func smartListsByCategory() -> [SmartListDisplayCategory: [SmartEpisodeListV2]] {
         let grouped = Dictionary(grouping: smartLists) { smartList in
             if smartList.isSystemGenerated {
-                return .builtin
+                return SmartListDisplayCategory.builtin
             } else {
-                return .custom
+                return SmartListDisplayCategory.custom
             }
         }
         
@@ -255,7 +255,7 @@ public class SmartEpisodeListManager: ObservableObject {
     private func startPeriodicUpdates() {
         updateTimer?.invalidate()
         
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in
                 // Note: This would need access to all episodes, which should be provided by the app
                 // For now, we'll just mark this as where the periodic update would happen

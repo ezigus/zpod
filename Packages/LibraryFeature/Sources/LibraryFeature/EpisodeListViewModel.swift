@@ -125,7 +125,7 @@ public final class EpisodeListViewModel: ObservableObject {
             }
             
             // Apply filter and sort
-            episodes = await filterService.filterAndSort(episodes: episodes, using: currentFilter)
+            episodes = filterService.filterAndSort(episodes: episodes, using: currentFilter)
             
             await MainActor.run {
                 filteredEpisodes = episodes
