@@ -19,7 +19,8 @@ let package = Package(
         .package(path: "../TestSupport"),
         .package(path: "../DiscoverFeature"),
         .package(path: "../PlayerFeature"),
-        .package(path: "../PlaylistFeature")
+        .package(path: "../PlaylistFeature"),
+        .package(path: "../Persistence")
     ],
     targets: [
         .target(
@@ -31,7 +32,8 @@ let package = Package(
                 .product(name: "TestSupport", package: "TestSupport"),
                 .product(name: "DiscoverFeature", package: "DiscoverFeature"),
                 .product(name: "PlayerFeature", package: "PlayerFeature"),
-                .product(name: "PlaylistFeature", package: "PlaylistFeature")
+                .product(name: "PlaylistFeature", package: "PlaylistFeature"),
+                .product(name: "Persistence", package: "Persistence")
             ],
             path: "Sources"
         ),

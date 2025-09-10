@@ -128,6 +128,19 @@ Implementation of advanced episode sorting, filtering capabilities, and smart ep
   - Reasoning: Since filtering is applied separately on line 128, search should not apply additional filtering
   - Method signature: `searchEpisodes(episodes, query: searchText, filter: nil)`
 - **VERIFICATION**: ✅ All syntax checks pass, build error resolved
+
+#### 2024-12-27 22:15 EST - EpisodeFilterManager Dependency Issue Fix ✅ COMPLETED
+- **NEW ISSUE IDENTIFIED**: Build error "cannot find type 'EpisodeFilterManager' in scope"
+- **ROOT CAUSE**: LibraryFeature package missing dependency on Persistence package where EpisodeFilterManager is defined
+- **BUILD ERROR**: "cannot find type 'EpisodeFilterManager' in scope" in EpisodeListView.swift
+- **SOLUTION IMPLEMENTED**:
+  - Added Persistence package as dependency in LibraryFeature/Package.swift:
+    - Added `.package(path: "../Persistence")` to dependencies array
+    - Added `.product(name: "Persistence", package: "Persistence")` to target dependencies
+  - Added `import Persistence` to EpisodeListView.swift (EpisodeListViewModel.swift already had it)
+  - Maintained all existing functionality and backward compatibility
+- **VERIFICATION**: ✅ All syntax checks pass, no more build errors for EpisodeFilterManager
+- **CONCURRENCY CHECK**: ✅ Swift 6 concurrency compliance maintained
   - Removed self-import of CoreModels within CoreModels module
   - Added `nonisolated` annotation to all protocol-conforming methods
   - Made all private helper methods nonisolated for consistency

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreModels
+import Persistence
 
 #if canImport(UIKit)
 import UIKit
