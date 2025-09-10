@@ -53,11 +53,16 @@ public actor SmartListBackgroundRefreshManager: SmartListBackgroundService {
     }
     
     public func refreshAllSmartLists() async {
-        let smartLists = await smartListRepository.getAllSmartLists()
-        let allEpisodes = await episodeProvider.getAllEpisodes()
-        
-        for smartList in smartLists {
-            await refreshSmartList(smartList, allEpisodes: allEpisodes)
+        do {
+            let smartLists = try await smartListRepository.getAllSmartLists()
+            let allEpisodes = await episodeProvider.getAllEpisodes()
+            
+            for smartList in smartLists {
+                await refreshSmartList(smartList, allEpisodes: allEpisodes)
+            }
+        } catch {
+            // Log error and continue - background refresh should be resilient
+            print("Failed to refresh smart lists: \(error)")
         }
     }
     
@@ -81,14 +86,22 @@ public actor SmartListBackgroundRefreshManager: SmartListBackgroundService {
     }
     
     private func refreshSmartListsIfNeeded() async {
-        let smartLists = await smartListRepository.getAllSmartLists()
-        let allEpisodes = await episodeProvider.getAllEpisodes()
-        
-        for smartList in smartLists {
-            // Only refresh if auto-update is enabled and enough time has passed
-            if smartList.autoUpdate && await shouldRefreshSmartList(smartList) {
-                await refreshSmartList(smartList, allEpisodes: allEpisodes)
+        do {
+            let smartLists = try await smartListRepository.getAllSmartLists()
+            let allEpisodes = await episodeProvider.getAllEpisodes()
+            
+            for smartList in smartLists {
+                // Only refresh if auto-update is enabled and enough time has passed
+                if smartList.autoUpdate {
+                    let shouldRefresh = await shouldRefreshSmartList(smartList)
+                    if shouldRefresh {
+                        await refreshSmartList(smartList, allEpisodes: allEpisodes)
+                    }
+                }
             }
+        } catch {
+            // Log error and continue - background refresh should be resilient
+            print("Failed to refresh smart lists: \(error)")
         }
     }
     
@@ -100,7 +113,7 @@ public actor SmartListBackgroundRefreshManager: SmartListBackgroundService {
     
     private func refreshSmartList(_ smartList: SmartEpisodeListV2, allEpisodes: [Episode]) async {
         // Evaluate smart list rules to get updated episodes
-        let updatedEpisodes = await filterService.evaluateSmartListV2(smartList, allEpisodes: allEpisodes)
+        let updatedEpisodes = filterService.evaluateSmartListV2(smartList, allEpisodes: allEpisodes)
         
         // Update the last updated timestamp
         let updatedSmartList = SmartEpisodeListV2(
@@ -118,10 +131,15 @@ public actor SmartListBackgroundRefreshManager: SmartListBackgroundService {
         )
         
         // Save the updated smart list
-        await smartListRepository.saveSmartList(updatedSmartList)
-        
-        // Optionally notify observers about the update
-        await notifySmartListUpdated(updatedSmartList, episodes: updatedEpisodes)
+        do {
+            try await smartListRepository.saveSmartList(updatedSmartList)
+            
+            // Optionally notify observers about the update
+            await notifySmartListUpdated(updatedSmartList, episodes: updatedEpisodes)
+        } catch {
+            // Log error but continue - individual smart list refresh failure shouldn't stop the process
+            print("Failed to save updated smart list '\(smartList.name)': \(error)")
+        }
     }
     
     private func notifySmartListUpdated(_ smartList: SmartEpisodeListV2, episodes: [Episode]) async {
