@@ -111,7 +111,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // When: I look for the discovery options menu using smart discovery
         let optionsButton = findAccessibleElement(
-            in: app.navigationBars["Discover"],
+            in: app,
             byIdentifier: "discovery-options-menu",
             byLabel: "Discovery options",
             byPartialLabel: "options",
