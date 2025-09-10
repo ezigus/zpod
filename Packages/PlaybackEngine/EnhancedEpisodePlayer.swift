@@ -78,7 +78,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService {
 
   // Automatically mark episode as played when reaching the end
   private func checkForCompletion() {
-    guard let ep = currentEpisode, duration > 0 else { return }
+    guard let _ = currentEpisode, duration > 0 else { return }
     // Allow tiny epsilon to account for floating point rounding
     if position >= duration - 0.001 {
       // Snap to exact end and mark as played asynchronously

@@ -163,9 +163,11 @@ public class SmartEpisodeListManager: ObservableObject {
     }
     
     deinit {
+        // Capture timer locally to avoid capturing self in Task closure
+        let timer = updateTimer
         // Timer must be invalidated on main actor since it's not Sendable
         Task { @MainActor in
-            updateTimer?.invalidate()
+            timer?.invalidate()
         }
     }
     
