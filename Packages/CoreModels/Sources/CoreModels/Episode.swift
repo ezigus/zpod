@@ -1,5 +1,13 @@
 @preconcurrency import Foundation
 
+/// Download status for episodes
+public enum EpisodeDownloadStatus: String, Codable, Sendable, CaseIterable {
+    case notDownloaded
+    case downloading
+    case downloaded
+    case failed
+}
+
 public struct Episode: Codable, Equatable, Sendable {
     public var id: String
     public var title: String
@@ -11,6 +19,14 @@ public struct Episode: Codable, Equatable, Sendable {
     public var description: String?
     public var audioURL: URL?
     public var artworkURL: URL?
+    
+    // Advanced filtering properties
+    public var downloadStatus: EpisodeDownloadStatus
+    public var isFavorited: Bool
+    public var isBookmarked: Bool
+    public var isArchived: Bool
+    public var rating: Int? // 1-5 star rating, nil if unrated
+    public var dateAdded: Date
 
     public init(
         id: String, 
@@ -22,7 +38,13 @@ public struct Episode: Codable, Equatable, Sendable {
         duration: TimeInterval? = nil,
         description: String? = nil,
         audioURL: URL? = nil,
-        artworkURL: URL? = nil
+        artworkURL: URL? = nil,
+        downloadStatus: EpisodeDownloadStatus = .notDownloaded,
+        isFavorited: Bool = false,
+        isBookmarked: Bool = false,
+        isArchived: Bool = false,
+        rating: Int? = nil,
+        dateAdded: Date = Date()
     ) {
         self.id = id
         self.title = title
@@ -34,6 +56,12 @@ public struct Episode: Codable, Equatable, Sendable {
         self.description = description
         self.audioURL = audioURL
         self.artworkURL = artworkURL
+        self.downloadStatus = downloadStatus
+        self.isFavorited = isFavorited
+        self.isBookmarked = isBookmarked
+        self.isArchived = isArchived
+        self.rating = rating
+        self.dateAdded = dateAdded
     }
 
     public func withPlaybackPosition(_ position: Int) -> Episode {
@@ -46,5 +74,60 @@ public struct Episode: Codable, Equatable, Sendable {
         var copy = self
         copy.isPlayed = played
         return copy
+    }
+    
+    public func withDownloadStatus(_ status: EpisodeDownloadStatus) -> Episode {
+        var copy = self
+        copy.downloadStatus = status
+        return copy
+    }
+    
+    public func withFavoriteStatus(_ favorited: Bool) -> Episode {
+        var copy = self
+        copy.isFavorited = favorited
+        return copy
+    }
+    
+    public func withBookmarkStatus(_ bookmarked: Bool) -> Episode {
+        var copy = self
+        copy.isBookmarked = bookmarked
+        return copy
+    }
+    
+    public func withArchivedStatus(_ archived: Bool) -> Episode {
+        var copy = self
+        copy.isArchived = archived
+        return copy
+    }
+    
+    public func withRating(_ rating: Int?) -> Episode {
+        var copy = self
+        copy.rating = rating
+        return copy
+    }
+}
+
+// MARK: - Episode Status Helpers
+
+public extension Episode {
+    /// Whether the episode is currently in progress (started but not finished)
+    var isInProgress: Bool {
+        return playbackPosition > 0 && !isPlayed
+    }
+    
+    /// Whether the episode is available for offline listening
+    var isDownloaded: Bool {
+        return downloadStatus == .downloaded
+    }
+    
+    /// Whether the episode is currently being downloaded
+    var isDownloading: Bool {
+        return downloadStatus == .downloading
+    }
+    
+    /// Progress of playback as a percentage (0.0 to 1.0)
+    var playbackProgress: Double {
+        guard let duration = duration, duration > 0 else { return 0.0 }
+        return min(Double(playbackPosition) / duration, 1.0)
     }
 }
