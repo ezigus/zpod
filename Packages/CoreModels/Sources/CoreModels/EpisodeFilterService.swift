@@ -298,9 +298,11 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         case .dateAdded:
             return evaluateDateRule(date: episode.dateAdded, comparison: rule.comparison, value: rule.value)
         case .pubDate:
-            return evaluateDateRule(date: episode.pubDate, comparison: rule.comparison, value: rule.value)
+            guard let pubDate = episode.pubDate else { return false }
+            return evaluateDateRule(date: pubDate, comparison: rule.comparison, value: rule.value)
         case .duration:
-            return evaluateNumberRule(number: episode.duration, comparison: rule.comparison, value: rule.value)
+            guard let duration = episode.duration else { return false }
+            return evaluateNumberRule(number: duration, comparison: rule.comparison, value: rule.value)
         case .rating:
             let rating = episode.rating.map(Double.init) ?? 0.0
             return evaluateNumberRule(number: rating, comparison: rule.comparison, value: rule.value)
@@ -549,9 +551,9 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         case .podcast:
             return episode.podcastTitle
         case .duration:
-            return formatDuration(episode.duration)
+            return episode.duration.map { formatDuration($0) } ?? "Unknown"
         case .date:
-            return DateFormatter.localizedString(from: episode.pubDate, dateStyle: .medium, timeStyle: .none)
+            return episode.pubDate.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .none) } ?? "Unknown"
         }
     }
     

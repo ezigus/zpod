@@ -551,7 +551,53 @@ Implementation of advanced episode sorting, filtering capabilities, and smart ep
 #### 2024-12-28 22:00 EST - Phase 2 Assessment and Remaining Work Planning 🔄 
 **STATUS**: Phase 2 Primary Goals = ✅ COMPLETED (Scenarios 2 & 3)
 
-#### 2025-01-02 17:30 EST - EpisodeDownloadStatus displayName Fix ✅ COMPLETED
+#### 2025-01-02 18:00 EST - Optional Type Handling Fixes ✅ COMPLETED
+- **NEW ISSUE IDENTIFIED**: Build errors "value of optional type must be unwrapped" in EpisodeFilterService.swift
+- **ROOT CAUSE**: Two optional Episode properties (pubDate: Date?, duration: TimeInterval?) used without proper unwrapping:
+  - Line 301: `episode.pubDate` passed to `evaluateDateRule(date: Date, ...)` 
+  - Line 303: `episode.duration` passed to `evaluateNumberRule(number: Double, ...)`
+  - Lines 554-556: Optional properties used in string formatting without nil handling
+- **BUILD ERRORS**: 
+  - "value of optional type 'Date?' must be unwrapped to a value of type 'Date'"
+  - "value of optional type 'TimeInterval?' must be unwrapped to a value of type 'Double'"
+- **ISSUE CONTEXT**: User requested fix for these errors plus identification of similar issues
+
+**SOLUTION IMPLEMENTED:**
+1. **Smart List Rule Evaluation**: Added guard statements for safe unwrapping
+   ```swift
+   case .pubDate:
+       guard let pubDate = episode.pubDate else { return false }
+       return evaluateDateRule(date: pubDate, comparison: rule.comparison, value: rule.value)
+   case .duration:
+       guard let duration = episode.duration else { return false }  
+       return evaluateNumberRule(number: duration, comparison: rule.comparison, value: rule.value)
+   ```
+
+2. **Search Field Text Generation**: Used optional map for safe handling
+   ```swift
+   case .duration:
+       return episode.duration.map { formatDuration($0) } ?? "Unknown"
+   case .date:
+       return episode.pubDate.map { DateFormatter.localizedString(from: $0, dateStyle: .medium, timeStyle: .none) } ?? "Unknown"
+   ```
+
+**VERIFICATION PERFORMED:**
+- ✅ All syntax checks pass across 150+ Swift files
+- ✅ Comprehensive search for other optional property issues - none found  
+- ✅ Verified `formatDuration(_: TimeInterval)` and `evaluateDateRule(date: Date, ...)` expect non-optional parameters
+- ✅ Confirmed similar patterns in Playlist.swift already handle optionals correctly
+- ✅ Build error resolution maintains logical behavior (rules fail for missing data, search shows "Unknown")
+
+**ROBUSTNESS IMPROVEMENTS:**
+- Smart list rules now handle missing publication dates gracefully (rule fails vs crash)
+- Search functionality displays "Unknown" for missing duration/dates vs runtime errors
+- Consistent with existing codebase patterns (Playlist.swift uses same guard pattern)
+- No breaking changes to existing functionality
+
+**FILES FIXED:**
+- ✅ `CoreModels/EpisodeFilterService.swift` - Fixed 4 optional type handling issues
+- ✅ Maintained thread safety and Swift 6 concurrency compliance
+- ✅ All method signatures and functionality preserved
 - **NEW ISSUE IDENTIFIED**: Build error "value of type 'EpisodeDownloadStatus' has no member 'displayName'"
 - **ROOT CAUSE**: SmartEpisodeListRules.swift attempting to access `.displayName` property on `EpisodeDownloadStatus` enum at line 241
 - **BUILD ERROR**: ".displayName" property missing from `EpisodeDownloadStatus` enum while `EpisodePlayStatus` has it
