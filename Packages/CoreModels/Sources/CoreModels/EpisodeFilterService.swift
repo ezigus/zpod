@@ -319,7 +319,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         case .isArchived:
             return evaluateBooleanRule(value: episode.isArchived, comparison: rule.comparison, ruleValue: rule.value)
         case .playbackPosition:
-            return evaluateNumberRule(number: episode.playbackPosition, comparison: rule.comparison, value: rule.value)
+            return evaluateNumberRule(number: Double(episode.playbackPosition), comparison: rule.comparison, value: rule.value)
         }
     }
     

@@ -21,6 +21,7 @@ public struct Episode: Codable, Equatable, Sendable {
     public var id: String
     public var title: String
     public var podcastID: String?
+    public var podcastTitle: String // Added for search and smart list functionality
     public var playbackPosition: Int
     public var isPlayed: Bool
     public var pubDate: Date?
@@ -40,7 +41,8 @@ public struct Episode: Codable, Equatable, Sendable {
     public init(
         id: String, 
         title: String, 
-        podcastID: String? = nil, 
+        podcastID: String? = nil,
+        podcastTitle: String = "",
         playbackPosition: Int = 0, 
         isPlayed: Bool = false,
         pubDate: Date? = nil,
@@ -58,6 +60,7 @@ public struct Episode: Codable, Equatable, Sendable {
         self.id = id
         self.title = title
         self.podcastID = podcastID
+        self.podcastTitle = podcastTitle
         self.playbackPosition = playbackPosition
         self.isPlayed = isPlayed
         self.pubDate = pubDate
