@@ -121,7 +121,7 @@ public final class EpisodeListViewModel: ObservableObject {
             
             // Apply search if present
             if !searchText.isEmpty {
-                episodes = await filterService.searchEpisodes(episodes, query: searchText)
+                episodes = await filterService.searchEpisodes(episodes, query: searchText, filter: nil)
             }
             
             // Apply filter and sort
