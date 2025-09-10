@@ -6,6 +6,15 @@ public enum EpisodeDownloadStatus: String, Codable, Sendable, CaseIterable {
     case downloading
     case downloaded
     case failed
+    
+    public var displayName: String {
+        switch self {
+        case .notDownloaded: return "Not Downloaded"
+        case .downloading: return "Downloading"
+        case .downloaded: return "Downloaded"
+        case .failed: return "Failed"
+        }
+    }
 }
 
 public struct Episode: Codable, Equatable, Sendable {
