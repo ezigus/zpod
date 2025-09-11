@@ -85,7 +85,7 @@ public class SmartListRuleBuilder: ObservableObject {
     
     // MARK: - Private Methods
     
-    private func buildRuleValue() -> SmartListRuleValue? {
+    public func buildRuleValue() -> SmartListRuleValue? {
         switch type {
         case .playStatus:
             return .episodeStatus(episodeStatusValue)
@@ -418,7 +418,7 @@ public struct SmartListRuleBuilderView: View {
     }
     
     private func updateRuleValue() {
-        ruleBuilder.value = buildRuleValue()
+        ruleBuilder.value = ruleBuilder.buildRuleValue()
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {
