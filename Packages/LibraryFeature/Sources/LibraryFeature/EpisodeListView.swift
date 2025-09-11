@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreModels
+import Persistence
 
 #if canImport(UIKit)
 import UIKit
@@ -15,27 +16,128 @@ import UIKit
 /// Main episode list view that displays episodes for a given podcast
 public struct EpisodeListView: View {
     let podcast: Podcast
-    @State private var episodes: [Episode]
+    @StateObject private var viewModel: EpisodeListViewModel
     @State private var isRefreshing = false
     
-    public init(podcast: Podcast) {
+    public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
         self.podcast = podcast
-        self._episodes = State(initialValue: podcast.episodes)
+        self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
+            podcast: podcast, 
+            filterManager: filterManager
+        ))
     }
     
     public var body: some View {
-        episodeListContent
-            .navigationTitle(podcast.title)
-            .navigationBarTitleDisplayMode(.large)
-            .refreshable {
-                await refreshEpisodes()
+        VStack(spacing: 0) {
+            // Filter controls
+            filterControlsSection
+            
+            // Episode list content
+            episodeListContent
+        }
+        .navigationTitle(podcast.title)
+        .navigationBarTitleDisplayMode(.large)
+        .refreshable {
+            await refreshEpisodes()
+        }
+        .sheet(isPresented: $viewModel.showingFilterSheet) {
+            EpisodeFilterSheet(
+                initialFilter: viewModel.currentFilter,
+                onApply: { filter in
+                    viewModel.setFilter(filter)
+                    viewModel.showingFilterSheet = false
+                },
+                onDismiss: {
+                    viewModel.showingFilterSheet = false
+                }
+            )
+        }
+        .accessibilityIdentifier("Episode List View")
+    }
+    
+    @ViewBuilder
+    private var filterControlsSection: some View {
+        VStack(spacing: 8) {
+            // Search bar
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                
+                TextField("Search episodes...", text: Binding(
+                    get: { viewModel.searchText },
+                    set: { viewModel.updateSearchText($0) }
+                ))
+                .textFieldStyle(.plain)
+                
+                if !viewModel.searchText.isEmpty {
+                    Button(action: { viewModel.updateSearchText("") }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Clear search")
+                }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(.systemGray6))
+            .cornerRadius(10)
+            .padding(.horizontal)
+            
+            // Filter controls row
+            HStack {
+                Text(viewModel.filterSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("Filter Summary")
+                
+                Spacer()
+                
+                HStack(spacing: 12) {
+                    if viewModel.hasActiveFilters {
+                        Button("Clear") {
+                            viewModel.clearFilter()
+                            viewModel.updateSearchText("")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                        .accessibilityIdentifier("Clear All Filters")
+                    }
+                    
+                    EpisodeFilterButton(
+                        hasActiveFilters: !viewModel.currentFilter.isEmpty
+                    ) {
+                        viewModel.showingFilterSheet = true
+                    }
+                }
+            }
+            .padding(.horizontal)
+            
+            // Active filters display
+            if !viewModel.currentFilter.isEmpty {
+                ActiveFiltersDisplay(
+                    filter: viewModel.currentFilter,
+                    onRemoveCriteria: { criteria in
+                        removeCriteriaFromFilter(criteria)
+                    },
+                    onClearAll: {
+                        viewModel.clearFilter()
+                    }
+                )
+                .padding(.horizontal)
+            }
+        }
+        .padding(.vertical, 8)
+        .background(Color(.systemBackground))
     }
     
     @ViewBuilder
     private var episodeListContent: some View {
-        if episodes.isEmpty {
-            emptyStateView
+        if viewModel.filteredEpisodes.isEmpty {
+            if viewModel.hasActiveFilters {
+                noResultsView
+            } else {
+                emptyStateView
+            }
         } else {
             episodeList
         }
@@ -47,9 +149,13 @@ public struct EpisodeListView: View {
         if UIDevice.current.userInterfaceIdiom == .pad {
             // iPad layout with responsive columns
             LazyVGrid(columns: adaptiveColumns, spacing: 16) {
-                ForEach(episodes, id: \.id) { episode in
+                ForEach(viewModel.filteredEpisodes, id: \.id) { episode in
                     NavigationLink(destination: episodeDetailView(for: episode)) {
-                        EpisodeCardView(episode: episode)
+                        EpisodeCardView(
+                            episode: episode,
+                            onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                        )
                     }
                     .accessibilityIdentifier("Episode-\(episode.id)")
                 }
@@ -58,9 +164,13 @@ public struct EpisodeListView: View {
             .accessibilityIdentifier("Episode Grid")
         } else {
             // iPhone layout with standard list
-            List(episodes, id: \.id) { episode in
+            List(viewModel.filteredEpisodes, id: \.id) { episode in
                 NavigationLink(destination: episodeDetailView(for: episode)) {
-                    EpisodeRowView(episode: episode)
+                    EpisodeRowView(
+                        episode: episode,
+                        onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                        onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                    )
                 }
                 .accessibilityIdentifier("Episode-\(episode.id)")
             }
@@ -69,9 +179,13 @@ public struct EpisodeListView: View {
         }
         #else
         // watchOS and CarPlay use simple list layout
-        List(episodes, id: \.id) { episode in
+        List(viewModel.filteredEpisodes, id: \.id) { episode in
             NavigationLink(destination: episodeDetailView(for: episode)) {
-                EpisodeRowView(episode: episode)
+                EpisodeRowView(
+                    episode: episode,
+                    onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                    onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                )
             }
             .accessibilityIdentifier("Episode-\(episode.id)")
         }
@@ -109,6 +223,35 @@ public struct EpisodeListView: View {
         .accessibilityIdentifier("Empty Episodes State")
     }
     
+    private var noResultsView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "magnifyingglass")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 60, height: 60)
+                .foregroundStyle(.secondary)
+            
+            Text("No Episodes Found")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            
+            Text("Try adjusting your filters or search terms.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Button("Clear Filters") {
+                viewModel.clearFilter()
+                viewModel.updateSearchText("")
+            }
+            .foregroundStyle(.blue)
+            .accessibilityIdentifier("Clear Filters Button")
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("No Results State")
+    }
+    
     private func episodeDetailView(for episode: Episode) -> some View {
         // For now, a placeholder detail view
         // TODO: Implement full episode detail view in Issue #02
@@ -134,19 +277,36 @@ public struct EpisodeListView: View {
     @MainActor
     private func refreshEpisodes() async {
         isRefreshing = true
-        // TODO: Implement actual episode refresh logic
-        // For now, simulate a refresh delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        await viewModel.refreshEpisodes()
         isRefreshing = false
+    }
+    
+    private func removeCriteriaFromFilter(_ criteria: EpisodeFilterCriteria) {
+        let currentConditions = viewModel.currentFilter.conditions
+        let newConditions = currentConditions.filter { $0.criteria != criteria }
+        let newFilter = EpisodeFilter(
+            conditions: newConditions,
+            logic: viewModel.currentFilter.logic,
+            sortBy: viewModel.currentFilter.sortBy
+        )
+        viewModel.setFilter(newFilter)
     }
 }
 
 /// Individual episode row view for the list
 public struct EpisodeRowView: View {
     let episode: Episode
+    let onFavoriteToggle: (() -> Void)?
+    let onBookmarkToggle: (() -> Void)?
     
-    public init(episode: Episode) {
+    public init(
+        episode: Episode,
+        onFavoriteToggle: (() -> Void)? = nil,
+        onBookmarkToggle: (() -> Void)? = nil
+    ) {
         self.episode = episode
+        self.onFavoriteToggle = onFavoriteToggle
+        self.onBookmarkToggle = onBookmarkToggle
     }
     
     public var body: some View {
@@ -215,15 +375,48 @@ public struct EpisodeRowView: View {
     
     private var episodeStatusIndicators: some View {
         VStack(spacing: 4) {
-            if episode.isPlayed {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .accessibilityLabel("Played")
-            } else if episode.playbackPosition > 0 {
-                Image(systemName: "play.circle.fill")
-                    .foregroundStyle(.blue)
-                    .accessibilityLabel("In Progress")
+            // Top row: Play status and download
+            HStack(spacing: 4) {
+                if episode.isPlayed {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .accessibilityLabel("Played")
+                } else if episode.isInProgress {
+                    Image(systemName: "play.circle.fill")
+                        .foregroundStyle(.blue)
+                        .accessibilityLabel("In Progress")
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Unplayed")
+                }
+                
+                if episode.isDownloaded {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(.blue)
+                        .accessibilityLabel("Downloaded")
+                }
             }
+            
+            // Bottom row: Interactive buttons
+            HStack(spacing: 8) {
+                if let onFavoriteToggle = onFavoriteToggle {
+                    Button(action: onFavoriteToggle) {
+                        Image(systemName: episode.isFavorited ? "heart.fill" : "heart")
+                            .foregroundStyle(episode.isFavorited ? .red : .secondary)
+                    }
+                    .accessibilityLabel(episode.isFavorited ? "Remove from favorites" : "Add to favorites")
+                }
+                
+                if let onBookmarkToggle = onBookmarkToggle {
+                    Button(action: onBookmarkToggle) {
+                        Image(systemName: episode.isBookmarked ? "bookmark.fill" : "bookmark")
+                            .foregroundStyle(episode.isBookmarked ? .blue : .secondary)
+                    }
+                    .accessibilityLabel(episode.isBookmarked ? "Remove bookmark" : "Add bookmark")
+                }
+            }
+            .font(.caption)
         }
         .accessibilityIdentifier("Episode Status")
     }
@@ -243,9 +436,17 @@ public struct EpisodeRowView: View {
 /// Card-style episode view for iPad grid layout
 public struct EpisodeCardView: View {
     let episode: Episode
+    let onFavoriteToggle: (() -> Void)?
+    let onBookmarkToggle: (() -> Void)?
     
-    public init(episode: Episode) {
+    public init(
+        episode: Episode,
+        onFavoriteToggle: (() -> Void)? = nil,
+        onBookmarkToggle: (() -> Void)? = nil
+    ) {
         self.episode = episode
+        self.onFavoriteToggle = onFavoriteToggle
+        self.onBookmarkToggle = onBookmarkToggle
     }
     
     public var body: some View {
@@ -321,18 +522,51 @@ public struct EpisodeCardView: View {
     }
     
     private var episodeStatusIndicators: some View {
-        HStack(spacing: 8) {
-            if episode.isPlayed {
-                Label("Played", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .accessibilityLabel("Played")
-            } else if episode.playbackPosition > 0 {
-                Label("In Progress", systemImage: "play.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-                    .accessibilityLabel("In Progress")
+        HStack(spacing: 12) {
+            // Play status
+            HStack(spacing: 4) {
+                if episode.isPlayed {
+                    Label("Played", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else if episode.isInProgress {
+                    Label("In Progress", systemImage: "play.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                } else {
+                    Label("Unplayed", systemImage: "circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+            
+            Spacer()
+            
+            // Interactive buttons
+            HStack(spacing: 12) {
+                if episode.isDownloaded {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(.blue)
+                        .accessibilityLabel("Downloaded")
+                }
+                
+                if let onFavoriteToggle = onFavoriteToggle {
+                    Button(action: onFavoriteToggle) {
+                        Image(systemName: episode.isFavorited ? "heart.fill" : "heart")
+                            .foregroundStyle(episode.isFavorited ? .red : .secondary)
+                    }
+                    .accessibilityLabel(episode.isFavorited ? "Remove from favorites" : "Add to favorites")
+                }
+                
+                if let onBookmarkToggle = onBookmarkToggle {
+                    Button(action: onBookmarkToggle) {
+                        Image(systemName: episode.isBookmarked ? "bookmark.fill" : "bookmark")
+                            .foregroundStyle(episode.isBookmarked ? .blue : .secondary)
+                    }
+                    .accessibilityLabel(episode.isBookmarked ? "Remove bookmark" : "Add bookmark")
+                }
+            }
+            .font(.caption)
         }
         .accessibilityIdentifier("Episode Status")
     }
