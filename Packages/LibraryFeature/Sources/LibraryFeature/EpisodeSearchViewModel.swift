@@ -62,7 +62,7 @@ public class EpisodeSearchViewModel: ObservableObject {
             defer { isSearching = false }
             
             // Use basic search for simple text
-            let results = await filterService.searchEpisodes(episodes, query: searchText, filter: nil)
+            let results = filterService.searchEpisodes(episodes, query: searchText, filter: nil)
             
             // Convert to search results format
             let searchResults = results.map { episode in
@@ -92,7 +92,7 @@ public class EpisodeSearchViewModel: ObservableObject {
             isSearching = true
             defer { isSearching = false }
             
-            let results = await filterService.searchEpisodesAdvanced(episodes, query: query, filter: nil)
+            let results = filterService.searchEpisodesAdvanced(episodes, query: query, filter: nil)
             
             guard !Task.isCancelled else { return }
             

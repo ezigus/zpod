@@ -121,7 +121,7 @@ public final class EpisodeListViewModel: ObservableObject {
             
             // Apply search if present
             if !searchText.isEmpty {
-                episodes = await filterService.searchEpisodes(episodes, query: searchText, filter: nil)
+                episodes = filterService.searchEpisodes(episodes, query: searchText, filter: nil)
             }
             
             // Apply filter and sort
@@ -208,7 +208,7 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     
     private func updateEpisodes() {
         Task {
-            let filteredEpisodes = await filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
+            let filteredEpisodes = filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
             
             await MainActor.run {
                 episodes = filteredEpisodes
@@ -222,100 +222,3 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     }
 }
 
-// MARK: - Episode Search View Model
-
-/// View model for episode search across all podcasts
-@MainActor
-public final class EpisodeSearchViewModel: ObservableObject {
-    @Published public private(set) var searchResults: [Episode] = []
-    @Published public private(set) var recentSearches: [String] = []
-    @Published public private(set) var isSearching = false
-    @Published public var searchText = ""
-    @Published public var selectedFilter: EpisodeFilter = EpisodeFilter()
-    
-    private let filterService: EpisodeFilterService
-    private var allEpisodes: [Episode] = [] // Would come from all podcasts
-    private var searchTask: Task<Void, Never>?
-    
-    public init(filterService: EpisodeFilterService = DefaultEpisodeFilterService()) {
-        self.filterService = filterService
-        loadRecentSearches()
-    }
-    
-    // MARK: - Public Methods
-    
-    public func performSearch() {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            searchResults = []
-            return
-        }
-        
-        // Cancel previous search
-        searchTask?.cancel()
-        
-        // Save to recent searches
-        addToRecentSearches(searchText)
-        
-        searchTask = Task {
-            isSearching = true
-            defer { isSearching = false }
-            
-            let results = await filterService.searchEpisodes(
-                allEpisodes,
-                query: searchText,
-                filter: selectedFilter
-            )
-            
-            guard !Task.isCancelled else { return }
-            
-            await MainActor.run {
-                searchResults = results
-            }
-        }
-    }
-    
-    public func clearSearch() {
-        searchText = ""
-        searchResults = []
-        searchTask?.cancel()
-    }
-    
-    public func selectRecentSearch(_ search: String) {
-        searchText = search
-        performSearch()
-    }
-    
-    public func clearRecentSearches() {
-        recentSearches.removeAll()
-        saveRecentSearches()
-    }
-    
-    // MARK: - Private Methods
-    
-    private func addToRecentSearches(_ search: String) {
-        let trimmedSearch = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedSearch.isEmpty else { return }
-        
-        // Remove if already exists
-        recentSearches.removeAll { $0 == trimmedSearch }
-        
-        // Add to beginning
-        recentSearches.insert(trimmedSearch, at: 0)
-        
-        // Keep only last 10 searches
-        if recentSearches.count > 10 {
-            recentSearches = Array(recentSearches.prefix(10))
-        }
-        
-        saveRecentSearches()
-    }
-    
-    private func loadRecentSearches() {
-        // TODO: Load from UserDefaults or other persistence
-        recentSearches = UserDefaults.standard.array(forKey: "episode_recent_searches") as? [String] ?? []
-    }
-    
-    private func saveRecentSearches() {
-        UserDefaults.standard.set(recentSearches, forKey: "episode_recent_searches")
-    }
-}
