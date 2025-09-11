@@ -99,7 +99,7 @@ public struct SmartEpisodeListsView: View {
     
     private func getEpisodeCount(for smartList: SmartEpisodeListV2) -> Int {
         // This would ideally be cached or computed asynchronously
-        let episodes = Task { await manager.evaluateSmartList(smartList, allEpisodes: allEpisodes) }
+        let _ = manager.evaluateSmartList(smartList, allEpisodes: allEpisodes)
         return 0 // Placeholder - would need to handle async properly
     }
     
@@ -527,7 +527,7 @@ public struct SmartListBuilderView: View {
                 refreshInterval: refreshInterval
             )
             
-            let episodes = await manager.evaluateSmartList(testSmartList, allEpisodes: allEpisodes)
+            let episodes = manager.evaluateSmartList(testSmartList, allEpisodes: allEpisodes)
             
             await MainActor.run {
                 previewEpisodes = episodes
