@@ -418,7 +418,7 @@ public struct SmartListRuleBuilderView: View {
     }
     
     private func updateRuleValue() {
-        ruleBuilder.value = ruleBuilder.buildRuleValue()
+        ruleBuilder.value = buildRuleValue()
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {
