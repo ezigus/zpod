@@ -285,6 +285,13 @@ public class EpisodeSearchManager: ObservableObject {
         }
     }
     
+    /// Increment suggestion frequency for a given text
+    public func incrementSuggestionFrequency(for text: String) {
+        Task {
+            try? await repository.incrementSuggestionFrequency(for: text)
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func loadSearchHistory() async {

@@ -158,9 +158,7 @@ public class EpisodeSearchViewModel: ObservableObject {
         }
         
         // Increment suggestion frequency
-        Task {
-            try? await searchManager.repository.incrementSuggestionFrequency(for: suggestion.text)
-        }
+        searchManager.incrementSuggestionFrequency(for: suggestion.text)
     }
     
     /// Select a search history entry
