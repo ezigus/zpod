@@ -459,30 +459,3 @@ struct DurationSlider: View {
     }
 }
 
-extension SmartListRuleBuilder {
-    func buildRuleValue() -> SmartListRuleValue? {
-        switch type {
-        case .playStatus:
-            return .episodeStatus(episodeStatusValue)
-        case .downloadStatus:
-            return .downloadStatus(downloadStatusValue)
-        case .dateAdded, .pubDate:
-            switch comparison {
-            case .between:
-                return .dateRange(start: startDateValue, end: endDateValue)
-            case .within:
-                return .relativeDate(relativeDateValue)
-            default:
-                return .date(dateValue)
-            }
-        case .duration, .playbackPosition:
-            return .timeInterval(timeIntervalValue)
-        case .rating:
-            return .integer(intValue)
-        case .podcast, .title, .description:
-            return stringValue.isEmpty ? nil : .string(stringValue)
-        case .isFavorited, .isBookmarked, .isArchived:
-            return .boolean(boolValue)
-        }
-    }
-}
