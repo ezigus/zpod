@@ -355,7 +355,7 @@ struct SearchResultCard: View {
                     HStack {
                         Text(result.episode.pubDate ?? Date(), style: .date)
                         Text("•")
-                        Text(formatDuration(result.episode.duration))
+                        Text(formatDuration(result.episode.duration ?? 0))
                     }
                     .font(.caption)
                     .foregroundColor(.secondary)
