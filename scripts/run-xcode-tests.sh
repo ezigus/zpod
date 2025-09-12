@@ -1,17 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run full Xcode test suite on an iOS 18.x simulator, preferring iPhone 16 family.
+# Run Xcode test suite on an iOS 18.x simulator, preferring iPhone 16 family.
 # Usage:
-#   scripts/run-xcode-tests.sh [SCHEME] [WORKSPACE] [SIM_NAME]
+#   scripts/run-xcode-tests.sh [--scheme|-s SCHEME] [--workspace|-w WORKSPACE] [--sim|-d SIM_NAME] [--tests|-t TEST1,TEST2,...]
 # Defaults:
-#   SCHEME=zpod
-#   WORKSPACE=zpod.xcworkspace
-#   SIM_NAME=iPhone 16
+#   --scheme/-s     zpod
+#   --workspace/-w  zpod.xcworkspace
+#   --sim/-d        iPhone 16
+#   --tests/-t      all
 
-SCHEME="${1:-zpod}"
-WORKSPACE="${2:-zpod.xcworkspace}"
-PREFERRED_SIM="${3:-iPhone 16}"
+# Default values
+SCHEME="zpod"
+WORKSPACE="zpod.xcworkspace"
+PREFERRED_SIM="iPhone 16"
+TESTS="all"
+
+# Print help menu
+print_help() {
+  cat <<EOF
+Usage: $0 [OPTIONS]
+
+Run Xcode tests for the zPod app on an iOS 18.x simulator (iPhone 16 family preferred).
+
+Options:
+  --scheme,    -s  <scheme>      Xcode scheme to test (default: zpod)
+  --workspace, -w  <workspace>   Xcode workspace file (default: zpod.xcworkspace)
+  --sim,       -d  <simulator>   Simulator device name (default: iPhone 16)
+  --tests,     -t  <tests>       Comma or space separated list of tests to run (default: all)
+  --help,      -h                Show this help menu and exit
+
+Examples:
+  $0                                 # Run all tests with defaults
+  $0 -t MyTests                      # Run only 'MyTests' test suite
+  $0 --tests MyTests/testExample     # Run a specific test method
+  $0 -s MyScheme -d "iPhone 16 Pro" # Specify scheme and simulator
+  $0 -t "MyTests,OtherTests/testFoo" # Run multiple tests
+EOF
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scheme|-s)
+      SCHEME="$2"; shift 2;;
+    --workspace|-w)
+      WORKSPACE="$2"; shift 2;;
+    --sim|-d)
+      PREFERRED_SIM="$2"; shift 2;;
+    --tests|-t)
+      TESTS="$2"; shift 2;;
+    --help|-h)
+      print_help; exit 0;;
+    *)
+      echo "Unknown option: $1" >&2; print_help; exit 1;;
+  esac
+done
 
 FALLBACK_SIMS=(
   "${PREFERRED_SIM}"
@@ -89,13 +133,25 @@ RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_ios18_sim_${SELECTED_NAME// 
 
 # Run the full test suite; this will include all test targets attached to the scheme
 set -x
-xcodebuild \
-  -workspace "${WORKSPACE}" \
-  -scheme "${SCHEME}" \
-  -sdk iphonesimulator \
-  -destination "${SELECTED_DEST}" \
-  -resultBundlePath "${RESULT_BUNDLE}" \
-  clean test | tee "${RESULT_LOG}"
+XCODEBUILD_ARGS=(
+  -workspace "${WORKSPACE}"
+  -scheme "${SCHEME}"
+  -sdk iphonesimulator
+  -destination "${SELECTED_DEST}"
+  -resultBundlePath "${RESULT_BUNDLE}"
+)
+
+if [[ -z "${TESTS}" || "${TESTS}" == "all" ]]; then
+  # Run all tests
+  xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
+else
+  # Support comma or space separated test names
+  IFS=',' read -ra TEST_ARRAY <<< "${TESTS// /,}"
+  for test_name in "${TEST_ARRAY[@]}"; do
+    XCODEBUILD_ARGS+=( -only-testing:"$test_name" )
+  done
+  xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
+fi
 set +x
 
 echo "\nTest results bundle: ${RESULT_BUNDLE}"

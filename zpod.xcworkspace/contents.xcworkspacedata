@@ -46,4 +46,14 @@
    <FileRef
       location = "group:Packages/TestSupport">
    </FileRef>
+   <Group
+      location = "group:scripts"
+      name = "scripts">
+      <FileRef
+         location = "group:dev-build-enhanced.sh">
+      </FileRef>
+      <FileRef
+         location = "group:run-xcode-tests.sh">
+      </FileRef>
+   </Group>
 </Workspace>
