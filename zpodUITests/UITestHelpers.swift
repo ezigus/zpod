@@ -10,7 +10,81 @@ import XCTest
 /// Helper utilities for robust UI testing using proper XCUIElement waiting mechanisms
 extension XCTestCase {
     
+    // MARK: - Smart Element Discovery
+    
+    /// Find an accessible element using multiple strategies with proper concurrency
+    @MainActor
+    func findAccessibleElement(
+        in app: XCUIApplication,
+        byIdentifier identifier: String? = nil,
+        byLabel label: String? = nil,
+        byPartialLabel partialLabel: String? = nil,
+        ofType elementType: XCUIElement.ElementType = .any
+    ) -> XCUIElement? {
+        
+        var candidates: [XCUIElement] = []
+        
+        // Strategy 1: Exact identifier match
+        if let identifier = identifier {
+            let element = app.descendants(matching: elementType)[identifier]
+            if element.exists {
+                candidates.append(element)
+            }
+        }
+        
+        // Strategy 2: Exact label match
+        if let label = label {
+            let elements = app.descendants(matching: elementType).matching(
+                NSPredicate(format: "label == %@", label)
+            )
+            candidates.append(contentsOf: elements.allElementsBoundByIndex.filter { $0.exists })
+        }
+        
+        // Strategy 3: Partial label match
+        if let partialLabel = partialLabel {
+            let elements = app.descendants(matching: elementType).matching(
+                NSPredicate(format: "label CONTAINS %@", partialLabel)
+            )
+            candidates.append(contentsOf: elements.allElementsBoundByIndex.filter { $0.exists })
+        }
+        
+        // Return the first hittable element found
+        return candidates.first { $0.isHittable }
+    }
+    
     // MARK: - Event-Based Waiting Patterns (No arbitrary sleeps)
+    
+    /// Waits for any of multiple conditions to be met with proper concurrency
+    @MainActor
+    func waitForAnyCondition(
+        _ conditions: [@Sendable @MainActor () -> Bool],
+        timeout: TimeInterval = 10.0,
+        description: String = "any condition"
+    ) -> Bool {
+        print("🔍 Waiting for \(description) (timeout: \(timeout)s)...")
+        
+        let startTime = Date()
+        var iterations = 0
+        let maxIterations = Int(timeout * 10) // Prevent infinite loops
+        
+        while Date().timeIntervalSince(startTime) < timeout && iterations < maxIterations {
+            iterations += 1
+            
+            // Check all conditions on MainActor
+            for (index, condition) in conditions.enumerated() {
+                if condition() {
+                    print("✅ Condition \(index) satisfied for \(description)")
+                    return true
+                }
+            }
+            
+            // Brief pause between checks - use XCUIApplication wait which is event-based
+            _ = XCUIApplication().wait(for: .runningForeground, timeout: 0.1)
+        }
+        
+        print("⚠️ Timeout waiting for \(description) after \(timeout) seconds")
+        return false
+    }
     
     /// Event-based waiting using XCUIElement's built-in waitForExistence
     /// This is the proper way to wait for UI state changes in XCUITest
@@ -34,7 +108,36 @@ extension XCTestCase {
         return nil
     }
     
-    /// Wait for a UI state change by checking element changes
+    /// Waits for an element to exist OR alternative elements that indicate the expected state
+    @MainActor
+    func waitForElementOrAlternatives(
+        primary: XCUIElement,
+        alternatives: [XCUIElement] = [],
+        timeout: TimeInterval = 10.0,
+        description: String? = nil
+    ) -> XCUIElement? {
+        let desc = description ?? "element \(primary.identifier) or alternatives"
+        
+        let conditions = [primary] + alternatives
+        let found = waitForAnyCondition(
+            conditions.map { element in { @MainActor in element.exists } },
+            timeout: timeout,
+            description: desc
+        )
+        
+        if found {
+            // Return the first element that actually exists
+            for element in conditions {
+                if element.exists {
+                    return element
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Wait for a UI state change by checking element changes with proper concurrency
     /// Returns true if ANY significant UI change occurs, false if timeout
     @MainActor
     func waitForUIStateChange(
@@ -160,6 +263,56 @@ extension XCTestCase {
             timeout: timeout,
             description: description
         )
+    }
+    
+    /// Wait for content to load in a container with proper event-based detection
+    @MainActor
+    func waitForContentToLoad(
+        containerIdentifier: String,
+        itemIdentifiers: [String] = []
+    ) -> Bool {
+        // First wait for loading to complete
+        let loadingComplete = waitForLoadingToComplete(in: XCUIApplication(), timeout: adaptiveTimeout)
+        
+        // Then wait for content container
+        let container = XCUIApplication().scrollViews[containerIdentifier]
+        guard container.waitForExistence(timeout: adaptiveShortTimeout) else {
+            print("⚠️ Container \(containerIdentifier) not found")
+            return false
+        }
+        
+        // If specific items are expected, wait for at least one
+        if !itemIdentifiers.isEmpty {
+            let items = itemIdentifiers.map { XCUIApplication().buttons[$0] }
+            return waitForElementOrAlternatives(
+                primary: items.first!,
+                alternatives: Array(items.dropFirst()),
+                timeout: adaptiveShortTimeout,
+                description: "content items in \(containerIdentifier)"
+            ) != nil
+        }
+        
+        return loadingComplete
+    }
+}
+
+extension XCTestCase {
+    /// Environment-adaptive timeout values
+    var adaptiveTimeout: TimeInterval {
+        if ProcessInfo.processInfo.environment["CI"] != nil {
+            return 20.0 // Longer timeout for CI environments
+        } else {
+            return 10.0 // Standard timeout for local development
+        }
+    }
+    
+    /// Shorter timeout for quick checks
+    var adaptiveShortTimeout: TimeInterval {
+        if ProcessInfo.processInfo.environment["CI"] != nil {
+            return 8.0 // Longer short timeout for CI
+        } else {
+            return 5.0 // Standard short timeout for local
+        }
     }
 }
 
