@@ -71,7 +71,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
         self.playlistManager = playlistManager
     }
     
-    public var batchOperationUpdates: AnyPublisher<BatchOperation, Never> {
+    nonisolated public var batchOperationUpdates: AnyPublisher<BatchOperation, Never> {
         batchOperationSubject.eraseToAnyPublisher()
     }
     
