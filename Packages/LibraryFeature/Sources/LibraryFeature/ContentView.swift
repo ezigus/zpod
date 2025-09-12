@@ -472,10 +472,11 @@ struct EpisodeListViewWrapper: View {
         return Podcast(
             id: id,
             title: title,
+            author: "Sample Author",
             description: "Sample podcast for UI testing with batch operations",
+            feedURL: URL(string: "https://example.com/feed.rss")!,
             episodes: sampleEpisodes,
-            subscriptionDate: Date(),
-            settings: PodcastSettings()
+            dateAdded: Date()
         )
     }
 }
