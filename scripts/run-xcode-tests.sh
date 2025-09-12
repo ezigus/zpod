@@ -57,6 +57,11 @@ while [[ $# -gt 0 ]]; do
   esac
  done
 
+# If no arguments are provided, use all defaults and run all tests
+if [[ $# -eq 0 ]]; then
+  echo "[run-xcode-tests.sh] No arguments provided. Using defaults: scheme='$SCHEME', workspace='$WORKSPACE', simulator='$PREFERRED_SIM', tests='all'"
+fi
+
 # Infer scheme if not explicitly set and tests are specified
 if [[ -z "${SCHEME_EXPLICIT:-}" && "$TESTS" != "all" ]]; then
   # Use first test suite in comma/space separated list
@@ -190,9 +195,9 @@ RESULT_STAMP="$(date +%Y%m%d_%H%M%S)"
 RESULT_BUNDLE="TestResults/TestResults_${RESULT_STAMP}_ios_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.xcresult"
 RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_ios18_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.log"
 
-# If USE_XCODEBUILD is set, run with xcodebuild, else use swift test for package
-if [[ "${USE_XCODEBUILD:-}" == "1" ]]; then
-  # Run the full test suite; this will include all test targets attached to the scheme
+# Test execution block
+if [[ "${TESTS}" == "all" || "${USE_XCODEBUILD:-}" == "1" ]]; then
+  # Run all tests or main app test target
   set -x
   XCODEBUILD_ARGS=(
     -workspace "${WORKSPACE}"
@@ -200,18 +205,27 @@ if [[ "${USE_XCODEBUILD:-}" == "1" ]]; then
     -sdk iphonesimulator
     -destination "${SELECTED_DEST}"
     -resultBundlePath "${RESULT_BUNDLE}"
-    -only-testing:"${TESTS}"
   )
+  if [[ "${TESTS}" != "all" ]]; then
+    XCODEBUILD_ARGS+=( -only-testing:"${TESTS}" )
+  fi
   xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
   set +x
   echo "\nTest results bundle: ${RESULT_BUNDLE}"
   echo "Log: ${RESULT_LOG}"
-else
+elif [[ "${USE_XCODEBUILD:-}" == "0" ]]; then
   # Run with swift test for package test targets
+  if [[ -z "${TEST_TARGET:-}" || -z "${PACKAGE_PATH:-}" ]]; then
+    echo "❌ Internal error: TEST_TARGET or PACKAGE_PATH not set for package test run." >&2
+    exit 4
+  fi
   echo "[run-xcode-tests.sh] Running package test: $TEST_TARGET in $PACKAGE_PATH"
   pushd "$PACKAGE_PATH" > /dev/null
   set -x
   swift test --target "$TEST_TARGET" --filter "$TESTS"
   set +x
   popd > /dev/null
+else
+  echo "❌ Internal error: Could not determine test execution mode." >&2
+  exit 5
 fi
