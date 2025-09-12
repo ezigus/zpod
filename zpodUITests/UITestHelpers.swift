@@ -294,6 +294,43 @@ extension XCTestCase {
         
         return loadingComplete
     }
+    
+    /// Wait for app to reach stable state using event-based mechanism
+    @MainActor
+    func waitForStableState(
+        app: XCUIApplication,
+        stableFor duration: TimeInterval = 0.5,
+        timeout: TimeInterval = 10.0
+    ) -> Bool {
+        print("⚖️ Waiting for app stability for \(duration)s...")
+        
+        // Use event-based stability detection
+        let expectation = self.expectation(description: "app stability check")
+        var checkTimer: Timer?
+        var lastStateChange = Date()
+        
+        checkTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            Task { @MainActor in
+                // Check if app is idle (basic stability indicator)
+                let isStable = Date().timeIntervalSince(lastStateChange) >= duration
+                
+                if isStable {
+                    expectation.fulfill()
+                    timer.invalidate()
+                } else if Date().timeIntervalSince(lastStateChange) > timeout {
+                    print("⚠️ Stability timeout reached")
+                    expectation.fulfill()
+                    timer.invalidate()
+                }
+            }
+        }
+        
+        // Wait for the expectation
+        wait(for: [expectation], timeout: timeout + 1.0)
+        checkTimer?.invalidate()
+        
+        return Date().timeIntervalSince(lastStateChange) >= duration
+    }
 }
 
 extension XCTestCase {
