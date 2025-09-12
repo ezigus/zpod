@@ -1,6 +1,7 @@
 @preconcurrency import Foundation
 import CoreModels
 import Combine
+import PlaybackEngine
 
 /// Error types for batch operations
 public enum BatchOperationError: Error, LocalizedError, Sendable {
@@ -290,7 +291,7 @@ public protocol PlaylistManaging: Sendable {
 
 /// Simple in-memory implementation for testing and development
 public final class InMemoryBatchOperationManager: BatchOperationManaging {
-    private var batchOperations: [String: BatchOperation] = [:]
+    private let batchOperations = LockIsolated<[String: BatchOperation]>([:])
     private let batchOperationSubject = PassthroughSubject<BatchOperation, Never>()
     
     public init() {}
@@ -301,7 +302,7 @@ public final class InMemoryBatchOperationManager: BatchOperationManaging {
     
     public func executeBatchOperation(_ batchOperation: BatchOperation) async throws -> BatchOperation {
         var updatedBatch = batchOperation.withStatus(.running)
-        batchOperations[updatedBatch.id] = updatedBatch
+        batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
         batchOperationSubject.send(updatedBatch)
         
         // Simulate batch operation execution
@@ -309,30 +310,50 @@ public final class InMemoryBatchOperationManager: BatchOperationManaging {
             try await Task.sleep(nanoseconds: 100_000_000) // 100ms per operation
             let completedOperation = operation.withStatus(.completed)
             updatedBatch = updatedBatch.withUpdatedOperation(completedOperation)
-            batchOperations[updatedBatch.id] = updatedBatch
+            batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
             batchOperationSubject.send(updatedBatch)
         }
         
         updatedBatch = updatedBatch.withStatus(.completed)
-        batchOperations[updatedBatch.id] = updatedBatch
+        batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
         batchOperationSubject.send(updatedBatch)
         
         return updatedBatch
     }
     
     public func cancelBatchOperation(id: String) async {
-        if var batch = batchOperations[id] {
-            batch = batch.withStatus(.cancelled)
-            batchOperations[id] = batch
-            batchOperationSubject.send(batch)
+        batchOperations.withValue { operations in
+            if var batch = operations[id] {
+                batch = batch.withStatus(.cancelled)
+                operations[id] = batch
+                batchOperationSubject.send(batch)
+            }
         }
     }
     
     public func getBatchOperationStatus(id: String) async -> BatchOperation? {
-        return batchOperations[id]
+        return batchOperations.withValue { $0[id] }
     }
     
     public func getActiveBatchOperations() async -> [BatchOperation] {
-        return batchOperations.values.filter { $0.status == .running || $0.status == .pending }
+        return batchOperations.withValue { operations in
+            operations.values.filter { $0.status == .running || $0.status == .pending }
+        }
+    }
+}
+
+/// Thread-safe container for mutable state in Sendable classes
+private final class LockIsolated<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: Value
+    
+    init(_ value: Value) {
+        self._value = value
+    }
+    
+    func withValue<T>(_ operation: (inout Value) -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return operation(&_value)
     }
 }
