@@ -43,7 +43,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scheme|-s)
-      SCHEME="$2"; shift 2;;
+      SCHEME="$2"; export SCHEME_EXPLICIT=1; shift 2;;
     --workspace|-w)
       WORKSPACE="$2"; shift 2;;
     --sim|-d)
@@ -55,7 +55,66 @@ while [[ $# -gt 0 ]]; do
     *)
       echo "Unknown option: $1" >&2; print_help; exit 1;;
   esac
-done
+ done
+
+# Infer scheme if not explicitly set and tests are specified
+if [[ -z "${SCHEME_EXPLICIT:-}" && "$TESTS" != "all" ]]; then
+  # Use first test suite in comma/space separated list
+  IFS=', ' read -r -a TEST_ARRAY <<< "$TESTS"
+  FIRST_TEST="${TEST_ARRAY[0]}"
+  # Extract test suite name (before first / if present)
+  SUITE_NAME="${FIRST_TEST%%/*}"
+  case "$SUITE_NAME" in
+    zpodTests|zpodUITests)
+      SCHEME="zpod"
+      ;;
+    IntegrationTests)
+      SCHEME="IntegrationTests"
+      ;;
+    *)
+      SCHEME="zpod" # Default fallback
+      ;;
+  esac
+  echo "[run-xcode-tests.sh] Inferred scheme: $SCHEME (from test suite: $SUITE_NAME)"
+fi
+
+# Accept a test suite/class name as a positional argument if -t/--tests is not given
+if [[ "$#" -gt 0 && "$1" != -* && -z "${TESTS:-}" ]]; then
+  TESTS="$1"
+  shift
+fi
+
+# If TESTS is a bare class name (no /), search for it in all test folders
+if [[ "$TESTS" != "all" && "$TESTS" != *"/"* ]]; then
+  echo "[run-xcode-tests.sh] Searching for test class '$TESTS' in workspace..."
+  # Search for the class definition in all *Tests* folders
+  MATCH_PATH=$(find .. -type f -name "*.swift" -path "*Tests*" -exec grep -l "class $TESTS" {} + | head -n1)
+  if [[ -z "$MATCH_PATH" ]]; then
+    echo "❌ Test class '$TESTS' not found in any test target." >&2
+    exit 1
+  fi
+  # Determine the test target/folder
+  TARGET_DIR=$(basename $(dirname "$MATCH_PATH"))
+  PACKAGE_DIR=$(basename $(dirname $(dirname "$MATCH_PATH")))
+  # Main app test targets
+  if [[ "$TARGET_DIR" == "zpodTests" || "$TARGET_DIR" == "zpodUITests" || "$TARGET_DIR" == "IntegrationTests" ]]; then
+    TEST_TARGET="$TARGET_DIR"
+    SCHEME="zpod"
+    TESTS="$TEST_TARGET/$TESTS"
+    echo "[run-xcode-tests.sh] Found in main app test target: $TEST_TARGET (scheme: $SCHEME)"
+    USE_XCODEBUILD=1
+  # Package test targets
+  elif [[ "$PACKAGE_DIR" == "Tests" ]]; then
+    TEST_TARGET="$TARGET_DIR"
+    PACKAGE_NAME=$(basename $(dirname $(dirname $(dirname "$MATCH_PATH"))))
+    echo "[run-xcode-tests.sh] Found in package: $PACKAGE_NAME, test target: $TEST_TARGET"
+    USE_XCODEBUILD=0
+    PACKAGE_PATH="../Packages/$PACKAGE_NAME"
+  else
+    echo "❌ Could not determine test target for '$TESTS'." >&2
+    exit 2
+  fi
+fi
 
 FALLBACK_SIMS=(
   "${PREFERRED_SIM}"
@@ -131,28 +190,28 @@ RESULT_STAMP="$(date +%Y%m%d_%H%M%S)"
 RESULT_BUNDLE="TestResults/TestResults_${RESULT_STAMP}_ios_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.xcresult"
 RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_ios18_sim_${SELECTED_NAME// /-}_OS-${SELECTED_OS}.log"
 
-# Run the full test suite; this will include all test targets attached to the scheme
-set -x
-XCODEBUILD_ARGS=(
-  -workspace "${WORKSPACE}"
-  -scheme "${SCHEME}"
-  -sdk iphonesimulator
-  -destination "${SELECTED_DEST}"
-  -resultBundlePath "${RESULT_BUNDLE}"
-)
-
-if [[ -z "${TESTS}" || "${TESTS}" == "all" ]]; then
-  # Run all tests
+# If USE_XCODEBUILD is set, run with xcodebuild, else use swift test for package
+if [[ "${USE_XCODEBUILD:-}" == "1" ]]; then
+  # Run the full test suite; this will include all test targets attached to the scheme
+  set -x
+  XCODEBUILD_ARGS=(
+    -workspace "${WORKSPACE}"
+    -scheme "${SCHEME}"
+    -sdk iphonesimulator
+    -destination "${SELECTED_DEST}"
+    -resultBundlePath "${RESULT_BUNDLE}"
+    -only-testing:"${TESTS}"
+  )
   xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
+  set +x
+  echo "\nTest results bundle: ${RESULT_BUNDLE}"
+  echo "Log: ${RESULT_LOG}"
 else
-  # Support comma or space separated test names
-  IFS=',' read -ra TEST_ARRAY <<< "${TESTS// /,}"
-  for test_name in "${TEST_ARRAY[@]}"; do
-    XCODEBUILD_ARGS+=( -only-testing:"$test_name" )
-  done
-  xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
+  # Run with swift test for package test targets
+  echo "[run-xcode-tests.sh] Running package test: $TEST_TARGET in $PACKAGE_PATH"
+  pushd "$PACKAGE_PATH" > /dev/null
+  set -x
+  swift test --target "$TEST_TARGET" --filter "$TESTS"
+  set +x
+  popd > /dev/null
 fi
-set +x
-
-echo "\nTest results bundle: ${RESULT_BUNDLE}"
-echo "Log: ${RESULT_LOG}"
