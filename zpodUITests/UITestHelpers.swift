@@ -12,39 +12,32 @@ extension XCTestCase {
     
     // MARK: - Smart Waiting Patterns
     
-    /// Waits for any of multiple conditions to be met, preventing test failures due to timing variations
-    /// This is much more robust than fixed timeouts as it adapts to actual app state
+    /// Simple polling-based condition checker that avoids potential Task deadlocks in UI tests
+    /// This is more reliable for UI testing than complex async/await patterns
     @MainActor
     func waitForAnyCondition(
         _ conditions: [@Sendable @MainActor () -> Bool],
         timeout: TimeInterval = 10.0,
         description: String = "any condition"
     ) -> Bool {
-        let expectation = XCTestExpectation(description: description)
         let startTime = Date()
+        let pollInterval: TimeInterval = 0.1
         
-        // Use Task-based polling for proper Swift 6 concurrency
-        Task { @MainActor in
-            while Date().timeIntervalSince(startTime) < timeout {
-                // Check all conditions on MainActor
-                for condition in conditions {
-                    if condition() {
-                        expectation.fulfill()
-                        return
-                    }
+        while Date().timeIntervalSince(startTime) < timeout {
+            // Check all conditions on MainActor
+            for condition in conditions {
+                if condition() {
+                    return true
                 }
-                
-                // Brief pause between checks using Task.sleep
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
             }
             
-            // Timeout reached
-            XCTFail("Timeout waiting for \(description) after \(timeout) seconds")
-            expectation.fulfill()
+            // Simple sleep-based polling - more reliable for UI tests than Task.sleep
+            Thread.sleep(forTimeInterval: pollInterval)
         }
         
-        let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
-        return result == .completed
+        // Timeout reached - don't fail automatically, let caller decide
+        print("Warning: Timeout waiting for \(description) after \(timeout) seconds")
+        return false
     }
     
     /// Waits for an element to exist OR alternative elements that indicate the expected state
@@ -136,7 +129,7 @@ extension XCTestCase {
         )
     }
     
-    /// Waits for app to reach a stable state rather than using fixed delays
+    /// Waits for app to reach a stable state using simple polling
     /// This eliminates race conditions caused by animation timing
     @MainActor
     func waitForStableState(
@@ -144,38 +137,29 @@ extension XCTestCase {
         stableFor: TimeInterval = 0.5,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        let expectation = XCTestExpectation(description: "UI stable state")
         let startTime = Date()
         var lastElementCount = 0
         var stableStartTime: Date?
+        let pollInterval: TimeInterval = 0.1
         
-        // Use Task-based polling for proper Swift 6 concurrency
-        Task { @MainActor in
-            while Date().timeIntervalSince(startTime) < timeout {
-                let currentElementCount = app.buttons.count + app.staticTexts.count + app.otherElements.count
-                
-                if currentElementCount == lastElementCount {
-                    if stableStartTime == nil {
-                        stableStartTime = Date()
-                    } else if Date().timeIntervalSince(stableStartTime!) >= stableFor {
-                        expectation.fulfill()
-                        return
-                    }
-                } else {
-                    stableStartTime = nil // Reset stability timer
-                    lastElementCount = currentElementCount
+        while Date().timeIntervalSince(startTime) < timeout {
+            let currentElementCount = app.buttons.count + app.staticTexts.count + app.otherElements.count
+            
+            if currentElementCount == lastElementCount {
+                if stableStartTime == nil {
+                    stableStartTime = Date()
+                } else if Date().timeIntervalSince(stableStartTime!) >= stableFor {
+                    return true
                 }
-                
-                // Brief pause between checks using Task.sleep
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+            } else {
+                stableStartTime = nil // Reset stability timer
+                lastElementCount = currentElementCount
             }
             
-            // Timeout reached
-            expectation.fulfill()
+            Thread.sleep(forTimeInterval: pollInterval)
         }
         
-        let result = XCTWaiter().wait(for: [expectation], timeout: timeout + 1.0)
-        return result == .completed
+        return false
     }
     
     // MARK: - Accessibility-First Element Discovery
