@@ -22,21 +22,34 @@ extension XCTestCase {
     ) -> Bool {
         let startTime = Date()
         let pollInterval: TimeInterval = 0.1
+        let maxIterations = Int(timeout / pollInterval) // Prevent infinite loops
+        var iteration = 0
         
-        while Date().timeIntervalSince(startTime) < timeout {
+        print("🔍 Waiting for \(description) (timeout: \(timeout)s)...")
+        
+        while Date().timeIntervalSince(startTime) < timeout && iteration < maxIterations {
             // Check all conditions on MainActor
-            for condition in conditions {
+            for (index, condition) in conditions.enumerated() {
                 if condition() {
+                    print("✅ Condition \(index) satisfied for \(description)")
                     return true
                 }
             }
             
             // Simple sleep-based polling - more reliable for UI tests than Task.sleep
             Thread.sleep(forTimeInterval: pollInterval)
+            iteration += 1
+            
+            // Log progress every 2 seconds to help with debugging
+            if iteration % Int(2.0 / pollInterval) == 0 {
+                let elapsed = Date().timeIntervalSince(startTime)
+                print("⏱️ Still waiting for \(description) (elapsed: \(String(format: "%.1f", elapsed))s)")
+            }
         }
         
         // Timeout reached - don't fail automatically, let caller decide
-        print("Warning: Timeout waiting for \(description) after \(timeout) seconds")
+        let elapsed = Date().timeIntervalSince(startTime)
+        print("⚠️ Timeout waiting for \(description) after \(String(format: "%.1f", elapsed)) seconds")
         return false
     }
     
