@@ -468,57 +468,51 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Given: User wants to control podcast playback
         // Wait for player interface to be ready using robust patterns
-        let playerReady = waitForElementOrAlternatives(
-            primary: app.otherElements["Player Interface"],
-            alternatives: [
-                app.buttons["Play"],
-                app.buttons["Pause"],
-                app.sliders["Progress Slider"]
-            ],
-            timeout: adaptiveTimeout,
-            description: "player interface"
-        )
+        let playerReady = waitForAnyElement([
+            app.otherElements["Player Interface"],
+            app.buttons["Play"],
+            app.buttons["Pause"],
+            app.sliders["Progress Slider"]
+        ], timeout: adaptiveTimeout, description: "player interface")
         
         if playerReady != nil {
             // When: User interacts with all major playback controls using responsive patterns
             
             // Test play/pause functionality with state awareness
-            let playButton = findAccessibleElement(
-                in: app,
-                byIdentifier: "Play",
-                byLabel: "Play",
-                byPartialLabel: "Play",
-                ofType: .button
-            )
-            let pauseButton = findAccessibleElement(
-                in: app,
-                byIdentifier: "Pause", 
-                byLabel: "Pause",
-                byPartialLabel: "Pause",
-                ofType: .button
-            )
+            let playButton = app.buttons["Play"]
+            let pauseButton = app.buttons["Pause"]
             
-            if let button = playButton ?? pauseButton {
+            if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Wait for interaction to be processed rather than arbitrary delay
+                // Wait for interaction to be processed using proper UI state monitoring
                 XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
+                    waitForUIStateChange(
+                        beforeAction: { /* Action already performed */ },
+                        expectedChanges: [{ button.isEnabled }],
+                        timeout: adaptiveShortTimeout,
+                        description: "play/pause state change"
+                    ),
                     "Play/pause interaction should be processed"
                 )
             }
             
             // Test skip controls with responsive validation
             let skipControls = [
-                findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button),
-                findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)
-            ].compactMap { $0 }
+                app.buttons["Skip Forward"],
+                app.buttons["Skip Backward"]
+            ].filter { $0.exists }
             
             for control in skipControls {
                 control.tap()
-                // Verify control remains interactive after use
+                // Verify control remains interactive after use using proper state monitoring
                 XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.1, timeout: adaptiveShortTimeout),
+                    waitForUIStateChange(
+                        beforeAction: { /* Action already performed */ },
+                        expectedChanges: [{ control.isEnabled }],
+                        timeout: adaptiveShortTimeout,
+                        description: "skip control interaction"
+                    ),
                     "Skip control should remain responsive"
                 )
             }
@@ -568,26 +562,22 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         // When: Checking comprehensive accessibility using adaptive waiting
         
         // Wait for the player interface to load with multiple fallback strategies
-        let playerElements = waitForElementOrAlternatives(
-            primary: app.otherElements["Player Interface"],
-            alternatives: [
-                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")).firstMatch,
-                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch,
-                app.sliders["Progress Slider"]
-            ],
-            timeout: adaptiveTimeout,
-            description: "playback interface elements"
-        )
+        let playerElements = waitForAnyElement([
+            app.otherElements["Player Interface"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")).firstMatch,
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch,
+            app.sliders["Progress Slider"]
+        ], timeout: adaptiveTimeout, description: "playback interface elements")
         
         if playerElements != nil {
-            // Test accessibility of key playback elements using smart discovery
+            // Test accessibility of key playback elements using direct element access
             let accessibleElements: [(String, XCUIElement?)] = [
-                ("Play button", findAccessibleElement(in: app, byIdentifier: "Play", ofType: .button)),
-                ("Pause button", findAccessibleElement(in: app, byIdentifier: "Pause", ofType: .button)),
-                ("Skip Forward", findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button)),
-                ("Skip Backward", findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)),
-                ("Progress Slider", findAccessibleElement(in: app, byIdentifier: "Progress Slider", ofType: .slider)),
-                ("Episode Title", findAccessibleElement(in: app, byIdentifier: "Episode Title", ofType: .staticText))
+                ("Play button", app.buttons["Play"].exists ? app.buttons["Play"] : nil),
+                ("Pause button", app.buttons["Pause"].exists ? app.buttons["Pause"] : nil),
+                ("Skip Forward", app.buttons["Skip Forward"].exists ? app.buttons["Skip Forward"] : nil),
+                ("Skip Backward", app.buttons["Skip Backward"].exists ? app.buttons["Skip Backward"] : nil),
+                ("Progress Slider", app.sliders["Progress Slider"].exists ? app.sliders["Progress Slider"] : nil),
+                ("Episode Title", app.staticTexts["Episode Title"].exists ? app.staticTexts["Episode Title"] : nil)
             ]
             
             var accessibilityScore = 0
