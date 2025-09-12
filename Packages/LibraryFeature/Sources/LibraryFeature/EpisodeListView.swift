@@ -130,6 +130,8 @@ public struct EpisodeListView: View {
                 Text("\(viewModel.selectedCount) selected")
                     .font(.headline)
                     .foregroundStyle(.primary)
+                    .accessibilityIdentifier("\(viewModel.selectedCount) selected")
+                    .accessibilityLabel("\(viewModel.selectedCount) episodes selected")
                 
                 Spacer()
                 
@@ -140,24 +142,32 @@ public struct EpisodeListView: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.blue)
+                    .accessibilityIdentifier("All")
+                    .accessibilityLabel("Select All")
                     
                     Button("None") {
                         viewModel.selectNone()
                     }
                     .font(.caption)
                     .foregroundStyle(.blue)
+                    .accessibilityIdentifier("None")
+                    .accessibilityLabel("Select None")
                     
                     Button("Invert") {
                         viewModel.invertSelection()
                     }
                     .font(.caption)
                     .foregroundStyle(.blue)
+                    .accessibilityIdentifier("Invert")
+                    .accessibilityLabel("Invert Selection")
                     
                     Button("Criteria") {
                         viewModel.showingSelectionCriteriaSheet = true
                     }
                     .font(.caption)
                     .foregroundStyle(.blue)
+                    .accessibilityIdentifier("Criteria")
+                    .accessibilityLabel("Select by Criteria")
                 }
             }
             .padding(.horizontal)
@@ -189,6 +199,8 @@ public struct EpisodeListView: View {
                                         .background(operationColor(for: operationType))
                                         .cornerRadius(8)
                                 }
+                                .accessibilityIdentifier(operationType.displayName)
+                                .accessibilityLabel(operationType.displayName)
                             }
                             
                             Button("More") {
@@ -200,6 +212,8 @@ public struct EpisodeListView: View {
                             .padding(.vertical, 6)
                             .background(Color.gray)
                             .cornerRadius(8)
+                            .accessibilityIdentifier("More")
+                            .accessibilityLabel("More batch operations")
                         }
                         .padding(.horizontal)
                     }

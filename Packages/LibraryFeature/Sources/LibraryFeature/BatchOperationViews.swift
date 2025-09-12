@@ -124,6 +124,9 @@ public struct BatchOperationButton: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(operation.displayName)
+        .accessibilityLabel(operation.displayName)
+        .accessibilityHint("Performs \(operation.displayName) on \(episodeCount) episodes")
     }
     
     private var operationColor: Color {
@@ -191,6 +194,9 @@ public struct BatchOperationProgressView: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+        .accessibilityIdentifier("Batch Operation Progress")
+        .accessibilityLabel("Batch operation progress: \(batchOperation.operationType.displayName)")
+        .accessibilityValue("\(batchOperation.completedCount) of \(batchOperation.totalCount) episodes completed")
     }
     
     private var statusIcon: some View {
