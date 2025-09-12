@@ -317,7 +317,6 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     // MARK: - Helper Methods
     
     @MainActor
-    @MainActor
     private func initializeApp() {
         app = XCUIApplication()
         app.launch()
