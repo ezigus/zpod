@@ -292,18 +292,18 @@ public protocol PlaylistManaging: Sendable {
 /// Simple in-memory implementation for testing and development
 public final class InMemoryBatchOperationManager: BatchOperationManaging {
     private let batchOperations = LockIsolated<[String: BatchOperation]>([:])
-    private let batchOperationSubject = PassthroughSubject<BatchOperation, Never>()
+    private let batchOperationSubject = LockIsolated<PassthroughSubject<BatchOperation, Never>>(PassthroughSubject())
     
     public init() {}
     
     public var batchOperationUpdates: AnyPublisher<BatchOperation, Never> {
-        batchOperationSubject.eraseToAnyPublisher()
+        batchOperationSubject.withValue { $0.eraseToAnyPublisher() }
     }
     
     public func executeBatchOperation(_ batchOperation: BatchOperation) async throws -> BatchOperation {
         var updatedBatch = batchOperation.withStatus(.running)
         batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
-        batchOperationSubject.send(updatedBatch)
+        batchOperationSubject.withValue { $0.send(updatedBatch) }
         
         // Simulate batch operation execution
         for operation in updatedBatch.operations {
@@ -311,12 +311,12 @@ public final class InMemoryBatchOperationManager: BatchOperationManaging {
             let completedOperation = operation.withStatus(.completed)
             updatedBatch = updatedBatch.withUpdatedOperation(completedOperation)
             batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
-            batchOperationSubject.send(updatedBatch)
+            batchOperationSubject.withValue { $0.send(updatedBatch) }
         }
         
         updatedBatch = updatedBatch.withStatus(.completed)
         batchOperations.withValue { $0[updatedBatch.id] = updatedBatch }
-        batchOperationSubject.send(updatedBatch)
+        batchOperationSubject.withValue { $0.send(updatedBatch) }
         
         return updatedBatch
     }
@@ -326,7 +326,7 @@ public final class InMemoryBatchOperationManager: BatchOperationManaging {
             if var batch = operations[id] {
                 batch = batch.withStatus(.cancelled)
                 operations[id] = batch
-                batchOperationSubject.send(batch)
+                batchOperationSubject.withValue { $0.send(batch) }
             }
         }
     }
