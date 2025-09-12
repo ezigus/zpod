@@ -484,7 +484,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         let episodeListLoaded = waitForAnyCondition([
             { self.app.otherElements["Episode List View"].exists },
             { self.app.otherElements["Episode Cards Container"].exists },
-            { self.app.lists["Episode List"].exists },
+            { self.app.tables["Episode List"].exists },
             { self.app.navigationBars["Episodes"].exists }
         ], timeout: adaptiveTimeout)
         
