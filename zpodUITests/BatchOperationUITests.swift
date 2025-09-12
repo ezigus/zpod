@@ -60,7 +60,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
             triggerAction: { podcast.tap() },
             expectedElements: [
                 app.otherElements["Episode List View"],
-                app.navigationBars.element(matching: .navigationBar, identifier: .any)
+                app.navigationBars.firstMatch
             ],
             timeout: adaptiveTimeout,
             description: "navigation to episode list"
@@ -107,20 +107,20 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         let selectButton = app.navigationBars.buttons["Select"]
         
         if selectButton.waitForExistence(timeout: adaptiveShortTimeout) {
-            // Use proper event-based navigation
-            let multiSelectActivated = waitForUIStateChange(
-                beforeAction: { selectButton.tap() },
-                expectedChanges: [
-                    { self.app.navigationBars.buttons["Done"].exists },
-                    { self.app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).count > 0 }
-                ],
+            // Tap the select button
+            selectButton.tap()
+            
+            // Wait for multi-select mode to activate (Done button appears)
+            let doneButton = waitForElementOrAlternatives(
+                primary: app.navigationBars.buttons["Done"],
+                alternatives: [app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).firstMatch],
                 timeout: adaptiveTimeout,
                 description: "multi-select mode activation"
             )
             
-            XCTAssertTrue(multiSelectActivated, "Multi-select mode should activate when Select button is tapped")
+            XCTAssertNotNil(doneButton, "Multi-select mode should activate when Select button is tapped")
         } else {
-            XCTSkip("Select button not available - multi-select feature not implemented yet")
+            throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
     }
     
@@ -138,79 +138,82 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
             return
         }
         
-        // Use event-based multi-select activation
-        let multiSelectActivated = waitForUIStateChange(
-            beforeAction: { self.app.buttons["Select"].tap() },
-            expectedChanges: [
-                { self.app.navigationBars.buttons["Done"].exists },
-                { self.app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).count > 0 }
-            ],
+        // Activate multi-select mode
+        app.buttons["Select"].tap()
+        
+        // Wait for multi-select mode to activate
+        let doneButton = waitForElementOrAlternatives(
+            primary: app.navigationBars.buttons["Done"],
+            alternatives: [app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).firstMatch],
             timeout: adaptiveTimeout,
             description: "multi-select mode activation"
         )
         
-        guard multiSelectActivated else {
-            XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
-            return
+        guard doneButton != nil else {
+            throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
         
-        // Select first episode using event-based detection
-        let firstEpisode = waitForAnyElement([
-            app.buttons["Episode-st-001"],
-            app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch
-        ], timeout: adaptiveShortTimeout, description: "first episode")
-        
-        guard let episode = firstEpisode else {
-            XCTSkip("No episodes available for selection")
-            return
-        }
-        
-        // Select the episode and verify selection state change
-        let episodeSelected = waitForUIStateChange(
-            beforeAction: { episode.tap() },
-            expectedChanges: [
-                { self.app.staticTexts["1 selected"].exists },
-                { self.app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1 selected'")).count > 0 }
-            ],
-            timeout: adaptiveTimeout,
-            description: "episode selection"
+        // Select first episode using alternative element detection
+        let firstEpisode = waitForElementOrAlternatives(
+            primary: app.buttons["Episode-st-001"],
+            alternatives: [app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch],
+            timeout: adaptiveShortTimeout,
+            description: "first episode"
         )
         
-        guard episodeSelected else {
-            XCTSkip("Episode selection not working - feature may not be fully implemented")
-            return
+        guard let episode = firstEpisode else {
+            throw XCTSkip("No episodes available for selection")
+        }
+        
+        // Select the episode and wait for selection confirmation
+        episode.tap()
+        
+        // Wait for selection count to update
+        let selectionConfirmed = waitForElementOrAlternatives(
+            primary: app.staticTexts["1 selected"],
+            alternatives: [app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1 selected'")).firstMatch],
+            timeout: adaptiveTimeout,
+            description: "episode selection confirmation"
+        )
+        
+        guard selectionConfirmed != nil else {
+            throw XCTSkip("Episode selection not working - feature may not be fully implemented")
         }
         
         // Look for mark as played button
-        let markPlayedButtons = [
-            app.buttons["Mark as Played"],
-            app.buttons["Played"],
-            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Played'")).firstMatch
-        ]
-        
-        let markPlayedButton = waitForAnyElement(markPlayedButtons, timeout: adaptiveShortTimeout, description: "mark as played button")
+        let markPlayedButton = waitForElementOrAlternatives(
+            primary: app.buttons["Mark as Played"],
+            alternatives: [
+                app.buttons["Played"],
+                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Played'")).firstMatch
+            ],
+            timeout: adaptiveShortTimeout,
+            description: "mark as played button"
+        )
         
         if let button = markPlayedButton {
-            // Execute mark as played action and verify state change
-            let actionCompleted = waitForUIStateChange(
-                beforeAction: { button.tap() },
-                expectedChanges: [
-                    { self.app.staticTexts["Processing..."].exists },
-                    { self.app.staticTexts["Complete"].exists },
-                    { !button.exists } // Button might disappear after action
+            // Execute mark as played action
+            button.tap()
+            
+            // Wait for action completion indicators
+            let actionCompleted = waitForElementOrAlternatives(
+                primary: app.staticTexts["Processing..."],
+                alternatives: [
+                    app.staticTexts["Complete"],
+                    app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Complete'")).firstMatch
                 ],
                 timeout: adaptiveTimeout,
-                description: "mark as played operation"
+                description: "mark as played action completion"
             )
             
             // Don't fail if the operation doesn't complete - just log
-            if actionCompleted {
+            if actionCompleted != nil {
                 print("✅ Mark as played operation appears to work")
             } else {
                 print("ℹ️ Mark as played operation triggered but completion not detected")
             }
         } else {
-            XCTSkip("Mark as Played button not found - feature not implemented yet")
+            throw XCTSkip("Mark as Played button not found - feature not implemented yet")
         }
     }
     
@@ -225,24 +228,22 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         navigateToEpisodeList()
         
         guard app.buttons["Select"].waitForExistence(timeout: adaptiveShortTimeout) else {
-            XCTSkip("Select button not available - multi-select feature not implemented yet")
-            return
+            throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
         
-        // Enter multi-select mode with event-based verification
-        let multiSelectActivated = waitForUIStateChange(
-            beforeAction: { self.app.buttons["Select"].tap() },
-            expectedChanges: [
-                { self.app.navigationBars.buttons["Done"].exists },
-                { self.app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).count > 0 }
-            ],
+        // Enter multi-select mode
+        app.buttons["Select"].tap()
+        
+        // Wait for multi-select mode to activate
+        let doneButton = waitForElementOrAlternatives(
+            primary: app.navigationBars.buttons["Done"],
+            alternatives: [app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).firstMatch],
             timeout: adaptiveTimeout,
             description: "multi-select mode activation"
         )
         
-        guard multiSelectActivated else {
-            XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
-            return
+        guard doneButton != nil else {
+            throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
         
         // Select episodes for download
@@ -266,25 +267,27 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         let downloadButton = waitForAnyElement(downloadButtons, timeout: adaptiveShortTimeout, description: "download button")
         
         if let button = downloadButton {
-            // Start download and verify operation
-            let downloadStarted = waitForUIStateChange(
-                beforeAction: { button.tap() },
-                expectedChanges: [
-                    { self.app.staticTexts["Downloading..."].exists },
-                    { self.app.progressIndicators.count > 0 },
-                    { self.app.staticTexts["Processing..."].exists }
+            // Start download and check for indicators
+            button.tap()
+            
+            // Wait for download operation indicators
+            let downloadIndicator = waitForElementOrAlternatives(
+                primary: app.staticTexts["Downloading..."],
+                alternatives: [
+                    app.progressIndicators.firstMatch,
+                    app.staticTexts["Processing..."]
                 ],
                 timeout: adaptiveTimeout,
-                description: "download operation start"
+                description: "download operation indicators"
             )
             
-            if downloadStarted {
+            if downloadIndicator != nil {
                 print("✅ Batch download operation started successfully")
             } else {
                 print("ℹ️ Download operation triggered but progress indicators not detected")
             }
         } else {
-            XCTSkip("Download button not found - batch download feature not implemented yet")
+            throw XCTSkip("Download button not found - batch download feature not implemented yet")
         }
     }
     
@@ -299,23 +302,22 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         navigateToEpisodeList()
         
         guard app.buttons["Select"].waitForExistence(timeout: adaptiveShortTimeout) else {
-            XCTSkip("Select button not available - multi-select feature not implemented yet")
-            return
+            throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
         
         // Enter multi-select mode
-        let multiSelectActivated = waitForUIStateChange(
-            beforeAction: { self.app.buttons["Select"].tap() },
-            expectedChanges: [
-                { self.app.navigationBars.buttons["Done"].exists }
-            ],
+        app.buttons["Select"].tap()
+        
+        // Wait for multi-select mode to activate
+        let doneButton = waitForElementOrAlternatives(
+            primary: app.navigationBars.buttons["Done"],
+            alternatives: [],
             timeout: adaptiveTimeout,
             description: "multi-select mode activation"
         )
         
-        guard multiSelectActivated else {
-            XCTSkip("Multi-select mode not activated")
-            return
+        guard doneButton != nil else {
+            throw XCTSkip("Multi-select mode not activated")
         }
         
         // Look for criteria selection options
@@ -328,24 +330,24 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         let criteriaButton = waitForAnyElement(criteriaButtons, timeout: adaptiveShortTimeout, description: "criteria button")
         
         if let button = criteriaButton {
-            // Use criteria selection and verify result
-            let criteriaApplied = waitForUIStateChange(
-                beforeAction: { button.tap() },
-                expectedChanges: [
-                    { self.app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).count > 0 },
-                    { self.app.pickers.count > 0 } // Criteria picker appeared
-                ],
+            // Use criteria selection
+            button.tap()
+            
+            // Wait for criteria application indicators
+            let criteriaApplied = waitForElementOrAlternatives(
+                primary: app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'selected'")).firstMatch,
+                alternatives: [app.pickers.firstMatch], // Criteria picker appeared
                 timeout: adaptiveTimeout,
                 description: "criteria selection application"
             )
             
-            if criteriaApplied {
+            if criteriaApplied != nil {
                 print("✅ Criteria-based selection appears to work")
             } else {
                 print("ℹ️ Criteria selection triggered but results not detected")
             }
         } else {
-            XCTSkip("Criteria selection button not found - feature not implemented yet")
+            throw XCTSkip("Criteria selection button not found - feature not implemented yet")
         }
     }
     

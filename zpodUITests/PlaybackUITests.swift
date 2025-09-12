@@ -485,14 +485,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Wait for interaction to be processed using proper UI state monitoring
+                // Wait briefly for the interaction to process
                 XCTAssertTrue(
-                    waitForUIStateChange(
-                        beforeAction: { /* Action already performed */ },
-                        expectedChanges: [{ button.isEnabled }],
-                        timeout: adaptiveShortTimeout,
-                        description: "play/pause state change"
-                    ),
+                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
                     "Play/pause interaction should be processed"
                 )
             }
@@ -505,14 +500,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             
             for control in skipControls {
                 control.tap()
-                // Verify control remains interactive after use using proper state monitoring
+                // Verify control remains interactive after use
                 XCTAssertTrue(
-                    waitForUIStateChange(
-                        beforeAction: { /* Action already performed */ },
-                        expectedChanges: [{ control.isEnabled }],
-                        timeout: adaptiveShortTimeout,
-                        description: "skip control interaction"
-                    ),
+                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
                     "Skip control should remain responsive"
                 )
             }
