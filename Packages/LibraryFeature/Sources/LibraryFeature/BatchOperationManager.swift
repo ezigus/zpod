@@ -55,7 +55,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     @Published public private(set) var completedBatchOperations: [BatchOperation] = []
     
     private var runningTasks: [String: Task<BatchOperation, Error>] = [:]
-    private let batchOperationSubject = PassthroughSubject<BatchOperation, Never>()
+    private let batchOperationSubject = LockIsolated<PassthroughSubject<BatchOperation, Never>>(PassthroughSubject())
     
     // Dependencies
     private let episodeStateManager: EpisodeStateManager
@@ -73,7 +73,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     }
     
     nonisolated public var batchOperationUpdates: AnyPublisher<BatchOperation, Never> {
-        batchOperationSubject.eraseToAnyPublisher()
+        batchOperationSubject.withValue { $0.eraseToAnyPublisher() }
     }
     
     public func executeBatchOperation(_ batchOperation: BatchOperation) async throws -> BatchOperation {
@@ -81,7 +81,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
         
         // Add to active operations
         activeBatchOperations.append(updatedBatch)
-        batchOperationSubject.send(updatedBatch)
+        batchOperationSubject.withValue { $0.send(updatedBatch) }
         
         // Create and store task for cancellation
         let task = Task<BatchOperation, Error> {
@@ -99,7 +99,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
             // Clean up task
             runningTasks.removeValue(forKey: updatedBatch.id)
             
-            batchOperationSubject.send(updatedBatch)
+            batchOperationSubject.withValue { $0.send(updatedBatch) }
             return updatedBatch
         } catch {
             // Handle cancellation and errors
@@ -108,7 +108,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
             completedBatchOperations.append(updatedBatch)
             runningTasks.removeValue(forKey: updatedBatch.id)
             
-            batchOperationSubject.send(updatedBatch)
+            batchOperationSubject.withValue { $0.send(updatedBatch) }
             throw error
         }
     }
@@ -125,7 +125,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
             batch = batch.withStatus(.cancelled)
             activeBatchOperations.remove(at: index)
             completedBatchOperations.append(batch)
-            batchOperationSubject.send(batch)
+            batchOperationSubject.withValue { $0.send(batch) }
         }
     }
     
@@ -158,7 +158,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
                     if let index = activeBatchOperations.firstIndex(where: { $0.id == batchOperation.id }) {
                         activeBatchOperations[index] = updatedBatch
                     }
-                    batchOperationSubject.send(updatedBatch)
+                    batchOperationSubject.withValue { $0.send(updatedBatch) }
                 }
                 
                 // Small delay to prevent overwhelming the system
@@ -173,7 +173,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
                     if let index = activeBatchOperations.firstIndex(where: { $0.id == batchOperation.id }) {
                         activeBatchOperations[index] = updatedBatch
                     }
-                    batchOperationSubject.send(updatedBatch)
+                    batchOperationSubject.withValue { $0.send(updatedBatch) }
                 }
             }
         }
