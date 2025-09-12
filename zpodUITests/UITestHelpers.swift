@@ -38,8 +38,8 @@ extension XCTestCase {
     /// Returns true if ANY significant UI change occurs, false if timeout
     @MainActor
     func waitForUIStateChange(
-        beforeAction: () -> Void,
-        expectedChanges: [() -> Bool],
+        beforeAction: @Sendable () -> Void,
+        expectedChanges: [@Sendable () -> Bool],
         timeout: TimeInterval = 10.0,
         description: String = "UI state change"
     ) -> Bool {
@@ -59,21 +59,23 @@ extension XCTestCase {
         let startTime = Date()
         
         checkTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-            // Check if any expected state changed
-            for (index, check) in expectedChanges.enumerated() {
-                if check() != initialStates[index] {
-                    print("✅ State change detected for \(description) (condition \(index))")
+            Task { @MainActor in
+                // Check if any expected state changed
+                for (index, check) in expectedChanges.enumerated() {
+                    if check() != initialStates[index] {
+                        print("✅ State change detected for \(description) (condition \(index))")
+                        expectation.fulfill()
+                        timer.invalidate()
+                        return
+                    }
+                }
+                
+                // Check timeout
+                if Date().timeIntervalSince(startTime) >= timeout {
+                    print("⚠️ Timeout waiting for \(description)")
                     expectation.fulfill()
                     timer.invalidate()
-                    return
                 }
-            }
-            
-            // Check timeout
-            if Date().timeIntervalSince(startTime) >= timeout {
-                print("⚠️ Timeout waiting for \(description)")
-                expectation.fulfill()
-                timer.invalidate()
             }
         }
         
@@ -116,14 +118,16 @@ extension XCTestCase {
             
             var checkTimer: Timer?
             checkTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
-                if !indicator.exists {
-                    print("✅ Loading indicator disappeared - loading complete")
-                    expectation.fulfill()
-                    timer.invalidate()
-                } else if Date().timeIntervalSince(startTime) >= timeout {
-                    print("⚠️ Loading timeout after \(timeout) seconds")
-                    expectation.fulfill()
-                    timer.invalidate()
+                Task { @MainActor in
+                    if !indicator.exists {
+                        print("✅ Loading indicator disappeared - loading complete")
+                        expectation.fulfill()
+                        timer.invalidate()
+                    } else if Date().timeIntervalSince(startTime) >= timeout {
+                        print("⚠️ Loading timeout after \(timeout) seconds")
+                        expectation.fulfill()
+                        timer.invalidate()
+                    }
                 }
             }
             
@@ -141,7 +145,7 @@ extension XCTestCase {
     /// Uses proper XCUITest mechanisms instead of arbitrary timing
     @MainActor
     func navigateAndWaitForResult(
-        triggerAction: () -> Void,
+        triggerAction: @Sendable () -> Void,
         expectedElements: [XCUIElement],
         timeout: TimeInterval = 10.0,
         description: String = "navigation to complete"
@@ -151,7 +155,7 @@ extension XCTestCase {
         return waitForUIStateChange(
             beforeAction: triggerAction,
             expectedChanges: expectedElements.map { element in
-                { element.exists }
+                { @Sendable in element.exists }
             },
             timeout: timeout,
             description: description
