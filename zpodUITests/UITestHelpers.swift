@@ -59,23 +59,31 @@ extension ElementWaiting {
         timeout: TimeInterval = 10.0,
         description: String = "any element"
     ) -> XCUIElement? {
+        guard !elements.isEmpty else {
+            XCTFail("No elements provided for 'waitForAnyElement' (\(description))")
+            return nil
+        }
         
-        // Quick check for existing elements first
-        for element in elements {
-            if element.exists {
+        // Fast path: something already exists
+        for element in elements where element.exists {
+            return element
+        }
+        
+        let deadline = Date().addingTimeInterval(timeout)
+        // Use short run loop advances (no sleep) to allow main run loop to process UI events
+        while Date() < deadline {
+            for element in elements where element.exists {
                 return element
             }
+            // Advance run loop minimally to avoid busy-wait; this is event-driven (no arbitrary Thread.sleep)
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
         
-        // For waiting, just check the first element with full timeout
-        // This avoids timeout accumulation and timing dependencies
-        if let firstElement = elements.first {
-            if firstElement.waitForExistence(timeout: timeout) {
-                return firstElement
-            }
-        }
-        
-        XCTFail("No elements found for '\(description)' within timeout")
+        // Collect debug info for triage
+        let debugSummaries = elements.enumerated().map { idx, el in
+            "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
+        }.joined(separator: "\n")
+        XCTFail("No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)")
         return nil
     }
 }
@@ -85,7 +93,7 @@ extension TestNavigation {
     /// Navigate and verify expected element appears using event-based detection
     func navigateAndVerify(
         action: @MainActor @escaping () -> Void,
-        expectedElement: XCUIElement, 
+        expectedElement: XCUIElement,
         description: String
     ) -> Bool {
         action()
@@ -211,7 +219,7 @@ extension XCTestCase {
         // Try multiple common container patterns used in the app
         let commonContainers = [
             "Content Container",
-            "Episode Cards Container", 
+            "Episode Cards Container",
             "Library Content",
             "Podcast List Container"
         ]
@@ -231,4 +239,75 @@ extension XCTestCase {
         return (libraryTab.exists && libraryTab.isHittable) ||
                (navigationBar.exists && navigationBar.isHittable)
     }
+    
+    /// Event-based wait for any of several potential container identifiers / element types to appear.
+    @MainActor
+    func waitForAnyContainer(
+        identifiers: [String],
+        in app: XCUIApplication,
+        elementKinds: [(XCUIApplication) -> XCUIElementQuery] = [ { $0.scrollViews }, { $0.tables }, { $0.collectionViews } ],
+        timeout: TimeInterval
+    ) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            for makeQuery in elementKinds {
+                let query = makeQuery(app)
+                for id in identifiers {
+                    let el = query[id]
+                    if el.exists { return el }
+                }
+                // Fallback: heuristic – any element whose identifier contains first token
+                if let token = identifiers.first, let heuristic = query.matching(NSPredicate(format: "identifier CONTAINS[c] %@", token)).firstMatch.optionalExists {
+                    return heuristic
+                }
+            }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        return nil
+    }
+    
+    /// Improved loading completion that actively waits (event loop advancing) until a known container appears or timeout.
+    @MainActor
+    func improvedWaitForLoading(
+        in app: XCUIApplication,
+        primaryContainerIds: [String],
+        timeout: TimeInterval
+    ) -> Bool {
+        if let found = waitForAnyContainer(identifiers: primaryContainerIds, in: app, timeout: timeout) {
+            return found.exists
+        }
+        return false
+    }
+    
+    /// Discover an episode list style container using several strategies (identifiers + content heuristics).
+    @MainActor
+    func discoverEpisodeListContainer(in app: XCUIApplication, timeout: TimeInterval) -> XCUIElement? {
+        // First try canonical identifiers
+        if let canonical = waitForAnyContainer(identifiers: ["Episode Cards Container", "Episode List", "Episodes"], in: app, timeout: timeout) {
+            return canonical
+        }
+        // Heuristic: any scroll view / table / collection containing at least one child button whose identifier starts with Episode-
+        let deadline = Date().addingTimeInterval(timeout)
+        let containers: [XCUIElementQuery] = [app.scrollViews, app.tables, app.collectionViews]
+        while Date() < deadline {
+            for query in containers {
+                let candidates = query.allElementsBoundByIndex
+                for el in candidates where el.exists {
+                    // Look for a descendant button with Episode- prefix
+                    let buttons = el.descendants(matching: .button)
+                    for i in 0..<buttons.count {
+                        let b = buttons.element(boundBy: i)
+                        if b.identifier.hasPrefix("Episode-") { return el }
+                    }
+                }
+            }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        return nil
+    }
 }
+
+private extension XCUIElement {
+    var optionalExists: XCUIElement? { exists ? self : nil }
+}
+s
