@@ -107,7 +107,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         initializeApp()
         
         // Given: I am on the Discover tab
-        XCTAssertTrue(waitForNavigationToComplete(expectedScreen: "Discover"), "Should navigate to Discover tab")
+        XCTAssertTrue(waitForElement(app.navigationBars["Discover"], timeout: adaptiveTimeout, description: "Discover navigation bar"), "Should navigate to Discover tab")
         
         // When: I look for the discovery options menu using smart discovery
         let optionsButton = findAccessibleElement(
