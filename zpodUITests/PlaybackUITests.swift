@@ -491,11 +491,26 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Verify button remains responsive after interaction - event-based check
-                XCTAssertTrue(
-                    button.waitForExistence(timeout: adaptiveShortTimeout),
-                    "Play/pause button should remain responsive after tap"
-                )
+                // Wait for playback control to be responsive using XCTestExpectation
+                let responsiveExpectation = XCTestExpectation(description: "Playback control becomes responsive")
+                
+                // Poll for responsive control using run loop scheduling instead of Thread.sleep
+                func checkForResponsiveControl() {
+                    if (app.buttons["Play"].exists && app.buttons["Play"].isHittable) || 
+                       (app.buttons["Pause"].exists && app.buttons["Pause"].isHittable) {
+                        responsiveExpectation.fulfill()
+                    } else {
+                        // Schedule next check using run loop instead of Thread.sleep
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            checkForResponsiveControl()
+                        }
+                    }
+                }
+                
+                // Start checking
+                checkForResponsiveControl()
+                
+                wait(for: [responsiveExpectation], timeout: adaptiveShortTimeout)
             }
             
             // Test skip controls with responsive validation
@@ -506,11 +521,23 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             
             for control in skipControls {
                 control.tap()
-                // Verify control remains interactive after use - event-based check
-                XCTAssertTrue(
-                    control.waitForExistence(timeout: adaptiveShortTimeout),
-                    "Skip control should remain responsive after tap"
-                )
+                
+                // Wait for control to remain responsive using XCTestExpectation
+                let controlResponsiveExpectation = XCTestExpectation(description: "\(control.identifier) control becomes responsive")
+                
+                // Poll for responsive control
+                func checkControlResponsive() {
+                    if control.exists && control.isHittable {
+                        controlResponsiveExpectation.fulfill()
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            checkControlResponsive()
+                        }
+                    }
+                }
+                
+                checkControlResponsive()
+                wait(for: [controlResponsiveExpectation], timeout: adaptiveShortTimeout)
             }
             
             // Then: All controls should work without crashing
@@ -580,14 +607,32 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             
             for (name, element) in accessibleElements {
                 if let element = element, element.exists {
-                    // Wait for element to be ready before checking accessibility properties
-                    if element.waitForExistence(timeout: adaptiveShortTimeout) {
+                    // Wait for element to be ready using XCTestExpectation
+                    let elementReadyExpectation = XCTestExpectation(description: "\(name) element ready for accessibility check")
+                    
+                    func checkElementReady() {
+                        if element.exists && element.isHittable {
+                            elementReadyExpectation.fulfill()
+                        } else {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                checkElementReady()
+                            }
+                        }
+                    }
+                    
+                    checkElementReady()
+                    
+                    do {
+                        wait(for: [elementReadyExpectation], timeout: adaptiveShortTimeout)
                         accessibilityScore += 1
                         
                         // Verify element has accessibility properties
                         if !element.label.isEmpty || element.isHittable {
                             accessibilityScore += 1
                         }
+                    } catch {
+                        // Element not ready in time, continue with other elements
+                        continue
                     }
                 }
             }
