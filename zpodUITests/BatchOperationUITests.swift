@@ -96,16 +96,40 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         
         libraryTab.tap()
         
-        // Event-based loading wait using XCTestExpectation
+        // Event-based loading wait using direct XCTestExpectation
         let loadingCompleteExpectation = XCTestExpectation(description: "Loading completes")
         
         func checkLoadingComplete() {
-            if waitForLoadingToComplete(in: app, timeout: 0.1) {
-                loadingCompleteExpectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    checkLoadingComplete()
+            // Check directly for containers without nested calls
+            let commonContainers = [
+                "Content Container",
+                "Episode Cards Container", 
+                "Library Content",
+                "Podcast List Container"
+            ]
+            
+            // Check if any common container appears
+            for containerIdentifier in commonContainers {
+                let container = app.scrollViews[containerIdentifier]
+                if container.exists {
+                    loadingCompleteExpectation.fulfill()
+                    return
                 }
+            }
+            
+            // Fallback: check if main navigation elements are present
+            let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+            let navigationBar = app.navigationBars.firstMatch
+            
+            if (libraryTab.exists && libraryTab.isHittable) ||
+               (navigationBar.exists && navigationBar.isHittable) {
+                loadingCompleteExpectation.fulfill()
+                return
+            }
+            
+            // Schedule next check
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                checkLoadingComplete()
             }
         }
         
