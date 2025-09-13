@@ -67,14 +67,17 @@ extension ElementWaiting {
             }
         }
         
-        // Use XCUITest's native waiting - simple and effective
+        // For waiting, use a shorter timeout per element but reasonable total
+        // This prevents excessive waiting while still being thorough
+        let shortTimeout = min(timeout / 2, 3.0) // Max 3 seconds per element, or half total timeout
+        
         for element in elements {
-            if element.waitForExistence(timeout: timeout) {
+            if element.waitForExistence(timeout: shortTimeout) {
                 return element
             }
         }
         
-        XCTFail("No elements found for '\(description)' within \(timeout) seconds")
+        XCTFail("No elements found for '\(description)' within timeout")
         return nil
     }
 }
