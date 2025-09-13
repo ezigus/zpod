@@ -52,14 +52,24 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
             return
         }
         
-        // Navigate to episode list with native event verification
+        // Navigate to episode list with event verification using XCTestExpectation
         podcast.tap()
         
-        // Verify navigation with immediate failure on timeout
-        XCTAssertTrue(
-            app.otherElements["Episode List View"].waitForExistence(timeout: adaptiveTimeout),
-            "Episode list view should appear after navigation - timeout means navigation failed"
-        )
+        // Verify navigation using XCTestExpectation
+        let episodeListExpectation = XCTestExpectation(description: "Episode list view appears")
+        
+        func checkEpisodeListAppears() {
+            if app.otherElements["Episode List View"].exists {
+                episodeListExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkEpisodeListAppears()
+                }
+            }
+        }
+        
+        checkEpisodeListAppears()
+        wait(for: [episodeListExpectation], timeout: adaptiveTimeout)
     }
     
     // MARK: - Event-Based Navigation Helper
@@ -67,13 +77,42 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     @MainActor
     private func navigateToEpisodeList() {
         let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
-        XCTAssertTrue(libraryTab.waitForExistence(timeout: adaptiveShortTimeout), "Library tab must exist")
+        
+        // Wait for library tab using XCTestExpectation
+        let libraryTabExpectation = XCTestExpectation(description: "Library tab exists")
+        
+        func checkLibraryTabExists() {
+            if libraryTab.exists && libraryTab.isHittable {
+                libraryTabExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkLibraryTabExists()
+                }
+            }
+        }
+        
+        checkLibraryTabExists()
+        wait(for: [libraryTabExpectation], timeout: adaptiveShortTimeout)
+        
         libraryTab.tap()
         
-        // Event-based loading wait - FAIL immediately if timeout
-        XCTAssertTrue(waitForLoadingToComplete(in: app, timeout: adaptiveTimeout), "Loading must complete within timeout")
+        // Event-based loading wait using XCTestExpectation
+        let loadingCompleteExpectation = XCTestExpectation(description: "Loading completes")
         
-        // Find and tap podcast with native event-based waiting
+        func checkLoadingComplete() {
+            if waitForLoadingToComplete(in: app, timeout: 0.1) {
+                loadingCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    checkLoadingComplete()
+                }
+            }
+        }
+        
+        checkLoadingComplete()
+        wait(for: [loadingCompleteExpectation], timeout: adaptiveTimeout)
+        
+        // Find and tap podcast with event-based waiting
         let podcastButton = waitForAnyElement([
             app.buttons["Podcast-swift-talk"],
             app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Podcast'")).firstMatch
@@ -86,11 +125,21 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         
         podcast.tap()
         
-        // Verify navigation with immediate failure on timeout
-        XCTAssertTrue(
-            app.otherElements["Episode List View"].waitForExistence(timeout: adaptiveTimeout),
-            "Episode list view must appear after navigation - timeout means test failure"
-        )
+        // Verify navigation using XCTestExpectation
+        let navigationCompleteExpectation = XCTestExpectation(description: "Navigation to episode list completes")
+        
+        func checkNavigationComplete() {
+            if app.otherElements["Episode List View"].exists {
+                navigationCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkNavigationComplete()
+                }
+            }
+        }
+        
+        checkNavigationComplete()
+        wait(for: [navigationCompleteExpectation], timeout: adaptiveTimeout)
     }
     
     // MARK: - Multi-Select Mode Tests (Event-Based)
@@ -104,19 +153,46 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         // When: I try to enter multi-select mode
         let selectButton = app.navigationBars.buttons["Select"]
         
-        guard selectButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+        // Check if select button is available using XCTestExpectation
+        let selectButtonExpectation = XCTestExpectation(description: "Select button available")
+        
+        func checkSelectButtonAvailable() {
+            if selectButton.exists && selectButton.isHittable {
+                selectButtonExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkSelectButtonAvailable()
+                }
+            }
+        }
+        
+        checkSelectButtonAvailable()
+        
+        do {
+            wait(for: [selectButtonExpectation], timeout: adaptiveShortTimeout)
+        } catch {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
         
         // Tap the select button
         selectButton.tap()
         
-        // Wait for multi-select mode using native event detection - timeout = failure
-        let doneButton = app.navigationBars.buttons["Done"]
-        XCTAssertTrue(
-            doneButton.waitForExistence(timeout: adaptiveTimeout),
-            "Done button must appear when entering multi-select mode - timeout means feature not working"
-        )
+        // Wait for multi-select mode using XCTestExpectation
+        let multiSelectModeExpectation = XCTestExpectation(description: "Multi-select mode activates")
+        
+        func checkMultiSelectModeActive() {
+            let doneButton = app.navigationBars.buttons["Done"]
+            if doneButton.exists && doneButton.isHittable {
+                multiSelectModeExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkMultiSelectModeActive()
+                }
+            }
+        }
+        
+        checkMultiSelectModeActive()
+        wait(for: [multiSelectModeExpectation], timeout: adaptiveTimeout)
     }
     
     @MainActor
@@ -127,16 +203,48 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         initializeApp()
         navigateToEpisodeList()
         
-        // When: I try to enter multi-select mode
-        guard app.buttons["Select"].waitForExistence(timeout: adaptiveShortTimeout) else {
+        // When: I try to enter multi-select mode - check availability with XCTestExpectation
+        let selectButtonAvailableExpectation = XCTestExpectation(description: "Select button available")
+        
+        func checkSelectButtonAvailable() {
+            if app.buttons["Select"].exists && app.buttons["Select"].isHittable {
+                selectButtonAvailableExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkSelectButtonAvailable()
+                }
+            }
+        }
+        
+        checkSelectButtonAvailable()
+        
+        do {
+            wait(for: [selectButtonAvailableExpectation], timeout: adaptiveShortTimeout)
+        } catch {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
         
         // Activate multi-select mode
         app.buttons["Select"].tap()
         
-        // Wait for multi-select mode using native waiting - timeout = failure
-        guard app.navigationBars.buttons["Done"].waitForExistence(timeout: adaptiveTimeout) else {
+        // Wait for multi-select mode using XCTestExpectation
+        let multiSelectActivatedExpectation = XCTestExpectation(description: "Multi-select mode activated")
+        
+        func checkMultiSelectActivated() {
+            if app.navigationBars.buttons["Done"].exists && app.navigationBars.buttons["Done"].isHittable {
+                multiSelectActivatedExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkMultiSelectActivated()
+                }
+            }
+        }
+        
+        checkMultiSelectActivated()
+        
+        do {
+            wait(for: [multiSelectActivatedExpectation], timeout: adaptiveTimeout)
+        } catch {
             throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
         
@@ -150,12 +258,28 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
             throw XCTSkip("No episodes available for selection")
         }
         
-        // Select the episode and wait for confirmation using native detection
+        // Select the episode and wait for confirmation using XCTestExpectation
         episode.tap()
         
-        // Check for selection confirmation - allow test to fail on timeout
-        let selectionText = app.staticTexts["1 selected"]
-        if !selectionText.waitForExistence(timeout: adaptiveTimeout) {
+        // Check for selection confirmation using XCTestExpectation
+        let selectionConfirmationExpectation = XCTestExpectation(description: "Episode selection confirmed")
+        
+        func checkSelectionConfirmation() {
+            let selectionText = app.staticTexts["1 selected"]
+            if selectionText.exists {
+                selectionConfirmationExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkSelectionConfirmation()
+                }
+            }
+        }
+        
+        checkSelectionConfirmation()
+        
+        do {
+            wait(for: [selectionConfirmationExpectation], timeout: adaptiveTimeout)
+        } catch {
             throw XCTSkip("Episode selection not working - feature may not be fully implemented")
         }
         

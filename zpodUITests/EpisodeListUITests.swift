@@ -110,11 +110,22 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         episodeCardsContainer.swipeUp()
         
         // Then: The list should scroll smoothly without crashes
-        // Verify scroll completed by checking container remains accessible
-        XCTAssertTrue(
-            episodeCardsContainer.waitForExistence(timeout: adaptiveShortTimeout),
-            "Episode container should remain accessible after scrolling"
-        )
+        // Wait for scroll animation to complete using XCTestExpectation
+        let scrollCompleteExpectation = XCTestExpectation(description: "Scroll animation completes")
+        
+        func checkScrollCompleted() {
+            if episodeCardsContainer.exists && episodeCardsContainer.isHittable {
+                scrollCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkScrollCompleted()
+                }
+            }
+        }
+        
+        checkScrollCompleted()
+        wait(for: [scrollCompleteExpectation], timeout: adaptiveShortTimeout)
+        
         XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after scrolling")
     }
     
@@ -240,11 +251,22 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         }
         
         // Then: The refresh should complete without errors
-        // Verify refresh completed by checking container accessibility
-        XCTAssertTrue(
-            episodeCardsContainer.waitForExistence(timeout: adaptiveShortTimeout),
-            "Episode container should remain accessible after pull-to-refresh"
-        )
+        // Wait for refresh animation to complete using XCTestExpectation
+        let refreshCompleteExpectation = XCTestExpectation(description: "Refresh animation completes")
+        
+        func checkRefreshCompleted() {
+            if episodeCardsContainer.exists && episodeCardsContainer.isHittable {
+                refreshCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkRefreshCompleted()
+                }
+            }
+        }
+        
+        checkRefreshCompleted()
+        wait(for: [refreshCompleteExpectation], timeout: adaptiveShortTimeout)
+        
         XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after refresh")
     }
     
@@ -308,7 +330,21 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         )
         
         if let episode = firstEpisode {
-            XCTAssertTrue(episode.waitForExistence(timeout: adaptiveShortTimeout), "Episode buttons should be accessible")
+            // Wait for episode element to be ready for accessibility testing using XCTestExpectation
+            let accessibilityReadyExpectation = XCTestExpectation(description: "Episode element ready for accessibility")
+            
+            func checkAccessibilityReady() {
+                if episode.exists && episode.isHittable {
+                    accessibilityReadyExpectation.fulfill()
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        checkAccessibilityReady()
+                    }
+                }
+            }
+            
+            checkAccessibilityReady()
+            wait(for: [accessibilityReadyExpectation], timeout: adaptiveShortTimeout)
         } else {
             // Fallback check for any accessible episode buttons
             let episodeButtons = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
