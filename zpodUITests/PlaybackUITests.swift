@@ -416,8 +416,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Then: Controls should be in logical order for VoiceOver
         for control in playbackControls {
+            // Ensure control is ready before checking accessibility - event-based check
+            XCTAssertTrue(control.waitForExistence(timeout: adaptiveShortTimeout), "Control should exist and be ready")
             // XCUIElement doesn't reliably expose isAccessibilityElement; check for hittable and label
-            XCTAssertTrue(control.isHittable, "Playback control should be accessible to VoiceOver")
+            XCTAssertTrue(control.isHittable, "Playbook control should be accessible to VoiceOver")
             XCTAssertTrue(hasNonEmptyLabel(control), "Control should have descriptive label")
         }
     }
@@ -489,9 +491,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Verify button remains responsive after interaction
+                // Verify button remains responsive after interaction - event-based check
                 XCTAssertTrue(
-                    button.isHittable,
+                    button.waitForExistence(timeout: adaptiveShortTimeout),
                     "Play/pause button should remain responsive after tap"
                 )
             }
@@ -504,9 +506,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             
             for control in skipControls {
                 control.tap()
-                // Verify control remains interactive after use
+                // Verify control remains interactive after use - event-based check
                 XCTAssertTrue(
-                    control.isHittable,
+                    control.waitForExistence(timeout: adaptiveShortTimeout),
                     "Skip control should remain responsive after tap"
                 )
             }
@@ -578,11 +580,14 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             
             for (name, element) in accessibleElements {
                 if let element = element, element.exists {
-                    accessibilityScore += 1
-                    
-                    // Verify element has accessibility properties
-                    if !element.label.isEmpty || element.isHittable {
+                    // Wait for element to be ready before checking accessibility properties
+                    if element.waitForExistence(timeout: adaptiveShortTimeout) {
                         accessibilityScore += 1
+                        
+                        // Verify element has accessibility properties
+                        if !element.label.isEmpty || element.isHittable {
+                            accessibilityScore += 1
+                        }
                     }
                 }
             }
