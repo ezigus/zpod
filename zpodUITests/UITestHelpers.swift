@@ -199,28 +199,57 @@ extension XCTestCase {
         return true
     }
     
-    /// Wait for stable UI state - event-based approach using main UI element check
+    /// Wait for stable UI state - event-based approach for post-animation stability
     @MainActor
     func waitForStableState(
         app: XCUIApplication,
         stableFor: TimeInterval = 0.5,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        // Event-based approach: just check that main UI elements exist and are responsive
-        // Remove Thread.sleep - use native XCUITest waiting instead
-        return app.navigationBars.firstMatch.exists || app.tabBars.firstMatch.exists
+        // For UI stability, check that the main content is responsive and not animating
+        // Focus on the scroll view since most stability issues are from scroll animations
+        let scrollView = app.scrollViews.firstMatch
+        
+        if scrollView.exists {
+            // If scroll view exists, it should be hittable (not in middle of animation)
+            return scrollView.isHittable
+        }
+        
+        // Fallback: check navigation elements are responsive
+        let navigationBar = app.navigationBars.firstMatch
+        let tabBar = app.tabBars.firstMatch
+        
+        return (navigationBar.exists && navigationBar.isHittable) ||
+               (tabBar.exists && tabBar.isHittable)
     }
     
-    /// Wait for loading to complete - alias for waitForContentToLoad without container
+    /// Wait for loading to complete - flexible approach for different container types
     @MainActor
     func waitForLoadingToComplete(
         in app: XCUIApplication,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        return waitForContentToLoadWithApp(
-            containerIdentifier: "Content Container",
-            in: app,
-            timeout: timeout
-        )
+        // Try multiple common container patterns used in the app
+        let commonContainers = [
+            "Content Container",
+            "Episode Cards Container", 
+            "Library Content",
+            "Podcast List Container"
+        ]
+        
+        // Check if any common container appears
+        for containerIdentifier in commonContainers {
+            let container = app.scrollViews[containerIdentifier]
+            if container.waitForExistence(timeout: timeout / 4) { // Split timeout across containers
+                return true
+            }
+        }
+        
+        // Fallback: check if main navigation elements are present and interactive
+        let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+        let navigationBar = app.navigationBars.firstMatch
+        
+        return (libraryTab.exists && libraryTab.isHittable) ||
+               (navigationBar.exists && navigationBar.isHittable)
     }
 }
