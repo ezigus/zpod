@@ -179,23 +179,7 @@ extension XCTestCase {
         in app: XCUIApplication,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        
-        // First wait for loading indicators to disappear
-        let loadingIndicators = [
-            app.otherElements["Loading View"],
-            app.activityIndicators.firstMatch,
-            app.staticTexts["Loading..."]
-        ]
-        
-        // Wait for loading to complete (indicators to disappear)
-        let startTime = Date()
-        while Date().timeIntervalSince(startTime) < timeout {
-            let anyLoading = loadingIndicators.contains { $0.exists }
-            if !anyLoading { break }
-            Thread.sleep(forTimeInterval: 0.1) // Brief check interval
-        }
-        
-        // Then wait for content container
+        // Wait for content container directly using event-based approach
         let container = app.scrollViews[containerIdentifier]
         guard container.waitForExistence(timeout: timeout) else {
             return false
@@ -215,19 +199,16 @@ extension XCTestCase {
         return true
     }
     
-    /// Wait for stable UI state - ensures animations complete
+    /// Wait for stable UI state - event-based approach using main UI element check
     @MainActor
     func waitForStableState(
         app: XCUIApplication,
         stableFor: TimeInterval = 0.5,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        let stabilityCheck = Date()
-        
-        // Give a brief moment for UI to stabilize
-        Thread.sleep(forTimeInterval: stableFor)
-        
-        return Date().timeIntervalSince(stabilityCheck) >= stableFor
+        // Event-based approach: just check that main UI elements exist and are responsive
+        // Remove Thread.sleep - use native XCUITest waiting instead
+        return app.navigationBars.firstMatch.exists || app.tabBars.firstMatch.exists
     }
     
     /// Wait for loading to complete - alias for waitForContentToLoad without container
