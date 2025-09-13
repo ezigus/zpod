@@ -2,10 +2,11 @@ import Foundation
 import SwiftUI
 import CoreModels
 import Persistence
+import Combine
 
 // MARK: - Episode List View Model
 
-/// View model for episode list with filtering and sorting
+/// View model for episode list with filtering, sorting, and batch operations
 @MainActor
 public final class EpisodeListViewModel: ObservableObject {
     @Published public private(set) var filteredEpisodes: [Episode] = []
@@ -14,24 +15,38 @@ public final class EpisodeListViewModel: ObservableObject {
     @Published public private(set) var searchText = ""
     @Published public var showingFilterSheet = false
     
+    // Batch operation properties
+    @Published public private(set) var selectionState = EpisodeSelectionState()
+    @Published public private(set) var activeBatchOperations: [BatchOperation] = []
+    @Published public var showingBatchOperationSheet = false
+    @Published public var showingPlaylistSelectionSheet = false
+    @Published public var showingSelectionCriteriaSheet = false
+    
     private let podcast: Podcast
     private let filterService: EpisodeFilterService
     private let filterManager: EpisodeFilterManager?
+    private let batchOperationManager: BatchOperationManaging
+    private var cancellables = Set<AnyCancellable>()
     private var allEpisodes: [Episode] = []
     
     public init(
         podcast: Podcast,
         filterService: EpisodeFilterService = DefaultEpisodeFilterService(),
-        filterManager: EpisodeFilterManager? = nil
+        filterManager: EpisodeFilterManager? = nil,
+        batchOperationManager: BatchOperationManaging = InMemoryBatchOperationManager()
     ) {
         self.podcast = podcast
         self.filterService = filterService
         self.filterManager = filterManager
+        self.batchOperationManager = batchOperationManager
         self.allEpisodes = podcast.episodes
         
         // Load saved filter for this podcast
         loadInitialFilter()
         applyCurrentFilter()
+        
+        // Subscribe to batch operation updates
+        setupBatchOperationSubscription()
     }
     
     // MARK: - Public Methods
@@ -82,6 +97,103 @@ public final class EpisodeListViewModel: ObservableObject {
         updateEpisode(episode.withRating(rating))
     }
     
+    // MARK: - Batch Operation Methods
+    
+    public func enterMultiSelectMode() {
+        selectionState.enterMultiSelectMode()
+    }
+    
+    public func exitMultiSelectMode() {
+        selectionState.exitMultiSelectMode()
+    }
+    
+    public func toggleEpisodeSelection(_ episode: Episode) {
+        selectionState.toggleSelection(for: episode.id)
+    }
+    
+    public func selectAllEpisodes() {
+        let episodeIDs = filteredEpisodes.map { $0.id }
+        selectionState.selectAll(episodeIDs: episodeIDs)
+    }
+    
+    public func selectNone() {
+        selectionState.selectNone()
+    }
+    
+    public func invertSelection() {
+        let allEpisodeIDs = filteredEpisodes.map { $0.id }
+        selectionState.invertSelection(allEpisodeIDs: allEpisodeIDs)
+    }
+    
+    public func selectEpisodesByCriteria(_ criteria: EpisodeSelectionCriteria) {
+        let matchingEpisodes = filteredEpisodes.filter { criteria.matches(episode: $0) }
+        let episodeIDs = matchingEpisodes.map { $0.id }
+        selectionState.selectAll(episodeIDs: episodeIDs)
+    }
+    
+    public func executeBatchOperation(_ operationType: BatchOperationType, playlistID: String? = nil) async {
+        guard selectionState.hasSelection else { return }
+        
+        let selectedEpisodeIDs = Array(selectionState.selectedEpisodeIDs)
+        let batchOperation = BatchOperation(
+            operationType: operationType,
+            episodeIDs: selectedEpisodeIDs,
+            playlistID: playlistID
+        )
+        
+        do {
+            let _ = try await batchOperationManager.executeBatchOperation(batchOperation)
+            // Operation completed successfully
+            exitMultiSelectMode()
+        } catch {
+            // Handle error - in a real implementation, this would show an error message
+            print("Batch operation failed: \(error)")
+        }
+    }
+    
+    public func cancelBatchOperation(_ operationID: String) async {
+        await batchOperationManager.cancelBatchOperation(id: operationID)
+    }
+    
+    public var selectedEpisodes: [Episode] {
+        return filteredEpisodes.filter { selectionState.isSelected($0.id) }
+    }
+    
+    public var isEpisodeSelected: (String) -> Bool {
+        return { [weak self] episodeID in
+            self?.selectionState.isSelected(episodeID) ?? false
+        }
+    }
+    
+    public var hasActiveSelection: Bool {
+        return selectionState.hasSelection
+    }
+    
+    public var selectedCount: Int {
+        return selectionState.selectedCount
+    }
+    
+    public var isInMultiSelectMode: Bool {
+        return selectionState.isMultiSelectMode
+    }
+    
+    
+    public var availableBatchOperations: [BatchOperationType] {
+        return [
+            .download,
+            .markAsPlayed,
+            .markAsUnplayed,
+            .addToPlaylist,
+            .favorite,
+            .unfavorite,
+            .bookmark,
+            .unbookmark,
+            .archive,
+            .share,
+            .delete
+        ]
+    }
+    
     // MARK: - Episode Status Helpers
     
     public var hasActiveFilters: Bool {
@@ -108,6 +220,34 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
+    
+    
+    private func setupBatchOperationSubscription() {
+        batchOperationManager.batchOperationUpdates
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] batchOperation in
+                self?.updateBatchOperation(batchOperation)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func updateBatchOperation(_ batchOperation: BatchOperation) {
+        if let index = activeBatchOperations.firstIndex(where: { $0.id == batchOperation.id }) {
+            activeBatchOperations[index] = batchOperation
+        } else if batchOperation.status == .running {
+            activeBatchOperations.append(batchOperation)
+        }
+        
+        // Remove completed operations after a delay
+        if batchOperation.status == .completed || batchOperation.status == .failed || batchOperation.status == .cancelled {
+            Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+                await MainActor.run {
+                    activeBatchOperations.removeAll { $0.id == batchOperation.id }
+                }
+            }
+        }
+    }
     
     private func loadInitialFilter() {
         if let filterManager = filterManager {

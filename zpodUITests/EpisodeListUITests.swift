@@ -41,9 +41,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // When: I tap on a podcast using smart navigation
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let podcastButton = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let podcastButton = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Podcast-swift-talk",
                     byPartialLabel: "swift-talk",
                     ofType: .button
@@ -109,11 +109,23 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         // When: I scroll through the episode list
         episodeCardsContainer.swipeUp()
         
-        // Then: The list should scroll smoothly without crashes using stability check
-        XCTAssertTrue(
-            waitForStableState(app: app, stableFor: 0.3, timeout: adaptiveShortTimeout),
-            "App should remain stable after scrolling"
-        )
+        // Then: The list should scroll smoothly without crashes
+        // Wait for scroll animation to complete using XCTestExpectation
+        let scrollCompleteExpectation = XCTestExpectation(description: "Scroll animation completes")
+        
+        func checkScrollCompleted() {
+            if episodeCardsContainer.exists && episodeCardsContainer.isHittable {
+                scrollCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkScrollCompleted()
+                }
+            }
+        }
+        
+        checkScrollCompleted()
+        wait(for: [scrollCompleteExpectation], timeout: adaptiveShortTimeout)
+        
         XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after scrolling")
     }
     
@@ -136,9 +148,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // When: I tap on an episode using smart navigation
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let firstEpisode = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let firstEpisode = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Episode-st-001",
                     byPartialLabel: "st-001",
                     ofType: .button
@@ -238,11 +250,23 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
             startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
         }
         
-        // Then: The refresh should complete without errors using stability check
-        XCTAssertTrue(
-            waitForStableState(app: app, stableFor: 0.5, timeout: adaptiveTimeout),
-            "App should remain stable after pull-to-refresh"
-        )
+        // Then: The refresh should complete without errors
+        // Wait for refresh animation to complete using XCTestExpectation
+        let refreshCompleteExpectation = XCTestExpectation(description: "Refresh animation completes")
+        
+        func checkRefreshCompleted() {
+            if episodeCardsContainer.exists && episodeCardsContainer.isHittable {
+                refreshCompleteExpectation.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    checkRefreshCompleted()
+                }
+            }
+        }
+        
+        checkRefreshCompleted()
+        wait(for: [refreshCompleteExpectation], timeout: adaptiveShortTimeout)
+        
         XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should still exist after refresh")
     }
     
@@ -306,7 +330,21 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         )
         
         if let episode = firstEpisode {
-            XCTAssertTrue(episode.isHittable, "Episode buttons should be accessible")
+            // Wait for episode element to be ready for accessibility testing using XCTestExpectation
+            let accessibilityReadyExpectation = XCTestExpectation(description: "Episode element ready for accessibility")
+            
+            func checkAccessibilityReady() {
+                if episode.exists && episode.isHittable {
+                    accessibilityReadyExpectation.fulfill()
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        checkAccessibilityReady()
+                    }
+                }
+            }
+            
+            checkAccessibilityReady()
+            wait(for: [accessibilityReadyExpectation], timeout: adaptiveShortTimeout)
         } else {
             // Fallback check for any accessible episode buttons
             let episodeButtons = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
@@ -346,9 +384,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // Navigate to podcast using smart navigation pattern
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let podcastButton = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let podcastButton = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Podcast-\(podcastId)",
                     byPartialLabel: podcastId,
                     ofType: .button

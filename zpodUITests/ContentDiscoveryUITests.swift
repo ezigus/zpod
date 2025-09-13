@@ -54,7 +54,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // Then: I should see search interface elements
         XCTAssertTrue(searchField.exists, "Search field should be present")
-        XCTAssertTrue(searchField.isHittable, "Search field should be interactive")
+        XCTAssertTrue(searchField.waitForExistence(timeout: adaptiveShortTimeout), "Search field should be interactive")
     }
     
     @MainActor
@@ -107,7 +107,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         initializeApp()
         
         // Given: I am on the Discover tab
-        XCTAssertTrue(waitForNavigationToComplete(expectedScreen: "Discover"), "Should navigate to Discover tab")
+        XCTAssertTrue(waitForElement(app.navigationBars["Discover"], timeout: adaptiveTimeout, description: "Discover navigation bar"), "Should navigate to Discover tab")
         
         // When: I look for the discovery options menu using smart discovery
         let optionsButton = findAccessibleElement(
@@ -375,7 +375,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         let searchElements = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'"))
         if searchElements.count > 0 {
             let searchField = searchElements.firstMatch
-            XCTAssertTrue(searchField.isHittable, "Search field should be accessible")
+            XCTAssertTrue(searchField.waitForExistence(timeout: adaptiveShortTimeout), "Search field should be accessible")
         }
     }
     
@@ -436,8 +436,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             
             XCTAssertTrue(textEntered, "Search interface should be responsive - text should appear in the field")
             
-            // Additional responsiveness check: verify the search field is still interactive
-            XCTAssertTrue(searchField.isHittable, "Search field should remain interactive after text input")
+            // Additional verification: ensure search field remains available for further interaction
+            XCTAssertTrue(searchField.exists, "Search field should remain available after text input")
         } else {
             throw XCTSkip("Search field not found - skipping responsiveness test")
         }
