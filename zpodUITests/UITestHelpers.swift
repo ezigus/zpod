@@ -90,6 +90,45 @@ extension TestNavigation {
         action()
         return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
     }
+    
+    /// Navigate and wait for any of multiple elements to appear - used by test files
+    func navigateAndWaitForResult(
+        triggerAction: @MainActor @escaping () -> Void,
+        expectedElements: [XCUIElement],
+        timeout: TimeInterval = 10.0,
+        description: String
+    ) -> Bool {
+        triggerAction()
+        
+        // Use waitForAnyElement to check for any of the expected elements
+        let foundElement = waitForAnyElement(expectedElements, timeout: timeout, description: description)
+        return foundElement != nil
+    }
+}
+
+// MARK: - Smart UI Testing Extensions
+
+extension SmartUITesting where Self: XCTestCase {
+    
+    /// Wait for content to load - assumes test class has `app` property
+    @MainActor
+    func waitForContentToLoad(
+        containerIdentifier: String,
+        itemIdentifiers: [String] = [],
+        timeout: TimeInterval = 10.0
+    ) -> Bool {
+        guard let app = self.value(forKey: "app") as? XCUIApplication else {
+            XCTFail("Test class must have an 'app' property of type XCUIApplication")
+            return false
+        }
+        
+        return waitForContentToLoadWithApp(
+            containerIdentifier: containerIdentifier,
+            itemIdentifiers: itemIdentifiers,
+            in: app,
+            timeout: timeout
+        )
+    }
 }
 
 // MARK: - Utility Extensions for Common Patterns
@@ -134,7 +173,7 @@ extension XCTestCase {
     
     /// Wait for content to load with event-based detection
     @MainActor
-    func waitForContentToLoad(
+    func waitForContentToLoadWithApp(
         containerIdentifier: String,
         itemIdentifiers: [String] = [],
         in app: XCUIApplication,
@@ -197,7 +236,7 @@ extension XCTestCase {
         in app: XCUIApplication,
         timeout: TimeInterval = 10.0
     ) -> Bool {
-        return waitForContentToLoad(
+        return waitForContentToLoadWithApp(
             containerIdentifier: "Content Container",
             in: app,
             timeout: timeout
