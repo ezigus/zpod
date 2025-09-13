@@ -22,12 +22,12 @@ protocol UITestFoundation {
 }
 
 /// Protocol for navigation testing - Swift 6 concurrency compliant with MainActor
-@MainActor protocol TestNavigation: UITestFoundation {
+@MainActor protocol TestNavigation: ElementWaiting {
     func navigateAndVerify(action: @MainActor @escaping () -> Void, expectedElement: XCUIElement, description: String) -> Bool
 }
 
 /// Composite protocol for smart UI testing - this is what test classes should conform to
-@MainActor protocol SmartUITesting: UITestFoundation, ElementWaiting, TestNavigation {}
+@MainActor protocol SmartUITesting: TestNavigation {}
 
 // MARK: - Default Implementation
 
