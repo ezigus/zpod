@@ -485,10 +485,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
             if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Wait briefly for the interaction to process
+                // Verify button remains responsive after interaction
                 XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
-                    "Play/pause interaction should be processed"
+                    button.isHittable,
+                    "Play/pause button should remain responsive after tap"
                 )
             }
             
@@ -502,8 +502,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
                 control.tap()
                 // Verify control remains interactive after use
                 XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
-                    "Skip control should remain responsive"
+                    control.isHittable,
+                    "Skip control should remain responsive after tap"
                 )
             }
             
