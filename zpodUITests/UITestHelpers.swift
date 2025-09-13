@@ -2,7 +2,7 @@
 //  UITestHelpers.swift
 //  zpodUITests
 //
-//  Protocol-driven event-based UI testing architecture
+//  Protocol-driven event-based UI testing architecture with Swift 6 concurrency compliance
 //
 
 import XCTest
@@ -15,15 +15,15 @@ protocol UITestFoundation {
     var adaptiveShortTimeout: TimeInterval { get }
 }
 
-/// Protocol for element waiting capabilities
+/// Protocol for element waiting capabilities - Swift 6 concurrency compliant
 protocol ElementWaiting: UITestFoundation {
     func waitForElement(_ element: XCUIElement, timeout: TimeInterval, description: String) -> Bool
     func waitForAnyElement(_ elements: [XCUIElement], timeout: TimeInterval, description: String) -> XCUIElement?
 }
 
-/// Protocol for navigation testing
+/// Protocol for navigation testing - Swift 6 concurrency compliant
 protocol TestNavigation: UITestFoundation {
-    func navigateAndVerify(action: @MainActor () -> Void, expectedElement: XCUIElement, description: String) -> Bool
+    func navigateAndVerify(action: () -> Void, expectedElement: XCUIElement, description: String) -> Bool
 }
 
 /// Composite protocol for smart UI testing - this is what test classes should conform to
@@ -44,9 +44,16 @@ extension UITestFoundation {
 extension ElementWaiting {
     
     /// Core event-based element waiting using XCUITest's native mechanisms
-    @MainActor
     func waitForElement(_ element: XCUIElement, timeout: TimeInterval = 10.0, description: String) -> Bool {
-        let success = element.waitForExistence(timeout: timeout)
+        let success: Bool
+        if Thread.isMainThread {
+            success = element.waitForExistence(timeout: timeout)
+        } else {
+            success = DispatchQueue.main.sync {
+                element.waitForExistence(timeout: timeout)
+            }
+        }
+        
         if !success {
             XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
         }
@@ -54,42 +61,60 @@ extension ElementWaiting {
     }
     
     /// Wait for any of multiple elements using native XCUITest event detection
-    @MainActor
     func waitForAnyElement(
         _ elements: [XCUIElement],
         timeout: TimeInterval = 10.0,
         description: String = "any element"
     ) -> XCUIElement? {
-        // Quick check for existing elements
-        for element in elements {
-            if element.exists {
-                return element
+        
+        let checkAndWait: () -> XCUIElement? = {
+            // Quick check for existing elements
+            for element in elements {
+                if element.exists {
+                    return element
+                }
             }
+            
+            // Use XCUITest's native waiting - simple and effective
+            for element in elements {
+                if element.waitForExistence(timeout: timeout) {
+                    return element
+                }
+            }
+            return nil
         }
         
-        // Use XCUITest's native waiting - simple and effective
-        for element in elements {
-            if element.waitForExistence(timeout: timeout) {
-                return element
-            }
+        let result: XCUIElement?
+        if Thread.isMainThread {
+            result = checkAndWait()
+        } else {
+            result = DispatchQueue.main.sync(execute: checkAndWait)
         }
         
-        XCTFail("No elements found for '\(description)' within \(timeout) seconds")
-        return nil
+        if result == nil {
+            XCTFail("No elements found for '\(description)' within \(timeout) seconds")
+        }
+        return result
     }
 }
 
 extension TestNavigation {
     
     /// Navigate and verify expected element appears using event-based detection
-    @MainActor
     func navigateAndVerify(
-        action: @MainActor () -> Void, 
+        action: () -> Void,
         expectedElement: XCUIElement, 
         description: String
     ) -> Bool {
-        action()
-        return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
+        if Thread.isMainThread {
+            action()
+            return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
+        } else {
+            return DispatchQueue.main.sync {
+                action()
+                return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
+            }
+        }
     }
 }
 
