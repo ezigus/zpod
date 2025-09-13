@@ -41,9 +41,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // When: I tap on a podcast using smart navigation
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let podcastButton = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let podcastButton = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Podcast-swift-talk",
                     byPartialLabel: "swift-talk",
                     ofType: .button
@@ -136,9 +136,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // When: I tap on an episode using smart navigation
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let firstEpisode = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let firstEpisode = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Episode-st-001",
                     byPartialLabel: "st-001",
                     ofType: .button
@@ -346,9 +346,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // Navigate to podcast using smart navigation pattern
         let navigationSucceeded = navigateAndWaitForResult(
-            triggerAction: {
-                let podcastButton = findAccessibleElement(
-                    in: app,
+            triggerAction: { [self] in
+                let podcastButton = self.findAccessibleElement(
+                    in: self.app,
                     byIdentifier: "Podcast-\(podcastId)",
                     byPartialLabel: podcastId,
                     ofType: .button
