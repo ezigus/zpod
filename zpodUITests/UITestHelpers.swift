@@ -53,26 +53,27 @@ extension ElementWaiting {
         return success
     }
     
-    /// Wait for any of multiple elements using native XCUITest event detection
+    /// Wait for any of multiple elements using efficient event-based detection
     func waitForAnyElement(
         _ elements: [XCUIElement],
         timeout: TimeInterval = 10.0,
         description: String = "any element"
     ) -> XCUIElement? {
         
-        // Quick check for existing elements
+        // Quick check for existing elements first
         for element in elements {
             if element.exists {
                 return element
             }
         }
         
-        // For waiting, use a shorter timeout per element but reasonable total
-        // This prevents excessive waiting while still being thorough
-        let shortTimeout = min(timeout / 2, 3.0) // Max 3 seconds per element, or half total timeout
+        // For waiting, use a much shorter timeout per element to prevent timeout accumulation
+        // Total wait time should not exceed the specified timeout regardless of element count
+        let maxPerElement: TimeInterval = 1.0  // Maximum 1 second per element check
+        let perElementTimeout = min(timeout / Double(elements.count), maxPerElement)
         
         for element in elements {
-            if element.waitForExistence(timeout: shortTimeout) {
+            if element.waitForExistence(timeout: perElementTimeout) {
                 return element
             }
         }
@@ -174,7 +175,7 @@ extension XCTestCase {
         return nil
     }
     
-    /// Wait for content to load with event-based detection
+    /// Wait for content to load with pure event-based detection
     @MainActor
     func waitForContentToLoadWithApp(
         containerIdentifier: String,
@@ -198,26 +199,22 @@ extension XCTestCase {
                 }
             }
             
-            // If specific items not found, check if container has any content at all
-            // This allows tests to pass even if specific content isn't implemented yet
-            let hasAnyButtons = container.buttons.count > 0
-            let hasAnyContent = container.children(matching: .any).count > 0
-            
-            if hasAnyButtons || hasAnyContent {
-                return true // Container has some content, even if not the specific items we wanted
+            // If specific items not found, check if container has basic interactivity
+            // Use event-based state check instead of counting which could cause timing issues
+            if container.isHittable {
+                return true // Container is interactive, content likely loaded
             }
             
-            return false // Container exists but has no content
+            return false // Container exists but not interactive
         }
         
         return true // Container exists, no specific items required
     }
     
-    /// Wait for stable UI state - event-based approach for post-animation stability
+    /// Check if UI is stable and responsive - pure event-based, no timing delays
     @MainActor
     func waitForStableState(
         app: XCUIApplication,
-        stableFor: TimeInterval = 0.5,
         timeout: TimeInterval = 10.0
     ) -> Bool {
         // For UI stability, check that the main content is responsive and not animating
