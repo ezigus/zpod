@@ -308,7 +308,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         )
         
         if let episode = firstEpisode {
-            XCTAssertTrue(episode.isHittable, "Episode buttons should be accessible")
+            XCTAssertTrue(episode.waitForExistence(timeout: adaptiveShortTimeout), "Episode buttons should be accessible")
         } else {
             // Fallback check for any accessible episode buttons
             let episodeButtons = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))

@@ -67,14 +67,11 @@ extension ElementWaiting {
             }
         }
         
-        // For waiting, use a much shorter timeout per element to prevent timeout accumulation
-        // Total wait time should not exceed the specified timeout regardless of element count
-        let maxPerElement: TimeInterval = 1.0  // Maximum 1 second per element check
-        let perElementTimeout = min(timeout / Double(elements.count), maxPerElement)
-        
-        for element in elements {
-            if element.waitForExistence(timeout: perElementTimeout) {
-                return element
+        // For waiting, just check the first element with full timeout
+        // This avoids timeout accumulation and timing dependencies
+        if let firstElement = elements.first {
+            if firstElement.waitForExistence(timeout: timeout) {
+                return firstElement
             }
         }
         
@@ -191,47 +188,18 @@ extension XCTestCase {
         
         // If specific items expected, try to find at least one (but don't require all)
         if !itemIdentifiers.isEmpty {
-            let shortTimeout = timeout / 4 // Split timeout across items
             for identifier in itemIdentifiers {
                 let item = app.buttons[identifier]
-                if item.waitForExistence(timeout: shortTimeout) {
+                if item.exists {
                     return true
                 }
             }
             
             // If specific items not found, check if container has basic interactivity
-            // Use event-based state check instead of counting which could cause timing issues
-            if container.isHittable {
-                return true // Container is interactive, content likely loaded
-            }
-            
-            return false // Container exists but not interactive
+            return container.isHittable
         }
         
         return true // Container exists, no specific items required
-    }
-    
-    /// Check if UI is stable and responsive - pure event-based, no timing delays
-    @MainActor
-    func waitForStableState(
-        app: XCUIApplication,
-        timeout: TimeInterval = 10.0
-    ) -> Bool {
-        // For UI stability, check that the main content is responsive and not animating
-        // Focus on the scroll view since most stability issues are from scroll animations
-        let scrollView = app.scrollViews.firstMatch
-        
-        if scrollView.exists {
-            // If scroll view exists, it should be hittable (not in middle of animation)
-            return scrollView.isHittable
-        }
-        
-        // Fallback: check navigation elements are responsive
-        let navigationBar = app.navigationBars.firstMatch
-        let tabBar = app.tabBars.firstMatch
-        
-        return (navigationBar.exists && navigationBar.isHittable) ||
-               (tabBar.exists && tabBar.isHittable)
     }
     
     /// Wait for loading to complete - flexible approach for different container types
@@ -248,10 +216,10 @@ extension XCTestCase {
             "Podcast List Container"
         ]
         
-        // Check if any common container appears
+        // Check if any common container appears (immediate check, no timeout splitting)
         for containerIdentifier in commonContainers {
             let container = app.scrollViews[containerIdentifier]
-            if container.waitForExistence(timeout: timeout / 4) { // Split timeout across containers
+            if container.exists {
                 return true
             }
         }

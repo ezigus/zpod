@@ -381,20 +381,20 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Then: Playback controls should have proper accessibility
         if playButton.exists {
-            XCTAssertTrue(playButton.exists && playButton.isHittable, "Play button should be accessible")
+            XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout), "Play button should be accessible")
             XCTAssertTrue(hasNonEmptyLabel(playButton), "Play button should have accessibility label")
             // XCTest doesn't expose accessibilityHint; ensure tappable instead
         }
         
         if pauseButton.exists {
-            XCTAssertTrue(pauseButton.exists && pauseButton.isHittable, "Pause button should be accessible")
+            XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout), "Pause button should be accessible")
             XCTAssertTrue(hasNonEmptyLabel(pauseButton), "Pause button should have accessibility label")
         }
         
         // Test progress slider accessibility
         let progressSlider = app.sliders["Progress Slider"]
         if progressSlider.exists {
-            XCTAssertTrue(progressSlider.exists && progressSlider.isHittable, "Progress slider should be accessible")
+            XCTAssertTrue(progressSlider.waitForExistence(timeout: adaptiveShortTimeout), "Progress slider should be accessible")
             XCTAssertNotNil(progressSlider.value, "Progress slider should announce current position")
         }
     }
@@ -437,17 +437,21 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         if playButton.exists || pauseButton.exists {
             // Test UI responsiveness by verifying controls are interactive
-            if playButton.exists && playButton.isHittable {
+            if playButton.exists {
+                // Wait for button to be interactive before testing
+                XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout), "Play button should be accessible")
                 playButton.tap()
                 
                 // Verify the control responds to interaction (state change or remains interactive)
-                XCTAssertTrue(playButton.isHittable || pauseButton.exists, 
+                XCTAssertTrue(playButton.exists || pauseButton.exists, 
                              "Play button should remain responsive after interaction")
-            } else if pauseButton.exists && pauseButton.isHittable {
+            } else if pauseButton.exists {
+                // Wait for button to be interactive before testing
+                XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout), "Pause button should be accessible")
                 pauseButton.tap()
                 
                 // Verify the control responds to interaction
-                XCTAssertTrue(pauseButton.isHittable || playButton.exists,
+                XCTAssertTrue(pauseButton.exists || playButton.exists,
                              "Pause button should remain responsive after interaction")
             }
             

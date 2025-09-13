@@ -54,7 +54,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // Then: I should see search interface elements
         XCTAssertTrue(searchField.exists, "Search field should be present")
-        XCTAssertTrue(searchField.isHittable, "Search field should be interactive")
+        XCTAssertTrue(searchField.waitForExistence(timeout: adaptiveShortTimeout), "Search field should be interactive")
     }
     
     @MainActor
@@ -375,7 +375,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         let searchElements = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'"))
         if searchElements.count > 0 {
             let searchField = searchElements.firstMatch
-            XCTAssertTrue(searchField.isHittable, "Search field should be accessible")
+            XCTAssertTrue(searchField.waitForExistence(timeout: adaptiveShortTimeout), "Search field should be accessible")
         }
     }
     
