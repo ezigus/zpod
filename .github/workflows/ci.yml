@@ -28,7 +28,7 @@ jobs:
             -project zpod.xcodeproj \
             -scheme zpod \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' \
             clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
