@@ -25,48 +25,94 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Show available simulators for debugging
-          echo "Available iOS Simulators:"
-          xcodebuild -project zpod.xcodeproj -scheme zpod -showdestinations | grep "iOS Simulator" || true
+          # Get available destinations dynamically
+          echo "Getting available iOS Simulator destinations..."
+          destinations_output="$(xcodebuild -project zpod.xcodeproj -scheme zpod -showdestinations | cat || true)"
+          echo "Available destinations:"
+          echo "${destinations_output}"
           
-          # Try iOS 18.1 first (likely available on recent GitHub runners)
-          # Then fallback to any iOS 18.x, then iOS 17.x
-          destinations=(
-            'platform=iOS Simulator,OS=18.1'
-            'platform=iOS Simulator,OS=18.2'
-            'platform=iOS Simulator,OS=18.0'
-            'platform=iOS Simulator,OS=17.6'
-            'platform=iOS Simulator,OS=17.5'
-            'platform=iOS Simulator'
+          # Extract all iOS Simulator destinations and find the best one
+          # Priority: Latest iOS version, then latest iPhone model
+          ios_simulators="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep -E "OS:[0-9]+\.[0-9]+" || true)"
+          
+          if [[ -z "${ios_simulators}" ]]; then
+            echo "Error: No iOS Simulator destinations found"
+            exit 1
+          fi
+          
+          echo "Available iOS Simulator destinations:"
+          echo "${ios_simulators}"
+          
+          # Find the latest iOS version available
+          latest_ios_version="$(echo "${ios_simulators}" | sed -En 's/.*OS:([0-9]+\.[0-9]+).*/\1/p' | sort -V | tail -n1)"
+          echo "Latest iOS version available: ${latest_ios_version}"
+          
+          # Find destinations with the latest iOS version
+          latest_ios_destinations="$(echo "${ios_simulators}" | grep "OS:${latest_ios_version}" || true)"
+          
+          if [[ -z "${latest_ios_destinations}" ]]; then
+            echo "Error: No destinations found with iOS ${latest_ios_version}"
+            exit 1
+          fi
+          
+          echo "Destinations with iOS ${latest_ios_version}:"
+          echo "${latest_ios_destinations}"
+          
+          # Prefer iPhone 16 series, then iPhone 15 series, then any iPhone
+          iphone_priority_patterns=(
+            "iPhone 16 Pro Max"
+            "iPhone 16 Pro"
+            "iPhone 16 Plus"
+            "iPhone 16"
+            "iPhone 15 Pro Max"
+            "iPhone 15 Pro"
+            "iPhone 15 Plus"
+            "iPhone 15"
+            "iPhone"
           )
           
-          build_success=false
-          for dest in "${destinations[@]}"; do
-            echo "Trying destination: ${dest}"
-            if xcodebuild \
-              -project zpod.xcodeproj \
-              -scheme zpod \
-              -sdk iphonesimulator \
-              -destination "${dest}" \
-              -dry-run > /dev/null 2>&1; then
-              echo "Using destination: ${dest}"
-              xcodebuild \
-                -project zpod.xcodeproj \
-                -scheme zpod \
-                -sdk iphonesimulator \
-                -destination "${dest}" \
-                clean build test | xcbeautify
-              build_success=true
+          selected_destination=""
+          for pattern in "${iphone_priority_patterns[@]}"; do
+            destination_line="$(echo "${latest_ios_destinations}" | grep "${pattern}" | head -n1 || true)"
+            if [[ -n "${destination_line}" ]]; then
+              # Extract the exact destination specification and trim whitespace
+              selected_destination="$(echo "${destination_line}" | sed -En 's/.*\{([^}]+)\}.*/\1/p' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | head -n1)"
+              echo "Selected destination with ${pattern}: ${selected_destination}"
               break
-            else
-              echo "Destination ${dest} not available, trying next..."
             fi
           done
           
-          if [[ "${build_success}" = false ]]; then
-            echo "Error: No suitable iOS Simulator destination found"
+          # Fallback to first available destination with latest iOS
+          if [[ -z "${selected_destination}" ]]; then
+            selected_destination="$(echo "${latest_ios_destinations}" | sed -En 's/.*\{([^}]+)\}.*/\1/p' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | head -n1)"
+            echo "Using fallback destination: ${selected_destination}"
+          fi
+          
+          if [[ -z "${selected_destination}" ]]; then
+            echo "Error: Could not parse destination from available options"
             exit 1
           fi
+          
+          # Validate the destination works
+          echo "Validating destination: ${selected_destination}"
+          if ! xcodebuild \
+            -project zpod.xcodeproj \
+            -scheme zpod \
+            -sdk iphonesimulator \
+            -destination "${selected_destination}" \
+            -dry-run > /dev/null 2>&1; then
+            echo "Error: Selected destination is not valid"
+            exit 1
+          fi
+          
+          # Run the build and test
+          echo "Building and testing with destination: ${selected_destination}"
+          xcodebuild \
+            -project zpod.xcodeproj \
+            -scheme zpod \
+            -sdk iphonesimulator \
+            -destination "${selected_destination}" \
+            clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)
