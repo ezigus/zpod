@@ -24,12 +24,49 @@ jobs:
       - name: Build & Test (iOS)
         run: |
           set -euo pipefail
-          xcodebuild \
-            -project zpod.xcodeproj \
-            -scheme zpod \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,OS=18.0' \
-            clean build test | xcbeautify
+          
+          # Show available simulators for debugging
+          echo "Available iOS Simulators:"
+          xcodebuild -project zpod.xcodeproj -scheme zpod -showdestinations | grep "iOS Simulator" || true
+          
+          # Try iOS 18.1 first (likely available on recent GitHub runners)
+          # Then fallback to any iOS 18.x, then iOS 17.x
+          destinations=(
+            'platform=iOS Simulator,OS=18.1'
+            'platform=iOS Simulator,OS=18.2'
+            'platform=iOS Simulator,OS=18.0'
+            'platform=iOS Simulator,OS=17.6'
+            'platform=iOS Simulator,OS=17.5'
+            'platform=iOS Simulator'
+          )
+          
+          build_success=false
+          for dest in "${destinations[@]}"; do
+            echo "Trying destination: ${dest}"
+            if xcodebuild \
+              -project zpod.xcodeproj \
+              -scheme zpod \
+              -sdk iphonesimulator \
+              -destination "${dest}" \
+              -dry-run > /dev/null 2>&1; then
+              echo "Using destination: ${dest}"
+              xcodebuild \
+                -project zpod.xcodeproj \
+                -scheme zpod \
+                -sdk iphonesimulator \
+                -destination "${dest}" \
+                clean build test | xcbeautify
+              build_success=true
+              break
+            else
+              echo "Destination ${dest} not available, trying next..."
+            fi
+          done
+          
+          if [[ "${build_success}" = false ]]; then
+            echo "Error: No suitable iOS Simulator destination found"
+            exit 1
+          fi
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)
