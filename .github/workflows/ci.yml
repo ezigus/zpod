@@ -20,14 +20,14 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
       - name: Resolve Swift packages
-        run: xcodebuild -resolvePackageDependencies -project zpod.xcodeproj
+        run: xcodebuild -resolvePackageDependencies -workspace zpod.xcworkspace -scheme zpod
       - name: Build & Test (iOS)
         run: |
           set -euo pipefail
           
           # Get available destinations dynamically
           echo "Getting available iOS Simulator destinations..."
-          destinations_output="$(xcodebuild -project zpod.xcodeproj -scheme zpod -showdestinations 2>&1 || true)"
+          destinations_output="$(xcodebuild -workspace zpod.xcworkspace -scheme zpod -showdestinations 2>&1 || true)"
           echo "Available destinations:"
           echo "${destinations_output}"
           
@@ -124,7 +124,7 @@ jobs:
           # Validate the destination works
           echo "Validating destination..."
           if xcodebuild \
-            -project zpod.xcodeproj \
+            -workspace zpod.xcworkspace \
             -scheme zpod \
             -sdk iphonesimulator \
             -destination "${selected_destination}" \
@@ -137,7 +137,7 @@ jobs:
           # Run the build and test
           echo "Building and testing with destination: ${selected_destination}"
           xcodebuild \
-            -project zpod.xcodeproj \
+            -workspace zpod.xcworkspace \
             -scheme zpod \
             -sdk iphonesimulator \
             -destination "${selected_destination}" \
