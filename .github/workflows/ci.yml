@@ -33,7 +33,8 @@ jobs:
           
           # Extract all iOS Simulator destinations that are actually available
           # Filter out error messages and only get valid iOS Simulator entries
-          ios_simulators="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep -E "OS:[0-9]+\.[0-9]+" | grep -v "error:" || true)"
+          # Also filter out clearly problematic lines containing common error patterns
+          ios_simulators="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep -E "OS:[0-9]+\.[0-9]+" | grep -v -E "(error:|not installed|download|Components)" || true)"
           
           if [[ -z "${ios_simulators}" ]]; then
             echo "Error: No iOS Simulator destinations found"
@@ -58,24 +59,60 @@ jobs:
             echo "Available iOS Simulator destinations:"
             echo "${ios_simulators}"
             
-            # Extract iOS versions and validate they're reasonable (not iOS 26.0, etc.)
+            # Extract iOS versions and validate they're reasonable
             ios_versions="$(echo "${ios_simulators}" | sed -En 's/.*OS:([0-9]+\.[0-9]+).*/\1/p' | sort -V | uniq)"
             echo "Extracted iOS versions: ${ios_versions}"
             
-            # Filter out unrealistic versions (anything >= 20.0 is likely an error)
-            realistic_versions="$(echo "${ios_versions}" | awk -F. '$1 < 20 {print}' | sort -V)"
+            # Get current year to determine reasonable iOS version range
+            current_year=$(date +%Y)
+            # iOS versioning: iOS 17 in 2023, iOS 18 in 2024, etc.
+            # So iOS version = year - 2006 (iOS 1 was in 2007, but let's be conservative)
+            max_reasonable_ios_version=$((current_year - 2006))
+            # Add a small buffer for pre-release versions
+            max_reasonable_ios_version=$((max_reasonable_ios_version + 2))
             
+            echo "Current year: ${current_year}, max reasonable iOS version: ${max_reasonable_ios_version}"
+            
+            # Filter out clearly erroneous versions using dynamic threshold
+            # Also ensure major version is reasonable (between 15 and our calculated max)
+            realistic_versions="$(echo "${ios_versions}" | awk -F. -v max_ver="${max_reasonable_ios_version}" '
+              $1 >= 15 && $1 <= max_ver {print}
+            ' | sort -V)"
+            
+            # If no versions pass our filter, fall back to known working versions
             if [[ -z "${realistic_versions}" ]]; then
-              echo "Error: No realistic iOS versions found in showdestinations output"
+              echo "Warning: No iOS versions passed our reasonableness filter"
+              echo "Available versions were: ${ios_versions}"
+              echo "Max reasonable version calculated as: ${max_reasonable_ios_version}"
               echo "Falling back to known working versions..."
               realistic_versions="18.1 18.0 17.5"
             fi
             
             echo "Realistic iOS versions: ${realistic_versions}"
             
-            # Find the latest realistic iOS version
-            latest_ios_version="$(echo "${realistic_versions}" | tail -n1)"
-            echo "Latest realistic iOS version available: ${latest_ios_version}"
+            # Find the latest realistic iOS version and validate it actually works
+            latest_ios_version=""
+            for version in $(echo "${realistic_versions}" | tac); do
+              echo "Testing iOS version: ${version}"
+              # Check if this version actually appears in our destinations and would work
+              if echo "${ios_simulators}" | grep "OS:${version}" > /dev/null; then
+                # Do a quick validation that this destination might work
+                test_destination="platform=iOS Simulator,OS=${version}"
+                if xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator -destination "${test_destination}" -dry-run > /dev/null 2>&1; then
+                  latest_ios_version="${version}"
+                  echo "Confirmed working iOS version: ${latest_ios_version}"
+                  break
+                else
+                  echo "iOS version ${version} failed validation, trying next..."
+                fi
+              fi
+            done
+            
+            # If no version passed validation, use the highest version anyway
+            if [[ -z "${latest_ios_version}" ]]; then
+              latest_ios_version="$(echo "${realistic_versions}" | tail -n1)"
+              echo "No version passed validation, using highest realistic version: ${latest_ios_version}"
+            fi
             
             # Find destinations with the latest iOS version
             latest_ios_destinations="$(echo "${ios_simulators}" | grep "OS:${latest_ios_version}" || true)"
