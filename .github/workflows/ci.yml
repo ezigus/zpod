@@ -38,10 +38,12 @@ jobs:
             echo "Workspace not found, trying project"
             xcodebuild -resolvePackageDependencies -project zpod.xcodeproj -scheme zpod || true
           fi
+
       - name: Build & Test (iOS)
         run: |
           set -euo pipefail
           
+
           # Determine whether to use workspace or project for all subsequent xcodebuild commands
           if [ -d "zpod.xcworkspace" ]; then
             TARGET_ARGS="-workspace zpod.xcworkspace -scheme zpod"
@@ -51,16 +53,10 @@ jobs:
             echo "Using Xcode project for build"
           fi
           
-          echo "=== COMPREHENSIVE CI DEBUGGING ==="
-          echo "Date: $(date)"
-          echo "Xcode version: $(xcodebuild -version)"
-          echo "Available SDKs: $(xcodebuild -showsdks | grep 'ios')"
-          echo "macOS version: $(sw_vers -productVersion)"
-          
-          # Get available destinations dynamically with detailed debugging
-          echo ""
-          echo "=== STEP 1: Getting iOS Simulator destinations ==="
+
+
           destinations_output="$(xcodebuild ${TARGET_ARGS} -showdestinations 2>&1 || true)"
+
           echo "Raw xcodebuild -showdestinations output:"
           echo "----------------------------------------"
           echo "${destinations_output}"
@@ -171,7 +167,9 @@ ${version}"
               test_destination="platform=iOS Simulator,OS=${test_version}"
               
               if xcodebuild \
+
                 ${TARGET_ARGS} \
+
                 -sdk iphonesimulator \
                 -destination "${test_destination}" \
                 -dry-run > /dev/null 2>&1; then
@@ -272,7 +270,9 @@ ${version}"
           echo "=== STEP 12: Destination validation ==="
           echo "Validating destination: ${selected_destination}"
           validation_output="$(xcodebuild \
+
             ${TARGET_ARGS} \
+
             -sdk iphonesimulator \
             -destination "${selected_destination}" \
             -dry-run 2>&1 || true)"
@@ -292,11 +292,13 @@ ${version}"
           echo ""
           echo "=== STEP 13: Final build and test ==="
           echo "Building and testing with destination: ${selected_destination}"
+
           echo "Command: xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination '${selected_destination}' clean build test | xcbeautify"
           echo ""
           
           xcodebuild \
             ${TARGET_ARGS} \
+
             -sdk iphonesimulator \
             -destination "${selected_destination}" \
             clean build test | xcbeautify
