@@ -43,7 +43,6 @@ jobs:
         run: |
           set -euo pipefail
           
-
           # Determine whether to use workspace or project for all subsequent xcodebuild commands
           if [ -d "zpod.xcworkspace" ]; then
             TARGET_ARGS="-workspace zpod.xcworkspace -scheme zpod"
@@ -53,10 +52,10 @@ jobs:
             echo "Using Xcode project for build"
           fi
           
-
-
+          # Get available destinations
+          echo "=== STEP 1: Getting available iOS Simulator destinations ==="
           destinations_output="$(xcodebuild ${TARGET_ARGS} -showdestinations 2>&1 || true)"
-
+          
           echo "Raw xcodebuild -showdestinations output:"
           echo "----------------------------------------"
           echo "${destinations_output}"
@@ -140,7 +139,7 @@ jobs:
                     realistic_versions="${version}"
                   else
                     realistic_versions="${realistic_versions}
-${version}"
+          ${version}"
                   fi
                 else
                   echo "  ❌ REJECTED: ${version} (outside range 15-${max_reasonable_ios_version})"
@@ -166,13 +165,7 @@ ${version}"
               echo "Testing fallback version: ${test_version}"
               test_destination="platform=iOS Simulator,OS=${test_version}"
               
-              if xcodebuild \
-
-                ${TARGET_ARGS} \
-
-                -sdk iphonesimulator \
-                -destination "${test_destination}" \
-                -dry-run > /dev/null 2>&1; then
+              if xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${test_destination}" -dry-run > /dev/null 2>&1; then
                 echo "  ✅ FALLBACK SUCCESS: iOS ${test_version} works"
                 found_fallback="${test_version}"
                 break
@@ -269,13 +262,7 @@ ${version}"
           echo ""
           echo "=== STEP 12: Destination validation ==="
           echo "Validating destination: ${selected_destination}"
-          validation_output="$(xcodebuild \
-
-            ${TARGET_ARGS} \
-
-            -sdk iphonesimulator \
-            -destination "${selected_destination}" \
-            -dry-run 2>&1 || true)"
+          validation_output="$(xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${selected_destination}" -dry-run 2>&1 || true)"
           
           echo "Validation output:"
           echo "${validation_output}"
@@ -292,16 +279,10 @@ ${version}"
           echo ""
           echo "=== STEP 13: Final build and test ==="
           echo "Building and testing with destination: ${selected_destination}"
-
           echo "Command: xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination '${selected_destination}' clean build test | xcbeautify"
           echo ""
           
-          xcodebuild \
-            ${TARGET_ARGS} \
-
-            -sdk iphonesimulator \
-            -destination "${selected_destination}" \
-            clean build test | xcbeautify
+          xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${selected_destination}" clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)
