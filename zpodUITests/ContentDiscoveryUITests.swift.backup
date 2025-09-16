@@ -170,7 +170,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // Strategy 3: Look for the last navigation bar button (trailing toolbar item)
         if optionsButton == nil {
-            let navButtons = navBar.buttons
+            let navButtons = navBar.buttons.allElementsBoundByIndex
             for button in navButtons.reversed() {
                 if button.exists && button.isHittable {
                     optionsButton = button
@@ -224,7 +224,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // Strategy 2: Look for the last navigation bar button
         if optionsButton == nil {
-            let navButtons = navBar.buttons
+            let navButtons = navBar.buttons.allElementsBoundByIndex
             for button in navButtons.reversed() {
                 if button.exists && button.isHittable {
                     optionsButton = button
@@ -327,7 +327,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         // Strategy 3: Look for the last navigation bar button (trailing toolbar item)
         if optionsButton == nil {
-            let navButtons = navBar.buttons
+            let navButtons = navBar.buttons.allElementsBoundByIndex
             for button in navButtons.reversed() {
                 if button.exists && button.isHittable {
                     optionsButton = button
