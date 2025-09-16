@@ -25,50 +25,155 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Get available destinations dynamically
-          echo "Getting available iOS Simulator destinations..."
+          echo "=== COMPREHENSIVE CI DEBUGGING ==="
+          echo "Date: $(date)"
+          echo "Xcode version: $(xcodebuild -version)"
+          echo "Available SDKs: $(xcodebuild -showsdks | grep 'ios')"
+          echo "macOS version: $(sw_vers -productVersion)"
+          
+          # Get available destinations dynamically with detailed debugging
+          echo ""
+          echo "=== STEP 1: Getting iOS Simulator destinations ==="
           destinations_output="$(xcodebuild -workspace zpod.xcworkspace -scheme zpod -showdestinations 2>&1 || true)"
-          echo "Available destinations:"
+          echo "Raw xcodebuild -showdestinations output:"
+          echo "----------------------------------------"
           echo "${destinations_output}"
+          echo "----------------------------------------"
+          echo "Output length: $(echo "${destinations_output}" | wc -l) lines"
           
-          # Extract all valid iOS Simulator lines (avoid overly strict filtering)
-          # Look for lines that contain the iOS Simulator platform and have an OS version
-          ios_lines="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep "OS:" || true)"
+          # Count different types of destinations
+          echo ""
+          echo "=== STEP 2: Analyzing destination types ==="
+          ios_simulator_count=$(echo "${destinations_output}" | grep -c "platform:iOS Simulator" || echo "0")
+          ios_device_count=$(echo "${destinations_output}" | grep -c "platform:iOS" | grep -v -c "Simulator" || echo "0")
+          error_count=$(echo "${destinations_output}" | grep -c "error:" || echo "0")
           
-          echo "iOS Simulator lines found:"
-          echo "${ios_lines}"
+          echo "iOS Simulator destinations found: ${ios_simulator_count}"
+          echo "iOS Device destinations found: ${ios_device_count}"
+          echo "Error lines found: ${error_count}"
           
-          if [[ -z "${ios_lines}" ]]; then
-            echo "No iOS Simulator destinations found in showdestinations output"
-            echo "Full output was:"
-            echo "${destinations_output}"
-            exit 1
+          # Show all iOS Simulator lines with numbering
+          echo ""
+          echo "=== STEP 3: All iOS Simulator lines ==="
+          ios_lines="$(echo "${destinations_output}" | grep "platform:iOS Simulator" || true)"
+          if [[ -n "${ios_lines}" ]]; then
+            echo "Found iOS Simulator lines:"
+            echo "${ios_lines}" | nl -ba
+          else
+            echo "NO iOS Simulator lines found!"
+            echo ""
+            echo "All lines containing 'iOS':"
+            echo "${destinations_output}" | grep -i "ios" | nl -ba || echo "No iOS lines found at all"
           fi
           
-          # Extract iOS versions from the lines
-          ios_versions="$(echo "${ios_lines}" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | sort -V | uniq)"
-          echo "Extracted iOS versions: ${ios_versions}"
+          # Show error lines separately
+          echo ""
+          echo "=== STEP 4: Error analysis ==="
+          error_lines="$(echo "${destinations_output}" | grep "error:" || true)"
+          if [[ -n "${error_lines}" ]]; then
+            echo "Error lines found:"
+            echo "${error_lines}" | nl -ba
+          else
+            echo "No error lines found"
+          fi
+          
+          # Extract iOS versions with detailed debugging
+          echo ""
+          echo "=== STEP 5: iOS version extraction ==="
+          if [[ -n "${ios_lines}" ]]; then
+            # Look for OS: patterns in iOS Simulator lines only
+            ios_versions="$(echo "${ios_lines}" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | sort -V | uniq)"
+            echo "Extracted iOS versions from iOS Simulator lines: ${ios_versions}"
+            
+            # Also show what each line produces
+            echo "Version extraction per line:"
+            while IFS= read -r line; do
+              version=$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p')
+              echo "  '$line' -> '$version'"
+            done <<< "${ios_lines}"
+          else
+            echo "Cannot extract versions - no iOS Simulator lines found"
+            exit 1
+          fi
           
           # Get current year and calculate reasonable version range
           current_year=$(date +%Y)
           max_reasonable_ios_version=$((current_year - 2006 + 2))
+          echo ""
+          echo "=== STEP 6: Version filtering ==="
           echo "Current year: ${current_year}, max reasonable iOS version: ${max_reasonable_ios_version}"
           
-          # Filter for reasonable versions (15 <= iOS <= calculated max)
-          realistic_versions="$(echo "${ios_versions}" | awk -F. -v max_ver="${max_reasonable_ios_version}" '
-            $1 >= 15 && $1 <= max_ver {print}
-          ' | sort -V)"
+          # Filter for reasonable versions with detailed logging
+          echo ""
+          echo "=== STEP 7: Version filtering process ==="
+          realistic_versions=""
+          if [[ -n "${ios_versions}" ]]; then
+            while IFS= read -r version; do
+              if [[ -n "${version}" ]]; then
+                major_version=$(echo "${version}" | cut -d. -f1)
+                echo "Testing version: ${version} (major: ${major_version})"
+                if [[ "${major_version}" -ge 15 && "${major_version}" -le "${max_reasonable_ios_version}" ]]; then
+                  echo "  ✅ ACCEPTED: ${version} (within range 15-${max_reasonable_ios_version})"
+                  if [[ -z "${realistic_versions}" ]]; then
+                    realistic_versions="${version}"
+                  else
+                    realistic_versions="${realistic_versions}
+${version}"
+                  fi
+                else
+                  echo "  ❌ REJECTED: ${version} (outside range 15-${max_reasonable_ios_version})"
+                fi
+              fi
+            done <<< "${ios_versions}"
+          fi
           
-          echo "Realistic iOS versions: ${realistic_versions}"
+          echo "Final realistic versions:"
+          echo "${realistic_versions}"
           
-          # If no realistic versions found, use any available version
+          # If no realistic versions found, try fallback approach
+          echo ""
+          echo "=== STEP 8: Fallback strategy ==="
           if [[ -z "${realistic_versions}" ]]; then
-            echo "No versions passed filter, using any available version"
-            realistic_versions="${ios_versions}"
+            echo "⚠️  No versions passed filter, trying fallback strategy..."
+            
+            # Try common versions that should be available
+            fallback_versions=("18.1" "18.0" "17.5" "17.4" "17.2" "17.0" "16.4")
+            found_fallback=""
+            
+            for test_version in "${fallback_versions[@]}"; do
+              echo "Testing fallback version: ${test_version}"
+              test_destination="platform=iOS Simulator,OS=${test_version}"
+              
+              if xcodebuild \
+                -workspace zpod.xcworkspace \
+                -scheme zpod \
+                -sdk iphonesimulator \
+                -destination "${test_destination}" \
+                -dry-run > /dev/null 2>&1; then
+                echo "  ✅ FALLBACK SUCCESS: iOS ${test_version} works"
+                found_fallback="${test_version}"
+                break
+              else
+                echo "  ❌ FALLBACK FAILED: iOS ${test_version} doesn't work"
+              fi
+            done
+            
+            if [[ -n "${found_fallback}" ]]; then
+              realistic_versions="${found_fallback}"
+              echo "Using fallback version: ${found_fallback}"
+            else
+              echo "❌ ALL FALLBACK VERSIONS FAILED"
+              echo "Last resort: using any available version from original list"
+              realistic_versions="${ios_versions}"
+            fi
+          else
+            echo "Using filtered versions successfully"
           fi
           
           # Find the latest version and get simulators for it
           latest_version="$(echo "${realistic_versions}" | tail -n1)"
+          echo ""
+          echo "=== STEP 9: Simulator selection ==="
           echo "Using iOS version: ${latest_version}"
           
           # Get all simulator destinations for the latest version
@@ -77,6 +182,8 @@ jobs:
           echo "${version_simulators}"
           
           # Try to find iPhone 16 series first, then iPhone 15, then any iPhone
+          echo ""
+          echo "=== STEP 10: Device selection process ==="
           iphone_patterns=(
             "iPhone 16 Pro Max"
             "iPhone 16 Pro" 
@@ -86,56 +193,84 @@ jobs:
             "iPhone 15 Pro"
             "iPhone 15 Plus" 
             "iPhone 15"
+            "iPhone 14"
             "iPhone"
           )
           
           selected_line=""
           for pattern in "${iphone_patterns[@]}"; do
-            selected_line="$(echo "${version_simulators}" | grep "${pattern}" | head -n1 || true)"
-            if [[ -n "${selected_line}" ]]; then
-              echo "Found simulator matching '${pattern}': ${selected_line}"
+            echo "Trying pattern: '${pattern}'"
+            candidate_line="$(echo "${version_simulators}" | grep "${pattern}" | head -n1 || true)"
+            if [[ -n "${candidate_line}" ]]; then
+              echo "  ✅ FOUND: ${candidate_line}"
+              selected_line="${candidate_line}"
               break
+            else
+              echo "  ❌ Not found"
             fi
           done
           
           # If no iPhone found, use any available simulator
           if [[ -z "${selected_line}" ]]; then
+            echo "⚠️  No preferred iPhone found, using first available simulator"
             selected_line="$(echo "${version_simulators}" | head -n1)"
-            echo "Using first available simulator: ${selected_line}"
+            echo "Using: ${selected_line}"
           fi
           
           if [[ -z "${selected_line}" ]]; then
-            echo "Error: No simulator found for iOS ${latest_version}"
+            echo "❌ CRITICAL ERROR: No simulator found for iOS ${latest_version}"
+            echo "Available iOS lines were:"
+            echo "${ios_lines}"
             exit 1
           fi
           
           # Extract the destination specification from the selected line
+          echo ""
+          echo "=== STEP 11: Destination extraction ==="
+          echo "Selected line: ${selected_line}"
+          
           # Format: { platform:iOS Simulator, id:xxx, OS:18.0, name:iPhone 16 }
           selected_destination="$(echo "${selected_line}" | sed -En 's/.*\{([^}]+)\}.*/\1/p')"
+          echo "Extracted destination: '${selected_destination}'"
           
           # If extraction failed, construct minimal destination
           if [[ -z "${selected_destination}" ]]; then
-            echo "Could not extract destination, using platform-only"
+            echo "⚠️  Could not extract destination, constructing minimal one"
             selected_destination="platform=iOS Simulator,OS=${latest_version}"
+            echo "Minimal destination: ${selected_destination}"
           fi
           
-          echo "Selected destination: ${selected_destination}"
+          echo "Final destination: ${selected_destination}"
           
-          # Validate the destination works
-          echo "Validating destination..."
-          if xcodebuild \
+          # Validate the destination works with detailed output
+          echo ""
+          echo "=== STEP 12: Destination validation ==="
+          echo "Validating destination: ${selected_destination}"
+          validation_output="$(xcodebuild \
             -workspace zpod.xcworkspace \
             -scheme zpod \
             -sdk iphonesimulator \
             -destination "${selected_destination}" \
-            -dry-run > /dev/null 2>&1; then
-            echo "Destination validation successful"
+            -dry-run 2>&1 || true)"
+          
+          echo "Validation output:"
+          echo "${validation_output}"
+          
+          if echo "${validation_output}" | grep -q "error:"; then
+            echo "❌ Destination validation failed"
+            echo "Trying simple fallback: platform=iOS Simulator,OS=${latest_version}"
+            selected_destination="platform=iOS Simulator,OS=${latest_version}"
           else
-            echo "Warning: Destination validation failed, but proceeding anyway"
+            echo "✅ Destination validation successful"
           fi
           
-          # Run the build and test
+          # Run the build and test with comprehensive logging
+          echo ""
+          echo "=== STEP 13: Final build and test ==="
           echo "Building and testing with destination: ${selected_destination}"
+          echo "Command: xcodebuild -workspace zpod.xcworkspace -scheme zpod -sdk iphonesimulator -destination '${selected_destination}' clean build test"
+          echo ""
+          
           xcodebuild \
             -workspace zpod.xcworkspace \
             -scheme zpod \
