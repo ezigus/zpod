@@ -145,10 +145,24 @@ public struct BatchOperationButton: View {
     }
 }
 
-/// Progress view for active batch operations
+/// Progress view for active batch operations with enhanced error handling
 public struct BatchOperationProgressView: View {
     let batchOperation: BatchOperation
     let onCancel: () -> Void
+    let onRetry: (() -> Void)?
+    let onUndo: (() -> Void)?
+    
+    public init(
+        batchOperation: BatchOperation,
+        onCancel: @escaping () -> Void,
+        onRetry: (() -> Void)? = nil,
+        onUndo: (() -> Void)? = nil
+    ) {
+        self.batchOperation = batchOperation
+        self.onCancel = onCancel
+        self.onRetry = onRetry
+        self.onUndo = onUndo
+    }
     
     public var body: some View {
         VStack(spacing: 12) {
@@ -164,18 +178,16 @@ public struct BatchOperationProgressView: View {
                 
                 Spacer()
                 
-                if batchOperation.status == .running {
-                    Button("Cancel", action: onCancel)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
+                // Action buttons based on status
+                actionButtons
             }
             
-            // Progress bar
+            // Progress bar with enhanced visual feedback
             ProgressView(value: batchOperation.progress)
                 .progressViewStyle(LinearProgressViewStyle(tint: progressColor))
+                .animation(.easeInOut(duration: 0.3), value: batchOperation.progress)
             
-            // Status indicator
+            // Enhanced status indicator with detailed feedback
             HStack {
                 statusIcon
                 Text(statusText)
@@ -184,19 +196,65 @@ public struct BatchOperationProgressView: View {
                 
                 Spacer()
                 
+                // Failure count with retry option
                 if batchOperation.failedCount > 0 {
-                    Text("\(batchOperation.failedCount) failed")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                    HStack(spacing: 4) {
+                        Text("\(batchOperation.failedCount) failed")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        
+                        if let onRetry = onRetry, batchOperation.status != .running {
+                            Button("Retry", action: onRetry)
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+                    }
                 }
+            }
+            
+            // Success message with undo option for reversible operations
+            if batchOperation.status == .completed && batchOperation.operationType.isReversible {
+                HStack {
+                    Text("Operation completed successfully")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                    
+                    Spacer()
+                    
+                    if let onUndo = onUndo {
+                        Button("Undo", action: onUndo)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(backgroundColorForStatus)
         .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(borderColorForStatus, lineWidth: 1)
+        )
         .accessibilityIdentifier("Batch Operation Progress")
         .accessibilityLabel("Batch operation progress: \(batchOperation.operationType.displayName)")
         .accessibilityValue("\(batchOperation.completedCount) of \(batchOperation.totalCount) episodes completed")
+    }
+    
+    @ViewBuilder
+    private var actionButtons: some View {
+        HStack(spacing: 8) {
+            if batchOperation.status == .running {
+                Button("Cancel", action: onCancel)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(6)
+            }
+        }
     }
     
     private var statusIcon: some View {
@@ -248,6 +306,36 @@ public struct BatchOperationProgressView: View {
             return .orange
         case .pending:
             return .gray
+        }
+    }
+    
+    private var backgroundColorForStatus: Color {
+        switch batchOperation.status {
+        case .running:
+            return Color(.systemGray6)
+        case .completed:
+            return Color.green.opacity(0.1)
+        case .failed:
+            return Color.red.opacity(0.1)
+        case .cancelled:
+            return Color.orange.opacity(0.1)
+        case .pending:
+            return Color.blue.opacity(0.1)
+        }
+    }
+    
+    private var borderColorForStatus: Color {
+        switch batchOperation.status {
+        case .running:
+            return Color.clear
+        case .completed:
+            return Color.green.opacity(0.3)
+        case .failed:
+            return Color.red.opacity(0.3)
+        case .cancelled:
+            return Color.orange.opacity(0.3)
+        case .pending:
+            return Color.blue.opacity(0.3)
         }
     }
 }

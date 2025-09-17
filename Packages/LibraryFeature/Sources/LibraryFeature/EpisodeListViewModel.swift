@@ -286,6 +286,134 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // TODO: In a real implementation, this would save to persistence
     }
+    
+    // MARK: - Enhanced Episode Status Management
+    
+    /// Toggle the played status of an episode with immediate UI feedback
+    public func toggleEpisodePlayedStatus(_ episode: Episode) {
+        let updatedEpisode = episode.withPlayedStatus(!episode.isPlayed)
+        updateEpisode(updatedEpisode)
+    }
+    
+    /// Retry failed download for an episode
+    public func retryEpisodeDownload(_ episode: Episode) {
+        guard episode.downloadStatus == .failed else { return }
+        
+        // Update status to downloading
+        let updatedEpisode = episode.withDownloadStatus(.downloading)
+        updateEpisode(updatedEpisode)
+        
+        // TODO: In a real implementation, this would trigger actual download retry
+        // For now, simulate successful download after delay
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            await MainActor.run {
+                let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
+                updateEpisode(completedEpisode)
+            }
+        }
+    }
+    
+    /// Retry a failed batch operation
+    public func retryBatchOperation(_ batchOperationId: String) async {
+        // TODO: In a real implementation, this would retry the specific failed operations
+        // For now, find the batch operation and restart failed operations
+        if let batchIndex = activeBatchOperations.firstIndex(where: { $0.id == batchOperationId }) {
+            let batchOperation = activeBatchOperations[batchIndex]
+            let failedOperations = batchOperation.operations.filter { $0.status == .failed }
+            
+            if !failedOperations.isEmpty {
+                // Restart the batch operation with only failed episodes
+                let retryBatch = BatchOperation(
+                    operationType: batchOperation.operationType,
+                    episodeIDs: failedOperations.map { $0.episodeID },
+                    playlistID: batchOperation.playlistID
+                )
+                
+                do {
+                    let _ = try await batchOperationManager.executeBatchOperation(retryBatch)
+                } catch {
+                    print("Retry batch operation failed: \(error)")
+                }
+            }
+        }
+    }
+    
+    /// Undo a completed batch operation if it's reversible
+    public func undoBatchOperation(_ batchOperationId: String) async {
+        // TODO: In a real implementation, this would reverse the effects of the batch operation
+        // For now, simulate the undo operation
+        if let batchIndex = activeBatchOperations.firstIndex(where: { $0.id == batchOperationId }) {
+            let batchOperation = activeBatchOperations[batchIndex]
+            
+            guard batchOperation.operationType.isReversible else { return }
+            
+            // Create reverse operation
+            let reverseOperationType: BatchOperationType
+            switch batchOperation.operationType {
+            case .markAsPlayed:
+                reverseOperationType = .markAsUnplayed
+            case .markAsUnplayed:
+                reverseOperationType = .markAsPlayed
+            case .favorite:
+                reverseOperationType = .unfavorite
+            case .unfavorite:
+                reverseOperationType = .favorite
+            case .bookmark:
+                reverseOperationType = .unbookmark
+            case .unbookmark:
+                reverseOperationType = .bookmark
+            case .archive:
+                // Unarchive episodes by updating them directly
+                let episodeIDs = batchOperation.operations.map { $0.episodeID }
+                for episodeID in episodeIDs {
+                    if let episode = allEpisodes.first(where: { $0.id == episodeID }) {
+                        let updatedEpisode = episode.withArchivedStatus(false)
+                        updateEpisode(updatedEpisode)
+                    }
+                }
+                return
+            default:
+                return // Non-reversible operations
+            }
+            
+            // Execute reverse batch operation
+            let undoBatch = BatchOperation(
+                operationType: reverseOperationType,
+                episodeIDs: batchOperation.operations.map { $0.episodeID },
+                playlistID: batchOperation.playlistID
+            )
+            
+            do {
+                let _ = try await batchOperationManager.executeBatchOperation(undoBatch)
+            } catch {
+                print("Undo batch operation failed: \(error)")
+            }
+        }
+    }
+    
+    /// Pause/resume episode download
+    public func pauseEpisodeDownload(_ episode: Episode) {
+        guard episode.downloadStatus == .downloading else { return }
+        
+        // TODO: In a real implementation, this would pause the actual download
+        // For now, simulate pausing by changing status
+        let pausedEpisode = episode.withDownloadStatus(.notDownloaded)
+        updateEpisode(pausedEpisode)
+    }
+    
+    /// Quick play an episode that's in progress
+    public func quickPlayEpisode(_ episode: Episode) {
+        // TODO: In a real implementation, this would start playback from current position
+        // For now, just mark as played after a short delay to simulate playing
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            await MainActor.run {
+                let playedEpisode = episode.withPlayedStatus(true)
+                updateEpisode(playedEpisode)
+            }
+        }
+    }
 }
 
 // MARK: - Smart List View Model

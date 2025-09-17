@@ -113,7 +113,17 @@ public struct EpisodeListView: View {
                             Task {
                                 await viewModel.cancelBatchOperation(batchOperation.id)
                             }
-                        }
+                        },
+                        onRetry: batchOperation.failedCount > 0 ? {
+                            Task {
+                                await viewModel.retryBatchOperation(batchOperation.id)
+                            }
+                        } : nil,
+                        onUndo: batchOperation.status == .completed && batchOperation.operationType.isReversible ? {
+                            Task {
+                                await viewModel.undoBatchOperation(batchOperation.id)
+                            }
+                        } : nil
                     )
                 }
             }
@@ -341,6 +351,8 @@ public struct EpisodeListView: View {
                             episode: episode,
                             onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                             onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                            onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
                             isSelected: viewModel.isEpisodeSelected(episode.id),
                             isInMultiSelectMode: true,
                             onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
@@ -352,6 +364,8 @@ public struct EpisodeListView: View {
                                 episode: episode,
                                 onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                                 onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                                onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                                onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
                                 isSelected: false,
                                 isInMultiSelectMode: false
                             )
@@ -374,6 +388,8 @@ public struct EpisodeListView: View {
                         episode: episode,
                         onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                         onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                        onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                        onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
                         isSelected: viewModel.isEpisodeSelected(episode.id),
                         isInMultiSelectMode: true,
                         onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
@@ -385,6 +401,8 @@ public struct EpisodeListView: View {
                             episode: episode,
                             onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                             onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                            onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
                             isSelected: false,
                             isInMultiSelectMode: false
                         )
@@ -406,7 +424,9 @@ public struct EpisodeListView: View {
                 EpisodeRowView(
                     episode: episode,
                     onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                    onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                    onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                    onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                    onDownloadRetry: { viewModel.retryEpisodeDownload(episode) }
                 )
             }
             .accessibilityIdentifier("Episode-\(episode.id)")
@@ -520,6 +540,10 @@ public struct EpisodeRowView: View {
     let episode: Episode
     let onFavoriteToggle: (() -> Void)?
     let onBookmarkToggle: (() -> Void)?
+    let onPlayedStatusToggle: (() -> Void)?
+    let onDownloadRetry: (() -> Void)?
+    let onDownloadPause: (() -> Void)?
+    let onQuickPlay: (() -> Void)?
     let isSelected: Bool
     let isInMultiSelectMode: Bool
     let onSelectionToggle: (() -> Void)?
@@ -528,6 +552,10 @@ public struct EpisodeRowView: View {
         episode: Episode,
         onFavoriteToggle: (() -> Void)? = nil,
         onBookmarkToggle: (() -> Void)? = nil,
+        onPlayedStatusToggle: (() -> Void)? = nil,
+        onDownloadRetry: (() -> Void)? = nil,
+        onDownloadPause: (() -> Void)? = nil,
+        onQuickPlay: (() -> Void)? = nil,
         isSelected: Bool = false,
         isInMultiSelectMode: Bool = false,
         onSelectionToggle: (() -> Void)? = nil
@@ -535,6 +563,10 @@ public struct EpisodeRowView: View {
         self.episode = episode
         self.onFavoriteToggle = onFavoriteToggle
         self.onBookmarkToggle = onBookmarkToggle
+        self.onPlayedStatusToggle = onPlayedStatusToggle
+        self.onDownloadRetry = onDownloadRetry
+        self.onDownloadPause = onDownloadPause
+        self.onQuickPlay = onQuickPlay
         self.isSelected = isSelected
         self.isInMultiSelectMode = isInMultiSelectMode
         self.onSelectionToggle = onSelectionToggle
@@ -661,35 +693,40 @@ public struct EpisodeRowView: View {
     
     private var episodeStatusIndicators: some View {
         VStack(spacing: 4) {
-            // Top row: Play status and download
+            // Top row: Play status and download with enhanced visibility
             HStack(spacing: 4) {
-                if episode.isPlayed {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .accessibilityLabel("Played")
-                } else if episode.isInProgress {
-                    Image(systemName: "play.circle.fill")
-                        .foregroundStyle(.blue)
-                        .accessibilityLabel("In Progress")
-                } else {
-                    Image(systemName: "circle")
-                        .foregroundStyle(.secondary)
-                        .accessibilityLabel("Unplayed")
+                // Enhanced play status indicator with single-tap functionality
+                Button(action: {
+                    onPlayedStatusToggle?()
+                }) {
+                    Group {
+                        if episode.isPlayed {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else if episode.isInProgress {
+                            Image(systemName: "play.circle.fill")
+                                .foregroundStyle(.blue)
+                        } else {
+                            Image(systemName: "circle")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.title3)
                 }
+                .accessibilityLabel(episode.isPlayed ? "Mark as unplayed" : "Mark as played")
+                .accessibilityHint("Tap to toggle played status")
                 
-                if episode.isDownloaded {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundStyle(.blue)
-                        .accessibilityLabel("Downloaded")
-                }
+                // Enhanced download status with additional states
+                downloadStatusIndicator
             }
             
-            // Bottom row: Interactive buttons
+            // Bottom row: Interactive buttons with enhanced styling
             HStack(spacing: 8) {
                 if let onFavoriteToggle = onFavoriteToggle {
                     Button(action: onFavoriteToggle) {
                         Image(systemName: episode.isFavorited ? "heart.fill" : "heart")
                             .foregroundStyle(episode.isFavorited ? .red : .secondary)
+                            .font(.caption)
                     }
                     .accessibilityLabel(episode.isFavorited ? "Remove from favorites" : "Add to favorites")
                 }
@@ -698,13 +735,61 @@ public struct EpisodeRowView: View {
                     Button(action: onBookmarkToggle) {
                         Image(systemName: episode.isBookmarked ? "bookmark.fill" : "bookmark")
                             .foregroundStyle(episode.isBookmarked ? .blue : .secondary)
+                            .font(.caption)
                     }
                     .accessibilityLabel(episode.isBookmarked ? "Remove bookmark" : "Add bookmark")
                 }
+                
+                // Archive status indicator
+                if episode.isArchived {
+                    Image(systemName: "archivebox.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                        .accessibilityLabel("Archived")
+                }
+                
+                // Rating indicator
+                if let rating = episode.rating {
+                    HStack(spacing: 1) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .foregroundStyle(star <= rating ? .yellow : .secondary)
+                                .font(.caption2)
+                        }
+                    }
+                    .accessibilityLabel("\(rating) star rating")
+                }
             }
-            .font(.caption)
         }
         .accessibilityIdentifier("Episode Status")
+    }
+    
+    @ViewBuilder
+    private var downloadStatusIndicator: some View {
+        switch episode.downloadStatus {
+        case .downloaded:
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(.blue)
+                .accessibilityLabel("Downloaded")
+        case .downloading:
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(.blue)
+                ProgressView()
+                    .scaleEffect(0.6)
+            }
+            .accessibilityLabel("Downloading")
+        case .failed:
+            Button(action: {
+                onDownloadRetry?()
+            }) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            }
+            .accessibilityLabel("Download failed, tap to retry")
+        case .notDownloaded:
+            EmptyView()
+        }
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {
@@ -724,6 +809,8 @@ public struct EpisodeCardView: View {
     let episode: Episode
     let onFavoriteToggle: (() -> Void)?
     let onBookmarkToggle: (() -> Void)?
+    let onPlayedStatusToggle: (() -> Void)?
+    let onDownloadRetry: (() -> Void)?
     let isSelected: Bool
     let isInMultiSelectMode: Bool
     let onSelectionToggle: (() -> Void)?
@@ -732,6 +819,8 @@ public struct EpisodeCardView: View {
         episode: Episode,
         onFavoriteToggle: (() -> Void)? = nil,
         onBookmarkToggle: (() -> Void)? = nil,
+        onPlayedStatusToggle: (() -> Void)? = nil,
+        onDownloadRetry: (() -> Void)? = nil,
         isSelected: Bool = false,
         isInMultiSelectMode: Bool = false,
         onSelectionToggle: (() -> Void)? = nil
@@ -739,6 +828,8 @@ public struct EpisodeCardView: View {
         self.episode = episode
         self.onFavoriteToggle = onFavoriteToggle
         self.onBookmarkToggle = onBookmarkToggle
+        self.onPlayedStatusToggle = onPlayedStatusToggle
+        self.onDownloadRetry = onDownloadRetry
         self.isSelected = isSelected
         self.isInMultiSelectMode = isInMultiSelectMode
         self.onSelectionToggle = onSelectionToggle
@@ -878,32 +969,35 @@ public struct EpisodeCardView: View {
     
     private var episodeStatusIndicators: some View {
         HStack(spacing: 12) {
-            // Play status
-            HStack(spacing: 4) {
-                if episode.isPlayed {
-                    Label("Played", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                } else if episode.isInProgress {
-                    Label("In Progress", systemImage: "play.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
-                } else {
-                    Label("Unplayed", systemImage: "circle")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            // Enhanced play status with single-tap functionality
+            Button(action: {
+                onPlayedStatusToggle?()
+            }) {
+                HStack(spacing: 4) {
+                    Group {
+                        if episode.isPlayed {
+                            Label("Played", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        } else if episode.isInProgress {
+                            Label("In Progress", systemImage: "play.circle.fill")
+                                .foregroundStyle(.blue)
+                        } else {
+                            Label("Unplayed", systemImage: "circle")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .font(.caption)
                 }
             }
+            .accessibilityLabel(episode.isPlayed ? "Mark as unplayed" : "Mark as played")
+            .accessibilityHint("Tap to toggle played status")
             
             Spacer()
             
-            // Interactive buttons
+            // Enhanced status indicators and interactive buttons
             HStack(spacing: 12) {
-                if episode.isDownloaded {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundStyle(.blue)
-                        .accessibilityLabel("Downloaded")
-                }
+                // Download status with enhanced feedback
+                downloadStatusIndicator
                 
                 if let onFavoriteToggle = onFavoriteToggle {
                     Button(action: onFavoriteToggle) {
@@ -920,10 +1014,57 @@ public struct EpisodeCardView: View {
                     }
                     .accessibilityLabel(episode.isBookmarked ? "Remove bookmark" : "Add bookmark")
                 }
+                
+                // Archive status indicator
+                if episode.isArchived {
+                    Image(systemName: "archivebox.fill")
+                        .foregroundStyle(.orange)
+                        .accessibilityLabel("Archived")
+                }
+                
+                // Rating indicator  
+                if let rating = episode.rating {
+                    HStack(spacing: 1) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= rating ? "star.fill" : "star")
+                                .foregroundStyle(star <= rating ? .yellow : .secondary)
+                                .font(.caption2)
+                        }
+                    }
+                    .accessibilityLabel("\(rating) star rating")
+                }
             }
             .font(.caption)
         }
         .accessibilityIdentifier("Episode Status")
+    }
+    
+    @ViewBuilder
+    private var downloadStatusIndicator: some View {
+        switch episode.downloadStatus {
+        case .downloaded:
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(.blue)
+                .accessibilityLabel("Downloaded")
+        case .downloading:
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(.blue)
+                ProgressView()
+                    .scaleEffect(0.6)
+            }
+            .accessibilityLabel("Downloading")
+        case .failed:
+            Button(action: {
+                onDownloadRetry?()
+            }) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+            }
+            .accessibilityLabel("Download failed, tap to retry")
+        case .notDownloaded:
+            EmptyView()
+        }
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {
