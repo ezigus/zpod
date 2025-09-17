@@ -353,7 +353,7 @@ private struct PodcastCardView: View {
     let podcast: PodcastItem
 
     var body: some View {
-        NavigationLink(destination: EpisodeListCardContainer(podcastId: podcast.id, podcastTitle: podcast.title)) {
+        NavigationLink(destination: EpisodeListViewWrapper(podcastId: podcast.id, podcastTitle: podcast.title)) {
             HStack(spacing: 16) {
                 // Podcast artwork placeholder
                 RoundedRectangle(cornerRadius: 12)
@@ -393,6 +393,91 @@ private struct PodcastCardView: View {
         .accessibilityLabel(podcast.title)
         .accessibilityHint("Opens episode list for \(podcast.title)")
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+// MARK: - Episode List View Wrapper with Real Batch Operations
+struct EpisodeListViewWrapper: View {
+    let podcastId: String
+    let podcastTitle: String
+    
+    var body: some View {
+        // Create a real Podcast object with sample episodes for testing
+        let samplePodcast = createSamplePodcast(id: podcastId, title: podcastTitle)
+        
+        // Use the real EpisodeListView with full batch operation functionality
+        EpisodeListView(podcast: samplePodcast)
+            .accessibilityIdentifier("Episode List View")
+    }
+    
+    private func createSamplePodcast(id: String, title: String) -> Podcast {
+        let sampleEpisodes = [
+            Episode(
+                id: "st-001",
+                title: "Episode 1: Introduction",
+                podcastID: id,
+                playbackPosition: 0,
+                isPlayed: false,
+                pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
+                duration: 2723, // 45:23
+                description: "Introduction to the podcast series.",
+                audioURL: URL(string: "https://example.com/episode1.mp3")
+            ),
+            Episode(
+                id: "st-002", 
+                title: "Episode 2: Swift Basics",
+                podcastID: id,
+                playbackPosition: 0,
+                isPlayed: false,
+                pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
+                duration: 3137, // 52:17
+                description: "Covering Swift language basics.",
+                audioURL: URL(string: "https://example.com/episode2.mp3")
+            ),
+            Episode(
+                id: "st-003",
+                title: "Episode 3: Advanced Topics", 
+                podcastID: id,
+                playbackPosition: 0,
+                isPlayed: false,
+                pubDate: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
+                duration: 3702, // 61:42
+                description: "Deep dive into advanced Swift concepts.",
+                audioURL: URL(string: "https://example.com/episode3.mp3")
+            ),
+            Episode(
+                id: "st-004",
+                title: "Episode 4: Performance",
+                podcastID: id,
+                playbackPosition: 0,
+                isPlayed: false,
+                pubDate: Calendar.current.date(byAdding: .day, value: -28, to: Date()) ?? Date(),
+                duration: 2336, // 38:56
+                description: "Performance optimization techniques.",
+                audioURL: URL(string: "https://example.com/episode4.mp3")
+            ),
+            Episode(
+                id: "st-005",
+                title: "Episode 5: Testing",
+                podcastID: id,
+                playbackPosition: 0,
+                isPlayed: false,
+                pubDate: Calendar.current.date(byAdding: .day, value: -35, to: Date()) ?? Date(),
+                duration: 2673, // 44:33
+                description: "Testing strategies and best practices.",
+                audioURL: URL(string: "https://example.com/episode5.mp3")
+            )
+        ]
+        
+        return Podcast(
+            id: id,
+            title: title,
+            author: "Sample Author",
+            description: "Sample podcast for UI testing with batch operations",
+            feedURL: URL(string: "https://example.com/feed.rss")!,
+            episodes: sampleEpisodes,
+            dateAdded: Date()
+        )
     }
 }
 

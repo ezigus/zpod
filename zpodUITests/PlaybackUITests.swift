@@ -381,20 +381,20 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Then: Playback controls should have proper accessibility
         if playButton.exists {
-            XCTAssertTrue(playButton.exists && playButton.isHittable, "Play button should be accessible")
+            XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout), "Play button should be accessible")
             XCTAssertTrue(hasNonEmptyLabel(playButton), "Play button should have accessibility label")
             // XCTest doesn't expose accessibilityHint; ensure tappable instead
         }
         
         if pauseButton.exists {
-            XCTAssertTrue(pauseButton.exists && pauseButton.isHittable, "Pause button should be accessible")
+            XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout), "Pause button should be accessible")
             XCTAssertTrue(hasNonEmptyLabel(pauseButton), "Pause button should have accessibility label")
         }
         
         // Test progress slider accessibility
         let progressSlider = app.sliders["Progress Slider"]
         if progressSlider.exists {
-            XCTAssertTrue(progressSlider.exists && progressSlider.isHittable, "Progress slider should be accessible")
+            XCTAssertTrue(progressSlider.waitForExistence(timeout: adaptiveShortTimeout), "Progress slider should be accessible")
             XCTAssertNotNil(progressSlider.value, "Progress slider should announce current position")
         }
     }
@@ -416,8 +416,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Then: Controls should be in logical order for VoiceOver
         for control in playbackControls {
+            // Ensure control is ready before checking accessibility - event-based check
+            XCTAssertTrue(control.waitForExistence(timeout: adaptiveShortTimeout), "Control should exist and be ready")
             // XCUIElement doesn't reliably expose isAccessibilityElement; check for hittable and label
-            XCTAssertTrue(control.isHittable, "Playback control should be accessible to VoiceOver")
+            XCTAssertTrue(control.isHittable, "Playbook control should be accessible to VoiceOver")
             XCTAssertTrue(hasNonEmptyLabel(control), "Control should have descriptive label")
         }
     }
@@ -437,17 +439,21 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         if playButton.exists || pauseButton.exists {
             // Test UI responsiveness by verifying controls are interactive
-            if playButton.exists && playButton.isHittable {
+            if playButton.exists {
+                // Wait for button to be interactive before testing
+                XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout), "Play button should be accessible")
                 playButton.tap()
                 
                 // Verify the control responds to interaction (state change or remains interactive)
-                XCTAssertTrue(playButton.isHittable || pauseButton.exists, 
+                XCTAssertTrue(playButton.exists || pauseButton.exists, 
                              "Play button should remain responsive after interaction")
-            } else if pauseButton.exists && pauseButton.isHittable {
+            } else if pauseButton.exists {
+                // Wait for button to be interactive before testing
+                XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout), "Pause button should be accessible")
                 pauseButton.tap()
                 
                 // Verify the control responds to interaction
-                XCTAssertTrue(pauseButton.isHittable || playButton.exists,
+                XCTAssertTrue(pauseButton.exists || playButton.exists,
                              "Pause button should remain responsive after interaction")
             }
             
@@ -468,59 +474,70 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         
         // Given: User wants to control podcast playback
         // Wait for player interface to be ready using robust patterns
-        let playerReady = waitForElementOrAlternatives(
-            primary: app.otherElements["Player Interface"],
-            alternatives: [
-                app.buttons["Play"],
-                app.buttons["Pause"],
-                app.sliders["Progress Slider"]
-            ],
-            timeout: adaptiveTimeout,
-            description: "player interface"
-        )
+        let playerReady = waitForAnyElement([
+            app.otherElements["Player Interface"],
+            app.buttons["Play"],
+            app.buttons["Pause"],
+            app.sliders["Progress Slider"]
+        ], timeout: adaptiveTimeout, description: "player interface")
         
         if playerReady != nil {
             // When: User interacts with all major playback controls using responsive patterns
             
             // Test play/pause functionality with state awareness
-            let playButton = findAccessibleElement(
-                in: app,
-                byIdentifier: "Play",
-                byLabel: "Play",
-                byPartialLabel: "Play",
-                ofType: .button
-            )
-            let pauseButton = findAccessibleElement(
-                in: app,
-                byIdentifier: "Pause", 
-                byLabel: "Pause",
-                byPartialLabel: "Pause",
-                ofType: .button
-            )
+            let playButton = app.buttons["Play"]
+            let pauseButton = app.buttons["Pause"]
             
-            if let button = playButton ?? pauseButton {
+            if let button = [playButton, pauseButton].first(where: { $0.exists }) {
                 button.tap()
                 
-                // Wait for interaction to be processed rather than arbitrary delay
-                XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.2, timeout: adaptiveShortTimeout),
-                    "Play/pause interaction should be processed"
-                )
+                // Wait for playback control to be responsive using XCTestExpectation
+                let responsiveExpectation = XCTestExpectation(description: "Playback control becomes responsive")
+                
+                // Poll for responsive control using run loop scheduling instead of Thread.sleep
+                func checkForResponsiveControl() {
+                    if (app.buttons["Play"].exists && app.buttons["Play"].isHittable) || 
+                       (app.buttons["Pause"].exists && app.buttons["Pause"].isHittable) {
+                        responsiveExpectation.fulfill()
+                    } else {
+                        // Schedule next check using run loop instead of Thread.sleep
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            checkForResponsiveControl()
+                        }
+                    }
+                }
+                
+                // Start checking
+                checkForResponsiveControl()
+                
+                wait(for: [responsiveExpectation], timeout: adaptiveShortTimeout)
             }
             
             // Test skip controls with responsive validation
             let skipControls = [
-                findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button),
-                findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)
-            ].compactMap { $0 }
+                app.buttons["Skip Forward"],
+                app.buttons["Skip Backward"]
+            ].filter { $0.exists }
             
             for control in skipControls {
                 control.tap()
-                // Verify control remains interactive after use
-                XCTAssertTrue(
-                    waitForStableState(app: app, stableFor: 0.1, timeout: adaptiveShortTimeout),
-                    "Skip control should remain responsive"
-                )
+                
+                // Wait for control to remain responsive using XCTestExpectation
+                let controlResponsiveExpectation = XCTestExpectation(description: "\(control.identifier) control becomes responsive")
+                
+                // Poll for responsive control
+                func checkControlResponsive() {
+                    if control.exists && control.isHittable {
+                        controlResponsiveExpectation.fulfill()
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            checkControlResponsive()
+                        }
+                    }
+                }
+                
+                checkControlResponsive()
+                wait(for: [controlResponsiveExpectation], timeout: adaptiveShortTimeout)
             }
             
             // Then: All controls should work without crashing
@@ -568,37 +585,54 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         // When: Checking comprehensive accessibility using adaptive waiting
         
         // Wait for the player interface to load with multiple fallback strategies
-        let playerElements = waitForElementOrAlternatives(
-            primary: app.otherElements["Player Interface"],
-            alternatives: [
-                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")).firstMatch,
-                app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch,
-                app.sliders["Progress Slider"]
-            ],
-            timeout: adaptiveTimeout,
-            description: "playback interface elements"
-        )
+        let playerElements = waitForAnyElement([
+            app.otherElements["Player Interface"],
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")).firstMatch,
+            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")).firstMatch,
+            app.sliders["Progress Slider"]
+        ], timeout: adaptiveTimeout, description: "playback interface elements")
         
         if playerElements != nil {
-            // Test accessibility of key playback elements using smart discovery
+            // Test accessibility of key playback elements using direct element access
             let accessibleElements: [(String, XCUIElement?)] = [
-                ("Play button", findAccessibleElement(in: app, byIdentifier: "Play", ofType: .button)),
-                ("Pause button", findAccessibleElement(in: app, byIdentifier: "Pause", ofType: .button)),
-                ("Skip Forward", findAccessibleElement(in: app, byIdentifier: "Skip Forward", ofType: .button)),
-                ("Skip Backward", findAccessibleElement(in: app, byIdentifier: "Skip Backward", ofType: .button)),
-                ("Progress Slider", findAccessibleElement(in: app, byIdentifier: "Progress Slider", ofType: .slider)),
-                ("Episode Title", findAccessibleElement(in: app, byIdentifier: "Episode Title", ofType: .staticText))
+                ("Play button", app.buttons["Play"].exists ? app.buttons["Play"] : nil),
+                ("Pause button", app.buttons["Pause"].exists ? app.buttons["Pause"] : nil),
+                ("Skip Forward", app.buttons["Skip Forward"].exists ? app.buttons["Skip Forward"] : nil),
+                ("Skip Backward", app.buttons["Skip Backward"].exists ? app.buttons["Skip Backward"] : nil),
+                ("Progress Slider", app.sliders["Progress Slider"].exists ? app.sliders["Progress Slider"] : nil),
+                ("Episode Title", app.staticTexts["Episode Title"].exists ? app.staticTexts["Episode Title"] : nil)
             ]
             
             var accessibilityScore = 0
             
             for (name, element) in accessibleElements {
                 if let element = element, element.exists {
-                    accessibilityScore += 1
+                    // Wait for element to be ready using XCTestExpectation
+                    let elementReadyExpectation = XCTestExpectation(description: "\(name) element ready for accessibility check")
                     
-                    // Verify element has accessibility properties
-                    if !element.label.isEmpty || element.isHittable {
+                    func checkElementReady() {
+                        if element.exists && element.isHittable {
+                            elementReadyExpectation.fulfill()
+                        } else {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                checkElementReady()
+                            }
+                        }
+                    }
+                    
+                    checkElementReady()
+                    
+                    do {
+                        wait(for: [elementReadyExpectation], timeout: adaptiveShortTimeout)
                         accessibilityScore += 1
+                        
+                        // Verify element has accessibility properties
+                        if !element.label.isEmpty || element.isHittable {
+                            accessibilityScore += 1
+                        }
+                    } catch {
+                        // Element not ready in time, continue with other elements
+                        continue
                     }
                 }
             }

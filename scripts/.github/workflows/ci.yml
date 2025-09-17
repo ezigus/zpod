@@ -1,18 +1,11 @@
 name: CI
 
 on:
-  # Allow manual triggering from GitHub UI or API
-  workflow_dispatch:
-  # Run on pushes to common branches
-  push:
-    branches:
-      - main
-      - develop
-      - 'feature/**'
-      - 'release/**'
-      - 'hotfix/**'
-  # Run on any pull request (from any branch to any branch)
+  workflow_dispatch:  # Allows manual triggering from GitHub UI or API
   pull_request:
+    branches: [ main ]
+  push:
+    branches: [ feature/** ]
 
 jobs:
   build-and-test:
@@ -26,36 +19,22 @@ jobs:
           xcode-version: latest-stable
       - name: Show Xcode version
         run: xcodebuild -version
-      - name: Install xcbeautify
-        run: brew install xcbeautify
       - name: Resolve Swift packages
-        run: |
-          set -euo pipefail
-          if [ -d "zpod.xcworkspace" ]; then
-            echo "Using workspace"
-            xcodebuild -resolvePackageDependencies -workspace zpod.xcworkspace -scheme zpod
-          else
-            echo "Workspace not found, trying project"
-            xcodebuild -resolvePackageDependencies -project zpod.xcodeproj -scheme zpod || true
-          fi
-
+        run: xcodebuild -resolvePackageDependencies -workspace zpod.xcworkspace -scheme zpod
       - name: Build & Test (iOS)
         run: |
           set -euo pipefail
           
-          # Determine whether to use workspace or project for all subsequent xcodebuild commands
-          if [ -d "zpod.xcworkspace" ]; then
-            TARGET_ARGS="-workspace zpod.xcworkspace -scheme zpod"
-            echo "Using Xcode workspace for build"
-          else
-            TARGET_ARGS="-project zpod.xcodeproj -scheme zpod"
-            echo "Using Xcode project for build"
-          fi
+          echo "=== COMPREHENSIVE CI DEBUGGING ==="
+          echo "Date: $(date)"
+          echo "Xcode version: $(xcodebuild -version)"
+          echo "Available SDKs: $(xcodebuild -showsdks | grep 'ios')"
+          echo "macOS version: $(sw_vers -productVersion)"
           
-          # Get available destinations
-          echo "=== STEP 1: Getting available iOS Simulator destinations ==="
-          destinations_output="$(xcodebuild ${TARGET_ARGS} -showdestinations 2>&1 || true)"
-          
+          # Get available destinations dynamically with detailed debugging
+          echo ""
+          echo "=== STEP 1: Getting iOS Simulator destinations ==="
+          destinations_output="$(xcodebuild -workspace zpod.xcworkspace -scheme zpod -showdestinations 2>&1 || true)"
           echo "Raw xcodebuild -showdestinations output:"
           echo "----------------------------------------"
           echo "${destinations_output}"
@@ -139,7 +118,7 @@ jobs:
                     realistic_versions="${version}"
                   else
                     realistic_versions="${realistic_versions}
-          ${version}"
+${version}"
                   fi
                 else
                   echo "  ❌ REJECTED: ${version} (outside range 15-${max_reasonable_ios_version})"
@@ -165,7 +144,12 @@ jobs:
               echo "Testing fallback version: ${test_version}"
               test_destination="platform=iOS Simulator,OS=${test_version}"
               
-              if xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${test_destination}" -dry-run > /dev/null 2>&1; then
+              if xcodebuild \
+                -workspace zpod.xcworkspace \
+                -scheme zpod \
+                -sdk iphonesimulator \
+                -destination "${test_destination}" \
+                -dry-run > /dev/null 2>&1; then
                 echo "  ✅ FALLBACK SUCCESS: iOS ${test_version} works"
                 found_fallback="${test_version}"
                 break
@@ -262,7 +246,12 @@ jobs:
           echo ""
           echo "=== STEP 12: Destination validation ==="
           echo "Validating destination: ${selected_destination}"
-          validation_output="$(xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${selected_destination}" -dry-run 2>&1 || true)"
+          validation_output="$(xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme zpod \
+            -sdk iphonesimulator \
+            -destination "${selected_destination}" \
+            -dry-run 2>&1 || true)"
           
           echo "Validation output:"
           echo "${validation_output}"
@@ -279,10 +268,15 @@ jobs:
           echo ""
           echo "=== STEP 13: Final build and test ==="
           echo "Building and testing with destination: ${selected_destination}"
-          echo "Command: xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination '${selected_destination}' clean build test | xcbeautify"
+          echo "Command: xcodebuild -workspace zpod.xcworkspace -scheme zpod -sdk iphonesimulator -destination '${selected_destination}' clean build test"
           echo ""
           
-          xcodebuild ${TARGET_ARGS} -sdk iphonesimulator -destination "${selected_destination}" clean build test | xcbeautify
+          xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme zpod \
+            -sdk iphonesimulator \
+            -destination "${selected_destination}" \
+            clean build test | xcbeautify
         env:
           NSUnbufferedIO: "YES"
       - name: Upload Test Logs (always)

@@ -190,19 +190,53 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         // Given: App supports keyboard navigation
         // When: Using keyboard navigation (simulated through accessibility)
         
-        // Test that focusable elements are properly configured
-        let interactiveElements = app.buttons.allElementsBoundByIndex +
-                                 app.textFields.allElementsBoundByIndex +
-                                 app.tables.allElementsBoundByIndex
-        
-        // Then: Interactive elements should be keyboard accessible
-        for element in interactiveElements.prefix(5) { // Test first 5 elements
-            if element.exists {
-                let traits = element.accessibilityTraits
-                XCTAssertTrue(element.isHittable || !element.label.isEmpty ||
-                              traits.contains(.button) || traits.contains(.searchField),
-                              "Interactive elements should be keyboard accessible")
+        // Test specific known interactive elements instead of using indexed access
+        let tabBar = app.tabBars["Main Tab Bar"]
+        if tabBar.exists {
+            // Test tab bar buttons - these are primary keyboard navigation targets
+            let tabButtons = ["Library", "Discover", "Player", "Settings"]
+            for buttonName in tabButtons {
+                let button = tabBar.buttons[buttonName]
+                if button.exists {
+                    let traits = button.accessibilityTraits
+                    XCTAssertTrue(button.isHittable || traits.contains(.button),
+                                  "\(buttonName) tab should be keyboard accessible")
+                    XCTAssertFalse(button.label.isEmpty, 
+                                   "\(buttonName) tab should have descriptive label for keyboard navigation")
+                }
             }
+        }
+        
+        // Test search field if available (common keyboard navigation target)
+        let searchField = app.searchFields.firstMatch
+        if searchField.exists {
+            let traits = searchField.accessibilityTraits
+            XCTAssertTrue(searchField.isHittable || traits.contains(.searchField),
+                          "Search field should be keyboard accessible")
+        }
+        
+        // Test navigation bars (contain back buttons and other controls)
+        let navigationBar = app.navigationBars.firstMatch
+        if navigationBar.exists {
+            XCTAssertTrue(navigationBar.isHittable,
+                          "Navigation bar should be keyboard accessible")
+            
+            // Test any buttons in the navigation bar
+            let navButtons = navigationBar.buttons
+            if navButtons.count > 0 {
+                let firstNavButton = navButtons.firstMatch
+                if firstNavButton.exists {
+                    XCTAssertTrue(firstNavButton.isHittable,
+                                  "Navigation buttons should be keyboard accessible")
+                }
+            }
+        }
+        
+        // Test table views (scrollable and selectable content)
+        let tableView = app.tables.firstMatch
+        if tableView.exists {
+            XCTAssertTrue(tableView.isHittable,
+                          "Table view should be keyboard navigable")
         }
     }
     
@@ -264,9 +298,9 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         XCTAssertTrue(tabBar.exists, "Main navigation should be available for shortcuts")
         
         // Test that search is quickly accessible (common shortcut target)
-        let searchElements = app.searchFields.allElementsBoundByIndex
-        if !searchElements.isEmpty {
-            XCTAssertTrue(searchElements.first!.exists, "Search should be accessible")
+        let searchField = app.searchFields.firstMatch
+        if searchField.exists {
+            XCTAssertTrue(searchField.exists, "Search should be accessible")
         }
     }
     
@@ -291,8 +325,13 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         }
         
         // Check that text is readable
-        let textElements = app.staticTexts.allElementsBoundByIndex.prefix(3)
-        for textElement in textElements {
+        let textElements = app.staticTexts
+        let sampleTexts = [textElements.firstMatch, 
+                          app.staticTexts["Library"], 
+                          app.staticTexts["Discover"],
+                          app.staticTexts["Player"]]
+        
+        for textElement in sampleTexts {
             if textElement.exists && !textElement.label.isEmpty {
                 XCTAssertTrue(textElement.isHittable,
                              "Text should be readable in current appearance")
@@ -314,9 +353,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         // Test that app doesn't crash on invalid navigation
         let tabBar = app.tabBars["Main Tab Bar"]
         if tabBar.exists {
-            // Rapidly switch between tabs to test stability
-            let tabs = tabBar.buttons.allElementsBoundByIndex
-            for tab in tabs.prefix(3) {
+            // Test specific known tabs instead of generic indexed access
+            let knownTabs = ["Library", "Discover", "Player", "Settings"]
+            for tabName in knownTabs {
+                let tab = tabBar.buttons[tabName]
                 if tab.exists {
                     tab.tap()
                     // Verify transition without hardcoded delay
@@ -371,19 +411,22 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         XCTAssertTrue(tabBar.exists, "Main tab bar should be available")
         
         // When: User explores each main section
-        let tabButtons = tabBar.buttons.allElementsBoundByIndex
+        let knownTabNames = ["Library", "Discover", "Player", "Settings"]
         
-        for (index, tab) in tabButtons.enumerated() {
-            if tab.exists && index < 4 { // Limit to reasonable number of tabs
-                tab.tap()
-                
-                // Verify navigation worked without hardcoded delay
-                let navigationBar = app.navigationBars.firstMatch
-                XCTAssertTrue(navigationBar.exists || app.otherElements.firstMatch.exists,
-                             "Each tab should show content")
-                
-                // Verify tab remains interactive after navigation
-                XCTAssertTrue(tab.isHittable, "Tab should remain interactive after navigation")
+        for (index, tabName) in knownTabNames.enumerated() {
+            if index < 4 { // Limit to reasonable number of tabs
+                let tab = tabBar.buttons[tabName]
+                if tab.exists {
+                    tab.tap()
+                    
+                    // Verify navigation worked without hardcoded delay
+                    let navigationBar = app.navigationBars.firstMatch
+                    XCTAssertTrue(navigationBar.exists || app.otherElements.firstMatch.exists,
+                                 "Each tab should show content")
+                    
+                    // Verify tab remains interactive after navigation
+                    XCTAssertTrue(tab.isHittable, "Tab should remain interactive after navigation")
+                }
             }
         }
         
@@ -403,9 +446,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         // Verify main interface elements have accessibility labels
         let tabBar = app.tabBars["Main Tab Bar"]
         if tabBar.exists {
-            let tabButtons = tabBar.buttons.allElementsBoundByIndex
+            let knownTabNames = ["Library", "Discover", "Player", "Settings"]
             
-            for tab in tabButtons.prefix(4) {
+            for tabName in knownTabNames {
+                let tab = tabBar.buttons[tabName]
                 if tab.exists {
                     let traits = tab.accessibilityTraits
                     XCTAssertFalse(tab.label.isEmpty, "Tab should have descriptive label")
@@ -415,18 +459,28 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
             }
         }
         
-        // Check for proper heading structure without using unsupported predicates on accessibilityTraits
+        // Check for proper heading structure - use specific known headings
         var headingCount = 0
-        let candidates = app.staticTexts.allElementsBoundByIndex + app.otherElements.allElementsBoundByIndex
-        for element in candidates.prefix(50) {
-            if element.exists {
-                if element.accessibilityTraits.contains(.header) {
-                    headingCount += 1
-                    break
-                }
+        
+        // Check for known accessibility headings first
+        let knownHeadings = ["Library", "Discover", "Categories", "Featured", "Now Playing"]
+        for headingText in knownHeadings {
+            let heading = app.staticTexts[headingText]
+            if heading.exists && heading.accessibilityTraits.contains(.header) {
+                headingCount += 1
+                break
             }
         }
-        // Fallback: known heading identifiers in this app
+        
+        // Fallback: search for any element with header trait (limited search)
+        if headingCount == 0 {
+            let firstStaticText = app.staticTexts.firstMatch
+            if firstStaticText.exists && firstStaticText.accessibilityTraits.contains(.header) {
+                headingCount = 1
+            }
+        }
+        
+        // Final fallback: known heading identifiers in this app
         if headingCount == 0 {
             if app.staticTexts["Heading Library"].exists ||
                app.staticTexts["Categories"].exists ||

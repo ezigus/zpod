@@ -13,7 +13,7 @@ import Persistence
 import UIKit
 #endif
 
-/// Main episode list view that displays episodes for a given podcast
+/// Main episode list view that displays episodes for a given podcast with batch operation support
 public struct EpisodeListView: View {
     let podcast: Podcast
     @StateObject private var viewModel: EpisodeListViewModel
@@ -29,6 +29,14 @@ public struct EpisodeListView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
+            // Batch operation progress indicators
+            batchOperationProgressSection
+            
+            // Multi-select toolbar (shown when in multi-select mode)
+            if viewModel.isInMultiSelectMode {
+                multiSelectToolbar
+            }
+            
             // Filter controls
             filterControlsSection
             
@@ -37,6 +45,19 @@ public struct EpisodeListView: View {
         }
         .navigationTitle(podcast.title)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if viewModel.isInMultiSelectMode {
+                    Button("Done") {
+                        viewModel.exitMultiSelectMode()
+                    }
+                } else {
+                    Button("Select") {
+                        viewModel.enterMultiSelectMode()
+                    }
+                }
+            }
+        }
         .refreshable {
             await refreshEpisodes()
         }
@@ -52,7 +73,172 @@ public struct EpisodeListView: View {
                 }
             )
         }
+        .sheet(isPresented: $viewModel.showingBatchOperationSheet) {
+            BatchOperationView(
+                selectedEpisodes: viewModel.selectedEpisodes,
+                availableOperations: viewModel.availableBatchOperations,
+                onOperationSelected: { operationType in
+                    Task {
+                        await viewModel.executeBatchOperation(operationType)
+                    }
+                    viewModel.showingBatchOperationSheet = false
+                },
+                onCancel: {
+                    viewModel.showingBatchOperationSheet = false
+                }
+            )
+        }
+        .sheet(isPresented: $viewModel.showingSelectionCriteriaSheet) {
+            EpisodeSelectionCriteriaView(
+                onApply: { criteria in
+                    viewModel.selectEpisodesByCriteria(criteria)
+                    viewModel.showingSelectionCriteriaSheet = false
+                },
+                onCancel: {
+                    viewModel.showingSelectionCriteriaSheet = false
+                }
+            )
+        }
         .accessibilityIdentifier("Episode List View")
+    }
+    
+    @ViewBuilder
+    private var batchOperationProgressSection: some View {
+        if !viewModel.activeBatchOperations.isEmpty {
+            VStack(spacing: 8) {
+                ForEach(viewModel.activeBatchOperations, id: \.id) { batchOperation in
+                    BatchOperationProgressView(
+                        batchOperation: batchOperation,
+                        onCancel: {
+                            Task {
+                                await viewModel.cancelBatchOperation(batchOperation.id)
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+    }
+    
+    @ViewBuilder
+    private var multiSelectToolbar: some View {
+        VStack(spacing: 0) {
+            HStack {
+                // Selection info
+                Text("\(viewModel.selectedCount) selected")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .accessibilityIdentifier("\(viewModel.selectedCount) selected")
+                    .accessibilityLabel("\(viewModel.selectedCount) episodes selected")
+                
+                Spacer()
+                
+                // Selection controls
+                HStack(spacing: 16) {
+                    Button("All") {
+                        viewModel.selectAllEpisodes()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                    .accessibilityIdentifier("All")
+                    .accessibilityLabel("Select All")
+                    
+                    Button("None") {
+                        viewModel.selectNone()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                    .accessibilityIdentifier("None")
+                    .accessibilityLabel("Select None")
+                    
+                    Button("Invert") {
+                        viewModel.invertSelection()
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                    .accessibilityIdentifier("Invert")
+                    .accessibilityLabel("Invert Selection")
+                    
+                    Button("Criteria") {
+                        viewModel.showingSelectionCriteriaSheet = true
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                    .accessibilityIdentifier("Criteria")
+                    .accessibilityLabel("Select by Criteria")
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            
+            // Action buttons
+            if viewModel.hasActiveSelection {
+                HStack(spacing: 12) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach([
+                                BatchOperationType.markAsPlayed,
+                                .markAsUnplayed,
+                                .download,
+                                .addToPlaylist,
+                                .favorite,
+                                .delete
+                            ], id: \.self) { operationType in
+                                Button(action: {
+                                    Task {
+                                        await viewModel.executeBatchOperation(operationType)
+                                    }
+                                }) {
+                                    Label(operationType.displayName, systemImage: operationType.systemIcon)
+                                        .font(.caption)
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(operationColor(for: operationType))
+                                        .cornerRadius(8)
+                                }
+                                .accessibilityIdentifier(operationType.displayName)
+                                .accessibilityLabel(operationType.displayName)
+                            }
+                            
+                            Button("More") {
+                                viewModel.showingBatchOperationSheet = true
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.gray)
+                            .cornerRadius(8)
+                            .accessibilityIdentifier("More")
+                            .accessibilityLabel("More batch operations")
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+            
+            Divider()
+        }
+        .background(Color(.systemGray6))
+    }
+    
+    private func operationColor(for operation: BatchOperationType) -> Color {
+        switch operation {
+        case .delete:
+            return .red
+        case .markAsPlayed, .favorite:
+            return .green
+        case .download:
+            return .blue
+        case .addToPlaylist:
+            return .orange
+        default:
+            return .gray
+        }
     }
     
     @ViewBuilder
@@ -150,14 +336,32 @@ public struct EpisodeListView: View {
             // iPad layout with responsive columns
             LazyVGrid(columns: adaptiveColumns, spacing: 16) {
                 ForEach(viewModel.filteredEpisodes, id: \.id) { episode in
-                    NavigationLink(destination: episodeDetailView(for: episode)) {
+                    if viewModel.isInMultiSelectMode {
                         EpisodeCardView(
                             episode: episode,
                             onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                            isSelected: viewModel.isEpisodeSelected(episode.id),
+                            isInMultiSelectMode: true,
+                            onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
                         )
+                        .accessibilityIdentifier("Episode-\(episode.id)")
+                    } else {
+                        NavigationLink(destination: episodeDetailView(for: episode)) {
+                            EpisodeCardView(
+                                episode: episode,
+                                onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                                onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                                isSelected: false,
+                                isInMultiSelectMode: false
+                            )
+                        }
+                        .accessibilityIdentifier("Episode-\(episode.id)")
+                        .onLongPressGesture {
+                            viewModel.enterMultiSelectMode()
+                            viewModel.toggleEpisodeSelection(episode)
+                        }
                     }
-                    .accessibilityIdentifier("Episode-\(episode.id)")
                 }
             }
             .padding()
@@ -165,14 +369,32 @@ public struct EpisodeListView: View {
         } else {
             // iPhone layout with standard list
             List(viewModel.filteredEpisodes, id: \.id) { episode in
-                NavigationLink(destination: episodeDetailView(for: episode)) {
+                if viewModel.isInMultiSelectMode {
                     EpisodeRowView(
                         episode: episode,
                         onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                        onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) }
+                        onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                        isSelected: viewModel.isEpisodeSelected(episode.id),
+                        isInMultiSelectMode: true,
+                        onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
                     )
+                    .accessibilityIdentifier("Episode-\(episode.id)")
+                } else {
+                    NavigationLink(destination: episodeDetailView(for: episode)) {
+                        EpisodeRowView(
+                            episode: episode,
+                            onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                            isSelected: false,
+                            isInMultiSelectMode: false
+                        )
+                    }
+                    .accessibilityIdentifier("Episode-\(episode.id)")
+                    .onLongPressGesture {
+                        viewModel.enterMultiSelectMode()
+                        viewModel.toggleEpisodeSelection(episode)
+                    }
                 }
-                .accessibilityIdentifier("Episode-\(episode.id)")
             }
             .listStyle(.insetGrouped)
             .accessibilityIdentifier("Episode List")
@@ -293,39 +515,72 @@ public struct EpisodeListView: View {
     }
 }
 
-/// Individual episode row view for the list
+/// Individual episode row view for the list with multi-selection support
 public struct EpisodeRowView: View {
     let episode: Episode
     let onFavoriteToggle: (() -> Void)?
     let onBookmarkToggle: (() -> Void)?
+    let isSelected: Bool
+    let isInMultiSelectMode: Bool
+    let onSelectionToggle: (() -> Void)?
     
     public init(
         episode: Episode,
         onFavoriteToggle: (() -> Void)? = nil,
-        onBookmarkToggle: (() -> Void)? = nil
+        onBookmarkToggle: (() -> Void)? = nil,
+        isSelected: Bool = false,
+        isInMultiSelectMode: Bool = false,
+        onSelectionToggle: (() -> Void)? = nil
     ) {
         self.episode = episode
         self.onFavoriteToggle = onFavoriteToggle
         self.onBookmarkToggle = onBookmarkToggle
+        self.isSelected = isSelected
+        self.isInMultiSelectMode = isInMultiSelectMode
+        self.onSelectionToggle = onSelectionToggle
     }
     
     public var body: some View {
         HStack(spacing: 12) {
+            // Selection checkbox (only shown in multi-select mode)
+            if isInMultiSelectMode {
+                Button(action: {
+                    onSelectionToggle?()
+                }) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? .blue : .secondary)
+                        .font(.title3)
+                }
+                .accessibilityLabel(isSelected ? "Deselect episode" : "Select episode")
+            }
+            
             episodeArtwork
             
             VStack(alignment: .leading, spacing: 4) {
                 episodeTitle
                 episodeMetadata
                 episodeDescription
+                
+                // Progress bar for downloads and playback
+                progressIndicators
             }
             
             Spacer()
             
-            episodeStatusIndicators
+            if !isInMultiSelectMode {
+                episodeStatusIndicators
+            }
         }
         .padding(.vertical, 4)
+        .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color.clear)
+        .cornerRadius(8)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("Episode Row-\(episode.id)")
+        .onTapGesture {
+            if isInMultiSelectMode {
+                onSelectionToggle?()
+            }
+        }
     }
     
     private var episodeArtwork: some View {
@@ -370,6 +625,37 @@ public struct EpisodeRowView: View {
                 .lineLimit(2)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("Episode Description")
+        }
+    }
+    
+    @ViewBuilder
+    private var progressIndicators: some View {
+        VStack(spacing: 2) {
+            // Download progress
+            if episode.downloadStatus == .downloading {
+                HStack {
+                    Text("Downloading...")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                ProgressView(value: 0.5) // Mock progress value
+                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                    .scaleEffect(y: 0.8)
+            }
+            
+            // Playback progress
+            if episode.isInProgress && episode.playbackProgress > 0 {
+                HStack {
+                    Text("Progress: \(Int(episode.playbackProgress * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                ProgressView(value: episode.playbackProgress)
+                    .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                    .scaleEffect(y: 0.8)
+            }
         }
     }
     
@@ -433,24 +719,48 @@ public struct EpisodeRowView: View {
     }
 }
 
-/// Card-style episode view for iPad grid layout
+/// Card-style episode view for iPad grid layout with multi-selection support
 public struct EpisodeCardView: View {
     let episode: Episode
     let onFavoriteToggle: (() -> Void)?
     let onBookmarkToggle: (() -> Void)?
+    let isSelected: Bool
+    let isInMultiSelectMode: Bool
+    let onSelectionToggle: (() -> Void)?
     
     public init(
         episode: Episode,
         onFavoriteToggle: (() -> Void)? = nil,
-        onBookmarkToggle: (() -> Void)? = nil
+        onBookmarkToggle: (() -> Void)? = nil,
+        isSelected: Bool = false,
+        isInMultiSelectMode: Bool = false,
+        onSelectionToggle: (() -> Void)? = nil
     ) {
         self.episode = episode
         self.onFavoriteToggle = onFavoriteToggle
         self.onBookmarkToggle = onBookmarkToggle
+        self.isSelected = isSelected
+        self.isInMultiSelectMode = isInMultiSelectMode
+        self.onSelectionToggle = onSelectionToggle
     }
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Selection overlay (shown in multi-select mode)
+            if isInMultiSelectMode {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        onSelectionToggle?()
+                    }) {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(isSelected ? .blue : .secondary)
+                            .font(.title2)
+                    }
+                    .accessibilityLabel(isSelected ? "Deselect episode" : "Select episode")
+                }
+            }
+            
             // Large artwork for card layout
             episodeArtwork
             
@@ -458,22 +768,36 @@ public struct EpisodeCardView: View {
                 episodeTitle
                 episodeMetadata
                 episodeDescription
+                
+                // Progress indicators
+                progressIndicators
             }
             
             Spacer()
             
             // Bottom section with status
             HStack {
-                episodeStatusIndicators
+                if !isInMultiSelectMode {
+                    episodeStatusIndicators
+                }
                 Spacer()
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color(.systemBackground))
         .cornerRadius(12)
-        .shadow(radius: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected && isInMultiSelectMode ? Color.blue : Color.clear, lineWidth: 2)
+        )
+        .shadow(radius: isSelected && isInMultiSelectMode ? 4 : 2)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("Episode Card-\(episode.id)")
+        .onTapGesture {
+            if isInMultiSelectMode {
+                onSelectionToggle?()
+            }
+        }
     }
     
     private var episodeArtwork: some View {
@@ -518,6 +842,37 @@ public struct EpisodeCardView: View {
                 .lineLimit(3)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("Episode Description")
+        }
+    }
+    
+    @ViewBuilder
+    private var progressIndicators: some View {
+        VStack(spacing: 2) {
+            // Download progress
+            if episode.downloadStatus == .downloading {
+                HStack {
+                    Text("Downloading...")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                ProgressView(value: 0.5) // Mock progress value
+                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                    .scaleEffect(y: 0.8)
+            }
+            
+            // Playback progress
+            if episode.isInProgress && episode.playbackProgress > 0 {
+                HStack {
+                    Text("Progress: \(Int(episode.playbackProgress * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                ProgressView(value: episode.playbackProgress)
+                    .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                    .scaleEffect(y: 0.8)
+            }
         }
     }
     
