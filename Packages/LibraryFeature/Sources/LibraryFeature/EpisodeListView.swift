@@ -78,7 +78,7 @@ public struct EpisodeListView: View {
                 selectedEpisodes: viewModel.selectedEpisodes,
                 availableOperations: viewModel.availableBatchOperations,
                 onOperationSelected: { operationType in
-                    Task.detached { @MainActor in
+                    Task.detached(priority: nil) { @MainActor in
                         await viewModel.executeBatchOperation(operationType)
                     }
                     viewModel.showingBatchOperationSheet = false
@@ -110,17 +110,17 @@ public struct EpisodeListView: View {
                     BatchOperationProgressView(
                         batchOperation: batchOperation,
                         onCancel: {
-                            Task.detached { @MainActor in
+                            Task.detached(priority: nil) { @MainActor in
                                 await viewModel.cancelBatchOperation(batchOperation.id)
                             }
                         },
                         onRetry: batchOperation.failedCount > 0 ? {
-                            Task.detached { @MainActor in
+                            Task.detached(priority: nil) { @MainActor in
                                 await viewModel.retryBatchOperation(batchOperation.id)
                             }
                         } : nil,
                         onUndo: batchOperation.status == .completed && batchOperation.operationType.isReversible ? {
-                            Task.detached { @MainActor in
+                            Task.detached(priority: nil) { @MainActor in
                                 await viewModel.undoBatchOperation(batchOperation.id)
                             }
                         } : nil
@@ -197,7 +197,7 @@ public struct EpisodeListView: View {
                                 .delete
                             ], id: \.self) { operationType in
                                 Button(action: {
-                                    Task.detached { @MainActor in
+                                    Task.detached(priority: nil) { @MainActor in
                                         await viewModel.executeBatchOperation(operationType)
                                     }
                                 }) {
