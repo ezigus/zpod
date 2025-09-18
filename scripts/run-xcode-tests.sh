@@ -86,10 +86,6 @@ select_simulator() {
     "iPhone 16 Pro"
     "iPhone 16 Plus"  
     "iPhone 16 Pro Max"
-    "iPhone 15 Pro"
-    "iPhone 15"
-    "iPhone 14 Pro"
-    "iPhone 14"
   )
   
   # Extract all available iOS versions from simulators
