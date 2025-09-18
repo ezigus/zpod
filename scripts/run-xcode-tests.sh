@@ -302,7 +302,7 @@ run_legacy_mode() {
       PACKAGE_NAME=$(basename $(dirname $(dirname $(dirname "$MATCH_PATH"))))
       echo "[run-xcode-tests.sh] Found in package: $PACKAGE_NAME, test target: $TEST_TARGET"
       USE_XCODEBUILD=0
-      PACKAGE_PATH="Packages/$PACKAGE_NAME"
+      PACKAGE_PATH="$(dirname "$0")/../Packages/$PACKAGE_NAME"
     else
       echo "❌ Could not determine test target for '$TESTS'." >&2
       exit 2
