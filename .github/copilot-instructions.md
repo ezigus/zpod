@@ -9,6 +9,7 @@ These instructions outline the development process and standards for building th
 - **Language:** Swift 6.1.2 with strict concurrency compliance
 - **Platforms:** iPhone (iOS 18+), Apple Watch (watchOS 11+), and CarPlay
 - **Target device:** iPhone 16 (or equivalent iOS 18 simulator)
+- **iPhone-Only Development:** All UI development should target iPhone form factor only. Do not include iPad-specific layouts, adaptive UI, or multi-platform responsive design. Focus exclusively on iPhone user experience and interface patterns.
 - **Specification-Driven:** All features must follow the specification files in the `spec` directory (Given/When/Then format)
 
 ## Development Process

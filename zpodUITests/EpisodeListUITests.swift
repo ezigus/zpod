@@ -291,35 +291,6 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         }
     }
     
-    // MARK: - iPad Responsive Design Tests
-    
-    @MainActor
-    func testIPadLayout() throws {
-        // Skip this test on iPhone
-        guard UIDevice.current.userInterfaceIdiom == .pad else {
-            throw XCTSkip("This test is only for iPad")
-        }
-        
-        // Initialize the app
-        initializeApp()
-        
-        // Given: I'm on iPad and navigate to episode list
-        navigateToPodcastEpisodes("swift-talk")
-        
-        // Wait for content using robust loading pattern
-        XCTAssertTrue(
-            waitForContentToLoad(containerIdentifier: "Episode Cards Container"),
-            "Episode content should load on iPad before layout testing"
-        )
-        
-        // When: The episode list loads
-        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
-        
-        // Then: The layout should be optimized for iPad
-        // Note: Specific iPad layout tests would require more detailed UI structure validation
-        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should display properly on iPad")
-    }
-    
     // MARK: - Accessibility Tests
     
     @MainActor

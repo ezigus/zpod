@@ -6,7 +6,6 @@ import UIKit
 /// **Specifications Covered**: `spec/ui.md` - Navigation sections
 /// - Main navigation flow between screens and tabs
 /// - Accessibility compliance and VoiceOver support
-/// - iPad-specific layout adaptations and behaviors
 /// - Quick action handling and app shortcuts
 final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     
@@ -237,43 +236,6 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         if tableView.exists {
             XCTAssertTrue(tableView.isHittable,
                           "Table view should be keyboard navigable")
-        }
-    }
-    
-    // MARK: - iPad Layout Tests
-    // Covers: iPad UI optimization from ui spec
-    
-    @MainActor
-    func testIPadLayoutAdaptation() throws {
-        // Initialize the app
-        initializeApp()
-        
-        // Given: App is running on iPad (or iPad simulator)
-        let deviceType = UIDevice.current.userInterfaceIdiom
-        
-        if deviceType == .pad {
-            // When: Checking iPad-specific layouts
-            // Then: Should have appropriate iPad layouts
-            
-            // Check for sidebar or split view on iPad
-            let sidebar = app.otherElements["Sidebar"]
-            let splitView = app.otherElements["Split View"]
-            
-            if sidebar.exists || splitView.exists {
-                XCTAssertTrue(true, "iPad should have sidebar or split view layout")
-            }
-            
-            // Check that content adapts to larger screen
-            let mainContent = app.otherElements["Main Content"]
-            if mainContent.exists {
-                // On iPad, content should use available space effectively
-                XCTAssertTrue(mainContent.frame.width > 600,
-                             "iPad content should utilize larger screen width")
-            }
-        } else {
-            // On iPhone, should have compact layout
-            let tabBar = app.tabBars["Main Tab Bar"]
-            XCTAssertTrue(tabBar.exists, "iPhone should have tab bar navigation")
         }
     }
     

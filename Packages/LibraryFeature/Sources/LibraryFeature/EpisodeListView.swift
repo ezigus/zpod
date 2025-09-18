@@ -342,81 +342,41 @@ public struct EpisodeListView: View {
     @ViewBuilder
     private var episodeList: some View {
         #if os(iOS)
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // iPad layout with responsive columns
-            LazyVGrid(columns: adaptiveColumns, spacing: 16) {
-                ForEach(viewModel.filteredEpisodes, id: \.id) { episode in
-                    if viewModel.isInMultiSelectMode {
-                        EpisodeCardView(
-                            episode: episode,
-                            onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
-                            onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
-                            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
-                            isSelected: viewModel.isEpisodeSelected(episode.id),
-                            isInMultiSelectMode: true,
-                            onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
-                        )
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                    } else {
-                        NavigationLink(destination: episodeDetailView(for: episode)) {
-                            EpisodeCardView(
-                                episode: episode,
-                                onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                                onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
-                                onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
-                                onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
-                                isSelected: false,
-                                isInMultiSelectMode: false
-                            )
-                        }
-                        .accessibilityIdentifier("Episode-\(episode.id)")
-                        .onLongPressGesture {
-                            viewModel.enterMultiSelectMode()
-                            viewModel.toggleEpisodeSelection(episode)
-                        }
-                    }
-                }
-            }
-            .padding()
-            .accessibilityIdentifier("Episode Cards Container")
-        } else {
-            // iPhone layout with standard list
-            List(viewModel.filteredEpisodes, id: \.id) { episode in
-                if viewModel.isInMultiSelectMode {
+        // iPhone layout with standard list
+        List(viewModel.filteredEpisodes, id: \.id) { episode in
+            if viewModel.isInMultiSelectMode {
+                EpisodeRowView(
+                    episode: episode,
+                    onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+                    onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+                    onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+                    onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
+                    isSelected: viewModel.isEpisodeSelected(episode.id),
+                    isInMultiSelectMode: true,
+                    onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
+                )
+                .accessibilityIdentifier("Episode-\(episode.id)")
+            } else {
+                NavigationLink(destination: episodeDetailView(for: episode)) {
                     EpisodeRowView(
                         episode: episode,
                         onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                         onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
                         onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
                         onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
-                        isSelected: viewModel.isEpisodeSelected(episode.id),
-                        isInMultiSelectMode: true,
-                        onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
+                        isSelected: false,
+                        isInMultiSelectMode: false
                     )
-                    .accessibilityIdentifier("Episode-\(episode.id)")
-                } else {
-                    NavigationLink(destination: episodeDetailView(for: episode)) {
-                        EpisodeRowView(
-                            episode: episode,
-                            onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                            onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
-                            onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
-                            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
-                            isSelected: false,
-                            isInMultiSelectMode: false
-                        )
-                    }
-                    .accessibilityIdentifier("Episode-\(episode.id)")
-                    .onLongPressGesture {
-                        viewModel.enterMultiSelectMode()
-                        viewModel.toggleEpisodeSelection(episode)
-                    }
+                }
+                .accessibilityIdentifier("Episode-\(episode.id)")
+                .onLongPressGesture {
+                    viewModel.enterMultiSelectMode()
+                    viewModel.toggleEpisodeSelection(episode)
                 }
             }
-            .listStyle(.insetGrouped)
-            .accessibilityIdentifier("Episode Cards Container")
         }
+        .listStyle(.insetGrouped)
+        .accessibilityIdentifier("Episode Cards Container")
         #else
         // watchOS and CarPlay use simple list layout
         List(viewModel.filteredEpisodes, id: \.id) { episode in
@@ -434,13 +394,6 @@ public struct EpisodeListView: View {
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("Episode List")
         #endif
-    }
-    
-    // Adaptive columns for iPad grid layout
-    private var adaptiveColumns: [GridItem] {
-        [
-            GridItem(.adaptive(minimum: 300), spacing: 16)
-        ]
     }
     
     private var emptyStateView: some View {
@@ -760,281 +713,6 @@ public struct EpisodeRowView: View {
                     .accessibilityLabel("\(rating) star rating")
                 }
             }
-        }
-        .accessibilityIdentifier("Episode Status")
-    }
-    
-    @ViewBuilder
-    private var downloadStatusIndicator: some View {
-        switch episode.downloadStatus {
-        case .downloaded:
-            Image(systemName: "arrow.down.circle.fill")
-                .foregroundStyle(.blue)
-                .accessibilityLabel("Downloaded")
-        case .downloading:
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.down.circle")
-                    .foregroundStyle(.blue)
-                ProgressView()
-                    .scaleEffect(0.6)
-            }
-            .accessibilityLabel("Downloading")
-        case .failed:
-            Button(action: {
-                onDownloadRetry?()
-            }) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-            }
-            .accessibilityLabel("Download failed, tap to retry")
-        case .notDownloaded:
-            EmptyView()
-        }
-    }
-    
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let hours = Int(duration) / 3600
-        let minutes = (Int(duration) % 3600) / 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:00", hours, minutes)
-        } else {
-            return String(format: "%d min", minutes)
-        }
-    }
-}
-
-/// Card-style episode view for iPad grid layout with multi-selection support
-public struct EpisodeCardView: View {
-    let episode: Episode
-    let onFavoriteToggle: (() -> Void)?
-    let onBookmarkToggle: (() -> Void)?
-    let onPlayedStatusToggle: (() -> Void)?
-    let onDownloadRetry: (() -> Void)?
-    let isSelected: Bool
-    let isInMultiSelectMode: Bool
-    let onSelectionToggle: (() -> Void)?
-    
-    public init(
-        episode: Episode,
-        onFavoriteToggle: (() -> Void)? = nil,
-        onBookmarkToggle: (() -> Void)? = nil,
-        onPlayedStatusToggle: (() -> Void)? = nil,
-        onDownloadRetry: (() -> Void)? = nil,
-        isSelected: Bool = false,
-        isInMultiSelectMode: Bool = false,
-        onSelectionToggle: (() -> Void)? = nil
-    ) {
-        self.episode = episode
-        self.onFavoriteToggle = onFavoriteToggle
-        self.onBookmarkToggle = onBookmarkToggle
-        self.onPlayedStatusToggle = onPlayedStatusToggle
-        self.onDownloadRetry = onDownloadRetry
-        self.isSelected = isSelected
-        self.isInMultiSelectMode = isInMultiSelectMode
-        self.onSelectionToggle = onSelectionToggle
-    }
-    
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Selection overlay (shown in multi-select mode)
-            if isInMultiSelectMode {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        onSelectionToggle?()
-                    }) {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(isSelected ? .blue : .secondary)
-                            .font(.title2)
-                    }
-                    .accessibilityLabel(isSelected ? "Deselect episode" : "Select episode")
-                }
-            }
-            
-            // Large artwork for card layout
-            episodeArtwork
-            
-            VStack(alignment: .leading, spacing: 8) {
-                episodeTitle
-                episodeMetadata
-                episodeDescription
-                
-                // Progress indicators
-                progressIndicators
-            }
-            
-            Spacer()
-            
-            // Bottom section with status
-            HStack {
-                if !isInMultiSelectMode {
-                    episodeStatusIndicators
-                }
-                Spacer()
-            }
-        }
-        .padding()
-        .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color(.systemBackground))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isSelected && isInMultiSelectMode ? Color.blue : Color.clear, lineWidth: 2)
-        )
-        .shadow(radius: isSelected && isInMultiSelectMode ? 4 : 2)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("Episode Card-\(episode.id)")
-        .onTapGesture {
-            if isInMultiSelectMode {
-                onSelectionToggle?()
-            }
-        }
-    }
-    
-    private var episodeArtwork: some View {
-        AsyncImageView(
-            url: episode.artworkURL,
-            width: 300, // Full width of card
-            height: 120,
-            cornerRadius: 8
-        )
-    }
-    
-    private var episodeTitle: some View {
-        Text(episode.title)
-            .font(.headline)
-            .lineLimit(3)
-            .multilineTextAlignment(.leading)
-            .accessibilityIdentifier("Episode Title")
-    }
-    
-    private var episodeMetadata: some View {
-        HStack(spacing: 8) {
-            if let pubDate = episode.pubDate {
-                Text(pubDate, style: .date)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            if let duration = episode.duration {
-                Text(formatDuration(duration))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityIdentifier("Episode Metadata")
-    }
-    
-    @ViewBuilder
-    private var episodeDescription: some View {
-        if let description = episode.description {
-            Text(description)
-                .font(.caption)
-                .lineLimit(3)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("Episode Description")
-        }
-    }
-    
-    @ViewBuilder
-    private var progressIndicators: some View {
-        VStack(spacing: 2) {
-            // Download progress
-            if episode.downloadStatus == .downloading {
-                HStack {
-                    Text("Downloading...")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                ProgressView(value: 0.5) // Mock progress value
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                    .scaleEffect(y: 0.8)
-            }
-            
-            // Playback progress
-            if episode.isInProgress && episode.playbackProgress > 0 {
-                HStack {
-                    Text("Progress: \(Int(episode.playbackProgress * 100))%")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                ProgressView(value: episode.playbackProgress)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .green))
-                    .scaleEffect(y: 0.8)
-            }
-        }
-    }
-    
-    private var episodeStatusIndicators: some View {
-        HStack(spacing: 12) {
-            // Enhanced play status with single-tap functionality
-            Button(action: {
-                onPlayedStatusToggle?()
-            }) {
-                HStack(spacing: 4) {
-                    Group {
-                        if episode.isPlayed {
-                            Label("Played", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                        } else if episode.isInProgress {
-                            Label("In Progress", systemImage: "play.circle.fill")
-                                .foregroundStyle(.blue)
-                        } else {
-                            Label("Unplayed", systemImage: "circle")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .font(.caption)
-                }
-            }
-            .accessibilityLabel(episode.isPlayed ? "Mark as unplayed" : "Mark as played")
-            .accessibilityHint("Tap to toggle played status")
-            
-            Spacer()
-            
-            // Enhanced status indicators and interactive buttons
-            HStack(spacing: 12) {
-                // Download status with enhanced feedback
-                downloadStatusIndicator
-                
-                if let onFavoriteToggle = onFavoriteToggle {
-                    Button(action: onFavoriteToggle) {
-                        Image(systemName: episode.isFavorited ? "heart.fill" : "heart")
-                            .foregroundStyle(episode.isFavorited ? .red : .secondary)
-                    }
-                    .accessibilityLabel(episode.isFavorited ? "Remove from favorites" : "Add to favorites")
-                }
-                
-                if let onBookmarkToggle = onBookmarkToggle {
-                    Button(action: onBookmarkToggle) {
-                        Image(systemName: episode.isBookmarked ? "bookmark.fill" : "bookmark")
-                            .foregroundStyle(episode.isBookmarked ? .blue : .secondary)
-                    }
-                    .accessibilityLabel(episode.isBookmarked ? "Remove bookmark" : "Add bookmark")
-                }
-                
-                // Archive status indicator
-                if episode.isArchived {
-                    Image(systemName: "archivebox.fill")
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("Archived")
-                }
-                
-                // Rating indicator  
-                if let rating = episode.rating {
-                    HStack(spacing: 1) {
-                        ForEach(1...5, id: \.self) { star in
-                            Image(systemName: star <= rating ? "star.fill" : "star")
-                                .foregroundStyle(star <= rating ? .yellow : .secondary)
-                                .font(.caption2)
-                        }
-                    }
-                    .accessibilityLabel("\(rating) star rating")
-                }
-            }
-            .font(.caption)
         }
         .accessibilityIdentifier("Episode Status")
     }
