@@ -282,7 +282,7 @@ run_legacy_mode() {
   # Handle test class search
   if [[ "$TESTS" != "all" && "$TESTS" != *"/"* ]]; then
     echo "[run-xcode-tests.sh] Searching for test class '$TESTS' in workspace..."
-    MATCH_PATH=$(find . -type f -name "*.swift" -path "*Tests*" -exec grep -l "class $TESTS" {} + | head -n1)
+    MATCH_PATH=$(find .. -type f -name "*.swift" -path "*Tests*" -exec grep -l "class $TESTS" {} + | head -n1)
     if [[ -z "$MATCH_PATH" ]]; then
       echo "❌ Test class '$TESTS' not found in any test target." >&2
       exit 1
