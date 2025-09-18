@@ -56,7 +56,7 @@ public final class EpisodeListViewModel: ObservableObject {
         applyCurrentFilter()
         
         // Save filter preference for this podcast
-        Task.detached(priority: nil) { @MainActor in
+        let _: Task<Void, Never> = Task { @MainActor in
             await filterManager?.setCurrentFilter(filter, forPodcast: podcast.id)
         }
     }
@@ -240,7 +240,7 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // Remove completed operations after a delay
         if batchOperation.status == .completed || batchOperation.status == .failed || batchOperation.status == .cancelled {
-            Task.detached(priority: nil) { @MainActor in
+            let _: Task<Void, Error> = Task {
                 try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
                 await MainActor.run {
                     activeBatchOperations.removeAll { $0.id == batchOperation.id }
@@ -256,7 +256,7 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     private func applyCurrentFilter() {
-        Task.detached(priority: nil) { @MainActor in
+        let _: Task<Void, Never> = Task { @MainActor in
             var episodes = allEpisodes
             
             // Apply search if present
@@ -305,7 +305,7 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // TODO: In a real implementation, this would trigger actual download retry
         // For now, simulate successful download after delay
-        Task.detached(priority: nil) { @MainActor in
+        let _: Task<Void, Error> = Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             await MainActor.run {
                 let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
@@ -406,7 +406,7 @@ public final class EpisodeListViewModel: ObservableObject {
     public func quickPlayEpisode(_ episode: Episode) {
         // TODO: In a real implementation, this would start playback from current position
         // For now, just mark as played after a short delay to simulate playing
-        Task.detached(priority: nil) { @MainActor in
+        let _: Task<Void, Error> = Task {
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             await MainActor.run {
                 let playedEpisode = episode.withPlayedStatus(true)
@@ -475,7 +475,7 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     // MARK: - Private Methods
     
     private func updateEpisodes() {
-        Task.detached(priority: nil) { @MainActor in
+        let _: Task<Void, Never> = Task { @MainActor in
             let filteredEpisodes = filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
             
             await MainActor.run {
