@@ -379,7 +379,7 @@ public struct EpisodeListView: View {
                 }
             }
             .padding()
-            .accessibilityIdentifier("Episode Grid")
+            .accessibilityIdentifier("Episode Cards Container")
         } else {
             // iPhone layout with standard list
             List(viewModel.filteredEpisodes, id: \.id) { episode in
@@ -415,7 +415,7 @@ public struct EpisodeListView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .accessibilityIdentifier("Episode List")
+            .accessibilityIdentifier("Episode Cards Container")
         }
         #else
         // watchOS and CarPlay use simple list layout
