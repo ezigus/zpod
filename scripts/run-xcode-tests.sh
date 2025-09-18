@@ -33,7 +33,7 @@ print_help() {
   cat <<EOF
 Usage: $0 [OPTIONS] [ACTION] [MODULE_NAME]
 
-Run Xcode build and test operations for the zPod app on an iOS 18.x simulator.
+Run Xcode build and test operations for the zPod app on an iOS simulator.
 
 Actions:
   full_clean_build        Performs a clean build of the entire project
@@ -88,26 +88,51 @@ select_simulator() {
     "iPhone 16 Pro Max"
     "iPhone 15 Pro"
     "iPhone 15"
+    "iPhone 14 Pro"
+    "iPhone 14"
   )
+  
+  # Extract all available iOS versions from simulators
+  available_ios_versions="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | sort -V -r | uniq)"
+  echo "Available iOS versions: $(echo "$available_ios_versions" | tr '\n' ' ')"
   
   local selected_name=""
   local selected_os=""
   
-  for sim_name in "${fallback_sims[@]}"; do
-    name_trimmed="$(echo "$sim_name" | sed 's/^ *//;s/ *$//')"
-    line="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep "name:${name_trimmed}" | grep -E "OS:18(\\.[0-9]+){0,2}" | head -n1 || true)"
-    if [[ -n "${line}" ]]; then
-      os="$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+){0,2}).*/\1/p' | head -n1)"
-      if [[ -n "${os}" && ${os} == 18* ]]; then
-        selected_name="$name_trimmed"
-        selected_os="$os"
-        break
+  # Try each iOS version starting with the latest
+  for ios_version in $available_ios_versions; do
+    echo "Trying iOS version: $ios_version"
+    
+    for sim_name in "${fallback_sims[@]}"; do
+      name_trimmed="$(echo "$sim_name" | sed 's/^ *//;s/ *$//')"
+      line="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | grep "name:${name_trimmed}" | grep "OS:${ios_version}" | head -n1 || true)"
+      if [[ -n "${line}" ]]; then
+        os="$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
+        if [[ -n "${os}" ]]; then
+          selected_name="$name_trimmed"
+          selected_os="$os"
+          echo "Found simulator: $selected_name with iOS $selected_os"
+          break 2
+        fi
       fi
-    fi
+    done
   done
 
   if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
-    echo "No preferred iOS 18.x simulators found. Please create an iPhone 16 simulator on iOS 18.x" >&2
+    echo "No preferred simulators found. Trying any available iOS simulator..." >&2
+    
+    # Fallback: try any iOS simulator
+    any_sim_line="$(echo "${destinations_output}" | grep "platform:iOS Simulator" | head -n1 || true)"
+    if [[ -n "${any_sim_line}" ]]; then
+      selected_name="$(echo "$any_sim_line" | sed -En 's/.*name:([^,}]+).*/\1/p' | head -n1)"
+      selected_os="$(echo "$any_sim_line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
+      echo "Using fallback simulator: $selected_name with iOS $selected_os"
+    fi
+  fi
+  
+  if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
+    echo "❌ No iOS simulators found at all. Available destinations:" >&2
+    echo "${destinations_output}" >&2
     exit 3
   fi
 
