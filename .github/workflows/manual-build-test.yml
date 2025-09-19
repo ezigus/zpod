@@ -1,0 +1,132 @@
+name: Manual Build & Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build and test type'
+        required: true
+        default: 'Full Build & Test'
+        type: choice
+        options:
+          - 'Full Build & Test'
+          - 'Full Build Only'
+          - 'Full Clean Build'
+          - 'Partial Build & Test'
+          - 'Partial Build Only'
+      module_name:
+        description: 'Module name (required for partial builds)'
+        required: false
+        type: string
+
+jobs:
+  manual-build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+          
+      - name: Show Xcode version
+        run: xcodebuild -version
+        
+      - name: Install xcbeautify
+        run: brew install xcbeautify
+        
+      - name: Resolve Swift packages
+        run: |
+          set -euo pipefail
+          if [ -d "zpod.xcworkspace" ]; then
+            echo "Using workspace"
+            xcodebuild -resolvePackageDependencies -workspace zpod.xcworkspace -scheme zpod
+          else
+            echo "Workspace not found, trying project"
+            xcodebuild -resolvePackageDependencies -project zpod.xcodeproj -scheme zpod || true
+          fi
+          
+      - name: Validate inputs for partial builds
+        if: ${{ contains(github.event.inputs.build_type, 'Partial') }}
+        run: |
+          if [[ -z "${{ github.event.inputs.module_name }}" ]]; then
+            echo "❌ Module name is required for partial builds"
+            echo "Available modules:"
+            ls -1 Packages/ | grep -v "^\." || echo "No packages found"
+            exit 1
+          fi
+          
+          if [[ ! -d "Packages/${{ github.event.inputs.module_name }}" ]]; then
+            echo "❌ Module '${{ github.event.inputs.module_name }}' not found"
+            echo "Available modules:"
+            ls -1 Packages/ | grep -v "^\." || echo "No packages found"
+            exit 1
+          fi
+          
+          echo "✅ Module '${{ github.event.inputs.module_name }}' validated"
+          
+      - name: Execute Build & Test
+        run: |
+          set -euo pipefail
+          
+          echo "🎯 Build Type: ${{ github.event.inputs.build_type }}"
+          echo "📦 Module: ${{ github.event.inputs.module_name }}"
+          echo ""
+          
+          case "${{ github.event.inputs.build_type }}" in
+            "Full Build & Test")
+              echo "🚀 Running full build and test"
+              ./scripts/run-xcode-tests.sh full_build_and_test | xcbeautify
+              ;;
+            "Full Build Only")
+              echo "🔨 Running full build (no tests)"
+              ./scripts/run-xcode-tests.sh full_build_no_test | xcbeautify
+              ;;
+            "Full Clean Build")
+              echo "🧹 Running full clean build"
+              ./scripts/run-xcode-tests.sh full_clean_build | xcbeautify
+              ;;
+            "Partial Build & Test")
+              echo "🚀 Running partial build and test for: ${{ github.event.inputs.module_name }}"
+              ./scripts/run-xcode-tests.sh partial_build_and_test "${{ github.event.inputs.module_name }}"
+              ;;
+            "Partial Build Only")
+              echo "🔨 Running partial build (no tests) for: ${{ github.event.inputs.module_name }}"
+              ./scripts/run-xcode-tests.sh partial_clean_build "${{ github.event.inputs.module_name }}"
+              ;;
+            *)
+              echo "❌ Unknown build type: ${{ github.event.inputs.build_type }}"
+              exit 1
+              ;;
+          esac
+        env:
+          NSUnbufferedIO: "YES"
+          
+      - name: Upload Test Results (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-build-results-${{ github.run_number }}
+          path: |
+            TestResults/
+            ~/Library/Logs/DiagnosticReports/*.crash
+            build/reports
+            
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Type**: ${{ github.event.inputs.build_type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Module**: ${{ github.event.inputs.module_name || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run ID**: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -d "TestResults" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Test Results Files" >> $GITHUB_STEP_SUMMARY
+            find TestResults -name "*.log" -o -name "*.xcresult" | head -10 | while read file; do
+              echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
