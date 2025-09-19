@@ -3,16 +3,14 @@ name: CI
 on:
   # Allow manual triggering from GitHub UI or API
   workflow_dispatch:
-  # Run on pushes to common branches
+  # Run on pushes to any branch (ensures visibility in Actions for all branches)
   push:
     branches:
-      - main
-      - develop
-      - 'feature/**'
-      - 'release/**'
-      - 'hotfix/**'
-  # Run on any pull request (from any branch to any branch)
+      - '**'
+  # Run on PRs from any branch to any branch
   pull_request:
+    branches:
+      - '**'
 
 jobs:
   build-and-test:
@@ -65,10 +63,9 @@ jobs:
             xcrun simctl list runtimes || true
           fi
 
-          # Do not fail here; allow build to proceed with generic simulator fallback if needed
+          # Allow generic simulator fallback if still no runtimes
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
-            echo "⚠️ No iOS CoreSimulator runtimes available on this runner after download attempts."
-            echo "Proceeding with generic iOS Simulator build fallback."
+            echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
       - name: Create iOS Simulator device if needed
@@ -88,7 +85,7 @@ print(pref[0]['identifier'] if pref else '')
 PY
 )
           if [ -z "$RUNTIME_ID" ]; then
-            echo "⚠️ Could not determine an available iOS runtime identifier. Will rely on generic simulator destination."
+            echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
           else
             # Choose an iPhone device type (prefer iPhone 16; fall back to others)
             DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16

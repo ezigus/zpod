@@ -1,105 +1,158 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run Xcode build and test operations with modular functions
-# Usage:
-#   scripts/run-xcode-tests.sh [--scheme|-s SCHEME] [--workspace|-w WORKSPACE] [--sim|-d SIM_NAME] [--tests|-t TEST1,TEST2,...]
-#   scripts/run-xcode-tests.sh [ACTION] [MODULE_NAME]
-#
-# Actions:
-#   full_clean_build        - Performs a clean build of the entire project
-#   full_build_no_test      - Performs a full build without running any tests
-#   full_build_and_test     - Performs a full build and runs all tests (default)
-#   partial_clean_build     - Performs a clean build of a specific module
-#   partial_build_and_test  - Performs a clean build and runs tests for a specific module
-#
-# Defaults:
-#   --scheme/-s     zpod
-#   --workspace/-w  zpod.xcworkspace
-#   --sim/-d        iPhone 16
-#   --tests/-t      all
+# Prevent user shell aliases or environment options from breaking grep behavior
+# (some interactive shells set `alias grep='grep --directories=skip'` or similar)
+if alias grep >/dev/null 2>&1; then
+  unalias grep || true
+fi
+unset GREP_OPTIONS 2>/dev/null || true
+export LC_ALL=C
 
-# Default values
+# Use explicit system tool paths to avoid user aliases or unexpected environment flags
+GREP=/usr/bin/grep
+SED=/usr/bin/sed
+SORT=/usr/bin/sort
+HEAD=/usr/bin/head
+XCRUN=/usr/bin/xcrun
+UNIQ=/usr/bin/uniq
+
+# Default values (restored from backup)
 SCHEME="zpod"
 WORKSPACE="zpod.xcworkspace"
 PREFERRED_SIM="iPhone 16"
+REQUESTED_CLEAN=0
+REQUESTED_BUILDS=""
+REQUESTED_TESTS=""
 TESTS="all"
 
-# Initialize result directories
-mkdir -p TestResults
-
-# Utility functions
+# Print help menu (restored)
 print_help() {
   cat <<EOF
-Usage: $0 [OPTIONS] [ACTION] [MODULE_NAME]
+Usage: $0 [OPTIONS] [ACTION] [MODULE]
 
-Run Xcode build and test operations for the zPod app on an iOS simulator.
+Run Xcode tests or perform builds for the zPod project.
+
+Options:
+  -b <builds>           Comma separated list of build targets (e.g. zpod,CoreModels)
+  -t <tests>            Comma separated list of test targets/tests (e.g. all,zpodTests,PackageName)
+  -c                    Clean requested before build/test
+  --scheme, -s <scheme> Xcode scheme to use (default: zpod)
+  --workspace, -w <workspace> Xcode workspace file (default: zpod.xcworkspace)
+  --sim, -d <simulator> Simulator device name (default: "iPhone 16")
+  --tests <tests>       Legacy long-form tests argument (same as -t)
+  --help, -h            Show this help menu and exit
 
 Actions:
-  full_clean_build        Performs a clean build of the entire project
-  full_build_no_test      Performs a full build without running any tests
-  full_build_and_test     Performs a full build and runs all tests (default)
-  partial_clean_build     Performs a clean build of a specific module
-  partial_build_and_test  Performs a clean build and runs tests for a specific module
-
-Options (for legacy compatibility):
-  --scheme,    -s  <scheme>      Xcode scheme to test (default: zpod)
-  --workspace, -w  <workspace>   Xcode workspace file (default: zpod.xcworkspace)
-  --sim,       -d  <simulator>   Simulator device name (default: iPhone 16)
-  --tests,     -t  <tests>       Comma or space separated list of tests to run (default: all)
-  --help,      -h                Show this help menu and exit
-
-Available Modules:
-  CoreModels, DiscoverFeature, FeedParsing, LibraryFeature, Networking,
-  Persistence, PlaybackEngine, PlayerFeature, PlaylistFeature,
-  RecommendationDomain, SearchDomain, SettingsDomain, SharedUtilities, TestSupport
+  full_clean_build
+  full_build_no_test
+  full_build_and_test
+  partial_clean_build <ModuleName>
+  partial_build_and_test <ModuleName>
 
 Examples:
-  $0                                    # Run full build and test (default)
-  $0 full_clean_build                   # Clean build entire project
-  $0 full_build_no_test                 # Build without tests
-  $0 partial_build_and_test CoreModels  # Build and test CoreModels package
-  $0 -t MyTests                         # Legacy: Run specific tests
+  $0                          # Full build and test using defaults
+  $0 -b zpod,CoreModels -t zpodTests  # Build app and package then run tests
+  $0 full_build_no_test        # Run explicit action
 EOF
 }
 
-# Logging and result management
+# Setup result bundle and log paths
 setup_result_files() {
-  local action="$1"
-  local module="${2:-all}"
+  local op="${1:-}" ; shift || true
+  local target="${1:-}"
+  mkdir -p TestResults
   RESULT_STAMP="$(date +%Y%m%d_%H%M%S)"
-  RESULT_BUNDLE="TestResults/TestResults_${RESULT_STAMP}_${action}_${module// /-}.xcresult"
-  RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_${action}_${module// /-}.log"
+  local name="${op}"
+  if [[ -n "${target:-}" ]]; then
+    name+="_${target// /-}"
+  fi
+  RESULT_BUNDLE="TestResults/TestResults_${RESULT_STAMP}_${name}.xcresult"
+  RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_${name}.log"
 }
 
-# Helper: run all Swift Package tests (for non-UI coverage)
+# Run swift package tests for all packages (fallback)
 run_all_package_tests() {
-  echo "📦 Running Swift Package tests for all packages (fallback when no simulator is available)"
-  local any_found=0
-  local any_failed=0
+  echo "🔁 Running Swift Package tests for all Packages/* (fallback)"
+  local found=0
   for pkg in Packages/*; do
-    if [[ -d "$pkg/Tests" ]]; then
-      any_found=1
-      echo "➡️  swift test in $pkg"
-      pushd "$pkg" > /dev/null
-      set +e
-      swift test
-      local status=$?
-      set -e
-      popd > /dev/null
-      if [[ $status -ne 0 ]]; then
-        any_failed=1
-      fi
+    if [[ -d "$pkg" ]]; then
+      found=1
+      pushd "$pkg" >/dev/null
+      echo "-> swift test (package: $(basename "$pkg"))"
+      set -x
+      swift test | tee "../../${RESULT_LOG}"
+      set +x
+      popd >/dev/null
     fi
   done
-  if [[ $any_found -eq 0 ]]; then
-    echo "ℹ️  No Swift packages with tests were found under Packages/."
+  if [[ "$found" -eq 0 ]]; then
+    echo "ℹ️  No Packages/ found to run swift test against"
   fi
-  if [[ $any_failed -ne 0 ]]; then
-    echo "❌ One or more Swift Package test runs failed." >&2
-    exit 1
+}
+
+# Try to select a simulator using simctl (more robust than parsing xcodebuild output)
+get_simulator_via_simctl() {
+  # Requires xcrun simctl; returns 0 and sets SELECTED_DEST if found, else returns 1
+  if ! command -v "$XCRUN" >/dev/null 2>&1; then
+    return 1
   fi
-  echo "✅ Swift Package tests completed"
+
+  # Use simctl to list available devices and runtimes
+  local simctl_json
+  set +e
+  simctl_json="$($XCRUN simctl list devices --json 2>/dev/null || true)"
+  set -e
+  if [[ -z "$simctl_json" ]]; then
+    return 1
+  fi
+
+  # Try to find a device matching the preferred name and an iOS runtime
+  # We use simple string parsing to avoid requiring jq
+  local pref="$PREFERRED_SIM"
+  # Look for lines like: "name" : "iPhone 16"
+  local candidate_name=""
+  local candidate_runtime=""
+  while IFS= read -r line; do
+    if echo "$line" | $GREP -q '"name"'; then
+      name_line="$line"
+      name_value=$(echo "$name_line" | $SED -En 's/.*"name"\s*:\s*"([^"]+)".*/\1/p')
+    fi
+    if echo "$line" | $GREP -q '"runtime"'; then
+      runtime_line="$line"
+      runtime_value=$(echo "$runtime_line" | $SED -En 's/.*"runtime"\s*:\s*"([^"]+)".*/\1/p')
+    fi
+    if echo "$line" | $GREP -q '"isAvailable"'; then
+      avail_line="$line"
+      is_avail=$(echo "$avail_line" | $SED -En 's/.*"isAvailable"\s*:\s*(true|false).*/\1/p')
+      if [[ "$is_avail" == "true" && -n "$name_value" && -n "$runtime_value" ]]; then
+        # runtime looks like com.apple.CoreSimulator.SimRuntime.iOS-18-0
+        os_version=$(echo "$runtime_value" | $SED -En 's/.*iOS-([0-9]+)(-[0-9]+)*/\1/p')
+        if [[ -z "$os_version" ]]; then
+          os_version="18.0"
+        else
+          os_version="$os_version.0"
+        fi
+        if [[ "$name_value" == "$pref" ]]; then
+          candidate_name="$name_value"
+          candidate_runtime="$os_version"
+          break
+        fi
+        # reset temporary values
+        name_value=""
+        runtime_value=""
+      fi
+    fi
+  done <<< "$(echo "$simctl_json" | tr ',' '\n')"
+
+  if [[ -n "$candidate_name" && -n "$candidate_runtime" ]]; then
+    SELECTED_DEST="platform=iOS Simulator,name=${candidate_name},OS=${candidate_runtime}"
+    DEST_IS_GENERIC=0
+    echo "Using simctl-selected destination: ${SELECTED_DEST}"
+    return 0
+  fi
+
+  return 1
 }
 
 # Device selection logic
@@ -108,7 +161,12 @@ select_simulator() {
   local scheme="$2"
   DEST_IS_GENERIC=0
   SELECTED_DEST=""
-  
+
+  echo "Attempting to select simulator via simctl (preferred)..."
+  if get_simulator_via_simctl; then
+    return 0
+  fi
+
   echo "Listing destinations for scheme '${scheme}':"
   destinations_output="$(xcodebuild -workspace "${workspace}" -scheme "${scheme}" -showdestinations | cat || true)"
   echo "${destinations_output}"
@@ -119,15 +177,14 @@ select_simulator() {
     "iPhone 16 Plus"
     "iPhone 16 Pro Max"
   )
-  
+
   # Pre-filter to iOS Simulator lines and prefer arm64 entries when available
   local sim_lines
-  sim_lines="$(echo "${destinations_output}" | grep "platform:iOS Simulator" || true)"
+  sim_lines="$(echo "${destinations_output}" | ${GREP} "platform:iOS Simulator" || true)"
 
   # Early fallback: if only placeholder is visible, use generic platform destination
-  if echo "${sim_lines}" | grep -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
-    # Still try to find a concrete one; if not, fall back to generic
-    if ! echo "${sim_lines}" | grep -q "OS:"; then
+  if echo "${sim_lines}" | ${GREP} -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
+    if ! echo "${sim_lines}" | ${GREP} -q "OS:"; then
       echo "Using generic iOS Simulator destination (no concrete simulators listed by xcodebuild)."
       SELECTED_DEST="generic/platform=iOS Simulator"
       DEST_IS_GENERIC=1
@@ -137,22 +194,21 @@ select_simulator() {
   fi
 
   # Extract all available iOS versions from simulators
-  available_ios_versions="$(echo "${sim_lines}" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | sort -V -r | uniq)"
+  available_ios_versions="$(echo "${sim_lines}" | ${SED} -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | ${SORT} -V -r | ${UNIQ})"
   echo "Available iOS versions: $(echo "$available_ios_versions" | tr '\n' ' ')"
-  
+
   local selected_name=""
   local selected_os=""
-  
+
   # Try each iOS version starting with the latest, with exact name matching
   for ios_version in $available_ios_versions; do
     echo "Trying iOS version: $ios_version"
-    
+
     for sim_name in "${fallback_sims[@]}"; do
-      name_trimmed="$(echo "$sim_name" | sed 's/^ *//;s/ *$//')"
-      # Exact match on device name (avoid matching e.g. "iPhone 16e" when searching for "iPhone 16")
-      line="$(echo "${sim_lines}" | grep -E "OS:${ios_version}" | grep -E "name:${name_trimmed}(,| })" | head -n1 || true)"
+      name_trimmed="$(echo "$sim_name" | ${SED} 's/^ *//;s/ *$//')"
+      line="$(echo "${sim_lines}" | ${GREP} -E "OS:${ios_version}" | ${GREP} -E "name:${name_trimmed}(,| })" | ${HEAD} -n1 || true)"
       if [[ -n "${line}" ]]; then
-        os="$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
+        os="$(echo "$line" | ${SED} -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | ${HEAD} -n1)"
         if [[ -n "${os}" ]]; then
           selected_name="$name_trimmed"
           selected_os="$os"
@@ -166,11 +222,11 @@ select_simulator() {
   # If not found, prefer any iPhone on the highest available iOS version
   if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
     for ios_version in $available_ios_versions; do
-      line="$(echo "${sim_lines}" | grep -E "OS:${ios_version}" | grep -E "name:iPhone [^,}]+" | head -n1 || true)"
+      line="$(echo "${sim_lines}" | ${GREP} -E "OS:${ios_version}" | ${GREP} -E "name:iPhone [^,}]++" | ${HEAD} -n1 || true)"
       if [[ -n "${line}" ]]; then
-        selected_name="$(echo "$line" | sed -En 's/.*name:([^,}]+).*/\1/p' | head -n1)"
-        selected_os="$(echo "$line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
-        if [[ -n "${selected_name}" && -n "${selected_os}" ]]; then
+        selected_name="$(echo "$line" | ${SED} -En 's/.*name:([^,}]+).*/\1/p' | ${HEAD} -n1)"
+        selected_os="$(echo "$line" | ${SED} -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | ${HEAD} -n1)"
+        if [[ -n "$selected_name" && -n "$selected_os" ]]; then
           echo "Using available iPhone simulator: $selected_name with iOS $selected_os"
           break
         fi
@@ -181,22 +237,22 @@ select_simulator() {
   # Final fallback: any iOS simulator line
   if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
     # Try any iPhone first regardless of OS
-    any_sim_line="$(echo "${sim_lines}" | grep -E "name:iPhone [^,}]+" | head -n1 || true)"
+    any_sim_line="$(echo "${sim_lines}" | ${GREP} -E "name:iPhone [^,}]++" | ${HEAD} -n1 || true)"
     if [[ -z "${any_sim_line}" ]]; then
-      any_sim_line="$(echo "${sim_lines}" | head -n1 || true)"
+      any_sim_line="$(echo "${sim_lines}" | ${HEAD} -n1 || true)"
     fi
     if [[ -n "${any_sim_line}" ]]; then
-      selected_name="$(echo "$any_sim_line" | sed -En 's/.*name:([^,}]+).*/\1/p' | head -n1)"
-      selected_os="$(echo "$any_sim_line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
+      selected_name="$(echo "$any_sim_line" | ${SED} -En 's/.*name:([^,}]+).*/\1/p' | ${HEAD} -n1)"
+      selected_os="$(echo "$any_sim_line" | ${SED} -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | ${HEAD} -n1)"
       if [[ -n "$selected_name" && -n "$selected_os" ]]; then
         echo "Using fallback simulator: $selected_name with iOS $selected_os"
       fi
     fi
   fi
-  
+
   if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
     # As a last resort, allow generic platform destination to enable build-only flows
-    if echo "${destinations_output}" | grep -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
+    if echo "${destinations_output}" | ${GREP} -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
       echo "Using generic iOS Simulator destination (no concrete simulators available)."
       SELECTED_DEST="generic/platform=iOS Simulator"
       DEST_IS_GENERIC=1
@@ -212,12 +268,12 @@ select_simulator() {
   echo "Using destination: ${SELECTED_DEST}"
 }
 
-# Core build functions
+# Core build functions (unchanged API)
 full_clean_build() {
   echo "🧹 Performing full clean build of entire project"
   setup_result_files "full_clean_build"
   select_simulator "${WORKSPACE}" "${SCHEME}"
-  
+
   set -x
   if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
     xcodebuild -workspace "${WORKSPACE}" \
@@ -235,7 +291,7 @@ full_clean_build() {
                clean build | tee "${RESULT_LOG}"
   fi
   set +x
-  
+
   echo "✅ Full clean build completed"
   echo "Build results bundle: ${RESULT_BUNDLE}"
   echo "Log: ${RESULT_LOG}"
@@ -245,7 +301,7 @@ full_build_no_test() {
   echo "🔨 Performing full build without tests"
   setup_result_files "full_build_no_test"
   select_simulator "${WORKSPACE}" "${SCHEME}"
-  
+
   set -x
   if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
     xcodebuild -workspace "${WORKSPACE}" \
@@ -263,7 +319,7 @@ full_build_no_test() {
                build | tee "${RESULT_LOG}"
   fi
   set +x
-  
+
   echo "✅ Full build (no tests) completed"
   echo "Build results bundle: ${RESULT_BUNDLE}"
   echo "Log: ${RESULT_LOG}"
@@ -273,7 +329,7 @@ full_build_and_test() {
   echo "🚀 Performing full build and test"
   setup_result_files "full_build_and_test"
   select_simulator "${WORKSPACE}" "${SCHEME}"
-  
+
   # If only generic destination is available, we cannot run xcodebuild tests; build-only and run SPM tests instead.
   if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
     echo "⚠️  No concrete iOS Simulator available. Building for generic iOS Simulator and running Swift Package tests."
@@ -291,7 +347,7 @@ full_build_and_test() {
     echo "Log: ${RESULT_LOG}"
     return 0
   fi
-  
+
   set -x
   xcodebuild -workspace "${WORKSPACE}" \
              -scheme "${SCHEME}" \
@@ -300,7 +356,7 @@ full_build_and_test() {
              -resultBundlePath "${RESULT_BUNDLE}" \
              clean build test | tee "${RESULT_LOG}"
   set +x
-  
+
   echo "✅ Full build and test completed"
   echo "Test results bundle: ${RESULT_BUNDLE}"
   echo "Log: ${RESULT_LOG}"
@@ -312,25 +368,25 @@ partial_clean_build() {
     echo "❌ Module name required for partial_clean_build" >&2
     exit 1
   fi
-  
+
   echo "🧹 Performing clean build of module: $module_name"
   setup_result_files "partial_clean_build" "$module_name"
-  
+
   local package_path="Packages/$module_name"
   if [[ ! -d "$package_path" ]]; then
     echo "❌ Module '$module_name' not found at $package_path" >&2
     exit 1
   fi
-  
+
   echo "Building package at: $package_path"
   pushd "$package_path" > /dev/null
-  
+
   set -x
   swift build | tee "../../${RESULT_LOG}"
   set +x
-  
+
   popd > /dev/null
-  
+
   echo "✅ Partial clean build of $module_name completed"
   echo "Log: ${RESULT_LOG}"
 }
@@ -341,33 +397,126 @@ partial_build_and_test() {
     echo "❌ Module name required for partial_build_and_test" >&2
     exit 1
   fi
-  
+
   echo "🚀 Performing build and test of module: $module_name"
   setup_result_files "partial_build_and_test" "$module_name"
-  
+
   local package_path="Packages/$module_name"
   if [[ ! -d "$package_path" ]]; then
     echo "❌ Module '$module_name' not found at $package_path" >&2
     exit 1
   fi
-  
+
   echo "Building and testing package at: $package_path"
   pushd "$package_path" > /dev/null
-  
+
   set -x
   swift test | tee "../../${RESULT_LOG}"
   set +x
-  
+
   popd > /dev/null
-  
+
   echo "✅ Partial build and test of $module_name completed"
   echo "Log: ${RESULT_LOG}"
+}
+
+# New helpers: targeted build/test
+is_package() {
+  local name="$1"
+  [[ -d "Packages/$name" ]]
+}
+
+run_build_target() {
+  local target="$1"
+  if [[ "$target" == "all" || "$target" == "zpod" ]]; then
+    echo "🔨 Build app scheme (target: $target)"
+    setup_result_files "build" "$target"
+    select_simulator "${WORKSPACE}" "${SCHEME}"
+    local args=( -workspace "${WORKSPACE}" -scheme "${SCHEME}" -sdk iphonesimulator -destination "${SELECTED_DEST}" -resultBundlePath "${RESULT_BUNDLE}" )
+    if [[ $REQUESTED_CLEAN -eq 1 ]]; then args+=( clean ); fi
+    args+=( build )
+    set -x
+    xcodebuild "${args[@]}" | tee "${RESULT_LOG}"
+    set +x
+    echo "✅ Build completed (target: $target)"
+  elif is_package "$target"; then
+    echo "🔨 Build package (target: $target)"
+    setup_result_files "build_pkg" "$target"
+    pushd "Packages/$target" > /dev/null
+    if [[ $REQUESTED_CLEAN -eq 1 ]]; then
+      swift package clean || true
+    fi
+    set -x
+    swift build | tee "../../${RESULT_LOG}"
+    set +x
+    popd > /dev/null
+    echo "✅ Package build completed (target: $target)"
+  else
+    echo "❌ Unknown build target: $target" >&2
+    echo "Hint: Use 'zpod' for app or a package name under Packages/." >&2
+    exit 1
+  fi
+}
+
+run_test_target() {
+  local target="$1"
+  # App scheme tests via xcodebuild
+  if [[ "$target" == "all" || "$target" == "zpod" || "$target" == "zpodTests" || "$target" == "zpodUITests" || "$target" == "IntegrationTests" || "$target" == *"/"* ]]; then
+    echo "🧪 Test app via xcodebuild (target: $target)"
+    setup_result_files "test" "$target"
+    select_simulator "${WORKSPACE}" "${SCHEME}"
+
+    if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
+      echo "⚠️  No concrete iOS Simulator available; building only. Consider running on a machine with simulators for UI/unit tests."
+      local args=( -workspace "${WORKSPACE}" -scheme "${SCHEME}" -sdk iphonesimulator -destination "${SELECTED_DEST}" -resultBundlePath "${RESULT_BUNDLE}" )
+      if [[ $REQUESTED_CLEAN -eq 1 ]]; then args+=( clean ); fi
+      args+=( build )
+      set -x
+      xcodebuild "${args[@]}" | tee "${RESULT_LOG}"
+      set +x
+      echo "ℹ️  Falling back to Swift Package tests due to missing simulator"
+      run_all_package_tests
+      return 0
+    fi
+
+    local args=( -workspace "${WORKSPACE}" -scheme "${SCHEME}" -sdk iphonesimulator -destination "${SELECTED_DEST}" -resultBundlePath "${RESULT_BUNDLE}" )
+    if [[ $REQUESTED_CLEAN -eq 1 ]]; then args+=( clean ); fi
+    if [[ "$target" == "zpod" || "$target" == "all" ]]; then
+      args+=( build test )
+    elif [[ "$target" == "zpodTests" || "$target" == "zpodUITests" || "$target" == "IntegrationTests" ]]; then
+      args+=( build test -only-testing:"$target" )
+    else
+      # Target/Class pattern
+      args+=( build test -only-testing:"$target" )
+    fi
+    set -x
+    xcodebuild "${args[@]}" | tee "${RESULT_LOG}"
+    set +x
+    echo "✅ Tests completed (target: $target)"
+  # Package tests via swift test
+  elif is_package "$target"; then
+    echo "🧪 Test package via swift test (target: $target)"
+    setup_result_files "test_pkg" "$target"
+    pushd "Packages/$target" > /dev/null
+    if [[ $REQUESTED_CLEAN -eq 1 ]]; then
+      swift package clean || true
+    fi
+    set -x
+    swift test | tee "../../${RESULT_LOG}"
+    set +x
+    popd > /dev/null
+    echo "✅ Package tests completed (target: $target)"
+  else
+    echo "❌ Unknown test target: $target" >&2
+    echo "Hint: Use 'zpod', app test targets (zpodTests, zpodUITests, IntegrationTests), a TestTarget/Class, or a package name under Packages/." >&2
+    exit 1
+  fi
 }
 
 # Legacy support for existing functionality
 run_legacy_mode() {
   echo "🔄 Running in legacy compatibility mode"
-  
+
   # Infer scheme if not explicitly set and tests are specified
   if [[ -z "${SCHEME_EXPLICIT:-}" && "$TESTS" != "all" ]]; then
     IFS=', ' read -r -a TEST_ARRAY <<< "$TESTS"
@@ -390,15 +539,15 @@ run_legacy_mode() {
   # Handle test class search
   if [[ "$TESTS" != "all" && "$TESTS" != *"/"* ]]; then
     echo "[run-xcode-tests.sh] Searching for test class '$TESTS' in workspace..."
-    MATCH_PATH=$(find .. -type f -name "*.swift" -path "*Tests*" -exec grep -l "class $TESTS" {} + | head -n1)
+    MATCH_PATH=$(find .. -type f -name "*.swift" -path "*Tests*" -exec ${GREP} -l "class $TESTS" {} + | ${HEAD} -n1)
     if [[ -z "$MATCH_PATH" ]]; then
       echo "❌ Test class '$TESTS' not found in any test target." >&2
       exit 1
     fi
-    
+
     TARGET_DIR=$(basename $(dirname "$MATCH_PATH"))
     PACKAGE_DIR=$(basename $(dirname $(dirname "$MATCH_PATH")))
-    
+
     if [[ "$TARGET_DIR" == "zpodTests" || "$TARGET_DIR" == "zpodUITests" || "$TARGET_DIR" == "IntegrationTests" ]]; then
       TEST_TARGET="$TARGET_DIR"
       SCHEME="zpod"
@@ -418,11 +567,11 @@ run_legacy_mode() {
   fi
 
   setup_result_files "legacy_test" "${TESTS}"
-  
+
   # Execute based on mode
   if [[ "${TESTS}" == "all" || "${USE_XCODEBUILD:-}" == "1" ]]; then
     select_simulator "${WORKSPACE}" "${SCHEME}"
-    
+
     # If only generic destination exists, we cannot run xcodebuild tests; build and run package tests
     if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
       echo "⚠️  No concrete iOS Simulator available in legacy mode. Building only and running Swift Package tests."
@@ -439,7 +588,7 @@ run_legacy_mode() {
       echo "Log: ${RESULT_LOG}"
       return 0
     fi
-    
+
     XCODEBUILD_ARGS=(
       -workspace "${WORKSPACE}"
       -scheme "${SCHEME}"
@@ -450,11 +599,11 @@ run_legacy_mode() {
     if [[ "${TESTS}" != "all" ]]; then
       XCODEBUILD_ARGS+=( -only-testing:"${TESTS}" )
     fi
-    
+
     set -x
     xcodebuild "${XCODEBUILD_ARGS[@]}" clean test | tee "${RESULT_LOG}"
     set +x
-    
+
     echo "Test results bundle: ${RESULT_BUNDLE}"
     echo "Log: ${RESULT_LOG}"
   elif [[ "${USE_XCODEBUILD:-}" == "0" ]]; then
@@ -498,13 +647,20 @@ LEGACY_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -b)
+      REQUESTED_BUILDS="$2"; shift 2;;
+    -t)
+      # New short -t for test targets; preserve legacy --tests too below
+      if [[ "$2" != -* ]]; then REQUESTED_TESTS="$2"; shift 2; else shift 1; fi;;
+    -c)
+      REQUESTED_CLEAN=1; shift 1;;
     --scheme|-s)
       SCHEME="$2"; export SCHEME_EXPLICIT=1; LEGACY_MODE=true; shift 2;;
     --workspace|-w)
       WORKSPACE="$2"; LEGACY_MODE=true; shift 2;;
     --sim|-d)
       PREFERRED_SIM="$2"; LEGACY_MODE=true; shift 2;;
-    --tests|-t)
+    --tests)
       TESTS="$2"; LEGACY_MODE=true; shift 2;;
     --help|-h)
       print_help; exit 0;;
@@ -523,7 +679,31 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Determine execution mode
+# New mode: handle -b/-t flags if provided
+if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" ]]; then
+  # Build targets first (if any)
+  if [[ -n "$REQUESTED_BUILDS" ]]; then
+    IFS=',' read -r -a BUILD_LIST <<< "$REQUESTED_BUILDS"
+    for tgt in "${BUILD_LIST[@]}"; do
+      tgt_trimmed="$(echo "$tgt" | $SED 's/^ *//;s/ *$//')"
+      [[ -z "$tgt_trimmed" ]] && continue
+      run_build_target "$tgt_trimmed"
+    done
+  fi
+  # Then test targets (if any)
+  if [[ -n "$REQUESTED_TESTS" ]]; then
+    IFS=',' read -r -a TEST_LIST <<< "$REQUESTED_TESTS"
+    for tgt in "${TEST_LIST[@]}"; do
+      tgt_trimmed="$(echo "$tgt" | $SED 's/^ *//;s/ *$//')"
+      [[ -z "$tgt_trimmed" ]] && continue
+      run_test_target "$tgt_trimmed"
+    done
+  fi
+  echo "🎉 Operation completed successfully"
+  exit 0
+fi
+
+# Determine execution mode (legacy/actions)
 if [[ "$LEGACY_MODE" == "true" ]]; then
   run_legacy_mode
 elif [[ -n "$ACTION" ]]; then
