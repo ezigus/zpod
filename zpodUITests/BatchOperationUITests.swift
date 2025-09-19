@@ -12,6 +12,10 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // Ensure the XCUIApplication is created and launched for every test to avoid IUO nil unwraps
+        // Tests and helper closures expect `app` to be available immediately.
+        app = XCUIApplication()
+        app.launch()
     }
     
     override func tearDownWithError() throws {
@@ -37,7 +41,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         libraryTab.tap()
         
         // Wait for loading using native event detection - timeout = failure
-        XCTAssertTrue(waitForLoadingToComplete(in: app, timeout: adaptiveTimeout), 
+        XCTAssertTrue(waitForLoadingToComplete(in: app, timeout: adaptiveTimeout),
                      "Loading should complete within timeout - test fails if it doesn't")
         
         // Look for any podcast button using native element waiting
@@ -103,7 +107,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
             // Check directly for containers without nested calls
             let commonContainers = [
                 "Content Container",
-                "Episode Cards Container", 
+                "Episode Cards Container",
                 "Library Content",
                 "Podcast List Container"
             ]
