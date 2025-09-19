@@ -74,16 +74,7 @@ jobs:
           echo "Ensuring at least one iPhone simulator exists..."
 
           # Pick a preferred runtime (prefer iOS 18.* if present, else any available iOS runtime)
-          RUNTIME_ID=$(xcrun simctl list runtimes -j | /usr/bin/python3 - <<'PY'
-import json,sys
-r=json.load(sys.stdin).get('runtimes',[])
-# Prefer iOS 18.*, then any available iOS runtime
-pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]
-if not pref:
-    pref=[x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]
-print(pref[0]['identifier'] if pref else '')
-PY
-          )
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=json.load(sys.stdin).get('runtimes',[]); pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]; pref=pref or [x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]; print(pref[0]['identifier'] if pref else '')")
           if [ -z "$RUNTIME_ID" ]; then
             echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
           else
