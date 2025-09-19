@@ -83,7 +83,7 @@ if not pref:
     pref=[x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]
 print(pref[0]['identifier'] if pref else '')
 PY
-)
+          )
           if [ -z "$RUNTIME_ID" ]; then
             echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
           else
