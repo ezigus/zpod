@@ -72,10 +72,42 @@ setup_result_files() {
   RESULT_LOG="TestResults/TestResults_${RESULT_STAMP}_${action}_${module// /-}.log"
 }
 
+# Helper: run all Swift Package tests (for non-UI coverage)
+run_all_package_tests() {
+  echo "📦 Running Swift Package tests for all packages (fallback when no simulator is available)"
+  local any_found=0
+  local any_failed=0
+  for pkg in Packages/*; do
+    if [[ -d "$pkg/Tests" ]]; then
+      any_found=1
+      echo "➡️  swift test in $pkg"
+      pushd "$pkg" > /dev/null
+      set +e
+      swift test
+      local status=$?
+      set -e
+      popd > /dev/null
+      if [[ $status -ne 0 ]]; then
+        any_failed=1
+      fi
+    fi
+  done
+  if [[ $any_found -eq 0 ]]; then
+    echo "ℹ️  No Swift packages with tests were found under Packages/."
+  fi
+  if [[ $any_failed -ne 0 ]]; then
+    echo "❌ One or more Swift Package test runs failed." >&2
+    exit 1
+  fi
+  echo "✅ Swift Package tests completed"
+}
+
 # Device selection logic
 select_simulator() {
   local workspace="$1"
   local scheme="$2"
+  DEST_IS_GENERIC=0
+  SELECTED_DEST=""
   
   echo "Listing destinations for scheme '${scheme}':"
   destinations_output="$(xcodebuild -workspace "${workspace}" -scheme "${scheme}" -showdestinations | cat || true)"
@@ -91,6 +123,18 @@ select_simulator() {
   # Pre-filter to iOS Simulator lines and prefer arm64 entries when available
   local sim_lines
   sim_lines="$(echo "${destinations_output}" | grep "platform:iOS Simulator" || true)"
+
+  # Early fallback: if only placeholder is visible, use generic platform destination
+  if echo "${sim_lines}" | grep -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
+    # Still try to find a concrete one; if not, fall back to generic
+    if ! echo "${sim_lines}" | grep -q "OS:"; then
+      echo "Using generic iOS Simulator destination (no concrete simulators listed by xcodebuild)."
+      SELECTED_DEST="generic/platform=iOS Simulator"
+      DEST_IS_GENERIC=1
+      echo "Using destination: ${SELECTED_DEST}"
+      return 0
+    fi
+  fi
 
   # Extract all available iOS versions from simulators
   available_ios_versions="$(echo "${sim_lines}" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | sort -V -r | uniq)"
@@ -144,11 +188,21 @@ select_simulator() {
     if [[ -n "${any_sim_line}" ]]; then
       selected_name="$(echo "$any_sim_line" | sed -En 's/.*name:([^,}]+).*/\1/p' | head -n1)"
       selected_os="$(echo "$any_sim_line" | sed -En 's/.*OS:([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)"
-      echo "Using fallback simulator: $selected_name with iOS $selected_os"
+      if [[ -n "$selected_name" && -n "$selected_os" ]]; then
+        echo "Using fallback simulator: $selected_name with iOS $selected_os"
+      fi
     fi
   fi
   
   if [[ -z "${selected_name}" || -z "${selected_os}" ]]; then
+    # As a last resort, allow generic platform destination to enable build-only flows
+    if echo "${destinations_output}" | grep -q "DVTiOSDeviceSimulatorPlaceholder\|name:Any iOS Simulator Device"; then
+      echo "Using generic iOS Simulator destination (no concrete simulators available)."
+      SELECTED_DEST="generic/platform=iOS Simulator"
+      DEST_IS_GENERIC=1
+      echo "Using destination: ${SELECTED_DEST}"
+      return 0
+    fi
     echo "❌ No iOS simulators found at all. Available destinations:" >&2
     echo "${destinations_output}" >&2
     exit 3
@@ -165,12 +219,21 @@ full_clean_build() {
   select_simulator "${WORKSPACE}" "${SCHEME}"
   
   set -x
-  xcodebuild -workspace "${WORKSPACE}" \
-             -scheme "${SCHEME}" \
-             -sdk iphonesimulator \
-             -destination "${SELECTED_DEST}" \
-             -resultBundlePath "${RESULT_BUNDLE}" \
-             clean build | tee "${RESULT_LOG}"
+  if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
+    xcodebuild -workspace "${WORKSPACE}" \
+               -scheme "${SCHEME}" \
+               -sdk iphonesimulator \
+               -destination "${SELECTED_DEST}" \
+               -resultBundlePath "${RESULT_BUNDLE}" \
+               clean build | tee "${RESULT_LOG}"
+  else
+    xcodebuild -workspace "${WORKSPACE}" \
+               -scheme "${SCHEME}" \
+               -sdk iphonesimulator \
+               -destination "${SELECTED_DEST}" \
+               -resultBundlePath "${RESULT_BUNDLE}" \
+               clean build | tee "${RESULT_LOG}"
+  fi
   set +x
   
   echo "✅ Full clean build completed"
@@ -184,12 +247,21 @@ full_build_no_test() {
   select_simulator "${WORKSPACE}" "${SCHEME}"
   
   set -x
-  xcodebuild -workspace "${WORKSPACE}" \
-             -scheme "${SCHEME}" \
-             -sdk iphonesimulator \
-             -destination "${SELECTED_DEST}" \
-             -resultBundlePath "${RESULT_BUNDLE}" \
-             build | tee "${RESULT_LOG}"
+  if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
+    xcodebuild -workspace "${WORKSPACE}" \
+               -scheme "${SCHEME}" \
+               -sdk iphonesimulator \
+               -destination "${SELECTED_DEST}" \
+               -resultBundlePath "${RESULT_BUNDLE}" \
+               build | tee "${RESULT_LOG}"
+  else
+    xcodebuild -workspace "${WORKSPACE}" \
+               -scheme "${SCHEME}" \
+               -sdk iphonesimulator \
+               -destination "${SELECTED_DEST}" \
+               -resultBundlePath "${RESULT_BUNDLE}" \
+               build | tee "${RESULT_LOG}"
+  fi
   set +x
   
   echo "✅ Full build (no tests) completed"
@@ -201,6 +273,24 @@ full_build_and_test() {
   echo "🚀 Performing full build and test"
   setup_result_files "full_build_and_test"
   select_simulator "${WORKSPACE}" "${SCHEME}"
+  
+  # If only generic destination is available, we cannot run xcodebuild tests; build-only and run SPM tests instead.
+  if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
+    echo "⚠️  No concrete iOS Simulator available. Building for generic iOS Simulator and running Swift Package tests."
+    set -x
+    xcodebuild -workspace "${WORKSPACE}" \
+               -scheme "${SCHEME}" \
+               -sdk iphonesimulator \
+               -destination "${SELECTED_DEST}" \
+               -resultBundlePath "${RESULT_BUNDLE}" \
+               clean build | tee "${RESULT_LOG}"
+    set +x
+    run_all_package_tests
+    echo "✅ Build completed and package tests executed"
+    echo "Test results bundle (build logs only for app target): ${RESULT_BUNDLE}"
+    echo "Log: ${RESULT_LOG}"
+    return 0
+  fi
   
   set -x
   xcodebuild -workspace "${WORKSPACE}" \
@@ -332,6 +422,23 @@ run_legacy_mode() {
   # Execute based on mode
   if [[ "${TESTS}" == "all" || "${USE_XCODEBUILD:-}" == "1" ]]; then
     select_simulator "${WORKSPACE}" "${SCHEME}"
+    
+    # If only generic destination exists, we cannot run xcodebuild tests; build and run package tests
+    if [[ "${DEST_IS_GENERIC}" -eq 1 ]]; then
+      echo "⚠️  No concrete iOS Simulator available in legacy mode. Building only and running Swift Package tests."
+      set -x
+      xcodebuild -workspace "${WORKSPACE}" \
+                 -scheme "${SCHEME}" \
+                 -sdk iphonesimulator \
+                 -destination "${SELECTED_DEST}" \
+                 -resultBundlePath "${RESULT_BUNDLE}" \
+                 clean build | tee "${RESULT_LOG}"
+      set +x
+      run_all_package_tests
+      echo "✅ Build completed and package tests executed (legacy mode)"
+      echo "Log: ${RESULT_LOG}"
+      return 0
+    fi
     
     XCODEBUILD_ARGS=(
       -workspace "${WORKSPACE}"

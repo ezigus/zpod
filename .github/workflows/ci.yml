@@ -39,6 +39,92 @@ jobs:
             xcodebuild -resolvePackageDependencies -project zpod.xcodeproj -scheme zpod || true
           fi
 
+      - name: Ensure iOS Simulator runtime is installed
+        run: |
+          set -euo pipefail
+          echo "Checking installed runtimes before download..."
+          xcrun simctl list runtimes || true
+
+          # Some hosted Xcode installs come without any simulator runtimes; install iOS runtimes if missing
+          HAS_IOS_RUNTIME=$(xcrun simctl list runtimes | grep -c "iOS ") || true
+          if [ "$HAS_IOS_RUNTIME" -eq 0 ]; then
+            echo "No iOS runtimes found. Attempting to download iOS platform..."
+            # Run first launch just in case
+            sudo xcodebuild -runFirstLaunch || true
+            # Try to download just iOS first, fall back to all platforms if not supported
+            if xcodebuild -help | grep -q "-downloadPlatform"; then
+              sudo xcodebuild -downloadPlatform iOS || true
+            fi
+            if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+              echo "Retrying with -downloadAllPlatforms..."
+              if xcodebuild -help | grep -q "-downloadAllPlatforms"; then
+                sudo xcodebuild -downloadAllPlatforms || true
+              fi
+            fi
+            echo "Runtimes after download attempt:"
+            xcrun simctl list runtimes || true
+          fi
+
+          # Do not fail here; allow build to proceed with generic simulator fallback if needed
+          if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+            echo "⚠️ No iOS CoreSimulator runtimes available on this runner after download attempts."
+            echo "Proceeding with generic iOS Simulator build fallback."
+          fi
+
+      - name: Create iOS Simulator device if needed
+        run: |
+          set -euo pipefail
+          echo "Ensuring at least one iPhone simulator exists..."
+
+          # Pick a preferred runtime (prefer iOS 18.* if present, else any available iOS runtime)
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | /usr/bin/python3 - <<'PY'
+import json,sys
+r=json.load(sys.stdin).get('runtimes',[])
+# Prefer iOS 18.*, then any available iOS runtime
+pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]
+if not pref:
+    pref=[x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]
+print(pref[0]['identifier'] if pref else '')
+PY
+)
+          if [ -z "$RUNTIME_ID" ]; then
+            echo "⚠️ Could not determine an available iOS runtime identifier. Will rely on generic simulator destination."
+          else
+            # Choose an iPhone device type (prefer iPhone 16; fall back to others)
+            DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            if ! xcrun simctl list devicetypes | grep -q "$DEVTYPE"; then
+              DEVTYPE=$(\
+                xcrun simctl list devicetypes | awk -F'[()]' \
+                  '/iPhone 17 Pro Max/{print $2; exit} \
+                   /iPhone 17 Pro/{print $2; exit} \
+                   /iPhone 17/{print $2; exit} \
+                   /iPhone 16 Pro Max/{print $2; exit} \
+                   /iPhone 16 Pro/{print $2; exit} \
+                   /iPhone 16/{print $2; exit} \
+                   /iPhone 15/{print $2; exit} \
+                   /iPhone 14/{print $2; exit}'
+              )
+            fi
+            if [ -z "$DEVTYPE" ]; then
+              echo "⚠️ Could not find an iPhone device type to create. Skipping device creation."
+            else
+              # Create a named device if one doesn't already exist
+              if ! xcrun simctl list devices | grep -q "iPhone 16 (CI)"; then
+                echo "Creating simulator: name='iPhone 16 (CI)', type=$DEVTYPE, runtime=$RUNTIME_ID"
+                xcrun simctl create "iPhone 16 (CI)" "$DEVTYPE" "$RUNTIME_ID" || true
+              else
+                echo "Simulator 'iPhone 16 (CI)' already exists"
+              fi
+            fi
+          fi
+
+          xcrun simctl list devices || true
+
+      - name: Show destinations after simulator setup
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace zpod.xcworkspace -scheme zpod -showdestinations | sed -n '1,160p' | cat
+
       - name: Build & Test (iOS)
         run: |
           set -euo pipefail
