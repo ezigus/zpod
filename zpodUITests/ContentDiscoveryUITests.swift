@@ -119,6 +119,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         )
         
         if let button = optionsButton {
+            XCTAssertTrue(
+                waitForElement(button, timeout: adaptiveShortTimeout, description: "discovery options button"),
+                "Discovery options control should exist"
+            )
+            XCTAssertTrue(
+                waitForElementToBeHittable(button, timeout: adaptiveShortTimeout, description: "discovery options button"),
+                "Discovery options control should be hittable"
+            )
             // Use navigation pattern for menu interaction
             let menuAppeared = navigateAndWaitForResult(
                 triggerAction: { button.tap() },

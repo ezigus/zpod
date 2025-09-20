@@ -109,6 +109,37 @@ extension ElementWaiting {
 
         return foundElement
     }
+
+    /// Wait until an element is hittable without blocking the main thread
+    func waitForElementToBeHittable(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 10.0,
+        description: String
+    ) -> Bool {
+        if element.isHittable { return true }
+
+        let expectation = XCTestExpectation(description: "Wait for hittable \(description)")
+
+        func poll() {
+            if element.isHittable {
+                expectation.fulfill()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                poll()
+            }
+        }
+
+        poll()
+
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        if result != .completed {
+            XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
+            return false
+        }
+
+        return true
+    }
 }
 
 extension TestNavigation {

@@ -3,11 +3,44 @@ import CoreModels
 import SearchDomain
 import FeedParsing
 
+private struct DiscoveryOptionsState {
+    var isDialogPresented = false
+    var isRSSSheetPresented = false
+    var isHistorySheetPresented = false
+
+    mutating func presentDialog() {
+        isDialogPresented = true
+    }
+
+    mutating func cancelDialog() {
+        isDialogPresented = false
+    }
+
+    mutating func selectRSS() {
+        isDialogPresented = false
+        isHistorySheetPresented = false
+        isRSSSheetPresented = true
+    }
+
+    mutating func selectHistory() {
+        isDialogPresented = false
+        isRSSSheetPresented = false
+        isHistorySheetPresented = true
+    }
+
+    mutating func dismissRSSSheet() {
+        isRSSSheetPresented = false
+    }
+
+    mutating func dismissHistorySheet() {
+        isHistorySheetPresented = false
+    }
+}
+
 /// Discovery view with search functionality for finding and subscribing to podcasts
 public struct DiscoverView: View {
     @StateObject private var viewModel: SearchViewModel
-    @State private var showingRSSAddSheet = false
-    @State private var showingSearchHistory = false
+    @State private var optionsState = DiscoveryOptionsState()
     
     public init(searchService: SearchServicing, podcastManager: PodcastManaging, rssParser: RSSFeedParsing = DefaultRSSFeedParser()) {
         self._viewModel = StateObject(
@@ -39,31 +72,49 @@ public struct DiscoverView: View {
             .navigationTitle("Discover")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(action: { showingRSSAddSheet = true }) {
-                            Label("Add RSS Feed", systemImage: "link")
-                        }
-                        
-                        Button(action: { showingSearchHistory = true }) {
-                            Label("Search History", systemImage: "clock")
-                        }
-                        
-                        Button(action: viewModel.clearSearchHistory) {
-                            Label("Clear History", systemImage: "trash")
-                        }
-                        .disabled(viewModel.searchHistory.isEmpty)
+                    Button {
+                        optionsState.presentDialog()
                     } label: {
-                        Image(systemName: "plus.circle")
-                            .accessibilityLabel("Discovery options")
+                        Label("Discovery options", systemImage: "plus.circle")
+                            .labelStyle(.iconOnly)
                     }
                     .accessibilityIdentifier("discovery-options-menu")
                     .accessibilityHint("Opens menu with podcast discovery options")
+                    .confirmationDialog(
+                        "Discovery Options",
+                        isPresented: Binding(
+                            get: { optionsState.isDialogPresented },
+                            set: { presented in
+                                if presented {
+                                    optionsState.isDialogPresented = true
+                                } else {
+                                    optionsState.cancelDialog()
+                                }
+                            }
+                        )
+                    ) {
+                        Button("Add RSS Feed") {
+                            optionsState.selectRSS()
+                        }
+                        Button("Search History") {
+                            optionsState.selectHistory()
+                        }
+                        .disabled(viewModel.searchHistory.isEmpty)
+                        Button("Clear History", role: .destructive) {
+                            viewModel.clearSearchHistory()
+                            optionsState.cancelDialog()
+                        }
+                        .disabled(viewModel.searchHistory.isEmpty)
+                        Button("Cancel", role: .cancel) {
+                            optionsState.cancelDialog()
+                        }
+                    }
                 }
             }
-            .sheet(isPresented: $showingRSSAddSheet) {
+            .sheet(isPresented: rssSheetBinding) {
                 rssAddView
             }
-            .sheet(isPresented: $showingSearchHistory) {
+            .sheet(isPresented: historySheetBinding) {
                 searchHistoryView
             }
             .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -76,6 +127,32 @@ public struct DiscoverView: View {
                 }
             }
         }
+    }
+
+    private var rssSheetBinding: Binding<Bool> {
+        Binding(
+            get: { optionsState.isRSSSheetPresented },
+            set: { isPresented in
+                if isPresented {
+                    optionsState.isRSSSheetPresented = true
+                } else {
+                    optionsState.dismissRSSSheet()
+                }
+            }
+        )
+    }
+
+    private var historySheetBinding: Binding<Bool> {
+        Binding(
+            get: { optionsState.isHistorySheetPresented },
+            set: { isPresented in
+                if isPresented {
+                    optionsState.isHistorySheetPresented = true
+                } else {
+                    optionsState.dismissHistorySheet()
+                }
+            }
+        )
     }
     
     // MARK: - View Components
@@ -201,7 +278,7 @@ public struct DiscoverView: View {
             }
             
             VStack(spacing: 12) {
-                Button(action: { showingRSSAddSheet = true }) {
+                Button(action: { optionsState.selectRSS() }) {
                     Label("Add RSS Feed", systemImage: "link")
                         .frame(maxWidth: .infinity)
                 }
@@ -209,7 +286,7 @@ public struct DiscoverView: View {
                 .controlSize(.large)
                 
                 if !viewModel.searchHistory.isEmpty {
-                    Button(action: { showingSearchHistory = true }) {
+                    Button(action: { optionsState.selectHistory() }) {
                         Label("Recent Searches", systemImage: "clock")
                             .frame(maxWidth: .infinity)
                     }
@@ -256,7 +333,7 @@ public struct DiscoverView: View {
                     Task {
                         await viewModel.addPodcastByRSSURL()
                         if viewModel.errorMessage == nil {
-                            showingRSSAddSheet = false
+                            optionsState.dismissRSSSheet()
                         }
                     }
                 }) {
@@ -283,7 +360,7 @@ public struct DiscoverView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Cancel") {
-                        showingRSSAddSheet = false
+                        optionsState.dismissRSSSheet()
                     }
                 }
             }
@@ -296,7 +373,7 @@ public struct DiscoverView: View {
                 ForEach(viewModel.searchHistory, id: \.self) { query in
                     Button(action: {
                         viewModel.useSearchFromHistory(query)
-                        showingSearchHistory = false
+                        optionsState.dismissHistorySheet()
                     }) {
                         HStack {
                             Image(systemName: "clock")
@@ -318,7 +395,7 @@ public struct DiscoverView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        showingSearchHistory = false
+                        optionsState.dismissHistorySheet()
                     }
                 }
             }
