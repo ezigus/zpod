@@ -131,8 +131,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             let menuAppeared = navigateAndWaitForResult(
                 triggerAction: { button.tap() },
                 expectedElements: [
-                    app.buttons["Add RSS Feed"],
-                    app.buttons["Search History"]
+                    app.buttons["discovery-options-menu.add-rss"],
+                    app.buttons["discovery-options-menu.search-history"]
                 ],
                 timeout: adaptiveShortTimeout,
                 description: "discovery options menu"
@@ -140,7 +140,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             
             if menuAppeared {
                 // Then: I should see menu options including RSS feed addition
-                let hasMenuOptions = app.buttons["Add RSS Feed"].exists || app.buttons["Search History"].exists
+                let hasMenuOptions = app.buttons["discovery-options-menu.add-rss"].exists || app.buttons["discovery-options-menu.search-history"].exists
                 XCTAssertTrue(hasMenuOptions, "Discovery options menu should contain expected items")
             } else {
                 throw XCTSkip("Menu options did not appear - may need UI adjustments")
@@ -191,7 +191,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             button.tap()
             
             // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["Add RSS Feed"]
+            let addRSSOption = app.buttons["discovery-options-menu.add-rss"]
             if addRSSOption.waitForExistence(timeout: 2.0) {
                 // When: I select "Add RSS Feed"
                 addRSSOption.tap()
@@ -245,7 +245,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             button.tap()
             
             // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["Add RSS Feed"]
+            let addRSSOption = app.buttons["discovery-options-menu.add-rss"]
             if addRSSOption.waitForExistence(timeout: 2.0) {
                 addRSSOption.tap()
                 

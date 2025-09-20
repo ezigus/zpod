@@ -96,9 +96,11 @@ public struct DiscoverView: View {
                         Button("Add RSS Feed") {
                             optionsState.selectRSS()
                         }
+                        .accessibilityIdentifier("discovery-options-menu.add-rss")
                         Button("Search History") {
                             optionsState.selectHistory()
                         }
+                        .accessibilityIdentifier("discovery-options-menu.search-history")
                         .disabled(viewModel.searchHistory.isEmpty)
                         Button("Clear History", role: .destructive) {
                             viewModel.clearSearchHistory()
@@ -284,6 +286,7 @@ public struct DiscoverView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .accessibilityIdentifier("discover-empty-add-rss")
                 
                 if !viewModel.searchHistory.isEmpty {
                     Button(action: { optionsState.selectHistory() }) {
