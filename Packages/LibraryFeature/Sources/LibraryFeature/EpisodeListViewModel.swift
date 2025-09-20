@@ -56,7 +56,7 @@ public final class EpisodeListViewModel: ObservableObject {
         applyCurrentFilter()
         
         // Save filter preference for this podcast
-        let _: Task<Void, Never> = Task { @MainActor in
+        launchMainActorTask {
             await filterManager?.setCurrentFilter(filter, forPodcast: podcast.id)
         }
     }
@@ -220,8 +220,22 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
-    
+
+    @discardableResult
+    private func launchMainActorTask(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor in
+            await operation()
+        }
+    }
+
+    @discardableResult
+    private func launchTask(priority: TaskPriority? = nil, _ operation: @escaping @Sendable () async throws -> Void) -> Task<Void, Error> {
+        Task(priority: priority) {
+            try await operation()
+        }
+    }
+
+
     private func setupBatchOperationSubscription() {
         batchOperationManager.batchOperationUpdates
             .receive(on: DispatchQueue.main)
@@ -240,7 +254,7 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // Remove completed operations after a delay
         if batchOperation.status == .completed || batchOperation.status == .failed || batchOperation.status == .cancelled {
-            let _: Task<Void, Error> = Task {
+            launchTask {
                 try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
                 await MainActor.run {
                     activeBatchOperations.removeAll { $0.id == batchOperation.id }
@@ -256,7 +270,7 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     private func applyCurrentFilter() {
-        let _: Task<Void, Never> = Task { @MainActor in
+        launchMainActorTask {
             var episodes = allEpisodes
             
             // Apply search if present
@@ -267,9 +281,7 @@ public final class EpisodeListViewModel: ObservableObject {
             // Apply filter and sort
             episodes = filterService.filterAndSort(episodes: episodes, using: currentFilter)
             
-            await MainActor.run {
-                filteredEpisodes = episodes
-            }
+            filteredEpisodes = episodes
         }
     }
     
@@ -305,7 +317,7 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // TODO: In a real implementation, this would trigger actual download retry
         // For now, simulate successful download after delay
-        let _: Task<Void, Error> = Task {
+        launchTask {
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             await MainActor.run {
                 let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
@@ -406,7 +418,7 @@ public final class EpisodeListViewModel: ObservableObject {
     public func quickPlayEpisode(_ episode: Episode) {
         // TODO: In a real implementation, this would start playback from current position
         // For now, just mark as played after a short delay to simulate playing
-        let _: Task<Void, Error> = Task {
+        launchTask {
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             await MainActor.run {
                 let playedEpisode = episode.withPlayedStatus(true)
@@ -473,14 +485,18 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
+
+    @discardableResult
+    private func launchMainActorTask(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor in
+            await operation()
+        }
+    }
+
     private func updateEpisodes() {
-        let _: Task<Void, Never> = Task { @MainActor in
+        launchMainActorTask {
             let filteredEpisodes = filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
-            
-            await MainActor.run {
-                episodes = filteredEpisodes
-            }
+            episodes = filteredEpisodes
         }
     }
     
@@ -489,4 +505,3 @@ public final class SmartEpisodeListViewModel: ObservableObject {
         // This would typically use a timer or background task
     }
 }
-

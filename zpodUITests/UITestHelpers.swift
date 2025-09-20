@@ -178,8 +178,8 @@ extension XCTestCase {
     }
     
     /// Resolve a container element by accessibility identifier independent of backing UIKit type.
-    /// The episode list now renders as a `UITableView` on iPhone; legacy tests expected a scroll view.
-    /// This helper keeps identifiers stable while the implementation evolves.
+    /// The episode list was refactored to use a `UITableView` on iPhone for performance and platform alignment;
+    /// legacy automation expected a scroll view. This helper keeps identifiers stable through those UIKit swaps.
     @MainActor
     func findContainerElement(
         in app: XCUIApplication,

@@ -212,7 +212,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         // Wait for an episode row to become visible
         let firstEpisode = waitForAnyElement([
             app.buttons["Episode-st-001"],
-            app.cells.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch
+            app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "Episode-" )).firstMatch
         ], timeout: adaptiveTimeout, description: "episode button", failOnTimeout: false)
 
         XCTAssertNotNil(firstEpisode, "Episode content should load for status testing")
@@ -233,8 +233,8 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // Wait for the placeholder episode list to become visible
         let placeholderEpisode = waitForAnyElement([
-            app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch,
-            app.cells.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "Episode-" )).firstMatch,
+            app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "Episode-" )).firstMatch
         ], timeout: adaptiveTimeout, description: "episode placeholder", failOnTimeout: false)
 
         XCTAssertNotNil(placeholderEpisode, "Episode placeholder content should be discoverable")
