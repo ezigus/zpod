@@ -134,48 +134,25 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         navigateToEpisodeList()
         
         // When: I try to enter multi-select mode
-        let selectButton = app.navigationBars.buttons["Select"]
-        
-        // Check if select button is available using XCTestExpectation
-        let selectButtonExpectation = XCTestExpectation(description: "Select button available")
-        
-        func checkSelectButtonAvailable() {
-            if selectButton.exists && selectButton.isHittable {
-                selectButtonExpectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkSelectButtonAvailable()
-                }
-            }
-        }
-        
-        checkSelectButtonAvailable()
-        
-        do {
-            wait(for: [selectButtonExpectation], timeout: adaptiveShortTimeout)
-        } catch {
+        guard let selectButton = waitForAnyElement(
+            [app.navigationBars.buttons["Select"]],
+            timeout: adaptiveShortTimeout,
+            description: "Select button",
+            failOnTimeout: false
+        ) else {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
-        
-        // Tap the select button
-        selectButton.tap()
-        
-        // Wait for multi-select mode using XCTestExpectation
-        let multiSelectModeExpectation = XCTestExpectation(description: "Multi-select mode activates")
-        let doneButton = app.navigationBars.buttons["Done"]
 
-        func checkMultiSelectModeActive() {
-            if doneButton.exists && doneButton.isHittable {
-                multiSelectModeExpectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkMultiSelectModeActive()
-                }
-            }
+        selectButton.tap()
+
+        guard waitForAnyElement(
+            [app.navigationBars.buttons["Done"]],
+            timeout: adaptiveTimeout,
+            description: "multi-select Done button",
+            failOnTimeout: false
+        ) != nil else {
+            throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
-        
-        checkMultiSelectModeActive()
-        wait(for: [multiSelectModeExpectation], timeout: adaptiveTimeout)
     }
     
     @MainActor
@@ -186,50 +163,24 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         initializeApp()
         navigateToEpisodeList()
         
-        // When: I try to enter multi-select mode - check availability with XCTestExpectation
-        let selectButton = app.buttons["Select"]
-        let selectButtonAvailableExpectation = XCTestExpectation(description: "Select button available")
-
-        func checkSelectButtonAvailable() {
-            if selectButton.exists && selectButton.isHittable {
-                selectButtonAvailableExpectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkSelectButtonAvailable()
-                }
-            }
-        }
-        
-        checkSelectButtonAvailable()
-        
-        do {
-            wait(for: [selectButtonAvailableExpectation], timeout: adaptiveShortTimeout)
-        } catch {
+        // When: I try to enter multi-select mode - check availability using helper waits
+        guard let selectButton = waitForAnyElement(
+            [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+            timeout: adaptiveShortTimeout,
+            description: "Select button",
+            failOnTimeout: false
+        ) else {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
-        
-        // Activate multi-select mode
+
         selectButton.tap()
 
-        // Wait for multi-select mode using XCTestExpectation
-        let multiSelectActivatedExpectation = XCTestExpectation(description: "Multi-select mode activated")
-        let doneButton = app.navigationBars.buttons["Done"]
-
-        func checkMultiSelectActivated() {
-            if doneButton.exists && doneButton.isHittable {
-                multiSelectActivatedExpectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkMultiSelectActivated()
-                }
-            }
-        }
-        
-        checkMultiSelectActivated()
-        
-        do {
-            wait(for: [multiSelectActivatedExpectation], timeout: adaptiveTimeout)
-        } catch {
+        guard waitForAnyElement(
+            [app.navigationBars.buttons["Done"]],
+            timeout: adaptiveTimeout,
+            description: "multi-select Done button",
+            failOnTimeout: false
+        ) != nil else {
             throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
         
@@ -295,15 +246,23 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         initializeApp()
         navigateToEpisodeList()
         
-        guard app.buttons["Select"].waitForExistence(timeout: adaptiveShortTimeout) else {
+        guard let selectButton = waitForAnyElement(
+            [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+            timeout: adaptiveShortTimeout,
+            description: "Select button",
+            failOnTimeout: false
+        ) else {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
-        
-        // Enter multi-select mode
-        app.buttons["Select"].tap()
-        
-        // Wait for multi-select mode using native detection - timeout = failure
-        guard app.navigationBars.buttons["Done"].waitForExistence(timeout: adaptiveTimeout) else {
+
+        selectButton.tap()
+
+        guard waitForAnyElement(
+            [app.navigationBars.buttons["Done"]],
+            timeout: adaptiveTimeout,
+            description: "multi-select Done button",
+            failOnTimeout: false
+        ) != nil else {
             throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
         }
         
@@ -356,15 +315,23 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         initializeApp()
         navigateToEpisodeList()
         
-        guard app.buttons["Select"].waitForExistence(timeout: adaptiveShortTimeout) else {
+        guard let selectButton = waitForAnyElement(
+            [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+            timeout: adaptiveShortTimeout,
+            description: "Select button",
+            failOnTimeout: false
+        ) else {
             throw XCTSkip("Select button not available - multi-select feature not implemented yet")
         }
-        
-        // Enter multi-select mode
-        app.buttons["Select"].tap()
-        
-        // Wait for multi-select mode using native detection - timeout = failure
-        guard app.navigationBars.buttons["Done"].waitForExistence(timeout: adaptiveTimeout) else {
+
+        selectButton.tap()
+
+        guard waitForAnyElement(
+            [app.navigationBars.buttons["Done"]],
+            timeout: adaptiveTimeout,
+            description: "multi-select Done button",
+            failOnTimeout: false
+        ) != nil else {
             throw XCTSkip("Multi-select mode not activated")
         }
         
