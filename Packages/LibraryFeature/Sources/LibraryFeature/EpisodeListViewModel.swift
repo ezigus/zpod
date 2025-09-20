@@ -56,8 +56,8 @@ public final class EpisodeListViewModel: ObservableObject {
         applyCurrentFilter()
         
         // Save filter preference for this podcast
-        launchMainActorTask {
-            await filterManager?.setCurrentFilter(filter, forPodcast: podcast.id)
+        launchMainActorTask { viewModel in
+            await viewModel.filterManager?.setCurrentFilter(filter, forPodcast: viewModel.podcast.id)
         }
     }
     
@@ -222,16 +222,24 @@ public final class EpisodeListViewModel: ObservableObject {
     // MARK: - Private Methods
 
     @discardableResult
-    private func launchMainActorTask(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
-        Task(priority: priority) { @MainActor in
-            await operation()
+    private func launchMainActorTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (EpisodeListViewModel) async -> Void
+    ) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor [weak self] in
+            guard let self else { return }
+            await operation(self)
         }
     }
 
     @discardableResult
-    private func launchTask(priority: TaskPriority? = nil, _ operation: @escaping @Sendable () async throws -> Void) -> Task<Void, Error> {
-        Task(priority: priority) {
-            try await operation()
+    private func launchTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (EpisodeListViewModel) async throws -> Void
+    ) -> Task<Void, Error> {
+        Task(priority: priority) { [weak self] in
+            guard let self else { return }
+            try await operation(self)
         }
     }
 
@@ -254,10 +262,10 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // Remove completed operations after a delay
         if batchOperation.status == .completed || batchOperation.status == .failed || batchOperation.status == .cancelled {
-            launchTask {
+            launchTask { viewModel in
                 try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
                 await MainActor.run {
-                    activeBatchOperations.removeAll { $0.id == batchOperation.id }
+                    viewModel.activeBatchOperations.removeAll { $0.id == batchOperation.id }
                 }
             }
         }
@@ -270,18 +278,22 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     private func applyCurrentFilter() {
-        launchMainActorTask {
-            var episodes = allEpisodes
-            
+        launchMainActorTask { viewModel in
+            var episodes = viewModel.allEpisodes
+
             // Apply search if present
-            if !searchText.isEmpty {
-                episodes = filterService.searchEpisodes(episodes, query: searchText, filter: nil)
+            if !viewModel.searchText.isEmpty {
+                episodes = viewModel.filterService.searchEpisodes(
+                    episodes,
+                    query: viewModel.searchText,
+                    filter: nil
+                )
             }
-            
+
             // Apply filter and sort
-            episodes = filterService.filterAndSort(episodes: episodes, using: currentFilter)
-            
-            filteredEpisodes = episodes
+            episodes = viewModel.filterService.filterAndSort(episodes: episodes, using: viewModel.currentFilter)
+
+            viewModel.filteredEpisodes = episodes
         }
     }
     
@@ -317,11 +329,11 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // TODO: In a real implementation, this would trigger actual download retry
         // For now, simulate successful download after delay
-        launchTask {
+        launchTask { viewModel in
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             await MainActor.run {
                 let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
-                updateEpisode(completedEpisode)
+                viewModel.updateEpisode(completedEpisode)
             }
         }
     }
@@ -418,11 +430,11 @@ public final class EpisodeListViewModel: ObservableObject {
     public func quickPlayEpisode(_ episode: Episode) {
         // TODO: In a real implementation, this would start playback from current position
         // For now, just mark as played after a short delay to simulate playing
-        launchTask {
+        launchTask { viewModel in
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             await MainActor.run {
                 let playedEpisode = episode.withPlayedStatus(true)
-                updateEpisode(playedEpisode)
+                viewModel.updateEpisode(playedEpisode)
             }
         }
     }
@@ -487,16 +499,23 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     // MARK: - Private Methods
 
     @discardableResult
-    private func launchMainActorTask(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
-        Task(priority: priority) { @MainActor in
-            await operation()
+    private func launchMainActorTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (SmartEpisodeListViewModel) async -> Void
+    ) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor [weak self] in
+            guard let self else { return }
+            await operation(self)
         }
     }
 
     private func updateEpisodes() {
-        launchMainActorTask {
-            let filteredEpisodes = filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
-            episodes = filteredEpisodes
+        launchMainActorTask { viewModel in
+            let filteredEpisodes = viewModel.filterService.updateSmartList(
+                viewModel.smartList,
+                allEpisodes: viewModel.allEpisodes
+            )
+            viewModel.episodes = filteredEpisodes
         }
     }
     
