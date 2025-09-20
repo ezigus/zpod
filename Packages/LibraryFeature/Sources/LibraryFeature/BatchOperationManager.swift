@@ -234,7 +234,7 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     }
     
     private func addToPlaylist(_ operation: EpisodeOperation, playlistID: String?) async throws -> EpisodeOperation {
-        guard let playlistID = playlistID else {
+        guard playlistID != nil else {
             throw BatchOperationError.playlistNotFound("No playlist specified")
         }
         

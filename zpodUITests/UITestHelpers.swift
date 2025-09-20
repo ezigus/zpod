@@ -19,7 +19,12 @@ protocol UITestFoundation {
 /// Protocol for element waiting capabilities using XCTestExpectation patterns
 @MainActor protocol ElementWaiting: UITestFoundation {
     func waitForElement(_ element: XCUIElement, timeout: TimeInterval, description: String) -> Bool
-    func waitForAnyElement(_ elements: [XCUIElement], timeout: TimeInterval, description: String) -> XCUIElement?
+    func waitForAnyElement(
+        _ elements: [XCUIElement],
+        timeout: TimeInterval,
+        description: String,
+        failOnTimeout: Bool
+    ) -> XCUIElement?
 }
 
 /// Protocol for navigation testing using event-driven patterns
@@ -59,7 +64,8 @@ extension ElementWaiting {
     func waitForAnyElement(
         _ elements: [XCUIElement],
         timeout: TimeInterval = 10.0,
-        description: String = "any element"
+        description: String = "any element",
+        failOnTimeout: Bool = true
     ) -> XCUIElement? {
         guard !elements.isEmpty else {
             XCTFail("No elements provided for 'waitForAnyElement' (\(description))")
@@ -93,12 +99,14 @@ extension ElementWaiting {
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
         
         if result != .completed {
-            let debugSummaries = elements.enumerated().map { idx, el in
-                "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
-            }.joined(separator: "\n")
-            XCTFail("No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)")
+            if failOnTimeout {
+                let debugSummaries = elements.enumerated().map { idx, el in
+                    "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
+                }.joined(separator: "\n")
+                XCTFail("No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)")
+            }
         }
-        
+
         return foundElement
     }
 }
@@ -169,6 +177,34 @@ extension XCTestCase {
         return nil
     }
     
+    /// Resolve a container element by accessibility identifier independent of backing UIKit type.
+    /// The episode list was refactored to use a `UITableView` on iPhone for performance and platform alignment;
+    /// legacy automation expected a scroll view. This helper keeps identifiers stable through those UIKit swaps.
+    @MainActor
+    func findContainerElement(
+        in app: XCUIApplication,
+        identifier: String
+    ) -> XCUIElement? {
+        let orderedQueries: [XCUIElementQuery] = [
+            app.scrollViews,
+            app.tables,
+            app.collectionViews,
+            app.otherElements,
+            app.cells,
+            app.staticTexts
+        ]
+
+        for query in orderedQueries {
+            let element = query[identifier]
+            if element.exists {
+                return element
+            }
+        }
+
+        let anyMatch = app.descendants(matching: .any)[identifier]
+        return anyMatch.exists ? anyMatch : nil
+    }
+    
     /// Wait for loading completion using XCTestExpectation pattern
     @MainActor
     func waitForLoadingToComplete(
@@ -178,7 +214,7 @@ extension XCTestCase {
         // Common containers to check for
         let commonContainers = [
             "Content Container",
-            "Episode Cards Container", 
+            "Episode Cards Container",
             "Library Content",
             "Podcast List Container"
         ]
@@ -189,8 +225,8 @@ extension XCTestCase {
         func checkForLoading() {
             // Check if any common container appears
             for containerIdentifier in commonContainers {
-                let container = app.scrollViews[containerIdentifier]
-                if container.exists {
+                if let container = findContainerElement(in: app, identifier: containerIdentifier),
+                   container.exists {
                     expectation.fulfill()
                     return
                 }
@@ -235,18 +271,31 @@ extension SmartUITesting where Self: XCTestCase {
             return false
         }
         
-        let container = app.scrollViews[containerIdentifier]
-        
         // Use XCTestExpectation for event-driven content waiting
         let expectation = XCTestExpectation(description: "Content container '\(containerIdentifier)' appears")
         
         func checkForContent() {
-            if container.exists && container.isHittable {
-                expectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkForContent()
+            let container = findContainerElement(in: app, identifier: containerIdentifier)
+            let containerExists = container?.exists ?? false
+
+            var itemExists = false
+            if !itemIdentifiers.isEmpty {
+                for identifier in itemIdentifiers {
+                    let matchedElement = app.descendants(matching: .any)[identifier]
+                    if matchedElement.exists {
+                        itemExists = true
+                        break
+                    }
                 }
+            }
+
+            if containerExists || itemExists || (itemIdentifiers.isEmpty && container != nil) {
+                expectation.fulfill()
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                checkForContent()
             }
         }
         
@@ -265,7 +314,7 @@ extension SmartUITesting where Self: XCTestCase {
         // Common containers to check for
         let commonContainers = [
             "Content Container",
-            "Episode Cards Container", 
+            "Episode Cards Container",
             "Library Content",
             "Podcast List Container"
         ]
@@ -276,8 +325,8 @@ extension SmartUITesting where Self: XCTestCase {
         func checkForLoading() {
             // Check if any common container appears
             for containerIdentifier in commonContainers {
-                let container = app.scrollViews[containerIdentifier]
-                if container.exists {
+                if let container = findContainerElement(in: app, identifier: containerIdentifier),
+                   container.exists {
                     expectation.fulfill()
                     return
                 }

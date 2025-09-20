@@ -386,6 +386,97 @@ final class BatchOperationTests: XCTestCase {
         XCTAssertEqual(result.completedCount, 100)
         XCTAssertLessThan(executionTime, 30.0, "Batch operation should complete within 30 seconds")
     }
+    
+    // MARK: - Enhanced Batch Operation Features Tests
+    
+    @MainActor
+    func testBatchOperationRetryFunctionality() async throws {
+        // Given
+        let episodeIDs = ["ep1", "ep2"]
+        var batchOperation = BatchOperation(
+            operationType: .download,
+            episodeIDs: episodeIDs
+        )
+        
+        // Simulate a failed operation
+        batchOperation = batchOperation.withStatus(.failed)
+        let failedOperation = batchOperation.operations[0].withStatus(.failed)
+        batchOperation = batchOperation.withUpdatedOperation(failedOperation)
+        
+        // When
+        let retryExpectation = expectation(description: "Retry operation")
+        var retryUpdates: [BatchOperation] = []
+        
+        batchOperationManager.batchOperationUpdates
+            .sink { update in
+                retryUpdates.append(update)
+                if update.status == .running {
+                    retryExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Execute retry (simplified for test)
+        let retryBatch = BatchOperation(
+            operationType: batchOperation.operationType,
+            episodeIDs: [failedOperation.episodeID]
+        )
+        let _ = try await batchOperationManager.executeBatchOperation(retryBatch)
+        
+        // Then
+        await fulfillment(of: [retryExpectation], timeout: 5.0)
+        XCTAssertTrue(retryUpdates.contains { $0.status == .running })
+    }
+    
+    @MainActor
+    func testReversibleBatchOperationProperties() throws {
+        // Given
+        let reversibleOperations: [BatchOperationType] = [
+            .markAsPlayed, .markAsUnplayed, .favorite, .unfavorite, 
+            .bookmark, .unbookmark, .archive
+        ]
+        let nonReversibleOperations: [BatchOperationType] = [
+            .delete, .share, .download
+        ]
+        
+        // When & Then
+        for operation in reversibleOperations {
+            XCTAssertTrue(operation.isReversible, "\(operation) should be reversible")
+        }
+        
+        for operation in nonReversibleOperations {
+            XCTAssertFalse(operation.isReversible, "\(operation) should not be reversible")
+        }
+    }
+    
+    @MainActor  
+    func testBatchOperationUndoFunctionality() async throws {
+        // Given
+        let episodeIDs = ["ep1", "ep2"]
+        let batchOperation = BatchOperation(
+            operationType: .markAsPlayed,
+            episodeIDs: episodeIDs
+        )
+        
+        // When - Complete the original operation
+        let completedBatch = try await batchOperationManager.executeBatchOperation(batchOperation)
+        
+        // Then - Verify it's marked as reversible
+        XCTAssertTrue(completedBatch.operationType.isReversible)
+        XCTAssertEqual(completedBatch.status, .completed)
+        
+        // When - Create undo operation
+        let undoBatch = BatchOperation(
+            operationType: .markAsUnplayed, // Reverse of markAsPlayed
+            episodeIDs: episodeIDs
+        )
+        
+        let undoResult = try await batchOperationManager.executeBatchOperation(undoBatch)
+        
+        // Then
+        XCTAssertEqual(undoResult.status, .completed)
+        XCTAssertEqual(undoResult.operationType, .markAsUnplayed)
+    }
 }
 
 // MARK: - Mock Episode State Manager

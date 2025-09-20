@@ -7,6 +7,7 @@ final class ComprehensiveEpisodeTests: XCTestCase {
     // MARK: - Test Data
     private var sampleEpisode: Episode!
     private let testDate = Date(timeIntervalSince1970: 1642684800) // Fixed date for consistency
+    private let testDateAdded = Date(timeIntervalSince1970: 1642684800) // Deterministic dateAdded to avoid equality flakiness
     
     override func setUp() async throws {
         try await super.setUp()
@@ -19,7 +20,8 @@ final class ComprehensiveEpisodeTests: XCTestCase {
             pubDate: testDate,
             duration: 3600.0, // 1 hour
             description: "A comprehensive introduction to Swift 6 concurrency features including async/await, actors, and Sendable protocols.",
-            audioURL: URL(string: "https://example.com/episode1.mp3")
+            audioURL: URL(string: "https://example.com/episode1.mp3"),
+            dateAdded: testDateAdded
         )
     }
     
@@ -325,7 +327,8 @@ final class ComprehensiveEpisodeTests: XCTestCase {
             pubDate: sampleEpisode.pubDate,
             duration: sampleEpisode.duration,
             description: sampleEpisode.description,
-            audioURL: sampleEpisode.audioURL
+            audioURL: sampleEpisode.audioURL,
+            dateAdded: sampleEpisode.dateAdded
         )
         
         // When: Comparing for equality

@@ -407,7 +407,6 @@ struct EpisodeListViewWrapper: View {
         
         // Use the real EpisodeListView with full batch operation functionality
         EpisodeListView(podcast: samplePodcast)
-            .accessibilityIdentifier("Episode List View")
     }
     
     private func createSamplePodcast(id: String, title: String) -> Podcast {

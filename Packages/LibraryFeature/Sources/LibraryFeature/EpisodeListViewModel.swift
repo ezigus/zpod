@@ -56,8 +56,8 @@ public final class EpisodeListViewModel: ObservableObject {
         applyCurrentFilter()
         
         // Save filter preference for this podcast
-        Task {
-            await filterManager?.setCurrentFilter(filter, forPodcast: podcast.id)
+        launchMainActorTask { viewModel in
+            await viewModel.filterManager?.setCurrentFilter(filter, forPodcast: viewModel.podcast.id)
         }
     }
     
@@ -220,8 +220,30 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
-    
+
+    @discardableResult
+    private func launchMainActorTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (EpisodeListViewModel) async -> Void
+    ) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor [weak self] in
+            guard let self else { return }
+            await operation(self)
+        }
+    }
+
+    @discardableResult
+    private func launchTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (EpisodeListViewModel) async throws -> Void
+    ) -> Task<Void, Error> {
+        Task(priority: priority) { [weak self] in
+            guard let self else { return }
+            try await operation(self)
+        }
+    }
+
+
     private func setupBatchOperationSubscription() {
         batchOperationManager.batchOperationUpdates
             .receive(on: DispatchQueue.main)
@@ -240,10 +262,10 @@ public final class EpisodeListViewModel: ObservableObject {
         
         // Remove completed operations after a delay
         if batchOperation.status == .completed || batchOperation.status == .failed || batchOperation.status == .cancelled {
-            Task {
+            launchTask { viewModel in
                 try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
                 await MainActor.run {
-                    activeBatchOperations.removeAll { $0.id == batchOperation.id }
+                    viewModel.activeBatchOperations.removeAll { $0.id == batchOperation.id }
                 }
             }
         }
@@ -256,20 +278,22 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     private func applyCurrentFilter() {
-        Task {
-            var episodes = allEpisodes
-            
+        launchMainActorTask { viewModel in
+            var episodes = viewModel.allEpisodes
+
             // Apply search if present
-            if !searchText.isEmpty {
-                episodes = filterService.searchEpisodes(episodes, query: searchText, filter: nil)
+            if !viewModel.searchText.isEmpty {
+                episodes = viewModel.filterService.searchEpisodes(
+                    episodes,
+                    query: viewModel.searchText,
+                    filter: nil
+                )
             }
-            
+
             // Apply filter and sort
-            episodes = filterService.filterAndSort(episodes: episodes, using: currentFilter)
-            
-            await MainActor.run {
-                filteredEpisodes = episodes
-            }
+            episodes = viewModel.filterService.filterAndSort(episodes: episodes, using: viewModel.currentFilter)
+
+            viewModel.filteredEpisodes = episodes
         }
     }
     
@@ -285,6 +309,134 @@ public final class EpisodeListViewModel: ObservableObject {
         }
         
         // TODO: In a real implementation, this would save to persistence
+    }
+    
+    // MARK: - Enhanced Episode Status Management
+    
+    /// Toggle the played status of an episode with immediate UI feedback
+    public func toggleEpisodePlayedStatus(_ episode: Episode) {
+        let updatedEpisode = episode.withPlayedStatus(!episode.isPlayed)
+        updateEpisode(updatedEpisode)
+    }
+    
+    /// Retry failed download for an episode
+    public func retryEpisodeDownload(_ episode: Episode) {
+        guard episode.downloadStatus == .failed else { return }
+        
+        // Update status to downloading
+        let updatedEpisode = episode.withDownloadStatus(.downloading)
+        updateEpisode(updatedEpisode)
+        
+        // TODO: In a real implementation, this would trigger actual download retry
+        // For now, simulate successful download after delay
+        launchTask { viewModel in
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            await MainActor.run {
+                let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
+                viewModel.updateEpisode(completedEpisode)
+            }
+        }
+    }
+    
+    /// Retry a failed batch operation
+    public func retryBatchOperation(_ batchOperationId: String) async {
+        // TODO: In a real implementation, this would retry the specific failed operations
+        // For now, find the batch operation and restart failed operations
+        if let batchIndex = activeBatchOperations.firstIndex(where: { $0.id == batchOperationId }) {
+            let batchOperation = activeBatchOperations[batchIndex]
+            let failedOperations = batchOperation.operations.filter { $0.status == .failed }
+            
+            if !failedOperations.isEmpty {
+                // Restart the batch operation with only failed episodes
+                let retryBatch = BatchOperation(
+                    operationType: batchOperation.operationType,
+                    episodeIDs: failedOperations.map { $0.episodeID },
+                    playlistID: batchOperation.playlistID
+                )
+                
+                do {
+                    let _ = try await batchOperationManager.executeBatchOperation(retryBatch)
+                } catch {
+                    print("Retry batch operation failed: \(error)")
+                }
+            }
+        }
+    }
+    
+    /// Undo a completed batch operation if it's reversible
+    public func undoBatchOperation(_ batchOperationId: String) async {
+        // TODO: In a real implementation, this would reverse the effects of the batch operation
+        // For now, simulate the undo operation
+        if let batchIndex = activeBatchOperations.firstIndex(where: { $0.id == batchOperationId }) {
+            let batchOperation = activeBatchOperations[batchIndex]
+            
+            guard batchOperation.operationType.isReversible else { return }
+            
+            // Create reverse operation
+            let reverseOperationType: BatchOperationType
+            switch batchOperation.operationType {
+            case .markAsPlayed:
+                reverseOperationType = .markAsUnplayed
+            case .markAsUnplayed:
+                reverseOperationType = .markAsPlayed
+            case .favorite:
+                reverseOperationType = .unfavorite
+            case .unfavorite:
+                reverseOperationType = .favorite
+            case .bookmark:
+                reverseOperationType = .unbookmark
+            case .unbookmark:
+                reverseOperationType = .bookmark
+            case .archive:
+                // Unarchive episodes by updating them directly
+                let episodeIDs = batchOperation.operations.map { $0.episodeID }
+                for episodeID in episodeIDs {
+                    if let episode = allEpisodes.first(where: { $0.id == episodeID }) {
+                        let updatedEpisode = episode.withArchivedStatus(false)
+                        updateEpisode(updatedEpisode)
+                    }
+                }
+                return
+            default:
+                return // Non-reversible operations
+            }
+            
+            // Execute reverse batch operation
+            let undoBatch = BatchOperation(
+                operationType: reverseOperationType,
+                episodeIDs: batchOperation.operations.map { $0.episodeID },
+                playlistID: batchOperation.playlistID
+            )
+            
+            do {
+                let _ = try await batchOperationManager.executeBatchOperation(undoBatch)
+            } catch {
+                print("Undo batch operation failed: \(error)")
+            }
+        }
+    }
+    
+    /// Pause/resume episode download
+    public func pauseEpisodeDownload(_ episode: Episode) {
+        guard episode.downloadStatus == .downloading else { return }
+        
+        // TODO: In a real implementation, this would pause the actual download
+        // For now, simulate pausing by changing status
+        let pausedEpisode = episode.withDownloadStatus(.notDownloaded)
+        updateEpisode(pausedEpisode)
+    }
+    
+    /// Quick play an episode that's in progress
+    public func quickPlayEpisode(_ episode: Episode) {
+        // TODO: In a real implementation, this would start playback from current position
+        // For now, just mark as played after a short delay to simulate playing
+        launchTask { viewModel in
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            await MainActor.run {
+                let playedEpisode = episode.withPlayedStatus(true)
+                viewModel.updateEpisode(playedEpisode)
+            }
+        }
     }
 }
 
@@ -345,14 +497,25 @@ public final class SmartEpisodeListViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
+
+    @discardableResult
+    private func launchMainActorTask(
+        priority: TaskPriority? = nil,
+        _ operation: @escaping (SmartEpisodeListViewModel) async -> Void
+    ) -> Task<Void, Never> {
+        Task(priority: priority) { @MainActor [weak self] in
+            guard let self else { return }
+            await operation(self)
+        }
+    }
+
     private func updateEpisodes() {
-        Task {
-            let filteredEpisodes = filterService.updateSmartList(smartList, allEpisodes: allEpisodes)
-            
-            await MainActor.run {
-                episodes = filteredEpisodes
-            }
+        launchMainActorTask { viewModel in
+            let filteredEpisodes = viewModel.filterService.updateSmartList(
+                viewModel.smartList,
+                allEpisodes: viewModel.allEpisodes
+            )
+            viewModel.episodes = filteredEpisodes
         }
     }
     
@@ -361,4 +524,3 @@ public final class SmartEpisodeListViewModel: ObservableObject {
         // This would typically use a timer or background task
     }
 }
-
