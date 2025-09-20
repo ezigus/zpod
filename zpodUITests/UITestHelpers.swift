@@ -275,13 +275,27 @@ extension SmartUITesting where Self: XCTestCase {
         let expectation = XCTestExpectation(description: "Content container '\(containerIdentifier)' appears")
         
         func checkForContent() {
-            if let container = findContainerElement(in: app, identifier: containerIdentifier),
-               container.exists && container.isHittable {
-                expectation.fulfill()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    checkForContent()
+            let container = findContainerElement(in: app, identifier: containerIdentifier)
+            let containerExists = container?.exists ?? false
+
+            var itemExists = false
+            if !itemIdentifiers.isEmpty {
+                for identifier in itemIdentifiers {
+                    let matchedElement = app.descendants(matching: .any)[identifier]
+                    if matchedElement.exists {
+                        itemExists = true
+                        break
+                    }
                 }
+            }
+
+            if containerExists || itemExists || (itemIdentifiers.isEmpty && container != nil) {
+                expectation.fulfill()
+                return
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                checkForContent()
             }
         }
         

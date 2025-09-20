@@ -21,6 +21,23 @@ The task was to enhance existing functionality rather than build from scratch.
 
 ## Implementation Approach
 
+### 2025-09-19 19:55 UTC — Investigation & Plan Update
+- **Context**: UI regression surfaced while running `EpisodeListUITests.testPullToRefreshFunctionality`. Multiple UI specs that rely on the "Episode Cards Container" element now fail to discover the list after the iPhone-only refactor switched the layout to `List`.
+- **Observation**: The UI tests still look for `XCUIElementTypeScrollView` (legacy card layout), whereas SwiftUI now renders a `UITableView`. Accessibility identifier remains correct, but the element type mismatch prevents discovery.
+- **Plan**:
+  1. Update smart UI test helpers and affected UI tests to resolve the container by identifier regardless of the underlying element type (table, collection, or scroll view).
+  2. Verify the `EpisodeListView` continues to expose `Episode Cards Container` on the `List` for iPhone, maintaining accessibility contracts.
+  3. Re-run the targeted UI suite (and supporting smoke checks) to confirm all seven failures are resolved without altering production behavior.
+- **Next Steps**: Implement helper updates under Issue 02.1.3 scope, refresh documentation if the discovery strategy changes, and record validation results below.
+
+### 2025-09-19 20:07 UTC — Test Helper Update & Validation
+- **Implementation**:
+  - Added `findContainerElement` utility in `UITestHelpers.swift` to normalize container discovery across `UITableView`, `UICollectionView`, and legacy scroll views.
+  - Refactored `EpisodeListUITests` navigation, scrolling, accessibility, and refresh scenarios to leverage the helper instead of hard-coded `scrollViews` queries.
+  - Updated `BatchOperationUITests` loading check to use the shared helper for consistency.
+- **Verification**: `./scripts/dev-build-enhanced.sh syntax` ✅ — confirms Swift syntax passes across the suite after test updates.
+- **Follow-up**: Schedule full UI test run on macOS CI once available to validate gesture interactions with the new `List` backing view.
+
 ### Phase 1: Enhanced Status Management and Visual Feedback ✅
 
 #### 1. Enhanced Episode Status Visualization

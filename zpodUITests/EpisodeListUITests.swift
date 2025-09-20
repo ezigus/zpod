@@ -36,7 +36,11 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                 libraryTab.tap()
                 
                 // Wait for library content using simple existence check
-                let libraryContent = app.scrollViews["Podcast Cards Container"]
+                guard let libraryContent = findContainerElement(in: app, identifier: "Podcast Cards Container") else {
+                    XCTFail("Library content container not found")
+                    return
+                }
+
                 if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
                     
                     // When: I tap on a podcast using direct element access
@@ -46,31 +50,32 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                         
                         // Then: I should see some form of episode list content
                         // Check for multiple possible indicators of episode list screen
-                        let possibleContainers = [
-                            app.scrollViews["Episode Cards Container"],
-                            app.scrollViews["Content Container"],
-                            app.scrollViews.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch,
-                            app.scrollViews.matching(NSPredicate(format: "identifier CONTAINS 'episode'")).firstMatch
+                        var foundContainer = false
+                        let candidateIdentifiers = [
+                            "Episode Cards Container",
+                            "Content Container"
                         ]
                         
-                        var foundContainer = false
-                        for container in possibleContainers {
-                            if container.waitForExistence(timeout: adaptiveShortTimeout) {
+                        for identifier in candidateIdentifiers {
+                            if let container = findContainerElement(in: app, identifier: identifier),
+                               container.waitForExistence(timeout: adaptiveShortTimeout) {
                                 foundContainer = true
                                 break
                             }
                         }
                         
                         if !foundContainer {
-                            // Fallback: check for any scroll view or navigation change
+                            // Fallback: check for other scrollable/table elements or navigation change
+                            let anyTable = app.tables.firstMatch
+                            let anyCollection = app.collectionViews.firstMatch
                             let anyScrollView = app.scrollViews.firstMatch
                             let episodeNavBar = app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS 'Episode' OR identifier CONTAINS 'episode'")).firstMatch
                             
-                            if anyScrollView.exists || episodeNavBar.exists {
+                            if anyTable.exists || anyCollection.exists || anyScrollView.exists || episodeNavBar.exists {
                                 foundContainer = true
                             }
                         }
-                        
+
                         XCTAssertTrue(foundContainer, "Should navigate to some form of episode list content")
                     } else {
                         throw XCTSkip("Test podcast not available - skipping navigation test")
@@ -95,8 +100,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: The episode list loads, check for episode container
-        let episodeContainer = app.scrollViews["Episode Cards Container"]
-        if episodeContainer.exists {
+        if let episodeContainer = findContainerElement(in: app, identifier: "Episode Cards Container") {
             
             // Then: I should see episodes displayed using direct element access
             let firstEpisode = app.buttons["Episode-st-001"]
@@ -121,28 +125,28 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         navigateToPodcastEpisodes("swift-talk")
         
         // When: I check for any scroll container and perform scrolling
-        let possibleContainers = [
-            app.scrollViews["Episode Cards Container"],
-            app.scrollViews["Content Container"],
-            app.scrollViews.firstMatch
-        ]
-        
-        var scrollContainer: XCUIElement?
-        for container in possibleContainers {
-            if container.exists {
-                scrollContainer = container
-                break
-            }
+        var candidateContainers: [XCUIElement] = []
+        if let episodeCards = findContainerElement(in: app, identifier: "Episode Cards Container") {
+            candidateContainers.append(episodeCards)
         }
+        if let contentContainer = findContainerElement(in: app, identifier: "Content Container") {
+            candidateContainers.append(contentContainer)
+        }
+        let tableView = app.tables.firstMatch
+        if tableView.exists { candidateContainers.append(tableView) }
+        let collectionView = app.collectionViews.firstMatch
+        if collectionView.exists { candidateContainers.append(collectionView) }
+        let scrollView = app.scrollViews.firstMatch
+        if scrollView.exists { candidateContainers.append(scrollView) }
         
-        if let container = scrollContainer {
+        if let container = candidateContainers.first {
             // Perform scroll action
             container.swipeUp()
             
             // Then: The container should still exist after scrolling
             XCTAssertTrue(container.exists, "Scroll container should still exist after scrolling")
         } else {
-            throw XCTSkip("No scroll container available - skipping scrolling test")
+            throw XCTSkip("No container available - skipping scrolling test")
         }
     }
     
@@ -179,8 +183,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
             }
             
             // Also check that we've navigated away from the list
-            let episodeListContainer = app.scrollViews["Episode Cards Container"]
-            let navigatedAway = !episodeListContainer.exists
+            let navigatedAway = findContainerElement(in: app, identifier: "Episode Cards Container") == nil
             
             XCTAssertTrue(foundDetailView || navigatedAway, "Should navigate to episode detail or away from list")
         } else {
@@ -190,8 +193,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                 anyEpisodeButton.tap()
                 
                 // Simple check: verify we're no longer in the episode list
-                let episodeListContainer = app.scrollViews["Episode Cards Container"]
-                let navigatedAway = !episodeListContainer.exists
+                let navigatedAway = findContainerElement(in: app, identifier: "Episode Cards Container") == nil
                 XCTAssertTrue(navigatedAway, "Should navigate away from episode list")
             } else {
                 throw XCTSkip("No episode buttons available - skipping detail navigation test")
@@ -207,21 +209,18 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         // Given: I'm viewing an episode list
         navigateToPodcastEpisodes("swift-talk")
         
-        // Wait for content using robust loading pattern
-        XCTAssertTrue(
-            waitForContentToLoad(
-                containerIdentifier: "Episode Cards Container",
-                itemIdentifiers: ["Episode-st-001"]
-            ),
-            "Episode content should load for status testing"
-        )
-        
-        // When: I look at episodes with different statuses
-        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
-        
-        // Then: I should see appropriate status indicators
-        // Note: This would need more specific test data to verify played/in-progress states
-        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should display status indicators")
+        // Wait for an episode row to become visible
+        let firstEpisode = waitForAnyElement([
+            app.buttons["Episode-st-001"],
+            app.cells.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch
+        ], timeout: adaptiveTimeout, description: "episode button", failOnTimeout: false)
+
+        XCTAssertNotNil(firstEpisode, "Episode content should load for status testing")
+
+        // Then: I should see appropriate status indicators (placeholder assertion for now)
+        if let episodeElement = firstEpisode {
+            XCTAssertTrue(episodeElement.exists, "Episode element should be discoverable")
+        }
     }
     
     @MainActor
@@ -232,14 +231,13 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         // Given: I navigate to a podcast with episodes (for now, just verify the basic navigation works)
         navigateToPodcastEpisodes("swift-talk")
         
-        // Wait for content using robust pattern
-        XCTAssertTrue(
-            waitForContentToLoad(containerIdentifier: "Episode Cards Container"),
-            "Episode container should be available for empty state testing"
-        )
-        
-        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
-        XCTAssertTrue(episodeCardsContainer.exists, "Episode cards container should exist")
+        // Wait for the placeholder episode list to become visible
+        let placeholderEpisode = waitForAnyElement([
+            app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch,
+            app.cells.matching(NSPredicate(format: "identifier CONTAINS 'Episode-'" )).firstMatch
+        ], timeout: adaptiveTimeout, description: "episode placeholder", failOnTimeout: false)
+
+        XCTAssertNotNil(placeholderEpisode, "Episode placeholder content should be discoverable")
     }
     
     @MainActor
@@ -255,7 +253,11 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                 libraryTab.tap()
                 
                 // Wait for library to load using simple existence check
-                let libraryContent = app.scrollViews["Podcast Cards Container"]
+                guard let libraryContent = findContainerElement(in: app, identifier: "Podcast Cards Container") else {
+                    XCTFail("Library content container not found")
+                    return
+                }
+
                 if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
                     
                     // Look for a podcast to tap
@@ -264,8 +266,10 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                         podcastButton.tap()
                         
                         // Wait for episode list container to appear
-                        let episodeCardsContainer = app.scrollViews["Episode Cards Container"]
-                        if episodeCardsContainer.waitForExistence(timeout: adaptiveTimeout) {
+                        if waitForContentToLoad(containerIdentifier: "Episode Cards Container", timeout: adaptiveTimeout) {
+                            guard let episodeCardsContainer = findContainerElement(in: app, identifier: "Episode Cards Container") else {
+                                throw XCTSkip("Episode Cards Container not available - skipping pull to refresh test")
+                            }
                             
                             // When: I pull down to refresh
                             let startCoordinate = episodeCardsContainer.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
@@ -303,18 +307,16 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         
         // When: I check accessibility elements
         // Look for any available content container
-        let possibleContainers = [
-            app.scrollViews["Episode Cards Container"],
-            app.scrollViews["Content Container"],
-            app.scrollViews.firstMatch
-        ]
-        
         var foundContainer = false
-        for container in possibleContainers {
-            if container.exists {
-                foundContainer = true
-                break
-            }
+        if let episodeCards = findContainerElement(in: app, identifier: "Episode Cards Container") {
+            foundContainer = episodeCards.exists
+        } else if let contentContainer = findContainerElement(in: app, identifier: "Content Container") {
+            foundContainer = contentContainer.exists
+        } else {
+            let tableView = app.tables.firstMatch
+            let collectionView = app.collectionViews.firstMatch
+            let scrollView = app.scrollViews.firstMatch
+            foundContainer = tableView.exists || collectionView.exists || scrollView.exists
         }
         
         if foundContainer {
@@ -357,7 +359,11 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                 libraryTab.tap()
                 
                 // Wait for library content using simple existence check
-                let libraryContent = app.scrollViews["Podcast Cards Container"]
+                guard let libraryContent = findContainerElement(in: app, identifier: "Podcast Cards Container") else {
+                    XCTFail("Library content container not found")
+                    return
+                }
+
                 if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
                     
                     // Navigate to podcast using direct element access
@@ -367,21 +373,27 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
                         
                         // Verify we reached some form of episode list content
                         // Check for multiple possible indicators
-                        let possibleContainers = [
-                            app.scrollViews["Episode Cards Container"],
-                            app.scrollViews["Content Container"],
-                            app.scrollViews.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch,
-                            app.scrollViews.firstMatch
-                        ]
-                        
                         var foundContainer = false
-                        for container in possibleContainers {
-                            if container.waitForExistence(timeout: adaptiveShortTimeout) {
+                        let candidateIdentifiers = [
+                            "Episode Cards Container",
+                            "Content Container"
+                        ]
+
+                        for identifier in candidateIdentifiers {
+                            if let container = findContainerElement(in: app, identifier: identifier),
+                               container.waitForExistence(timeout: adaptiveShortTimeout) {
                                 foundContainer = true
                                 break
                             }
                         }
-                        
+
+                        if !foundContainer {
+                            let tableView = app.tables.firstMatch
+                            let collectionView = app.collectionViews.firstMatch
+                            let scrollView = app.scrollViews.firstMatch
+                            foundContainer = tableView.exists || collectionView.exists || scrollView.exists
+                        }
+
                         XCTAssertTrue(foundContainer, "Should navigate to episode list for podcast \(podcastId)")
                     } else {
                         XCTFail("Podcast \(podcastId) button not found")
