@@ -191,7 +191,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             button.tap()
             
             // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["discovery-options-menu.add-rss"]
+            let addRSSOption = app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch
             if addRSSOption.waitForExistence(timeout: 2.0) {
                 // When: I select "Add RSS Feed"
                 addRSSOption.tap()
