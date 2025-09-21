@@ -29,4 +29,5 @@ Next: iterate on documentation updates and add lightweight shell-based self-test
 
 ## 2025-09-21 14:05 EDT — Full Build Verification
 - Added environment guard/`MACOSX_DEPLOYMENT_TARGET` when invoking SwiftPM to avoid macOS availability compilation errors during fallbacks.
-- `scripts/run-xcode-tests.sh full_build_and_test` now runs xcodebuild clean+build successfully and skips package tests when no simulator is available, logging the skip explicitly instead of reporting success after failure.
+- Updated simulator selection to ignore placeholder entries when real devices exist so the script mirrors manual `xcodebuild -showdestinations` behaviour.
+- `scripts/run-xcode-tests.sh full_build_and_test` now runs xcodebuild clean+build and UI tests against the concrete simulator (subsequent UI test failure is unrelated test logic, not simulator detection).

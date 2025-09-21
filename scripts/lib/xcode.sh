@@ -70,17 +70,19 @@ select_destination() {
   sim_lines="$(echo "$destinations_output" | grep "platform:iOS Simulator" || true)"
 
   if echo "$sim_lines" | grep -q "Any iOS Simulator Device"; then
-    SELECTED_DESTINATION="generic/platform=iOS Simulator"
-    DESTINATION_IS_GENERIC=1
-    log_warn "No concrete simulators detected, using generic destination"
-    return 0
+    if ! echo "$sim_lines" | grep -q "OS:"; then
+      SELECTED_DESTINATION="generic/platform=iOS Simulator"
+      DESTINATION_IS_GENERIC=1
+      log_warn "No concrete simulators detected, using generic destination"
+      return 0
+    fi
   fi
 
   local line name os
   line="$(echo "$sim_lines" | grep "name:${preferred_sim}" | head -n1 || true)"
   if [[ -n "$line" ]]; then
-    name=$(echo "$line" | sed -En 's/.*name:([^,}]+).*/\1/p')
-    os=$(echo "$line" | sed -En 's/.*OS:([0-9.]+).*/\1/p')
+    name=$(trim "$(echo "$line" | sed -En 's/.*name:([^,}]+).*/\1/p')")
+    os=$(trim "$(echo "$line" | sed -En 's/.*OS:([0-9.]+).*/\1/p')")
     if [[ -n "$name" && -n "$os" ]]; then
       SELECTED_DESTINATION="platform=iOS Simulator,name=${name},OS=${os}"
       log_info "Using simulator destination: ${SELECTED_DESTINATION}"
@@ -88,10 +90,10 @@ select_destination() {
     fi
   fi
 
-  line="$(echo "$sim_lines" | head -n1 || true)"
+  line="$(echo "$sim_lines" | grep 'OS:' | head -n1 || true)"
   if [[ -n "$line" ]]; then
-    name=$(echo "$line" | sed -En 's/.*name:([^,}]+).*/\1/p')
-    os=$(echo "$line" | sed -En 's/.*OS:([0-9.]+).*/\1/p')
+    name=$(trim "$(echo "$line" | sed -En 's/.*name:([^,}]+).*/\1/p')")
+    os=$(trim "$(echo "$line" | sed -En 's/.*OS:([0-9.]+).*/\1/p')")
     if [[ -n "$name" && -n "$os" ]]; then
       SELECTED_DESTINATION="platform=iOS Simulator,name=${name},OS=${os}"
       log_warn "Preferred simulator not found. Using ${SELECTED_DESTINATION}"
