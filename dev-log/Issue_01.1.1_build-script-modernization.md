@@ -13,3 +13,16 @@
 - Phase 2 (Issue 01.1.1.2) will start only after Phase 1 lands so that CI switches to the new entry point with confidence.
 
 Next step: create a working branch for Issue 01.1.1.1 and begin implementing shared helpers + script refactor.
+
+## 2025-09-21 13:55 EDT — Phase 1 Refactor Started
+- Created `feature/01.1.1-script-refactor` branch and PR #65 (ties to Issue #63).
+- Added `scripts/lib/` with common helpers:
+  - `logging.sh` for structured colourised output.
+  - `common.sh` for repo/root utilities.
+  - `result.sh` for result bundle/log path management.
+  - `xcode.sh` and `spm.sh` to encapsulate environment detection and fallback execution.
+- Rewrote `scripts/run-xcode-tests.sh` to source helpers, simplify build/test orchestration, add `--self-check`, and centralise xcodebuild/SPM handling.
+- Updated `scripts/dev-build-enhanced.sh` to reuse new logging utilities.
+- Verified `bash -n` on all scripts and ran `run-xcode-tests.sh --self-check` plus `scripts/dev-build-enhanced.sh syntax` as smoke tests.
+
+Next: iterate on documentation updates and add lightweight shell-based self-tests before tackling CI integration (Issue #64).
