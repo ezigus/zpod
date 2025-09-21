@@ -189,24 +189,60 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         if let button = optionsButton {
             button.tap()
-            
-            // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch
-            if addRSSOption.waitForExistence(timeout: 2.0) {
-                // When: I select "Add RSS Feed"
-                addRSSOption.tap()
-                
-                // Then: RSS feed addition sheet should appear
-                let rssSheet = app.navigationBars["Add RSS Feed"]
-                XCTAssertTrue(rssSheet.waitForExistence(timeout: 3.0), 
-                             "RSS feed addition sheet should appear")
-                
-                // And should contain URL input field
-                let urlField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
-                XCTAssertTrue(urlField.exists, "URL input field should be present")
-            } else {
-                throw XCTSkip("Add RSS Feed option not found in menu")
+
+            guard let discoveryDialog = waitForDialog(
+                in: app,
+                title: "Discovery Options",
+                timeout: adaptiveShortTimeout
+            ) else {
+                XCTFail("Discovery options dialog should appear after tapping the toolbar button")
+                return
             }
+
+            guard let addRSSOption = resolveDialogButton(
+                in: discoveryDialog,
+                identifier: "discovery-options-menu.add-rss",
+                fallbackLabel: "Add RSS Feed"
+            ) else {
+                XCTFail("Add RSS Feed option should be available in discovery dialog")
+                return
+            }
+
+            guard waitForElement(
+                addRSSOption,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed dialog option"
+            ) else { return }
+
+            guard waitForElementToBeHittable(
+                addRSSOption,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed dialog option"
+            ) else { return }
+
+            // When: I select "Add RSS Feed"
+            addRSSOption.tap()
+
+            // Then: RSS feed addition sheet should appear
+            let rssSheet = app.navigationBars["Add RSS Feed"]
+            guard waitForElement(
+                rssSheet,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed sheet"
+            ) else { return }
+
+            // And should contain URL input field
+            let urlField = app.textFields.matching(
+                NSPredicate(format: "placeholderValue CONTAINS 'https://'")
+            ).firstMatch
+            XCTAssertTrue(
+                waitForElement(
+                    urlField,
+                    timeout: adaptiveShortTimeout,
+                    description: "RSS feed URL field"
+                ),
+                "URL input field should be present"
+            )
         } else {
             throw XCTSkip("Discovery options button not found or not accessible")
         }
@@ -243,31 +279,67 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         
         if let button = optionsButton {
             button.tap()
-            
-            // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch
-            if addRSSOption.waitForExistence(timeout: 2.0) {
-                addRSSOption.tap()
-                
-                // Given: RSS sheet is displayed
-                let rssSheetNavBar = app.navigationBars["Add RSS Feed"]
-                XCTAssertTrue(rssSheetNavBar.waitForExistence(timeout: 3.0), "RSS sheet should appear before interacting with fields")
-                let urlField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
-                if urlField.waitForExistence(timeout: 3.0) {
-                    // When: I enter a URL
-                    urlField.tap()
-                    urlField.typeText("https://example.com/feed.xml")
-                    
-                    // Then: The field should contain the URL
-                    XCTAssertTrue(urlField.value as? String == "https://example.com/feed.xml" ||
-                                 app.staticTexts["https://example.com/feed.xml"].exists,
-                                 "URL field should contain entered URL")
-                } else {
-                    throw XCTSkip("URL field not found in RSS sheet")
-                }
-            } else {
-                throw XCTSkip("Add RSS Feed option not found in menu")
+
+            guard let discoveryDialog = waitForDialog(
+                in: app,
+                title: "Discovery Options",
+                timeout: adaptiveShortTimeout
+            ) else {
+                XCTFail("Discovery options dialog should appear before selecting RSS feed")
+                return
             }
+
+            guard let addRSSOption = resolveDialogButton(
+                in: discoveryDialog,
+                identifier: "discovery-options-menu.add-rss",
+                fallbackLabel: "Add RSS Feed"
+            ) else {
+                XCTFail("Add RSS Feed option should be available in discovery dialog")
+                return
+            }
+
+            guard waitForElement(
+                addRSSOption,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed dialog option"
+            ) else { return }
+
+            guard waitForElementToBeHittable(
+                addRSSOption,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed dialog option"
+            ) else { return }
+
+            addRSSOption.tap()
+
+            // Given: RSS sheet is displayed
+            let rssSheetNavBar = app.navigationBars["Add RSS Feed"]
+            guard waitForElement(
+                rssSheetNavBar,
+                timeout: adaptiveShortTimeout,
+                description: "Add RSS Feed sheet"
+            ) else { return }
+
+            let urlField = app.textFields.matching(
+                NSPredicate(format: "placeholderValue CONTAINS 'https://'")
+            ).firstMatch
+            guard waitForElement(
+                urlField,
+                timeout: adaptiveShortTimeout,
+                description: "RSS feed URL field"
+            ) else {
+                XCTFail("URL field not found in RSS sheet")
+                return
+            }
+
+            // When: I enter a URL
+            urlField.tap()
+            urlField.typeText("https://example.com/feed.xml")
+
+            // Then: The field should contain the URL
+            let urlValueMatches = (urlField.value as? String == "https://example.com/feed.xml") ||
+                app.staticTexts["https://example.com/feed.xml"].exists
+            XCTAssertTrue(urlValueMatches, "URL field should contain entered URL")
         } else {
             throw XCTSkip("Discovery options button not found or not accessible")
         }

@@ -289,7 +289,70 @@ extension XCTestCase {
 // MARK: - Smart UI Testing Extensions
 
 extension SmartUITesting where Self: XCTestCase {
-    
+
+    /// Waits for a dialog, confirmation sheet, or alert with the supplied title.
+    /// - Returns: The first matching container once it exists, otherwise nil if it never appears.
+    @MainActor
+    func waitForDialog(
+        in app: XCUIApplication,
+        title: String,
+        timeout: TimeInterval = 5.0
+    ) -> XCUIElement? {
+        let candidates: [XCUIElement] = [
+            app.dialogs[title],
+            app.sheets[title],
+            app.alerts[title],
+            app.otherElements[title],
+            app.scrollViews.otherElements[title]
+        ]
+
+        if let visible = candidates.first(where: { $0.exists }) {
+            return visible
+        }
+
+        return waitForAnyElement(
+            candidates,
+            timeout: timeout,
+            description: "\(title) dialog"
+        )
+    }
+
+    /// Resolves a button within the provided dialog container by identifier with an optional label fallback.
+    @MainActor
+    func resolveDialogButton(
+        in dialog: XCUIElement,
+        identifier: String,
+        fallbackLabel: String? = nil
+    ) -> XCUIElement? {
+        guard dialog.exists else { return nil }
+
+        let identifierMatch = dialog.buttons.matching(identifier: identifier).firstMatch
+        if identifierMatch.exists {
+            return identifierMatch
+        }
+
+        if let fallbackLabel {
+            let labelMatch = dialog.buttons[fallbackLabel]
+            if labelMatch.exists {
+                return labelMatch
+            }
+        }
+
+        let descendantMatch = dialog.descendants(matching: .button)[identifier]
+        if descendantMatch.exists {
+            return descendantMatch
+        }
+
+        if let fallbackLabel {
+            let descendantLabelMatch = dialog.descendants(matching: .button)[fallbackLabel]
+            if descendantLabelMatch.exists {
+                return descendantLabelMatch
+            }
+        }
+
+        return nil
+    }
+
     /// Wait for content using XCTestExpectation pattern
     @MainActor
     func waitForContentToLoad(
