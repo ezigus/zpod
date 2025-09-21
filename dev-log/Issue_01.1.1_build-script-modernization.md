@@ -42,3 +42,6 @@ Next: iterate on documentation updates and add lightweight shell-based self-test
 - Tidied macOS steps (removed manual package resolution/xcbeautify install) while keeping simulator installation safeguards.
 - Updated `AGENTS.md` to direct developers toward the helper script for local/CI usage.
 - Verified via `scripts/run-xcode-tests.sh --self-check` and `scripts/dev-build-enhanced.sh syntax` locally. Full suite run pending CI.
+
+## 2025-09-21 15:45 EDT — CI Trigger Cleanup
+- Restricted the workflow triggers so pushes only run CI on `main`; feature branches now rely on the PR event. This prevents duplicate runs on every push + PR update.

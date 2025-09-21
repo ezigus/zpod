@@ -3,14 +3,14 @@ name: CI
 on:
   # Allow manual triggering from GitHub UI or API
   workflow_dispatch:
-  # Run on pushes to any branch (ensures visibility in Actions for all branches)
+  # Run full CI on pushes to the main lineage only
   push:
     branches:
-      - '**'
-  # Run on PRs from any branch to any branch
+      - main
+  # Validate contributions on PRs targeting main
   pull_request:
     branches:
-      - '**'
+      - main
 
 jobs:
   build-and-test:
