@@ -31,3 +31,17 @@ Next: iterate on documentation updates and add lightweight shell-based self-test
 - Added environment guard/`MACOSX_DEPLOYMENT_TARGET` when invoking SwiftPM to avoid macOS availability compilation errors during fallbacks.
 - Updated simulator selection to ignore placeholder entries when real devices exist so the script mirrors manual `xcodebuild -showdestinations` behaviour.
 - `scripts/run-xcode-tests.sh full_build_and_test` now runs xcodebuild clean+build and UI tests against the concrete simulator (subsequent UI test failure is unrelated test logic, not simulator detection).
+
+## 2025-09-21 15:20 EDT — Kickoff Phase 2 CI Integration
+- Created branch `feature/01.1.1.2-ci-integration` for Issue #64 (CI workflow integration).
+- Goal: replace duplicated xcodebuild invocations in `.github/workflows/ci.yml` with the new `scripts/run-xcode-tests.sh` entry point, ensure Linux fallback uses SPM, and update contributor docs accordingly.
+- Next steps: review existing workflow steps, stage modifications to call the script with flags, and update documentation/test summaries once verified.
+
+## 2025-09-21 15:35 EDT — Workflow & Documentation Updates
+- Refactored `.github/workflows/ci.yml` to rely on `./scripts/run-xcode-tests.sh` (`--self-check` + `full_build_and_test`) and added a Linux job that exercises the SwiftPM fallback via `dev-build-enhanced.sh`.
+- Tidied macOS steps (removed manual package resolution/xcbeautify install) while keeping simulator installation safeguards.
+- Updated `AGENTS.md` to direct developers toward the helper script for local/CI usage.
+- Verified via `scripts/run-xcode-tests.sh --self-check` and `scripts/dev-build-enhanced.sh syntax` locally. Full suite run pending CI.
+
+## 2025-09-21 15:45 EDT — CI Trigger Cleanup
+- Restricted the workflow triggers so pushes only run CI on `main`; feature branches now rely on the PR event. This prevents duplicate runs on every push + PR update.
