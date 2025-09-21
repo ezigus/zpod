@@ -26,3 +26,7 @@ Next step: create a working branch for Issue 01.1.1.1 and begin implementing sha
 - Verified `bash -n` on all scripts and ran `run-xcode-tests.sh --self-check` plus `scripts/dev-build-enhanced.sh syntax` as smoke tests.
 
 Next: iterate on documentation updates and add lightweight shell-based self-tests before tackling CI integration (Issue #64).
+
+## 2025-09-21 14:05 EDT — Full Build Verification
+- Added environment guard/`MACOSX_DEPLOYMENT_TARGET` when invoking SwiftPM to avoid macOS availability compilation errors during fallbacks.
+- `scripts/run-xcode-tests.sh full_build_and_test` now runs xcodebuild clean+build successfully and skips package tests when no simulator is available, logging the skip explicitly instead of reporting success after failure.

@@ -16,7 +16,10 @@ run_swift_package_tests() {
       pkg_name="$(basename "$pkg")"
       log_info "→ swift test (package: ${pkg_name})"
       pushd "$pkg" >/dev/null
-      swift test | tee "${RESULT_LOG}"
+      if ! MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"; then
+        popd >/dev/null
+        return 1
+      fi
       popd >/dev/null
     fi
   done
@@ -37,7 +40,7 @@ build_swift_package() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
-  swift build | tee "${RESULT_LOG}"
+  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
   popd >/dev/null
 }
 
@@ -53,6 +56,6 @@ run_swift_package_target_tests() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
-  swift test | tee "${RESULT_LOG}"
+  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
   popd >/dev/null
 }

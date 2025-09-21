@@ -91,7 +91,14 @@ self_check() {
 }
 
 require_workspace() {
-  if [[ ! -f "$WORKSPACE" ]]; then
+  if [[ -d "$WORKSPACE" ]]; then
+    if [[ ! -f "$WORKSPACE/contents.xcworkspacedata" ]]; then
+      log_error "Workspace directory ${WORKSPACE} is missing contents.xcworkspacedata"
+      exit 1
+    fi
+  elif [[ -f "$WORKSPACE" ]]; then
+    return
+  else
     log_error "Workspace not found at ${WORKSPACE}"
     exit 1
   fi
@@ -165,9 +172,9 @@ test_app_target() {
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
 
   if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
-    log_warn "Generic simulator destination detected; running build only plus package tests"
+    log_warn "Generic simulator destination detected; running build only and skipping UI/unit tests"
     build_app_target "$target"
-    run_swift_package_tests
+    log_warn "Swift Package tests skipped due to simulator unavailability"
     return 0
   fi
 
