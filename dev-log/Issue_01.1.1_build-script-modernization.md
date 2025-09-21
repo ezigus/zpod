@@ -45,3 +45,34 @@ Next: iterate on documentation updates and add lightweight shell-based self-test
 
 ## 2025-09-21 15:45 EDT — CI Trigger Cleanup
 - Restricted the workflow triggers so pushes only run CI on `main`; feature branches now rely on the PR event. This prevents duplicate runs on every push + PR update.
+
+## 2025-09-21 17:25 EDT — CI Trigger Rework Plan
+
+### Intent
+- Ensure CI runs for `main`, feature branches without PRs, and pull requests while avoiding duplicate build/test jobs when PRs are open.
+- Keep a single workflow definition while delegating build orchestration to `scripts/run-xcode-tests.sh`.
+
+### Observations
+- Current trigger restricts push coverage to `main`, so feature branches without PRs never undergo CI.
+- Adding unrestricted `push` would revive duplicate runs because GitHub fires both `push` and `pull_request` events for PR branches.
+- We can inspect open PRs via REST API and early-exit the push-triggered job when a PR already covers the branch, preventing duplicate long-running jobs.
+
+### Plan of Record
+1. Expand workflow trigger to include `push` on all branches (excluding tags) alongside existing `pull_request`.
+2. Introduce a lightweight "PR presence" check at job start; if the branch has an open PR and the event is `push`, skip the remaining steps.
+3. Document the behaviour in workflow comments to aid future maintenance and keep a single build/test job.
+
+```mermaid
+flowchart TD
+    Push[Push Event] -->|Branch main| Run
+    Push -->|Branch feature| CheckPR
+    CheckPR -->|Open PR| Skip
+    CheckPR -->|No PR| Run
+    PR[Pull Request Event] --> Run
+    Run --> CI[Build & Test Job]
+```
+
+### Validation
+- After edits, push to a temporary branch without PR to confirm CI triggers once.
+- Open a PR and push new commits to verify the push workflow skips while the PR workflow runs.
+- Ensure merging to `main` still triggers the standard push run.
