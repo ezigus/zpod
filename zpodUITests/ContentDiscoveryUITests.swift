@@ -350,7 +350,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             button.tap()
             
             // Wait for menu to appear using proper wait mechanism
-            let searchHistoryOption = app.buttons["Search History"]
+            let searchHistoryOption = app.buttons.matching(identifier: "discovery-options-menu.search-history").firstMatch
             if searchHistoryOption.waitForExistence(timeout: 2.0) {
                 // When: I select "Search History"
                 searchHistoryOption.tap()
