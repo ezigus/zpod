@@ -245,11 +245,13 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
             button.tap()
             
             // Wait for menu to appear using proper wait mechanism
-            let addRSSOption = app.buttons["discovery-options-menu.add-rss"]
+            let addRSSOption = app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch
             if addRSSOption.waitForExistence(timeout: 2.0) {
                 addRSSOption.tap()
                 
                 // Given: RSS sheet is displayed
+                let rssSheetNavBar = app.navigationBars["Add RSS Feed"]
+                XCTAssertTrue(rssSheetNavBar.waitForExistence(timeout: 3.0), "RSS sheet should appear before interacting with fields")
                 let urlField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
                 if urlField.waitForExistence(timeout: 3.0) {
                     // When: I enter a URL
