@@ -63,6 +63,15 @@
 
 ## 7. Tooling & CI
 ### macOS (Full Xcode)
+Use the shared helper script for a quick local verification:
+
+```bash
+./scripts/run-xcode-tests.sh --self-check
+./scripts/run-xcode-tests.sh full_build_and_test
+```
+
+Legacy xcodebuild commands remain available if you need manual control:
+
 ```bash
 xcodebuild -version
 xcodebuild -list -project zpod.xcodeproj
@@ -73,15 +82,15 @@ xcodebuild -project zpod.xcodeproj -scheme zpod clean
 ```
 
 ### Non-macOS / Lightweight Environments
-Use `scripts/dev-build.sh` (`all`, `syntax`, `list`, `concurrency`, `test`) or the enhanced script variants (`scripts/dev-build-enhanced.sh syntax|swiftui|concurrency|test`). These scripts provide early warnings for SwiftUI type conflicts, concurrency violations, and syntax errors.
+Use `scripts/dev-build.sh` (`all`, `syntax`, `list`, `concurrency`, `test`) or the enhanced script variants (`scripts/dev-build-enhanced.sh syntax|swiftui|concurrency|test`). These scripts provide early warnings for SwiftUI type conflicts, concurrency violations, and syntax errors. When Xcode isn’t available, `./scripts/run-xcode-tests.sh --self-check` validates tooling expectations and falls back to SwiftPM.
 
 ### CI Pipeline
-GitHub Actions (`.github/workflows/ci.yml`) should:
-1. Select Xcode 16.4.
-2. Resolve Swift Package dependencies.
-3. Ensure a suitable iOS simulator runtime exists (iPhone 16 preferred).
-4. Invoke `scripts/run-xcode-tests.sh` (or its modular flags) for build/test phases.
-5. Archive logs and crash reports.
+GitHub Actions (`.github/workflows/ci.yml`) now:
+1. Select Xcode 16.4 and perform `./scripts/run-xcode-tests.sh --self-check`.
+2. Ensure a suitable iOS simulator runtime exists (iPhone 16 preferred) and create a device when possible.
+3. Invoke `./scripts/run-xcode-tests.sh full_build_and_test` for the macOS leg.
+4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/dev-build-enhanced.sh syntax` on Ubuntu to exercise the SwiftPM fallback path.
+5. Archive crash logs and test reports.
 
 ### Known Limitations
 - Full builds/tests require macOS with Xcode.
