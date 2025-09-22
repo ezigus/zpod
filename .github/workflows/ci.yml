@@ -1,115 +1,18 @@
 name: CI
 
 on:
-  # Allow manual triggering from GitHub UI or API
   workflow_dispatch:
-  # Run CI on every branch push (skip later if a PR already covers it)
   push:
     branches:
-      - '**'
+      - main
     tags-ignore:
       - '*'
-  # Validate contributions on PRs targeting main
   pull_request:
     branches:
       - main
 
 jobs:
-  preflight:
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.evaluate.outputs.should_run }}
-    steps:
-      - name: Evaluate trigger state
-        id: evaluate
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-
-          echo "Event: ${GITHUB_EVENT_NAME}"
-
-          if [[ "${GITHUB_EVENT_NAME}" != "push" ]]; then
-            echo "Non-push event -> run CI"
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          BRANCH="${GITHUB_REF#refs/heads/}"
-          export BRANCH
-
-          if [[ "$BRANCH" == "" ]]; then
-            echo "Push ref is not a branch; skipping."
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ "$BRANCH" == "main" ]]; then
-            echo "Main branch push -> run CI"
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Checking for open pull requests targeting ${BRANCH}" \
-            "via GitHub API..."
-
-          export GITHUB_API_URL="${GITHUB_API_URL:-https://api.github.com}"
-          PR_COUNT=$(python3 - <<'PY'
-import json
-import os
-import sys
-import urllib.parse
-import urllib.request
-
-token = os.environ.get("GITHUB_TOKEN")
-repo = os.environ.get("GITHUB_REPOSITORY")
-owner = os.environ.get("GITHUB_REPOSITORY_OWNER")
-branch = os.environ.get("BRANCH")
-api_url = os.environ.get("GITHUB_API_URL", "https://api.github.com")
-
-if not all([token, repo, owner, branch]):
-    print(0)
-    sys.exit(0)
-
-params = urllib.parse.urlencode({
-    "head": f"{owner}:{branch}",
-    "state": "open",
-    "per_page": 1,
-})
-url = f"{api_url}/repos/{repo}/pulls?{params}"
-
-req = urllib.request.Request(
-    url,
-    headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    },
-)
-
-try:
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.load(resp)
-        print(len(data))
-except Exception as exc:  # noqa: BLE001
-    print(f"Error:{exc}", file=sys.stderr)
-    print(0)
-PY
-)
-
-          if [[ "${PR_COUNT}" -gt 0 ]]; then
-            echo "Found open PR for ${BRANCH}; skip push-triggered run to avoid duplication."
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "No open PR found for ${BRANCH}; run CI."
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
-
   build-and-test:
-    needs: preflight
-    if: needs.preflight.outputs.should_run == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -128,13 +31,10 @@ PY
           echo "Checking installed runtimes before download..."
           xcrun simctl list runtimes || true
 
-          # Some hosted Xcode installs come without any simulator runtimes; install iOS runtimes if missing
           HAS_IOS_RUNTIME=$(xcrun simctl list runtimes | grep -c "iOS ") || true
           if [ "$HAS_IOS_RUNTIME" -eq 0 ]; then
             echo "No iOS runtimes found. Attempting to download iOS platform..."
-            # Run first launch just in case
             sudo xcodebuild -runFirstLaunch || true
-            # Try to download just iOS first, fall back to all platforms if not supported
             if xcodebuild -help | grep -q "-downloadPlatform"; then
               sudo xcodebuild -downloadPlatform iOS || true
             fi
@@ -148,7 +48,6 @@ PY
             xcrun simctl list runtimes || true
           fi
 
-          # Allow generic simulator fallback if still no runtimes
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
@@ -158,12 +57,10 @@ PY
           set -euo pipefail
           echo "Ensuring at least one iPhone simulator exists..."
 
-          # Pick a preferred runtime (prefer iOS 18.* if present, else any available iOS runtime)
           RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=json.load(sys.stdin).get('runtimes',[]); pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]; pref=pref or [x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]; print(pref[0]['identifier'] if pref else '')")
           if [ -z "$RUNTIME_ID" ]; then
             echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
           else
-            # Choose an iPhone device type (prefer iPhone 16; fall back to others)
             DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16
             if ! xcrun simctl list devicetypes | grep -q "$DEVTYPE"; then
               DEVTYPE=$(\
@@ -181,7 +78,6 @@ PY
             if [ -z "$DEVTYPE" ]; then
               echo "⚠️ Could not find an iPhone device type to create. Skipping device creation."
             else
-              # Create a named device if one doesn't already exist
               if ! xcrun simctl list devices | grep -q "iPhone 16 (CI)"; then
                 echo "Creating simulator: name='iPhone 16 (CI)', type=$DEVTYPE, runtime=$RUNTIME_ID"
                 xcrun simctl create "iPhone 16 (CI)" "$DEVTYPE" "$RUNTIME_ID" || true
@@ -212,9 +108,8 @@ PY
       - name: SwiftLint (optional placeholder)
         if: always()
         run: echo "Add SwiftLint in future"
+
   syntax-linux:
-    needs: preflight
-    if: needs.preflight.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
