@@ -50,3 +50,14 @@ sequenceDiagram
 - Ran `./scripts/dev-build-enhanced.sh test`; SwiftUI inspection terminated early because the helper script exits when `grep` finds no matches (see `TestResults/TestResults_20250921_2145_dev_build_enhanced_test.log`).
 - Attempted `swift test --filter EpisodeStatusProgressTests` with macOS 13.0 target flags; build halted when macOS toolchain flagged `NavigationView`/UIKit-only modifiers (expected on non-iOS simulations). Captured log at `TestResults/TestResults_20250921_2145_swift_test_episode_status.log`.
 - No automated suite executed successfully in this environment; manual verification pending once iOS simulator/Xcode runner is available.
+
+## 2025-09-22 07:10 EDT — Full Xcode Validation
+- Ran `./scripts/run-xcode-tests.sh full_build_and_test` against iPhone 16 / iOS 18.6 simulator; build + 54 test suites passed (`TestResults/TestResults_20250922_065447_test_zpod.log`, `.xcresult`).
+- Confirms the updated episode status UI integrates cleanly with existing flows; no regressions surfaced in LibraryFeature or UI smoke suites.
+- Next: replace mock download progress wiring with real `DownloadCoordinator` bridge so production builds reflect live updates.
+
+## 2025-09-22 07:40 EDT — Live Download Coordinator Integration
+- Added `DownloadCoordinatorBridge` (LibraryFeature) backed by Networking's `DownloadCoordinator`, broadcasting `EpisodeDownloadProgressUpdate` and handling pause/resume/cancel semantics.
+- Extended `DownloadCoordinator` to emit progress/status updates for queue events and expose per-episode control helpers; LibraryFeature now depends on Networking for real download plumbing.
+- Updated `EpisodeListView`/`EpisodeListViewModel` to consume the bridge and enqueue real downloads while retaining mocked fallback logic for tests.
+- Re-ran `./scripts/run-xcode-tests.sh full_build_and_test` post-integration (`TestResults/TestResults_20250922_072444_test_zpod.log`), confirming all suites remain green.
