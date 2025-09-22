@@ -281,6 +281,13 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
 public protocol DownloadManaging: Sendable {
     func downloadEpisode(_ episodeID: String) async throws
     func cancelDownload(_ episodeID: String) async
+    func pauseDownload(_ episodeID: String) async
+    func resumeDownload(_ episodeID: String) async
+}
+
+public extension DownloadManaging {
+    func pauseDownload(_ episodeID: String) async {}
+    func resumeDownload(_ episodeID: String) async {}
 }
 
 /// Protocol for playlist management (to be used when playlist manager is available)

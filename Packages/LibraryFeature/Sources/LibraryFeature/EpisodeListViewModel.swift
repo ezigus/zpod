@@ -3,6 +3,7 @@ import SwiftUI
 import CoreModels
 import Persistence
 import Combine
+import PlaybackEngine
 
 // MARK: - Episode List View Model
 
@@ -21,32 +22,49 @@ public final class EpisodeListViewModel: ObservableObject {
     @Published public var showingBatchOperationSheet = false
     @Published public var showingPlaylistSelectionSheet = false
     @Published public var showingSelectionCriteriaSheet = false
-    
+    @Published public private(set) var downloadProgressByEpisodeID: [String: EpisodeDownloadProgressUpdate] = [:]
+    @Published public private(set) var bannerState: EpisodeListBannerState?
+
     private let podcast: Podcast
     private let filterService: EpisodeFilterService
     private let filterManager: EpisodeFilterManager?
     private let batchOperationManager: BatchOperationManaging
+    private let downloadProgressProvider: DownloadProgressProviding?
+    private let downloadManager: DownloadManaging?
+    private let playbackService: EpisodePlaybackService?
+    private let episodeRepository: EpisodeRepository?
     private var cancellables = Set<AnyCancellable>()
+    private var playbackStateCancellable: AnyCancellable?
+    private var bannerDismissTask: Task<Void, Never>?
     private var allEpisodes: [Episode] = []
     
     public init(
         podcast: Podcast,
         filterService: EpisodeFilterService = DefaultEpisodeFilterService(),
         filterManager: EpisodeFilterManager? = nil,
-        batchOperationManager: BatchOperationManaging = InMemoryBatchOperationManager()
+        batchOperationManager: BatchOperationManaging = InMemoryBatchOperationManager(),
+        downloadProgressProvider: DownloadProgressProviding? = nil,
+        downloadManager: DownloadManaging? = nil,
+        playbackService: EpisodePlaybackService? = nil,
+        episodeRepository: EpisodeRepository? = nil
     ) {
         self.podcast = podcast
         self.filterService = filterService
         self.filterManager = filterManager
         self.batchOperationManager = batchOperationManager
+        self.downloadProgressProvider = downloadProgressProvider
+        self.downloadManager = downloadManager
+        self.playbackService = playbackService
+        self.episodeRepository = episodeRepository
         self.allEpisodes = podcast.episodes
-        
+
         // Load saved filter for this podcast
         loadInitialFilter()
         applyCurrentFilter()
-        
+
         // Subscribe to batch operation updates
         setupBatchOperationSubscription()
+        setupDownloadProgressSubscription()
     }
     
     // MARK: - Public Methods
@@ -193,6 +211,16 @@ public final class EpisodeListViewModel: ObservableObject {
             .delete
         ]
     }
+
+    public func downloadProgress(for episodeID: String) -> EpisodeDownloadProgressUpdate? {
+        downloadProgressByEpisodeID[episodeID]
+    }
+
+    public func dismissBanner() {
+        bannerDismissTask?.cancel()
+        bannerDismissTask = nil
+        bannerState = nil
+    }
     
     // MARK: - Episode Status Helpers
     
@@ -269,6 +297,134 @@ public final class EpisodeListViewModel: ObservableObject {
                 }
             }
         }
+
+        if batchOperation.status == .completed || batchOperation.status == .failed {
+            presentBanner(for: batchOperation)
+        }
+    }
+
+    private func setupDownloadProgressSubscription() {
+        guard let downloadProgressProvider else { return }
+
+        downloadProgressProvider.progressPublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] update in
+                self?.applyDownloadProgressUpdate(update)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyDownloadProgressUpdate(_ update: EpisodeDownloadProgressUpdate) {
+        downloadProgressByEpisodeID[update.episodeID] = update
+
+        guard var episode = episodeForID(update.episodeID) else { return }
+
+        switch update.status {
+        case .queued, .downloading:
+            episode = episode.withDownloadStatus(.downloading)
+        case .paused:
+            episode = episode.withDownloadStatus(.paused)
+        case .completed:
+            episode = episode.withDownloadStatus(.downloaded)
+        case .failed:
+            episode = episode.withDownloadStatus(.failed)
+        }
+
+        updateEpisode(episode)
+
+        if update.status == .completed || update.status == .failed {
+            scheduleProgressClear(for: update.episodeID)
+        }
+    }
+
+    private func episodeForID(_ id: String) -> Episode? {
+        if let existing = allEpisodes.first(where: { $0.id == id }) {
+            return existing
+        }
+        return filteredEpisodes.first(where: { $0.id == id })
+    }
+
+    private func scheduleProgressClear(for episodeID: String) {
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run {
+                guard let self else { return }
+                guard let progress = self.downloadProgressByEpisodeID[episodeID] else { return }
+                switch progress.status {
+                case .completed, .failed:
+                    self.downloadProgressByEpisodeID.removeValue(forKey: episodeID)
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    private func presentBanner(for batchOperation: BatchOperation) {
+        guard let banner = makeBannerState(for: batchOperation) else { return }
+
+        bannerState = banner
+        bannerDismissTask?.cancel()
+        bannerDismissTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await MainActor.run {
+                guard let self else { return }
+                if self.bannerState?.title == banner.title && self.bannerState?.subtitle == banner.subtitle {
+                    self.bannerState = nil
+                }
+            }
+        }
+    }
+
+    private func makeBannerState(for batchOperation: BatchOperation) -> EpisodeListBannerState? {
+        let succeeded = batchOperation.completedCount
+        let failed = batchOperation.failedCount
+        let total = batchOperation.totalCount
+
+        if total == 0 {
+            return nil
+        }
+
+        let title: String
+        switch batchOperation.status {
+        case .failed:
+            title = "\(batchOperation.operationType.displayName) Failed"
+        default:
+            title = "\(batchOperation.operationType.displayName) Complete"
+        }
+
+        var subtitleParts: [String] = []
+        if succeeded > 0 {
+            subtitleParts.append("\(succeeded) succeeded")
+        }
+        if failed > 0 {
+            subtitleParts.append("\(failed) failed")
+        }
+        if subtitleParts.isEmpty {
+            subtitleParts.append("No changes applied")
+        }
+        let subtitle = subtitleParts.joined(separator: " • ")
+
+        let style: EpisodeListBannerState.Style = (failed > 0 || batchOperation.status == .failed) ? .failure : .success
+        let operationID = batchOperation.id
+
+        let retryAction: (() -> Void)? = failed > 0 ? { [weak self] in
+            guard let self else { return }
+            Task { await self.retryBatchOperation(operationID) }
+        } : nil
+
+        let undoAction: (() -> Void)? = batchOperation.operationType.isReversible ? { [weak self] in
+            guard let self else { return }
+            Task { await self.undoBatchOperation(operationID) }
+        } : nil
+
+        return EpisodeListBannerState(
+            title: title,
+            subtitle: subtitle,
+            style: style,
+            retry: retryAction,
+            undo: undoAction
+        )
     }
     
     private func loadInitialFilter() {
@@ -307,8 +463,12 @@ public final class EpisodeListViewModel: ObservableObject {
         if let index = filteredEpisodes.firstIndex(where: { $0.id == updatedEpisode.id }) {
             filteredEpisodes[index] = updatedEpisode
         }
-        
-        // TODO: In a real implementation, this would save to persistence
+
+        if let episodeRepository {
+            Task {
+                try? await episodeRepository.saveEpisode(updatedEpisode)
+            }
+        }
     }
     
     // MARK: - Enhanced Episode Status Management
@@ -417,26 +577,82 @@ public final class EpisodeListViewModel: ObservableObject {
     }
     
     /// Pause/resume episode download
-    public func pauseEpisodeDownload(_ episode: Episode) {
-        guard episode.downloadStatus == .downloading else { return }
-        
-        // TODO: In a real implementation, this would pause the actual download
-        // For now, simulate pausing by changing status
-        let pausedEpisode = episode.withDownloadStatus(.notDownloaded)
-        updateEpisode(pausedEpisode)
-    }
-    
-    /// Quick play an episode that's in progress
-    public func quickPlayEpisode(_ episode: Episode) {
-        // TODO: In a real implementation, this would start playback from current position
-        // For now, just mark as played after a short delay to simulate playing
-        launchTask { viewModel in
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            await MainActor.run {
-                let playedEpisode = episode.withPlayedStatus(true)
-                viewModel.updateEpisode(playedEpisode)
-            }
+    public func pauseEpisodeDownload(_ episode: Episode) async {
+        guard let downloadManager else { return }
+        await downloadManager.pauseDownload(episode.id)
+        if var storedEpisode = episodeForID(episode.id) {
+            storedEpisode = storedEpisode.withDownloadStatus(.paused)
+            updateEpisode(storedEpisode)
         }
+        if var progress = downloadProgressByEpisodeID[episode.id] {
+            downloadProgressByEpisodeID[episode.id] = EpisodeDownloadProgressUpdate(
+                episodeID: progress.episodeID,
+                fractionCompleted: progress.fractionCompleted,
+                status: .paused,
+                message: progress.message
+            )
+        }
+    }
+
+    public func resumeEpisodeDownload(_ episode: Episode) async {
+        guard let downloadManager else { return }
+        await downloadManager.resumeDownload(episode.id)
+        if var storedEpisode = episodeForID(episode.id) {
+            storedEpisode = storedEpisode.withDownloadStatus(.downloading)
+            updateEpisode(storedEpisode)
+        }
+        if var progress = downloadProgressByEpisodeID[episode.id] {
+            downloadProgressByEpisodeID[episode.id] = EpisodeDownloadProgressUpdate(
+                episodeID: progress.episodeID,
+                fractionCompleted: progress.fractionCompleted,
+                status: .downloading,
+                message: progress.message
+            )
+        }
+    }
+
+    /// Quick play an episode that's in progress
+    public func quickPlayEpisode(_ episode: Episode) async {
+        guard let playbackService else {
+            return
+        }
+
+        #if canImport(Combine)
+        playbackStateCancellable?.cancel()
+        playbackStateCancellable = playbackService.statePublisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.handlePlaybackState(state)
+            }
+        #endif
+
+        playbackService.play(episode: episode, duration: episode.duration)
+    }
+}
+
+// MARK: - Private Helpers (Playback)
+
+extension EpisodeListViewModel {
+    private func handlePlaybackState(_ state: EpisodePlaybackState) {
+        switch state {
+        case .idle(let episode):
+            updateEpisodePlayback(for: episode, position: 0, markPlayed: false)
+        case .playing(let episode, position: let position, duration: _):
+            updateEpisodePlayback(for: episode, position: position, markPlayed: false)
+        case .paused(let episode, position: let position, duration: _):
+            updateEpisodePlayback(for: episode, position: position, markPlayed: false)
+        case .finished(let episode, duration: let duration):
+            updateEpisodePlayback(for: episode, position: duration, markPlayed: true)
+        }
+    }
+
+    private func updateEpisodePlayback(for episode: Episode, position: TimeInterval, markPlayed: Bool) {
+        guard var storedEpisode = episodeForID(episode.id) else { return }
+        storedEpisode = storedEpisode.withPlaybackPosition(Int(position))
+        if markPlayed {
+            storedEpisode = storedEpisode.withPlayedStatus(true)
+        }
+        updateEpisode(storedEpisode)
     }
 }
 

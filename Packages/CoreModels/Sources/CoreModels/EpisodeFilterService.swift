@@ -223,8 +223,9 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         switch status {
         case .downloaded: return 0
         case .downloading: return 1
-        case .notDownloaded: return 2
-        case .failed: return 3
+        case .paused: return 2
+        case .notDownloaded: return 3
+        case .failed: return 4
         }
     }
     
