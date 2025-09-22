@@ -487,8 +487,12 @@ public final class EpisodeListViewModel: ObservableObject {
         let updatedEpisode = episode.withDownloadStatus(.downloading)
         updateEpisode(updatedEpisode)
         
-        // TODO: In a real implementation, this would trigger actual download retry
-        // For now, simulate successful download after delay
+        if let enqueuer = downloadManager as? EpisodeDownloadEnqueuing {
+            enqueuer.enqueueEpisode(updatedEpisode)
+            return
+        }
+
+        // Fallback simulation when no download manager is provided
         launchTask { viewModel in
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             await MainActor.run {

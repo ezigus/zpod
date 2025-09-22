@@ -23,7 +23,9 @@ public struct EpisodeListView: View {
         self.podcast = podcast
         self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
             podcast: podcast, 
-            filterManager: filterManager
+            filterManager: filterManager,
+            downloadProgressProvider: DownloadCoordinatorBridge.shared,
+            downloadManager: DownloadCoordinatorBridge.shared
         ))
     }
     

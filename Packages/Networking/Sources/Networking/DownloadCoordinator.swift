@@ -17,6 +17,10 @@ public class DownloadCoordinator {
 
   #if canImport(Combine)
   private var cancellables = Set<AnyCancellable>()
+  private let episodeProgressSubject = PassthroughSubject<EpisodeDownloadProgressUpdate, Never>()
+  public var episodeProgressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {
+    episodeProgressSubject.eraseToAnyPublisher()
+  }
   #endif
   private let maxRetryCount = 3
   private let retryDelays: [TimeInterval] = [5, 15, 60]  // Exponential backoff
@@ -56,6 +60,13 @@ public class DownloadCoordinator {
       priority: priorityEnum
     )
     queueManager.addToQueue(task)
+#if canImport(Combine)
+    if let info = queueManager.getTask(id: task.id) {
+      emitProgress(for: info, statusOverride: .queued, message: "Queued")
+    } else {
+      emitProgress(forEpisodeID: episode.id, fraction: 0, status: .queued, message: "Queued")
+    }
+#endif
   }
 
   /// Configure auto-download for a podcast
@@ -74,6 +85,40 @@ public class DownloadCoordinator {
   /// Get download queue state
   public func getDownloadQueue() -> [DownloadTask] {
     return queueManager.getCurrentQueue()
+  }
+
+  public func pauseDownload(forEpisodeID episodeID: String) {
+    guard let info = downloadInfo(forEpisodeID: episodeID) else { return }
+    queueManager.pauseDownload(taskId: info.task.id)
+    if let updated = queueManager.getTask(id: info.task.id) {
+      emitProgress(for: updated, statusOverride: .paused, message: "Paused")
+    }
+  }
+
+  public func resumeDownload(forEpisodeID episodeID: String) {
+    guard let info = downloadInfo(forEpisodeID: episodeID) else { return }
+    queueManager.resumeDownload(taskId: info.task.id)
+    if let updated = queueManager.getTask(id: info.task.id) {
+      emitProgress(for: updated, statusOverride: .downloading, message: "Resumed")
+    }
+  }
+
+  public func cancelDownload(forEpisodeID episodeID: String) {
+    guard let info = downloadInfo(forEpisodeID: episodeID) else { return }
+    queueManager.cancelDownload(taskId: info.task.id)
+    if let updated = queueManager.getTask(id: info.task.id) {
+      emitProgress(for: updated, statusOverride: .failed, message: "Cancelled")
+    } else {
+      emitProgress(forEpisodeID: episodeID, fraction: 0, status: .failed, message: "Cancelled")
+    }
+  }
+
+  public func requestDownload(forEpisodeID episodeID: String) {
+    guard let info = downloadInfo(forEpisodeID: episodeID) else { return }
+    queueManager.retryFailedDownload(taskId: info.task.id)
+    if let updated = queueManager.getTask(id: info.task.id) {
+      emitProgress(for: updated, statusOverride: .queued, message: "Queued")
+    }
   }
 
   // MARK: - Private Implementation
@@ -145,6 +190,10 @@ public class DownloadCoordinator {
         await processPendingDownloads(queue)
       }
     }
+
+    if let refreshed = queueManager.getTask(id: downloadInfo.task.id) {
+      emitProgress(for: refreshed)
+    }
   }
 
   private func handleDownloadFailure(_ task: DownloadTask, error: DownloadError) {
@@ -155,6 +204,12 @@ public class DownloadCoordinator {
     // Schedule retry if under retry limit
     if task.retryCount < maxRetryCount {
       scheduleRetry(for: task.withRetry())
+    }
+
+    if let info = queueManager.getTask(id: failedInfo.task.id) {
+      emitProgress(for: info, statusOverride: .failed, message: error.localizedDescription)
+    } else {
+      emitProgress(forEpisodeID: task.episodeId, fraction: 0, status: .failed, message: error.localizedDescription)
     }
   }
 
@@ -188,6 +243,50 @@ public class DownloadCoordinator {
       }
     }
   }
+
+  private func downloadInfo(forEpisodeID episodeID: String) -> DownloadInfo? {
+    let tasks = queueManager.getCurrentQueue()
+    guard let task = tasks.first(where: { $0.episodeId == episodeID }) else { return nil }
+    return queueManager.getTask(id: task.id)
+  }
+
+  #if canImport(Combine)
+  private func emitProgress(for info: DownloadInfo, statusOverride: EpisodeDownloadProgressStatus? = nil, message: String? = nil) {
+    let status = statusOverride ?? status(for: info.state)
+    emitProgress(
+      forEpisodeID: info.task.episodeId,
+      fraction: info.progress,
+      status: status,
+      message: message
+    )
+  }
+
+  private func emitProgress(forEpisodeID episodeID: String, fraction: Double, status: EpisodeDownloadProgressStatus, message: String? = nil) {
+    let clampedFraction = min(max(fraction, 0), 1)
+    let update = EpisodeDownloadProgressUpdate(
+      episodeID: episodeID,
+      fractionCompleted: clampedFraction,
+      status: status,
+      message: message
+    )
+    episodeProgressSubject.send(update)
+  }
+
+  private func status(for state: DownloadState) -> EpisodeDownloadProgressStatus {
+    switch state {
+    case .pending:
+      return .queued
+    case .downloading:
+      return .downloading
+    case .paused:
+      return .paused
+    case .completed:
+      return .completed
+    case .failed, .cancelled:
+      return .failed
+    }
+  }
+  #endif
 }
 
 /// Dummy implementation for testing/fallback

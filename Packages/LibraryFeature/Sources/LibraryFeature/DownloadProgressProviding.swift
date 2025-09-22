@@ -2,6 +2,7 @@ import Combine
 import CoreModels
 
 /// Abstraction for streaming download progress updates from the networking layer.
-public protocol DownloadProgressProviding: Sendable {
+@MainActor
+public protocol DownloadProgressProviding {
     var progressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> { get }
 }
