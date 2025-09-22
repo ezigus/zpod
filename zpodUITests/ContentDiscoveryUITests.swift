@@ -27,7 +27,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication()
+        app = XCUIApplication.configuredForUITests()
         app.launch()
         
         // Navigate to discovery interface for testing

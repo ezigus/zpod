@@ -21,7 +21,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication()
+        app = XCUIApplication.configuredForUITests()
         app.launch()
     }
     

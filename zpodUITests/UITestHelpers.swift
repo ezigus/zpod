@@ -8,6 +8,14 @@
 
 import XCTest
 
+extension XCUIApplication {
+    static func configuredForUITests() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
+        return app
+    }
+}
+
 // MARK: - Core Testing Protocols
 
 /// Foundation protocol for event-based UI testing

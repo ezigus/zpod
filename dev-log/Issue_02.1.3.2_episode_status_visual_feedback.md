@@ -61,3 +61,8 @@ sequenceDiagram
 - Extended `DownloadCoordinator` to emit progress/status updates for queue events and expose per-episode control helpers; LibraryFeature now depends on Networking for real download plumbing.
 - Updated `EpisodeListView`/`EpisodeListViewModel` to consume the bridge and enqueue real downloads while retaining mocked fallback logic for tests.
 - Re-ran `./scripts/run-xcode-tests.sh full_build_and_test` post-integration (`TestResults/TestResults_20250922_072444_test_zpod.log`), confirming all suites remain green.
+
+## 2025-09-22 12:55 EDT — UITest Safeguards
+- Added `UITEST_DISABLE_DOWNLOAD_COORDINATOR` escape hatch so production builds keep live progress while UI/CI suites fall back to the in-memory stub.
+- Centralized `XCUIApplication` configuration to inject the environment flag across all UI test suites; updated `EpisodeListView` to honor the flag before touching `DownloadCoordinatorBridge`.
+- Pending: rerun the CI workflow to confirm the crash-on-launch regressions disappear and that artifacts now capture `.xcresult` bundles for rapid diagnosis.

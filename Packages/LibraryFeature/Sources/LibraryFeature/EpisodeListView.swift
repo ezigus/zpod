@@ -21,12 +21,20 @@ public struct EpisodeListView: View {
     
     public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
         self.podcast = podcast
-        self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
-            podcast: podcast, 
-            filterManager: filterManager,
-            downloadProgressProvider: DownloadCoordinatorBridge.shared,
-            downloadManager: DownloadCoordinatorBridge.shared
-        ))
+        if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
+            self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
+                podcast: podcast,
+                filterManager: filterManager
+            ))
+        } else {
+            let bridge = DownloadCoordinatorBridge.shared
+            self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
+                podcast: podcast,
+                filterManager: filterManager,
+                downloadProgressProvider: bridge,
+                downloadManager: bridge
+            ))
+        }
     }
     
     public var body: some View {

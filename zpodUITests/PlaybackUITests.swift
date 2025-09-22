@@ -27,7 +27,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication()
+        app = XCUIApplication.configuredForUITests()
         app.launch()
         
         // Navigate to player interface for testing

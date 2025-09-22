@@ -588,7 +588,7 @@ public final class EpisodeListViewModel: ObservableObject {
             storedEpisode = storedEpisode.withDownloadStatus(.paused)
             updateEpisode(storedEpisode)
         }
-        if var progress = downloadProgressByEpisodeID[episode.id] {
+        if let progress = downloadProgressByEpisodeID[episode.id] {
             downloadProgressByEpisodeID[episode.id] = EpisodeDownloadProgressUpdate(
                 episodeID: progress.episodeID,
                 fractionCompleted: progress.fractionCompleted,
@@ -605,7 +605,7 @@ public final class EpisodeListViewModel: ObservableObject {
             storedEpisode = storedEpisode.withDownloadStatus(.downloading)
             updateEpisode(storedEpisode)
         }
-        if var progress = downloadProgressByEpisodeID[episode.id] {
+        if let progress = downloadProgressByEpisodeID[episode.id] {
             downloadProgressByEpisodeID[episode.id] = EpisodeDownloadProgressUpdate(
                 episodeID: progress.episodeID,
                 fractionCompleted: progress.fractionCompleted,
