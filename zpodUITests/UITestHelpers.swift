@@ -298,59 +298,85 @@ extension SmartUITesting where Self: XCTestCase {
         title: String,
         timeout: TimeInterval = 5.0
     ) -> XCUIElement? {
+        let titlePredicate = NSPredicate(format: "label CONTAINS[c] %@", title)
         let candidates: [XCUIElement] = [
             app.dialogs[title],
             app.sheets[title],
             app.alerts[title],
             app.otherElements[title],
-            app.scrollViews.otherElements[title]
+            app.scrollViews.otherElements[title],
+            app.dialogs.matching(titlePredicate).firstMatch,
+            app.sheets.matching(titlePredicate).firstMatch,
+            app.otherElements.matching(titlePredicate).firstMatch,
+            app.dialogs.firstMatch,
+            app.sheets.firstMatch,
+            app.alerts.firstMatch
         ]
 
-        if let visible = candidates.first(where: { $0.exists }) {
-            return visible
+        if let existing = candidates.first(where: { $0.exists }) {
+            return existing
         }
 
         return waitForAnyElement(
             candidates,
             timeout: timeout,
-            description: "\(title) dialog"
+            description: "\(title) dialog",
+            failOnTimeout: false
         )
     }
 
-    /// Resolves a button within the provided dialog container by identifier with an optional label fallback.
+    /// Resolves a button associated with a dialog container by identifier with an optional label fallback.
     @MainActor
     func resolveDialogButton(
-        in dialog: XCUIElement,
+        in app: XCUIApplication,
+        dialog: XCUIElement?,
         identifier: String,
         fallbackLabel: String? = nil
     ) -> XCUIElement? {
-        guard dialog.exists else { return nil }
+        func candidates(from query: XCUIElementQuery) -> [XCUIElement] {
+            let count = query.count
+            guard count > 0 else { return [] }
+            return (0..<count).map { query.element(boundBy: $0) }
+        }
 
-        let identifierMatch = dialog.buttons.matching(identifier: identifier).firstMatch
-        if identifierMatch.exists {
-            return identifierMatch
+        func select(from elements: [XCUIElement]) -> XCUIElement? {
+            if let hittable = elements.first(where: { $0.exists && $0.isHittable }) {
+                return hittable
+            }
+            return elements.first(where: { $0.exists })
+        }
+
+        var elementPool: [XCUIElement] = []
+
+        if let dialog, dialog.exists {
+            elementPool.append(contentsOf: candidates(from: dialog.descendants(matching: .button).matching(identifier: identifier)))
+        }
+
+        let globalQueries: [XCUIElementQuery] = [
+            app.buttons,
+            app.dialogs.buttons,
+            app.sheets.buttons,
+            app.alerts.buttons,
+            app.collectionViews.buttons,
+            app.otherElements.buttons,
+            app.scrollViews.buttons
+        ]
+
+        for query in globalQueries {
+            elementPool.append(contentsOf: candidates(from: query.matching(identifier: identifier)))
         }
 
         if let fallbackLabel {
-            let labelMatch = dialog.buttons[fallbackLabel]
-            if labelMatch.exists {
-                return labelMatch
+            if let dialog, dialog.exists {
+                elementPool.append(contentsOf: candidates(from: dialog.descendants(matching: .button).matching(NSPredicate(format: "label == %@", fallbackLabel))))
+            }
+
+            for query in globalQueries {
+                elementPool.append(contentsOf: candidates(from: query.matching(NSPredicate(format: "label == %@", fallbackLabel))))
             }
         }
 
-        let descendantMatch = dialog.descendants(matching: .button)[identifier]
-        if descendantMatch.exists {
-            return descendantMatch
-        }
-
-        if let fallbackLabel {
-            let descendantLabelMatch = dialog.descendants(matching: .button)[fallbackLabel]
-            if descendantLabelMatch.exists {
-                return descendantLabelMatch
-            }
-        }
-
-        return nil
+        return select(from: elementPool)
     }
 
     /// Wait for content using XCTestExpectation pattern

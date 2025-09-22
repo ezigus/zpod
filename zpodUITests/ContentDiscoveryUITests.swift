@@ -195,15 +195,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
                 title: "Discovery Options",
                 timeout: adaptiveShortTimeout
             ) else {
+                let tree = app.debugDescription
+                print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
                 XCTFail("Discovery options dialog should appear after tapping the toolbar button")
                 return
             }
 
             guard let addRSSOption = resolveDialogButton(
-                in: discoveryDialog,
+                in: app,
+                dialog: discoveryDialog,
                 identifier: "discovery-options-menu.add-rss",
                 fallbackLabel: "Add RSS Feed"
             ) else {
+                let tree = app.debugDescription
+                print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
                 XCTFail("Add RSS Feed option should be available in discovery dialog")
                 return
             }
@@ -285,15 +290,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
                 title: "Discovery Options",
                 timeout: adaptiveShortTimeout
             ) else {
+                let tree = app.debugDescription
+                print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
                 XCTFail("Discovery options dialog should appear before selecting RSS feed")
                 return
             }
 
             guard let addRSSOption = resolveDialogButton(
-                in: discoveryDialog,
+                in: app,
+                dialog: discoveryDialog,
                 identifier: "discovery-options-menu.add-rss",
                 fallbackLabel: "Add RSS Feed"
             ) else {
+                let tree = app.debugDescription
+                print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
                 XCTFail("Add RSS Feed option should be available in discovery dialog")
                 return
             }
