@@ -97,14 +97,25 @@ jobs:
           ./scripts/run-xcode-tests.sh full_build_and_test
         env:
           NSUnbufferedIO: "YES"
-      - name: Upload Test Logs (always)
+      - name: Archive Test Results
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          if ls TestResults >/dev/null 2>&1; then
+            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
+              -exec cp -R {} artifacts/ \;
+          fi
+          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
+            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/
+          fi
+      - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-logs
-          path: |
-            ~/Library/Logs/DiagnosticReports/*.crash
-            build/reports
+          name: test-artifacts
+          path: artifacts
+          if-no-files-found: warn
       - name: SwiftLint (optional placeholder)
         if: always()
         run: echo "Add SwiftLint in future"
