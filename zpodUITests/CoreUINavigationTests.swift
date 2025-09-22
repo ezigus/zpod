@@ -27,8 +27,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication.configuredForUITests()
-        app.launch()
+        app = launchConfiguredApp()
     }
     
     // MARK: - Main Navigation Tests

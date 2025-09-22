@@ -27,8 +27,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication.configuredForUITests()
-        app.launch()
+        app = launchConfiguredApp()
         
         // Navigate to discovery interface for testing
         let tabBar = app.tabBars["Main Tab Bar"]

@@ -345,8 +345,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication.configuredForUITests()
-        app.launch()
+        app = launchConfiguredApp()
     }
     
     @MainActor

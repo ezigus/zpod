@@ -21,8 +21,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication.configuredForUITests()
-        app.launch()
+        app = launchConfiguredApp()
     }
     
     // MARK: - Basic Navigation Test (with proper timeout handling)

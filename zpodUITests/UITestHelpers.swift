@@ -298,6 +298,21 @@ extension XCTestCase {
 
 extension SmartUITesting where Self: XCTestCase {
 
+    /// Launches a configured application and waits for the main tab bar to appear so tests start from a stable state.
+    @MainActor
+    @discardableResult
+    func launchConfiguredApp() -> XCUIApplication {
+        let application = XCUIApplication.configuredForUITests()
+        application.launch()
+
+        let mainTabBar = application.tabBars["Main Tab Bar"]
+        if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
+            XCTFail("Main tab bar did not appear after launch")
+        }
+
+        return application
+    }
+
     /// Waits for a dialog, confirmation sheet, or alert with the supplied title.
     /// - Returns: The first matching container once it exists, otherwise nil if it never appears.
     @MainActor

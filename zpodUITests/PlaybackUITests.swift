@@ -27,8 +27,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     
     @MainActor
     private func initializeApp() {
-        app = XCUIApplication.configuredForUITests()
-        app.launch()
+        app = launchConfiguredApp()
         
         // Navigate to player interface for testing
         let tabBar = app.tabBars["Main Tab Bar"]
