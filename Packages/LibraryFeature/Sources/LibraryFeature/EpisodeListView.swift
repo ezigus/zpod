@@ -22,11 +22,17 @@ public struct EpisodeListView: View {
     public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
         self.podcast = podcast
         if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
+            #if DEBUG
+            print("EpisodeListView: using stub download coordinator for UI tests")
+            #endif
             self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
                 podcast: podcast,
                 filterManager: filterManager
             ))
         } else {
+            #if DEBUG
+            print("EpisodeListView: using DownloadCoordinatorBridge")
+            #endif
             let bridge = DownloadCoordinatorBridge.shared
             self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
                 podcast: podcast,
