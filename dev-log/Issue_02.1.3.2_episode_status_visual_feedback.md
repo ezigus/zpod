@@ -66,3 +66,8 @@ sequenceDiagram
 - Added `UITEST_DISABLE_DOWNLOAD_COORDINATOR` escape hatch so production builds keep live progress while UI/CI suites fall back to the in-memory stub.
 - Centralized `XCUIApplication` configuration to inject the environment flag across all UI test suites; updated `EpisodeListView` to honor the flag before touching `DownloadCoordinatorBridge`.
 - Pending: rerun the CI workflow to confirm the crash-on-launch regressions disappear and that artifacts now capture `.xcresult` bundles for rapid diagnosis.
+
+## 2025-09-22 15:08 EDT — UITest Stabilisation & CI Green
+- Consolidated app launch across UITest suites via `launchConfiguredApp()` which waits for the main tab bar to appear before scenarios proceed.
+- Confirmed `EpisodeListView` honours the `UITEST_DISABLE_DOWNLOAD_COORDINATOR` guard (debug prints visible in CI logs).
+- Latest CI run (Actions run 17918843589) finished successfully with full UI + unit coverage while archiving xcresult bundles for future triage.
