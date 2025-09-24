@@ -1,18 +1,17 @@
-// swift-tools-version: 6.0
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
-    name: "RecommendationDomain",
+    name: "PlaybackEngine",
     platforms: [
-        .macOS(.v12),
-        .iOS(.v18),
+        .iOS(.v18), 
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "RecommendationDomain",
-            targets: ["RecommendationDomain"]
-        ),
+            name: "PlaybackEngine",
+            targets: ["PlaybackEngine"]
+        )
     ],
     dependencies: [
         .package(path: "../CoreModels"),
@@ -21,21 +20,22 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "RecommendationDomain",
+            name: "PlaybackEngine",
             dependencies: [
-                "CoreModels",
-                "SharedUtilities"
+                "CoreModels"
             ],
-            path: "Sources"
+            path: ".",
+            exclude: ["Package.swift", "Tests"]
         ),
         .testTarget(
-            name: "RecommendationDomainTests",
+            name: "PlaybackEngineTests",
             dependencies: [
-                "RecommendationDomain",
+                "PlaybackEngine",
                 "CoreModels",
                 "SharedUtilities",
                 "TestSupport"
-            ]
+            ],
+            path: "Tests"
         )
     ]
 )

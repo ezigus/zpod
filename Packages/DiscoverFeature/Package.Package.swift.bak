@@ -2,37 +2,40 @@
 import PackageDescription
 
 let package = Package(
-    name: "PlayerFeature",
+    name: "DiscoverFeature",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "PlayerFeature",
-            targets: ["PlayerFeature"]),
+            name: "DiscoverFeature",
+            targets: ["DiscoverFeature"]),
     ],
     dependencies: [
         .package(path: "../CoreModels"),
-        .package(path: "../PlaybackEngine"),
         .package(path: "../SharedUtilities"),
+        .package(path: "../SearchDomain"),
+        .package(path: "../FeedParsing"),
         .package(path: "../TestSupport")
     ],
     targets: [
         .target(
-            name: "PlayerFeature",
+            name: "DiscoverFeature",
             dependencies: [
                 .product(name: "CoreModels", package: "CoreModels"),
-                .product(name: "PlaybackEngine", package: "PlaybackEngine"),
-                .product(name: "SharedUtilities", package: "SharedUtilities")
+                .product(name: "SharedUtilities", package: "SharedUtilities"),
+                .product(name: "SearchDomain", package: "SearchDomain"),
+                .product(name: "FeedParsing", package: "FeedParsing")
             ],
             path: "Sources"
         ),
         .testTarget(
-            name: "PlayerFeatureTests",
+            name: "DiscoverFeatureTests",
             dependencies: [
-                "PlayerFeature",
+                "DiscoverFeature",
+                .product(name: "CoreModels", package: "CoreModels"),
+                .product(name: "SearchDomain", package: "SearchDomain"),
                 .product(name: "TestSupport", package: "TestSupport")
             ]
         )

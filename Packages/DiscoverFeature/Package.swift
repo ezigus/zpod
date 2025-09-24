@@ -4,6 +4,7 @@ import PackageDescription
 let package = Package(
     name: "DiscoverFeature",
     platforms: [
+        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],

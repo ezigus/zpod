@@ -2,22 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "Persistence",
+    name: "PlaylistFeature",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
-        .library(name: "Persistence", targets: ["Persistence"]) 
+        .library(
+            name: "PlaylistFeature",
+            targets: ["PlaylistFeature"]),
     ],
     dependencies: [
         .package(path: "../CoreModels"),
+        .package(path: "../TestSupport"),
         .package(path: "../SharedUtilities")
     ],
     targets: [
         .target(
-            name: "Persistence",
+            name: "PlaylistFeature",
             dependencies: [
                 .product(name: "CoreModels", package: "CoreModels"),
                 .product(name: "SharedUtilities", package: "SharedUtilities")
@@ -25,8 +27,11 @@ let package = Package(
             path: "Sources"
         ),
         .testTarget(
-            name: "PersistenceTests",
-            dependencies: ["Persistence"]
+            name: "PlaylistFeatureTests",
+            dependencies: [
+                "PlaylistFeature",
+                .product(name: "TestSupport", package: "TestSupport")
+            ]
         )
     ]
 )

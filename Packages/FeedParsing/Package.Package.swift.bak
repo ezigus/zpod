@@ -2,26 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "RecommendationDomain",
+    name: "FeedParsing",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "RecommendationDomain",
-            targets: ["RecommendationDomain"]
+            name: "FeedParsing",
+            targets: ["FeedParsing"]
         ),
     ],
     dependencies: [
         .package(path: "../CoreModels"),
-        .package(path: "../SharedUtilities"),
-        .package(path: "../TestSupport")
+        .package(path: "../SharedUtilities")
     ],
     targets: [
         .target(
-            name: "RecommendationDomain",
+            name: "FeedParsing",
             dependencies: [
                 "CoreModels",
                 "SharedUtilities"
@@ -29,13 +27,13 @@ let package = Package(
             path: "Sources"
         ),
         .testTarget(
-            name: "RecommendationDomainTests",
+            name: "FeedParsingTests",
             dependencies: [
-                "RecommendationDomain",
+                "FeedParsing",
                 "CoreModels",
-                "SharedUtilities",
-                "TestSupport"
-            ]
+                "SharedUtilities"
+            ],
+            path: "Tests"
         )
     ]
 )

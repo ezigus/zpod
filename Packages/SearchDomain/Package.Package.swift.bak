@@ -2,16 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "RecommendationDomain",
+    name: "SearchDomain",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "RecommendationDomain",
-            targets: ["RecommendationDomain"]
+            name: "SearchDomain",
+            targets: ["SearchDomain"]
         ),
     ],
     dependencies: [
@@ -21,17 +20,18 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "RecommendationDomain",
+            name: "SearchDomain",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities"
+                "SharedUtilities",
+                "TestSupport"
             ],
             path: "Sources"
         ),
         .testTarget(
-            name: "RecommendationDomainTests",
+            name: "SearchDomainTests",
             dependencies: [
-                "RecommendationDomain",
+                "SearchDomain",
                 "CoreModels",
                 "SharedUtilities",
                 "TestSupport"

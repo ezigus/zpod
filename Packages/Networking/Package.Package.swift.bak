@@ -2,36 +2,40 @@
 import PackageDescription
 
 let package = Package(
-    name: "RecommendationDomain",
+    name: "Networking",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],
     products: [
         .library(
-            name: "RecommendationDomain",
-            targets: ["RecommendationDomain"]
+            name: "Networking",
+            targets: ["Networking"]
         ),
     ],
     dependencies: [
         .package(path: "../CoreModels"),
         .package(path: "../SharedUtilities"),
+        .package(path: "../Persistence"),
         .package(path: "../TestSupport")
     ],
     targets: [
         .target(
-            name: "RecommendationDomain",
+            name: "Networking",
             dependencies: [
                 "CoreModels",
-                "SharedUtilities"
+                "SharedUtilities",
+                "Persistence"
             ],
-            path: "Sources"
+            path: "Sources",
+            resources: [
+                .process("SampleSubscriptions.opml")
+            ]
         ),
         .testTarget(
-            name: "RecommendationDomainTests",
+            name: "NetworkingTests",
             dependencies: [
-                "RecommendationDomain",
+                "Networking",
                 "CoreModels",
                 "SharedUtilities",
                 "TestSupport"
