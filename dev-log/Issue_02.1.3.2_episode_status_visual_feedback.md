@@ -71,3 +71,9 @@ sequenceDiagram
 - Consolidated app launch across UITest suites via `launchConfiguredApp()` which waits for the main tab bar to appear before scenarios proceed.
 - Confirmed `EpisodeListView` honours the `UITEST_DISABLE_DOWNLOAD_COORDINATOR` guard (debug prints visible in CI logs).
 - Latest CI run (Actions run 17918843589) finished successfully with full UI + unit coverage while archiving xcresult bundles for future triage.
+
+## 2025-09-25 07:22 EDT — Enhanced Playback Engine Wiring
+- Replaced the stub `EnhancedEpisodePlayer` with a concrete implementation conforming to `EpisodePlaybackService`, covering seek/skip, speed control, chapter navigation, skip silence, and played status persistence against `EpisodeStateManager`.
+- Ensured chapter navigation works on older deployment targets by avoiding bidirectional collection requirements; added graceful chapter generation for long-form episodes lacking metadata.
+- `EpisodeDetailViewModel` now builds without additional shims, and playback-facing unit tests exercise the new controls without regression.
+- Ran `./scripts/run-xcode-tests.sh full_build_no_test` followed by `./scripts/run-xcode-tests.sh -t zpodTests full_build_and_test`; all builds and 84 targeted unit tests passed (`TestResults/TestResults_20250925_071653_build_zpod.log`, `TestResults/TestResults_20250925_071730_test_zpodTests.log`).
