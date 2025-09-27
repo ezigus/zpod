@@ -80,6 +80,7 @@ Use the shared helper script for a quick local verification:
 - `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
 - Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
 - Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
+- Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite: clean build, syntax check, test-plan coverage, workspace build, all SwiftPM package tests, app regression, and Swift lint.
 
 ### Non-macOS / Lightweight Environments
 Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.

@@ -80,6 +80,7 @@ Waiting 5.0s for "Podcast-swift-talk" Cell to exist
 - Removed stale `PodcastRowView` references, refreshed OPML parser availability so FeedParsing tests compile under Swift 6, and tuned the coverage script to treat SwiftPM targets as fulfilled via `swift test`.
 - `./scripts/run-xcode-tests.sh -t zpod` (targeting the `"zpod (zpod project)"` scheme) now completes successfully: 56 tests executed with 2 skips, result bundle stored at `TestResults/TestResults_20250927_154048_test_zpod.xcresult`.
 - Added a `-l` lint flag (with graceful fallbacks when lint tooling is absent) and updated CI to invoke the refactored script end-to-end on macOS and Linux runners.
+- The default `./scripts/run-xcode-tests.sh` invocation now runs the whole pipeline automatically (syntax → coverage → build-all → package tests → app regression → lint), matching the CI behaviour.
 
 ### Expected Improvements
 - Library list should present immediately, eliminating race-induced timeouts.
