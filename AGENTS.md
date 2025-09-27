@@ -77,6 +77,9 @@ Use the shared helper script for a quick local verification:
 
 > ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
+- `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
+- Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
+
 ### Non-macOS / Lightweight Environments
 Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.
 

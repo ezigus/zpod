@@ -108,3 +108,9 @@ flowchart TD
 - Hardened target discovery by walking the repo tree in Python, pruning build artefact folders, and de-duplicating names before diffing against the plan entries.
 - Updated `AGENTS.md` tooling guidance to spotlight `./scripts/run-xcode-tests.sh -p [suite]` and discourage manual `xcodebuild` invocations.
 - Validation: `./scripts/run-xcode-tests.sh -p` executes entirely within the sandboxed environment (no `xcodebuild` calls) and now relies on the expanded test plan coverage list.
+
+## 2025-09-27 13:18 EDT — Package Support & Flag Compatibility
+- Enhanced `run-xcode-tests.sh` so `resolve_test_identifier` recognises package modules and test targets, allowing `-t SharedUtilities` / `-t SharedUtilitiesTests` to dispatch through SwiftPM.
+- Implemented all-target builds (`-b all`) by chaining the zpod workspace build with per-package SwiftPM builds, skipping iOS-only packages on macOS while emitting guidance so contributors know coverage still occurs via the workspace scheme.
+- Added guardrails for `swift build`/`swift test` when packages lack macOS support, documenting skips rather than failing the script outright.
+- Captured the command matrix (`--self-check`, `-s`, `-b`, `-t`, negative flag combos) during the walk-through to validate argument handling.

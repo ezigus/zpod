@@ -64,6 +64,17 @@ Waiting 5.0s for "Podcast-swift-talk" Cell to exist
 - Eliminated the redundant `scripts/verify-testplan-coverage.sh` entry point; `./scripts/run-xcode-tests.sh -p [suite]` is now the authoritative path and sources logic from `scripts/lib/testplan.sh`.
 - Verified the new coverage logic locally with `./scripts/run-xcode-tests.sh -p`, confirming a zero-missing-target report and exit code 0.
 
+## 2025-09-27 13:20 EDT — Flag Walkthrough & Tooling Hardening
+- Extended `scripts/run-xcode-tests.sh` so `-t` handles package modules (e.g. `SharedUtilities` → `swift test` path) and `-b all` compiles the zpod application plus every package that advertises macOS support, warning when platform-specific packages are processed through the workspace instead.
+- Exercised the flag matrix end-to-end:
+  - `--self-check`, `-s`, and `-p` for environment, syntax, and test-plan validation.
+  - `-b zpod`, `-b all`, `-c -b all`, and package builds/tests (`-b SharedUtilities`, `-t SharedUtilities`, `-t SharedUtilitiesTests`).
+  - Negative validation `-s -b zpod` confirmed mixed-mode guardrails.
+  - Full regression attempt via `-t zpod`; build now progresses past the Networking mocks but surfaces existing DiscoverFeature/TestSupport compilation blockers unrelated to the new script changes.
+- Resolved strict-concurrency complaints in test doubles (`SimplePodcastManager`, DiscoverFeature `MockPodcastManager`) by adding locking and `@unchecked Sendable` annotations, plus stub methods to satisfy `PodcastManaging`.
+- Updated FeedParsing's `RSSFeedParser` with macOS availability annotations so SwiftPM builds don't trip over `URLSession` API guards.
+- Outcome: helper script now orchestrates package/unit workflows as expected, clean builds for the entire repository succeed, and the outstanding regression failures are limited to pre-existing DiscoverFeature/TestSupport test scaffolding gaps.
+
 ### Expected Improvements
 - Library list should present immediately, eliminating race-induced timeouts.
 - Navigation stack behaves consistently on iPhone UITest runs.

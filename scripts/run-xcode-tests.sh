@@ -105,6 +105,45 @@ is_package_target() {
   [[ -d "${REPO_ROOT}/Packages/${target}" ]]
 }
 
+list_package_targets() {
+  [[ -d "${REPO_ROOT}/Packages" ]] || return 0
+  find "${REPO_ROOT}/Packages" -mindepth 1 -maxdepth 1 -type d \
+    ! -name '.git' ! -name '.swiftpm' ! -name '.DS_Store' \
+    -exec basename {} \; | sort
+}
+
+package_supports_host_build() {
+  local package="$1"
+  local manifest="${REPO_ROOT}/Packages/${package}/Package.swift"
+  [[ -f "$manifest" ]] || return 0
+  if ! grep -q "platforms" "$manifest"; then
+    return 0
+  fi
+  if grep -q ".macOS" "$manifest"; then
+    return 0
+  fi
+  return 1
+}
+
+find_package_for_test_target() {
+  local identifier="$1"
+  [[ -z "$identifier" ]] && return 1
+  local pkg_dir pkg_name
+  for pkg_dir in "${REPO_ROOT}/Packages"/*; do
+    [[ -d "$pkg_dir" ]] || continue
+    pkg_name="$(basename "$pkg_dir")"
+    if [[ "$identifier" == "$pkg_name" ]]; then
+      echo "$pkg_name"
+      return 0
+    fi
+    if [[ -d "$pkg_dir/Tests/$identifier" ]]; then
+      echo "$pkg_name"
+      return 0
+    fi
+  done
+  return 1
+}
+
 dev_build_enhanced_syntax() {
   ensure_command swift "swift toolchain is required for syntax checks"
 
@@ -173,6 +212,12 @@ build_app_target() {
 
 build_package_target() {
   local package="$1"
+  if package_supports_host_build "$package"; then
+    :
+  else
+    log_warn "Skipping swift build for package '${package}' (host platform unsupported; built via workspace targets)"
+    return 0
+  fi
   init_result_paths "build_pkg" "$package"
   log_section "swift build (${package})"
   build_swift_package "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
@@ -182,7 +227,15 @@ build_package_target() {
 run_build_target() {
   local target="$1"
   case "$target" in
-    all|zpod)
+    all)
+      build_app_target "zpod"
+      local pkg
+      while IFS= read -r pkg; do
+        [[ -z "$pkg" ]] && continue
+        build_package_target "$pkg"
+      done < <(list_package_targets)
+      ;;
+    zpod)
       build_app_target "$target";;
     "") ;;
     *)
@@ -246,6 +299,12 @@ test_app_target() {
 
 test_package_target() {
   local package="$1"
+  if package_supports_host_build "$package"; then
+    :
+  else
+    log_warn "Skipping swift test for package '${package}' (host platform unsupported on this machine)"
+    return 0
+  fi
   init_result_paths "test_pkg" "$package"
   log_section "swift test (${package})"
   run_swift_package_target_tests "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
@@ -316,16 +375,46 @@ resolve_test_identifier() {
     fi
   done
 
+  if is_package_target "$spec"; then
+    echo "$spec"
+    return 0
+  fi
+
+  local package_match
+  if package_match=$(find_package_for_test_target "$spec" 2>/dev/null); then
+    if [[ -n "$package_match" ]]; then
+      echo "$package_match"
+      return 0
+    fi
+  fi
+
   if [[ "$spec" == */* ]]; then
     local first_part="${spec%%/*}"
     local remainder="${spec#*/}"
-    local target_found=0
     for candidate in "${known_targets[@]}"; do
       if [[ "$first_part" == "$candidate" ]]; then
         echo "$spec"
         return 0
       fi
     done
+
+    if is_package_target "$first_part"; then
+      if [[ "$remainder" != "$spec" ]]; then
+        log_warn "Package test filtering is not supported; running full package '$first_part'"
+      fi
+      echo "$first_part"
+      return 0
+    fi
+
+    if package_match=$(find_package_for_test_target "$first_part" 2>/dev/null); then
+      if [[ -n "$package_match" ]]; then
+        if [[ "$remainder" != "$spec" ]]; then
+          log_warn "Package test filtering is not supported; running full package '$package_match'"
+        fi
+        echo "$package_match"
+        return 0
+      fi
+    fi
 
     local inferred_target
     inferred_target=$(infer_target_for_class "$first_part") || {

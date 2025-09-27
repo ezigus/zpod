@@ -1,4 +1,5 @@
 import XCTest
+import Foundation
 #if canImport(Combine)
 @preconcurrency import Combine
 #endif
@@ -33,30 +34,60 @@ final class SimpleFeedParser: FeedParsing {
 }
 
 final class SimplePodcastManager: PodcastManaging {
-    var addPodcastCalled = false
-    var removePodcastCalled = false
-    var existingPodcasts: [Podcast] = []
-    
-    func all() -> [Podcast] { existingPodcasts }
-    func find(id: String) -> Podcast? { existingPodcasts.first { $0.id == id } }
-    func add(_ podcast: Podcast) { 
-        addPodcastCalled = true
-        existingPodcasts.append(podcast)
+    private let lock = NSLock()
+    private var podcasts: [Podcast] = []
+    private var recordedAddCall = false
+    private var recordedRemoveCall = false
+
+    var addPodcastCalled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return recordedAddCall
     }
+
+    var removePodcastCalled: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return recordedRemoveCall
+    }
+
+    func all() -> [Podcast] {
+        lock.lock(); defer { lock.unlock() }
+        return podcasts
+    }
+
+    func find(id: String) -> Podcast? {
+        lock.lock(); defer { lock.unlock() }
+        return podcasts.first { $0.id == id }
+    }
+
+    func add(_ podcast: Podcast) {
+        lock.lock()
+        recordedAddCall = true
+        podcasts.append(podcast)
+        lock.unlock()
+    }
+
     func update(_ podcast: Podcast) {
-        if let index = existingPodcasts.firstIndex(where: { $0.id == podcast.id }) {
-            existingPodcasts[index] = podcast
+        lock.lock()
+        if let index = podcasts.firstIndex(where: { $0.id == podcast.id }) {
+            podcasts[index] = podcast
         }
+        lock.unlock()
     }
+
     func remove(id: String) {
-        removePodcastCalled = true
-        existingPodcasts.removeAll { $0.id == id }
+        lock.lock()
+        recordedRemoveCall = true
+        podcasts.removeAll { $0.id == id }
+        lock.unlock()
     }
+
     func findByFolder(folderId: String) -> [Podcast] { [] }
     func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] { [] }
     func findByTag(tagId: String) -> [Podcast] { [] }
     func findUnorganized() -> [Podcast] { [] }
 }
+
+extension SimplePodcastManager: @unchecked Sendable {}
 
 final class SimpleNetworkingTests: XCTestCase {
     
