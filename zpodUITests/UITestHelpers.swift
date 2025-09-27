@@ -9,35 +9,45 @@
 import XCTest
 
 extension XCUIApplication {
-    static func configuredForUITests() -> XCUIApplication {
-        let app = XCUIApplication()
-        app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
-        return app
+  static func configuredForUITests() -> XCUIApplication {
+    let app = XCUIApplication()
+    app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
+    return app
+  }
+
+  static func configuredForUITests(environmentOverrides: [String: String]) -> XCUIApplication {
+    let app = XCUIApplication.configuredForUITests()
+    environmentOverrides.forEach { key, value in
+      app.launchEnvironment[key] = value
     }
+    return app
+  }
 }
 
 // MARK: - Core Testing Protocols
 
 /// Foundation protocol for event-based UI testing
 protocol UITestFoundation {
-    var adaptiveTimeout: TimeInterval { get }
-    var adaptiveShortTimeout: TimeInterval { get }
+  var adaptiveTimeout: TimeInterval { get }
+  var adaptiveShortTimeout: TimeInterval { get }
 }
 
 /// Protocol for element waiting capabilities using XCTestExpectation patterns
 @MainActor protocol ElementWaiting: UITestFoundation {
-    func waitForElement(_ element: XCUIElement, timeout: TimeInterval, description: String) -> Bool
-    func waitForAnyElement(
-        _ elements: [XCUIElement],
-        timeout: TimeInterval,
-        description: String,
-        failOnTimeout: Bool
-    ) -> XCUIElement?
+  func waitForElement(_ element: XCUIElement, timeout: TimeInterval, description: String) -> Bool
+  func waitForAnyElement(
+    _ elements: [XCUIElement],
+    timeout: TimeInterval,
+    description: String,
+    failOnTimeout: Bool
+  ) -> XCUIElement?
 }
 
 /// Protocol for navigation testing using event-driven patterns
 @MainActor protocol TestNavigation: ElementWaiting {
-    func navigateAndVerify(action: @MainActor @escaping () -> Void, expectedElement: XCUIElement, description: String) -> Bool
+  func navigateAndVerify(
+    action: @MainActor @escaping () -> Void, expectedElement: XCUIElement, description: String
+  ) -> Bool
 }
 
 /// Composite protocol for smart UI testing - this is what test classes should conform to
@@ -46,454 +56,574 @@ protocol UITestFoundation {
 // MARK: - Default Implementation
 
 extension UITestFoundation {
-    var adaptiveTimeout: TimeInterval {
-        ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
-    }
-    
-    var adaptiveShortTimeout: TimeInterval {
-        ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
-    }
+  var adaptiveTimeout: TimeInterval {
+    ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
+  }
+
+  var adaptiveShortTimeout: TimeInterval {
+    ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
+  }
 }
 
 extension ElementWaiting {
-    
-    /// Core event-based element waiting using XCUITest's native event detection
-    func waitForElement(_ element: XCUIElement, timeout: TimeInterval = 10.0, description: String) -> Bool {
-        // Use XCUITest's native event-based waiting - no artificial timeouts
-        let success = element.waitForExistence(timeout: timeout)
-        
-        if !success {
-            XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
-        }
-        return success
+
+  /// Core event-based element waiting using XCUITest's native event detection
+  func waitForElement(_ element: XCUIElement, timeout: TimeInterval = 10.0, description: String)
+    -> Bool
+  {
+    // Use XCUITest's native event-based waiting - no artificial timeouts
+    let success = element.waitForExistence(timeout: timeout)
+
+    if !success {
+      XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
     }
-    
-    /// Wait for any element using XCTestExpectation pattern
-    func waitForAnyElement(
-        _ elements: [XCUIElement],
-        timeout: TimeInterval = 10.0,
-        description: String = "any element",
-        failOnTimeout: Bool = true
-    ) -> XCUIElement? {
-        guard !elements.isEmpty else {
-            XCTFail("No elements provided for 'waitForAnyElement' (\(description))")
-            return nil
-        }
-        
-        // Fast path: something already exists
-        for element in elements where element.exists {
-            return element
-        }
-        
-        // Use XCTestExpectation for proper event-driven waiting
-        let expectation = XCTestExpectation(description: "Wait for \(description)")
-        var foundElement: XCUIElement?
-        
-        func checkElements() {
-            for element in elements where element.exists {
-                foundElement = element
-                expectation.fulfill()
-                return
-            }
-            
-            // Schedule next check using run loop - no Thread.sleep
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                checkElements()
-            }
-        }
-        
+    return success
+  }
+
+  /// Wait for any element using XCTestExpectation pattern
+  func waitForAnyElement(
+    _ elements: [XCUIElement],
+    timeout: TimeInterval = 10.0,
+    description: String = "any element",
+    failOnTimeout: Bool = true
+  ) -> XCUIElement? {
+    guard !elements.isEmpty else {
+      XCTFail("No elements provided for 'waitForAnyElement' (\(description))")
+      return nil
+    }
+
+    // Fast path: something already exists
+    for element in elements where element.exists {
+      return element
+    }
+
+    // Use XCTestExpectation for proper event-driven waiting
+    let expectation = XCTestExpectation(description: "Wait for \(description)")
+    var foundElement: XCUIElement?
+
+    func checkElements() {
+      for element in elements where element.exists {
+        foundElement = element
+        expectation.fulfill()
+        return
+      }
+
+      // Schedule next check using run loop - no Thread.sleep
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
         checkElements()
-        
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        
-        if result != .completed {
-            if failOnTimeout {
-                let debugSummaries = elements.enumerated().map { idx, el in
-                    "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
-                }.joined(separator: "\n")
-                XCTFail("No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)")
-            }
-        }
-
-        return foundElement
+      }
     }
 
-    /// Wait until an element is hittable without blocking the main thread
-    func waitForElementToBeHittable(
-        _ element: XCUIElement,
-        timeout: TimeInterval = 10.0,
-        description: String
-    ) -> Bool {
-        if element.isHittable { return true }
+    checkElements()
 
-        let expectation = XCTestExpectation(description: "Wait for hittable \(description)")
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
 
-        func poll() {
-            if element.isHittable {
-                expectation.fulfill()
-                return
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                poll()
-            }
-        }
+    if result != .completed {
+      if failOnTimeout {
+        let debugSummaries = elements.enumerated().map { idx, el in
+          "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
+        }.joined(separator: "\n")
+        XCTFail(
+          "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)"
+        )
+      }
+    }
 
+    return foundElement
+  }
+
+  /// Wait until an element is hittable without blocking the main thread
+  func waitForElementToBeHittable(
+    _ element: XCUIElement,
+    timeout: TimeInterval = 10.0,
+    description: String
+  ) -> Bool {
+    if element.isHittable { return true }
+
+    let expectation = XCTestExpectation(description: "Wait for hittable \(description)")
+
+    func poll() {
+      if element.isHittable {
+        expectation.fulfill()
+        return
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
         poll()
-
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        if result != .completed {
-            XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
-            return false
-        }
-
-        return true
+      }
     }
+
+    poll()
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    if result != .completed {
+      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
+      return false
+    }
+
+    return true
+  }
 }
 
 extension TestNavigation {
-    
-    /// Navigate and verify using pure event detection
-    func navigateAndVerify(
-        action: @MainActor @escaping () -> Void,
-        expectedElement: XCUIElement,
-        description: String
-    ) -> Bool {
-        action()
-        return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
-    }
-    
-    /// Navigate and wait for result using XCTestExpectation pattern
-    func navigateAndWaitForResult(
-        triggerAction: @MainActor @escaping () -> Void,
-        expectedElements: [XCUIElement],
-        timeout: TimeInterval = 10.0,
-        description: String
-    ) -> Bool {
-        triggerAction()
-        
-        let foundElement = waitForAnyElement(expectedElements, timeout: timeout, description: description)
-        return foundElement != nil
-    }
+
+  /// Navigate and verify using pure event detection
+  func navigateAndVerify(
+    action: @MainActor @escaping () -> Void,
+    expectedElement: XCUIElement,
+    description: String
+  ) -> Bool {
+    action()
+    return waitForElement(expectedElement, timeout: adaptiveTimeout, description: description)
+  }
+
+  /// Navigate and wait for result using XCTestExpectation pattern
+  func navigateAndWaitForResult(
+    triggerAction: @MainActor @escaping () -> Void,
+    expectedElements: [XCUIElement],
+    timeout: TimeInterval = 10.0,
+    description: String
+  ) -> Bool {
+    triggerAction()
+
+    let foundElement = waitForAnyElement(
+      expectedElements, timeout: timeout, description: description)
+    return foundElement != nil
+  }
 }
 
 // MARK: - Utility Extensions Using Event-Driven Patterns
 
 extension XCTestCase {
-    
-    /// Find element using immediate detection - no artificial waiting
-    @MainActor
-    func findAccessibleElement(
-        in app: XCUIApplication,
-        byIdentifier identifier: String? = nil,
-        byLabel label: String? = nil,
-        byPartialLabel partialLabel: String? = nil,
-        ofType elementType: XCUIElement.ElementType = .any
-    ) -> XCUIElement? {
-        
-        // Try identifier first
-        if let identifier = identifier {
-            let element = app.descendants(matching: elementType)[identifier]
-            if element.exists { return element }
-        }
-        
-        // Try label
-        if let label = label {
-            let element = app.descendants(matching: elementType)[label]
-            if element.exists { return element }
-        }
-        
-        // Try partial label matching
-        if let partialLabel = partialLabel {
-            let elements = app.descendants(matching: elementType)
-            for i in 0..<elements.count {
-                let element = elements.element(boundBy: i)
-                if element.label.contains(partialLabel) && element.exists {
-                    return element
-                }
-            }
-        }
-        
-        return nil
-    }
-    
-    /// Resolve a container element by accessibility identifier independent of backing UIKit type.
-    /// The episode list was refactored to use a `UITableView` on iPhone for performance and platform alignment;
-    /// legacy automation expected a scroll view. This helper keeps identifiers stable through those UIKit swaps.
-    @MainActor
-    func findContainerElement(
-        in app: XCUIApplication,
-        identifier: String
-    ) -> XCUIElement? {
-        let orderedQueries: [XCUIElementQuery] = [
-            app.scrollViews,
-            app.tables,
-            app.collectionViews,
-            app.otherElements,
-            app.cells,
-            app.staticTexts
-        ]
 
-        for query in orderedQueries {
-            let element = query[identifier]
-            if element.exists {
-                return element
-            }
-        }
+  /// Find element using immediate detection - no artificial waiting
+  @MainActor
+  func findAccessibleElement(
+    in app: XCUIApplication,
+    byIdentifier identifier: String? = nil,
+    byLabel label: String? = nil,
+    byPartialLabel partialLabel: String? = nil,
+    ofType elementType: XCUIElement.ElementType = .any
+  ) -> XCUIElement? {
 
-        let anyMatch = app.descendants(matching: .any)[identifier]
-        return anyMatch.exists ? anyMatch : nil
+    // Try identifier first
+    if let identifier = identifier {
+      let element = app.descendants(matching: elementType)[identifier]
+      if element.exists { return element }
     }
-    
-    /// Wait for loading completion using XCTestExpectation pattern
-    @MainActor
-    func waitForLoadingToComplete(
-        in app: XCUIApplication,
-        timeout: TimeInterval = 10.0
-    ) -> Bool {
-        // Common containers to check for
-        let commonContainers = [
-            "Content Container",
-            "Episode Cards Container",
-            "Library Content",
-            "Podcast List Container"
-        ]
-        
-        // Use XCTestExpectation for event-driven waiting
-        let expectation = XCTestExpectation(description: "App loading completes")
-        
-        func checkForLoading() {
-            // Check if any common container appears
-            for containerIdentifier in commonContainers {
-                if let container = findContainerElement(in: app, identifier: containerIdentifier),
-                   container.exists {
-                    expectation.fulfill()
-                    return
-                }
-            }
-            
-            // Fallback: check if main navigation elements are present
-            let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
-            let navigationBar = app.navigationBars.firstMatch
-            
-            if (libraryTab.exists && libraryTab.isHittable) ||
-               (navigationBar.exists && navigationBar.isHittable) {
-                expectation.fulfill()
-                return
-            }
-            
-            // Schedule next check
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                checkForLoading()
-            }
+
+    // Try label
+    if let label = label {
+      let element = app.descendants(matching: elementType)[label]
+      if element.exists { return element }
+    }
+
+    // Try partial label matching
+    if let partialLabel = partialLabel {
+      let elements = app.descendants(matching: elementType)
+      for i in 0..<elements.count {
+        let element = elements.element(boundBy: i)
+        guard element.exists else { continue }
+        let label = element.label
+        if label.localizedCaseInsensitiveContains(partialLabel) {
+          return element
         }
-        
+      }
+    }
+
+    return nil
+  }
+
+  /// Resolve a container element by accessibility identifier independent of backing UIKit type.
+  /// The episode list was refactored to use a `UITableView` on iPhone for performance and platform alignment;
+  /// legacy automation expected a scroll view. This helper keeps identifiers stable through those UIKit swaps.
+  @MainActor
+  func findContainerElement(
+    in app: XCUIApplication,
+    identifier: String
+  ) -> XCUIElement? {
+    let orderedQueries: [XCUIElementQuery] = [
+      app.scrollViews,
+      app.tables,
+      app.collectionViews,
+      app.otherElements,
+      app.cells,
+      app.staticTexts,
+    ]
+
+    for query in orderedQueries {
+      let element = query[identifier]
+      if element.exists {
+        return element
+      }
+    }
+
+    let anyMatch = app.descendants(matching: .any)[identifier]
+    return anyMatch.exists ? anyMatch : nil
+  }
+
+  /// Wait for loading completion using XCTestExpectation pattern
+  @MainActor
+  func waitForLoadingToComplete(
+    in app: XCUIApplication,
+    timeout: TimeInterval = 10.0
+  ) -> Bool {
+    // Common containers to check for
+    let commonContainers = [
+      "Content Container",
+      "Episode Cards Container",
+      "Library Content",
+      "Podcast List Container",
+    ]
+
+    // Use XCTestExpectation for event-driven waiting
+    let expectation = XCTestExpectation(description: "App loading completes")
+
+    func checkForLoading() {
+      // Check if any common container appears
+      for containerIdentifier in commonContainers {
+        if let container = findContainerElement(in: app, identifier: containerIdentifier),
+          container.exists
+        {
+          expectation.fulfill()
+          return
+        }
+      }
+
+      // Fallback: check if main navigation elements are present
+      let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+      let navigationBar = app.navigationBars.firstMatch
+
+      if (libraryTab.exists && libraryTab.isHittable)
+        || (navigationBar.exists && navigationBar.isHittable)
+      {
+        expectation.fulfill()
+        return
+      }
+
+      // Schedule next check
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
         checkForLoading()
-        
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        return result == .completed
+      }
     }
+
+    checkForLoading()
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    return result == .completed
+  }
 }
 
 // MARK: - Smart UI Testing Extensions
 
+private struct BatchOverlayProbe {
+  let elements: [XCUIElement]
+
+  var isVisible: Bool {
+    elements.contains { $0.exists }
+  }
+
+  func debugSummary() -> String {
+    elements.enumerated().map { index, element in
+      let identifier = element.identifier.isEmpty ? "∅" : element.identifier
+      let label = element.label.isEmpty ? "∅" : element.label
+      return
+        "[#\(index)] identifier='\(identifier)' label='\(label)' exists=\(element.exists) hittable=\(element.isHittable)"
+    }.joined(separator: "\n")
+  }
+}
+
 extension SmartUITesting where Self: XCTestCase {
 
-    /// Launches a configured application and waits for the main tab bar to appear so tests start from a stable state.
-    @MainActor
-    @discardableResult
-    func launchConfiguredApp() -> XCUIApplication {
-        let application = XCUIApplication.configuredForUITests()
-        application.launch()
+  /// Launches a configured application and waits for the main tab bar to appear so tests start from a stable state.
+  @MainActor
+  @discardableResult
+  func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
+    let application =
+      environmentOverrides.isEmpty
+      ? XCUIApplication.configuredForUITests()
+      : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
+    application.launch()
 
-        let mainTabBar = application.tabBars["Main Tab Bar"]
-        if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
-            XCTFail("Main tab bar did not appear after launch")
-        }
-
-        return application
+    let mainTabBar = application.tabBars["Main Tab Bar"]
+    if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
+      XCTFail("Main tab bar did not appear after launch")
     }
 
-    /// Waits for a dialog, confirmation sheet, or alert with the supplied title.
-    /// - Returns: The first matching container once it exists, otherwise nil if it never appears.
-    @MainActor
-    func waitForDialog(
-        in app: XCUIApplication,
-        title: String,
-        timeout: TimeInterval = 5.0
-    ) -> XCUIElement? {
-        let titlePredicate = NSPredicate(format: "label CONTAINS[c] %@", title)
-        let candidates: [XCUIElement] = [
-            app.dialogs[title],
-            app.sheets[title],
-            app.alerts[title],
-            app.otherElements[title],
-            app.scrollViews.otherElements[title],
-            app.dialogs.matching(titlePredicate).firstMatch,
-            app.sheets.matching(titlePredicate).firstMatch,
-            app.otherElements.matching(titlePredicate).firstMatch,
-            app.dialogs.firstMatch,
-            app.sheets.firstMatch,
-            app.alerts.firstMatch
-        ]
+    waitForBatchOverlayDismissalIfNeeded(in: application)
 
-        if let existing = candidates.first(where: { $0.exists }) {
-            return existing
-        }
+    return application
+  }
 
-        return waitForAnyElement(
-            candidates,
-            timeout: timeout,
-            description: "\(title) dialog",
-            failOnTimeout: false
-        )
+  @MainActor
+  private func waitForBatchOverlayDismissalIfNeeded(
+    in app: XCUIApplication,
+    timeout: TimeInterval? = nil
+  ) {
+    if app.launchEnvironment["UITEST_FORCE_BATCH_OVERLAY"] == "1" {
+      return
     }
 
-    /// Resolves a button associated with a dialog container by identifier with an optional label fallback.
-    @MainActor
-    func resolveDialogButton(
-        in app: XCUIApplication,
-        dialog: XCUIElement?,
-        identifier: String,
-        fallbackLabel: String? = nil
-    ) -> XCUIElement? {
-        func candidates(from query: XCUIElementQuery) -> [XCUIElement] {
-            let count = query.count
-            guard count > 0 else { return [] }
-            return (0..<count).map { query.element(boundBy: $0) }
-        }
+    let probe = batchOverlayProbe(in: app)
+    guard probe.isVisible else { return }
 
-        func select(from elements: [XCUIElement]) -> XCUIElement? {
-            if let hittable = elements.first(where: { $0.exists && $0.isHittable }) {
-                return hittable
-            }
-            return elements.first(where: { $0.exists })
-        }
-
-        var elementPool: [XCUIElement] = []
-
-        if let dialog, dialog.exists {
-            elementPool.append(contentsOf: candidates(from: dialog.descendants(matching: .button).matching(identifier: identifier)))
-        }
-
-        let globalQueries: [XCUIElementQuery] = [
-            app.buttons,
-            app.dialogs.buttons,
-            app.sheets.buttons,
-            app.alerts.buttons,
-            app.collectionViews.buttons,
-            app.otherElements.buttons,
-            app.scrollViews.buttons
-        ]
-
-        for query in globalQueries {
-            elementPool.append(contentsOf: candidates(from: query.matching(identifier: identifier)))
-        }
-
-        if let fallbackLabel {
-            if let dialog, dialog.exists {
-                elementPool.append(contentsOf: candidates(from: dialog.descendants(matching: .button).matching(NSPredicate(format: "label == %@", fallbackLabel))))
-            }
-
-            for query in globalQueries {
-                elementPool.append(contentsOf: candidates(from: query.matching(NSPredicate(format: "label == %@", fallbackLabel))))
-            }
-        }
-
-        return select(from: elementPool)
+    let overlayTimeout = timeout ?? max(adaptiveTimeout, 20.0)
+    let overlayDismissedPredicate = NSPredicate { _, _ in
+      return !probe.isVisible
     }
 
-    /// Wait for content using XCTestExpectation pattern
-    @MainActor
-    func waitForContentToLoad(
-        containerIdentifier: String,
-        itemIdentifiers: [String] = [],
-        timeout: TimeInterval = 10.0
-    ) -> Bool {
-        guard let app = self.value(forKey: "app") as? XCUIApplication else {
-            XCTFail("Test class must have an 'app' property of type XCUIApplication")
-            return false
+    let expectation = XCTNSPredicateExpectation(
+      predicate: overlayDismissedPredicate,
+      object: nil
+    )
+    expectation.expectationDescription = "Batch operation overlay dismissed"
+
+    let result = XCTWaiter().wait(for: [expectation], timeout: overlayTimeout)
+
+    guard result == .completed else {
+      XCTFail(
+        "Timed out waiting for batch overlay to disappear after launch.\nOverlay state:\n\(probe.debugSummary())"
+      )
+      return
+    }
+  }
+
+  @MainActor
+  func waitForBatchOverlayAppearance(
+    in app: XCUIApplication,
+    timeout: TimeInterval? = nil
+  ) -> Bool {
+    let probe = batchOverlayProbe(in: app)
+    if probe.isVisible { return true }
+
+    let overlayTimeout = timeout ?? max(adaptiveShortTimeout, 10.0)
+    let overlayAppearedPredicate = NSPredicate { _, _ in
+      return probe.isVisible
+    }
+
+    let expectation = XCTNSPredicateExpectation(
+      predicate: overlayAppearedPredicate,
+      object: nil
+    )
+    expectation.expectationDescription = "Batch operation overlay appeared"
+
+    let result = XCTWaiter().wait(for: [expectation], timeout: overlayTimeout)
+
+    guard result == .completed else {
+      XCTFail(
+        "Timed out waiting for batch overlay to appear.\nOverlay state:\n\(probe.debugSummary())"
+      )
+      return false
+    }
+
+    return true
+  }
+
+  @MainActor
+  private func batchOverlayProbe(in app: XCUIApplication) -> BatchOverlayProbe {
+    let elements: [XCUIElement] = [
+      app.otherElements["Batch Operation Progress"],
+      app.scrollViews.otherElements["Batch Operation Progress"],
+      app.staticTexts["Batch Operation Progress"],
+      app.staticTexts["Processing..."],
+      app.staticTexts["Processing"],
+      app.staticTexts["Complete"],
+      app.staticTexts["Completed"],
+    ]
+
+    return BatchOverlayProbe(elements: elements)
+  }
+
+  /// Waits for a dialog, confirmation sheet, or alert with the supplied title.
+  /// - Returns: The first matching container once it exists, otherwise nil if it never appears.
+  @MainActor
+  func waitForDialog(
+    in app: XCUIApplication,
+    title: String,
+    timeout: TimeInterval = 5.0
+  ) -> XCUIElement? {
+    let titlePredicate = NSPredicate(format: "label CONTAINS[c] %@", title)
+    let candidates: [XCUIElement] = [
+      app.dialogs[title],
+      app.sheets[title],
+      app.alerts[title],
+      app.otherElements[title],
+      app.scrollViews.otherElements[title],
+      app.dialogs.matching(titlePredicate).firstMatch,
+      app.sheets.matching(titlePredicate).firstMatch,
+      app.otherElements.matching(titlePredicate).firstMatch,
+      app.dialogs.firstMatch,
+      app.sheets.firstMatch,
+      app.alerts.firstMatch,
+    ]
+
+    if let existing = candidates.first(where: { $0.exists }) {
+      return existing
+    }
+
+    return waitForAnyElement(
+      candidates,
+      timeout: timeout,
+      description: "\(title) dialog",
+      failOnTimeout: false
+    )
+  }
+
+  /// Resolves a button associated with a dialog container by identifier with an optional label fallback.
+  @MainActor
+  func resolveDialogButton(
+    in app: XCUIApplication,
+    dialog: XCUIElement?,
+    identifier: String,
+    fallbackLabel: String? = nil
+  ) -> XCUIElement? {
+    func candidates(from query: XCUIElementQuery) -> [XCUIElement] {
+      let count = query.count
+      guard count > 0 else { return [] }
+      return (0..<count).map { query.element(boundBy: $0) }
+    }
+
+    func select(from elements: [XCUIElement]) -> XCUIElement? {
+      if let hittable = elements.first(where: { $0.exists && $0.isHittable }) {
+        return hittable
+      }
+      return elements.first(where: { $0.exists })
+    }
+
+    var elementPool: [XCUIElement] = []
+
+    if let dialog, dialog.exists {
+      elementPool.append(
+        contentsOf: candidates(
+          from: dialog.descendants(matching: .button).matching(identifier: identifier)))
+    }
+
+    let globalQueries: [XCUIElementQuery] = [
+      app.buttons,
+      app.dialogs.buttons,
+      app.sheets.buttons,
+      app.alerts.buttons,
+      app.collectionViews.buttons,
+      app.otherElements.buttons,
+      app.scrollViews.buttons,
+    ]
+
+    for query in globalQueries {
+      elementPool.append(contentsOf: candidates(from: query.matching(identifier: identifier)))
+    }
+
+    if let fallbackLabel {
+      if let dialog, dialog.exists {
+        elementPool.append(
+          contentsOf: candidates(
+            from: dialog.descendants(matching: .button).matching(
+              NSPredicate(format: "label == %@", fallbackLabel))))
+      }
+
+      for query in globalQueries {
+        elementPool.append(
+          contentsOf: candidates(
+            from: query.matching(NSPredicate(format: "label == %@", fallbackLabel))))
+      }
+    }
+
+    return select(from: elementPool)
+  }
+
+  /// Wait for content using XCTestExpectation pattern
+  @MainActor
+  func waitForContentToLoad(
+    containerIdentifier: String,
+    itemIdentifiers: [String] = [],
+    timeout: TimeInterval = 10.0
+  ) -> Bool {
+    guard let app = self.value(forKey: "app") as? XCUIApplication else {
+      XCTFail("Test class must have an 'app' property of type XCUIApplication")
+      return false
+    }
+
+    // Use XCTestExpectation for event-driven content waiting
+    let expectation = XCTestExpectation(
+      description: "Content container '\(containerIdentifier)' appears")
+
+    func checkForContent() {
+      let container = findContainerElement(in: app, identifier: containerIdentifier)
+      let containerExists = container?.exists ?? false
+
+      var itemExists = false
+      if !itemIdentifiers.isEmpty {
+        for identifier in itemIdentifiers {
+          let matchedElement = app.descendants(matching: .any)[identifier]
+          if matchedElement.exists {
+            itemExists = true
+            break
+          }
         }
-        
-        // Use XCTestExpectation for event-driven content waiting
-        let expectation = XCTestExpectation(description: "Content container '\(containerIdentifier)' appears")
-        
-        func checkForContent() {
-            let container = findContainerElement(in: app, identifier: containerIdentifier)
-            let containerExists = container?.exists ?? false
+      }
 
-            var itemExists = false
-            if !itemIdentifiers.isEmpty {
-                for identifier in itemIdentifiers {
-                    let matchedElement = app.descendants(matching: .any)[identifier]
-                    if matchedElement.exists {
-                        itemExists = true
-                        break
-                    }
-                }
-            }
+      if containerExists || itemExists || (itemIdentifiers.isEmpty && container != nil) {
+        expectation.fulfill()
+        return
+      }
 
-            if containerExists || itemExists || (itemIdentifiers.isEmpty && container != nil) {
-                expectation.fulfill()
-                return
-            }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                checkForContent()
-            }
-        }
-        
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
         checkForContent()
-        
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        return result == .completed
+      }
     }
-    
-    /// Wait for loading completion using XCTestExpectation pattern
-    @MainActor
-    func waitForLoadingToComplete(
-        in app: XCUIApplication,
-        timeout: TimeInterval = 10.0
-    ) -> Bool {
-        // Common containers to check for
-        let commonContainers = [
-            "Content Container",
-            "Episode Cards Container",
-            "Library Content",
-            "Podcast List Container"
-        ]
-        
-        // Use XCTestExpectation for event-driven waiting
-        let expectation = XCTestExpectation(description: "App loading completes")
-        
-        func checkForLoading() {
-            // Check if any common container appears
-            for containerIdentifier in commonContainers {
-                if let container = findContainerElement(in: app, identifier: containerIdentifier),
-                   container.exists {
-                    expectation.fulfill()
-                    return
-                }
-            }
-            
-            // Fallback: check if main navigation elements are present
-            let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
-            let navigationBar = app.navigationBars.firstMatch
-            
-            if (libraryTab.exists && libraryTab.isHittable) ||
-               (navigationBar.exists && navigationBar.isHittable) {
-                expectation.fulfill()
-                return
-            }
-            
-            // Schedule next check
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                checkForLoading()
-            }
+
+    checkForContent()
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    return result == .completed
+  }
+
+  /// Wait for loading completion using XCTestExpectation pattern
+  @MainActor
+  func waitForLoadingToComplete(
+    in app: XCUIApplication,
+    timeout: TimeInterval = 10.0
+  ) -> Bool {
+    // Common containers to check for
+    let commonContainers = [
+      "Content Container",
+      "Episode Cards Container",
+      "Library Content",
+      "Podcast List Container",
+    ]
+
+    // Use XCTestExpectation for event-driven waiting
+    let expectation = XCTestExpectation(description: "App loading completes")
+
+    func checkForLoading() {
+      // Check if any common container appears
+      for containerIdentifier in commonContainers {
+        if let container = findContainerElement(in: app, identifier: containerIdentifier),
+          container.exists
+        {
+          expectation.fulfill()
+          return
         }
-        
+      }
+
+      // Fallback: check if main navigation elements are present
+      let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+      let navigationBar = app.navigationBars.firstMatch
+
+      if (libraryTab.exists && libraryTab.isHittable)
+        || (navigationBar.exists && navigationBar.isHittable)
+      {
+        expectation.fulfill()
+        return
+      }
+
+      // Schedule next check
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
         checkForLoading()
-        
-        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-        return result == .completed
+      }
     }
+
+    checkForLoading()
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    return result == .completed
+  }
 }

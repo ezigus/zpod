@@ -4,7 +4,6 @@ import PackageDescription
 let package = Package(
     name: "zpod",
     platforms: [
-        .macOS(.v12),
         .iOS(.v18),
         .watchOS(.v11)
     ],

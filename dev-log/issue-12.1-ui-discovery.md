@@ -106,4 +106,21 @@ Each proposed UI issue properly depends on its corresponding backend functionali
 - `/tmp/ui_issues_full.md` - Complete specification for all 17 UI issues
 - Present dev log documenting analysis and decisions
 
+## 2025-09-12 @ 14:25 ET — Tab Bar Accessibility Investigation
+
+### Intent
+- Restore deterministic detection of the "Main Tab Bar" accessibility identifier during Content Discovery UITests without regressing direct access to individual tab buttons.
+- Preserve the existing SwiftUI-first implementation while tightening the UIKit introspection fallback used to label the underlying `UITabBar`.
+
+### Current Findings
+- During `launchConfiguredApp()` the UITest helper times out waiting for `app.tabBars["Main Tab Bar"]` when running the `ContentDiscoveryUITests` suite.
+- The previous change that removed `isAccessibilityElement = true` from the tab bar successfully exposed the child buttons, but it appears to have made the introspection routine less reliable at attaching the identifier in time.
+- `TabBarIdentifierSetter` currently scans `UIApplication.shared.connectedScenes` on a timer; logs show the identifier sometimes fails to apply before the UITest timeout in simulator runs.
+
+### Plan
+- Update `TabBarIdentifierSetter` to prioritize traversing the representable view controller's parent hierarchy (which hosts the `UITabBarController`) before falling back to global scene scans.
+- Maintain the retry loop, but bail out early once the immediate parent yields a tab bar reference to reduce latency.
+- Ensure the configuration path continues to avoid forcing the tab bar into a single accessibility element so button-level identifiers remain accessible.
+- After code changes, rerun the CoreUINavigation-focused UITest subset to confirm the tab bar identifier is applied swiftly in all suites.
+
 The analysis is complete and ready for issue creation in GitHub.

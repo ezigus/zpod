@@ -1,5 +1,87 @@
 # Dev Log – Issue 02.1.3.2: Episode Status Visualisation & Progress Controls
 
+## 2025-01-07 10:15 EST — Initial UITest Stabilisation Sweep
+
+### Context & Traceability
+- Comment ID: 3263899489
+- Target UITests: `EpisodeListUITests`, `PlaybackUITests`
+- Primary concern: Eliminating launch and navigation timeouts caused by empty data sources and unreliable navigation stacks on iPhone.
+
+### Problem Analysis
+1. **Timing issue** — Sample podcasts were only populated in `onAppear`, so list queries occurred before data existed.
+2. **Navigation mismatch** — `NavigationSplitView` rendered unpredictably on iPhone, hiding the expected list view for UITests.
+3. **Test feedback gaps** — Existing assertions provided limited diagnostics when elements failed to appear.
+
+```
+Waiting 5.0s for "Podcast-swift-talk" Cell to exist
+[Multiple timeout checks]
+** TEST INTERRUPTED **
+```
+
+### Changes Implemented
+- Preload `samplePodcasts` during view initialization to remove `onAppear` race conditions.
+- Use `NavigationStack` on iPhone while retaining `NavigationSplitView` on larger devices; extracted reusable `libraryContent`.
+- Harden UITest helpers by extending timeouts, adding richer error messages, and surfacing available identifiers on failure.
+
+#### Detailed Fixes
+1. **Immediate sample data**
+    - Before:
+      ```swift
+      @State private var samplePodcasts: [Podcast] = []
+
+      // Later in onAppear:
+      setupSamplePodcasts()
+      ```
+    - After:
+      ```swift
+      @State private var samplePodcasts: [Podcast] = createSamplePodcasts()
+      ```
+    - Removes dependency on `onAppear` so UITests encounter populated data.
+
+2. **Platform-aware navigation**
+    - Replaced universal `NavigationSplitView` with `NavigationStack` on iPhone while keeping split view for larger platforms.
+    - Shared `libraryContent` extracted for both code paths.
+
+3. **Robust UITest helpers**
+    - Increased detection timeout from 5 s to 10 s.
+    - Added diagnostics enumerating visible cell identifiers when expectations fail.
+    - Strengthened assertions in `navigateToPodcastEpisodes`.
+
+### Files Updated
+1. `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift`
+     - Immediate sample data initialization
+     - iOS-specific navigation adjustments
+     - Removal of redundant `onAppear` logic
+2. `zpodUITests/EpisodeListUITests.swift`
+     - Improved diagnostics and longer waits when searching for podcast cells
+
+### Validation
+- Ran syntax verification (`./scripts/dev-build-enhanced.sh syntax`) — ✅
+- Full UITest suite pending due to lack of simulator access at the time; follow-up planned once CI hardware becomes available.
+
+### Expected Improvements
+- Library list should present immediately, eliminating race-induced timeouts.
+- Navigation stack behaves consistently on iPhone UITest runs.
+- Failure diagnostics provide actionable insight when elements are missing.
+
+### Compliance & Compatibility Notes
+- Swift 6 concurrency guarantees preserved; no `@MainActor` violations introduced.
+- Accessibility identifiers and hints maintained following navigation adjustments.
+- Legacy content model remains compatible with existing persistence.
+
+### Status Snapshot (2025-01-07)
+- **Data Loading Fix**: ✅
+- **Navigation Fix**: ✅
+- **Test Enhancements**: ✅
+- **Verification**: 🔄 Awaiting simulator-based UITest run
+
+Next step: Execute UITest suite once CI/iPhone 16 simulator access is available to confirm timeouts are resolved.
+
+### Additional Notes
+- Maintained Swift 6 concurrency compliance and platform conditionality.
+- Preserved accessibility labelling despite structural changes.
+- Future work: broaden test data coverage and consider additional abstractions for UITest navigation helpers.
+
 ## 2025-09-21 21:18 EDT — Kickoff & Intent
 - Traceability: Issue 02.1.3.2, Specs `zpod/spec/download.md`, `zpod/spec/ui.md`, `zpod/spec/content.md` (accessibility + persistence).
 - Objective: deliver live episode status UI (download + playback) during batch operations with pause/resume, quick-play resume, and completion toasts.
@@ -77,3 +159,58 @@ sequenceDiagram
 - Ensured chapter navigation works on older deployment targets by avoiding bidirectional collection requirements; added graceful chapter generation for long-form episodes lacking metadata.
 - `EpisodeDetailViewModel` now builds without additional shims, and playback-facing unit tests exercise the new controls without regression.
 - Ran `./scripts/run-xcode-tests.sh full_build_no_test` followed by `./scripts/run-xcode-tests.sh -t zpodTests full_build_and_test`; all builds and 84 targeted unit tests passed (`TestResults/TestResults_20250925_071653_build_zpod.log`, `TestResults/TestResults_20250925_071730_test_zpodTests.log`).
+
+## 2025-09-26 08:32 EDT — UITest Launch Reliability Hardening
+- Traceability: Spec `spec/ui.md` §"Main Tab Navigation" and UITest scenario `CoreUINavigationTests/MainTabBarVisible`.
+- Context: CI intermittently failed to find the "Main Tab Bar" accessibility identifier during `launchConfiguredApp()` despite environment guards for download coordination.
+- Changes:
+    - Reworked `TabBarIdentifierSetter` (`Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift`) to locate the live `UITabBarController` by scanning active `UIWindowScene` instances on the main actor instead of relying on a child controller’s view hierarchy.
+    - Increased retry budget (50 attempts at 100 ms intervals) and triggered scheduling from both `makeUIViewController` and `updateUIViewController` so the accessibility metadata is applied deterministically during launch.
+    - Normalized tab bar and item accessibility identifiers, labels, hints, and traits once discovered, ensuring UITests can reliably query `app.tabBars["Main Tab Bar"]` without races.
+- Validation: `./scripts/dev-build-enhanced.sh syntax` ✅ confirming Swift concurrency annotations and syntax remain clean post-change (see terminal history 2025-09-26 08:27 EDT).
+- Next: rerun `./scripts/run-xcode-tests.sh full_build_and_test` on iPhone 16 (iOS 18.x) to confirm CoreUINavigationTests advance past the tab bar wait without timeouts; monitor CI run 17918843589+ for stability.
+
+## 2025-09-26 15:58 EDT — Batch Overlay Wait Refactor Plan
+- Traceability: Spec `spec/ui.md` §"Batch status banners" and UITest scenario `BatchOperationUITests/testLaunchConfiguredApp_WaitsForBatchOverlay`.
+- Problem statement: `waitForBatchOverlayDismissalIfNeeded` polls multiple broad queries every 100 ms, generating excessive `XCTRuntimeIssue` logs when the overlay is forced via `UITEST_FORCE_BATCH_OVERLAY`, eventually tripping the simulator crash (`EXC_BAD_ACCESS` inside `XCTAutomationSupport`).
+- Objectives:
+    1. Replace polling recursion with expectation-based observation scoped to concrete overlay elements.
+    2. Skip dismissal waits entirely when the overlay is intentionally forced for a scenario, letting that test drive the assertions.
+    3. Maintain rich diagnostics on timeout without re-introducing log storms.
+- Proposed approach:
+    - Introduce a `BatchOverlayState` helper that surfaces the primary overlay element (`app.otherElements["Batch Operation Progress"]`) and optional banner text, providing convenience predicates for visibility.
+    - Use `XCTNSPredicateExpectation` with `exists == false` on the primary overlay, awaiting completion once per launch instead of repeated queries.
+    - Gate the helper behind an environment check: if `UITEST_FORCE_BATCH_OVERLAY == "1"`, log a skip notice and return early so specialised tests can handle dismissal explicitly.
+- Architecture snapshot:
+
+```mermaid
+flowchart TD
+        A[launchConfiguredApp] --> B{env UITEST_FORCE_BATCH_OVERLAY == "1"?}
+        B -- yes --> C[Return without waiting]
+        B -- no --> D[Resolve BatchOverlayState primaryElement]
+        D --> E[XCTNSPredicateExpectation exists == false]
+        E --> F{completed?}
+        F -- yes --> G[Proceed with tests]
+        F -- timeout --> H[Emit concise diagnostics]
+```
+- Validation strategy: extend `BatchOperationUITests` to assert the helper advertises the skip path under forced overlay, and ensure existing launch tests still verify overlay clearance via the new expectation. Syntax + concurrency scripts to run post-change, followed by targeted UITest scenario.
+
+## 2025-09-26 19:18 EDT — UITest helper crash guard & scheme coverage tweaks
+
+### Context & Traceability
+- Issues: Follow-up on `EXC_BAD_ACCESS` surfaced during `BatchOperationUITests/testLaunchConfiguredApp_WithForcedOverlayDoesNotWait`, Specs `spec/ui.md` (batch overlays, accessibility expectations).
+- Failure mode: `findAccessibleElement` attempted to read `label` on non-existent descendants while iterating snapshots, triggering `XCTAutomationSupport` crashes mid-run.
+
+### Changes Implemented
+1. Hardened `findAccessibleElement(matching:where:)` in `zpodUITests/UITestHelpers.swift` to verify `element.exists` before calling into label/identifier matching and to stop early once a match is confirmed. This prevents dereferencing invalid Automation elements when accessibility snapshots drift between retries.
+2. Updated `zpod.xcodeproj/xcshareddata/xcschemes/zpod.xcscheme` so both `zpodTests` and `zpodUITests` build actions run during the default automation script, ensuring result bundles include the UI targets when `./scripts/run-xcode-tests.sh` executes without flags.
+
+### Validation & Outstanding Work
+- Ran `./scripts/run-xcode-tests.sh` (no arguments). Build succeeded; UI suite executed but two scenarios still fail:
+    - `BatchOperationUITests.testLaunchConfiguredApp_WithForcedOverlayDoesNotWait` now stops on the intentional overlay predicate (expected follow-up per plan above).
+    - `ContentDiscoveryUITests.testRSSURLInput_GivenRSSSheet_WhenEnteringURL_ThenAcceptsInput` flaked due to an app relaunch crash after the helper fix; captured diagnostics in `TestResults/TestResults_20250926_184619_test_zpod.xcresult` for analysis next iteration.
+- Warnings: Swift concurrency analyzer now flags `exists/identifier/label/isHittable` access from non-isolated helper contexts; will resolve alongside the overlay wait refactor.
+
+### Next Steps
+- Implement the expectation-based overlay waiter and isolate helper accessors per the 15:58 EDT plan before re-running the full suite.
+- Address the outstanding concurrency warnings once helper refactor lands.
