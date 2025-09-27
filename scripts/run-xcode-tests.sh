@@ -17,7 +17,7 @@ source "${SCRIPT_ROOT}/lib/spm.sh"
 # shellcheck source=lib/testplan.sh
 source "${SCRIPT_ROOT}/lib/testplan.sh"
 
-SCHEME="zpod (zpod project)"
+SCHEME="zpod"
 WORKSPACE="${REPO_ROOT}/zpod.xcworkspace"
 PREFERRED_SIM="iPhone 16"
 REQUESTED_CLEAN=0
@@ -640,6 +640,14 @@ esac
 
 run_build_target "all"
 REQUESTED_CLEAN=0
+
+if mapfile -t __ZPOD_ALL_PACKAGES < <(list_package_targets); then
+  for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
+    run_test_target "$pkg"
+  done
+  unset __ZPOD_ALL_PACKAGES
+fi
+
 run_test_target "zpod"
 run_swift_lint
 log_success "Default build, test, and lint complete"
