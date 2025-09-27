@@ -4,6 +4,7 @@
 public enum EpisodeDownloadStatus: String, Codable, Sendable, CaseIterable {
     case notDownloaded
     case downloading
+    case paused
     case downloaded
     case failed
     
@@ -11,6 +12,7 @@ public enum EpisodeDownloadStatus: String, Codable, Sendable, CaseIterable {
         switch self {
         case .notDownloaded: return "Not Downloaded"
         case .downloading: return "Downloading"
+        case .paused: return "Paused"
         case .downloaded: return "Downloaded"
         case .failed: return "Failed"
         }

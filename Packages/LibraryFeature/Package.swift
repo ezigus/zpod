@@ -21,7 +21,8 @@ let package = Package(
         .package(path: "../PlayerFeature"),
         .package(path: "../PlaylistFeature"),
         .package(path: "../Persistence"),
-        .package(path: "../PlaybackEngine")
+        .package(path: "../PlaybackEngine"),
+        .package(path: "../Networking")
     ],
     targets: [
         .target(
@@ -35,7 +36,8 @@ let package = Package(
                 .product(name: "PlayerFeature", package: "PlayerFeature"),
                 .product(name: "PlaylistFeature", package: "PlaylistFeature"),
                 .product(name: "Persistence", package: "Persistence"),
-                .product(name: "PlaybackEngine", package: "PlaybackEngine")
+                .product(name: "PlaybackEngine", package: "PlaybackEngine"),
+                .product(name: "Networking", package: "Networking")
             ],
             path: "Sources"
         ),
