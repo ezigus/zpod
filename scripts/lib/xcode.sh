@@ -19,6 +19,10 @@ _xcode_simctl_select() {
   [[ -z "$simctl_json" ]] && return 1
 
   local line name runtime os
+  line=""
+  name=""
+  runtime=""
+  os=""
   while IFS= read -r line; do
     if [[ "$line" =~ "name" ]]; then
       name=$(echo "$line" | sed -En 's/.*"name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')

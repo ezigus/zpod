@@ -89,10 +89,17 @@ jobs:
 
           xcrun simctl list devices || true
 
-      - name: Build, Test, Lint
+      - name: Clean Build (all targets)
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh
+          ./scripts/run-xcode-tests.sh -c -b all
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Run Regression Suite
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -t zpod
         env:
           NSUnbufferedIO: "YES"
       - name: Archive Test Results
