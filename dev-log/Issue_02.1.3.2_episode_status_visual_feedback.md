@@ -75,6 +75,11 @@ Waiting 5.0s for "Podcast-swift-talk" Cell to exist
 - Updated FeedParsing's `RSSFeedParser` with macOS availability annotations so SwiftPM builds don't trip over `URLSession` API guards.
 - Outcome: helper script now orchestrates package/unit workflows as expected, clean builds for the entire repository succeed, and the outstanding regression failures are limited to pre-existing DiscoverFeature/TestSupport test scaffolding gaps.
 
+## 2025-09-27 15:57 EDT — Full Regression Green
+- Reworked LibraryFeature filtering tests to use real `EpisodeFilterManager` instances paired with a recording repository, eliminating subclassing of final types while preserving behavioural assertions.
+- Removed stale `PodcastRowView` references, refreshed OPML parser availability so FeedParsing tests compile under Swift 6, and tuned the coverage script to treat SwiftPM targets as fulfilled via `swift test`.
+- `./scripts/run-xcode-tests.sh -t zpod` (targeting the `"zpod (zpod project)"` scheme) now completes successfully: 56 tests executed with 2 skips, result bundle stored at `TestResults/TestResults_20250927_154048_test_zpod.xcresult`.
+
 ### Expected Improvements
 - Library list should present immediately, eliminating race-induced timeouts.
 - Navigation stack behaves consistently on iPhone UITest runs.

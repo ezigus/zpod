@@ -114,3 +114,8 @@ flowchart TD
 - Implemented all-target builds (`-b all`) by chaining the zpod workspace build with per-package SwiftPM builds, skipping iOS-only packages on macOS while emitting guidance so contributors know coverage still occurs via the workspace scheme.
 - Added guardrails for `swift build`/`swift test` when packages lack macOS support, documenting skips rather than failing the script outright.
 - Captured the command matrix (`--self-check`, `-s`, `-b`, `-t`, negative flag combos) during the walk-through to validate argument handling.
+
+## 2025-09-27 15:55 EDT — Regression Scheme Alignment
+- Switched the default scheme to `"zpod (zpod project)"` so CLI-driven runs align with the Xcode project configuration; the previous auto-generated SwiftPM scheme exposed no test bundles.
+- Trimmed `zpod.xctestplan` to the app/unit UI targets and taught the coverage script to treat SwiftPM test targets as satisfied via their dedicated `swift test` workflows.
+- Confirmed `./scripts/run-xcode-tests.sh -t zpod` now executes the full unit + UI suite (653s on iPhone 16 sim) while package targets remain validated through their SwiftPM invocations.

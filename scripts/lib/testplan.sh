@@ -191,7 +191,7 @@ if not root:
     raise SystemExit(1)
 
 skip_markers = {'.build', 'DerivedData', 'xcuserdata', 'TestResults', '.swiftpm', 'Build', '.git'}
-names = set()
+discovered = {}
 
 for dirpath, dirnames, _ in os.walk(root):
     rel = os.path.relpath(dirpath, root)
@@ -211,10 +211,11 @@ for dirpath, dirnames, _ in os.walk(root):
 
     base = os.path.basename(dirpath)
     if base.endswith('Tests') and base != 'Tests':
-        names.add(base)
+        location = 'package' if '/Packages/' in dirpath else 'workspace'
+        discovered[base] = location
 
-for name in sorted(names):
-    print(name)
+for name in sorted(discovered):
+    print(f"{name}\t{discovered[name]}")
 PY
   ); then
     log_error "Failed to enumerate test targets"
@@ -222,12 +223,26 @@ PY
   fi
 
   local -a all_targets=()
+  local package_targets=""
   if [[ -n "$targets_output" ]]; then
-    while IFS= read -r line; do
-      [[ -z "$line" ]] && continue
-      all_targets+=("$line")
+    while IFS=$'\t' read -r name location; do
+      [[ -z "$name" ]] && continue
+      all_targets+=("$name")
+      if [[ "$location" == "package" ]]; then
+        package_targets+="${name}"$'\n'
+      fi
     done <<< "$targets_output"
   fi
+
+  for candidate in "${all_targets[@]}"; do
+    if printf '%s' "$package_targets" | grep -qx "$candidate"; then
+      continue
+    fi
+    if [[ -f "$REPO_ROOT/Package.swift" ]] && \
+       grep -q ".testTarget(name: \"${candidate}\"" "$REPO_ROOT/Package.swift"; then
+      package_targets+="${candidate}"$'\n'
+    fi
+  done
 
   if [[ ${#all_targets[@]} -eq 0 ]]; then
     log_warn "No test targets discovered"
@@ -290,6 +305,9 @@ PY
   local -a missing=()
   local candidate
   for candidate in "${all_targets[@]}"; do
+    if printf '%s' "$package_targets" | grep -qx "$candidate"; then
+      continue
+    fi
     local found=0
     local entry
     for entry in "${included_targets[@]}"; do

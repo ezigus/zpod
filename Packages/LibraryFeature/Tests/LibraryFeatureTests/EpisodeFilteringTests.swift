@@ -12,19 +12,24 @@ final class EpisodeListViewModelTests: XCTestCase {
     private var viewModel: EpisodeListViewModel!
     private var testPodcast: Podcast!
     private var mockFilterService: MockEpisodeFilterService!
-    private var mockFilterManager: MockEpisodeFilterManager!
+    private var recordingRepository: RecordingEpisodeFilterRepository!
+    private var filterManager: EpisodeFilterManager!
     
     override func setUp() async throws {
         try await super.setUp()
         
         mockFilterService = MockEpisodeFilterService()
-        mockFilterManager = MockEpisodeFilterManager()
+        recordingRepository = RecordingEpisodeFilterRepository()
+        filterManager = EpisodeFilterManager(
+            repository: recordingRepository,
+            filterService: mockFilterService
+        )
         testPodcast = createTestPodcast()
         
         viewModel = EpisodeListViewModel(
             podcast: testPodcast,
             filterService: mockFilterService,
-            filterManager: mockFilterManager
+            filterManager: filterManager
         )
     }
     
@@ -32,7 +37,8 @@ final class EpisodeListViewModelTests: XCTestCase {
         viewModel = nil
         testPodcast = nil
         mockFilterService = nil
-        mockFilterManager = nil
+        filterManager = nil
+        recordingRepository = nil
         
         try await super.tearDown()
     }
@@ -278,19 +284,24 @@ final class SmartEpisodeListViewModelTests: XCTestCase {
     private var viewModel: SmartEpisodeListViewModel!
     private var testSmartList: SmartEpisodeList!
     private var mockFilterService: MockEpisodeFilterService!
-    private var mockFilterManager: MockEpisodeFilterManager!
+    private var recordingRepository: RecordingEpisodeFilterRepository!
+    private var filterManager: EpisodeFilterManager!
     
     override func setUp() async throws {
         try await super.setUp()
         
         mockFilterService = MockEpisodeFilterService()
-        mockFilterManager = MockEpisodeFilterManager()
+        recordingRepository = RecordingEpisodeFilterRepository()
+        filterManager = EpisodeFilterManager(
+            repository: recordingRepository,
+            filterService: mockFilterService
+        )
         testSmartList = createTestSmartList()
         
         viewModel = SmartEpisodeListViewModel(
             smartList: testSmartList,
             filterService: mockFilterService,
-            filterManager: mockFilterManager
+            filterManager: filterManager
         )
     }
     
@@ -298,7 +309,8 @@ final class SmartEpisodeListViewModelTests: XCTestCase {
         viewModel = nil
         testSmartList = nil
         mockFilterService = nil
-        mockFilterManager = nil
+        filterManager = nil
+        recordingRepository = nil
         
         try await super.tearDown()
     }
@@ -316,7 +328,8 @@ final class SmartEpisodeListViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.lastRefresh, "Should set last refresh time")
         XCTAssertGreaterThanOrEqual(viewModel.lastRefresh!, beforeRefresh, "Last refresh should be recent")
         XCTAssertTrue(mockFilterService.updateSmartListCalled, "Should update smart list")
-        XCTAssertTrue(mockFilterManager.updateSmartListCalled, "Should save updated smart list")
+        let saveCount = await recordingRepository.saveSmartListCallCount
+        XCTAssertGreaterThan(saveCount, 0, "Should save updated smart list")
     }
     
     func testNeedsRefresh_WithAutoUpdate() {
@@ -362,6 +375,9 @@ final class MockEpisodeFilterService: EpisodeFilterService, @unchecked Sendable 
     var searchEpisodesCalled = false
     var updateSmartListCalled = false
     var smartListNeedsUpdateCalled = false
+    var searchEpisodesAdvancedCalled = false
+    var evaluateSmartListV2Called = false
+    var smartListNeedsUpdateV2Called = false
     
     func filterAndSort(episodes: [Episode], using filter: EpisodeFilter) -> [Episode] {
         filterAndSortCalled = true
@@ -383,6 +399,31 @@ final class MockEpisodeFilterService: EpisodeFilterService, @unchecked Sendable 
         return episodes.filter { $0.title.localizedCaseInsensitiveContains(query) }
     }
     
+    func searchEpisodesAdvanced(
+        _ episodes: [Episode],
+        query: EpisodeSearchQuery,
+        filter: EpisodeFilter?
+    ) -> [EpisodeSearchResult] {
+        searchEpisodesAdvancedCalled = true
+        return episodes.map {
+            EpisodeSearchResult(
+                episode: $0,
+                relevanceScore: 1.0,
+                highlights: []
+            )
+        }
+    }
+
+    func evaluateSmartListV2(_ smartList: SmartEpisodeListV2, allEpisodes: [Episode]) -> [Episode] {
+        evaluateSmartListV2Called = true
+        return allEpisodes
+    }
+
+    func smartListNeedsUpdateV2(_ smartList: SmartEpisodeListV2) -> Bool {
+        smartListNeedsUpdateV2Called = true
+        return false
+    }
+
     func updateSmartList(_ smartList: SmartEpisodeList, allEpisodes: [Episode]) -> [Episode] {
         updateSmartListCalled = true
         return allEpisodes // Return unchanged for testing
@@ -394,52 +435,41 @@ final class MockEpisodeFilterService: EpisodeFilterService, @unchecked Sendable 
     }
 }
 
-@MainActor
-final class MockEpisodeFilterManager: EpisodeFilterManager {
-    var setCurrentFilterCalled = false
-    var filterForPodcastCalled = false
-    var createSmartListCalled = false
-    var updateSmartListCalled = false
-    var deleteSmartListCalled = false
-    
-    init() {
-        let mockRepository = MockEpisodeFilterRepository()
-        let mockFilterService = MockEpisodeFilterService()
-        super.init(repository: mockRepository, filterService: mockFilterService)
-    }
-    
-    override func setCurrentFilter(_ filter: EpisodeFilter, forPodcast podcastId: String? = nil) async {
-        setCurrentFilterCalled = true
-        await super.setCurrentFilter(filter, forPodcast: podcastId)
-    }
-    
-    override func filterForPodcast(_ podcastId: String) -> EpisodeFilter {
-        filterForPodcastCalled = true
-        return super.filterForPodcast(podcastId)
-    }
-    
-    override func createSmartList(_ smartList: SmartEpisodeList) async {
-        createSmartListCalled = true
-        await super.createSmartList(smartList)
-    }
-    
-    override func updateSmartList(_ smartList: SmartEpisodeList) async {
-        updateSmartListCalled = true
-        await super.updateSmartList(smartList)
-    }
-    
-    override func deleteSmartList(id: String) async {
-        deleteSmartListCalled = true
-        await super.deleteSmartList(id: id)
-    }
-}
+actor RecordingEpisodeFilterRepository: EpisodeFilterRepository {
+    private(set) var savedGlobalPreferences: [GlobalFilterPreferences] = []
+    private(set) var savedPodcastFilters: [(id: String, filter: EpisodeFilter)] = []
+    private(set) var savedSmartLists: [SmartEpisodeList] = []
+    private(set) var deletedSmartListIDs: [String] = []
 
-final class MockEpisodeFilterRepository: EpisodeFilterRepository, @unchecked Sendable {
-    func saveGlobalPreferences(_ preferences: GlobalFilterPreferences) async throws {}
-    func loadGlobalPreferences() async throws -> GlobalFilterPreferences? { return nil }
-    func savePodcastFilter(podcastId: String, filter: EpisodeFilter) async throws {}
-    func loadPodcastFilter(podcastId: String) async throws -> EpisodeFilter? { return nil }
-    func saveSmartList(_ smartList: SmartEpisodeList) async throws {}
-    func loadSmartLists() async throws -> [SmartEpisodeList] { return [] }
-    func deleteSmartList(id: String) async throws {}
+    var saveSmartListCallCount: Int {
+        savedSmartLists.count
+    }
+
+    func saveGlobalPreferences(_ preferences: GlobalFilterPreferences) async throws {
+        savedGlobalPreferences.append(preferences)
+    }
+
+    func loadGlobalPreferences() async throws -> GlobalFilterPreferences? {
+        savedGlobalPreferences.last
+    }
+
+    func savePodcastFilter(podcastId: String, filter: EpisodeFilter) async throws {
+        savedPodcastFilters.append((podcastId, filter))
+    }
+
+    func loadPodcastFilter(podcastId: String) async throws -> EpisodeFilter? {
+        savedPodcastFilters.last { $0.id == podcastId }?.filter
+    }
+
+    func saveSmartList(_ smartList: SmartEpisodeList) async throws {
+        savedSmartLists.append(smartList)
+    }
+
+    func loadSmartLists() async throws -> [SmartEpisodeList] {
+        savedSmartLists
+    }
+
+    func deleteSmartList(id: String) async throws {
+        deletedSmartListIDs.append(id)
+    }
 }

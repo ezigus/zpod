@@ -17,7 +17,7 @@ source "${SCRIPT_ROOT}/lib/spm.sh"
 # shellcheck source=lib/testplan.sh
 source "${SCRIPT_ROOT}/lib/testplan.sh"
 
-SCHEME="zpod"
+SCHEME="zpod (zpod project)"
 WORKSPACE="${REPO_ROOT}/zpod.xcworkspace"
 PREFERRED_SIM="iPhone 16"
 REQUESTED_CLEAN=0
@@ -38,7 +38,7 @@ Options:
   -c                Clean before running build/test
   -s                Run Swift syntax verification only (no build or tests)
   -p [suite]        Verify test plan coverage (optional suite: default, zpodTests, zpodUITests, IntegrationTests)
-  --scheme <name>   Xcode scheme to use (default: zpod)
+  --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 16")
   --self-check      Run environment self-checks and exit

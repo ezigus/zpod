@@ -9,6 +9,7 @@ import XCTest
 import Combine
 @testable import LibraryFeature
 @testable import CoreModels
+@testable import PlaybackEngine
 
 final class BatchOperationTests: XCTestCase {
     var batchOperationManager: BatchOperationManager!

@@ -189,33 +189,4 @@ final class EpisodeListViewTests: XCTestCase {
         XCTAssertEqual(episode.duration, 5400)
     }
     
-    // MARK: - PodcastRowView Tests
-    
-    @MainActor
-    func testPodcastRowViewCreation() throws {
-        // Given: A podcast
-        // When: Creating a PodcastRowView
-        let rowView = PodcastRowView(podcast: samplePodcast)
-        
-        // Then: The view should be created successfully
-        XCTAssertNotNil(rowView)
-    }
-    
-    @MainActor
-    func testPodcastRowViewWithSubscribedPodcast() throws {
-        // Given: A subscribed podcast
-        let subscribedPodcast = Podcast(
-            id: "subscribed",
-            title: "Subscribed Podcast",
-            feedURL: URL(string: "https://example.com/subscribed.xml")!,
-            isSubscribed: true
-        )
-        
-        // When: Creating a PodcastRowView
-        let rowView = PodcastRowView(podcast: subscribedPodcast)
-        
-        // Then: The view should show subscription status
-        XCTAssertNotNil(rowView)
-        XCTAssertTrue(subscribedPodcast.isSubscribed)
-    }
 }
