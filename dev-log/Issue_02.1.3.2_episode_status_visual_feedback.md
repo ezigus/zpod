@@ -59,6 +59,11 @@ Waiting 5.0s for "Podcast-swift-talk" Cell to exist
 - Ran syntax verification (`./scripts/dev-build-enhanced.sh syntax`) — ✅
 - Full UITest suite pending due to lack of simulator access at the time; follow-up planned once CI hardware becomes available.
 
+## 2025-09-27 10:30 EDT — Test Plan Coverage Automation
+- Refreshed `zpod.xctestplan` so every discovered `*Tests` target (app, integration, and package modules) is declared, unblocking the `-p` coverage gate for Issue 02.1.3.2.
+- Eliminated the redundant `scripts/verify-testplan-coverage.sh` entry point; `./scripts/run-xcode-tests.sh -p [suite]` is now the authoritative path and sources logic from `scripts/lib/testplan.sh`.
+- Verified the new coverage logic locally with `./scripts/run-xcode-tests.sh -p`, confirming a zero-missing-target report and exit code 0.
+
 ### Expected Improvements
 - Library list should present immediately, eliminating race-induced timeouts.
 - Navigation stack behaves consistently on iPhone UITest runs.

@@ -104,7 +104,7 @@ flowchart TD
 
 ## 2025-09-27 10:10 EDT — Test Plan Verification Refactor Complete
 - Implemented the new `verify_testplan_coverage` helper inside `scripts/lib/testplan.sh`, replacing the previous `xcodebuild`/`plutil` dependency with pure Python parsing of the scheme XML and `.xctestplan` JSON.
-- Rewrote `scripts/verify-testplan-coverage.sh` as a thin wrapper that warns about its legacy status and delegates to the shared helper so the `-p` flag remains the single source of truth.
+- Removed the legacy `scripts/verify-testplan-coverage.sh` entry point; the `-p` flag in `run-xcode-tests.sh` is now the sole interface for coverage checks.
 - Hardened target discovery by walking the repo tree in Python, pruning build artefact folders, and de-duplicating names before diffing against the plan entries.
 - Updated `AGENTS.md` tooling guidance to spotlight `./scripts/run-xcode-tests.sh -p [suite]` and discourage manual `xcodebuild` invocations.
-- Validation: `./scripts/run-xcode-tests.sh -p` now executes entirely within the sandboxed environment (no `xcodebuild` calls) and reports the expected missing targets with exit code `2`.
+- Validation: `./scripts/run-xcode-tests.sh -p` executes entirely within the sandboxed environment (no `xcodebuild` calls) and now relies on the expanded test plan coverage list.
