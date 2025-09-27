@@ -79,6 +79,7 @@ Waiting 5.0s for "Podcast-swift-talk" Cell to exist
 - Reworked LibraryFeature filtering tests to use real `EpisodeFilterManager` instances paired with a recording repository, eliminating subclassing of final types while preserving behavioural assertions.
 - Removed stale `PodcastRowView` references, refreshed OPML parser availability so FeedParsing tests compile under Swift 6, and tuned the coverage script to treat SwiftPM targets as fulfilled via `swift test`.
 - `./scripts/run-xcode-tests.sh -t zpod` (targeting the `"zpod (zpod project)"` scheme) now completes successfully: 56 tests executed with 2 skips, result bundle stored at `TestResults/TestResults_20250927_154048_test_zpod.xcresult`.
+- Added a `-l` lint flag (with graceful fallbacks when lint tooling is absent) and updated CI to invoke the refactored script end-to-end on macOS and Linux runners.
 
 ### Expected Improvements
 - Library list should present immediately, eliminating race-induced timeouts.

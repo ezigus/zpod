@@ -89,12 +89,10 @@ jobs:
 
           xcrun simctl list devices || true
 
-      - name: Build & Test (iOS)
+      - name: Build, Test, Lint
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh --self-check
-          echo "🚀 Running full build and test using refactored script"
-          ./scripts/run-xcode-tests.sh full_build_and_test
+          ./scripts/run-xcode-tests.sh
         env:
           NSUnbufferedIO: "YES"
       - name: Archive Test Results
@@ -116,9 +114,6 @@ jobs:
           name: test-artifacts
           path: artifacts
           if-no-files-found: warn
-      - name: SwiftLint (optional placeholder)
-        if: always()
-        run: echo "Add SwiftLint in future"
 
   syntax-linux:
     runs-on: ubuntu-latest
@@ -127,5 +122,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Shell self-check
         run: ./scripts/run-xcode-tests.sh --self-check
-      - name: Swift syntax & concurrency lint
-        run: ./scripts/dev-build-enhanced.sh syntax
+      - name: Swift syntax verification
+        run: ./scripts/run-xcode-tests.sh -s
+      - name: Swift lint
+        run: ./scripts/run-xcode-tests.sh -l

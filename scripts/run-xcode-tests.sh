@@ -26,6 +26,7 @@ REQUESTED_TESTS=""
 REQUESTED_SYNTAX=0
 REQUEST_TESTPLAN=0
 REQUEST_TESTPLAN_SUITE=""
+REQUESTED_LINT=0
 SELF_CHECK=0
 
 show_help() {
@@ -37,6 +38,7 @@ Options:
   -t <tests>        Comma-separated list of tests (target, class, or class/method)
   -c                Clean before running build/test
   -s                Run Swift syntax verification only (no build or tests)
+  -l                Run Swift lint checks (swiftlint/swift-format if available)
   -p [suite]        Verify test plan coverage (optional suite: default, zpodTests, zpodUITests, IntegrationTests)
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
@@ -311,6 +313,42 @@ test_package_target() {
   log_success "Package tests finished -> $RESULT_LOG"
 }
 
+run_swift_lint() {
+  init_result_paths "lint" "swift"
+  log_section "Swift lint"
+
+  if command_exists swiftlint; then
+    (
+      cd "$REPO_ROOT"
+      swiftlint lint
+    ) | tee "$RESULT_LOG"
+    log_success "SwiftLint finished -> $RESULT_LOG"
+    return 0
+  fi
+
+  if command_exists swift-format; then
+    (
+      cd "$REPO_ROOT"
+      swift-format lint --recursive .
+    ) | tee "$RESULT_LOG"
+    log_success "swift-format lint finished -> $RESULT_LOG"
+    return 0
+  fi
+
+  if command_exists swiftformat; then
+    (
+      cd "$REPO_ROOT"
+      swiftformat --lint .
+    ) | tee "$RESULT_LOG"
+    log_success "swiftformat lint finished -> $RESULT_LOG"
+    return 0
+  fi
+
+  log_warn "No Swift lint tool available (swiftlint/swift-format/swiftformat). Skipping lint step"
+  printf 'Lint tool unavailable; skipped lint step.\n' | tee "$RESULT_LOG"
+  return 0
+}
+
 run_test_target() {
   local target
   target=$(resolve_test_identifier "$1") || exit 1
@@ -476,6 +514,8 @@ while [[ $# -gt 0 ]]; do
       REQUESTED_CLEAN=1; shift;;
     -s)
       REQUESTED_SYNTAX=1; shift;;
+    -l|--lint)
+      REQUESTED_LINT=1; shift;;
     -p)
       REQUEST_TESTPLAN=1
       if [[ $# -gt 1 && "$2" != -* ]]; then
@@ -514,7 +554,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
-  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 ]]; then
+  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 ]]; then
     log_error "-s (syntax) cannot be combined with other build or test flags"
     exit 1
   fi
@@ -525,7 +565,7 @@ if [[ $SELF_CHECK -eq 1 ]]; then
   exit $?
 fi
 
-echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' REQUEST_TESTPLAN=$REQUEST_TESTPLAN REQUEST_TESTPLAN_SUITE='$REQUEST_TESTPLAN_SUITE'"
+echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' REQUEST_TESTPLAN=$REQUEST_TESTPLAN REQUEST_TESTPLAN_SUITE='$REQUEST_TESTPLAN_SUITE' REQUESTED_LINT=$REQUESTED_LINT"
 
 did_run_anything=0
 
@@ -571,12 +611,35 @@ if [[ $REQUEST_TESTPLAN -eq 1 ]]; then
   did_run_anything=1
 fi
 
+if [[ $REQUESTED_LINT -eq 1 ]]; then
+  run_swift_lint
+  did_run_anything=1
+fi
+
 if [[ $did_run_anything -eq 1 ]]; then
   log_success "Requested operations complete"
   exit 0
 fi
 
+REQUESTED_CLEAN=1
 run_syntax_check
-build_app_target "zpod"
-test_app_target "zpod"
-log_success "Default build & test complete"
+
+verify_testplan_coverage ""
+case $? in
+  0)
+    ;;
+  2)
+    log_warn "Test plan coverage incomplete"
+    exit 2
+    ;;
+  *)
+    log_error "Failed to verify test plan coverage"
+    exit 1
+    ;;
+esac
+
+run_build_target "all"
+REQUESTED_CLEAN=0
+run_test_target "zpod"
+run_swift_lint
+log_success "Default build, test, and lint complete"
