@@ -214,3 +214,22 @@ flowchart TD
 ### Next Steps
 - Implement the expectation-based overlay waiter and isolate helper accessors per the 15:58 EDT plan before re-running the full suite.
 - Address the outstanding concurrency warnings once helper refactor lands.
+
+## 2025-09-26 22:30 EDT — Overlay Observation Best-Practice Alignment
+- Traceability: Issue 02.1.3.2, Spec `spec/ui.md` batch overlays, AGENTS §2 Workflow Expectation #3 ("Automation over manual edits") & §3 UI Testing rule to "use helper waiters" over blocking/polling.
+- Intent: formalise a `BatchOverlayObservation` helper that wraps a single well-known accessibility node (`app.otherElements["Batch Operation Progress"]`) and exposes expectation-ready predicates so we stop recursively polling `XCUIApplication`.
+- Concurrency posture: keep helpers `@MainActor`, reuse `XCTNSPredicateExpectation` (per AGENTS UI testing guidance), and remove any asynchronous recursion that dispatches onto the main thread.
+- Diagnostics: restrict snapshot logging to elements that actually exist to avoid triggering `XCTRuntimeIssue` spam; surface a compact debug summary only on timeout.
+
+```mermaid
+graph TD
+    A[BatchOverlayObservation.resolve(app)] --> B[primaryElement]
+    B --> C{exists?}
+    C -- yes --> D[Expectation waits exists == false]
+    C -- no --> E[Return immediately]
+    D --> F[launchConfiguredApp proceeds]
+    C -- forced overlay --> G[Skip per UITEST_FORCE_BATCH_OVERLAY]
+```
+
+- Test strategy: extend `BatchOperationUITests` so `launchConfiguredApp` with `UITEST_FORCE_BATCH_OVERLAY` asserts the helper advertises its skip path, and add a regression that the dismissal waiter completes when a mocked overlay disappears.
+- Tooling: rerun `./scripts/dev-build-enhanced.sh syntax` and `./scripts/run-xcode-tests.sh --self-check` before committing to honour AGENTS automation guidance.
