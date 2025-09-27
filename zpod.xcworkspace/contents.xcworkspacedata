@@ -53,9 +53,6 @@
          location = "group:verify-testplan-coverage.sh">
       </FileRef>
       <FileRef
-         location = "group:dev-build-enhanced.sh">
-      </FileRef>
-      <FileRef
          location = "group:run-xcode-tests.sh">
       </FileRef>
    </Group>

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
         78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */ = {isa = PBXBuildFile; fileRef = 78294E062E52A4160022CF1B /* run-xcode-tests.sh */; };
-        785458912E514C6300764945 /* dev-build-enhanced.sh in Resources */ = {isa = PBXBuildFile; fileRef = 7854587E2E514C6300764945 /* dev-build-enhanced.sh */; };
         786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
         78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E102E575000001DB480 /* dev-log.issue06.log */; };
         78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0C2E575000001DB480 /* dev-log.issue02.log */; };
@@ -46,7 +45,6 @@
 
 /* Begin PBXFileReference section */
         78294E062E52A4160022CF1B /* run-xcode-tests.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "run-xcode-tests.sh"; sourceTree = "<group>"; };
-        7854587E2E514C6300764945 /* dev-build-enhanced.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "dev-build-enhanced.sh"; sourceTree = "<group>"; };
         7856A6082E7981F0002CB153 /* ci.yml */ = {isa = PBXFileReference; lastKnownFileType = text.yaml; path = ci.yml; sourceTree = "<group>"; };
         7856A60A2E7981F0002CB153 /* copilot-instructions.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "copilot-instructions.md"; sourceTree = "<group>"; };
         7856A60C2E7981F0002CB153 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
@@ -137,7 +135,6 @@
             isa = PBXGroup;
             children = (
                 78294E062E52A4160022CF1B /* run-xcode-tests.sh */,
-                7854587E2E514C6300764945 /* dev-build-enhanced.sh */,
             );
             path = scripts;
             sourceTree = "<group>";
@@ -365,7 +362,6 @@
                 78BF3E252E575000001DB480 /* dev-log.issue11.log in Resources */,
                 78BF3E262E575000001DB480 /* dev-log.issue11.5-refactor.log in Resources */,
                 78BF3E272E575000001DB480 /* dev-log.issue07.log in Resources */,
-                785458912E514C6300764945 /* dev-build-enhanced.sh in Resources */,
                 78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */,
             );
             runOnlyForDeploymentPostprocessing = 0;
