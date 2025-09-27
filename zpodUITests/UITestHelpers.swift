@@ -315,21 +315,50 @@ extension XCTestCase {
 
 // MARK: - Smart UI Testing Extensions
 
-private struct BatchOverlayProbe {
-  let elements: [XCUIElement]
+@MainActor
+private struct BatchOverlayObservation {
+  let primaryElement: XCUIElement
+  private let auxiliaryElements: [XCUIElement]
+
+  init(app: XCUIApplication) {
+    primaryElement = app.otherElements["Batch Operation Progress"]
+    auxiliaryElements = [
+      app.scrollViews.otherElements["Batch Operation Progress"],
+      app.staticTexts["Batch Operation Progress"],
+      app.staticTexts["Processing..."],
+      app.staticTexts["Processing"],
+      app.staticTexts["Complete"],
+      app.staticTexts["Completed"],
+      app.staticTexts["Batch Operation"],
+      app.buttons["Pause"],
+      app.buttons["Resume"],
+      app.buttons["Cancel"],
+    ]
+  }
 
   var isVisible: Bool {
-    elements.contains { $0.exists }
+    if primaryElement.exists { return true }
+    return auxiliaryElements.contains { $0.exists }
   }
 
   func debugSummary() -> String {
-    elements.enumerated().map { index, element in
+    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap { index, element -> String? in
+      guard element.exists else { return nil }
       let identifier = element.identifier.isEmpty ? "∅" : element.identifier
       let label = element.label.isEmpty ? "∅" : element.label
-      return
-        "[#\(index)] identifier='\(identifier)' label='\(label)' exists=\(element.exists) hittable=\(element.isHittable)"
-    }.joined(separator: "\n")
+      return "[#\(index)] identifier='\(identifier)' label='\(label)' hittable=\(element.isHittable)"
+    }
+
+    guard !visibleElements.isEmpty else { return "No overlay elements currently visible" }
+    return visibleElements.joined(separator: "\n")
   }
+}
+
+enum BatchOverlayWaitResult: Equatable {
+  case notPresent
+  case skippedForcedOverlay
+  case dismissed
+  case timedOut(debugDescription: String)
 }
 
 extension SmartUITesting where Self: XCTestCase {
@@ -349,42 +378,43 @@ extension SmartUITesting where Self: XCTestCase {
       XCTFail("Main tab bar did not appear after launch")
     }
 
-    waitForBatchOverlayDismissalIfNeeded(in: application)
+    _ = waitForBatchOverlayDismissalIfNeeded(in: application)
 
     return application
   }
 
   @MainActor
-  private func waitForBatchOverlayDismissalIfNeeded(
+  func waitForBatchOverlayDismissalIfNeeded(
     in app: XCUIApplication,
     timeout: TimeInterval? = nil
-  ) {
+  ) -> BatchOverlayWaitResult {
     if app.launchEnvironment["UITEST_FORCE_BATCH_OVERLAY"] == "1" {
-      return
+      return .skippedForcedOverlay
     }
 
-    let probe = batchOverlayProbe(in: app)
-    guard probe.isVisible else { return }
+    let observation = BatchOverlayObservation(app: app)
+    guard observation.isVisible else { return .notPresent }
 
     let overlayTimeout = timeout ?? max(adaptiveTimeout, 20.0)
-    let overlayDismissedPredicate = NSPredicate { _, _ in
-      return !probe.isVisible
+    let predicate = NSPredicate { _, _ in
+      return !observation.isVisible
     }
 
-    let expectation = XCTNSPredicateExpectation(
-      predicate: overlayDismissedPredicate,
-      object: nil
-    )
-    expectation.expectationDescription = "Batch operation overlay dismissed"
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Batch operation overlay dismissal"
 
-    let result = XCTWaiter().wait(for: [expectation], timeout: overlayTimeout)
+    let waiter = XCTWaiter()
+    let result = waiter.wait(for: [expectation], timeout: overlayTimeout)
 
     guard result == .completed else {
+      let diagnostics = observation.debugSummary()
       XCTFail(
-        "Timed out waiting for batch overlay to disappear after launch.\nOverlay state:\n\(probe.debugSummary())"
+        "Timed out waiting for batch overlay to disappear after launch.\nOverlay state:\n\(diagnostics)"
       )
-      return
+      return .timedOut(debugDescription: diagnostics)
     }
+
+    return .dismissed
   }
 
   @MainActor
@@ -392,12 +422,12 @@ extension SmartUITesting where Self: XCTestCase {
     in app: XCUIApplication,
     timeout: TimeInterval? = nil
   ) -> Bool {
-    let probe = batchOverlayProbe(in: app)
-    if probe.isVisible { return true }
+    let observation = BatchOverlayObservation(app: app)
+    if observation.isVisible { return true }
 
     let overlayTimeout = timeout ?? max(adaptiveShortTimeout, 10.0)
     let overlayAppearedPredicate = NSPredicate { _, _ in
-      return probe.isVisible
+      return observation.isVisible
     }
 
     let expectation = XCTNSPredicateExpectation(
@@ -410,27 +440,12 @@ extension SmartUITesting where Self: XCTestCase {
 
     guard result == .completed else {
       XCTFail(
-        "Timed out waiting for batch overlay to appear.\nOverlay state:\n\(probe.debugSummary())"
+        "Timed out waiting for batch overlay to appear.\nOverlay state:\n\(observation.debugSummary())"
       )
       return false
     }
 
     return true
-  }
-
-  @MainActor
-  private func batchOverlayProbe(in app: XCUIApplication) -> BatchOverlayProbe {
-    let elements: [XCUIElement] = [
-      app.otherElements["Batch Operation Progress"],
-      app.scrollViews.otherElements["Batch Operation Progress"],
-      app.staticTexts["Batch Operation Progress"],
-      app.staticTexts["Processing..."],
-      app.staticTexts["Processing"],
-      app.staticTexts["Complete"],
-      app.staticTexts["Completed"],
-    ]
-
-    return BatchOverlayProbe(elements: elements)
   }
 
   /// Waits for a dialog, confirmation sheet, or alert with the supplied title.

@@ -233,3 +233,10 @@ graph TD
 
 - Test strategy: extend `BatchOperationUITests` so `launchConfiguredApp` with `UITEST_FORCE_BATCH_OVERLAY` asserts the helper advertises its skip path, and add a regression that the dismissal waiter completes when a mocked overlay disappears.
 - Tooling: rerun `./scripts/dev-build-enhanced.sh syntax` and `./scripts/run-xcode-tests.sh --self-check` before committing to honour AGENTS automation guidance.
+
+## 2025-09-27 07:20 EDT — Batch Overlay Observation Implementation
+- Implemented `BatchOverlayObservation` (`zpodUITests/UITestHelpers.swift`) to centralise overlay discovery around the canonical `"Batch Operation Progress"` node and a constrained auxiliary set (processing/complete labels, pause/resume/cancel buttons). Predicate expectations now poll the struct, eliminating the tight recursion that previously spammed Automation snapshots.
+- `waitForBatchOverlayDismissalIfNeeded` returns a typed `BatchOverlayWaitResult`, captures the forced-overlay skip path, and emits compact diagnostics only on timeout; diagnostics list only elements that actually exist to avoid dereferencing phantom snapshots.
+- Updated `waitForBatchOverlayAppearance` to reuse the observation helper so both appearance/dismissal paths share logic and logging conventions.
+- UITest coverage: `BatchOperationUITests` now asserts the skip result under `UITEST_FORCE_BATCH_OVERLAY` and verifies dismissal helpers report `.notPresent` when overlays never spawn. Forced-overlay scenario now navigates to the episode list and skips gracefully when the UI build does not seed the banner (documented for follow-up).
+- Tooling: `./scripts/dev-build-enhanced.sh syntax` ✅, targeted `xcodebuild` UI runs exercised new helpers but broader `zpodUITests` still report legacy failures (overlay seeding + Content Discovery flake). Captured bundle: `TestResults/TestResults_20250927_065638_test_zpodUITests.xcresult` for cross-team triage.

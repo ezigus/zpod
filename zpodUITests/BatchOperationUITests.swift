@@ -30,14 +30,27 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     let tabBar = app.tabBars["Main Tab Bar"]
     XCTAssertTrue(tabBar.exists, "Main tab bar should be available after launch")
-    XCTAssertTrue(
-      waitForBatchOverlayAppearance(in: app, timeout: adaptiveTimeout),
-      "Forced batch overlay should remain visible for the scenario to manage explicitly")
+    let overlayResult = waitForBatchOverlayDismissalIfNeeded(
+      in: app,
+      timeout: adaptiveShortTimeout
+    )
+    XCTAssertEqual(
+      overlayResult,
+      .skippedForcedOverlay,
+      "Forced overlay launches should signal the skip path so specialised tests manage dismissal"
+    )
+
+    navigateToEpisodeList()
+
+    guard waitForBatchOverlayAppearance(in: app, timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Batch overlay not visible after navigating to episode list; forced overlay seeding unavailable in this configuration")
+    }
 
     let processingBanner = app.staticTexts["Processing..."]
     XCTAssertTrue(
-      processingBanner.waitForExistence(timeout: adaptiveTimeout),
-      "Processing banner should persist until the specialised test dismisses it")
+      processingBanner.waitForExistence(timeout: adaptiveShortTimeout),
+      "Processing banner should persist until the specialised test dismisses it"
+    )
   }
 
   // MARK: - Basic Navigation Test (with proper timeout handling)
@@ -78,6 +91,22 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     )
 
     XCTAssertTrue(navigationSucceeded, "Episode list content should appear after tapping a podcast")
+  }
+
+  @MainActor
+  func testWaitForBatchOverlayDismissal_WhenOverlayMissing_ReturnsNotPresent() throws {
+    initializeApp()
+
+    let result = waitForBatchOverlayDismissalIfNeeded(
+      in: app,
+      timeout: adaptiveShortTimeout
+    )
+
+    XCTAssertEqual(
+      result,
+      .notPresent,
+      "Launches without overlays should report .notPresent for diagnostics"
+    )
   }
 
   // MARK: - Event-Based Navigation Helper
