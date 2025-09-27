@@ -76,3 +76,35 @@ flowchart TD
 - After edits, push to a temporary branch without PR to confirm CI triggers once.
 - Open a PR and push new commits to verify the push workflow skips while the PR workflow runs.
 - Ensure merging to `main` still triggers the standard push run.
+
+## 2025-09-27 09:45 EDT — Test Plan Verification Fix Design
+- Regression surfaced: `scripts/run-xcode-tests.sh -p` hard-depends on `xcodebuild -showTestPlans`, which fails on sandboxed/mac-less hosts and prevents the test plan coverage gate from running.
+- Goal: keep the `-p` flag portable by parsing the scheme + `.xctestplan` data directly with Python, avoiding `xcodebuild`/`plutil` invocations.
+- Plan of record:
+  1. Discover the scheme XML (`*.xcscheme`) matching the resolved suite and extract the `TestPlanReference` path.
+  2. Load the referenced `.xctestplan` JSON and pull `testTargets[*].target.name`.
+  3. Enumerate repo directories matching `*Tests` (excluding result bundles) and diff against the plan list.
+  4. Return exit code `2` when coverage is incomplete so CI can flag the gap, otherwise success (`0`).
+- Update legacy `scripts/verify-testplan-coverage.sh` to delegate to the new library helper, keeping historical entry points functional while guiding developers to the consolidated script.
+- Documentation: refresh `AGENTS.md` usage guidance and append dev-log results after implementation.
+
+```mermaid
+flowchart TD
+    A[Resolve suite] --> B[Find matching xcscheme]
+    B --> C[Extract TestPlanReference]
+    C --> D[Load .xctestplan JSON]
+    A --> E[Discover *Tests directories]
+    D --> F[Collect plan targets]
+    E --> G[Collect filesystem targets]
+    F --> H[Diff lists]
+    G --> H
+    H -->|No missing| I[Exit 0]
+    H -->|Missing| J[Exit 2]
+```
+
+## 2025-09-27 10:10 EDT — Test Plan Verification Refactor Complete
+- Implemented the new `verify_testplan_coverage` helper inside `scripts/lib/testplan.sh`, replacing the previous `xcodebuild`/`plutil` dependency with pure Python parsing of the scheme XML and `.xctestplan` JSON.
+- Rewrote `scripts/verify-testplan-coverage.sh` as a thin wrapper that warns about its legacy status and delegates to the shared helper so the `-p` flag remains the single source of truth.
+- Hardened target discovery by walking the repo tree in Python, pruning build artefact folders, and de-duplicating names before diffing against the plan entries.
+- Updated `AGENTS.md` tooling guidance to spotlight `./scripts/run-xcode-tests.sh -p [suite]` and discourage manual `xcodebuild` invocations.
+- Validation: `./scripts/run-xcode-tests.sh -p` now executes entirely within the sandboxed environment (no `xcodebuild` calls) and reports the expected missing targets with exit code `2`.

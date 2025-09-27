@@ -66,25 +66,16 @@
 Use the shared helper script for a quick local verification:
 
 ```bash
-./scripts/run-xcode-tests.sh --self-check
-./scripts/run-xcode-tests.sh              # default: syntax + build + tests for zpod scheme
-./scripts/run-xcode-tests.sh --self-check # validates tooling before running anything
-./scripts/run-xcode-tests.sh -s           # syntax verification only
-./scripts/run-xcode-tests.sh -b zpod      # build without executing tests
-./scripts/run-xcode-tests.sh -t zpod,zpodUITests  # targeted test execution
-./scripts/run-xcode-tests.sh -c -b zpod -t zpod   # clean build + scheme tests
+./scripts/run-xcode-tests.sh --self-check                        # environment sanity checks
+./scripts/run-xcode-tests.sh                                     # default: syntax + build + tests
+./scripts/run-xcode-tests.sh -s                                  # syntax verification only
+./scripts/run-xcode-tests.sh -b zpod                             # build without executing tests
+./scripts/run-xcode-tests.sh -t zpod,zpodUITests                 # targeted test execution
+./scripts/run-xcode-tests.sh -c -b zpod -t zpod                  # clean build + scheme tests
+./scripts/run-xcode-tests.sh -p [suite]                          # verify test plan coverage (omit suite for default)
 ```
 
-Legacy xcodebuild commands remain available if you need manual control:
-
-```bash
-xcodebuild -version
-xcodebuild -list -project zpod.xcodeproj
-xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator
-xcodebuild -project zpod.xcodeproj -scheme zpod \
-  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' test
-xcodebuild -project zpod.xcodeproj -scheme zpod clean
-```
+> ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
 ### Non-macOS / Lightweight Environments
 Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.
