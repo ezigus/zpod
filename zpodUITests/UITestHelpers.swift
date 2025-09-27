@@ -324,6 +324,9 @@ private struct BatchOverlayObservation {
     primaryElement = app.otherElements["Batch Operation Progress"]
     auxiliaryElements = [
       app.scrollViews.otherElements["Batch Operation Progress"],
+      app.tables.otherElements["Batch Operation Progress"],
+      app.cells["Batch Operation Progress"],
+      app.tables.cells["Batch Operation Progress"],
       app.staticTexts["Batch Operation Progress"],
       app.staticTexts["Processing..."],
       app.staticTexts["Processing"],

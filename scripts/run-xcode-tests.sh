@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_ROOT}/.." && pwd)"
 
+# TODO: [Issue #02.1.3.2] Consolidate invocation flags (add syntax flag) and update AGENTS.md guidance
+
 # shellcheck source=lib/common.sh
 source "${SCRIPT_ROOT}/lib/common.sh"
 # shellcheck source=lib/logging.sh
@@ -21,32 +23,25 @@ PREFERRED_SIM="iPhone 16"
 REQUESTED_CLEAN=0
 REQUESTED_BUILDS=""
 REQUESTED_TESTS=""
+REQUESTED_SYNTAX=0
 LEGACY_TEST_SPEC="all"
-ACTION=""
-MODULE_NAME=""
 SELF_CHECK=0
 
 show_help() {
   cat <<EOF
-Usage: scripts/run-xcode-tests.sh [OPTIONS] [ACTION] [MODULE]
+Usage: scripts/run-xcode-tests.sh [OPTIONS]
 
 Options:
   -b <targets>      Comma-separated list of build targets (e.g. zpod,CoreModels)
   -t <tests>        Comma-separated list of test targets (zpodTests,zpodUITests,PackageName)
   -c                Clean before running build/test
+  -s                Run Swift syntax verification via dev-build-enhanced.sh
   --scheme <name>   Xcode scheme to use (default: zpod)
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 16")
   --tests <class>   Legacy single test/class selection
   --self-check      Run environment self-checks and exit
   --help            Show this message
-
-Actions:
-  full_clean_build
-  full_build_no_test
-  full_build_and_test
-  partial_clean_build <Package>
-  partial_build_and_test <Package>
 EOF
 }
 
@@ -107,6 +102,23 @@ require_workspace() {
 is_package_target() {
   local target="$1"
   [[ -d "${REPO_ROOT}/Packages/${target}" ]]
+}
+
+run_syntax_check() {
+  local syntax_script="${REPO_ROOT}/scripts/dev-build-enhanced.sh"
+  if [[ ! -x "$syntax_script" ]]; then
+    log_error "Syntax helper not found at ${syntax_script}"
+    exit 1
+  fi
+
+  init_result_paths "syntax" "swift"
+  log_section "Syntax check"
+  (
+    cd "$REPO_ROOT"
+    "$syntax_script" syntax
+  ) | tee "$RESULT_LOG"
+
+  log_success "Syntax check finished -> $RESULT_LOG"
 }
 
 build_app_target() {
@@ -266,6 +278,8 @@ while [[ $# -gt 0 ]]; do
       REQUESTED_TESTS="$2"; shift 2;;
     -c)
       REQUESTED_CLEAN=1; shift;;
+    -s)
+      REQUESTED_SYNTAX=1; shift;;
     --scheme)
       SCHEME="$2"; shift 2;;
     --workspace)
@@ -279,11 +293,10 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       show_help; exit 0;;
     full_clean_build|full_build_no_test|full_build_and_test|partial_clean_build|partial_build_and_test)
-      ACTION="$1"; shift;;
+      log_error "Deprecated action '$1'. Use -b/-t/-c/-s flags instead."
+      exit 1;;
     *)
-      if [[ -n "$ACTION" && -z "$MODULE_NAME" ]]; then
-        MODULE_NAME="$1"; shift
-      elif [[ "$LEGACY_TEST_SPEC" == "all" ]]; then
+      if [[ "$LEGACY_TEST_SPEC" == "all" ]]; then
         LEGACY_TEST_SPEC="$1"; shift
       else
         log_error "Unknown argument: $1"
@@ -298,12 +311,22 @@ if [[ $SELF_CHECK -eq 1 ]]; then
   exit $?
 fi
 
+echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' LEGACY_TEST_SPEC='$LEGACY_TEST_SPEC'"
+
+did_run_anything=0
+
+if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
+  run_syntax_check
+  did_run_anything=1
+fi
+
 if [[ -n "$REQUESTED_BUILDS" ]]; then
   split_csv "$REQUESTED_BUILDS"
   for item in "${__ZPOD_SPLIT_RESULT[@]}"; do
     item="$(trim "$item")"
     [[ -z "$item" ]] && continue
     run_build_target "$item"
+    did_run_anything=1
   done
 fi
 
@@ -313,39 +336,21 @@ if [[ -n "$REQUESTED_TESTS" ]]; then
     item="$(trim "$item")"
     [[ -z "$item" ]] && continue
     run_test_target "$item"
+    did_run_anything=1
   done
-fi
-
-if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" ]]; then
-  log_success "Requested operations complete"
-  exit 0
-fi
-
-if [[ -n "$ACTION" ]]; then
-  case "$ACTION" in
-    full_clean_build)
-      full_clean_build;;
-    full_build_no_test)
-      full_build_no_test;;
-    full_build_and_test)
-      full_build_and_test;;
-    partial_clean_build)
-      partial_clean_build "$MODULE_NAME";;
-    partial_build_and_test)
-      partial_build_and_test "$MODULE_NAME";;
-    *)
-      log_error "Unrecognised action: $ACTION"
-      exit 1;;
-  esac
-  log_success "Operation completed"
-  exit 0
 fi
 
 if [[ "$LEGACY_TEST_SPEC" != "all" ]]; then
   run_test_target "$LEGACY_TEST_SPEC"
-  log_success "Legacy test execution complete"
+  did_run_anything=1
+fi
+
+if [[ $did_run_anything -eq 1 ]]; then
+  log_success "Requested operations complete"
   exit 0
 fi
 
-full_build_and_test
+run_syntax_check
+build_app_target "zpod"
+test_app_target "zpod"
 log_success "Default build & test complete"

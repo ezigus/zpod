@@ -42,8 +42,11 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     navigateToEpisodeList()
 
-    guard waitForBatchOverlayAppearance(in: app, timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Batch overlay not visible after navigating to episode list; forced overlay seeding unavailable in this configuration")
+    let overlayAppeared = waitForBatchOverlayAppearance(in: app, timeout: adaptiveShortTimeout)
+    if !overlayAppeared {
+      print(app.debugDescription)
+      XCTFail("Overlay should be visible once the episode list is rendered\n\(app.debugDescription)")
+      return
     }
 
     let processingBanner = app.staticTexts["Processing..."]

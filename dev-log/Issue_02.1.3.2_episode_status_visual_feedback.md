@@ -240,3 +240,19 @@ graph TD
 - Updated `waitForBatchOverlayAppearance` to reuse the observation helper so both appearance/dismissal paths share logic and logging conventions.
 - UITest coverage: `BatchOperationUITests` now asserts the skip result under `UITEST_FORCE_BATCH_OVERLAY` and verifies dismissal helpers report `.notPresent` when overlays never spawn. Forced-overlay scenario now navigates to the episode list and skips gracefully when the UI build does not seed the banner (documented for follow-up).
 - Tooling: `./scripts/dev-build-enhanced.sh syntax` ✅, targeted `xcodebuild` UI runs exercised new helpers but broader `zpodUITests` still report legacy failures (overlay seeding + Content Discovery flake). Captured bundle: `TestResults/TestResults_20250927_065638_test_zpodUITests.xcresult` for cross-team triage.
+
+## 2025-09-27 07:34 EDT — Forced Overlay Seeding & CLI Flag Roadmap
+- Traceability: Issue 02.1.3.2, Spec `spec/ui.md` overlay persistence plus dev tooling contract in AGENTS §7.
+- Goal: ensure `UITEST_FORCE_BATCH_OVERLAY` deterministically surfaces the banner once the episode list is visible, and extend `scripts/run-xcode-tests.sh` with explicit syntax (`-s`) and consolidated flag handling so all build/test invocations route through the script.
+- Approach:
+  - Move the overlay seeding trigger into a dedicated `UITestOverlaySeeder` sealed to main actor, invoked from both `EpisodeListView` and `EpisodeListViewModel` to cover navigation timing gaps; cache seeded operations to avoid repeated insertions.
+  - Publish a lightweight notification or `@MainActor` async point that UI tests can await before asserting overlay presence (e.g. `BatchOverlayObservation.waitForSeededOverlay`).
+  - Refactor the CLI parsing to prefer `-b/-t/-c` plus new `-s` for syntax only; deprecate `full_build_and_test` references in AGENTS and replace the guidance with script-based workflows.
+- Validation: refresh syntax checks via new `-s` flag, rerun `./scripts/run-xcode-tests.sh -t zpodUITests/BatchOperationUITests` and the broader suite to confirm the forced overlay scenario stabilises, then update AGENTS.md to document the streamlined interface.
+
+## 2025-09-27 08:25 EDT — Forced Overlay Seeding Implementation
+- Added `ensureUITestBatchOverlayIfNeeded` async helper on `EpisodeListViewModel`; `EpisodeListView` now requests seeding via `.task` and responds to filtered episode changes, ensuring overlays surface after navigation without tight polling.
+- Hardened accessibility by marking `BatchOperationProgressView` as a standalone element, allowing XCUI to resolve the `"Batch Operation Progress"` identifier reliably.
+- Instrumented active operation state with debug prints and streamlined `BatchOperationUITests` to fail fast with `app.debugDescription` when overlays go missing.
+- CLI updates: `scripts/run-xcode-tests.sh` now supports `-s` syntax flag, deprecates action verbs, and dumps argument selections for traceability.
+- Validation: `./scripts/run-xcode-tests.sh -t zpodUITests/BatchOperationUITests/testLaunchConfiguredApp_WithForcedOverlayDoesNotWait` ✅; broader `zpodUITests` still red on known ContentDiscovery flake (unchanged). Captured targeted result bundle at `TestResults/TestResults_20250927_081734_test_zpodUITests-BatchOperationUITests-testLaunchConfiguredApp_WithForcedOverlayDoesNotWait.xcresult` for review.

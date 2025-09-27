@@ -233,6 +233,7 @@ public struct BatchOperationProgressView: View {
         .padding()
         .background(backgroundColorForStatus)
         .cornerRadius(12)
+        .accessibilityElement(children: .contain)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(borderColorForStatus, lineWidth: 1)

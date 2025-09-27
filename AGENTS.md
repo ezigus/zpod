@@ -67,7 +67,12 @@ Use the shared helper script for a quick local verification:
 
 ```bash
 ./scripts/run-xcode-tests.sh --self-check
-./scripts/run-xcode-tests.sh full_build_and_test
+./scripts/run-xcode-tests.sh              # default: syntax + build + tests for zpod scheme
+./scripts/run-xcode-tests.sh --self-check # validates tooling before running anything
+./scripts/run-xcode-tests.sh -s           # syntax verification only
+./scripts/run-xcode-tests.sh -b zpod      # build without executing tests
+./scripts/run-xcode-tests.sh -t zpod,zpodUITests  # targeted test execution
+./scripts/run-xcode-tests.sh -c -b zpod -t zpod   # clean build + scheme tests
 ```
 
 Legacy xcodebuild commands remain available if you need manual control:
@@ -82,14 +87,14 @@ xcodebuild -project zpod.xcodeproj -scheme zpod clean
 ```
 
 ### Non-macOS / Lightweight Environments
-Use `scripts/dev-build.sh` (`all`, `syntax`, `list`, `concurrency`, `test`) or the enhanced script variants (`scripts/dev-build-enhanced.sh syntax|swiftui|concurrency|test`). These scripts provide early warnings for SwiftUI type conflicts, concurrency violations, and syntax errors. When Xcode isn’t available, `./scripts/run-xcode-tests.sh --self-check` validates tooling expectations and falls back to SwiftPM.
+Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.
 
 ### CI Pipeline
 GitHub Actions (`.github/workflows/ci.yml`) now:
 1. Select Xcode 16.4 and perform `./scripts/run-xcode-tests.sh --self-check`.
 2. Ensure a suitable iOS simulator runtime exists (iPhone 16 preferred) and create a device when possible.
-3. Invoke `./scripts/run-xcode-tests.sh full_build_and_test` for the macOS leg.
-4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/dev-build-enhanced.sh syntax` on Ubuntu to exercise the SwiftPM fallback path.
+3. Invoke `./scripts/run-xcode-tests.sh -c -s -b zpod -t zpod` for the macOS leg.
+4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/run-xcode-tests.sh -s` on Ubuntu to exercise the SwiftPM fallback path.
 5. Archive crash logs and test reports.
 
 ### Known Limitations

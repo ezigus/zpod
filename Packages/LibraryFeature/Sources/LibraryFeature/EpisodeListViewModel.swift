@@ -1,6 +1,7 @@
 import Combine
 import CoreModels
 import Foundation
+import OSLog
 import Persistence
 import PlaybackEngine
 import SwiftUI
@@ -18,7 +19,13 @@ public final class EpisodeListViewModel: ObservableObject {
 
   // Batch operation properties
   @Published public private(set) var selectionState = EpisodeSelectionState()
-  @Published public private(set) var activeBatchOperations: [BatchOperation] = []
+  @Published public private(set) var activeBatchOperations: [BatchOperation] = [] {
+    didSet {
+      #if DEBUG
+        print("[UITEST_OVERLAY] activeBatchOperations count: \(activeBatchOperations.count)")
+      #endif
+    }
+  }
   @Published public var showingBatchOperationSheet = false
   @Published public var showingPlaylistSelectionSheet = false
   @Published public var showingSelectionCriteriaSheet = false
@@ -38,6 +45,8 @@ public final class EpisodeListViewModel: ObservableObject {
   private var playbackStateCancellable: AnyCancellable?
   private var bannerDismissTask: Task<Void, Never>?
   private var allEpisodes: [Episode] = []
+  private var hasSeededUITestOverlay = false
+  private let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
 
   public init(
     podcast: Podcast,
@@ -67,7 +76,6 @@ public final class EpisodeListViewModel: ObservableObject {
     setupBatchOperationSubscription()
     setupDownloadProgressSubscription()
 
-    seedUITestBatchOverlayIfNeeded()
   }
 
   // MARK: - Public Methods
@@ -284,15 +292,44 @@ public final class EpisodeListViewModel: ObservableObject {
       .store(in: &cancellables)
   }
 
-  private func seedUITestBatchOverlayIfNeeded() {
-    guard ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1" else { return }
+  public func ensureUITestBatchOverlayIfNeeded(after delay: TimeInterval = 0.0) async {
+    await ensureUITestBatchOverlayIfNeeded(after: delay, remainingRetries: 5)
+  }
 
-    let seedEpisodeIDs: [String]
-    if allEpisodes.isEmpty {
-      seedEpisodeIDs = ["ui-test-episode"]
-    } else {
-      seedEpisodeIDs = Array(allEpisodes.prefix(5)).map { $0.id }
+  private func ensureUITestBatchOverlayIfNeeded(
+    after delay: TimeInterval,
+    remainingRetries: Int
+  ) async {
+    guard ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1" else { return }
+    guard !hasSeededUITestOverlay else { return }
+    guard activeBatchOperations.isEmpty else {
+      overlayLogger.debug("Forced overlay already active; skipping reseed")
+      return
     }
+
+    overlayLogger.debug(
+      "Requesting forced overlay (delay: \(delay, format: .fixed(precision: 2), privacy: .public)s, retries: \(remainingRetries, privacy: .public))"
+    )
+
+    if delay > 0 {
+      try? await Task.sleep(nanoseconds: nanoseconds(from: delay))
+    }
+
+    let seedEpisodeIDs = makeSeedEpisodeIDs()
+    print("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs)")
+
+    if seedEpisodeIDs.isEmpty {
+      overlayLogger.debug("No episodes available for forced overlay; retries remaining: \(remainingRetries, privacy: .public)")
+      guard remainingRetries > 0 else { return }
+      try? await Task.sleep(nanoseconds: 200_000_000)
+      await ensureUITestBatchOverlayIfNeeded(after: 0.0, remainingRetries: remainingRetries - 1)
+      return
+    }
+
+    hasSeededUITestOverlay = true
+
+    overlayLogger.debug("Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
+    print("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count) IDs")
 
     var seededOperation = BatchOperation(
       operationType: .markAsPlayed,
@@ -307,8 +344,20 @@ public final class EpisodeListViewModel: ObservableObject {
         viewModel.activeBatchOperations.removeAll { $0.id == seededOperation.id }
         seededOperation = seededOperation.withStatus(.completed)
         viewModel.presentBanner(for: seededOperation)
+        viewModel.overlayLogger.debug("Forced overlay transitioned to completion banner")
       }
     }
+  }
+
+  private func makeSeedEpisodeIDs() -> [String] {
+    let sourceEpisodes = filteredEpisodes.isEmpty ? allEpisodes : filteredEpisodes
+    let ids = Array(sourceEpisodes.prefix(5)).map { $0.id }
+    return ids.isEmpty ? ["ui-test-episode"] : ids
+  }
+
+  private func nanoseconds(from seconds: TimeInterval) -> UInt64 {
+    guard seconds > 0 else { return 0 }
+    return UInt64((seconds * 1_000_000_000).rounded())
   }
 
   private func updateBatchOperation(_ batchOperation: BatchOperation) {

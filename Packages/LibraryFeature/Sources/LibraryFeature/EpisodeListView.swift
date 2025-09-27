@@ -118,6 +118,12 @@ public struct EpisodeListView: View {
             )
         }
         .accessibilityIdentifier("Episode List View")
+        .task {
+            await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
+        }
+        .onChange(of: viewModel.filteredEpisodes.count) { _ in
+            Task { await viewModel.ensureUITestBatchOverlayIfNeeded() }
+        }
     }
     
     @ViewBuilder
