@@ -279,3 +279,10 @@ graph TD
 - Instrumented active operation state with debug prints and streamlined `BatchOperationUITests` to fail fast with `app.debugDescription` when overlays go missing.
 - CLI updates: `scripts/run-xcode-tests.sh` now supports `-s` syntax flag, deprecates action verbs, and dumps argument selections for traceability.
 - Validation: `./scripts/run-xcode-tests.sh -t zpodUITests/BatchOperationUITests/testLaunchConfiguredApp_WithForcedOverlayDoesNotWait` ✅; broader `zpodUITests` still red on known ContentDiscovery flake (unchanged). Captured targeted result bundle at `TestResults/TestResults_20250927_081734_test_zpodUITests-BatchOperationUITests-testLaunchConfiguredApp_WithForcedOverlayDoesNotWait.xcresult` for review.
+
+## 2025-09-27 21:28 EDT — QA Audit on Issue Wrap-up Readiness
+- Reviewed feature branch against GitHub Issue 02.1.3.2 acceptance criteria plus parent epics.
+- Observed that `EpisodeListView` constructs `EpisodeListViewModel` without wiring a playback service or persistence repository, so the quick-play affordance is a no-op and status updates do not persist across reloads.
+- Confirmed guard in `EpisodeListViewModel.quickPlayEpisode` bails when `playbackService` is `nil`, matching the missing injection; repository writes also short-circuit when `episodeRepository` is absent.
+- Result: Episode status visuals function in isolation, but acceptance scenarios 2 & 4 remain unmet; blocking merge/issue closure until dependencies are injected and persistence verified.
+- Next steps: supply production `EpisodePlaybackService` and `EpisodeRepository` when building the view model, re-run progress/playback specs, and add coverage proving persistence after navigation relaunch.
