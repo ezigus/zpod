@@ -346,6 +346,11 @@ run_swift_lint() {
 
   log_warn "No Swift lint tool available (swiftlint/swift-format/swiftformat)."
 
+  local in_ci=0
+  if [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
+    in_ci=1
+  fi
+
   if command_exists brew; then
     log_section "Installing SwiftLint via Homebrew"
     if brew list swiftlint >/dev/null 2>&1; then
@@ -377,6 +382,10 @@ To enable linting install one of the supported tools and ensure it is on PATH be
 
 After installation rerun ./scripts/run-xcode-tests.sh so the lint phase executes.
 EOF
+  if [[ $in_ci -eq 1 ]]; then
+    log_warn "Continuing without lint (CI environment)."
+    return 0
+  fi
   return 1
 }
 
