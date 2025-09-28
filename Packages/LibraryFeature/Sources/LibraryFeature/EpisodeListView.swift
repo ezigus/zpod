@@ -1046,7 +1046,6 @@ private final class EpisodeListDependencyProvider {
 
     private init() {
         self.playbackService = EnhancedEpisodePlayer()
-        let defaults = UserDefaults(suiteName: "us.zig.zpod.episode-state") ?? .standard
-        self.episodeRepository = UserDefaultsEpisodeRepository(userDefaults: defaults)
+        self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
     }
 }

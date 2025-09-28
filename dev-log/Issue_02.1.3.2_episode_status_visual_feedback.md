@@ -293,3 +293,7 @@ graph TD
 - Expanded `EpisodeStatusProgressTests` with a persistence rehydration scenario and upgraded the mock repository to emulate real storage semantics; existing expectations updated accordingly.
 - Ran `./scripts/run-xcode-tests.sh -s` (syntax sweep ✅; log `TestResults/TestResults_20250928_080511_syntax_swift.log`).
 - Outcome: Quick-play and download affordances now persist across navigation sessions, meeting Issue 02.1.3.x acceptance requirements pending full device validation.
+
+## 2025-09-28 08:12 EDT — Xcode Regression Run
+- Added public suite-based initialisers to `UserDefaultsPodcastRepository`/`UserDefaultsEpisodeRepository` to avoid passing non-sendable `UserDefaults` across actor boundaries.
+- Ran `./scripts/run-xcode-tests.sh -b zpod` (✅) and attempted `./scripts/run-xcode-tests.sh -t zpod` (fails: "There are no test bundles available to test"; likely scheme configuration quirk, needs follow-up to re-enable bundle discovery).
