@@ -29,6 +29,38 @@ REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
 SELF_CHECK=0
 
+ensure_swift_format_tool() {
+  local tool_root="${REPO_ROOT}/.build-tools/swift-format"
+  local tool_binary="${tool_root}/.build/release/swift-format"
+  if [[ -x "$tool_binary" ]]; then
+    export PATH="${tool_root}/.build/release:${PATH}"
+    return 0
+  fi
+
+  if ! command_exists git || ! command_exists swift; then
+    return 1
+  fi
+
+  log_section "Bootstrapping swift-format"
+  mkdir -p "${REPO_ROOT}/.build-tools"
+  if [[ -d "$tool_root/.git" ]]; then
+    log_info "Updating swift-format repository"
+    (cd "$tool_root" && git fetch --depth 1 origin main && git reset --hard origin/main) || return 1
+  else
+    log_info "Cloning swift-format"
+    git clone --depth 1 https://github.com/apple/swift-format.git "$tool_root" || return 1
+  fi
+
+  log_info "Building swift-format (release)"
+  swift build -c release --product swift-format --package-path "$tool_root" || return 1
+
+  if [[ -x "$tool_binary" ]]; then
+    export PATH="${tool_root}/.build/release:${PATH}"
+    return 0
+  fi
+  return 1
+}
+
 show_help() {
   cat <<EOF
 Usage: scripts/run-xcode-tests.sh [OPTIONS]
@@ -342,6 +374,17 @@ run_swift_lint() {
     ) | tee "$RESULT_LOG"
     log_success "swiftformat lint finished -> $RESULT_LOG"
     return 0
+  fi
+
+  if ensure_swift_format_tool; then
+    if command_exists swift-format; then
+      (
+        cd "$REPO_ROOT"
+        swift-format lint --recursive .
+      ) | tee "$RESULT_LOG"
+      log_success "swift-format lint finished -> $RESULT_LOG"
+      return 0
+    fi
   fi
 
   log_warn "No Swift lint tool available (swiftlint/swift-format/swiftformat)."
