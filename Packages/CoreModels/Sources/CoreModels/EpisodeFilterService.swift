@@ -636,7 +636,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
                 snippet = "..." + snippet
             }
             if endIndex < text.count {
-                snippet = snippet + "..."
+                snippet += "..."
             }
             
             return snippet

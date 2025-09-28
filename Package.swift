@@ -46,7 +46,7 @@ let package = Package(
             ],
             path: "zpod",
             exclude: [
-                "zpodApp.swift",
+                "ZpodApp.swift",
                 "Controllers/",
                 "Assets.xcassets",
                 "Preview Content",

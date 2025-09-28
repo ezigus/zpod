@@ -1,0 +1,70 @@
+included:
+  - zpod
+  - zpodTests
+  - zpodUITests
+  - IntegrationTests
+  - Packages
+excluded:
+  - .build
+  - '**/.build'
+  - .swiftpm
+  - TestResults
+  - scripts
+  - dev-log
+  - Issues
+  - .logs
+  - zpod.xcodeproj
+  - zpod.xcworkspace
+  - zpod.xctestplan
+  - zPod.code-workspace
+
+disabled_rules:
+  - trailing_comma
+  - trailing_whitespace
+  - trailing_newline
+  - opening_brace
+  - redundant_discardable_let
+  - todo
+  - multiple_closures_with_trailing_closure
+  - for_where
+  - empty_enum_arguments
+  - duplicate_imports
+  - implicit_optional_initialization
+  - unused_closure_parameter
+  - non_optional_string_data_conversion
+  - force_try
+  - type_name
+
+line_length:
+  warning: 200
+  error: 260
+
+file_length:
+  warning: 1200
+  error: 1600
+
+function_body_length:
+  warning: 120
+  error: 200
+
+cyclomatic_complexity:
+  warning: 25
+  error: 40
+
+type_body_length:
+  warning: 500
+  error: 750
+
+identifier_name:
+  excluded:
+    - i
+    - el
+    - id
+    - p
+    - q
+    - r1
+    - r2
+    - vc
+    - op
+    - ep
+
