@@ -75,6 +75,7 @@ public final class EpisodeListViewModel: ObservableObject {
     // Subscribe to batch operation updates
     setupBatchOperationSubscription()
     setupDownloadProgressSubscription()
+    loadPersistedEpisodes()
 
   }
 
@@ -395,6 +396,26 @@ public final class EpisodeListViewModel: ObservableObject {
       .store(in: &cancellables)
   }
 
+  private func loadPersistedEpisodes() {
+    guard episodeRepository != nil else { return }
+
+    launchTask { viewModel in
+      guard let repository = viewModel.episodeRepository else { return }
+
+      for episode in viewModel.allEpisodes {
+        do {
+          if let persistedEpisode = try await repository.loadEpisode(id: episode.id) {
+            await MainActor.run {
+              viewModel.updateEpisode(persistedEpisode, persist: false)
+            }
+          }
+        } catch {
+          continue
+        }
+      }
+    }
+  }
+
   private func applyDownloadProgressUpdate(_ update: EpisodeDownloadProgressUpdate) {
     downloadProgressByEpisodeID[update.episodeID] = update
 
@@ -541,7 +562,7 @@ public final class EpisodeListViewModel: ObservableObject {
     }
   }
 
-  private func updateEpisode(_ updatedEpisode: Episode) {
+  private func updateEpisode(_ updatedEpisode: Episode, persist: Bool = true) {
     // Update in all episodes
     if let index = allEpisodes.firstIndex(where: { $0.id == updatedEpisode.id }) {
       allEpisodes[index] = updatedEpisode
@@ -552,7 +573,7 @@ public final class EpisodeListViewModel: ObservableObject {
       filteredEpisodes[index] = updatedEpisode
     }
 
-    if let episodeRepository {
+    if persist, let episodeRepository {
       Task {
         try? await episodeRepository.saveEpisode(updatedEpisode)
       }

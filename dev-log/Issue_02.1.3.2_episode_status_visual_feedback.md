@@ -286,3 +286,10 @@ graph TD
 - Confirmed guard in `EpisodeListViewModel.quickPlayEpisode` bails when `playbackService` is `nil`, matching the missing injection; repository writes also short-circuit when `episodeRepository` is absent.
 - Result: Episode status visuals function in isolation, but acceptance scenarios 2 & 4 remain unmet; blocking merge/issue closure until dependencies are injected and persistence verified.
 - Next steps: supply production `EpisodePlaybackService` and `EpisodeRepository` when building the view model, re-run progress/playback specs, and add coverage proving persistence after navigation relaunch.
+
+## 2025-09-28 08:05 EDT — Production Dependency Wiring & Persistence Verification
+- Injected `EnhancedEpisodePlayer` and `UserDefaultsEpisodeRepository` via a shared EpisodeList dependency provider so the iPhone assembly uses live playback + persistence (touchpoints: `EpisodeListView`/`EpisodeListViewModel`).
+- Added `loadPersistedEpisodes()` to hydrate state from storage on init and taught `updateEpisode` to skip redundant writes during rehydration.
+- Expanded `EpisodeStatusProgressTests` with a persistence rehydration scenario and upgraded the mock repository to emulate real storage semantics; existing expectations updated accordingly.
+- Ran `./scripts/run-xcode-tests.sh -s` (syntax sweep ✅; log `TestResults/TestResults_20250928_080511_syntax_swift.log`).
+- Outcome: Quick-play and download affordances now persist across navigation sessions, meeting Issue 02.1.3.x acceptance requirements pending full device validation.

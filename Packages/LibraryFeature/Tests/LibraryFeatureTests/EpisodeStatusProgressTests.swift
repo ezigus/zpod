@@ -127,7 +127,8 @@ final class EpisodeStatusProgressTests: XCTestCase {
         }
         XCTAssertEqual(updatedEpisode.downloadStatus, .downloaded)
         XCTAssertEqual(viewModel.downloadProgress(for: "ep-1")?.fractionCompleted, 1.0)
-        XCTAssertTrue(episodeRepository.savedEpisodeIDs.contains("ep-1"))
+        let savedIDs = await episodeRepository.storedEpisodeIDs()
+        XCTAssertTrue(savedIDs.contains("ep-1"))
     }
     
     @MainActor
@@ -166,7 +167,50 @@ final class EpisodeStatusProgressTests: XCTestCase {
         await viewModel.quickPlayEpisode(episode)
         
         await fulfillment(of: [completionExpectation], timeout: 1.0)
-        XCTAssertTrue(episodeRepository.savedEpisodeIDs.contains("ep-2"))
+        let savedIDs = await episodeRepository.storedEpisodeIDs()
+        XCTAssertTrue(savedIDs.contains("ep-2"))
+    }
+
+    @MainActor
+    func testLoadsPersistedEpisodeStateOnInit() async throws {
+        let persistedEpisode = podcast.episodes[1]
+            .withPlayedStatus(true)
+            .withPlaybackPosition(1200)
+        await episodeRepository.seed([persistedEpisode])
+
+        cancellables = Set<AnyCancellable>()
+        downloadManager = MockDownloadManager()
+        progressProvider = MockDownloadProgressProvider()
+        playbackService = MockPlaybackService()
+        batchOperationManager = MockBatchOperationManager()
+
+        viewModel = EpisodeListViewModel(
+            podcast: podcast,
+            filterService: DefaultEpisodeFilterService(),
+            filterManager: nil,
+            batchOperationManager: batchOperationManager,
+            downloadProgressProvider: progressProvider,
+            downloadManager: downloadManager,
+            playbackService: playbackService,
+            episodeRepository: episodeRepository
+        )
+
+        let persistedExpectation = expectation(description: "Persisted episode applied")
+        viewModel.$filteredEpisodes
+            .sink { episodes in
+                if let updated = episodes.first(where: { $0.id == persistedEpisode.id }),
+                   updated.isPlayed,
+                   updated.playbackPosition == persistedEpisode.playbackPosition {
+                    persistedExpectation.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        await fulfillment(of: [persistedExpectation], timeout: 1.0)
+
+        let refreshedEpisode = viewModel.filteredEpisodes.first(where: { $0.id == persistedEpisode.id })
+        XCTAssertEqual(refreshedEpisode?.playbackPosition, persistedEpisode.playbackPosition)
+        XCTAssertTrue(refreshedEpisode?.isPlayed ?? false)
     }
     
     @MainActor
@@ -255,14 +299,24 @@ private final class MockPlaybackService: EpisodePlaybackService {
 }
 
 private actor MockEpisodeRepository: EpisodeRepository {
-    private(set) var savedEpisodeIDs: [String] = []
+    private var storage: [String: Episode] = [:]
     
     func saveEpisode(_ episode: Episode) async throws {
-        savedEpisodeIDs.append(episode.id)
+        storage[episode.id] = episode
     }
     
     func loadEpisode(id: String) async throws -> Episode? {
-        nil
+        storage[id]
+    }
+    
+    func storedEpisodeIDs() -> [String] {
+        Array(storage.keys)
+    }
+    
+    func seed(_ episodes: [Episode]) {
+        for episode in episodes {
+            storage[episode.id] = episode
+        }
     }
 }
 

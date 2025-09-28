@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
+import Foundation
 import CoreModels
 import Persistence
+import PlaybackEngine
 
 #if canImport(UIKit)
 import UIKit
@@ -19,15 +21,19 @@ public struct EpisodeListView: View {
     @StateObject private var viewModel: EpisodeListViewModel
     @State private var isRefreshing = false
     
+    @MainActor
     public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
         self.podcast = podcast
+        let dependencies = EpisodeListDependencyProvider.shared
         if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
             #if DEBUG
             print("EpisodeListView: using stub download coordinator for UI tests")
             #endif
             self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
                 podcast: podcast,
-                filterManager: filterManager
+                filterManager: filterManager,
+                playbackService: dependencies.playbackService,
+                episodeRepository: dependencies.episodeRepository
             ))
         } else {
             #if DEBUG
@@ -38,7 +44,9 @@ public struct EpisodeListView: View {
                 podcast: podcast,
                 filterManager: filterManager,
                 downloadProgressProvider: bridge,
-                downloadManager: bridge
+                downloadManager: bridge,
+                playbackService: dependencies.playbackService,
+                episodeRepository: dependencies.episodeRepository
             ))
         }
     }
@@ -1025,4 +1033,20 @@ struct EpisodeListBannerView: View {
     )
     
     EpisodeListView(podcast: samplePodcast)
+}
+
+// MARK: - Dependency Provider
+
+@MainActor
+private final class EpisodeListDependencyProvider {
+    static let shared = EpisodeListDependencyProvider()
+
+    let playbackService: EpisodePlaybackService
+    let episodeRepository: EpisodeRepository
+
+    private init() {
+        self.playbackService = EnhancedEpisodePlayer()
+        let defaults = UserDefaults(suiteName: "us.zig.zpod.episode-state") ?? .standard
+        self.episodeRepository = UserDefaultsEpisodeRepository(userDefaults: defaults)
+    }
 }
