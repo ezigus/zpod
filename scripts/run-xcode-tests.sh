@@ -344,9 +344,40 @@ run_swift_lint() {
     return 0
   fi
 
-  log_warn "No Swift lint tool available (swiftlint/swift-format/swiftformat). Skipping lint step"
-  printf 'Lint tool unavailable; skipped lint step.\n' | tee "$RESULT_LOG"
-  return 0
+  log_warn "No Swift lint tool available (swiftlint/swift-format/swiftformat)."
+
+  if command_exists brew; then
+    log_section "Installing SwiftLint via Homebrew"
+    if brew list swiftlint >/dev/null 2>&1; then
+      brew upgrade swiftlint || true
+    else
+      brew install swiftlint || true
+    fi
+
+    if command_exists swiftlint; then
+      (
+        cd "$REPO_ROOT"
+        swiftlint lint
+      ) | tee "$RESULT_LOG"
+      log_success "SwiftLint finished -> $RESULT_LOG"
+      return 0
+    fi
+    log_warn "SwiftLint installation attempt failed or command still unavailable."
+  else
+    log_warn "Homebrew not found; cannot auto-install SwiftLint."
+  fi
+
+  cat <<'EOF' | tee "$RESULT_LOG"
+Lint tool unavailable; skipped lint step.
+
+To enable linting install one of the supported tools and ensure it is on PATH before rerunning:
+  • SwiftLint      `brew install swiftlint`
+  • swift-format   `brew install swift-format`
+  • SwiftFormat    `brew install swiftformat`
+
+After installation rerun ./scripts/run-xcode-tests.sh so the lint phase executes.
+EOF
+  return 1
 }
 
 run_test_target() {
