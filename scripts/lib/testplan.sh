@@ -120,6 +120,13 @@ verify_testplan_coverage() {
   local scheme
   scheme=$(_verify_testplan_scheme_for_suite "$suite")
 
+  TESTPLAN_LAST_DISCOVERED=0
+  TESTPLAN_LAST_INCLUDED=0
+  TESTPLAN_LAST_MISSING=0
+  TESTPLAN_LAST_PACKAGES=0
+  TESTPLAN_LAST_WORKSPACE=0
+  TESTPLAN_LAST_MISSING_NAMES=""
+
   ensure_command python3 "python3 is required to parse test plan metadata"
 
   log_section "Test Plan Coverage"
@@ -322,13 +329,51 @@ PY
   done
 
   if [[ ${#missing[@]} -eq 0 ]]; then
+    TESTPLAN_LAST_DISCOVERED=${#all_targets[@]}
+    TESTPLAN_LAST_INCLUDED=${#included_targets[@]}
+    local pkg_count=0
+    local workspace_count=0
+    for candidate in "${all_targets[@]}"; do
+      if printf '%s' "$package_targets" | grep -qx "$candidate"; then
+        ((pkg_count++))
+      else
+        ((workspace_count++))
+      fi
+    done
+    TESTPLAN_LAST_PACKAGES=$pkg_count
+    TESTPLAN_LAST_WORKSPACE=$workspace_count
+    TESTPLAN_LAST_MISSING=0
+    TESTPLAN_LAST_MISSING_NAMES=""
     log_success "All discovered test targets are present in the test plan"
     return 0
   fi
 
+  TESTPLAN_LAST_DISCOVERED=${#all_targets[@]}
+  TESTPLAN_LAST_INCLUDED=${#included_targets[@]}
+  TESTPLAN_LAST_MISSING=${#missing[@]}
+  local pkg_count=0
+  local workspace_count=0
+  for candidate in "${all_targets[@]}"; do
+    if printf '%s' "$package_targets" | grep -qx "$candidate"; then
+      ((pkg_count++))
+    else
+      ((workspace_count++))
+    fi
+  done
+  TESTPLAN_LAST_PACKAGES=$pkg_count
+  TESTPLAN_LAST_WORKSPACE=$workspace_count
+
+  local missing_list=""
   log_warn "Missing targets in test plan:"
   for candidate in "${missing[@]}"; do
     log_warn "  - $candidate"
+    if [[ -z "$missing_list" ]]; then
+      missing_list="$candidate"
+    else
+      missing_list+=$'\n'
+      missing_list+="$candidate"
+    fi
   done
+  TESTPLAN_LAST_MISSING_NAMES="$missing_list"
   return 2
 }

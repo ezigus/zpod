@@ -31,20 +31,289 @@ SELF_CHECK=0
 SCHEME_RESOLVED=0
 SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
 
-declare -a SUMMARY_LINES=()
+TESTPLAN_LAST_DISCOVERED=0
+TESTPLAN_LAST_INCLUDED=0
+TESTPLAN_LAST_MISSING=0
+TESTPLAN_LAST_PACKAGES=0
+TESTPLAN_LAST_WORKSPACE=0
+TESTPLAN_LAST_MISSING_NAMES=""
+
+declare -a SUMMARY_ITEMS=()
 
 add_summary() {
-  SUMMARY_LINES+=("$1")
+  local category="$1"
+  local name="$2"
+  local status="$3"
+  local log_path="${4:-}"
+  local total="${5:-}"
+  local passed="${6:-}"
+  local failed="${7:-}"
+  local skipped="${8:-}"
+  local note="${9:-}"
+  SUMMARY_ITEMS+=("${category}|${name}|${status}|${log_path}|${total}|${passed}|${failed}|${skipped}|${note}")
+}
+
+extract_test_counts() {
+  local summary="$1"
+  summary="${summary//$'\r'/}"
+  summary="${summary//$'\n'/}"
+  if [[ "$summary" =~ ^([0-9]+)[[:space:]]+run,[[:space:]]+([0-9]+)[[:space:]]+passed,[[:space:]]+([0-9]+)[[:space:]]+failed,[[:space:]]+([0-9]+)[[:space:]]+skipped$ ]]; then
+    printf "%s|%s|%s|%s" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
+    return 0
+  fi
+  return 1
+}
+
+join_with_delimiter() {
+  local delimiter="$1"
+  shift
+  local -a items=("$@")
+  local count=${#items[@]}
+  if (( count == 0 )); then
+    return
+  fi
+  local output="${items[0]}"
+  local i
+  for (( i=1; i<count; i++ )); do
+    output+="${delimiter}${items[i]}"
+  done
+  printf "%s" "$output"
+}
+
+format_list_preview() {
+  local array_name="$1"
+  local limit=${2:-6}
+
+  local count
+  eval "count=\${#$array_name[@]}"
+  if (( count == 0 )); then
+    return
+  fi
+
+  local slice_count=$(( count < limit ? count : limit ))
+  local -a slice=()
+  local idx value
+  for (( idx=0; idx<slice_count; idx++ )); do
+    eval "value=\${$array_name[$idx]}"
+    slice+=("$value")
+  done
+
+  local text
+  text=$(join_with_delimiter ", " "${slice[@]}")
+  if (( count > limit )); then
+    text+=" (+$((count - limit)) more)"
+  fi
+  printf "%s" "$text"
+}
+
+collect_build_summary_info() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 0
+
+  local -a targets=()
+  local -a packages=()
+  local targets_seen=$'\n'
+  local packages_seen=$'\n'
+  local in_packages=0
+  local target_regex="Target '([^']+)'"
+
+  while IFS= read -r line; do
+    if [[ -z "${line// }" ]]; then
+      in_packages=0
+    fi
+
+    if [[ "$line" == *"Resolved source packages:"* ]]; then
+      in_packages=1
+      continue
+    fi
+
+    if (( in_packages )); then
+      if [[ $line =~ ^[[:space:]]*([A-Za-z0-9._-]+):[[:space:]] ]]; then
+        local package="${BASH_REMATCH[1]}"
+        if [[ $packages_seen != *$'\n'"$package"$'\n'* ]]; then
+          packages+=("$package")
+          packages_seen+="${package}"$'\n'
+        fi
+      fi
+      continue
+    fi
+
+    if [[ $line =~ $target_regex ]]; then
+      local target="${BASH_REMATCH[1]}"
+      if [[ $targets_seen != *$'\n'"$target"$'\n'* ]]; then
+  targets+=("$target")
+  targets_seen+="${target}"$'\n'
+      fi
+    fi
+  done < "$log_path"
+
+  local -a parts=()
+  if (( ${#targets[@]} > 0 )); then
+    local formatted
+    formatted=$(format_list_preview targets 6)
+    parts+=("targets ${#targets[@]}: ${formatted}")
+  fi
+  if (( ${#packages[@]} > 0 )); then
+    local formatted
+    formatted=$(format_list_preview packages 6)
+    parts+=("packages ${#packages[@]}: ${formatted}")
+  fi
+
+  if (( ${#parts[@]} == 0 )); then
+    return 0
+  fi
+
+  local note="${parts[0]}"
+  local p_idx
+  for (( p_idx=1; p_idx<${#parts[@]}; p_idx++ )); do
+    note+="; ${parts[p_idx]}"
+  done
+  printf "%s" "$note"
+}
+
+summarize_syntax_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 0
+  local file_count
+  file_count=$(grep -c "Checking:" "$log_path" 2>/dev/null || true)
+  if (( file_count > 0 )); then
+    printf "%s" "${file_count} files checked"
+  fi
+}
+
+summarize_lint_log() {
+  local tool="$1"
+  local log_path="$2"
+  [[ -f "$log_path" ]] || return 0
+
+  local line
+  line=$(grep -E "Found [0-9]+ violations" "$log_path" 2>/dev/null | tail -1)
+  if [[ -n "$line" ]]; then
+    if [[ $line =~ Found[[:space:]]+([0-9]+)[[:space:]]+violations?,[[:space:]]+([0-9]+)[[:space:]]+serious[[:space:]]+in[[:space:]]+([0-9]+)[[:space:]]+files? ]]; then
+      printf "%s" "${BASH_REMATCH[3]} files, ${BASH_REMATCH[1]} violations (${BASH_REMATCH[2]} serious)"
+      return 0
+    fi
+    printf "%s" "$line"
+    return 0
+  fi
+
+  case "$tool" in
+    swift-format)
+      line=$(grep -E "(No lint violations|Lint finished)" "$log_path" 2>/dev/null | tail -1)
+      ;;
+    swiftformat)
+      line=$(grep -E "SwiftFormat" "$log_path" 2>/dev/null | tail -1)
+      ;;
+  esac
+
+  if [[ -n "$line" ]]; then
+    printf "%s" "$line"
+  fi
+}
+
+summarize_testplan_note() {
+  local -a parts=()
+  if (( TESTPLAN_LAST_DISCOVERED > 0 )); then
+    parts+=("targets ${TESTPLAN_LAST_DISCOVERED} (workspace ${TESTPLAN_LAST_WORKSPACE}, package ${TESTPLAN_LAST_PACKAGES})")
+  fi
+  if (( TESTPLAN_LAST_INCLUDED >= 0 )); then
+    parts+=("plan entries ${TESTPLAN_LAST_INCLUDED}")
+  fi
+  if (( TESTPLAN_LAST_MISSING >= 0 )); then
+    local missing_text="missing ${TESTPLAN_LAST_MISSING}"
+    if (( TESTPLAN_LAST_MISSING > 0 )) && [[ -n "$TESTPLAN_LAST_MISSING_NAMES" ]]; then
+      local -a missing_arr=()
+      while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        missing_arr+=("$name")
+      done <<< "$TESTPLAN_LAST_MISSING_NAMES"
+      if (( ${#missing_arr[@]} > 0 )); then
+        local limit=5
+        local preview_count=$(( ${#missing_arr[@]} < limit ? ${#missing_arr[@]} : limit ))
+        local -a preview=()
+        local idx
+        for (( idx=0; idx<preview_count; idx++ )); do
+          preview+=("${missing_arr[idx]}")
+        done
+        local preview_text=""
+        if (( preview_count > 0 )); then
+          preview_text=$(join_with_delimiter ", " "${preview[@]}")
+          if (( ${#missing_arr[@]} > limit )); then
+            preview_text+=" (+$(( ${#missing_arr[@]} - limit )) more)"
+          fi
+          missing_text+=" (${preview_text})"
+        fi
+      fi
+    fi
+    parts+=("${missing_text}")
+  fi
+
+  if (( ${#parts[@]} == 0 )); then
+    return 0
+  fi
+
+  local note="${parts[0]}"
+  local idx
+  for (( idx=1; idx<${#parts[@]}; idx++ )); do
+    note+="; ${parts[idx]}"
+  done
+  printf "%s" "$note"
 }
 
 print_summary() {
-  if [[ ${#SUMMARY_LINES[@]} -eq 0 ]]; then
+  if [[ ${#SUMMARY_ITEMS[@]} -eq 0 ]]; then
     return
   fi
   log_section "Summary"
-  local line
-  for line in "${SUMMARY_LINES[@]}"; do
-    log_info "$line"
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]}"; do
+    IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
+
+    local category_label
+    case "$category" in
+      build) category_label="Build" ;;
+      lint) category_label="Lint" ;;
+      syntax) category_label="Syntax" ;;
+      test) category_label="Tests" ;;
+      testplan) category_label="Test Plan" ;;
+      *) category_label="$category" ;;
+    esac
+
+    local prefix="${category_label}: ${name}"
+    local detail="${prefix}"
+    local -a extra_parts=()
+    if [[ "$category" == "test" && -n "$total" ]]; then
+      extra_parts+=("${total} total (passed ${passed}, failed ${failed}, skipped ${skipped})")
+    fi
+    if [[ -n "$note" ]]; then
+      extra_parts+=("${note}")
+    fi
+    if [[ -n "$log_path" ]]; then
+      extra_parts+=("log: ${log_path}")
+    fi
+    if [[ ${#extra_parts[@]} -gt 0 ]]; then
+      detail="${prefix} – ${extra_parts[0]}"
+      local idx=1
+      while [[ $idx -lt ${#extra_parts[@]} ]]; do
+        detail+="; ${extra_parts[$idx]}"
+        ((idx++))
+      done
+    fi
+
+    case "$status" in
+      success)
+        log_success "$detail"
+        ;;
+      warn)
+        log_warn "$detail"
+        ;;
+      error|fail|failed)
+        log_error "$detail"
+        ;;
+      *)
+        log_info "$detail"
+        ;;
+    esac
   done
 }
 
@@ -302,7 +571,9 @@ run_syntax_check() {
   ) | tee "$RESULT_LOG"
 
   log_success "Syntax check finished -> $RESULT_LOG"
-  add_summary "Syntax check: $RESULT_LOG"
+  local note=""
+  note=$(summarize_syntax_log "$RESULT_LOG")
+  add_summary "syntax" "Swift syntax" "success" "$RESULT_LOG" "" "" "" "" "$note"
 }
 
 build_app_target() {
@@ -328,7 +599,9 @@ build_app_target() {
   log_section "xcodebuild ${target_label}"
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
   log_success "Build finished -> $RESULT_LOG"
-  add_summary "Build ${target_label}: $RESULT_LOG"
+  local note=""
+  note=$(collect_build_summary_info "$RESULT_LOG")
+  add_summary "build" "${target_label}" "success" "$RESULT_LOG" "" "" "" "" "$note"
 }
 
 build_package_target() {
@@ -337,13 +610,16 @@ build_package_target() {
     :
   else
     log_warn "Skipping swift build for package '${package}' (host platform unsupported; built via workspace targets)"
+    add_summary "build" "package ${package}" "warn" "" "" "" "" "" "skipped (host platform unsupported)"
     return 0
   fi
   init_result_paths "build_pkg" "$package"
   log_section "swift build (${package})"
   build_swift_package "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
   log_success "Package build finished -> $RESULT_LOG"
-  add_summary "Build package ${package}: $RESULT_LOG"
+  local note=""
+  note=$(collect_build_summary_info "$RESULT_LOG")
+  add_summary "build" "package ${package}" "success" "$RESULT_LOG" "" "" "" "" "$note"
 }
 
 run_build_target() {
@@ -396,7 +672,7 @@ test_app_target() {
     log_warn "Generic simulator destination detected; running build only and skipping UI/unit tests"
     build_app_target "$target"
     log_warn "Swift Package tests skipped due to simulator unavailability"
-    add_summary "Tests ${target}: skipped (generic destination)"
+    add_summary "test" "${target}" "warn" "" "" "" "" "" "skipped (generic simulator destination)"
     return 0
   fi
 
@@ -448,7 +724,17 @@ test_app_target() {
   fi
 
   log_success "Tests finished -> $RESULT_LOG"
-  add_summary "Tests ${target}: $RESULT_LOG"
+  local summary_text=""
+  local total="" passed="" failed="" skipped="" note=""
+  if summary_text=$(xcresult_summary "$RESULT_BUNDLE" 2>/dev/null); then
+    local counts=""
+    if counts=$(extract_test_counts "$summary_text"); then
+      IFS='|' read -r total passed failed skipped <<< "$counts"
+    else
+      note="$summary_text"
+    fi
+  fi
+  add_summary "test" "${target}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
 }
 
 test_package_target() {
@@ -457,13 +743,14 @@ test_package_target() {
     :
   else
     log_warn "Skipping swift test for package '${package}' (host platform unsupported on this machine)"
+    add_summary "test" "package ${package}" "warn" "" "" "" "" "" "skipped (host platform unsupported)"
     return 0
   fi
   init_result_paths "test_pkg" "$package"
   log_section "swift test (${package})"
   run_swift_package_target_tests "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
   log_success "Package tests finished -> $RESULT_LOG"
-  add_summary "Tests package ${package}: $RESULT_LOG"
+  add_summary "test" "package ${package}" "success" "$RESULT_LOG"
 }
 
 run_swift_lint() {
@@ -476,7 +763,9 @@ run_swift_lint() {
       swiftlint lint
     ) | tee "$RESULT_LOG"
     log_success "SwiftLint finished -> $RESULT_LOG"
-    add_summary "Lint (swiftlint): $RESULT_LOG"
+    local note=""
+    note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
+    add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
@@ -486,7 +775,9 @@ run_swift_lint() {
       swift-format lint --recursive .
     ) | tee "$RESULT_LOG"
     log_success "swift-format lint finished -> $RESULT_LOG"
-    add_summary "Lint (swift-format): $RESULT_LOG"
+    local note=""
+    note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
+    add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
@@ -496,7 +787,9 @@ run_swift_lint() {
       swiftformat --lint .
     ) | tee "$RESULT_LOG"
     log_success "swiftformat lint finished -> $RESULT_LOG"
-    add_summary "Lint (swiftformat): $RESULT_LOG"
+    local note=""
+    note=$(summarize_lint_log "swiftformat" "$RESULT_LOG")
+    add_summary "lint" "swiftformat" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
@@ -507,7 +800,9 @@ run_swift_lint() {
         swift-format lint --recursive .
       ) | tee "$RESULT_LOG"
       log_success "swift-format lint finished -> $RESULT_LOG"
-      add_summary "Lint (swift-format): $RESULT_LOG"
+      local note=""
+      note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
+      add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
       return 0
     fi
   fi
@@ -533,7 +828,9 @@ run_swift_lint() {
         swiftlint lint
       ) | tee "$RESULT_LOG"
       log_success "SwiftLint finished -> $RESULT_LOG"
-      add_summary "Lint (swiftlint): $RESULT_LOG"
+      local note=""
+      note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
+      add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
       return 0
     fi
     log_warn "SwiftLint installation attempt failed or command still unavailable."
@@ -551,7 +848,7 @@ To enable linting install one of the supported tools and ensure it is on PATH be
 
 After installation rerun ./scripts/run-xcode-tests.sh so the lint phase executes.
 EOF
-  add_summary "Lint skipped: tool unavailable (see $RESULT_LOG)"
+  add_summary "lint" "swift" "warn" "$RESULT_LOG" "" "" "" "" "tool unavailable"
   if [[ $in_ci -eq 1 ]]; then
     log_warn "Continuing without lint (CI environment)."
     return 0
@@ -563,15 +860,25 @@ run_testplan_check() {
   local suite="$1"
   local label="${suite:-default}"
   init_result_paths "testplan" "$label"
-  if verify_testplan_coverage "$suite" | tee "$RESULT_LOG"; then
-    add_summary "Test plan ${label}: $RESULT_LOG"
+  if verify_testplan_coverage "$suite" > >(tee "$RESULT_LOG") 2>&1; then
+    local note
+    note=$(summarize_testplan_note)
+    add_summary "testplan" "${label}" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   else
-    local status=${PIPESTATUS[0]}
+    local status=$?
+    local note
+    note=$(summarize_testplan_note)
     if [[ $status -eq 2 ]]; then
-      add_summary "Test plan ${label}: incomplete (see $RESULT_LOG)"
+      if [[ -z "$note" ]]; then
+        note="incomplete"
+      fi
+      add_summary "testplan" "${label}" "warn" "$RESULT_LOG" "" "" "" "" "$note"
     else
-      add_summary "Test plan ${label}: failed (see $RESULT_LOG)"
+      if [[ -z "$note" ]]; then
+        note="failed"
+      fi
+      add_summary "testplan" "${label}" "warn" "$RESULT_LOG" "" "" "" "" "$note"
     fi
     return $status
   fi
@@ -632,7 +939,17 @@ run_filtered_xcode_tests() {
   fi
 
   log_success "Tests finished -> $RESULT_LOG"
-  add_summary "Tests ${label}: $RESULT_LOG"
+  local summary_text=""
+  local total="" passed="" failed="" skipped="" note=""
+  if summary_text=$(xcresult_summary "$RESULT_BUNDLE" 2>/dev/null); then
+    local counts=""
+    if counts=$(extract_test_counts "$summary_text"); then
+      IFS='|' read -r total passed failed skipped <<< "$counts"
+    else
+      note="$summary_text"
+    fi
+  fi
+  add_summary "test" "${label}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
 }
 
 run_test_target() {
@@ -908,7 +1225,6 @@ fi
 
 if [[ $did_run_anything -eq 1 ]]; then
   print_summary
-  log_success "Requested operations complete"
   exit 0
 fi
 
@@ -946,4 +1262,3 @@ fi
 run_test_target "zpod"
 run_swift_lint
 print_summary
-log_success "Default build, test, and lint complete"
