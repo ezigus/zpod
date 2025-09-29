@@ -313,9 +313,16 @@ test_app_target() {
     return 0
   fi
 
-  init_result_paths "test" "$target"
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
 
+  if [[ "$target" == "zpod" ]]; then
+    local clean_flag=$REQUESTED_CLEAN
+    run_filtered_xcode_tests "${target}-unit" "$clean_flag" "zpodTests"
+    run_filtered_xcode_tests "${target}-ui" 0 "zpodUITests"
+    return
+  fi
+
+  init_result_paths "test" "$target"
   if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
     log_warn "Generic simulator destination detected; running build only and skipping UI/unit tests"
     build_app_target "$target"
@@ -499,6 +506,61 @@ run_testplan_check() {
     fi
     return $status
   fi
+}
+
+run_filtered_xcode_tests() {
+  local label="$1"
+  local clean_flag="$2"
+  shift 2
+  local -a filters=("$@")
+
+  init_result_paths "test" "$label"
+
+  local -a args=(
+    -workspace "$WORKSPACE"
+    -scheme "$SCHEME"
+    -sdk iphonesimulator
+    -destination "$SELECTED_DESTINATION"
+    -resultBundlePath "$RESULT_BUNDLE"
+  )
+
+  if [[ $clean_flag -eq 1 ]]; then
+    args+=(clean)
+  fi
+
+  args+=(build test)
+
+  local filter
+  for filter in "${filters[@]}"; do
+    args+=("-only-testing:$filter")
+  done
+
+  log_section "xcodebuild tests (${label})"
+  set +e
+  xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
+  local xc_status=${PIPESTATUS[0]}
+  set -e
+
+  if [[ $xc_status -ne 0 ]]; then
+    xcresult_has_failures "$RESULT_BUNDLE"
+    local inspect_status=$?
+    case $inspect_status in
+      0)
+        log_error "Tests failed (${label}) status $xc_status -> $RESULT_LOG"
+        exit $xc_status
+        ;;
+      1)
+        log_warn "xcodebuild exited with status $xc_status for ${label} but no test failures detected; treating as success"
+        ;;
+      *)
+        log_error "xcodebuild exited with status $xc_status for ${label} and result bundle could not be inspected"
+        exit $xc_status
+        ;;
+    esac
+  fi
+
+  log_success "Tests finished -> $RESULT_LOG"
+  add_summary "Tests ${label}: $RESULT_LOG"
 }
 
 run_test_target() {

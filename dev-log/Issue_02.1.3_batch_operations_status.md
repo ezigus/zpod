@@ -365,3 +365,10 @@ Phase 1 successfully enhanced the existing batch operations and episode status m
 - Ran `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` after harness update (bundle identifier + xcresult tolerance). Package target remains skipped (expected), but `zpodUITests` completed all 56 tests with 0 failures.
 - Summary emitted via script: `TestResults/TestResults_20250929_080039_test_zpodUITests.{log,xcresult}`.
 - Ready to fold results back into Issue 02.1 documentation once pending parent tasks are finalized.
+
+### 2025-09-29 08:39 EDT — Full Scheme Regression (split harness)
+- Updated `./scripts/run-xcode-tests.sh -t zpod` to execute unit (`zpod-unit`) and UI (`zpod-ui`) phases independently.
+- Both phases now green:
+  - `TestResults/TestResults_20250929_082816_test_zpod-unit.{log,xcresult}`
+  - `TestResults/TestResults_20250929_082832_test_zpod-ui.{log,xcresult}`
+- Confirms Issue 02.1.3 validation can rely on stable harness without simulator relaunch failures.
