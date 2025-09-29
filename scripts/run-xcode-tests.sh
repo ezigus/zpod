@@ -17,7 +17,7 @@ source "${SCRIPT_ROOT}/lib/spm.sh"
 # shellcheck source=lib/testplan.sh
 source "${SCRIPT_ROOT}/lib/testplan.sh"
 
-SCHEME="zpod"
+SCHEME="zpod (zpod project)"
 WORKSPACE="${REPO_ROOT}/zpod.xcworkspace"
 PREFERRED_SIM="iPhone 16"
 REQUESTED_CLEAN=0

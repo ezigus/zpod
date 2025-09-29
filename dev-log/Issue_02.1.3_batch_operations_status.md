@@ -354,3 +354,9 @@ Phase 1 successfully enhanced the existing batch operations and episode status m
 ### 2025-09-29 07:15 EDT — Regression Follow-up
 - Re-ran full scheme regression `./scripts/run-xcode-tests.sh -t zpod`; playback UI tests complete (17 pass) but xcodebuild aborts with `** TEST FAILED **` after reporting only the UI suite. Underlying log shows an early runner restart with "Selected tests" summary and 0 additional suites; no explicit XCTest failure emitted. Captured artifacts: `TestResults/TestResults_20250929_070445_test_zpod.{log,xcresult}`.
 - Conclusion: CI-style invocation remains flaky in this environment; treating as infrastructure blocker rather than product regression. Retain log references for future automation fix while focusing next steps on documentation updates and issue roll-up.
+
+### 2025-09-29 07:54 EDT — Harness Tweaks & Remaining Instability
+- Updated `scripts/run-xcode-tests.sh` default scheme to `"zpod (zpod project)"` so targeted runs build the correct UI test host.
+- Switched UITest helper to instantiate `XCUIApplication(bundleIdentifier: "us.zig.zpod")`, eliminating the previous "Invalid request: No bundle identifier was specified" launch failures in direct xcodebuild invocations.
+- Scripted run `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` still exits 65 despite all suites reporting pass; xcresult contains no failures but xcodebuild restarts a second session with zero tests before terminating. Need follow-up harness guard (likely ensure no redundant invocation after first pass).
+- Latest artifacts: `TestResults/TestResults_20250929_074212_test_zpodUITests.{log,xcresult}`.

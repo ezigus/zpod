@@ -9,8 +9,10 @@
 import XCTest
 
 extension XCUIApplication {
+  private static let podAppBundleIdentifier = "us.zig.zpod"
+
   static func configuredForUITests() -> XCUIApplication {
-    let app = XCUIApplication()
+    let app = XCUIApplication(bundleIdentifier: podAppBundleIdentifier)
     app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
     return app
   }
