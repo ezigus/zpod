@@ -17,7 +17,7 @@ source "${SCRIPT_ROOT}/lib/spm.sh"
 # shellcheck source=lib/testplan.sh
 source "${SCRIPT_ROOT}/lib/testplan.sh"
 
-SCHEME="zpod (zpod project)"
+SCHEME=""
 WORKSPACE="${REPO_ROOT}/zpod.xcworkspace"
 PREFERRED_SIM="iPhone 16"
 REQUESTED_CLEAN=0
@@ -28,6 +28,8 @@ REQUEST_TESTPLAN=0
 REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
 SELF_CHECK=0
+SCHEME_RESOLVED=0
+SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
 
 declare -a SUMMARY_LINES=()
 
@@ -77,6 +79,71 @@ ensure_swift_format_tool() {
   fi
   return 1
 }
+
+ensure_scheme_available() {
+  if [[ $SCHEME_RESOLVED -eq 1 ]]; then
+    return
+  fi
+
+  local -a candidates=()
+  if [[ -n "$SCHEME" ]]; then
+    candidates+=("$SCHEME")
+  fi
+  candidates+=("${SCHEME_CANDIDATES[@]}")
+
+  local list_output
+  set +e
+  list_output=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null)
+  local list_status=$?
+  set -e
+  if [[ $list_status -ne 0 || -z "$list_output" ]]; then
+    log_error "Unable to list schemes for workspace '$WORKSPACE'"
+    exit 1
+  fi
+
+  local available_list
+  available_list=$(printf "%s" "$list_output" | awk '
+    /^ *Schemes:/ { capture=1; next }
+    capture && NF==0 { exit }
+    capture { sub(/^ +/,""); print }
+  ') || {
+    log_error "Failed to parse schemes for workspace '$WORKSPACE'"
+    exit 1
+  }
+
+  if [[ -z "$available_list" ]]; then
+    log_error "No schemes found in workspace '$WORKSPACE'"
+    exit 1
+  fi
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    [[ -z "$candidate" ]] && continue
+    if printf '%s
+' "$available_list" | grep -Fxq "$candidate"; then
+      if [[ "$candidate" != "$SCHEME" ]]; then
+        log_info "Using scheme '$candidate'"
+      fi
+      SCHEME="$candidate"
+      SCHEME_RESOLVED=1
+      return
+    fi
+  done
+
+  local first_scheme
+  first_scheme=$(printf '%s
+' "$available_list" | sed -n '1p')
+  if [[ -n "$first_scheme" ]]; then
+    log_info "Using scheme '$first_scheme'"
+    SCHEME="$first_scheme"
+    SCHEME_RESOLVED=1
+    return
+  fi
+
+  log_error "Unable to locate a usable scheme in workspace '$WORKSPACE'"
+  exit 1
+}
+
 
 show_help() {
   cat <<EOF
@@ -242,6 +309,7 @@ build_app_target() {
   local target_label="$1"
   require_xcodebuild || return 1
   require_workspace
+  ensure_scheme_available
   init_result_paths "build" "$target_label"
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
 
@@ -306,6 +374,7 @@ run_build_target() {
 test_app_target() {
   local target="$1"
   require_workspace
+  ensure_scheme_available
   if ! command_exists xcodebuild; then
     log_warn "xcodebuild unavailable, running package fallback"
     init_result_paths "test_fallback" "$target"
@@ -513,6 +582,9 @@ run_filtered_xcode_tests() {
   local clean_flag="$2"
   shift 2
   local -a filters=("$@")
+
+  ensure_scheme_available
+  select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
 
   init_result_paths "test" "$label"
 

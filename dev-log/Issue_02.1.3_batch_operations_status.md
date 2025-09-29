@@ -372,3 +372,6 @@ Phase 1 successfully enhanced the existing batch operations and episode status m
   - `TestResults/TestResults_20250929_082816_test_zpod-unit.{log,xcresult}`
   - `TestResults/TestResults_20250929_082832_test_zpod-ui.{log,xcresult}`
 - Confirms Issue 02.1.3 validation can rely on stable harness without simulator relaunch failures.
+
+### 2025-09-29 08:54 EDT — Scheme Detection for CI
+- Added auto-detection of shared Xcode schemes in `run-xcode-tests.sh` so CI (which only exposes `zpod`) gracefully falls back when `"zpod (zpod project)"` is unavailable.
