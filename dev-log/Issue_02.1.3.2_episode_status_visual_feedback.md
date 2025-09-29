@@ -297,3 +297,9 @@ graph TD
 ## 2025-09-28 08:12 EDT — Xcode Regression Run
 - Added public suite-based initialisers to `UserDefaultsPodcastRepository`/`UserDefaultsEpisodeRepository` to avoid passing non-sendable `UserDefaults` across actor boundaries.
 - Ran `./scripts/run-xcode-tests.sh -b zpod` (✅) and attempted `./scripts/run-xcode-tests.sh -t zpod` (fails: "There are no test bundles available to test"; likely scheme configuration quirk, needs follow-up to re-enable bundle discovery).
+
+## 2025-09-28 20:57 EDT — Final Verification & Merge
+- Successful full regression via `./scripts/run-xcode-tests.sh -t zpod` (✅; log `TestResults/TestResults_20250928_204205_test_zpod.log`).
+- Ran `./scripts/run-xcode-tests.sh -l` post-script tweaks to confirm lint parity (✅; log `TestResults/TestResults_20250928_201255_lint_swift.log`).
+- Merged PR #67 into `main` (commit 888ed9b31d11e43865c744a722b7986628afc66f) and deleted the feature branch.
+- Closed GitHub Issue 02.1.3.2; renamed local spec file to `Complete - 02.1.3.2-episode-status-visual-feedback.md` to reflect completion.
