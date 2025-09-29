@@ -34,7 +34,8 @@ public protocol EpisodeFilterService: Sendable {
 
 // MARK: - Default Implementation
 
-public actor DefaultEpisodeFilterService: EpisodeFilterService {
+// Comprehensive filtering logic scheduled for modularization.
+public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:disable:this type_body_length
     
     public init() {}
     
@@ -223,8 +224,9 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
         switch status {
         case .downloaded: return 0
         case .downloading: return 1
-        case .notDownloaded: return 2
-        case .failed: return 3
+        case .paused: return 2
+        case .notDownloaded: return 3
+        case .failed: return 4
         }
     }
     
@@ -635,7 +637,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
                 snippet = "..." + snippet
             }
             if endIndex < text.count {
-                snippet = snippet + "..."
+                snippet += "..."
             }
             
             return snippet

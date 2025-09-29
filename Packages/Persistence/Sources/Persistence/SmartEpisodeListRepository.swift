@@ -267,8 +267,8 @@ public class SmartEpisodeListManager: ObservableObject {
 // MARK: - Display Categories
 
 public enum SmartListDisplayCategory: String, CaseIterable {
-    case builtin = "builtin"
-    case custom = "custom"
+    case builtin
+    case custom
     
     public var displayName: String {
         switch self {

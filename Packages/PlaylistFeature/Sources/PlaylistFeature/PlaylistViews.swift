@@ -1,203 +1,279 @@
-import SwiftUI
-import os.log
 import CoreModels
+import SwiftUI
 
-/// Placeholder view for playlist editing (Issue 06 - UI screens out of scope)
-public struct PlaylistEditView: View {
-    @StateObject private var playlistManager = InMemoryPlaylistManager()
-    @State private var selectedPlaylist: Playlist?
-    
-    private let logger = OSLog(subsystem: "com.zpodcastaddict.playlists", category: "PlaylistViews")
-    
-    public init() {}
-    
-    public var body: some View {
-        NavigationView {
-            VStack {
-                Text("Playlist Management")
-                    .font(.title)
-                    .padding()
-                
-                Text("UI editing screens are out of scope for Issue 06")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding()
-                
-                Text("Placeholder functions implemented:")
-                    .font(.headline)
-                    .padding(.top)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("• Manual playlist CRUD operations")
-                    Text("• Smart playlist creation and editing")
-                    Text("• Episode addition/removal/reordering")
-                    Text("• Playlist settings (shuffle, continuous playback)")
-                    Text("• Rule-based smart playlist configuration")
-                }
-                .font(.body)
-                .padding()
-                
-                Spacer()
-                
-                Button("Test Playlist Operations") {
-                    testPlaylistOperations()
-                }
-                .buttonStyle(.borderedProminent)
-                .padding()
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+public struct PlaylistFeatureView: View {
+  private let playlists: [Playlist]
+  private let episodesProvider: (Playlist) -> [Episode]
+
+  public init(
+    playlists: [Playlist],
+    episodesProvider: @escaping (Playlist) -> [Episode]
+  ) {
+    self.playlists = playlists
+    self.episodesProvider = episodesProvider
+  }
+
+  public var body: some View {
+    NavigationStack {
+      List {
+        if playlists.isEmpty {
+          Section {
+            EmptyPlaylistsView()
+              .frame(maxWidth: .infinity)
+              .listRowInsets(.init(top: 24, leading: 16, bottom: 24, trailing: 16))
+          }
+        } else {
+          Section {
+            ForEach(playlists) { playlist in
+              NavigationLink(value: playlist.id) {
+                PlaylistRow(playlist: playlist)
+              }
             }
-            .navigationTitle("Playlists")
+          }
         }
-    }
-    
-    /// Test function demonstrating playlist operations (placeholder)
-    private func testPlaylistOperations() {
-        // Create a test manual playlist
-        let testPlaylist = Playlist(
-            name: "Test Manual Playlist",
-            episodeIds: ["ep1", "ep2", "ep3"],
-            continuousPlayback: true,
-            shuffleAllowed: true
-        )
-        playlistManager.createPlaylist(testPlaylist)
-        
-        // Create a test smart playlist using current CoreModels API
-        let now = Date()
-        let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
-        let smartCriteria = SmartPlaylistCriteria(
-            maxEpisodes: 25,
-            orderBy: .publicationDate,
-            filterRules: [
-                .dateRange(start: sevenDaysAgo, end: now),
-                .isPlayed(false)
-            ]
-        )
-        let testSmartPlaylist = SmartPlaylist(
-            name: "Recent Unplayed Episodes",
-            criteria: smartCriteria
-        )
-        playlistManager.createSmartPlaylist(testSmartPlaylist)
-        
-        os_log("Created test playlists - Manual: %{public}d, Smart: %{public}d", log: logger, type: .info, playlistManager.playlists.count, playlistManager.smartPlaylists.count)
-    }
-}
-
-/// Placeholder view for smart playlist rule editing
-public struct SmartPlaylistRuleEditView: View {
-    @State private var selectedRuleType: String = "isNew"
-    @State private var daysThreshold: Int = 7
-    @State private var podcastId: String = ""
-    
-    private let ruleTypes = ["isNew", "isDownloaded", "isUnplayed", "podcastId", "durationRange"]
-    
-    public init() {}
-    
-    public var body: some View {
-        Form {
-            Section("Rule Type") {
-                Picker("Rule Type", selection: $selectedRuleType) {
-                    ForEach(ruleTypes, id: \.self) { type in
-                        Text(type.capitalized).tag(type)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-            
-            Section("Rule Parameters") {
-                if selectedRuleType == "isNew" {
-                    Stepper("Days: \(daysThreshold)", value: $daysThreshold, in: 1...30)
-                } else if selectedRuleType == "podcastId" {
-                    TextField("Podcast ID", text: $podcastId)
-                }
-            }
-            
-            Section {
-                Text("Smart playlist rule editing UI is a placeholder")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+      }
+      .navigationTitle("Playlists")
+      .navigationDestination(for: String.self) { playlistID in
+        if let playlist = playlists.first(where: { $0.id == playlistID }) {
+          PlaylistDetailView(
+            playlist: playlist,
+            episodes: episodesProvider(playlist)
+          )
+        } else {
+          MissingPlaylistView()
         }
-        .navigationTitle("Edit Rule")
-        .navigationBarTitleDisplayMode(.inline)
+      }
     }
+  }
 }
 
-/// Placeholder view for playlist queue preview
-public struct PlaylistQueuePreviewView: View {
-    let playlist: Playlist?
-    let smartPlaylist: SmartPlaylist?
-    @State private var shuffleEnabled = false
-    
-    public init(playlist: Playlist) {
-        self.playlist = playlist
-        self.smartPlaylist = nil
+// MARK: - Supporting Views
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct PlaylistRow: View {
+  let playlist: Playlist
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(playlist.name)
+        .font(.headline)
+      Text(summaryText)
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
-    
-    public init(smartPlaylist: SmartPlaylist) {
-        self.playlist = nil
-        self.smartPlaylist = smartPlaylist
+    .padding(.vertical, 8)
+  }
+
+  private var summaryText: String {
+    let count = playlist.episodeIds.count
+    guard count > 0 else { return "No episodes yet" }
+    return
+      "\(count) episode\(count == 1 ? "" : "s") • Updated \(playlist.updatedAt.relativeDescription)"
+  }
+}
+
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct EmptyPlaylistsView: View {
+  var body: some View {
+    VStack(spacing: 12) {
+      Image(systemName: "music.note.list")
+        .font(.system(size: 28))
+        .foregroundStyle(.secondary)
+      Text("No playlists yet")
+        .font(.headline)
+      Text("Create a playlist to start organizing your favorite episodes.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
     }
-    
-    public var body: some View {
-        VStack {
-            HStack {
-                Text(playlist?.name ?? smartPlaylist?.name ?? "Unknown Playlist")
-                    .font(.title2)
-                    .bold()
-                Spacer()
-            }
-            .padding()
-            
-            Toggle("Shuffle", isOn: $shuffleEnabled)
-                .padding(.horizontal)
-                .disabled(!(playlist?.shuffleAllowed ?? smartPlaylist?.shuffleAllowed ?? false))
-            
-            List {
-                ForEach(0..<5, id: \.self) { index in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Episode \(index + 1)")
-                                .font(.headline)
-                            Text("Sample episode description")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        Text("30:00")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            
-            Text("Queue generation is implemented in PlaylistEngine")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding()
+    .padding(.vertical, 8)
+  }
+}
+
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct PlaylistDetailView: View {
+  let playlist: Playlist
+  let episodes: [Episode]
+
+  var body: some View {
+    List {
+      if episodes.isEmpty {
+        Section {
+          EmptyEpisodesView(playlistName: playlist.name)
+            .frame(maxWidth: .infinity)
+            .listRowInsets(.init(top: 24, leading: 16, bottom: 24, trailing: 16))
         }
-        .navigationTitle("Queue Preview")
-        .navigationBarTitleDisplayMode(.inline)
+      } else {
+        Section(header: Text("Episodes")) {
+          ForEach(episodes) { episode in
+            EpisodeRow(episode: episode)
+          }
+        }
+      }
     }
+    .navigationTitle(playlist.name)
+  }
 }
 
-#Preview("Playlist Edit") {
-    PlaylistEditView()
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct EmptyEpisodesView: View {
+  let playlistName: String
+
+  var body: some View {
+    VStack(spacing: 12) {
+      Image(systemName: "sparkles")
+        .font(.system(size: 28))
+        .foregroundStyle(.secondary)
+      Text("No episodes in \(playlistName)")
+        .font(.headline)
+      Text("Add episodes to this playlist to see them here.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+    }
+    .padding(.vertical, 8)
+  }
 }
 
-#Preview("Smart Rule Edit") {
-    NavigationView {
-        SmartPlaylistRuleEditView()
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct EpisodeRow: View {
+  let episode: Episode
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(episode.title)
+        .font(.headline)
+      if !episode.podcastTitle.isEmpty {
+        Text(episode.podcastTitle)
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+      }
+      HStack(spacing: 12) {
+        if let duration = episode.duration {
+          Label(duration.formattedTime, systemImage: "clock")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        if let pubDate = episode.pubDate {
+          Label(pubDate.relativeDescription, systemImage: "calendar")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        if episode.isPlayed {
+          Label("Played", systemImage: "checkmark.circle.fill")
+            .font(.caption)
+            .foregroundStyle(.green)
+        }
+      }
     }
+    .padding(.vertical, 8)
+  }
 }
 
-#Preview("Queue Preview - Manual") {
-    NavigationView {
-        PlaylistQueuePreviewView(playlist: Playlist(name: "Sample Playlist"))
+@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+private struct MissingPlaylistView: View {
+  var body: some View {
+    VStack(spacing: 12) {
+      Image(systemName: "exclamationmark.triangle")
+        .font(.system(size: 28))
+        .foregroundStyle(.secondary)
+      Text("Playlist unavailable")
+        .font(.headline)
+      Text("This playlist could not be found.")
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
     }
+    .padding()
+  }
 }
 
-#Preview("Queue Preview - Smart") {
-    NavigationView {
-        PlaylistQueuePreviewView(smartPlaylist: SmartPlaylist(name: "Smart Playlist"))
-    }
+// MARK: - Formatting helpers
+extension TimeInterval {
+  fileprivate var formattedTime: String {
+    let formatter = DateComponentsFormatter()
+    formatter.allowedUnits = [.hour, .minute, .second]
+    formatter.unitsStyle = .abbreviated
+    formatter.zeroFormattingBehavior = [.pad]
+    return formatter.string(from: self) ?? "--"
+  }
 }
+
+@available(iOS 13.0, macOS 10.15, watchOS 6.0, *)
+extension Date {
+  fileprivate var relativeDescription: String {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .short
+    return formatter.localizedString(for: self, relativeTo: Date())
+  }
+}
+
+// MARK: - Preview
+#if DEBUG
+  @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+  struct PlaylistFeatureView_Previews: PreviewProvider {
+    static let playlists: [Playlist] = [
+      Playlist(
+        id: "playlist-1",
+        name: "Morning Commute",
+        episodeIds: ["ep-1", "ep-2"]
+      ),
+      Playlist(
+        id: "playlist-2",
+        name: "Tech Deep Dives",
+        episodeIds: ["ep-3"]
+      ),
+      Playlist(
+        id: "playlist-empty",
+        name: "Listen Later",
+        episodeIds: []
+      ),
+    ]
+
+    static let sampleEpisodes: [String: [Episode]] = [
+      "playlist-1": [
+        Episode(
+          id: "ep-1",
+          title: "Daily News Roundup",
+          podcastID: "pod-1",
+          podcastTitle: "Morning Brief",
+          isPlayed: true,
+          pubDate: Date().addingTimeInterval(-3600),
+          duration: 1800,
+          description: "Start your day with the latest headlines.",
+          downloadStatus: .downloaded
+        ),
+        Episode(
+          id: "ep-2",
+          title: "Market Watch",
+          podcastID: "pod-2",
+          podcastTitle: "Finance Today",
+          pubDate: Date().addingTimeInterval(-7200),
+          duration: 1500,
+          description: "Financial insights for the morning commute.",
+          downloadStatus: .notDownloaded
+        ),
+      ],
+      "playlist-2": [
+        Episode(
+          id: "ep-3",
+          title: "SwiftUI Architecture",
+          podcastID: "pod-3",
+          podcastTitle: "Build Better Apps",
+          pubDate: Date().addingTimeInterval(-86400),
+          duration: 2700,
+          description: "Deep dive into building modular SwiftUI apps.",
+          downloadStatus: .downloading
+        )
+      ],
+    ]
+
+    static var previews: some View {
+      PlaylistFeatureView(
+        playlists: playlists,
+        episodesProvider: { playlist in
+          sampleEpisodes[playlist.id, default: []]
+        }
+      )
+    }
+  }
+#endif

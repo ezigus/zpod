@@ -255,7 +255,9 @@ public enum PlaylistRuleFactory {
     public static func createRule(from data: PlaylistRuleData) -> (any PlaylistRule)? {
         switch data.type {
         case "isNew":
-            if let s = data.parameters["days"], let d = Int(s) { return IsNewRule(days: d) }
+            if let daysValue = data.parameters["days"], let days = Int(daysValue) {
+                return IsNewRule(days: days)
+            }
             return nil
         case "isDownloaded":
             return IsDownloadedRule()

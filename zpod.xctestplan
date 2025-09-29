@@ -1,35 +1,33 @@
 {
-  "configurations" : [
+  "configurations": [
     {
-      "id" : "4D61A313-740F-4723-B938-419E09D19BD8",
-      "name" : "Test Scheme Action",
-      "options" : {
-
-      }
+      "id": "4D61A313-740F-4723-B938-419E09D19BD8",
+      "name": "Test Scheme Action",
+      "options": {}
     }
   ],
-  "defaultOptions" : {
-    "targetForVariableExpansion" : {
-      "containerPath" : "container:zpod.xcodeproj",
-      "identifier" : "786FD1082E22E615008CEE55",
-      "name" : "zpod"
+  "defaultOptions": {
+    "targetForVariableExpansion": {
+      "containerPath": "container:zpod.xcodeproj",
+      "identifier": "786FD1082E22E615008CEE55",
+      "name": "zpod"
     }
   },
-  "testTargets" : [
+  "testTargets": [
     {
-      "target" : {
-        "containerPath" : "container:zpod.xcodeproj",
-        "identifier" : "786FD11C2E22E617008CEE55",
-        "name" : "zpodTests"
+      "target": {
+        "containerPath": "container:zpod.xcodeproj",
+        "identifier": "786FD11C2E22E617008CEE55",
+        "name": "zpodTests"
       }
     },
     {
-      "target" : {
-        "containerPath" : "container:zpod.xcodeproj",
-        "identifier" : "786FD1262E22E617008CEE55",
-        "name" : "zpodUITests"
+      "target": {
+        "containerPath": "container:zpod.xcodeproj",
+        "identifier": "786FD1262E22E617008CEE55",
+        "name": "zpodUITests"
       }
     }
   ],
-  "version" : 1
+  "version": 1
 }

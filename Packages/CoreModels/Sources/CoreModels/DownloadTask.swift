@@ -58,9 +58,9 @@ public struct DownloadTask: Codable, Equatable, Sendable, Identifiable {
 
 /// Priority levels for download tasks
 public enum DownloadPriority: String, Codable, CaseIterable, Sendable, Comparable {
-    case low = "low"
-    case normal = "normal"
-    case high = "high"
+    case low
+    case normal
+    case high
     
     public var displayName: String {
         switch self {
@@ -82,12 +82,12 @@ public enum DownloadPriority: String, Codable, CaseIterable, Sendable, Comparabl
 
 /// Current state of a download task
 public enum DownloadState: String, Codable, Equatable, Sendable {
-    case pending = "pending"
-    case downloading = "downloading"
-    case paused = "paused"
-    case completed = "completed"
-    case failed = "failed"
-    case cancelled = "cancelled"
+    case pending
+    case downloading
+    case paused
+    case completed
+    case failed
+    case cancelled
 }
 
 /// Detailed information about a download including its current state

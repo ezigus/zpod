@@ -66,30 +66,31 @@
 Use the shared helper script for a quick local verification:
 
 ```bash
-./scripts/run-xcode-tests.sh --self-check
-./scripts/run-xcode-tests.sh full_build_and_test
+./scripts/run-xcode-tests.sh --self-check                        # environment sanity checks
+./scripts/run-xcode-tests.sh                                     # default: syntax + build + tests
+./scripts/run-xcode-tests.sh -s                                  # syntax verification only
+./scripts/run-xcode-tests.sh -b zpod                             # build without executing tests
+./scripts/run-xcode-tests.sh -t zpod,zpodUITests                 # targeted test execution
+./scripts/run-xcode-tests.sh -c -b zpod -t zpod                  # clean build + scheme tests
+./scripts/run-xcode-tests.sh -p [suite]                          # verify test plan coverage (omit suite for default)
 ```
 
-Legacy xcodebuild commands remain available if you need manual control:
+> ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
-```bash
-xcodebuild -version
-xcodebuild -list -project zpod.xcodeproj
-xcodebuild -project zpod.xcodeproj -scheme zpod -sdk iphonesimulator
-xcodebuild -project zpod.xcodeproj -scheme zpod \
-  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.0' test
-xcodebuild -project zpod.xcodeproj -scheme zpod clean
-```
+- `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
+- Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
+- Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
+- Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite: clean build, syntax check, test-plan coverage, workspace build, all SwiftPM package tests, app regression, and Swift lint.
 
 ### Non-macOS / Lightweight Environments
-Use `scripts/dev-build.sh` (`all`, `syntax`, `list`, `concurrency`, `test`) or the enhanced script variants (`scripts/dev-build-enhanced.sh syntax|swiftui|concurrency|test`). These scripts provide early warnings for SwiftUI type conflicts, concurrency violations, and syntax errors. When Xcode isn’t available, `./scripts/run-xcode-tests.sh --self-check` validates tooling expectations and falls back to SwiftPM.
+Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.
 
 ### CI Pipeline
 GitHub Actions (`.github/workflows/ci.yml`) now:
 1. Select Xcode 16.4 and perform `./scripts/run-xcode-tests.sh --self-check`.
 2. Ensure a suitable iOS simulator runtime exists (iPhone 16 preferred) and create a device when possible.
-3. Invoke `./scripts/run-xcode-tests.sh full_build_and_test` for the macOS leg.
-4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/dev-build-enhanced.sh syntax` on Ubuntu to exercise the SwiftPM fallback path.
+3. Invoke `./scripts/run-xcode-tests.sh -c -s -b zpod -t zpod` for the macOS leg.
+4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/run-xcode-tests.sh -s` on Ubuntu to exercise the SwiftPM fallback path.
 5. Archive crash logs and test reports.
 
 ### Known Limitations

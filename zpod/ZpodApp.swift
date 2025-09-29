@@ -1,5 +1,5 @@
 //
-//  zpodApp.swift
+//  ZpodApp.swift
 //  zpod
 //
 //  Created by Eric Ziegler on 7/12/25.
@@ -12,7 +12,7 @@ import LibraryFeature
 #endif
 
 @main
-struct zpodApp: App {
+struct ZpodApp: App {
     #if canImport(LibraryFeature)
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([

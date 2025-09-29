@@ -50,6 +50,8 @@ public struct SearchTerm: Sendable, Codable, Equatable, Identifiable {
 /// Boolean operators for combining search terms
 public enum BooleanOperator: String, Sendable, Codable, CaseIterable {
     case and = "AND"
+    // DSL mirrors logical operators in query syntax.
+    // swiftlint:disable:next identifier_name
     case or = "OR"
     case not = "NOT"
     
@@ -64,11 +66,11 @@ public enum BooleanOperator: String, Sendable, Codable, CaseIterable {
 
 /// Specific fields that can be targeted in search
 public enum SearchField: String, Sendable, Codable, CaseIterable {
-    case title = "title"
-    case description = "description"
-    case podcast = "podcast"
-    case duration = "duration"
-    case date = "date"
+    case title
+    case description
+    case podcast
+    case duration
+    case date
     
     public var displayName: String {
         switch self {

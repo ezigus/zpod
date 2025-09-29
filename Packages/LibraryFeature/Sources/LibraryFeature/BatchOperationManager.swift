@@ -31,6 +31,7 @@ public enum BatchOperationError: Error, LocalizedError, Sendable {
 }
 
 /// Protocol for managing batch operations on episodes
+@MainActor
 public protocol BatchOperationManaging: Sendable {
     /// Execute a batch operation
     func executeBatchOperation(_ batchOperation: BatchOperation) async throws -> BatchOperation
@@ -278,9 +279,22 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
 }
 
 /// Protocol for download management (to be used when download manager is available)
-public protocol DownloadManaging: Sendable {
+@MainActor
+public protocol DownloadManaging {
     func downloadEpisode(_ episodeID: String) async throws
     func cancelDownload(_ episodeID: String) async
+    func pauseDownload(_ episodeID: String) async
+    func resumeDownload(_ episodeID: String) async
+}
+
+public extension DownloadManaging {
+    func pauseDownload(_ episodeID: String) async {}
+    func resumeDownload(_ episodeID: String) async {}
+}
+
+@MainActor
+public protocol EpisodeDownloadEnqueuing: DownloadManaging {
+    func enqueueEpisode(_ episode: Episode)
 }
 
 /// Protocol for playlist management (to be used when playlist manager is available)

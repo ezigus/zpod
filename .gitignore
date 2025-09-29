@@ -63,3 +63,6 @@ playground.xcworkspace
 *.xcresult
 TestResults_*
 TestResults_*.log
+
+# Tooling caches
+.build-tools/

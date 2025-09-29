@@ -111,6 +111,8 @@ public struct SmartListRule: Codable, Equatable, Sendable, Identifiable {
 /// Logic for combining multiple rules
 public enum SmartListLogic: String, Codable, CaseIterable, Sendable {
     case and = "AND"
+    // Matches Smart Rules query syntax for clarity.
+    // swiftlint:disable:next identifier_name
     case or = "OR"
     
     public var displayName: String {
@@ -501,12 +503,12 @@ public struct SmartListRuleTemplate: Codable, Equatable, Sendable, Identifiable 
 }
 
 public enum SmartListTemplateCategory: String, Codable, CaseIterable, Sendable {
-    case recent = "recent"
-    case duration = "duration"
-    case status = "status"
-    case rating = "rating"
-    case content = "content"
-    case podcast = "podcast"
+    case recent
+    case duration
+    case status
+    case rating
+    case content
+    case podcast
     
     public var displayName: String {
         switch self {

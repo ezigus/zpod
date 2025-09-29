@@ -57,11 +57,11 @@ public enum BatchOperationType: String, Codable, Sendable, CaseIterable {
 
 /// Represents the status of a batch operation
 public enum BatchOperationStatus: String, Codable, Sendable {
-    case pending = "pending"
-    case running = "running"
-    case completed = "completed"
-    case failed = "failed"
-    case cancelled = "cancelled"
+    case pending
+    case running
+    case completed
+    case failed
+    case cancelled
     
     public var displayName: String {
         switch self {

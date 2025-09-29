@@ -404,4 +404,12 @@ private final class MockPodcastManager: PodcastManaging, @unchecked Sendable {
         defer { lock.unlock() }
         addedPodcasts.removeAll { $0.id == id }
     }
+
+    func findByFolder(folderId: String) -> [Podcast] { [] }
+
+    func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] { [] }
+
+    func findByTag(tagId: String) -> [Podcast] { [] }
+
+    func findUnorganized() -> [Podcast] { [] }
 }

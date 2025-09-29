@@ -76,3 +76,46 @@ flowchart TD
 - After edits, push to a temporary branch without PR to confirm CI triggers once.
 - Open a PR and push new commits to verify the push workflow skips while the PR workflow runs.
 - Ensure merging to `main` still triggers the standard push run.
+
+## 2025-09-27 09:45 EDT — Test Plan Verification Fix Design
+- Regression surfaced: `scripts/run-xcode-tests.sh -p` hard-depends on `xcodebuild -showTestPlans`, which fails on sandboxed/mac-less hosts and prevents the test plan coverage gate from running.
+- Goal: keep the `-p` flag portable by parsing the scheme + `.xctestplan` data directly with Python, avoiding `xcodebuild`/`plutil` invocations.
+- Plan of record:
+  1. Discover the scheme XML (`*.xcscheme`) matching the resolved suite and extract the `TestPlanReference` path.
+  2. Load the referenced `.xctestplan` JSON and pull `testTargets[*].target.name`.
+  3. Enumerate repo directories matching `*Tests` (excluding result bundles) and diff against the plan list.
+  4. Return exit code `2` when coverage is incomplete so CI can flag the gap, otherwise success (`0`).
+- Update legacy `scripts/verify-testplan-coverage.sh` to delegate to the new library helper, keeping historical entry points functional while guiding developers to the consolidated script.
+- Documentation: refresh `AGENTS.md` usage guidance and append dev-log results after implementation.
+
+```mermaid
+flowchart TD
+    A[Resolve suite] --> B[Find matching xcscheme]
+    B --> C[Extract TestPlanReference]
+    C --> D[Load .xctestplan JSON]
+    A --> E[Discover *Tests directories]
+    D --> F[Collect plan targets]
+    E --> G[Collect filesystem targets]
+    F --> H[Diff lists]
+    G --> H
+    H -->|No missing| I[Exit 0]
+    H -->|Missing| J[Exit 2]
+```
+
+## 2025-09-27 10:10 EDT — Test Plan Verification Refactor Complete
+- Implemented the new `verify_testplan_coverage` helper inside `scripts/lib/testplan.sh`, replacing the previous `xcodebuild`/`plutil` dependency with pure Python parsing of the scheme XML and `.xctestplan` JSON.
+- Removed the legacy `scripts/verify-testplan-coverage.sh` entry point; the `-p` flag in `run-xcode-tests.sh` is now the sole interface for coverage checks.
+- Hardened target discovery by walking the repo tree in Python, pruning build artefact folders, and de-duplicating names before diffing against the plan entries.
+- Updated `AGENTS.md` tooling guidance to spotlight `./scripts/run-xcode-tests.sh -p [suite]` and discourage manual `xcodebuild` invocations.
+- Validation: `./scripts/run-xcode-tests.sh -p` executes entirely within the sandboxed environment (no `xcodebuild` calls) and now relies on the expanded test plan coverage list.
+
+## 2025-09-27 13:18 EDT — Package Support & Flag Compatibility
+- Enhanced `run-xcode-tests.sh` so `resolve_test_identifier` recognises package modules and test targets, allowing `-t SharedUtilities` / `-t SharedUtilitiesTests` to dispatch through SwiftPM.
+- Implemented all-target builds (`-b all`) by chaining the zpod workspace build with per-package SwiftPM builds, skipping iOS-only packages on macOS while emitting guidance so contributors know coverage still occurs via the workspace scheme.
+- Added guardrails for `swift build`/`swift test` when packages lack macOS support, documenting skips rather than failing the script outright.
+- Captured the command matrix (`--self-check`, `-s`, `-b`, `-t`, negative flag combos) during the walk-through to validate argument handling.
+
+## 2025-09-27 15:55 EDT — Regression Scheme Alignment
+- Switched the default scheme to `"zpod (zpod project)"` so CLI-driven runs align with the Xcode project configuration; the previous auto-generated SwiftPM scheme exposed no test bundles.
+- Trimmed `zpod.xctestplan` to the app/unit UI targets and taught the coverage script to treat SwiftPM test targets as satisfied via their dedicated `swift test` workflows.
+- Confirmed `./scripts/run-xcode-tests.sh -t zpod` now executes the full unit + UI suite (653s on iPhone 16 sim) while package targets remain validated through their SwiftPM invocations.

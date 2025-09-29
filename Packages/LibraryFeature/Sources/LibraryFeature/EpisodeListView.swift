@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
+import Foundation
 import CoreModels
 import Persistence
+import PlaybackEngine
 
 #if canImport(UIKit)
 import UIKit
@@ -19,18 +21,42 @@ public struct EpisodeListView: View {
     @StateObject private var viewModel: EpisodeListViewModel
     @State private var isRefreshing = false
     
+    @MainActor
     public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
         self.podcast = podcast
-        self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
-            podcast: podcast, 
-            filterManager: filterManager
-        ))
+        let dependencies = EpisodeListDependencyProvider.shared
+        if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
+            #if DEBUG
+            print("EpisodeListView: using stub download coordinator for UI tests")
+            #endif
+            self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
+                podcast: podcast,
+                filterManager: filterManager,
+                playbackService: dependencies.playbackService,
+                episodeRepository: dependencies.episodeRepository
+            ))
+        } else {
+            #if DEBUG
+            print("EpisodeListView: using DownloadCoordinatorBridge")
+            #endif
+            let bridge = DownloadCoordinatorBridge.shared
+            self._viewModel = StateObject(wrappedValue: EpisodeListViewModel(
+                podcast: podcast,
+                filterManager: filterManager,
+                downloadProgressProvider: bridge,
+                downloadManager: bridge,
+                playbackService: dependencies.playbackService,
+                episodeRepository: dependencies.episodeRepository
+            ))
+        }
     }
     
     public var body: some View {
         VStack(spacing: 0) {
             // Batch operation progress indicators
             batchOperationProgressSection
+
+            bannerSection
             
             // Multi-select toolbar (shown when in multi-select mode)
             if viewModel.isInMultiSelectMode {
@@ -100,6 +126,12 @@ public struct EpisodeListView: View {
             )
         }
         .accessibilityIdentifier("Episode List View")
+        .task {
+            await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
+        }
+        .onChange(of: viewModel.filteredEpisodes.count) { _ in
+            Task { await viewModel.ensureUITestBatchOverlayIfNeeded() }
+        }
     }
     
     @ViewBuilder
@@ -127,6 +159,18 @@ public struct EpisodeListView: View {
                     )
                 }
             }
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var bannerSection: some View {
+        if let bannerState = viewModel.bannerState {
+            EpisodeListBannerView(
+                banner: bannerState,
+                onDismiss: { viewModel.dismissBanner() }
+            )
             .padding(.horizontal)
             .padding(.top, 8)
         }
@@ -347,10 +391,14 @@ public struct EpisodeListView: View {
             if viewModel.isInMultiSelectMode {
                 EpisodeRowView(
                     episode: episode,
+                    downloadProgress: viewModel.downloadProgress(for: episode.id),
                     onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                     onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
                     onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
                     onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
+                    onDownloadPause: nil,
+                    onDownloadResume: nil,
+                    onQuickPlay: nil,
                     isSelected: viewModel.isEpisodeSelected(episode.id),
                     isInMultiSelectMode: true,
                     onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
@@ -360,10 +408,26 @@ public struct EpisodeListView: View {
                 NavigationLink(destination: episodeDetailView(for: episode)) {
                     EpisodeRowView(
                         episode: episode,
+                        downloadProgress: viewModel.downloadProgress(for: episode.id),
                         onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
                         onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
                         onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
                         onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
+                        onDownloadPause: {
+                            let _: Task<Void, Never> = Task { @MainActor in
+                                await viewModel.pauseEpisodeDownload(episode)
+                            }
+                        },
+                        onDownloadResume: {
+                            let _: Task<Void, Never> = Task { @MainActor in
+                                await viewModel.resumeEpisodeDownload(episode)
+                            }
+                        },
+                        onQuickPlay: {
+                            let _: Task<Void, Never> = Task { @MainActor in
+                                await viewModel.quickPlayEpisode(episode)
+                            }
+                        },
                         isSelected: false,
                         isInMultiSelectMode: false
                     )
@@ -491,11 +555,13 @@ public struct EpisodeListView: View {
 /// Individual episode row view for the list with multi-selection support
 public struct EpisodeRowView: View {
     let episode: Episode
+    let downloadProgress: EpisodeDownloadProgressUpdate?
     let onFavoriteToggle: (() -> Void)?
     let onBookmarkToggle: (() -> Void)?
     let onPlayedStatusToggle: (() -> Void)?
     let onDownloadRetry: (() -> Void)?
     let onDownloadPause: (() -> Void)?
+    let onDownloadResume: (() -> Void)?
     let onQuickPlay: (() -> Void)?
     let isSelected: Bool
     let isInMultiSelectMode: Bool
@@ -503,22 +569,26 @@ public struct EpisodeRowView: View {
     
     public init(
         episode: Episode,
+        downloadProgress: EpisodeDownloadProgressUpdate? = nil,
         onFavoriteToggle: (() -> Void)? = nil,
         onBookmarkToggle: (() -> Void)? = nil,
         onPlayedStatusToggle: (() -> Void)? = nil,
         onDownloadRetry: (() -> Void)? = nil,
         onDownloadPause: (() -> Void)? = nil,
+        onDownloadResume: (() -> Void)? = nil,
         onQuickPlay: (() -> Void)? = nil,
         isSelected: Bool = false,
         isInMultiSelectMode: Bool = false,
         onSelectionToggle: (() -> Void)? = nil
     ) {
         self.episode = episode
+        self.downloadProgress = downloadProgress
         self.onFavoriteToggle = onFavoriteToggle
         self.onBookmarkToggle = onBookmarkToggle
         self.onPlayedStatusToggle = onPlayedStatusToggle
         self.onDownloadRetry = onDownloadRetry
         self.onDownloadPause = onDownloadPause
+        self.onDownloadResume = onDownloadResume
         self.onQuickPlay = onQuickPlay
         self.isSelected = isSelected
         self.isInMultiSelectMode = isInMultiSelectMode
@@ -615,31 +685,51 @@ public struct EpisodeRowView: View {
     
     @ViewBuilder
     private var progressIndicators: some View {
-        VStack(spacing: 2) {
-            // Download progress
-            if episode.downloadStatus == .downloading {
-                HStack {
-                    Text("Downloading...")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
+        let showDownload = downloadProgress != nil && downloadProgress?.status != .completed
+        let showPlayback = episode.isInProgress && episode.playbackProgress > 0
+
+        if showDownload || showPlayback {
+            VStack(spacing: 4) {
+                if let progress = downloadProgress, progress.status != .completed {
+                    HStack {
+                        Text(downloadProgressDescription(for: progress))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if !isInMultiSelectMode {
+                            if progress.status == .paused {
+                                if let onDownloadResume {
+                                    Button("Resume", action: onDownloadResume)
+                                        .font(.caption2)
+                                        .buttonStyle(.borderless)
+                                }
+                            } else if progress.status == .downloading || progress.status == .queued {
+                                if let onDownloadPause {
+                                    Button("Pause", action: onDownloadPause)
+                                        .font(.caption2)
+                                        .buttonStyle(.borderless)
+                                }
+                            }
+                        }
+                    }
+                    ProgressView(value: max(0, min(progress.fractionCompleted, 1)))
+                        .progressViewStyle(LinearProgressViewStyle(tint: downloadProgressTint(for: progress.status)))
+                        .scaleEffect(y: 0.8)
+                        .accessibilityValue("\(Int(progress.fractionCompleted * 100)) percent")
                 }
-                ProgressView(value: 0.5) // Mock progress value
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                    .scaleEffect(y: 0.8)
-            }
-            
-            // Playback progress
-            if episode.isInProgress && episode.playbackProgress > 0 {
-                HStack {
-                    Text("Progress: \(Int(episode.playbackProgress * 100))%")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Spacer()
+
+                if showPlayback {
+                    HStack {
+                        Text("Playback: \(Int(episode.playbackProgress * 100))%")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    ProgressView(value: episode.playbackProgress)
+                        .progressViewStyle(LinearProgressViewStyle(tint: .green))
+                        .scaleEffect(y: 0.8)
+                        .accessibilityValue("\(Int(episode.playbackProgress * 100)) percent played")
                 }
-                ProgressView(value: episode.playbackProgress)
-                    .progressViewStyle(LinearProgressViewStyle(tint: .green))
-                    .scaleEffect(y: 0.8)
             }
         }
     }
@@ -669,6 +759,16 @@ public struct EpisodeRowView: View {
                 .accessibilityLabel(episode.isPlayed ? "Mark as unplayed" : "Mark as played")
                 .accessibilityHint("Tap to toggle played status")
                 
+                if !isInMultiSelectMode, let onQuickPlay = onQuickPlay {
+                    Button(action: onQuickPlay) {
+                        Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
+                            .foregroundStyle(.primary)
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Quick play")
+                    .accessibilityHint("Resume playback from the last position")
+                }
+
                 // Enhanced download status with additional states
                 downloadStatusIndicator
             }
@@ -732,6 +832,17 @@ public struct EpisodeRowView: View {
                     .scaleEffect(0.6)
             }
             .accessibilityLabel("Downloading")
+        case .paused:
+            HStack(spacing: 4) {
+                Image(systemName: "pause.circle")
+                    .foregroundStyle(.yellow)
+                if let progress = downloadProgress {
+                    Text("\(Int(progress.fractionCompleted * 100))%")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityLabel("Download paused")
         case .failed:
             Button(action: {
                 onDownloadRetry?()
@@ -744,15 +855,138 @@ public struct EpisodeRowView: View {
             EmptyView()
         }
     }
-    
-    private func formatDuration(_ duration: TimeInterval) -> String {
+
+private func formatDuration(_ duration: TimeInterval) -> String {
         let hours = Int(duration) / 3600
         let minutes = (Int(duration) % 3600) / 60
-        
+
         if hours > 0 {
             return String(format: "%d:%02d:00", hours, minutes)
         } else {
             return String(format: "%d min", minutes)
+        }
+    }
+
+    private func downloadProgressDescription(for progress: EpisodeDownloadProgressUpdate) -> String {
+        if let message = progress.message, !message.isEmpty {
+            return message
+        }
+
+        let percent = Int(progress.fractionCompleted * 100)
+        switch progress.status {
+        case .queued:
+            return "Queued • \(percent)%"
+        case .downloading:
+            return "Downloading • \(percent)%"
+        case .paused:
+            return "Paused • \(percent)%"
+        case .failed:
+            return "Failed"
+        case .completed:
+            return "Completed"
+        }
+    }
+
+    private func downloadProgressTint(for status: EpisodeDownloadProgressStatus) -> Color {
+        switch status {
+        case .queued:
+            return .gray
+        case .downloading:
+            return .blue
+        case .paused:
+            return .yellow
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        }
+    }
+}
+
+// MARK: - Banner View
+
+struct EpisodeListBannerView: View {
+    let banner: EpisodeListBannerState
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(banner.title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(primaryForeground)
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.caption)
+                        .padding(6)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss banner")
+            }
+
+            Text(banner.subtitle)
+                .font(.caption)
+                .foregroundStyle(primaryForeground.opacity(0.8))
+
+            HStack(spacing: 12) {
+                if let retry = banner.retry {
+                    Button("Retry", action: retry)
+                        .font(.caption)
+                        .buttonStyle(.borderedProminent)
+                }
+
+                if let undo = banner.undo {
+                    Button("Undo", action: undo)
+                        .font(.caption)
+                        .buttonStyle(.bordered)
+                }
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(banner.title). \(banner.subtitle)")
+    }
+
+    private var backgroundColor: Color {
+        switch banner.style {
+        case .success:
+            return Color.green.opacity(0.1)
+        case .warning:
+            return Color.orange.opacity(0.1)
+        case .failure:
+            return Color.red.opacity(0.1)
+        }
+    }
+
+    private var borderColor: Color {
+        switch banner.style {
+        case .success:
+            return Color.green.opacity(0.4)
+        case .warning:
+            return Color.orange.opacity(0.4)
+        case .failure:
+            return Color.red.opacity(0.4)
+        }
+    }
+
+    private var primaryForeground: Color {
+        switch banner.style {
+        case .success:
+            return .green
+        case .warning:
+            return .orange
+        case .failure:
+            return .red
         }
     }
 }
@@ -799,4 +1033,19 @@ public struct EpisodeRowView: View {
     )
     
     EpisodeListView(podcast: samplePodcast)
+}
+
+// MARK: - Dependency Provider
+
+@MainActor
+private final class EpisodeListDependencyProvider {
+    static let shared = EpisodeListDependencyProvider()
+
+    let playbackService: EpisodePlaybackService
+    let episodeRepository: EpisodeRepository
+
+    private init() {
+        self.playbackService = EnhancedEpisodePlayer()
+        self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
+    }
 }

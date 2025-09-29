@@ -1,177 +1,305 @@
-#if canImport(Combine)
-@preconcurrency import Combine
-#endif
-import Foundation
 import CoreModels
+@preconcurrency import Foundation
 
-/// Enhanced episode player providing advanced controls.
+#if canImport(Combine)
+  @preconcurrency import Combine
+#endif
+
+/// Enhanced playback engine that powers advanced controls for the episode detail surface and
+/// player-focused integration tests.
 @MainActor
 public final class EnhancedEpisodePlayer: EpisodePlaybackService {
-  #if canImport(Combine)
-  private let subject = CurrentValueSubject<EpisodePlaybackState, Never>(.idle(Episode(id: "none", title: "")))
-  public var statePublisher: AnyPublisher<EpisodePlaybackState, Never> { subject.eraseToAnyPublisher() }
-  #endif
+  private enum Constants {
+    static let placeholderEpisode = Episode(id: "enhanced-placeholder", title: "Episode")
+    static let finishTolerance: TimeInterval = 1.0
+    static let chapterPositionTolerance: TimeInterval = 0.5
+    static let minimumAutoChapterDuration: TimeInterval = 600
+    static let minimumChapterSegment: TimeInterval = 90
+    static let defaultDuration: TimeInterval = 300
+    static let minimumSpeed: Float = 0.8
+    static let maximumSpeed: Float = 5.0
+  }
 
-  // Dependencies
-  private let stateManager: EpisodeStateManager?
-  private let settings: CoreModels.PlaybackSettings
+  private let episodeStateManager: EpisodeStateManager
+  private let playbackSettings: PlaybackSettings
+  private let chapterResolver: ((Episode, TimeInterval) -> [Chapter])?
 
   private(set) var currentEpisode: Episode?
-  private var duration: TimeInterval = 0
-  private var position: TimeInterval = 0
-  private var speed: Float = 1.0
+  private(set) var currentDuration: TimeInterval = 0
+  public private(set) var currentPosition: TimeInterval = 0
+  public private(set) var playbackSpeed: Float
+  public private(set) var isSkipSilenceEnabled = false
+  public private(set) var isVolumeBoostEnabled = false
+  public private(set) var isPlaying = false
 
-  // Audio effects state
-  private var skipSilenceEnabled: Bool = false
-  private var volumeBoostEnabled: Bool = false
-
-  // Chapter support (simple synthesized chapters when metadata is unavailable)
   private var chapters: [Chapter] = []
+  private var currentChapterIndex: Int?
 
-  // MARK: - Exposed properties for tests
-  public var currentPosition: TimeInterval { position }
-  public var playbackSpeed: Float { speed }
-  public var isSkipSilenceEnabled: Bool { skipSilenceEnabled }
-  public var isVolumeBoostEnabled: Bool { volumeBoostEnabled }
-
-  // MARK: - Init
-  public init(stateManager: EpisodeStateManager? = nil, playbackSettings: CoreModels.PlaybackSettings? = nil) {
-    self.stateManager = stateManager
-    self.settings = playbackSettings ?? CoreModels.PlaybackSettings()
-  }
-
-  // MARK: - Helpers
-  private func clampSpeed(_ value: Float) -> Float { max(0.8, min(value, 5.0)) }
-  private var forwardInterval: TimeInterval { TimeInterval(settings.skipForwardInterval ?? 30) }
-  private var backwardInterval: TimeInterval { TimeInterval(settings.skipBackwardInterval ?? 15) }
-  private func effectiveSpeed(for episode: Episode) -> Float {
-    if let id = episode.podcastID, let perPodcast = settings.podcastPlaybackSpeeds?[id] {
-      return clampSpeed(Float(perPodcast))
+  #if canImport(Combine)
+    private let stateSubject: CurrentValueSubject<EpisodePlaybackState, Never>
+    public var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+      stateSubject.eraseToAnyPublisher()
     }
-    if let global = settings.globalPlaybackSpeed {
-      return clampSpeed(Float(global))
-    }
-    return clampSpeed(Float(settings.playbackSpeed))
-  }
-  private func emitPlaying() {
+  #endif
+
+  /// Create an enhanced episode player.
+  /// - Parameters:
+  ///   - playbackSettings: Source for skip intervals and default playback speed.
+  ///   - stateManager: Persists playback position and played state; defaults to in-memory storage.
+  ///   - chapterResolver: Optional override to provide chapters for an episode.
+  public init(
+    playbackSettings: PlaybackSettings = PlaybackSettings(),
+    stateManager: EpisodeStateManager? = nil,
+    chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil
+  ) {
+    self.playbackSettings = playbackSettings
+    self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
+    self.chapterResolver = chapterResolver
+    self.playbackSpeed = playbackSettings.defaultSpeed
+
     #if canImport(Combine)
-    if let ep = currentEpisode {
-      subject.send(.playing(ep, position: position, duration: duration > 0 ? duration : 300))
-    }
+      self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
     #endif
   }
 
-  // Synthesize basic chapters when explicit metadata isn't available
-  private func synthesizeChaptersIfNeeded() {
-    guard chapters.isEmpty else { return }
-    // Heuristic: longer episodes likely have chapters. Use quartiles for simplicity.
-    if duration >= 600 { // 10+ minutes
-      let quarter = duration / 4.0
-      let starts: [TimeInterval] = [0, quarter, quarter * 2, quarter * 3]
-      chapters = starts.enumerated().map { idx, start in
-        Chapter(id: "auto_\(idx)", title: "Chapter \(idx + 1)", startTime: max(0, start), endTime: nil)
-      }
-    } else {
-      chapters = []
-    }
-  }
+  // MARK: - EpisodePlaybackService
 
-  // Automatically mark episode as played when reaching the end
-  private func checkForCompletion() {
-    guard let _ = currentEpisode, duration > 0 else { return }
-    // Allow tiny epsilon to account for floating point rounding
-    if position >= duration - 0.001 {
-      // Snap to exact end and mark as played asynchronously
-      position = duration
-      markEpisodeAs(played: true)
-    }
-  }
-
-  public func play(episode: Episode, duration: TimeInterval?) {
+  public func play(episode: Episode, duration maybeDuration: TimeInterval?) {
     currentEpisode = episode
-    self.duration = max(0, duration ?? 0)
-    // Start playback at the existing (persisted) position if any, otherwise 0
-    self.position = TimeInterval(episode.playbackPosition)
-    // Apply effective speed (per-podcast override > global > local)
-    self.speed = effectiveSpeed(for: episode)
-    // Reset effect toggles for new playback session
-    self.skipSilenceEnabled = false
-    self.volumeBoostEnabled = false
-    // Setup chapters
-    self.chapters = []
-    synthesizeChaptersIfNeeded()
-    #if canImport(Combine)
-    subject.send(.playing(episode, position: position, duration: self.duration > 0 ? self.duration : 300))
-    #endif
+    currentDuration = resolveDuration(for: episode, override: maybeDuration)
+    currentPosition = clampPosition(TimeInterval(episode.playbackPosition))
+    playbackSpeed = clampSpeed(playbackSettings.defaultSpeed)
+    isPlaying = true
+    chapters = resolveChapters(for: episode, duration: currentDuration)
+    updateCurrentChapterIndex()
+    persistPlaybackPosition()
+    emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
   }
 
   public func pause() {
-    guard let ep = currentEpisode else { return }
-    #if canImport(Combine)
-    subject.send(.paused(ep, position: position, duration: max(duration, 300)))
-    #endif
+    guard currentEpisode != nil else { return }
+    isPlaying = false
+    let snapshot = persistPlaybackPosition()
+    emitState(.paused(snapshot, position: currentPosition, duration: currentDuration))
   }
 
-  // MARK: - Enhanced Controls
-  public func skipForward(interval: TimeInterval = -1) {
-    let step = interval >= 0 ? interval : forwardInterval
-    position = min(position + step, duration)
-    checkForCompletion()
-    emitPlaying()
-  }
-  public func skipBackward(interval: TimeInterval = -1) {
-    let step = interval >= 0 ? interval : backwardInterval
-    position = max(0, position - step)
-    emitPlaying()
-  }
-  public func seek(to newPosition: TimeInterval) {
-    position = min(max(0, newPosition), duration)
-    checkForCompletion()
-    emitPlaying()
-  }
-  public func setPlaybackSpeed(_ newSpeed: Float) {
-    speed = clampSpeed(newSpeed)
-    // Simulate one tick of progress to reflect speed impact in tests
-    if currentEpisode != nil {
-      position = min(position + TimeInterval(speed), duration)
-      checkForCompletion()
-      emitPlaying()
+  public func seek(to position: TimeInterval) {
+    guard currentDuration >= 0 else { return }
+    currentPosition = clampPosition(position)
+    updateCurrentChapterIndex()
+    let snapshot = persistPlaybackPosition()
+
+    if hasReachedEnd() {
+      finishPlayback(markPlayed: true)
+    } else {
+      emitState(
+        isPlaying
+          ? .playing(snapshot, position: currentPosition, duration: currentDuration)
+          : .paused(snapshot, position: currentPosition, duration: currentDuration))
     }
   }
-  public func getCurrentPlaybackSpeed() -> Float { speed }
 
-  // MARK: - Effects Toggles
-  public func setSkipSilence(enabled: Bool) { skipSilenceEnabled = enabled }
-  public func setVolumeBoost(enabled: Bool) { volumeBoostEnabled = enabled }
+  // MARK: - Advanced Controls
 
-  // MARK: - Chapter Navigation
+  public func skipForward(interval: TimeInterval? = nil) {
+    guard currentDuration > 0 else { return }
+    let delta = interval ?? playbackSettings.skipForwardInterval
+    seek(to: currentPosition + delta)
+  }
+
+  public func skipBackward(interval: TimeInterval? = nil) {
+    let delta = interval ?? playbackSettings.skipBackwardInterval
+    seek(to: currentPosition - delta)
+  }
+
+  public func setPlaybackSpeed(_ speed: Float) {
+    playbackSpeed = clampSpeed(speed)
+  }
+
+  public func getCurrentPlaybackSpeed() -> Float {
+    playbackSpeed
+  }
+
+  public func setSkipSilence(enabled: Bool) {
+    isSkipSilenceEnabled = enabled
+  }
+
+  public func setVolumeBoost(enabled: Bool) {
+    isVolumeBoostEnabled = enabled
+  }
+
+  public func jumpToChapter(_ chapter: Chapter) {
+    guard let index = chapters.firstIndex(where: { $0.id == chapter.id }) else { return }
+    currentChapterIndex = index
+    seek(to: chapter.startTime)
+  }
+
   public func nextChapter() {
     guard !chapters.isEmpty else { return }
-    // Find next chapter strictly after current position
-    if let next = chapters.map({ $0.startTime }).sorted().first(where: { $0 > position + 0.01 }) {
-      seek(to: next)
+    for (index, chapter) in chapters.enumerated() {
+      if chapter.startTime > currentPosition + Constants.chapterPositionTolerance {
+        currentChapterIndex = index
+        seek(to: chapter.startTime)
+        return
+      }
     }
   }
+
   public func previousChapter() {
-    guard !chapters.isEmpty else { return }
-    // Find previous chapter strictly before current position
-    let starts = chapters.map({ $0.startTime }).sorted()
-    if let prev = starts.last(where: { $0 < position - 0.01 }) {
-      seek(to: prev)
+    guard !chapters.isEmpty else {
+      seek(to: 0)
+      return
+    }
+
+    var targetIndex: Int?
+    for (index, chapter) in chapters.enumerated() {
+      if chapter.startTime < currentPosition - Constants.chapterPositionTolerance {
+        targetIndex = index
+      } else {
+        break
+      }
+    }
+
+    if let index = targetIndex {
+      currentChapterIndex = index
+      seek(to: chapters[index].startTime)
     } else {
-      // If at or before first chapter, go to beginning
+      currentChapterIndex = 0
       seek(to: 0)
     }
   }
 
-  public func jumpToChapter(_ chapter: Chapter) {
-    seek(to: chapter.startTime)
+  public func markEpisodeAs(played: Bool) {
+    guard currentEpisode != nil else { return }
+    updatePlayedStatus(played)
+    if played {
+      currentPosition = currentDuration
+      finishPlayback(markPlayed: false)
+    }
   }
 
-  public func markEpisodeAs(played: Bool) {
-    guard let ep = currentEpisode else { return }
-    Task { [stateManager] in
-      await stateManager?.setPlayedStatus(ep, isPlayed: played)
+  // MARK: - Private helpers
+
+  private func resolveDuration(for episode: Episode, override: TimeInterval?) -> TimeInterval {
+    if let override, override > 0 { return override }
+    if let duration = episode.duration, duration > 0 { return duration }
+    return Constants.defaultDuration
+  }
+
+  private func clampPosition(_ position: TimeInterval) -> TimeInterval {
+    guard currentDuration > 0 else { return max(0, position) }
+    return min(max(0, position), currentDuration)
+  }
+
+  private func clampSpeed(_ speed: Float) -> Float {
+    min(max(speed, Constants.minimumSpeed), Constants.maximumSpeed)
+  }
+
+  @discardableResult
+  private func persistPlaybackPosition() -> Episode {
+    guard var episode = currentEpisode else { return Constants.placeholderEpisode }
+    episode = episode.withPlaybackPosition(Int(currentPosition))
+    currentEpisode = episode
+
+    Task { [episodeStateManager, episode, position = currentPosition] in
+      await episodeStateManager.updatePlaybackPosition(episode, position: position)
     }
+
+    return episode
+  }
+
+  private func updatePlayedStatus(_ played: Bool) {
+    guard var episode = currentEpisode else { return }
+    episode = episode.withPlayedStatus(played)
+    currentEpisode = episode
+
+    Task { [episodeStateManager, episode] in
+      await episodeStateManager.setPlayedStatus(episode, isPlayed: played)
+    }
+  }
+
+  private func hasReachedEnd() -> Bool {
+    guard currentDuration > 0 else { return false }
+    return currentPosition >= currentDuration - Constants.finishTolerance
+  }
+
+  private func finishPlayback(markPlayed: Bool) {
+    isPlaying = false
+    currentPosition = currentDuration
+    let snapshot = persistPlaybackPosition()
+    if markPlayed {
+      updatePlayedStatus(true)
+    }
+    emitState(.finished(snapshot, duration: currentDuration))
+  }
+
+  private func resolveChapters(for episode: Episode, duration: TimeInterval) -> [Chapter] {
+    if let chapterResolver {
+      let resolved = chapterResolver(episode, duration).sorted { $0.startTime < $1.startTime }
+      if !resolved.isEmpty { return resolved }
+    }
+
+    guard shouldGenerateAutomaticChapters(for: episode, duration: duration) else {
+      return []
+    }
+
+    return generateAutomaticChapters(for: episode, duration: duration)
+  }
+
+  private func shouldGenerateAutomaticChapters(for episode: Episode, duration: TimeInterval) -> Bool
+  {
+    guard duration >= Constants.minimumAutoChapterDuration else { return false }
+    if let description = episode.description?.lowercased(), description.contains("chapter") {
+      return true
+    }
+    return false
+  }
+
+  private func generateAutomaticChapters(for episode: Episode, duration: TimeInterval) -> [Chapter]
+  {
+    guard duration > 0 else { return [] }
+    let segments = max(2, Int(duration / max(Constants.minimumChapterSegment, duration / 4)))
+    let segmentLength = duration / Double(segments)
+
+    return (0..<segments).map { index in
+      let start = segmentLength * Double(index)
+      let end = index == segments - 1 ? duration : segmentLength * Double(index + 1)
+      return Chapter(
+        id: "auto_\(episode.id)_\(index)",
+        title: "Chapter \(index + 1)",
+        startTime: start,
+        endTime: end,
+        artworkURL: nil,
+        linkURL: nil
+      )
+    }
+  }
+
+  private func updateCurrentChapterIndex() {
+    guard !chapters.isEmpty else {
+      currentChapterIndex = nil
+      return
+    }
+
+    var lastMatch: Int?
+    for (index, chapter) in chapters.enumerated() {
+      if chapter.startTime <= currentPosition + Constants.chapterPositionTolerance {
+        lastMatch = index
+      } else {
+        break
+      }
+    }
+
+    currentChapterIndex = lastMatch
+  }
+
+  private func episodeSnapshot() -> Episode {
+    currentEpisode ?? Constants.placeholderEpisode
+  }
+
+  private func emitState(_ state: EpisodePlaybackState) {
+    #if canImport(Combine)
+      stateSubject.send(state)
+    #endif
   }
 }

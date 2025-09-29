@@ -22,6 +22,14 @@ public actor UserDefaultsPodcastRepository: PodcastRepository {
         self.userDefaults = userDefaults
     }
 
+    public init(suiteName: String) {
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            self.userDefaults = suiteDefaults
+        } else {
+            self.userDefaults = .standard
+        }
+    }
+
     public func savePodcast(_ podcast: Podcast) async throws {
         do {
             let data = try encoder.encode(podcast)
@@ -49,6 +57,14 @@ public actor UserDefaultsEpisodeRepository: EpisodeRepository {
 
     public init(userDefaults: UserDefaults) {
         self.userDefaults = userDefaults
+    }
+
+    public init(suiteName: String) {
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            self.userDefaults = suiteDefaults
+        } else {
+            self.userDefaults = .standard
+        }
     }
 
     public func saveEpisode(_ episode: Episode) async throws {

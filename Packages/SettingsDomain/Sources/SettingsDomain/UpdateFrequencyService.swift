@@ -27,7 +27,7 @@ public class UpdateFrequencyService {
         let frequency = await settingsManager.effectiveUpdateFrequency(for: podcastId)
         
         // Manual frequency means no automatic refresh
-        guard let _ = frequency.timeInterval else {
+        guard frequency.timeInterval != nil else {
             return nil
         }
         

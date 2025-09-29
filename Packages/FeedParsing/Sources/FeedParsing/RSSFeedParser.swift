@@ -31,6 +31,7 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
     
     /// Parse RSS feed from URL
     #if !os(Linux)
+    @available(macOS 12.0, *)
     public static func parseFeed(from url: URL) async throws -> Podcast {
         let (data, _) = try await URLSession.shared.data(from: url)
         return try parseFeed(from: data, feedURL: url)
