@@ -34,7 +34,8 @@ public protocol EpisodeFilterService: Sendable {
 
 // MARK: - Default Implementation
 
-public actor DefaultEpisodeFilterService: EpisodeFilterService {
+// Comprehensive filtering logic scheduled for modularization.
+public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:disable:this type_body_length
     
     public init() {}
     

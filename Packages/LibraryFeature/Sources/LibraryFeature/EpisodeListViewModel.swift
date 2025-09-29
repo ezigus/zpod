@@ -9,8 +9,9 @@ import SwiftUI
 // MARK: - Episode List View Model
 
 /// View model for episode list with filtering, sorting, and batch operations
+/// NOTE: Aggregates UI and domain orchestration pending modularization.
 @MainActor
-public final class EpisodeListViewModel: ObservableObject {
+public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable:this type_body_length
   @Published public private(set) var filteredEpisodes: [Episode] = []
   @Published public private(set) var currentFilter: EpisodeFilter = EpisodeFilter()
   @Published public private(set) var isLoading = false

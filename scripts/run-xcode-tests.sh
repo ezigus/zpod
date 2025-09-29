@@ -29,6 +29,23 @@ REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
 SELF_CHECK=0
 
+declare -a SUMMARY_LINES=()
+
+add_summary() {
+  SUMMARY_LINES+=("$1")
+}
+
+print_summary() {
+  if [[ ${#SUMMARY_LINES[@]} -eq 0 ]]; then
+    return
+  fi
+  log_section "Summary"
+  local line
+  for line in "${SUMMARY_LINES[@]}"; do
+    log_info "$line"
+  done
+}
+
 ensure_swift_format_tool() {
   local tool_root="${REPO_ROOT}/.build-tools/swift-format"
   local tool_binary="${tool_root}/.build/release/swift-format"
@@ -218,6 +235,7 @@ run_syntax_check() {
   ) | tee "$RESULT_LOG"
 
   log_success "Syntax check finished -> $RESULT_LOG"
+  add_summary "Syntax check: $RESULT_LOG"
 }
 
 build_app_target() {
@@ -242,6 +260,7 @@ build_app_target() {
   log_section "xcodebuild ${target_label}"
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
   log_success "Build finished -> $RESULT_LOG"
+  add_summary "Build ${target_label}: $RESULT_LOG"
 }
 
 build_package_target() {
@@ -256,6 +275,7 @@ build_package_target() {
   log_section "swift build (${package})"
   build_swift_package "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
   log_success "Package build finished -> $RESULT_LOG"
+  add_summary "Build package ${package}: $RESULT_LOG"
 }
 
 run_build_target() {
@@ -300,6 +320,7 @@ test_app_target() {
     log_warn "Generic simulator destination detected; running build only and skipping UI/unit tests"
     build_app_target "$target"
     log_warn "Swift Package tests skipped due to simulator unavailability"
+    add_summary "Tests ${target}: skipped (generic destination)"
     return 0
   fi
 
@@ -329,6 +350,7 @@ test_app_target() {
   log_section "xcodebuild tests (${target})"
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
   log_success "Tests finished -> $RESULT_LOG"
+  add_summary "Tests ${target}: $RESULT_LOG"
 }
 
 test_package_target() {
@@ -343,6 +365,7 @@ test_package_target() {
   log_section "swift test (${package})"
   run_swift_package_target_tests "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
   log_success "Package tests finished -> $RESULT_LOG"
+  add_summary "Tests package ${package}: $RESULT_LOG"
 }
 
 run_swift_lint() {
@@ -355,6 +378,7 @@ run_swift_lint() {
       swiftlint lint
     ) | tee "$RESULT_LOG"
     log_success "SwiftLint finished -> $RESULT_LOG"
+    add_summary "Lint (swiftlint): $RESULT_LOG"
     return 0
   fi
 
@@ -364,6 +388,7 @@ run_swift_lint() {
       swift-format lint --recursive .
     ) | tee "$RESULT_LOG"
     log_success "swift-format lint finished -> $RESULT_LOG"
+    add_summary "Lint (swift-format): $RESULT_LOG"
     return 0
   fi
 
@@ -373,6 +398,7 @@ run_swift_lint() {
       swiftformat --lint .
     ) | tee "$RESULT_LOG"
     log_success "swiftformat lint finished -> $RESULT_LOG"
+    add_summary "Lint (swiftformat): $RESULT_LOG"
     return 0
   fi
 
@@ -383,6 +409,7 @@ run_swift_lint() {
         swift-format lint --recursive .
       ) | tee "$RESULT_LOG"
       log_success "swift-format lint finished -> $RESULT_LOG"
+      add_summary "Lint (swift-format): $RESULT_LOG"
       return 0
     fi
   fi
@@ -408,6 +435,7 @@ run_swift_lint() {
         swiftlint lint
       ) | tee "$RESULT_LOG"
       log_success "SwiftLint finished -> $RESULT_LOG"
+      add_summary "Lint (swiftlint): $RESULT_LOG"
       return 0
     fi
     log_warn "SwiftLint installation attempt failed or command still unavailable."
@@ -425,11 +453,30 @@ To enable linting install one of the supported tools and ensure it is on PATH be
 
 After installation rerun ./scripts/run-xcode-tests.sh so the lint phase executes.
 EOF
+  add_summary "Lint skipped: tool unavailable (see $RESULT_LOG)"
   if [[ $in_ci -eq 1 ]]; then
     log_warn "Continuing without lint (CI environment)."
     return 0
   fi
   return 1
+}
+
+run_testplan_check() {
+  local suite="$1"
+  local label="${suite:-default}"
+  init_result_paths "testplan" "$label"
+  if verify_testplan_coverage "$suite" | tee "$RESULT_LOG"; then
+    add_summary "Test plan ${label}: $RESULT_LOG"
+    return 0
+  else
+    local status=${PIPESTATUS[0]}
+    if [[ $status -eq 2 ]]; then
+      add_summary "Test plan ${label}: incomplete (see $RESULT_LOG)"
+    else
+      add_summary "Test plan ${label}: failed (see $RESULT_LOG)"
+    fi
+    return $status
+  fi
 }
 
 run_test_target() {
@@ -678,19 +725,23 @@ if [[ -n "$REQUESTED_TESTS" ]]; then
 fi
 
 if [[ $REQUEST_TESTPLAN -eq 1 ]]; then
-  verify_testplan_coverage "$REQUEST_TESTPLAN_SUITE"
-  case $? in
-    0)
-      ;;
-    2)
-      log_warn "Test plan coverage incomplete"
-      exit 2
-      ;;
-    *)
-      log_error "Failed to verify test plan coverage"
-      exit 1
-      ;;
-  esac
+  if run_testplan_check "$REQUEST_TESTPLAN_SUITE"; then
+    :
+  else
+    status=$?
+    case $status in
+      2)
+        log_warn "Test plan coverage incomplete"
+        print_summary
+        exit 2
+        ;;
+      *)
+        log_error "Failed to verify test plan coverage"
+        print_summary
+        exit 1
+        ;;
+    esac
+  fi
   did_run_anything=1
 fi
 
@@ -700,6 +751,7 @@ if [[ $REQUESTED_LINT -eq 1 ]]; then
 fi
 
 if [[ $did_run_anything -eq 1 ]]; then
+  print_summary
   log_success "Requested operations complete"
   exit 0
 fi
@@ -707,19 +759,23 @@ fi
 REQUESTED_CLEAN=1
 run_syntax_check
 
-verify_testplan_coverage ""
-case $? in
-  0)
-    ;;
-  2)
-    log_warn "Test plan coverage incomplete"
-    exit 2
-    ;;
-  *)
-    log_error "Failed to verify test plan coverage"
-    exit 1
-    ;;
-esac
+if run_testplan_check ""; then
+  :
+else
+  status=$?
+  case $status in
+    2)
+      log_warn "Test plan coverage incomplete"
+      print_summary
+      exit 2
+      ;;
+    *)
+      log_error "Failed to verify test plan coverage"
+      print_summary
+      exit 1
+      ;;
+  esac
+fi
 
 run_build_target "all"
 REQUESTED_CLEAN=0
@@ -733,4 +789,5 @@ fi
 
 run_test_target "zpod"
 run_swift_lint
+print_summary
 log_success "Default build, test, and lint complete"

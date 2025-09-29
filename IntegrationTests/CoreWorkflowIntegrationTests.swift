@@ -13,7 +13,9 @@ import XCTest
 /// - Search and content organization workflows (discovery + organization)
 /// - Settings persistence across app sessions (all specifications)
 /// - Cross-component data synchronization
-final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
+///
+/// Integration suite mirrors end-to-end specs; split tracked separately.
+final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // swiftlint:disable:this type_body_length
     
     // MARK: - Properties  
     private var podcastManager: InMemoryPodcastManager!

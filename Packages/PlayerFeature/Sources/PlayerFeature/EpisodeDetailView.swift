@@ -190,7 +190,8 @@ public struct EpisodeDetailView: View {
         pubDate: nil,
         duration: 1800,  // 30 minutes
         description:
-          "In this episode, we explore the fundamentals of building a podcast application using SwiftUI and modern iOS development practices. We'll cover architecture patterns, data management, and user interface design.",
+          "In this episode, we explore the fundamentals of building a podcast application using SwiftUI and modern iOS development practices. " +
+          "We'll cover architecture patterns, data management, and user interface design.",
         audioURL: URL(string: "https://example.com/episode1.mp3")
       ))
   }

@@ -68,6 +68,8 @@ public enum EpisodeFilterCriteria: String, Codable, Sendable, CaseIterable {
 /// Logical operation for combining filters
 public enum FilterLogic: String, Codable, Sendable {
     case and
+    // Filter syntax intentionally mirrors boolean operators.
+    // swiftlint:disable:next identifier_name
     case or
     
     public var displayName: String {

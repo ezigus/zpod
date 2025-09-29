@@ -222,7 +222,6 @@ public class SettingsManager {
     }
 }
 
-
 // MARK: - ObservableObject Conformance
 #if canImport(SwiftUI)
 extension SettingsManager: ObservableObject {}
