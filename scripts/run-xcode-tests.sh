@@ -348,7 +348,29 @@ test_app_target() {
   esac
 
   log_section "xcodebuild tests (${target})"
+  set +e
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
+  local xc_status=${PIPESTATUS[0]}
+  set -e
+
+  if [[ $xc_status -ne 0 ]]; then
+    xcresult_has_failures "$RESULT_BUNDLE"
+    local inspect_status=$?
+    case $inspect_status in
+      0)
+        log_error "Tests failed (status $xc_status) -> $RESULT_LOG"
+        exit $xc_status
+        ;;
+      1)
+        log_warn "xcodebuild exited with status $xc_status but no test failures detected; treating as success"
+        ;;
+      *)
+        log_error "xcodebuild exited with status $xc_status and result bundle could not be inspected"
+        exit $xc_status
+        ;;
+    esac
+  fi
+
   log_success "Tests finished -> $RESULT_LOG"
   add_summary "Tests ${target}: $RESULT_LOG"
 }

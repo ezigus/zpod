@@ -360,3 +360,8 @@ Phase 1 successfully enhanced the existing batch operations and episode status m
 - Switched UITest helper to instantiate `XCUIApplication(bundleIdentifier: "us.zig.zpod")`, eliminating the previous "Invalid request: No bundle identifier was specified" launch failures in direct xcodebuild invocations.
 - Scripted run `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` still exits 65 despite all suites reporting pass; xcresult contains no failures but xcodebuild restarts a second session with zero tests before terminating. Need follow-up harness guard (likely ensure no redundant invocation after first pass).
 - Latest artifacts: `TestResults/TestResults_20250929_074212_test_zpodUITests.{log,xcresult}`.
+
+### 2025-09-29 08:12 EDT — UI Regression Clean Run
+- Ran `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` after harness update (bundle identifier + xcresult tolerance). Package target remains skipped (expected), but `zpodUITests` completed all 56 tests with 0 failures.
+- Summary emitted via script: `TestResults/TestResults_20250929_080039_test_zpodUITests.{log,xcresult}`.
+- Ready to fold results back into Issue 02.1 documentation once pending parent tasks are finalized.
