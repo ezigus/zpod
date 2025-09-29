@@ -335,3 +335,43 @@ Phase 1 successfully enhanced the existing batch operations and episode status m
 **Additional Achievement**: Ensured full compliance with iPhone-only development guidelines by removing all iPad-specific code and updating project guidelines for future development.
 
 **All core acceptance criteria have been met** with full Swift 6 compliance, zero build errors, and complete iPhone-only platform compliance. The enhanced system provides users with a comprehensive and intuitive episode management experience with proper error handling and recovery options focused exclusively on iPhone user experience patterns.
+
+### 2025-09-29 06:12 EDT — Parent Issue Wrap-up Plan
+- **Goal**: confirm sub-issues 02.1.3.1 and 02.1.3.2 are integrated, update parent issue metadata/status, and identify any residual acceptance criteria before promoting Issue 02.1 to closure.
+- **Planned Steps**:
+  1. Audit specs (`spec/ui.md`, `spec/content.md`, `spec/download.md`) to ensure batch status flows match the implemented UI/logic.
+  2. Update `Issues/02.1.3-batch-operations-status.md` to reflect completion, referencing merged sub-issue PRs and newly added tests.
+  3. Run a focused regression (`./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests`) to document coverage ahead of Issue 02.1 consolidation.
+- **Outputs**: revised issue file, test evidence, and checklist for upstream Issue 02.1.
+
+### 2025-09-29 06:50 EDT — Spec Audit & Regression Attempt
+- **Spec review**: Confirmed `spec/spec.md` (lines 169-176) captures the batch download/delete flow our UI implements; `spec/ui.md` highlights multi-select actions and episode badges; `spec/download.md` scenarios cover download retry/status expectations. No divergences discovered—current UI + view model features align with these scenarios post 02.1.3.2 work.
+- **Regression run**: `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests`.
+  - Package tests skipped (LibraryFeature) due to host platform unsupported warning (expected in this environment).
+  - `zpodUITests` failed: simulator refused to launch app (`Invalid request: No bundle identifier was specified`) causing 18 tests to abort. Result bundle/log: `TestResults/TestResults_20250929_064447_test_zpodUITests.{xcresult,log}`.
+- **Next actions**: Investigate simulator/App ID configuration regression before marking 02.1.3 complete; re-run targeted tests once launch issue is resolved.
+
+### 2025-09-29 07:15 EDT — Regression Follow-up
+- Re-ran full scheme regression `./scripts/run-xcode-tests.sh -t zpod`; playback UI tests complete (17 pass) but xcodebuild aborts with `** TEST FAILED **` after reporting only the UI suite. Underlying log shows an early runner restart with "Selected tests" summary and 0 additional suites; no explicit XCTest failure emitted. Captured artifacts: `TestResults/TestResults_20250929_070445_test_zpod.{log,xcresult}`.
+- Conclusion: CI-style invocation remains flaky in this environment; treating as infrastructure blocker rather than product regression. Retain log references for future automation fix while focusing next steps on documentation updates and issue roll-up.
+
+### 2025-09-29 07:54 EDT — Harness Tweaks & Remaining Instability
+- Updated `scripts/run-xcode-tests.sh` default scheme to `"zpod (zpod project)"` so targeted runs build the correct UI test host.
+- Switched UITest helper to instantiate `XCUIApplication(bundleIdentifier: "us.zig.zpod")`, eliminating the previous "Invalid request: No bundle identifier was specified" launch failures in direct xcodebuild invocations.
+- Scripted run `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` still exits 65 despite all suites reporting pass; xcresult contains no failures but xcodebuild restarts a second session with zero tests before terminating. Need follow-up harness guard (likely ensure no redundant invocation after first pass).
+- Latest artifacts: `TestResults/TestResults_20250929_074212_test_zpodUITests.{log,xcresult}`.
+
+### 2025-09-29 08:12 EDT — UI Regression Clean Run
+- Ran `./scripts/run-xcode-tests.sh -t LibraryFeatureTests,zpodUITests` after harness update (bundle identifier + xcresult tolerance). Package target remains skipped (expected), but `zpodUITests` completed all 56 tests with 0 failures.
+- Summary emitted via script: `TestResults/TestResults_20250929_080039_test_zpodUITests.{log,xcresult}`.
+- Ready to fold results back into Issue 02.1 documentation once pending parent tasks are finalized.
+
+### 2025-09-29 08:39 EDT — Full Scheme Regression (split harness)
+- Updated `./scripts/run-xcode-tests.sh -t zpod` to execute unit (`zpod-unit`) and UI (`zpod-ui`) phases independently.
+- Both phases now green:
+  - `TestResults/TestResults_20250929_082816_test_zpod-unit.{log,xcresult}`
+  - `TestResults/TestResults_20250929_082832_test_zpod-ui.{log,xcresult}`
+- Confirms Issue 02.1.3 validation can rely on stable harness without simulator relaunch failures.
+
+### 2025-09-29 08:54 EDT — Scheme Detection for CI
+- Added auto-detection of shared Xcode schemes in `run-xcode-tests.sh` so CI (which only exposes `zpod`) gracefully falls back when `"zpod (zpod project)"` is unavailable.
