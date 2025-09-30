@@ -133,11 +133,7 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
   }
   
   public func deleteEpisode(_ episode: Episode) async {
-    // Perform single episode deletion
-    let operation = EpisodeOperation(
-      episodeID: episode.id,
-      operationType: .delete
-    )
+    // Perform single episode deletion via batch operation
     let batchOperation = BatchOperation(
       operationType: .delete,
       episodeIDs: [episode.id]

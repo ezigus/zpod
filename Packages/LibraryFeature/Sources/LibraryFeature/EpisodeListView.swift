@@ -129,7 +129,7 @@ public struct EpisodeListView: View {
         .task {
             await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
         }
-        .onChange(of: viewModel.filteredEpisodes.count) { _ in
+        .onChange(of: viewModel.filteredEpisodes.count) {
             Task { await viewModel.ensureUITestBatchOverlayIfNeeded() }
         }
     }
