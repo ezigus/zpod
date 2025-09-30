@@ -194,6 +194,8 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
             return try await addToPlaylist(operation, playlistID: batchContext.playlistID)
         case .archive:
             return try await archiveEpisode(operation)
+        case .unarchive:
+            return try await unarchiveEpisode(operation)
         case .delete:
             return try await deleteEpisode(operation)
         case .favorite:
@@ -248,6 +250,11 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     }
     
     private func archiveEpisode(_ operation: EpisodeOperation) async throws -> EpisodeOperation {
+        try await Task.sleep(nanoseconds: 100_000_000)
+        return operation.withStatus(.completed)
+    }
+    
+    private func unarchiveEpisode(_ operation: EpisodeOperation) async throws -> EpisodeOperation {
         try await Task.sleep(nanoseconds: 100_000_000)
         return operation.withStatus(.completed)
     }

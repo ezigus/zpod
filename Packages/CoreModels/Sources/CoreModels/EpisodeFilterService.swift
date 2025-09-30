@@ -14,10 +14,10 @@ public protocol EpisodeFilterService: Sendable {
     func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode]
     
     /// Search episodes by text query
-    func searchEpisodes(_ episodes: [Episode], query: String, filter: EpisodeFilter?) -> [Episode]
+    func searchEpisodes(_ episodes: [Episode], query: String, filter: EpisodeFilter?, includeArchived: Bool) -> [Episode]
     
     /// Advanced search with result highlighting and context
-    func searchEpisodesAdvanced(_ episodes: [Episode], query: EpisodeSearchQuery, filter: EpisodeFilter?) -> [EpisodeSearchResult]
+    func searchEpisodesAdvanced(_ episodes: [Episode], query: EpisodeSearchQuery, filter: EpisodeFilter?, includeArchived: Bool) -> [EpisodeSearchResult]
     
     /// Evaluate smart list with enhanced rules
     func evaluateSmartListV2(_ smartList: SmartEpisodeListV2, allEpisodes: [Episode]) -> [Episode]
@@ -106,9 +106,13 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:di
     nonisolated public func searchEpisodes(
         _ episodes: [Episode],
         query: String,
-        filter: EpisodeFilter? = nil
+        filter: EpisodeFilter? = nil,
+        includeArchived: Bool = false
     ) -> [Episode] {
-        let searchResults = episodes.filter { episode in
+        // Exclude archived episodes by default unless explicitly requested
+        let episodesToSearch = includeArchived ? episodes : episodes.filter { !$0.isArchived }
+        
+        let searchResults = episodesToSearch.filter { episode in
             searchMatches(episode: episode, query: query)
         }
         
@@ -124,9 +128,13 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:di
     nonisolated public func searchEpisodesAdvanced(
         _ episodes: [Episode],
         query: EpisodeSearchQuery,
-        filter: EpisodeFilter? = nil
+        filter: EpisodeFilter? = nil,
+        includeArchived: Bool = false
     ) -> [EpisodeSearchResult] {
-        let searchResults: [EpisodeSearchResult] = episodes.compactMap { episode in
+        // Exclude archived episodes by default unless explicitly requested
+        let episodesToSearch = includeArchived ? episodes : episodes.filter { !$0.isArchived }
+        
+        let searchResults: [EpisodeSearchResult] = episodesToSearch.compactMap { episode in
             if let result = evaluateAdvancedSearch(episode: episode, query: query) {
                 return result
             }
@@ -173,9 +181,16 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:di
     // MARK: - Private Methods
     
     nonisolated private func applyFilter(_ episodes: [Episode], filter: EpisodeFilter) -> [Episode] {
-        guard !filter.isEmpty else { return episodes }
+        // Exclude archived episodes by default unless filter explicitly includes archived criteria
+        let includesArchivedFilter = filter.conditions.contains { condition in
+            condition.criteria == .archived && !condition.isNegated
+        }
         
-        return episodes.filter { episode in
+        let episodesToFilter = includesArchivedFilter ? episodes : episodes.filter { !$0.isArchived }
+        
+        guard !filter.isEmpty else { return episodesToFilter }
+        
+        return episodesToFilter.filter { episode in
             switch filter.logic {
             case .and:
                 return filter.conditions.allSatisfy { condition in
