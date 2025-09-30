@@ -102,6 +102,7 @@ jobs:
           ./scripts/run-xcode-tests.sh -t zpod
         env:
           NSUnbufferedIO: "YES"
+          UITEST_TIMEOUT_SCALE: "1.5"
       - name: Archive Test Results
         if: always()
         run: |

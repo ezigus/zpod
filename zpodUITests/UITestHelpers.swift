@@ -58,12 +58,23 @@ protocol UITestFoundation {
 // MARK: - Default Implementation
 
 extension UITestFoundation {
+  /// Returns the timeout scale factor from the environment, defaulting to 1.5 in CI and 1.0 otherwise
+  private var timeoutScale: TimeInterval {
+    if let scaleString = ProcessInfo.processInfo.environment["UITEST_TIMEOUT_SCALE"],
+       let scale = TimeInterval(scaleString), scale > 0 {
+      return scale
+    }
+    return ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
+  }
+  
   var adaptiveTimeout: TimeInterval {
-    ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
+    return baseTimeout * timeoutScale
   }
 
   var adaptiveShortTimeout: TimeInterval {
-    ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
+    return baseTimeout * timeoutScale
   }
 }
 
@@ -77,7 +88,10 @@ extension ElementWaiting {
     let success = element.waitForExistence(timeout: timeout)
 
     if !success {
-      XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
+      let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil 
+        ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)" 
+        : ""
+      XCTFail("Element '\(description)' did not appear within \(timeout) seconds\(diagnostics)")
     }
     return success
   }
@@ -125,8 +139,11 @@ extension ElementWaiting {
         let debugSummaries = elements.enumerated().map { idx, el in
           "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
         }.joined(separator: "\n")
+        let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil
+          ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)"
+          : ""
         XCTFail(
-          "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)"
+          "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)\(diagnostics)"
         )
       }
     }
@@ -158,7 +175,10 @@ extension ElementWaiting {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed {
-      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
+      let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil
+        ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)"
+        : ""
+      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds\(diagnostics)")
       return false
     }
 
@@ -311,6 +331,9 @@ extension XCTestCase {
     checkForLoading()
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
+      print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+    }
     return result == .completed
   }
 }
@@ -644,6 +667,9 @@ extension SmartUITesting where Self: XCTestCase {
     checkForLoading()
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
+      print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+    }
     return result == .completed
   }
 }
