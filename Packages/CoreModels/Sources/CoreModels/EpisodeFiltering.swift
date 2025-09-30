@@ -300,6 +300,15 @@ public extension EpisodeFilterPreset {
                 sortBy: .pubDateNewest
             ),
             isBuiltIn: true
+        ),
+        EpisodeFilterPreset(
+            id: "archived",
+            name: "Archived Episodes",
+            filter: EpisodeFilter(
+                conditions: [EpisodeFilterCondition(criteria: .archived)],
+                sortBy: .pubDateNewest
+            ),
+            isBuiltIn: true
         )
     ]
 }
