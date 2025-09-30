@@ -237,6 +237,7 @@ public struct EpisodeListView: View {
                                 .markAsUnplayed,
                                 .download,
                                 .addToPlaylist,
+                                .archive,
                                 .favorite,
                                 .delete
                             ], id: \.self) { operationType in
@@ -290,6 +291,8 @@ public struct EpisodeListView: View {
             return .blue
         case .addToPlaylist:
             return .orange
+        case .archive:
+            return .purple
         default:
             return .gray
         }
@@ -431,6 +434,43 @@ public struct EpisodeListView: View {
                         isSelected: false,
                         isInMultiSelectMode: false
                     )
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        let _: Task<Void, Never> = Task { @MainActor in
+                            await viewModel.deleteEpisode(episode)
+                        }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    
+                    if episode.isArchived {
+                        Button {
+                            viewModel.toggleEpisodeArchiveStatus(episode)
+                        } label: {
+                            Label("Unarchive", systemImage: "arrow.up.bin")
+                        }
+                        .tint(.purple)
+                    } else {
+                        Button {
+                            viewModel.toggleEpisodeArchiveStatus(episode)
+                        } label: {
+                            Label("Archive", systemImage: "archivebox")
+                        }
+                        .tint(.purple)
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button {
+                        viewModel.toggleEpisodePlayedStatus(episode)
+                    } label: {
+                        if episode.isPlayed {
+                            Label("Mark Unplayed", systemImage: "circle")
+                        } else {
+                            Label("Mark Played", systemImage: "checkmark.circle")
+                        }
+                    }
+                    .tint(.green)
                 }
                 .accessibilityIdentifier("Episode-\(episode.id)")
                 .onLongPressGesture {

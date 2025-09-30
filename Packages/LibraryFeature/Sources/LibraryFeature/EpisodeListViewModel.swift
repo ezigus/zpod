@@ -119,6 +119,10 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
   public func toggleEpisodeBookmark(_ episode: Episode) {
     updateEpisode(episode.withBookmarkStatus(!episode.isBookmarked))
   }
+  
+  public func toggleEpisodeArchiveStatus(_ episode: Episode) {
+    updateEpisode(episode.withArchivedStatus(!episode.isArchived))
+  }
 
   public func markEpisodeAsPlayed(_ episode: Episode) {
     updateEpisode(episode.withPlayedStatus(true))
@@ -126,6 +130,23 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
 
   public func setEpisodeRating(_ episode: Episode, rating: Int?) {
     updateEpisode(episode.withRating(rating))
+  }
+  
+  public func deleteEpisode(_ episode: Episode) async {
+    // Perform single episode deletion
+    let operation = EpisodeOperation(
+      episodeID: episode.id,
+      operationType: .delete
+    )
+    let batchOperation = BatchOperation(
+      operationType: .delete,
+      episodeIDs: [episode.id]
+    )
+    do {
+      let _ = try await batchOperationManager.executeBatchOperation(batchOperation)
+    } catch {
+      print("Failed to delete episode: \(error)")
+    }
   }
 
   // MARK: - Batch Operation Methods
