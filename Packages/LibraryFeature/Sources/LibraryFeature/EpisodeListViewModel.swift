@@ -568,7 +568,8 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
         episodes = viewModel.filterService.searchEpisodes(
           episodes,
           query: viewModel.searchText,
-          filter: nil
+          filter: nil,
+          includeArchived: false
         )
       }
 
