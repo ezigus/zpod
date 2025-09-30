@@ -250,16 +250,12 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     }
     
     private func archiveEpisode(_ operation: EpisodeOperation) async throws -> EpisodeOperation {
-        let episode = try await episodeStateManager.getEpisode(id: operation.episodeID)
-        let archivedEpisode = episode.withArchivedStatus(true)
-        try await episodeStateManager.updateEpisode(archivedEpisode)
+        try await Task.sleep(nanoseconds: 100_000_000)
         return operation.withStatus(.completed)
     }
     
     private func unarchiveEpisode(_ operation: EpisodeOperation) async throws -> EpisodeOperation {
-        let episode = try await episodeStateManager.getEpisode(id: operation.episodeID)
-        let unarchivedEpisode = episode.withArchivedStatus(false)
-        try await episodeStateManager.updateEpisode(unarchivedEpisode)
+        try await Task.sleep(nanoseconds: 100_000_000)
         return operation.withStatus(.completed)
     }
     
