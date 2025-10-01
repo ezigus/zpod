@@ -29,6 +29,12 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
   private func initializeApp() {
     app = launchConfiguredApp()
 
+    // Verify app launched successfully
+    guard app.state == .runningForeground else {
+      XCTFail("App did not launch successfully. State: \(app.state.rawValue)")
+      return
+    }
+
     // Navigate to player interface for testing
     let tabBar = app.tabBars["Main Tab Bar"]
     let playerTab = tabBar.buttons["Player"]

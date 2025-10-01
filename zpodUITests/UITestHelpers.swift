@@ -258,6 +258,12 @@ extension XCTestCase {
     in app: XCUIApplication,
     identifier: String
   ) -> XCUIElement? {
+    // Safety check: if app is not running, return nil immediately
+    // This prevents "Lost connection" errors when app has crashed
+    guard app.state == .runningForeground || app.state == .runningBackground else {
+      return nil
+    }
+    
     let orderedQueries: [XCUIElementQuery] = [
       app.scrollViews,
       app.tables,
@@ -397,10 +403,16 @@ extension SmartUITesting where Self: XCTestCase {
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
     application.launch()
+    
+    // Check if app is actually running
+    guard application.state == .runningForeground || application.state == .runningBackground else {
+      XCTFail("App failed to launch. State: \(application.state.rawValue)")
+      return application
+    }
 
     let mainTabBar = application.tabBars["Main Tab Bar"]
     if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
-      XCTFail("Main tab bar did not appear after launch")
+      XCTFail("Main tab bar did not appear after launch. App state: \(application.state.rawValue)")
     }
 
     _ = waitForBatchOverlayDismissalIfNeeded(in: application)
