@@ -14,8 +14,36 @@ import LibraryFeature
 @main
 struct ZpodApp: App {
     #if canImport(LibraryFeature)
-    // Use a StateObject to lazily initialize the model container
-    @StateObject private var containerHolder = ModelContainerHolder()
+    // Create model container as a static property to ensure single instance
+    private static let sharedModelContainer: ModelContainer = {
+        // Detect UI testing environment early
+        let isUITesting = ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
+        
+        if isUITesting {
+            print("🧪 UI Test mode - creating in-memory ModelContainer")
+            do {
+                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+                let container = try ModelContainer(for: LibraryFeature.Item.self, configurations: config)
+                print("✅ UI Test: Successfully created in-memory ModelContainer")
+                return container
+            } catch {
+                print("❌ UI Test: Failed to create ModelContainer: \(error)")
+                fatalError("Failed to create in-memory ModelContainer for UI tests: \(error)")
+            }
+        } else {
+            print("📱 Production mode - creating persistent ModelContainer")
+            do {
+                let schema = Schema([LibraryFeature.Item.self])
+                let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                let container = try ModelContainer(for: schema, configurations: [config])
+                print("✅ Production: Successfully created persistent ModelContainer")
+                return container
+            } catch {
+                print("❌ Production: Failed to create ModelContainer: \(error)")
+                fatalError("Could not create ModelContainer for production: \(error)")
+            }
+        }
+    }()
     #endif
 
     var body: some Scene {
@@ -23,43 +51,7 @@ struct ZpodApp: App {
             ContentView()
         }
         #if canImport(LibraryFeature)
-        .modelContainer(containerHolder.container)
+        .modelContainer(Self.sharedModelContainer)
         #endif
     }
 }
-
-#if canImport(LibraryFeature)
-/// Holder class to lazily initialize ModelContainer
-@MainActor
-class ModelContainerHolder: ObservableObject {
-    let container: ModelContainer
-    
-    init() {
-        // Detect UI testing environment
-        let isUITesting = ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
-        
-        // For UI tests, use in-memory storage as recommended for CI environments
-        if isUITesting {
-            do {
-                // Use the simple, recommended approach for testing
-                let config = ModelConfiguration(isStoredInMemoryOnly: true)
-                self.container = try ModelContainer(for: LibraryFeature.Item.self, configurations: config)
-                print("✅ UI Test: Created in-memory ModelContainer")
-            } catch {
-                print("❌ UI Test: Failed to create ModelContainer: \(error)")
-                // If in-memory fails, something is fundamentally wrong - crash with detailed error
-                fatalError("Failed to create in-memory ModelContainer for UI tests: \(error)")
-            }
-        } else {
-            // For production, use persistent storage
-            do {
-                let schema = Schema([LibraryFeature.Item.self])
-                let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-                self.container = try ModelContainer(for: schema, configurations: [config])
-            } catch {
-                fatalError("Could not create ModelContainer for production: \(error)")
-            }
-        }
-    }
-}
-#endif
