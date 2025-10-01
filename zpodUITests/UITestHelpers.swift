@@ -88,10 +88,9 @@ extension ElementWaiting {
     let success = element.waitForExistence(timeout: timeout)
 
     if !success {
-      let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil 
-        ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)" 
-        : ""
-      XCTFail("Element '\(description)' did not appear within \(timeout) seconds\(diagnostics)")
+      // Note: Removed app.debugDescription here as it can cause "Lost connection" errors
+      // when the app has crashed. Element-level debugging is still available via the element's properties.
+      XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
     }
     return success
   }
@@ -139,11 +138,9 @@ extension ElementWaiting {
         let debugSummaries = elements.enumerated().map { idx, el in
           "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
         }.joined(separator: "\n")
-        let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil
-          ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)"
-          : ""
+        // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
         XCTFail(
-          "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)\(diagnostics)"
+          "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)"
         )
       }
     }
@@ -175,10 +172,8 @@ extension ElementWaiting {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed {
-      let diagnostics = ProcessInfo.processInfo.environment["CI"] != nil
-        ? "\n\nAccessibility tree:\n\(XCUIApplication().debugDescription)"
-        : ""
-      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds\(diagnostics)")
+      // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
+      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
       return false
     }
 
@@ -332,7 +327,9 @@ extension XCTestCase {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
-      print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
+      print("Loading did not complete within \(timeout)s.")
+      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
     }
     return result == .completed
   }
@@ -668,7 +665,9 @@ extension SmartUITesting where Self: XCTestCase {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
-      print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
+      print("Loading did not complete within \(timeout)s.")
+      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
     }
     return result == .completed
   }
