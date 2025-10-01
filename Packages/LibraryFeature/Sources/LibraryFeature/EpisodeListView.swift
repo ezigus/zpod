@@ -10,6 +10,8 @@ import Foundation
 import CoreModels
 import Persistence
 import PlaybackEngine
+import SettingsDomain
+import SharedUtilities
 
 #if canImport(UIKit)
 import UIKit
@@ -19,10 +21,12 @@ import UIKit
 public struct EpisodeListView: View {
     let podcast: Podcast
     @StateObject private var viewModel: EpisodeListViewModel
+    @StateObject private var settingsManager: SettingsManager
     @State private var isRefreshing = false
+    @State private var showingSwipeConfiguration = false
     
     @MainActor
-    public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
+    public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, settingsManager: SettingsManager? = nil) {
         self.podcast = podcast
         let dependencies = EpisodeListDependencyProvider.shared
         if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
@@ -48,6 +52,14 @@ public struct EpisodeListView: View {
                 playbackService: dependencies.playbackService,
                 episodeRepository: dependencies.episodeRepository
             ))
+        }
+        
+        // Initialize settings manager
+        if let manager = settingsManager {
+            self._settingsManager = StateObject(wrappedValue: manager)
+        } else {
+            let repo = UserDefaultsSettingsRepository()
+            self._settingsManager = StateObject(wrappedValue: SettingsManager(repository: repo))
         }
     }
     
@@ -78,14 +90,25 @@ public struct EpisodeListView: View {
                         viewModel.exitMultiSelectMode()
                     }
                 } else {
-                    Button("Select") {
-                        viewModel.enterMultiSelectMode()
+                    Menu {
+                        Button("Select Episodes") {
+                            viewModel.enterMultiSelectMode()
+                        }
+                        Button("Configure Swipe Actions") {
+                            showingSwipeConfiguration = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
+                    .accessibilityIdentifier("Episode List Options")
                 }
             }
         }
         .refreshable {
             await refreshEpisodes()
+        }
+        .sheet(isPresented: $showingSwipeConfiguration) {
+            SwipeActionConfigurationView(settingsManager: settingsManager)
         }
         .sheet(isPresented: $viewModel.showingFilterSheet) {
             EpisodeFilterSheet(
@@ -435,42 +458,15 @@ public struct EpisodeListView: View {
                         isInMultiSelectMode: false
                     )
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        let _: Task<Void, Never> = Task { @MainActor in
-                            await viewModel.deleteEpisode(episode)
-                        }
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
-                    
-                    if episode.isArchived {
-                        Button {
-                            viewModel.toggleEpisodeArchiveStatus(episode)
-                        } label: {
-                            Label("Unarchive", systemImage: "arrow.up.bin")
-                        }
-                        .tint(.purple)
-                    } else {
-                        Button {
-                            viewModel.toggleEpisodeArchiveStatus(episode)
-                        } label: {
-                            Label("Archive", systemImage: "archivebox")
-                        }
-                        .tint(.purple)
+                .swipeActions(edge: .trailing, allowsFullSwipe: settingsManager.globalUISettings.swipeActions.allowFullSwipeTrailing) {
+                    ForEach(settingsManager.globalUISettings.swipeActions.trailingActions, id: \.self) { action in
+                        swipeButton(for: action, episode: episode)
                     }
                 }
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button {
-                        viewModel.toggleEpisodePlayedStatus(episode)
-                    } label: {
-                        if episode.isPlayed {
-                            Label("Mark Unplayed", systemImage: "circle")
-                        } else {
-                            Label("Mark Played", systemImage: "checkmark.circle")
-                        }
+                .swipeActions(edge: .leading, allowsFullSwipe: settingsManager.globalUISettings.swipeActions.allowFullSwipeLeading) {
+                    ForEach(settingsManager.globalUISettings.swipeActions.leadingActions, id: \.self) { action in
+                        swipeButton(for: action, episode: episode)
                     }
-                    .tint(.green)
                 }
                 .accessibilityIdentifier("Episode-\(episode.id)")
                 .onLongPressGesture {
@@ -549,6 +545,113 @@ public struct EpisodeListView: View {
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("No Results State")
+    }
+    
+    @ViewBuilder
+    private func swipeButton(for action: SwipeActionType, episode: Episode) -> some View {
+        let button: Button<Label<Text, Image>>
+        
+        switch action {
+        case .play:
+            button = Button {
+                provideHapticFeedback()
+                let _: Task<Void, Never> = Task { @MainActor in
+                    await viewModel.quickPlayEpisode(episode)
+                }
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .download:
+            button = Button {
+                provideHapticFeedback()
+                let _: Task<Void, Never> = Task { @MainActor in
+                    await viewModel.downloadEpisode(episode)
+                }
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .markPlayed:
+            button = Button {
+                provideHapticFeedback()
+                viewModel.markEpisodePlayed(episode)
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .markUnplayed:
+            button = Button {
+                provideHapticFeedback()
+                viewModel.markEpisodeUnplayed(episode)
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .addToPlaylist:
+            button = Button {
+                provideHapticFeedback()
+                // TODO: Implement playlist addition in future issue
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .favorite:
+            button = Button {
+                provideHapticFeedback()
+                viewModel.toggleEpisodeFavorite(episode)
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .archive:
+            button = Button {
+                provideHapticFeedback()
+                viewModel.toggleEpisodeArchiveStatus(episode)
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .delete:
+            button = Button(role: .destructive) {
+                provideHapticFeedback()
+                let _: Task<Void, Never> = Task { @MainActor in
+                    await viewModel.deleteEpisode(episode)
+                }
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+            
+        case .share:
+            button = Button {
+                provideHapticFeedback()
+                // TODO: Implement sharing in future issue
+            } label: {
+                Label(action.displayName, systemImage: action.systemIcon)
+            }
+        }
+        
+        button.tint(colorForAction(action))
+    }
+    
+    private func colorForAction(_ action: SwipeActionType) -> Color {
+        switch action.colorTint {
+        case .blue: return .blue
+        case .green: return .green
+        case .yellow: return .yellow
+        case .orange: return .orange
+        case .purple: return .purple
+        case .red: return .red
+        case .gray: return .gray
+        }
+    }
+    
+    private func provideHapticFeedback() {
+        #if canImport(UIKit)
+        if settingsManager.globalUISettings.swipeActions.hapticFeedbackEnabled {
+            HapticFeedbackService.shared.executionFeedback(style: settingsManager.globalUISettings.hapticStyle)
+        }
+        #endif
     }
     
     private func episodeDetailView(for episode: Episode) -> some View {
