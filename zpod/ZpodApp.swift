@@ -23,87 +23,42 @@ struct ZpodApp: App {
             ContentView()
         }
         #if canImport(LibraryFeature)
-        // Only attach ModelContainer if we're not in UI test mode or if container was created successfully
-        .modifier(ModelContainerModifier(holder: containerHolder))
+        .modelContainer(containerHolder.container)
         #endif
     }
 }
 
 #if canImport(LibraryFeature)
-/// View modifier that conditionally applies ModelContainer
-struct ModelContainerModifier: ViewModifier {
-    let holder: ModelContainerHolder
-    
-    func body(content: Content) -> some View {
-        if let container = holder.container {
-            content.modelContainer(container)
-        } else {
-            content
-        }
-    }
-}
-
-/// Holder class to lazily initialize ModelContainer and avoid crashes during struct initialization
+/// Holder class to lazily initialize ModelContainer
 @MainActor
 class ModelContainerHolder: ObservableObject {
-    let container: ModelContainer?
+    let container: ModelContainer
     
     init() {
-        let schema = Schema([
-            LibraryFeature.Item.self,
-        ])
-        
         // Detect UI testing environment
         let isUITesting = ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
         
-        // For UI tests, try to create in-memory container but don't crash if it fails
+        // For UI tests, use in-memory storage as recommended for CI environments
         if isUITesting {
-            print("🧪 UI Test mode detected - attempting to create in-memory ModelContainer")
-            
-            // Try 1: Standard in-memory configuration
-            if let container = try? ModelContainer(
-                for: schema,
-                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
-            ) {
+            do {
+                // Use the simple, recommended approach for testing
+                let config = ModelConfiguration(isStoredInMemoryOnly: true)
+                self.container = try ModelContainer(for: LibraryFeature.Item.self, configurations: config)
                 print("✅ UI Test: Created in-memory ModelContainer")
-                self.container = container
-                return
+            } catch {
+                print("❌ UI Test: Failed to create ModelContainer: \(error)")
+                // If in-memory fails, something is fundamentally wrong - crash with detailed error
+                fatalError("Failed to create in-memory ModelContainer for UI tests: \(error)")
             }
-            
-            // Try 2: Minimal in-memory with no schema details
-            if let container = try? ModelContainer(
-                for: LibraryFeature.Item.self,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-            ) {
-                print("✅ UI Test: Created minimal in-memory ModelContainer")
-                self.container = container
-                return
+        } else {
+            // For production, use persistent storage
+            do {
+                let schema = Schema([LibraryFeature.Item.self])
+                let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+                self.container = try ModelContainer(for: schema, configurations: [config])
+            } catch {
+                fatalError("Could not create ModelContainer for production: \(error)")
             }
-            
-            // Try 3: Temporary file-based storage
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("UITestDB-\(UUID().uuidString)")
-            if let container = try? ModelContainer(
-                for: schema,
-                configurations: [ModelConfiguration(schema: schema, url: tempURL)]
-            ) {
-                print("✅ UI Test: Created temp file ModelContainer")
-                self.container = container
-                return
-            }
-            
-            // If all fail in UI tests, continue WITHOUT ModelContainer
-            print("⚠️ UI Test: Could not create ModelContainer - continuing without SwiftData support")
-            self.container = nil
-            return
-        }
-        
-        // For production, use persistent storage and crash if it fails
-        do {
-            let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            self.container = try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer for production: \(error)")
         }
     }
 }
