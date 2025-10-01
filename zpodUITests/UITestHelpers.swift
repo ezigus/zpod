@@ -58,12 +58,23 @@ protocol UITestFoundation {
 // MARK: - Default Implementation
 
 extension UITestFoundation {
+  /// Returns the timeout scale factor from the environment, defaulting to 1.5 in CI and 1.0 otherwise
+  private var timeoutScale: TimeInterval {
+    if let scaleString = ProcessInfo.processInfo.environment["UITEST_TIMEOUT_SCALE"],
+       let scale = TimeInterval(scaleString), scale > 0 {
+      return scale
+    }
+    return ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
+  }
+  
   var adaptiveTimeout: TimeInterval {
-    ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
+    return baseTimeout * timeoutScale
   }
 
   var adaptiveShortTimeout: TimeInterval {
-    ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 10.0 : 5.0
+    return baseTimeout * timeoutScale
   }
 }
 
@@ -77,6 +88,8 @@ extension ElementWaiting {
     let success = element.waitForExistence(timeout: timeout)
 
     if !success {
+      // Note: Removed app.debugDescription here as it can cause "Lost connection" errors
+      // when the app has crashed. Element-level debugging is still available via the element's properties.
       XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
     }
     return success
@@ -125,6 +138,7 @@ extension ElementWaiting {
         let debugSummaries = elements.enumerated().map { idx, el in
           "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
         }.joined(separator: "\n")
+        // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
         XCTFail(
           "No elements found for '\(description)' within timeout (\(timeout)s). Debug:\n\(debugSummaries)"
         )
@@ -158,6 +172,7 @@ extension ElementWaiting {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed {
+      // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
       XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
       return false
     }
@@ -243,6 +258,12 @@ extension XCTestCase {
     in app: XCUIApplication,
     identifier: String
   ) -> XCUIElement? {
+    // Safety check: if app is not running, return nil immediately
+    // This prevents "Lost connection" errors when app has crashed
+    guard app.state == .runningForeground || app.state == .runningBackground else {
+      return nil
+    }
+    
     let orderedQueries: [XCUIElementQuery] = [
       app.scrollViews,
       app.tables,
@@ -311,6 +332,11 @@ extension XCTestCase {
     checkForLoading()
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
+      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
+      print("Loading did not complete within \(timeout)s.")
+      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+    }
     return result == .completed
   }
 }
@@ -377,10 +403,16 @@ extension SmartUITesting where Self: XCTestCase {
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
     application.launch()
+    
+    // Check if app is actually running
+    guard application.state == .runningForeground || application.state == .runningBackground else {
+      XCTFail("App failed to launch. State: \(application.state.rawValue)")
+      return application
+    }
 
     let mainTabBar = application.tabBars["Main Tab Bar"]
     if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
-      XCTFail("Main tab bar did not appear after launch")
+      XCTFail("Main tab bar did not appear after launch. App state: \(application.state.rawValue)")
     }
 
     _ = waitForBatchOverlayDismissalIfNeeded(in: application)
@@ -644,6 +676,11 @@ extension SmartUITesting where Self: XCTestCase {
     checkForLoading()
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
+      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
+      print("Loading did not complete within \(timeout)s.")
+      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+    }
     return result == .completed
   }
 }

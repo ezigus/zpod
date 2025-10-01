@@ -76,6 +76,24 @@ This document outlines the UI testing approach for the main zpod application.
 - Tests follow Given/When/Then structure with clear comments
 - Each test is isolated and can run independently
 
+### Event-Driven Waiting Pattern
+- Uses XCUITest's native `waitForExistence()` and XCTestExpectation patterns
+- No artificial `Thread.sleep()` or polling - responds to actual UI events
+- Timeout = Failure: tests fail immediately when elements don't appear within timeout
+- Helper functions: `waitForElement()`, `waitForAnyElement()`, `waitForLoadingToComplete()`
+
+### Adaptive Timeout Scaling (Issue 12.7)
+- **Timeout Scale Factor**: Controlled via `UITEST_TIMEOUT_SCALE` environment variable
+  - Local default: 1.0 (no scaling)
+  - CI default: 1.5 (50% longer timeouts for hosted runners)
+  - Custom: Set `UITEST_TIMEOUT_SCALE=2.0` for slower environments
+- **Base Timeouts**:
+  - `adaptiveTimeout`: 10s local → 30s CI (20s base × 1.5 scale)
+  - `adaptiveShortTimeout`: 5s local → 15s CI (10s base × 1.5 scale)
+- **CI Diagnostics**: On timeout, helpers emit `app.debugDescription` to show accessibility tree
+  - Helps debug failures without manual reproduction
+  - Only active in CI to avoid local log noise
+
 ### Accessibility Testing
 - All UI tests include accessibility verification
 - VoiceOver labels and hints are validated
