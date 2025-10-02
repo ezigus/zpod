@@ -565,14 +565,14 @@ public struct EpisodeListView: View {
     case .play:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        performAsyncAction {
+        let _: Task<Void, Never> = Task { @MainActor in
           await viewModel.quickPlayEpisode(episode)
         }
       }
     case .download:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        performAsyncAction {
+        let _: Task<Void, Never> = Task { @MainActor in
           await viewModel.downloadEpisode(episode)
         }
       }
@@ -604,7 +604,7 @@ public struct EpisodeListView: View {
     case .delete:
       swipeActionButton(for: action, role: .destructive) {
         provideHapticFeedback()
-        performAsyncAction {
+        let _: Task<Void, Never> = Task { @MainActor in
           await viewModel.deleteEpisode(episode)
         }
       }
@@ -645,13 +645,6 @@ public struct EpisodeListView: View {
         HapticFeedbackService.shared.executionFeedback(style: hapticStyle)
       }
     #endif
-  }
-  
-  /// Helper method to execute async actions from swipe gestures
-  private func performAsyncAction(_ action: @escaping @MainActor () async -> Void) {
-    _ = Task { @MainActor in
-      await action()
-    }
   }
 
   private func episodeDetailView(for episode: Episode) -> some View {
