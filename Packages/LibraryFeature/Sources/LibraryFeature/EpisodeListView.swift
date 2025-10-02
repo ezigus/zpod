@@ -565,14 +565,14 @@ public struct EpisodeListView: View {
     case .play:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        _ = Task { @MainActor in
+        performAsyncAction {
           await viewModel.quickPlayEpisode(episode)
         }
       }
     case .download:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        _ = Task { @MainActor in
+        performAsyncAction {
           await viewModel.downloadEpisode(episode)
         }
       }
@@ -589,7 +589,7 @@ public struct EpisodeListView: View {
     case .addToPlaylist:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        // TODO: Implement playlist addition in future issue
+        // TODO: [Issue #06.1.1] Implement playlist addition - core playlist creation management
       }
     case .favorite:
       swipeActionButton(for: action) {
@@ -604,14 +604,14 @@ public struct EpisodeListView: View {
     case .delete:
       swipeActionButton(for: action, role: .destructive) {
         provideHapticFeedback()
-        _ = Task { @MainActor in
+        performAsyncAction {
           await viewModel.deleteEpisode(episode)
         }
       }
     case .share:
       swipeActionButton(for: action) {
         provideHapticFeedback()
-        // TODO: Implement sharing in future issue
+        // TODO: [Issue #12.1.1] Implement sharing - core sharing social features
       }
     }
   }
@@ -645,6 +645,13 @@ public struct EpisodeListView: View {
         HapticFeedbackService.shared.executionFeedback(style: hapticStyle)
       }
     #endif
+  }
+  
+  /// Helper method to execute async actions from swipe gestures
+  private func performAsyncAction(_ action: @escaping @MainActor () async -> Void) {
+    _ = Task { @MainActor in
+      await action()
+    }
   }
 
   private func episodeDetailView(for episode: Episode) -> some View {
