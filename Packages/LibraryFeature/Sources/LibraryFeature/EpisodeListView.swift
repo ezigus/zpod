@@ -90,22 +90,25 @@ public struct EpisodeListView: View {
     .navigationBarTitleDisplayMode(.large)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        if viewModel.isInMultiSelectMode {
-          Button("Done") {
-            viewModel.exitMultiSelectMode()
+        HStack(spacing: 8) {
+          if !viewModel.isInMultiSelectMode {
+            Button {
+              showingSwipeConfiguration = true
+            } label: {
+              Image(systemName: "ellipsis.circle")
+            }
+            .accessibilityIdentifier("Episode List Options")
           }
-        } else {
-          Menu {
-            Button("Select Episodes") {
+          
+          if viewModel.isInMultiSelectMode {
+            Button("Done") {
+              viewModel.exitMultiSelectMode()
+            }
+          } else {
+            Button("Select") {
               viewModel.enterMultiSelectMode()
             }
-            Button("Configure Swipe Actions") {
-              showingSwipeConfiguration = true
-            }
-          } label: {
-            Image(systemName: "ellipsis.circle")
           }
-          .accessibilityIdentifier("Episode List Options")
         }
       }
     }
