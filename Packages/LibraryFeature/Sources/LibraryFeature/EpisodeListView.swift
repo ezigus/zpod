@@ -21,21 +21,6 @@ public struct EpisodeListView: View {
   let podcast: Podcast
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
-  @State private var showingSwipeConfiguration = false
-  
-  // Lazy settings to avoid initialization issues
-  private var swipeSettings: SwipeActionSettings {
-    // For now, just use defaults since settings integration needs more work
-    return SwipeActionSettings.default
-  }
-  
-  private var hapticStyle: SwipeHapticStyle {
-    return .medium
-  }
-  
-  private var hapticEnabled: Bool {
-    return true
-  }
 
   @MainActor
   public init(
@@ -464,18 +449,18 @@ public struct EpisodeListView: View {
           }
           .swipeActions(
             edge: .trailing,
-            allowsFullSwipe: swipeSettings.allowFullSwipeTrailing
+            allowsFullSwipe: false
           ) {
-            ForEach(swipeSettings.trailingActions, id: \.self) {
+            ForEach(SwipeActionSettings.default.trailingActions, id: \.self) {
               action in
               swipeButton(for: action, episode: episode)
             }
           }
           .swipeActions(
             edge: .leading,
-            allowsFullSwipe: swipeSettings.allowFullSwipeLeading
+            allowsFullSwipe: true
           ) {
-            ForEach(swipeSettings.leadingActions, id: \.self) {
+            ForEach(SwipeActionSettings.default.leadingActions, id: \.self) {
               action in
               swipeButton(for: action, episode: episode)
             }
@@ -641,9 +626,7 @@ public struct EpisodeListView: View {
 
   private func provideHapticFeedback() {
     #if canImport(UIKit)
-      if hapticEnabled {
-        HapticFeedbackService.shared.executionFeedback(style: hapticStyle)
-      }
+      HapticFeedbackService.shared.executionFeedback(style: .medium)
     #endif
   }
 
