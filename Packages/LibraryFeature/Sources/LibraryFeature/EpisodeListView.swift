@@ -9,7 +9,6 @@ import CoreModels
 import Foundation
 import Persistence
 import PlaybackEngine
-import SettingsDomain
 import SharedUtilities
 import SwiftUI
 
@@ -21,14 +20,26 @@ import SwiftUI
 public struct EpisodeListView: View {
   let podcast: Podcast
   @StateObject private var viewModel: EpisodeListViewModel
-  @StateObject private var settingsManager: SettingsManager
   @State private var isRefreshing = false
   @State private var showingSwipeConfiguration = false
+  
+  // Lazy settings to avoid initialization issues
+  private var swipeSettings: SwipeActionSettings {
+    // For now, just use defaults since settings integration needs more work
+    return SwipeActionSettings.default
+  }
+  
+  private var hapticStyle: SwipeHapticStyle {
+    return .medium
+  }
+  
+  private var hapticEnabled: Bool {
+    return true
+  }
 
   @MainActor
   public init(
-    podcast: Podcast, filterManager: EpisodeFilterManager? = nil,
-    settingsManager: SettingsManager? = nil
+    podcast: Podcast, filterManager: EpisodeFilterManager? = nil
   ) {
     self.podcast = podcast
     let dependencies = EpisodeListDependencyProvider.shared
@@ -58,14 +69,6 @@ public struct EpisodeListView: View {
           episodeRepository: dependencies.episodeRepository
         ))
     }
-
-    // Initialize settings manager
-    if let manager = settingsManager {
-      self._settingsManager = StateObject(wrappedValue: manager)
-    } else {
-      let repo = UserDefaultsSettingsRepository()
-      self._settingsManager = StateObject(wrappedValue: SettingsManager(repository: repo))
-    }
   }
 
   public var body: some View {
@@ -90,33 +93,19 @@ public struct EpisodeListView: View {
     .navigationBarTitleDisplayMode(.large)
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
-        HStack(spacing: 8) {
-          if !viewModel.isInMultiSelectMode {
-            Button {
-              showingSwipeConfiguration = true
-            } label: {
-              Image(systemName: "ellipsis.circle")
-            }
-            .accessibilityIdentifier("Episode List Options")
+        if viewModel.isInMultiSelectMode {
+          Button("Done") {
+            viewModel.exitMultiSelectMode()
           }
-          
-          if viewModel.isInMultiSelectMode {
-            Button("Done") {
-              viewModel.exitMultiSelectMode()
-            }
-          } else {
-            Button("Select") {
-              viewModel.enterMultiSelectMode()
-            }
+        } else {
+          Button("Select") {
+            viewModel.enterMultiSelectMode()
           }
         }
       }
     }
     .refreshable {
       await refreshEpisodes()
-    }
-    .sheet(isPresented: $showingSwipeConfiguration) {
-      SwipeActionConfigurationView(settingsManager: settingsManager)
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(
@@ -475,18 +464,18 @@ public struct EpisodeListView: View {
           }
           .swipeActions(
             edge: .trailing,
-            allowsFullSwipe: settingsManager.globalUISettings.swipeActions.allowFullSwipeTrailing
+            allowsFullSwipe: swipeSettings.allowFullSwipeTrailing
           ) {
-            ForEach(settingsManager.globalUISettings.swipeActions.trailingActions, id: \.self) {
+            ForEach(swipeSettings.trailingActions, id: \.self) {
               action in
               swipeButton(for: action, episode: episode)
             }
           }
           .swipeActions(
             edge: .leading,
-            allowsFullSwipe: settingsManager.globalUISettings.swipeActions.allowFullSwipeLeading
+            allowsFullSwipe: swipeSettings.allowFullSwipeLeading
           ) {
-            ForEach(settingsManager.globalUISettings.swipeActions.leadingActions, id: \.self) {
+            ForEach(swipeSettings.leadingActions, id: \.self) {
               action in
               swipeButton(for: action, episode: episode)
             }
@@ -652,9 +641,8 @@ public struct EpisodeListView: View {
 
   private func provideHapticFeedback() {
     #if canImport(UIKit)
-      if settingsManager.globalUISettings.swipeActions.hapticFeedbackEnabled {
-        HapticFeedbackService.shared.executionFeedback(
-          style: settingsManager.globalUISettings.hapticStyle)
+      if hapticEnabled {
+        HapticFeedbackService.shared.executionFeedback(style: hapticStyle)
       }
     #endif
   }
