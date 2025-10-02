@@ -24,12 +24,10 @@ public class SettingsManager {
     @Published public private(set) var globalDownloadSettings: DownloadSettings
     @Published public private(set) var globalNotificationSettings: NotificationSettings  
     @Published public private(set) var globalPlaybackSettings: PlaybackSettings
-    @Published public private(set) var globalUISettings: UISettings
     #else
     public private(set) var globalDownloadSettings: DownloadSettings
     public private(set) var globalNotificationSettings: NotificationSettings
     public private(set) var globalPlaybackSettings: PlaybackSettings
-    public private(set) var globalUISettings: UISettings
     #endif
     
     public init(repository: SettingsRepository) {
@@ -39,20 +37,17 @@ public class SettingsManager {
         self.globalDownloadSettings = DownloadSettings.default
         self.globalNotificationSettings = NotificationSettings.default
         self.globalPlaybackSettings = PlaybackSettings()
-        self.globalUISettings = UISettings.default
         
         // Load initial values from repository asynchronously after initialization
         Task {
             let downloadSettings = await repository.loadGlobalDownloadSettings()
             let notificationSettings = await repository.loadGlobalNotificationSettings()
             let playbackSettings = await repository.loadGlobalPlaybackSettings()
-            let uiSettings = await repository.loadGlobalUISettings()
             
             await MainActor.run {
                 self.globalDownloadSettings = downloadSettings
                 self.globalNotificationSettings = notificationSettings
                 self.globalPlaybackSettings = playbackSettings
-                self.globalUISettings = uiSettings
             }
         }
         
@@ -180,12 +175,6 @@ public class SettingsManager {
         globalNotificationSettings = settings
     }
     
-    /// Update global UI settings
-    public func updateGlobalUISettings(_ settings: UISettings) async {
-        await repository.saveGlobalUISettings(settings)
-        globalUISettings = settings
-    }
-    
     /// Update podcast-specific download settings (nil removes override)
     public func updatePodcastDownloadSettings(podcastId: String, _ settings: PodcastDownloadSettings?) async {
         if let settings = settings {
@@ -224,8 +213,6 @@ public class SettingsManager {
                 globalNotificationSettings = settings
             case .globalPlayback(let settings):
                 globalPlaybackSettings = settings
-            case .globalUI(let settings):
-                globalUISettings = settings
             case .podcastDownload, .podcastPlayback:
                 // Per-podcast changes don't update published global properties
                 // They affect effective settings resolution only

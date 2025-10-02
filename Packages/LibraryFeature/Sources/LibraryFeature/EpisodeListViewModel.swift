@@ -606,25 +606,6 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     let updatedEpisode = episode.withPlayedStatus(!episode.isPlayed)
     updateEpisode(updatedEpisode)
   }
-  
-  public func markEpisodePlayed(_ episode: Episode) {
-    guard !episode.isPlayed else { return }
-    let updatedEpisode = episode.withPlayedStatus(true)
-    updateEpisode(updatedEpisode)
-  }
-  
-  public func markEpisodeUnplayed(_ episode: Episode) {
-    guard episode.isPlayed else { return }
-    let updatedEpisode = episode.withPlayedStatus(false)
-    updateEpisode(updatedEpisode)
-  }
-  
-  public func downloadEpisode(_ episode: Episode) async {
-    guard let downloadManager = downloadManager else { return }
-    if let enqueuer = downloadManager as? EpisodeDownloadEnqueuing {
-      enqueuer.enqueueEpisode(episode)
-    }
-  }
 
   /// Retry failed download for an episode
   public func retryEpisodeDownload(_ episode: Episode) {

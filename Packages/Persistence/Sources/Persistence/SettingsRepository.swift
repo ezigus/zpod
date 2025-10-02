@@ -12,7 +12,6 @@ public enum SettingsChange: Equatable, Sendable {
     case globalDownload(DownloadSettings)
     case globalNotification(NotificationSettings)
     case globalPlayback(PlaybackSettings)
-    case globalUI(UISettings)
     case podcastDownload(String, PodcastDownloadSettings?)
     case podcastPlayback(String, PodcastPlaybackSettings?)
 }
@@ -28,9 +27,6 @@ public protocol SettingsRepository: Sendable {
     
     func loadGlobalPlaybackSettings() async -> PlaybackSettings
     func saveGlobalPlaybackSettings(_ settings: PlaybackSettings) async
-    
-    func loadGlobalUISettings() async -> UISettings
-    func saveGlobalUISettings(_ settings: UISettings) async
     
     // Per-podcast overrides
     func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings?
@@ -69,7 +65,6 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         static let globalDownload = "global_download_settings"
         static let globalNotification = "global_notification_settings"
         static let globalPlayback = "global_playback_settings"
-        static let globalUI = "global_ui_settings"
         static let podcastDownloadPrefix = "podcast_download_"
         static let podcastPlaybackPrefix = "podcast_playback_"
     }
@@ -161,37 +156,6 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         } catch {
             #if canImport(os)
             os_log("Failed to encode global playback settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-            #endif
-        }
-    }
-    
-    public func loadGlobalUISettings() async -> UISettings {
-        guard let data = userDefaults.data(forKey: Keys.globalUI) else {
-            return UISettings.default
-        }
-        
-        do {
-            return try JSONDecoder().decode(UISettings.self, from: data)
-        } catch {
-            #if canImport(os)
-                #if DEBUG
-                    os_log("Failed to decode global UI settings: %{public}@", log: logger, type: .error, error.localizedDescription)
-                #endif
-            #endif
-            return UISettings.default
-        }
-    }
-    
-    public func saveGlobalUISettings(_ settings: UISettings) async {
-        do {
-            let data = try JSONEncoder().encode(settings)
-            userDefaults.set(data, forKey: Keys.globalUI)
-            #if canImport(Combine)
-            settingsChangeSubject.send(.globalUI(settings))
-            #endif
-        } catch {
-            #if canImport(os)
-            os_log("Failed to encode global UI settings: %{public}@", log: logger, type: .error, error.localizedDescription)
             #endif
         }
     }
