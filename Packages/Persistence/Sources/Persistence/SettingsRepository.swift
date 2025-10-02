@@ -174,7 +174,9 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
             return try JSONDecoder().decode(UISettings.self, from: data)
         } catch {
             #if canImport(os)
-            os_log("Failed to decode global UI settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+                #if DEBUG
+                    os_log("Failed to decode global UI settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+                #endif
             #endif
             return UISettings.default
         }
