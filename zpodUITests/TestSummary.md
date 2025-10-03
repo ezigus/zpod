@@ -54,6 +54,19 @@ This document outlines the UI testing approach for the main zpod application.
 - Filter and sort controls
 - Content recommendation displays
 
+### Swipe Configuration UI Tests (`SwipeConfigurationUITests.swift`)
+**Purpose**: Validate the configurable swipe gesture workflow and ensure presets, haptics, and episode list actions remain stable.
+
+**Specifications Covered**:
+- `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
+- `spec/ui.md` — Customizing Swipe Gestures section
+
+**Test Areas**:
+- Configuring leading/trailing swipe actions via presets and custom toggles
+- Persisting haptic feedback settings and verifying style selection across launches
+- Exercising configured swipe buttons within `EpisodeListView`, including playlist selection flows
+- Accessibility identifier coverage for configuration controls and rendered swipe buttons
+
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 **Purpose**: Verify home screen widgets and app extensions
 
