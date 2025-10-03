@@ -167,3 +167,23 @@ public struct PodcastDownloadSettings: Codable, Equatable, Sendable {
         self.updateFrequency = updateFrequency
     }
 }
+
+/// Global UI configuration settings (swipe gestures, haptics, etc.)
+public struct UISettings: Codable, Equatable, Sendable {
+    public let swipeActions: SwipeActionSettings
+    public let hapticStyle: SwipeHapticStyle
+    
+    public init(
+        swipeActions: SwipeActionSettings,
+        hapticStyle: SwipeHapticStyle
+    ) {
+        self.swipeActions = swipeActions
+        self.hapticStyle = hapticStyle
+    }
+    
+    /// Default UI settings
+    public static let `default` = UISettings(
+        swipeActions: SwipeActionSettings.default,
+        hapticStyle: .medium
+    )
+}
