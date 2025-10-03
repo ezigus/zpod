@@ -13,11 +13,11 @@ public enum HapticFeedbackIntensity: Sendable {
 }
 
 public protocol HapticFeedbackServicing: Sendable {
-  func impact(_ intensity: HapticFeedbackIntensity)
-  func selectionChanged()
-  func notifySuccess()
-  func notifyWarning()
-  func notifyError()
+  @MainActor func impact(_ intensity: HapticFeedbackIntensity)
+  @MainActor func selectionChanged()
+  @MainActor func notifySuccess()
+  @MainActor func notifyWarning()
+  @MainActor func notifyError()
 }
 
 public final class HapticFeedbackService: HapticFeedbackServicing {
@@ -25,6 +25,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
 
   private init() {}
 
+  @MainActor
   public func impact(_ intensity: HapticFeedbackIntensity) {
     #if canImport(UIKit)
       let generator = UIImpactFeedbackGenerator(style: intensity.uiImpactStyle)
@@ -33,6 +34,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
     #endif
   }
 
+  @MainActor
   public func selectionChanged() {
     #if canImport(UIKit)
       let generator = UISelectionFeedbackGenerator()
@@ -41,18 +43,21 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
     #endif
   }
 
+  @MainActor
   public func notifySuccess() {
     #if canImport(UIKit)
       emitNotification(.success)
     #endif
   }
 
+  @MainActor
   public func notifyWarning() {
     #if canImport(UIKit)
       emitNotification(.warning)
     #endif
   }
 
+  @MainActor
   public func notifyError() {
     #if canImport(UIKit)
       emitNotification(.error)
@@ -60,6 +65,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   }
 
   #if canImport(UIKit)
+    @MainActor
     private func emitNotification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
       let generator = UINotificationFeedbackGenerator()
       generator.prepare()
