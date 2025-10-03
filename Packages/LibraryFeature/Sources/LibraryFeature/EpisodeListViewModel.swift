@@ -4,6 +4,8 @@ import Foundation
 import OSLog
 import Persistence
 import PlaybackEngine
+import SettingsDomain
+import SharedUtilities
 import SwiftUI
 
 // MARK: - Episode List View Model
@@ -11,12 +13,96 @@ import SwiftUI
 /// View model for episode list with filtering, sorting, and batch operations
 /// NOTE: Aggregates UI and domain orchestration pending modularization.
 @MainActor
-public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable:this type_body_length
+public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disable:this type_body_length
   @Published public private(set) var filteredEpisodes: [Episode] = []
   @Published public private(set) var currentFilter: EpisodeFilter = EpisodeFilter()
   @Published public private(set) var isLoading = false
   @Published public private(set) var searchText = ""
   @Published public var showingFilterSheet = false
+  @Published public var showingSwipeConfiguration = false
+  @Published public private(set) var uiSettings: UISettings
+
+  public var leadingSwipeActions: [SwipeActionType] {
+    uiSettings.swipeActions.leadingActions
+  }
+
+  public var trailingSwipeActions: [SwipeActionType] {
+    uiSettings.swipeActions.trailingActions
+  }
+
+  public var allowsFullSwipeLeading: Bool {
+    uiSettings.swipeActions.allowFullSwipeLeading
+  }
+
+  public var allowsFullSwipeTrailing: Bool {
+    uiSettings.swipeActions.allowFullSwipeTrailing
+  }
+
+  public var isHapticFeedbackEnabled: Bool {
+    uiSettings.swipeActions.hapticFeedbackEnabled
+  }
+
+  public func refreshSwipeSettings() {
+    uiSettings = settingsManager.globalUISettings
+  }
+
+  public func performSwipeAction(_ action: SwipeActionType, for episode: Episode) {
+    triggerSwipeHapticIfNeeded()
+
+    switch action {
+    case .play:
+      let _: Task<Void, Never> = launchMainActorTask { viewModel in
+        await viewModel.quickPlayEpisode(episode)
+      }
+    case .download:
+      startEpisodeDownload(episode)
+    case .markPlayed:
+      markEpisodeAsPlayed(episode)
+    case .markUnplayed:
+      markEpisodeAsUnplayed(episode)
+    case .addToPlaylist:
+      preparePlaylistSelection(for: episode)
+    case .favorite:
+      toggleEpisodeFavorite(episode)
+    case .archive:
+      toggleEpisodeArchiveStatus(episode)
+    case .delete:
+      let _: Task<Void, Never> = launchMainActorTask { viewModel in
+        await viewModel.deleteEpisode(episode)
+      }
+    case .share:
+      prepareShare(for: episode)
+    }
+  }
+
+  public func addPendingEpisodeToPlaylist(_ playlistID: String) {
+    guard let episode = pendingPlaylistEpisode else { return }
+    showingPlaylistSelectionSheet = false
+    pendingPlaylistEpisode = nil
+
+    let batchOperation = BatchOperation(
+      operationType: .addToPlaylist,
+      episodeIDs: [episode.id],
+      playlistID: playlistID
+    )
+
+    let _: Task<Void, Error> = launchTask { viewModel in
+      do {
+        let _ = try await viewModel.batchOperationManager.executeBatchOperation(batchOperation)
+      } catch {
+        print("Failed to add episode to playlist: \(error)")
+      }
+    }
+  }
+
+  public func cancelPendingPlaylistSelection() {
+    pendingPlaylistEpisode = nil
+    showingPlaylistSelectionSheet = false
+  }
+
+  public func clearPendingShare() {
+    pendingShareEpisode = nil
+  }
 
   // Batch operation properties
   @Published public private(set) var selectionState = EpisodeSelectionState()
@@ -30,6 +116,8 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
   @Published public var showingBatchOperationSheet = false
   @Published public var showingPlaylistSelectionSheet = false
   @Published public var showingSelectionCriteriaSheet = false
+  @Published public var pendingPlaylistEpisode: Episode?
+  @Published public var pendingShareEpisode: Episode?
   @Published public private(set) var downloadProgressByEpisodeID:
     [String: EpisodeDownloadProgressUpdate] = [:]
   @Published public private(set) var bannerState: EpisodeListBannerState?
@@ -42,6 +130,8 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
   private let downloadManager: DownloadManaging?
   private let playbackService: EpisodePlaybackService?
   private let episodeRepository: EpisodeRepository?
+  private let settingsManager: UISettingsManaging
+  private let hapticsService: HapticFeedbackServicing
   private var cancellables = Set<AnyCancellable>()
   private var playbackStateCancellable: AnyCancellable?
   private var bannerDismissTask: Task<Void, Never>?
@@ -57,7 +147,9 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     downloadProgressProvider: DownloadProgressProviding? = nil,
     downloadManager: DownloadManaging? = nil,
     playbackService: EpisodePlaybackService? = nil,
-    episodeRepository: EpisodeRepository? = nil
+    episodeRepository: EpisodeRepository? = nil,
+    settingsManager: UISettingsManaging = EpisodeListViewModel.makeDefaultSettingsManager(),
+    hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared
   ) {
     self.podcast = podcast
     self.filterService = filterService
@@ -67,7 +159,10 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     self.downloadManager = downloadManager
     self.playbackService = playbackService
     self.episodeRepository = episodeRepository
+    self.settingsManager = settingsManager
+    self.hapticsService = hapticFeedbackService
     self.allEpisodes = podcast.episodes
+    self.uiSettings = settingsManager.globalUISettings
 
     // Load saved filter for this podcast
     loadInitialFilter()
@@ -77,7 +172,12 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     setupBatchOperationSubscription()
     setupDownloadProgressSubscription()
     loadPersistedEpisodes()
+    observeUISettings()
 
+  }
+
+  @usableFromInline static func makeDefaultSettingsManager() -> UISettingsManaging {
+    SettingsManager(repository: UserDefaultsSettingsRepository())
   }
 
   // MARK: - Public Methods
@@ -119,7 +219,7 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
   public func toggleEpisodeBookmark(_ episode: Episode) {
     updateEpisode(episode.withBookmarkStatus(!episode.isBookmarked))
   }
-  
+
   public func toggleEpisodeArchiveStatus(_ episode: Episode) {
     updateEpisode(episode.withArchivedStatus(!episode.isArchived))
   }
@@ -128,10 +228,14 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     updateEpisode(episode.withPlayedStatus(true))
   }
 
+  public func markEpisodeAsUnplayed(_ episode: Episode) {
+    updateEpisode(episode.withPlayedStatus(false))
+  }
+
   public func setEpisodeRating(_ episode: Episode, rating: Int?) {
     updateEpisode(episode.withRating(rating))
   }
-  
+
   public func deleteEpisode(_ episode: Episode) async {
     // Perform single episode deletion via batch operation
     let batchOperation = BatchOperation(
@@ -311,6 +415,32 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
       .store(in: &cancellables)
   }
 
+  private func observeUISettings() {
+    if let settingsManager = settingsManager as? SettingsManager {
+      settingsManager.$globalUISettings
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] settings in
+          self?.uiSettings = settings
+        }
+        .store(in: &cancellables)
+    }
+  }
+
+  private func triggerSwipeHapticIfNeeded() {
+    guard isHapticFeedbackEnabled else { return }
+    let intensity = HapticFeedbackIntensity(style: uiSettings.hapticStyle)
+    hapticsService.impact(intensity)
+  }
+
+  private func preparePlaylistSelection(for episode: Episode) {
+    pendingPlaylistEpisode = episode
+    showingPlaylistSelectionSheet = true
+  }
+
+  private func prepareShare(for episode: Episode) {
+    pendingShareEpisode = episode
+  }
+
   public func ensureUITestBatchOverlayIfNeeded(after delay: TimeInterval = 0.0) async {
     await ensureUITestBatchOverlayIfNeeded(after: delay, remainingRetries: 5)
   }
@@ -338,7 +468,9 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
     print("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs)")
 
     if seedEpisodeIDs.isEmpty {
-      overlayLogger.debug("No episodes available for forced overlay; retries remaining: \(remainingRetries, privacy: .public)")
+      overlayLogger.debug(
+        "No episodes available for forced overlay; retries remaining: \(remainingRetries, privacy: .public)"
+      )
       guard remainingRetries > 0 else { return }
       try? await Task.sleep(nanoseconds: 200_000_000)
       await ensureUITestBatchOverlayIfNeeded(after: 0.0, remainingRetries: remainingRetries - 1)
@@ -347,7 +479,8 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
 
     hasSeededUITestOverlay = true
 
-    overlayLogger.debug("Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
+    overlayLogger.debug(
+      "Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
     print("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count) IDs")
 
     var seededOperation = BatchOperation(
@@ -626,6 +759,34 @@ public final class EpisodeListViewModel: ObservableObject { // swiftlint:disable
       await MainActor.run {
         let completedEpisode = updatedEpisode.withDownloadStatus(.downloaded)
         viewModel.updateEpisode(completedEpisode)
+      }
+    }
+  }
+
+  private func startEpisodeDownload(_ episode: Episode) {
+    let downloadingEpisode = episode.withDownloadStatus(.downloading)
+    updateEpisode(downloadingEpisode)
+
+    if let enqueuer = downloadManager as? EpisodeDownloadEnqueuing {
+      enqueuer.enqueueEpisode(downloadingEpisode)
+      return
+    }
+
+    guard let manager = downloadManager else {
+      launchTask { viewModel in
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        await MainActor.run {
+          viewModel.updateEpisode(downloadingEpisode.withDownloadStatus(.downloaded))
+        }
+      }
+      return
+    }
+
+    Task { @MainActor in
+      do {
+        try await manager.downloadEpisode(downloadingEpisode.id)
+      } catch {
+        updateEpisode(downloadingEpisode.withDownloadStatus(.failed))
       }
     }
   }
