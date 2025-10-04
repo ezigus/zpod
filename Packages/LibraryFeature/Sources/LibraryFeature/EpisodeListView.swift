@@ -143,6 +143,7 @@ public struct EpisodeListView: View {
     .sheet(isPresented: $viewModel.showingSwipeConfiguration) {
       SwipeActionConfigurationView(
         settingsManager: EpisodeListDependencyProvider.shared.settingsManager,
+        initialSettings: viewModel.uiSettings,
         onSave: {
           viewModel.refreshSwipeSettings()
         }

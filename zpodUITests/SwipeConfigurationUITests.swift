@@ -62,15 +62,19 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     let episode = try requireEpisodeButton()
 
     episode.swipeRight()
+    // EpisodeListView assigns identifiers as `SwipeAction.<rawValue>`
     let addToPlaylistButton = element(withIdentifier: "SwipeAction.addToPlaylist")
     XCTAssertTrue(
-      addToPlaylistButton.flatMap {
-        waitForElement(
-          $0, timeout: adaptiveShortTimeout, description: "add to playlist swipe action")
-      } ?? false,
+      waitForElement(
+        addToPlaylistButton, timeout: adaptiveShortTimeout,
+        description: "add to playlist swipe action"
+      ),
       "Add to Playlist swipe action should appear after swiping right"
     )
-    addToPlaylistButton?.tap()
+    if !addToPlaylistButton.exists {
+      reportAvailableSwipeIdentifiers(context: "Episode swipe actions after swiping right")
+    }
+    addToPlaylistButton.tap()
 
     let playlistNavBar = app.navigationBars["Select Playlist"]
     XCTAssertTrue(
@@ -143,43 +147,103 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func openSwipeConfigurationSheet() {
-    let configureButton = app.buttons["ConfigureSwipeActions"]
-    if waitForElement(
-      configureButton,
-      timeout: adaptiveTimeout,
-      description: "configure swipe actions button"
-    ) {
-      configureButton.tap()
+    let existingIndicators: [XCUIElement] = [
+      app.navigationBars["Swipe Actions"],
+      app.otherElements["Swipe Actions"],
+      app.staticTexts["Swipe Actions"],
+      app.buttons["SwipeActions.Save"],
+      app.buttons["SwipeActions.Cancel"],
+    ]
+
+    if existingIndicators.contains(where: { $0.exists }) {
+      return
     }
 
-    let sheetTitle = app.navigationBars["Swipe Actions"]
-    _ = waitForElement(
-      sheetTitle, timeout: adaptiveTimeout, description: "Swipe Actions configuration sheet")
+    let configureButton = element(withIdentifier: "ConfigureSwipeActions")
+
+    guard
+      waitForElement(
+        configureButton,
+        timeout: adaptiveTimeout,
+        description: "configure swipe actions button"
+      )
+    else {
+      XCTFail("Configure swipe actions button should exist before opening sheet")
+      return
+    }
+
+    configureButton.tap()
+
+    let refreshedIndicators: [XCUIElement] = [
+      app.navigationBars["Swipe Actions"],
+      app.otherElements["Swipe Actions"],
+      app.staticTexts["Swipe Actions"],
+      app.buttons["SwipeActions.Save"],
+      app.buttons["SwipeActions.Cancel"],
+    ]
+
+    _ = waitForAnyElement(
+      refreshedIndicators,
+      timeout: adaptiveTimeout,
+      description: "Swipe Actions configuration sheet"
+    )
   }
 
   @MainActor
   private func applyPreset(identifier: String) {
-    guard let presetButton = element(withIdentifier: identifier) else {
-      XCTFail("Preset button \(identifier) should exist")
-      return
-    }
+    let presetButton = element(withIdentifier: identifier)
     XCTAssertTrue(
       waitForElement(
         presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
-    presetButton.tap()
+
+    if let container = swipeActionsSheetListContainer() {
+      let madeVisible = ensureVisibleInSheet(identifier: identifier, container: container)
+      let containerScopedButton = element(withIdentifier: identifier, within: container)
+      #if DEBUG
+        print(
+          "[SwipeConfigDebug] UITest applyPreset id=\(identifier) containerFound=true visible=\(madeVisible) exists=\(containerScopedButton.exists) hittable=\(containerScopedButton.isHittable)"
+        )
+      #endif
+      if containerScopedButton.exists {
+        let coordinate = containerScopedButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        coordinate.tap()
+        return
+      }
+    }
+
+    #if DEBUG
+      print(
+        "[SwipeConfigDebug] UITest applyPreset fallback tap id=\(identifier) exists=\(presetButton.exists) hittable=\(presetButton.isHittable)"
+      )
+    #endif
+
+    let fallbackCoordinate = presetButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    fallbackCoordinate.tap()
   }
 
   @MainActor
   private func setHaptics(enabled: Bool, styleLabel: String) {
-    guard let hapticToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle") else { return }
-    if waitForElement(hapticToggle, timeout: adaptiveShortTimeout, description: "haptic toggle") {
-      if let shouldToggle = shouldToggleElement(hapticToggle, targetStateOn: enabled) {
-        if shouldToggle {
-          hapticToggle.tap()
-        }
-      }
+    let baseToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
+    }
+    guard waitForElement(baseToggle, timeout: adaptiveShortTimeout, description: "haptic toggle")
+    else {
+      return
+    }
+
+    let toggle: XCUIElement
+    if let container = swipeActionsSheetListContainer() {
+      toggle = element(withIdentifier: "SwipeActions.Haptics.Toggle", within: container)
+    } else {
+      toggle = baseToggle
+    }
+
+    if let shouldToggle = shouldToggleElement(toggle, targetStateOn: enabled), shouldToggle {
+      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      coordinate.tap()
     }
 
     guard enabled else { return }
@@ -188,72 +252,58 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       app.segmentedControls["SwipeActions.Haptics.StylePicker"].exists
       ? app.segmentedControls["SwipeActions.Haptics.StylePicker"]
       : app.segmentedControls.firstMatch
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.StylePicker", container: container)
+    }
     if segmentedControl.exists {
       let desiredButton = segmentedControl.buttons[styleLabel]
       if desiredButton.exists {
-        desiredButton.tap()
+        let coordinate = desiredButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        coordinate.tap()
       }
     }
   }
 
   @MainActor
   private func setFullSwipeToggle(identifier: String, enabled: Bool) {
-    guard let toggle = element(withIdentifier: identifier) else { return }
-    guard waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier) else {
+    let baseToggle = element(withIdentifier: identifier)
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+    }
+    guard waitForElement(baseToggle, timeout: adaptiveShortTimeout, description: identifier) else {
       return
     }
 
-    if let shouldToggle = shouldToggleElement(toggle, targetStateOn: enabled) {
-      if shouldToggle {
-        toggle.tap()
-      }
+    let toggle: XCUIElement
+    if let container = swipeActionsSheetListContainer() {
+      toggle = element(withIdentifier: identifier, within: container)
+    } else {
+      toggle = baseToggle
+    }
+
+    if let shouldToggle = shouldToggleElement(toggle, targetStateOn: enabled), shouldToggle {
+      toggle.tap()
     }
   }
 
   @MainActor
   private func saveAndDismissConfiguration() {
-    if let saveButton = element(withIdentifier: "SwipeActions.Save") {
-      if waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") {
-        saveButton.tap()
-      }
-    }
-
-    if let configureButton = element(withIdentifier: "ConfigureSwipeActions") {
-      _ = waitForElement(configureButton, timeout: adaptiveTimeout, description: "sheet dismissal")
-    }
-  }
-
-  @MainActor
-  private func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
-    leadingIdentifiers.forEach { identifier in
-      guard let element = element(withIdentifier: identifier) else {
-        XCTFail("Expected leading action \(identifier)")
-        return
-      }
-      XCTAssertTrue(
-        waitForElement(element, timeout: adaptiveShortTimeout, description: identifier),
-        "Expected leading action \(identifier) to appear"
-      )
-    }
-
-    trailingIdentifiers.forEach { identifier in
-      guard let element = element(withIdentifier: identifier) else {
-        XCTFail("Expected trailing action \(identifier)")
-        return
-      }
-      XCTAssertTrue(
-        waitForElement(element, timeout: adaptiveShortTimeout, description: identifier),
-        "Expected trailing action \(identifier) to appear"
-      )
+    let saveButton = element(withIdentifier: "SwipeActions.Save")
+    if waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") {
+      print("[SwipeConfigDebug] UITest about to tap save; enabled=\(saveButton.isEnabled) exists=\(saveButton.exists)")
+      saveButton.tap()
+      // Ensure the sheet fully dismisses before proceeding so async save can complete
+      waitForSheetDismissal()
     }
   }
 
   @MainActor
   private func assertToggleState(identifier: String, expected: Bool) {
-    guard let toggle = element(withIdentifier: identifier) else {
-      XCTFail("Toggle \(identifier) should exist")
-      return
-    }
+    let toggle = element(withIdentifier: identifier)
+    XCTAssertTrue(
+      waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
+      "Toggle \(identifier) should exist"
+    )
     if let currentState = currentStateIsOn(for: toggle) {
       XCTAssertEqual(currentState, expected, "Toggle \(identifier) state mismatch")
     }
@@ -265,21 +315,95 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       app.segmentedControls["SwipeActions.Haptics.StylePicker"].exists
       ? app.segmentedControls["SwipeActions.Haptics.StylePicker"]
       : app.segmentedControls.firstMatch
-    XCTAssertTrue(segmentedControl.exists, "Haptic style segmented control should exist")
+    XCTAssertTrue(
+      waitForElement(
+        segmentedControl,
+        timeout: adaptiveShortTimeout,
+        description: "haptic style segmented control"
+      ),
+      "Haptic style segmented control should exist"
+    )
     let button = segmentedControl.buttons[label]
-    XCTAssertTrue(button.exists, "Haptic style option \(label) should exist")
+    XCTAssertTrue(
+      waitForElement(
+        button, timeout: adaptiveShortTimeout, description: "haptic style option \(label)"),
+      "Haptic style option \(label) should exist"
+    )
     XCTAssertTrue(button.isSelected, "Haptic style option \(label) should remain selected")
+  }
+
+  @MainActor
+  private func waitForSheetDismissal() {
+    // Wait for either the navigation bar or save button to disappear
+    let navBar = app.navigationBars["Swipe Actions"]
+    let saveButton = app.buttons["SwipeActions.Save"]
+
+    // Try both; don't hard-fail if already gone
+    _ = waitForElementToDisappear(saveButton, timeout: adaptiveTimeout)
+    _ = waitForElementToDisappear(navBar, timeout: adaptiveTimeout)
   }
 
   @MainActor
   private func restoreDefaultConfiguration() {
     openSwipeConfigurationSheet()
 
-    if let defaultPreset = element(withIdentifier: "SwipeActions.Preset.Default") {
+    let defaultPreset = element(withIdentifier: "SwipeActions.Preset.Default")
+    if waitForElement(
+      defaultPreset,
+      timeout: adaptiveShortTimeout,
+      description: "default preset button"
+    ) {
       defaultPreset.tap()
     }
 
     saveAndDismissConfiguration()
+  }
+
+  @MainActor
+  private func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
+    // Ensure the Swipe Actions sheet is open
+    let _ = waitForElement(
+      app.navigationBars["Swipe Actions"],
+      timeout: adaptiveShortTimeout,
+      description: "Swipe Actions navigation bar"
+    )
+
+    // Resolve the sheet's list container (Form -> UITableView on iOS)
+    guard let sheetContainer = swipeActionsSheetListContainer() else {
+      reportAvailableSwipeIdentifiers(context: "Sheet container not found")
+      XCTFail("Could not resolve Swipe Actions sheet container for assertions")
+      return
+    }
+
+    leadingIdentifiers.forEach { identifier in
+      _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer)
+      let element = elementForAction(identifier: identifier, within: sheetContainer)
+      let appeared = waitForElement(
+        element,
+        timeout: adaptiveShortTimeout,
+        description: identifier
+      )
+      if !appeared {
+        reportAvailableSwipeIdentifiers(
+          context: "Leading action lookup for \(identifier)", within: sheetContainer)
+      }
+      XCTAssertTrue(appeared, "Expected leading action \(identifier) to appear")
+    }
+
+    trailingIdentifiers.forEach { identifier in
+      _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer)
+      let element = elementForAction(identifier: identifier, within: sheetContainer)
+      let appeared = waitForElement(
+        element,
+        timeout: adaptiveShortTimeout,
+        description: identifier
+      )
+      if !appeared {
+        reportAvailableSwipeIdentifiers(
+          context: "Trailing action lookup for \(identifier)", within: sheetContainer)
+      }
+      XCTAssertTrue(appeared, "Expected trailing action \(identifier) to appear")
+    }
   }
 
   @MainActor
@@ -298,6 +422,38 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
     return fallbackEpisode
   }
+
+  // Scroll within the configuration sheet's list to bring an element into view if needed
+  @MainActor
+  private func ensureVisibleInSheet(identifier: String, container: XCUIElement) -> Bool {
+    let target = element(withIdentifier: identifier, within: container)
+    if target.exists { return true }
+
+    // Attempt a few upward swipes to reveal items further down
+    var attempts = 0
+    while attempts < 6 && !target.exists {
+      if container.exists {
+        container.swipeUp()
+      } else {
+        app.swipeUp()
+      }
+      attempts += 1
+    }
+
+    if target.exists { return true }
+
+    // Try swiping down a bit in case the item is above
+    attempts = 0
+    while attempts < 3 && !target.exists {
+      if container.exists {
+        container.swipeDown()
+      } else {
+        app.swipeDown()
+      }
+      attempts += 1
+    }
+    return target.exists
+  }
 }
 
 extension XCUIElement {
@@ -308,7 +464,7 @@ extension XCUIElement {
 
 extension SwipeConfigurationUITests {
   @MainActor
-  fileprivate func element(withIdentifier identifier: String) -> XCUIElement? {
+  fileprivate func element(withIdentifier identifier: String) -> XCUIElement {
     let queries: [XCUIElementQuery] = [
       app.buttons,
       app.switches,
@@ -325,7 +481,171 @@ extension SwipeConfigurationUITests {
     }
 
     let anyMatch = app.descendants(matching: .any)[identifier]
-    return anyMatch.exists ? anyMatch : nil
+    return anyMatch
+  }
+
+  // Container-scoped variant: search within a specific container first
+  @MainActor
+  fileprivate func element(withIdentifier identifier: String, within container: XCUIElement)
+    -> XCUIElement
+  {
+    if container.exists {
+      let queries: [XCUIElementQuery] = [
+        container.buttons,
+        container.switches,
+        container.segmentedControls,
+        container.staticTexts,
+        container.otherElements,
+        container.cells,
+        container.tables,
+      ]
+
+      for query in queries {
+        let element = query[identifier]
+        if element.exists { return element }
+      }
+
+      let anyMatch = container.descendants(matching: .any)[identifier]
+      if anyMatch.exists { return anyMatch }
+    }
+    // Fallback to global
+    return element(withIdentifier: identifier)
+  }
+
+  // Best-effort resolution of the Swipe Actions sheet's list container
+  @MainActor
+  fileprivate func swipeActionsSheetListContainer() -> XCUIElement? {
+    // Presence indicators for the sheet
+    let save = app.buttons["SwipeActions.Save"]
+    let cancel = app.buttons["SwipeActions.Cancel"]
+    guard save.exists || cancel.exists || app.staticTexts["Swipe Actions"].exists else {
+      return nil
+    }
+
+    let swipePredicate = NSPredicate(format: "identifier BEGINSWITH 'SwipeActions.'")
+
+    // Try to scope to the topmost window that actually presents the Swipe Actions UI
+    let windows = app.windows.matching(NSPredicate(value: true))
+    var candidateWindows: [XCUIElement] = []
+    for i in 0..<windows.count {
+      let win = windows.element(boundBy: i)
+      if win.descendants(matching: .any)["Swipe Actions"].exists
+        || win.descendants(matching: .any)["SwipeActions.Save"].exists
+        || win.descendants(matching: .any)["SwipeActions.Cancel"].exists
+      {
+        candidateWindows.append(win)
+      }
+    }
+
+    func searchContainer(in root: XCUIElement) -> XCUIElement? {
+      let tables = root.tables.matching(NSPredicate(value: true))
+      for i in 0..<tables.count {
+        let table = tables.element(boundBy: i)
+        if table.exists
+          && table.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+        {
+          return table
+        }
+      }
+
+      let collections = root.collectionViews.matching(NSPredicate(value: true))
+      for i in 0..<collections.count {
+        let cv = collections.element(boundBy: i)
+        if cv.exists
+          && cv.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+        {
+          return cv
+        }
+      }
+
+      let scrolls = root.scrollViews.matching(NSPredicate(value: true))
+      for i in 0..<scrolls.count {
+        let sv = scrolls.element(boundBy: i)
+        if sv.exists
+          && sv.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+        {
+          return sv
+        }
+      }
+      return nil
+    }
+
+    // Search candidate windows in reverse order (topmost last)
+    for win in candidateWindows.reversed() {
+      if let found = searchContainer(in: win) { return found }
+    }
+
+    // Global search as last resort
+    if let found = searchContainer(in: app) { return found }
+
+    // As a last resort, return a known element from the sheet to be used as a scroll target
+    if save.exists { return save }
+    if cancel.exists { return cancel }
+    let hapticsToggle = app.switches["SwipeActions.Haptics.Toggle"]
+    if hapticsToggle.exists { return hapticsToggle }
+    return nil
+  }
+
+  // Fallback: resolve an action row by its display label if identifier isn't exposed
+  @MainActor
+  fileprivate func elementForAction(identifier: String, within container: XCUIElement)
+    -> XCUIElement
+  {
+    // First try by identifier within container
+    let byId = element(withIdentifier: identifier, within: container)
+    if byId.exists { return byId }
+
+    // Fallback by label (last path component after last dot)
+    if let label = identifier.split(separator: ".").last.map(String.init) {
+      let staticText = container.staticTexts[label]
+      if staticText.exists { return staticText }
+      // Sometimes the HStack carrying the label is the hittable element
+      let any = container.descendants(matching: .any).matching(
+        NSPredicate(format: "label == %@", label)
+      ).firstMatch
+      if any.exists { return any }
+    }
+
+    return byId
+  }
+
+  @MainActor
+  fileprivate func reportAvailableSwipeIdentifiers(context: String) {
+    let relevantElements = app.descendants(matching: .any)
+      .allElementsBoundByAccessibilityElement
+      .filter { element in
+        let identifier = element.identifier
+        return !identifier.isEmpty
+          && (identifier.hasPrefix("SwipeActions.") || identifier.hasPrefix("SwipeAction."))
+      }
+
+    guard !relevantElements.isEmpty else { return }
+
+    let identifiers = Set(relevantElements.map { $0.identifier }).sorted()
+    let summary = (["Context: \(context)"] + identifiers).joined(separator: "\n")
+    let attachment = XCTAttachment(string: summary)
+    attachment.name = "Swipe Identifier Snapshot"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
+
+  // Container-scoped diagnostics
+  @MainActor
+  fileprivate func reportAvailableSwipeIdentifiers(context: String, within container: XCUIElement) {
+    guard container.exists else { return }
+    let elements = container.descendants(matching: .any)
+      .allElementsBoundByAccessibilityElement
+      .filter { el in
+        let id = el.identifier
+        return !id.isEmpty && (id.hasPrefix("SwipeActions.") || id.hasPrefix("SwipeAction."))
+      }
+    guard !elements.isEmpty else { return }
+    let identifiers = Set(elements.map { $0.identifier }).sorted()
+    let summary = ([("Context: \(context) [scoped]")] + identifiers).joined(separator: "\n")
+    let attachment = XCTAttachment(string: summary)
+    attachment.name = "Swipe Identifier Snapshot (Scoped)"
+    attachment.lifetime = .keepAlways
+    add(attachment)
   }
 
   @MainActor

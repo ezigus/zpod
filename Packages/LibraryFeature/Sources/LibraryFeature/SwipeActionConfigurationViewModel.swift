@@ -8,6 +8,12 @@ public protocol UISettingsManaging: AnyObject {
   func updateGlobalUISettings(_ settings: UISettings) async
 }
 
+extension UISettingsManaging {
+  public func loadPersistedUISettings() async -> UISettings {
+    globalUISettings
+  }
+}
+
 extension SettingsManager: UISettingsManaging {}
 
 @MainActor
@@ -35,18 +41,19 @@ final class SwipeActionConfigurationViewModel: ObservableObject {
 
   private let settingsManager: UISettingsManaging
   private var originalSettings: UISettings
+  private var baselineRefreshCompleted = false
 
-  init(settingsManager: UISettingsManaging) {
+  init(initialSettings: UISettings, settingsManager: UISettingsManaging) {
     self.settingsManager = settingsManager
-    let settings = settingsManager.globalUISettings
-    self.originalSettings = settings
-    let swipeSettings = settings.swipeActions
+    self.originalSettings = initialSettings
+    let swipeSettings = initialSettings.swipeActions
     self.leadingActions = swipeSettings.leadingActions
     self.trailingActions = swipeSettings.trailingActions
     self.allowFullSwipeLeading = swipeSettings.allowFullSwipeLeading
     self.allowFullSwipeTrailing = swipeSettings.allowFullSwipeTrailing
     self.hapticsEnabled = swipeSettings.hapticFeedbackEnabled
-    self.hapticStyle = settings.hapticStyle
+    self.hapticStyle = initialSettings.hapticStyle
+
   }
 
   func addAction(_ action: SwipeActionType, to edge: SwipeEdge) {
@@ -121,14 +128,25 @@ final class SwipeActionConfigurationViewModel: ObservableObject {
     case .trailing:
       allowFullSwipeTrailing = enabled
     }
+    #if DEBUG
+      print(
+        "[SwipeConfigDebug] setFullSwipe edge=\(edge) enabled=\(enabled) leading=\(allowFullSwipeLeading) trailing=\(allowFullSwipeTrailing)"
+      )
+    #endif
   }
 
   func setHapticsEnabled(_ enabled: Bool) {
     hapticsEnabled = enabled
+    #if DEBUG
+      print("[SwipeConfigDebug] setHapticsEnabled=\(enabled)")
+    #endif
   }
 
   func setHapticStyle(_ style: SwipeHapticStyle) {
     hapticStyle = style
+    #if DEBUG
+      print("[SwipeConfigDebug] setHapticStyle=\(style)")
+    #endif
   }
 
   func applyPreset(_ preset: SwipeActionSettings) {
@@ -137,6 +155,11 @@ final class SwipeActionConfigurationViewModel: ObservableObject {
     allowFullSwipeLeading = preset.allowFullSwipeLeading
     allowFullSwipeTrailing = preset.allowFullSwipeTrailing
     hapticsEnabled = preset.hapticFeedbackEnabled
+    #if DEBUG
+      print(
+        "[SwipeConfigDebug] applyPreset leading=\(leadingActions) trailing=\(trailingActions) fullLeading=\(allowFullSwipeLeading) fullTrailing=\(allowFullSwipeTrailing)"
+      )
+    #endif
   }
 
   func resetToOriginal() {
@@ -153,8 +176,78 @@ final class SwipeActionConfigurationViewModel: ObservableObject {
     isSaving = true
     defer { isSaving = false }
     let newSettings = currentSettings
+    #if DEBUG
+      print(
+        "[SwipeConfigDebug] saveChanges invoked leading=\(newSettings.swipeActions.leadingActions) "
+          + "trailing=\(newSettings.swipeActions.trailingActions) fullLeading=\(newSettings.swipeActions.allowFullSwipeLeading) fullTrailing=\(newSettings.swipeActions.allowFullSwipeTrailing)"
+      )
+    #endif
     await settingsManager.updateGlobalUISettings(newSettings)
     originalSettings = newSettings
+    baselineRefreshCompleted = true
+  }
+  
+  func ensureLatestBaseline(timeout: TimeInterval = 20.0) async {
+    let persisted = await settingsManager.loadPersistedUISettings()
+    let persistedApplied = await MainActor.run { () -> Bool in
+      guard !baselineRefreshCompleted else { return true }
+      guard currentSettings == originalSettings else {
+        baselineRefreshCompleted = true
+        return true
+      }
+      guard persisted != originalSettings else { return false }
+      applyBaseline(persisted)
+      baselineRefreshCompleted = true
+      return true
+    }
+
+    if persistedApplied { return }
+
+    let interval: TimeInterval = 0.05
+    let maxAttempts = max(Int((timeout / interval).rounded(.up)), 1)
+
+    for attempt in 0..<maxAttempts {
+      if Task.isCancelled { return }
+
+      let shouldStop = await MainActor.run { () -> Bool in
+        if baselineRefreshCompleted { return true }
+        if currentSettings != originalSettings {
+          baselineRefreshCompleted = true
+          return true
+        }
+        let latest = settingsManager.globalUISettings
+        guard latest != originalSettings else {
+          return false
+        }
+        applyBaseline(latest)
+        baselineRefreshCompleted = true
+        return true
+      }
+
+      if shouldStop { return }
+      if attempt == maxAttempts - 1 {
+        await MainActor.run { baselineRefreshCompleted = true }
+        return
+      }
+
+      do {
+        try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+      } catch {
+        return
+      }
+    }
+  }
+
+  @MainActor
+  private func applyBaseline(_ settings: UISettings) {
+    originalSettings = settings
+    let swipeSettings = settings.swipeActions
+    leadingActions = swipeSettings.leadingActions
+    trailingActions = swipeSettings.trailingActions
+    allowFullSwipeLeading = swipeSettings.allowFullSwipeLeading
+    allowFullSwipeTrailing = swipeSettings.allowFullSwipeTrailing
+    hapticsEnabled = swipeSettings.hapticFeedbackEnabled
+    hapticStyle = settings.hapticStyle
   }
 
   private var currentSettings: UISettings {

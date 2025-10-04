@@ -14,6 +14,9 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
             savedSettings.append(settings)
             globalUISettings = settings
         }
+        func simulateExternalUpdate(_ settings: UISettings) {
+            globalUISettings = settings
+        }
     }
 
     func testInitialStateReflectsManagerSettings() {
@@ -28,7 +31,10 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
             hapticStyle: .heavy
         )
         let manager = SettingsManagerStub(initial: initialSettings)
-        let viewModel = SwipeActionConfigurationViewModel(settingsManager: manager)
+        let viewModel = SwipeActionConfigurationViewModel(
+            initialSettings: manager.globalUISettings,
+            settingsManager: manager
+        )
 
         XCTAssertEqual(viewModel.leadingActions, [.play, .download])
         XCTAssertEqual(viewModel.trailingActions, [.delete])
@@ -41,7 +47,10 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
 
     func testAddingActionDoesNotExceedMaximum() {
         let manager = SettingsManagerStub(initial: .default)
-        let viewModel = SwipeActionConfigurationViewModel(settingsManager: manager)
+        let viewModel = SwipeActionConfigurationViewModel(
+            initialSettings: manager.globalUISettings,
+            settingsManager: manager
+        )
 
         viewModel.addAction(.download, to: .leading)
         viewModel.addAction(.favorite, to: .leading)
@@ -54,7 +63,10 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
 
     func testApplyPresetReplacesDraft() {
         let manager = SettingsManagerStub(initial: .default)
-        let viewModel = SwipeActionConfigurationViewModel(settingsManager: manager)
+        let viewModel = SwipeActionConfigurationViewModel(
+            initialSettings: manager.globalUISettings,
+            settingsManager: manager
+        )
 
         viewModel.applyPreset(.organizationFocused)
 
@@ -67,7 +79,10 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
 
     func testSavePersistsChanges() async {
         let manager = SettingsManagerStub(initial: .default)
-        let viewModel = SwipeActionConfigurationViewModel(settingsManager: manager)
+        let viewModel = SwipeActionConfigurationViewModel(
+            initialSettings: manager.globalUISettings,
+            settingsManager: manager
+        )
 
         viewModel.setHapticsEnabled(false)
         viewModel.setHapticStyle(.rigid)
@@ -80,6 +95,35 @@ final class SwipeActionConfigurationViewModelTests: XCTestCase {
         XCTAssertEqual(saved?.hapticStyle, .rigid)
         XCTAssertFalse(saved?.swipeActions.hapticFeedbackEnabled ?? true)
         XCTAssertTrue(saved?.swipeActions.allowFullSwipeTrailing ?? false)
+        XCTAssertFalse(viewModel.hasUnsavedChanges)
+    }
+
+    func testBaselineRefreshAppliesManagerUpdateWhenUnmodified() async throws {
+        let initialSettings = UISettings(
+            swipeActions: SwipeActionSettings.default,
+            hapticStyle: .medium
+        )
+        let manager = SettingsManagerStub(initial: initialSettings)
+        let viewModel = SwipeActionConfigurationViewModel(
+            initialSettings: initialSettings,
+            settingsManager: manager
+        )
+
+        let updatedSettings = UISettings(
+            swipeActions: .playbackFocused,
+            hapticStyle: .rigid
+        )
+
+        Task { @MainActor in
+            try await Task.sleep(nanoseconds: 50_000_000)
+            manager.simulateExternalUpdate(updatedSettings)
+        }
+
+        await viewModel.ensureLatestBaseline(timeout: 1.0)
+
+        XCTAssertEqual(viewModel.leadingActions, updatedSettings.swipeActions.leadingActions)
+        XCTAssertEqual(viewModel.trailingActions, updatedSettings.swipeActions.trailingActions)
+        XCTAssertEqual(viewModel.hapticStyle, .rigid)
         XCTAssertFalse(viewModel.hasUnsavedChanges)
     }
 }

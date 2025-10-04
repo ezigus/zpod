@@ -163,6 +163,12 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     self.hapticsService = hapticFeedbackService
     self.allEpisodes = podcast.episodes
     self.uiSettings = settingsManager.globalUISettings
+    #if DEBUG
+      print(
+        "[SwipeConfigDebug] EpisodeListViewModel init baseline leading=\(uiSettings.swipeActions.leadingActions) "
+          + "trailing=\(uiSettings.swipeActions.trailingActions) fullLeading=\(uiSettings.swipeActions.allowFullSwipeLeading) fullTrailing=\(uiSettings.swipeActions.allowFullSwipeTrailing)"
+      )
+    #endif
 
     // Load saved filter for this podcast
     loadInitialFilter()
@@ -420,6 +426,12 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
       settingsManager.$globalUISettings
         .receive(on: DispatchQueue.main)
         .sink { [weak self] settings in
+          #if DEBUG
+            print(
+              "[SwipeConfigDebug] SettingsManager published leading=\(settings.swipeActions.leadingActions) "
+                + "trailing=\(settings.swipeActions.trailingActions) fullLeading=\(settings.swipeActions.allowFullSwipeLeading) fullTrailing=\(settings.swipeActions.allowFullSwipeTrailing)"
+            )
+          #endif
           self?.uiSettings = settings
         }
         .store(in: &cancellables)

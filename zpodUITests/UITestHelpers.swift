@@ -61,12 +61,13 @@ extension UITestFoundation {
   /// Returns the timeout scale factor from the environment, defaulting to 1.5 in CI and 1.0 otherwise
   private var timeoutScale: TimeInterval {
     if let scaleString = ProcessInfo.processInfo.environment["UITEST_TIMEOUT_SCALE"],
-       let scale = TimeInterval(scaleString), scale > 0 {
+      let scale = TimeInterval(scaleString), scale > 0
+    {
       return scale
     }
     return ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
   }
-  
+
   var adaptiveTimeout: TimeInterval {
     let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 20.0 : 10.0
     return baseTimeout * timeoutScale
@@ -179,6 +180,31 @@ extension ElementWaiting {
 
     return true
   }
+
+  /// Wait for an element to disappear (non-existent or not hittable). Does not fail on timeout.
+  func waitForElementToDisappear(
+    _ element: XCUIElement,
+    timeout: TimeInterval = 10.0
+  ) -> Bool {
+    if !element.exists { return true }
+
+    let expectation = XCTestExpectation(description: "Wait for element to disappear")
+
+    func poll() {
+      if !element.exists || !element.isHittable {
+        expectation.fulfill()
+        return
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        poll()
+      }
+    }
+
+    poll()
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+    return result == .completed
+  }
 }
 
 extension TestNavigation {
@@ -258,12 +284,6 @@ extension XCTestCase {
     in app: XCUIApplication,
     identifier: String
   ) -> XCUIElement? {
-    // Safety check: if app is not running, return nil immediately
-    // This prevents "Lost connection" errors when app has crashed
-    guard app.state == .runningForeground || app.state == .runningBackground else {
-      return nil
-    }
-    
     let orderedQueries: [XCUIElementQuery] = [
       app.scrollViews,
       app.tables,
@@ -373,11 +393,13 @@ private struct BatchOverlayObservation {
   }
 
   func debugSummary() -> String {
-    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap { index, element -> String? in
+    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap {
+      index, element -> String? in
       guard element.exists else { return nil }
       let identifier = element.identifier.isEmpty ? "∅" : element.identifier
       let label = element.label.isEmpty ? "∅" : element.label
-      return "[#\(index)] identifier='\(identifier)' label='\(label)' hittable=\(element.isHittable)"
+      return
+        "[#\(index)] identifier='\(identifier)' label='\(label)' hittable=\(element.isHittable)"
     }
 
     guard !visibleElements.isEmpty else { return "No overlay elements currently visible" }
@@ -403,7 +425,7 @@ extension SmartUITesting where Self: XCTestCase {
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
     application.launch()
-    
+
     // Check if app is actually running
     guard application.state == .runningForeground || application.state == .runningBackground else {
       XCTFail("App failed to launch. State: \(application.state.rawValue)")

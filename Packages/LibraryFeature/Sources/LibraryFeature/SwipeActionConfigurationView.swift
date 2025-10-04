@@ -11,10 +11,15 @@ public struct SwipeActionConfigurationView: View {
 
   public init(
     settingsManager: UISettingsManaging,
+    initialSettings: UISettings? = nil,
     hapticsService: HapticFeedbackServicing = HapticFeedbackService.shared,
     onSave: (() -> Void)? = nil
   ) {
-    self.viewModel = SwipeActionConfigurationViewModel(settingsManager: settingsManager)
+    let baselineSettings = initialSettings ?? settingsManager.globalUISettings
+    self.viewModel = SwipeActionConfigurationViewModel(
+      initialSettings: baselineSettings,
+      settingsManager: settingsManager
+    )
     self.hapticsService = hapticsService
     self.onSave = onSave
   }
@@ -26,6 +31,9 @@ public struct SwipeActionConfigurationView: View {
         trailingSection
         hapticsSection
         presetsSection
+      }
+      .task {
+        await viewModel.ensureLatestBaseline()
       }
       .navigationTitle("Swipe Actions")
       .toolbar {
@@ -120,21 +128,33 @@ public struct SwipeActionConfigurationView: View {
   private var presetsSection: some View {
     Section("Presets") {
       Button("Restore Default") {
+        #if DEBUG
+          print("[SwipeConfigDebug] UI pressed Restore Default")
+        #endif
         viewModel.applyPreset(.default)
       }
       .accessibilityIdentifier("SwipeActions.Preset.Default")
 
       Button("Playback Focused") {
+        #if DEBUG
+          print("[SwipeConfigDebug] UI pressed Playback Preset")
+        #endif
         viewModel.applyPreset(.playbackFocused)
       }
       .accessibilityIdentifier("SwipeActions.Preset.Playback")
 
       Button("Organization Focused") {
+        #if DEBUG
+          print("[SwipeConfigDebug] UI pressed Organization Preset")
+        #endif
         viewModel.applyPreset(.organizationFocused)
       }
       .accessibilityIdentifier("SwipeActions.Preset.Organization")
 
       Button("Download Focused") {
+        #if DEBUG
+          print("[SwipeConfigDebug] UI pressed Download Preset")
+        #endif
         viewModel.applyPreset(.downloadFocused)
       }
       .accessibilityIdentifier("SwipeActions.Preset.Download")
