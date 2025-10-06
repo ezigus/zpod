@@ -20,30 +20,45 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   @Published public private(set) var searchText = ""
   @Published public var showingFilterSheet = false
   @Published public var showingSwipeConfiguration = false
-  @Published public private(set) var uiSettings: UISettings
+  @Published public private(set) var swipeConfiguration: SwipeConfiguration
 
   public var leadingSwipeActions: [SwipeActionType] {
-    uiSettings.swipeActions.leadingActions
+    swipeConfiguration.swipeActions.leadingActions
   }
 
   public var trailingSwipeActions: [SwipeActionType] {
-    uiSettings.swipeActions.trailingActions
+    swipeConfiguration.swipeActions.trailingActions
   }
 
   public var allowsFullSwipeLeading: Bool {
-    uiSettings.swipeActions.allowFullSwipeLeading
+    swipeConfiguration.swipeActions.allowFullSwipeLeading
   }
 
   public var allowsFullSwipeTrailing: Bool {
-    uiSettings.swipeActions.allowFullSwipeTrailing
+    swipeConfiguration.swipeActions.allowFullSwipeTrailing
   }
 
   public var isHapticFeedbackEnabled: Bool {
-    uiSettings.swipeActions.hapticFeedbackEnabled
+    swipeConfiguration.swipeActions.hapticFeedbackEnabled
   }
 
   public func refreshSwipeSettings() {
-    uiSettings = settingsManager.globalUISettings
+    let service = swipeConfigurationService
+    Task { [weak self] in
+      guard let self else { return }
+      let configuration = await service.load()
+      await MainActor.run { self.swipeConfiguration = configuration }
+    }
+  }
+
+  public func updateSwipeConfiguration(_ configuration: SwipeConfiguration) {
+    swipeConfiguration = configuration
+  }
+
+  public func makeSwipeConfigurationController() -> SwipeConfigurationController {
+    let controller = SwipeConfigurationController(service: swipeConfigurationService)
+    controller.bootstrap(with: swipeConfiguration)
+    return controller
   }
 
   public func performSwipeAction(_ action: SwipeActionType, for episode: Episode) {
@@ -130,7 +145,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   private let downloadManager: DownloadManaging?
   private let playbackService: EpisodePlaybackService?
   private let episodeRepository: EpisodeRepository?
-  private let settingsManager: UISettingsManaging
+  private let swipeConfigurationService: SwipeConfigurationServicing
   private let hapticsService: HapticFeedbackServicing
   private var cancellables = Set<AnyCancellable>()
   private var playbackStateCancellable: AnyCancellable?
@@ -148,7 +163,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     downloadManager: DownloadManaging? = nil,
     playbackService: EpisodePlaybackService? = nil,
     episodeRepository: EpisodeRepository? = nil,
-    settingsManager: UISettingsManaging = EpisodeListViewModel.makeDefaultSettingsManager(),
+    swipeConfigurationService: SwipeConfigurationServicing = EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
     hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared
   ) {
     self.podcast = podcast
@@ -159,16 +174,10 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     self.downloadManager = downloadManager
     self.playbackService = playbackService
     self.episodeRepository = episodeRepository
-    self.settingsManager = settingsManager
+    self.swipeConfigurationService = swipeConfigurationService
     self.hapticsService = hapticFeedbackService
     self.allEpisodes = podcast.episodes
-    self.uiSettings = settingsManager.globalUISettings
-    #if DEBUG
-      print(
-        "[SwipeConfigDebug] EpisodeListViewModel init baseline leading=\(uiSettings.swipeActions.leadingActions) "
-          + "trailing=\(uiSettings.swipeActions.trailingActions) fullLeading=\(uiSettings.swipeActions.allowFullSwipeLeading) fullTrailing=\(uiSettings.swipeActions.allowFullSwipeTrailing)"
-      )
-    #endif
+    self.swipeConfiguration = .default
 
     // Load saved filter for this podcast
     loadInitialFilter()
@@ -178,12 +187,12 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     setupBatchOperationSubscription()
     setupDownloadProgressSubscription()
     loadPersistedEpisodes()
-    observeUISettings()
+    observeSwipeConfiguration()
 
   }
 
-  @usableFromInline static func makeDefaultSettingsManager() -> UISettingsManaging {
-    SettingsManager(repository: UserDefaultsSettingsRepository())
+  @usableFromInline static func makeDefaultSwipeConfigurationService() -> SwipeConfigurationServicing {
+    SwipeConfigurationService(repository: UserDefaultsSettingsRepository())
   }
 
   // MARK: - Public Methods
@@ -421,26 +430,29 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
       .store(in: &cancellables)
   }
 
-  private func observeUISettings() {
-    if let settingsManager = settingsManager as? SettingsManager {
-      settingsManager.$globalUISettings
-        .receive(on: DispatchQueue.main)
-        .sink { [weak self] settings in
-          #if DEBUG
-            print(
-              "[SwipeConfigDebug] SettingsManager published leading=\(settings.swipeActions.leadingActions) "
-                + "trailing=\(settings.swipeActions.trailingActions) fullLeading=\(settings.swipeActions.allowFullSwipeLeading) fullTrailing=\(settings.swipeActions.allowFullSwipeTrailing)"
-            )
-          #endif
-          self?.uiSettings = settings
+  private func observeSwipeConfiguration() {
+    let service = swipeConfigurationService
+
+    Task { [weak self] in
+      guard let self else { return }
+      let baseline = await service.load()
+      await MainActor.run { self.swipeConfiguration = baseline }
+    }
+
+    Task { [weak self] in
+      guard let self else { return }
+      var iterator = service.updatesStream().makeAsyncIterator()
+      while let configuration = await iterator.next() {
+        await MainActor.run { [weak self] in
+          self?.swipeConfiguration = configuration
         }
-        .store(in: &cancellables)
+      }
     }
   }
 
   private func triggerSwipeHapticIfNeeded() {
     guard isHapticFeedbackEnabled else { return }
-    let intensity = HapticFeedbackIntensity(style: uiSettings.hapticStyle)
+    let intensity = HapticFeedbackIntensity(style: swipeConfiguration.hapticStyle)
     hapticsService.impact(intensity)
   }
 

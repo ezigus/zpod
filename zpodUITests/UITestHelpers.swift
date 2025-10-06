@@ -615,39 +615,31 @@ extension SmartUITesting where Self: XCTestCase {
       return false
     }
 
-    // Use XCTestExpectation for event-driven content waiting
-    let expectation = XCTestExpectation(
-      description: "Content container '\(containerIdentifier)' appears")
+    let predicate = NSPredicate { [weak self] _, _ in
+      guard let self else { return false }
 
-    func checkForContent() {
-      let container = findContainerElement(in: app, identifier: containerIdentifier)
-      let containerExists = container?.exists ?? false
+      if let container = self.findContainerElement(in: app, identifier: containerIdentifier),
+        container.exists
+      {
+        return true
+      }
 
-      var itemExists = false
       if !itemIdentifiers.isEmpty {
         for identifier in itemIdentifiers {
           let matchedElement = app.descendants(matching: .any)[identifier]
           if matchedElement.exists {
-            itemExists = true
-            break
+            return true
           }
         }
       }
 
-      if containerExists || itemExists || (itemIdentifiers.isEmpty && container != nil) {
-        expectation.fulfill()
-        return
-      }
-
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        checkForContent()
-      }
+      return false
     }
 
-    checkForContent()
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Content container '\(containerIdentifier)' appears"
 
-    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-    return result == .completed
+    return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
   }
 
   /// Wait for loading completion using XCTestExpectation pattern

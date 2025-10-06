@@ -16,7 +16,7 @@ final class EpisodeListViewModelTests: XCTestCase {
   private var mockFilterService: MockEpisodeFilterService!
   private var recordingRepository: RecordingEpisodeFilterRepository!
   private var filterManager: EpisodeFilterManager!
-  private var mockSettingsManager: MockUISettingsManager!
+  private var mockSwipeConfigurationService: MockSwipeConfigurationService!
   private var mockHapticsService: MockHapticsService!
 
   override func setUp() async throws {
@@ -29,14 +29,14 @@ final class EpisodeListViewModelTests: XCTestCase {
       filterService: mockFilterService
     )
     testPodcast = createTestPodcast()
-    mockSettingsManager = MockUISettingsManager(settings: UISettings.default)
+    mockSwipeConfigurationService = MockSwipeConfigurationService(configuration: .default)
     mockHapticsService = MockHapticsService()
 
     viewModel = EpisodeListViewModel(
       podcast: testPodcast,
       filterService: mockFilterService,
       filterManager: filterManager,
-      settingsManager: mockSettingsManager,
+      swipeConfigurationService: mockSwipeConfigurationService,
       hapticFeedbackService: mockHapticsService
     )
   }
@@ -47,7 +47,7 @@ final class EpisodeListViewModelTests: XCTestCase {
     mockFilterService = nil
     filterManager = nil
     recordingRepository = nil
-    mockSettingsManager = nil
+    mockSwipeConfigurationService = nil
     mockHapticsService = nil
 
     try await super.tearDown()
@@ -291,13 +291,13 @@ final class EpisodeListViewModelTests: XCTestCase {
       mockHapticsService.impactCalls.count, 1, "Swipe action should trigger haptic feedback")
     XCTAssertEqual(
       mockHapticsService.impactCalls.first,
-      HapticFeedbackIntensity(style: viewModel.uiSettings.hapticStyle)
+      HapticFeedbackIntensity(style: viewModel.swipeConfiguration.hapticStyle)
     )
   }
 
   func testRefreshSwipeSettingsUpdatesProperties() {
     // Given
-    let customSettings = UISettings(
+    let customConfiguration = SwipeConfiguration(
       swipeActions: SwipeActionSettings(
         leadingActions: [.download],
         trailingActions: [.share],
@@ -307,7 +307,7 @@ final class EpisodeListViewModelTests: XCTestCase {
       ),
       hapticStyle: .heavy
     )
-    mockSettingsManager.globalUISettings = customSettings
+    await mockSwipeConfigurationService.replace(configuration: customConfiguration)
 
     // When
     viewModel.refreshSwipeSettings()
@@ -316,7 +316,7 @@ final class EpisodeListViewModelTests: XCTestCase {
     XCTAssertEqual(viewModel.leadingSwipeActions, [.download])
     XCTAssertEqual(viewModel.trailingSwipeActions, [.share])
     XCTAssertFalse(viewModel.isHapticFeedbackEnabled)
-    XCTAssertEqual(viewModel.uiSettings.hapticStyle, .heavy)
+    XCTAssertEqual(viewModel.swipeConfiguration.hapticStyle, .heavy)
   }
 
   // MARK: - Helper Methods
@@ -374,15 +374,48 @@ final class EpisodeListViewModelTests: XCTestCase {
 }
 
 @MainActor
-private final class MockUISettingsManager: UISettingsManaging {
-  var globalUISettings: UISettings
+actor MockSwipeConfigurationService: SwipeConfigurationServicing {
+  private var configuration: SwipeConfiguration
+  private var continuations: [UUID: AsyncStream<SwipeConfiguration>.Continuation] = [:]
 
-  init(settings: UISettings) {
-    self.globalUISettings = settings
+  init(configuration: SwipeConfiguration) {
+    self.configuration = configuration
   }
 
-  func updateGlobalUISettings(_ settings: UISettings) async {
-    globalUISettings = settings
+  func load() async -> SwipeConfiguration {
+    configuration
+  }
+
+  func save(_ configuration: SwipeConfiguration) async throws {
+    self.configuration = configuration
+    for continuation in continuations.values {
+      continuation.yield(configuration)
+    }
+  }
+
+  nonisolated func updatesStream() -> AsyncStream<SwipeConfiguration> {
+    AsyncStream { continuation in
+      let id = UUID()
+      Task { await self.registerContinuation(continuation, id: id) }
+    }
+  }
+
+  func replace(configuration: SwipeConfiguration) async {
+    self.configuration = configuration
+  }
+
+  private func removeContinuation(id: UUID) {
+    continuations[id] = nil
+  }
+
+  private func registerContinuation(
+    _ continuation: AsyncStream<SwipeConfiguration>.Continuation,
+    id: UUID
+  ) {
+    continuation.onTermination = { [weak self] _ in
+      Task { await self?.removeContinuation(id: id) }
+    }
+    continuations[id] = continuation
   }
 }
 

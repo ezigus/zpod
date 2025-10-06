@@ -184,22 +184,10 @@ public class SettingsManager {
     public func updateGlobalUISettings(_ settings: UISettings) async {
         await repository.saveGlobalUISettings(settings)
         globalUISettings = settings
-        #if DEBUG
-        print(
-            "[SwipeConfigDebug] SettingsManager.save global leading=\(settings.swipeActions.leadingActions) "
-                + "trailing=\(settings.swipeActions.trailingActions) fullLeading=\(settings.swipeActions.allowFullSwipeLeading) fullTrailing=\(settings.swipeActions.allowFullSwipeTrailing) style=\(settings.hapticStyle)"
-        )
-        #endif
     }
 
     public func loadPersistedUISettings() async -> UISettings {
         let settings = await repository.loadGlobalUISettings()
-        #if DEBUG
-        print(
-            "[SwipeConfigDebug] SettingsManager.load persisted leading=\(settings.swipeActions.leadingActions) "
-                + "trailing=\(settings.swipeActions.trailingActions) fullLeading=\(settings.swipeActions.allowFullSwipeLeading) fullTrailing=\(settings.swipeActions.allowFullSwipeTrailing) style=\(settings.hapticStyle)"
-        )
-        #endif
         return settings
     }
     

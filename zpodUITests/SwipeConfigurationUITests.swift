@@ -59,6 +59,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     applyPreset(identifier: "SwipeActions.Preset.Playback")
     saveAndDismissConfiguration()
 
+    relaunchApp()
+    try navigateToEpisodeList()
+
     let episode = try requireEpisodeButton()
 
     episode.swipeRight()
@@ -187,6 +190,8 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       timeout: adaptiveTimeout,
       description: "Swipe Actions configuration sheet"
     )
+
+    reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
   }
 
   @MainActor
@@ -197,30 +202,10 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
-
     if let container = swipeActionsSheetListContainer() {
-      let madeVisible = ensureVisibleInSheet(identifier: identifier, container: container)
-      let containerScopedButton = element(withIdentifier: identifier, within: container)
-      #if DEBUG
-        print(
-          "[SwipeConfigDebug] UITest applyPreset id=\(identifier) containerFound=true visible=\(madeVisible) exists=\(containerScopedButton.exists) hittable=\(containerScopedButton.isHittable)"
-        )
-      #endif
-      if containerScopedButton.exists {
-        let coordinate = containerScopedButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        coordinate.tap()
-        return
-      }
+      _ = ensureVisibleInSheet(identifier: identifier, container: container)
     }
-
-    #if DEBUG
-      print(
-        "[SwipeConfigDebug] UITest applyPreset fallback tap id=\(identifier) exists=\(presetButton.exists) hittable=\(presetButton.isHittable)"
-      )
-    #endif
-
-    let fallbackCoordinate = presetButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-    fallbackCoordinate.tap()
+    presetButton.tap()
   }
 
   @MainActor
@@ -241,8 +226,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       toggle = baseToggle
     }
 
-    if let shouldToggle = shouldToggleElement(toggle, targetStateOn: enabled), shouldToggle {
-      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    let decision = shouldToggleElement(toggle, targetStateOn: enabled)
+    if decision == true || decision == nil {
+      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
       coordinate.tap()
     }
 
@@ -258,8 +244,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     if segmentedControl.exists {
       let desiredButton = segmentedControl.buttons[styleLabel]
       if desiredButton.exists {
-        let coordinate = desiredButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        coordinate.tap()
+        desiredButton.tap()
       }
     }
   }
@@ -281,8 +266,21 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       toggle = baseToggle
     }
 
-    if let shouldToggle = shouldToggleElement(toggle, targetStateOn: enabled), shouldToggle {
-      toggle.tap()
+    let decision = shouldToggleElement(toggle, targetStateOn: enabled)
+    if decision == true || decision == nil {
+      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+      coordinate.tap()
+    }
+
+    if let debugSummaryElement = app.staticTexts["SwipeActions.Debug.StateSummary"].firstMatchIfExists(),
+      debugSummaryElement.exists,
+      let summary = debugSummaryElement.value as? String
+    {
+      let expectedFragment = enabled ? "Full=1/1" : "Full=1/0"
+      XCTAssertTrue(
+        summary.contains(expectedFragment),
+        "Unexpected debug summary after toggling full swipe: \(summary)"
+      )
     }
   }
 
@@ -290,9 +288,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private func saveAndDismissConfiguration() {
     let saveButton = element(withIdentifier: "SwipeActions.Save")
     if waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") {
-      print("[SwipeConfigDebug] UITest about to tap save; enabled=\(saveButton.isEnabled) exists=\(saveButton.exists)")
       saveButton.tap()
-      // Ensure the sheet fully dismisses before proceeding so async save can complete
       waitForSheetDismissal()
     }
   }
@@ -304,8 +300,29 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
       "Toggle \(identifier) should exist"
     )
-    if let currentState = currentStateIsOn(for: toggle) {
-      XCTAssertEqual(currentState, expected, "Toggle \(identifier) state mismatch")
+    let predicate = NSPredicate { [weak self] _, _ in
+      guard let self else { return false }
+      guard let currentState = self.currentStateIsOn(for: toggle) else { return false }
+      return currentState == expected
+    }
+
+    let expectation = XCTNSPredicateExpectation(
+      predicate: predicate,
+      object: nil
+    )
+    expectation.expectationDescription = "Toggle \(identifier) matches expected state"
+
+    let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
+    guard result == .completed else {
+      let debugSummary = app.staticTexts["SwipeActions.Debug.StateSummary"].value as? String
+      let message: String
+      if let debugSummary {
+        message = "Toggle \(identifier) state mismatch. Debug: \(debugSummary)"
+      } else {
+        message = "Toggle \(identifier) state mismatch (debug summary unavailable)"
+      }
+      XCTFail(message)
+      return
     }
   }
 
@@ -423,8 +440,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     return fallbackEpisode
   }
 
-  // Scroll within the configuration sheet's list to bring an element into view if needed
-  @MainActor
   private func ensureVisibleInSheet(identifier: String, container: XCUIElement) -> Bool {
     let target = element(withIdentifier: identifier, within: container)
     if target.exists { return true }

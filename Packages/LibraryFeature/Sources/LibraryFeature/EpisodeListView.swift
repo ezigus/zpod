@@ -37,7 +37,7 @@ public struct EpisodeListView: View {
           filterManager: filterManager,
           playbackService: dependencies.playbackService,
           episodeRepository: dependencies.episodeRepository,
-          settingsManager: dependencies.settingsManager,
+          swipeConfigurationService: dependencies.swipeConfigurationService,
           hapticFeedbackService: dependencies.hapticsService
         ))
     } else {
@@ -53,7 +53,7 @@ public struct EpisodeListView: View {
           downloadManager: bridge,
           playbackService: dependencies.playbackService,
           episodeRepository: dependencies.episodeRepository,
-          settingsManager: dependencies.settingsManager,
+          swipeConfigurationService: dependencies.swipeConfigurationService,
           hapticFeedbackService: dependencies.hapticsService
         ))
     }
@@ -142,10 +142,9 @@ public struct EpisodeListView: View {
     }
     .sheet(isPresented: $viewModel.showingSwipeConfiguration) {
       SwipeActionConfigurationView(
-        settingsManager: EpisodeListDependencyProvider.shared.settingsManager,
-        initialSettings: viewModel.uiSettings,
+        controller: viewModel.makeSwipeConfigurationController(),
         onSave: {
-          viewModel.refreshSwipeSettings()
+          viewModel.updateSwipeConfiguration($0)
         }
       )
     }
@@ -1203,14 +1202,14 @@ private final class EpisodeListDependencyProvider {
 
   let playbackService: EpisodePlaybackService
   let episodeRepository: EpisodeRepository
-  let settingsManager: SettingsManager
+  let swipeConfigurationService: SwipeConfigurationServicing
   let hapticsService: HapticFeedbackServicing
 
   private init() {
     self.playbackService = EnhancedEpisodePlayer()
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
     let settingsRepository = UserDefaultsSettingsRepository(userDefaults: .standard)
-    self.settingsManager = SettingsManager(repository: settingsRepository)
+    self.swipeConfigurationService = SwipeConfigurationService(repository: settingsRepository)
     self.hapticsService = HapticFeedbackService.shared
   }
 }
