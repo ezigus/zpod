@@ -1210,6 +1210,9 @@ private final class EpisodeListDependencyProvider {
     self.playbackService = EnhancedEpisodePlayer()
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
     let settingsRepository = UserDefaultsSettingsRepository(userDefaults: .standard)
+    if ProcessInfo.processInfo.environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
+      Task { await settingsRepository.saveGlobalUISettings(.default) }
+    }
     let settingsManager = SettingsManager(repository: settingsRepository)
     self.settingsManager = settingsManager
     self.swipeConfigurationService = settingsManager.swipeConfigurationService

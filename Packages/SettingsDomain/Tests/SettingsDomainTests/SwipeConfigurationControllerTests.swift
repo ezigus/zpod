@@ -5,7 +5,6 @@ import CoreModels
 @MainActor
 final class SwipeConfigurationControllerTests: XCTestCase {
   func testLoadBaselinePopulatesDraft() async {
-    // Given
     let initial = SwipeConfiguration(
       swipeActions: SwipeActionSettings(
         leadingActions: [.play],
@@ -19,16 +18,13 @@ final class SwipeConfigurationControllerTests: XCTestCase {
     let service = InMemorySwipeConfigurationService(initial: initial)
     let controller = SwipeConfigurationController(service: service)
 
-    // When
     await controller.loadBaseline()
 
-    // Then
     XCTAssertEqual(controller.draft, initial)
     XCTAssertFalse(controller.hasUnsavedChanges)
   }
 
   func testMutatingDraftMarksUnsavedAndCommitPersists() async throws {
-    // Given
     let initial = SwipeConfiguration(
       swipeActions: .default,
       hapticStyle: .medium
@@ -37,7 +33,6 @@ final class SwipeConfigurationControllerTests: XCTestCase {
     let controller = SwipeConfigurationController(service: service)
     await controller.loadBaseline()
 
-    // When
     controller.updateDraft { draft in
       draft.swipeActions = SwipeActionSettings(
         leadingActions: [.favorite, .addToPlaylist],
@@ -49,7 +44,6 @@ final class SwipeConfigurationControllerTests: XCTestCase {
       draft.hapticStyle = .heavy
     }
 
-    // Then
     XCTAssertTrue(controller.hasUnsavedChanges)
 
     try await controller.commitChanges()
@@ -57,6 +51,8 @@ final class SwipeConfigurationControllerTests: XCTestCase {
     XCTAssertFalse(controller.hasUnsavedChanges)
     let persisted = await service.load()
     XCTAssertEqual(persisted.swipeActions.leadingActions, [.favorite, .addToPlaylist])
+    XCTAssertEqual(persisted.hapticStyle, .heavy)
+  }
 
   func testApplyPresetUpdatesActionsAndFlagsUnsavedChanges() async {
     let service = InMemorySwipeConfigurationService(initial: .default)
@@ -85,8 +81,6 @@ final class SwipeConfigurationControllerTests: XCTestCase {
 
     controller.addAction(.download, edge: .leading)
     XCTAssertEqual(controller.leadingActions, [.play, .addToPlaylist, .favorite])
-  }
-    XCTAssertEqual(persisted.hapticStyle, .heavy)
   }
 }
 

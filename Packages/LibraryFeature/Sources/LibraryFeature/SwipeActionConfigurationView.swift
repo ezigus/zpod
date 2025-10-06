@@ -13,13 +13,14 @@ public struct SwipeActionConfigurationView: View {
   @State private var trailingFullSwipe: Bool
   @State private var hapticsEnabledState: Bool
   @State private var hapticStyleState: SwipeHapticStyle
+  @State private var baselineLoaded = false
 
   public init(
     controller: SwipeConfigurationController,
     hapticsService: HapticFeedbackServicing = HapticFeedbackService.shared,
     onSave: ((SwipeConfiguration) -> Void)? = nil
   ) {
-    self.controller = controller
+    self._controller = ObservedObject(initialValue: controller)
     self.hapticsService = hapticsService
     self.onSave = onSave
     self._leadingFullSwipe = State(initialValue: controller.allowFullSwipeLeading)
@@ -43,6 +44,7 @@ public struct SwipeActionConfigurationView: View {
       .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
       .task {
         await controller.loadBaseline()
+        baselineLoaded = true
       }
       .onReceive(controller.$draft) { draft in
         leadingFullSwipe = draft.swipeActions.allowFullSwipeLeading
@@ -317,7 +319,8 @@ public struct SwipeActionConfigurationView: View {
       let fullTrailing = controller.allowFullSwipeTrailing ? "1" : "0"
       let haptics = controller.hapticsEnabled ? "1" : "0"
       let unsaved = controller.hasUnsavedChanges ? "1" : "0"
-      return "Leading=\(leading);Trailing=\(trailing);Full=\(fullLeading)/\(fullTrailing);Haptics=\(haptics);Unsaved=\(unsaved)"
+      let baseline = baselineLoaded ? "1" : "0"
+      return "Leading=\(leading);Trailing=\(trailing);Full=\(fullLeading)/\(fullTrailing);Haptics=\(haptics);Unsaved=\(unsaved);Baseline=\(baseline)"
     }
   #endif
 

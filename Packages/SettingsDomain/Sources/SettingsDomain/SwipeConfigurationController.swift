@@ -46,6 +46,7 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   }
 
   public func applyPreset(_ preset: SwipeActionSettings) {
+    print("[SwipeConfigController] applyPreset -> leading=\(preset.leadingActions.map(\.rawValue))")
     updateDraft { draft in
       draft.swipeActions = SwipeActionSettings(
         leadingActions: preset.leadingActions,
