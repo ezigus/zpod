@@ -31,10 +31,23 @@ public class SettingsManager {
     public private(set) var globalPlaybackSettings: PlaybackSettings
     public private(set) var globalUISettings: UISettings
     #endif
-    
+
+    private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
+    public let featureConfigurationRegistry: FeatureConfigurationRegistry
+
+    public var swipeConfigurationService: SwipeConfigurationServicing {
+        swipeConfigurationServiceImpl
+    }
+
     public init(repository: SettingsRepository) {
         self.repository = repository
-        
+
+        let swipeService = SwipeConfigurationService(repository: repository)
+        self.swipeConfigurationServiceImpl = swipeService
+        self.featureConfigurationRegistry = FeatureConfigurationRegistry(
+            features: [SwipeConfigurationFeature(service: swipeService)]
+        )
+
         // Initialize with defaults temporarily
         self.globalDownloadSettings = DownloadSettings.default
         self.globalNotificationSettings = NotificationSettings.default

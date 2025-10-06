@@ -57,6 +57,35 @@ final class SwipeConfigurationControllerTests: XCTestCase {
     XCTAssertFalse(controller.hasUnsavedChanges)
     let persisted = await service.load()
     XCTAssertEqual(persisted.swipeActions.leadingActions, [.favorite, .addToPlaylist])
+
+  func testApplyPresetUpdatesActionsAndFlagsUnsavedChanges() async {
+    let service = InMemorySwipeConfigurationService(initial: .default)
+    let controller = SwipeConfigurationController(service: service)
+    await controller.loadBaseline()
+
+    controller.applyPreset(.playbackFocused)
+
+    XCTAssertEqual(controller.leadingActions, [.play, .addToPlaylist])
+    XCTAssertEqual(controller.trailingActions, [.download, .favorite])
+    XCTAssertTrue(controller.hasUnsavedChanges)
+  }
+
+  func testAddActionStopsAtThreeEntriesPerEdge() async {
+    let service = InMemorySwipeConfigurationService(initial: .default)
+    let controller = SwipeConfigurationController(service: service)
+    await controller.loadBaseline()
+
+    controller.removeAction(.markPlayed, edge: .leading)
+    controller.addAction(.play, edge: .leading)
+    controller.addAction(.addToPlaylist, edge: .leading)
+    controller.addAction(.favorite, edge: .leading)
+
+    XCTAssertEqual(controller.leadingActions, [.play, .addToPlaylist, .favorite])
+    XCTAssertFalse(controller.canAddMoreActions(to: .leading))
+
+    controller.addAction(.download, edge: .leading)
+    XCTAssertEqual(controller.leadingActions, [.play, .addToPlaylist, .favorite])
+  }
     XCTAssertEqual(persisted.hapticStyle, .heavy)
   }
 }

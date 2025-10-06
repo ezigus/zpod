@@ -1202,6 +1202,7 @@ private final class EpisodeListDependencyProvider {
 
   let playbackService: EpisodePlaybackService
   let episodeRepository: EpisodeRepository
+  let settingsManager: SettingsManager
   let swipeConfigurationService: SwipeConfigurationServicing
   let hapticsService: HapticFeedbackServicing
 
@@ -1209,7 +1210,9 @@ private final class EpisodeListDependencyProvider {
     self.playbackService = EnhancedEpisodePlayer()
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
     let settingsRepository = UserDefaultsSettingsRepository(userDefaults: .standard)
-    self.swipeConfigurationService = SwipeConfigurationService(repository: settingsRepository)
+    let settingsManager = SettingsManager(repository: settingsRepository)
+    self.settingsManager = settingsManager
+    self.swipeConfigurationService = settingsManager.swipeConfigurationService
     self.hapticsService = HapticFeedbackService.shared
   }
 }

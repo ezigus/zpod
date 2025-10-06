@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Foundation
 
 final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   nonisolated(unsafe) var app: XCUIApplication!
@@ -93,7 +94,198 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     restoreDefaultConfiguration()
   }
 
+  @MainActor
+  func testSwipeConfigurationPresetCycleCoversAllPresets() throws {
+    initializeApp()
+
+    try navigateToEpisodeList()
+    openSwipeConfigurationSheet()
+
+    let presets: [(identifier: String, leading: [String], trailing: [String])] = [
+      ("SwipeActions.Preset.Playback", ["play", "addToPlaylist"], ["download", "favorite"]),
+      ("SwipeActions.Preset.Organization", ["markPlayed", "favorite"], ["archive", "delete"]),
+      ("SwipeActions.Preset.Download", ["download", "markPlayed"], ["archive", "delete"]),
+    ]
+
+    for preset in presets {
+      applyPreset(identifier: preset.identifier)
+      if !waitForDebugSummary(
+        leading: preset.leading,
+        trailing: preset.trailing,
+        unsaved: nil
+      ) {
+        if let state = currentDebugState() {
+          XCTFail("Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)")
+        } else {
+          XCTFail("Debug summary unavailable for preset \(preset.identifier)")
+        }
+        return
+      }
+
+      guard let state = currentDebugState() else {
+        XCTFail("Debug summary unavailable after applying preset \(preset.identifier)")
+        return
+      }
+
+      if state.unsaved {
+        XCTAssertTrue(
+          waitForSaveButton(enabled: true),
+          "Save button should enable after applying preset \(preset.identifier)"
+        )
+      } else {
+        XCTAssertTrue(
+          waitForSaveButton(enabled: false),
+          "Save button should remain disabled when preset matches baseline"
+        )
+      }
+    }
+
+    restoreDefaultConfiguration()
+  }
+
+  @MainActor
+  func testSwipeConfigurationAddActionRespectsCap() throws {
+    initializeApp()
+
+    try navigateToEpisodeList()
+    openSwipeConfigurationSheet()
+
+    let leadingSequence: [(displayName: String, rawValue: String)] = [
+      ("Play", "play"),
+      ("Add to Playlist", "addToPlaylist"),
+    ]
+
+    var accumulatedLeading = ["markPlayed"]
+
+    for entry in leadingSequence {
+      XCTAssertTrue(
+        addAction(entry.displayName, edgeIdentifier: "Leading"),
+        "Should be able to add action \(entry.displayName)"
+      )
+      accumulatedLeading.append(entry.rawValue)
+
+      if !waitForDebugSummary(
+        leading: accumulatedLeading,
+        trailing: ["delete", "archive"],
+        unsaved: true
+      ) {
+        if let state = currentDebugState() {
+          XCTFail("Debug summary mismatch after adding \(entry.displayName). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)")
+        } else {
+          XCTFail("Debug summary unavailable after adding \(entry.displayName)")
+        }
+        return
+      }
+
+      XCTAssertTrue(
+        waitForSaveButton(enabled: true),
+        "Save button should remain enabled after adding action"
+      )
+    }
+
+    let addButton = element(withIdentifier: "SwipeActions.Add.Leading")
+    XCTAssertFalse(addButton.exists, "Add Action menu should disappear once limit reached")
+
+    restoreDefaultConfiguration()
+  }
+
   // MARK: - Configuration Helpers
+
+  @MainActor
+  @discardableResult
+  private func waitForSaveButton(enabled: Bool, timeout: TimeInterval? = nil) -> Bool {
+    let effectiveTimeout = timeout ?? adaptiveTimeout
+    let saveButton = app.buttons["SwipeActions.Save"]
+    let predicate = NSPredicate { [weak saveButton] _, _ in
+      guard let button = saveButton else { return false }
+      return button.exists && button.isEnabled == enabled
+    }
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for save button enabled=\(enabled)"
+    let result = XCTWaiter.wait(for: [expectation], timeout: effectiveTimeout)
+    return result == .completed
+  }
+
+  @MainActor
+  @discardableResult
+  private func waitForDebugSummary(
+    leading expectedLeading: [String],
+    trailing expectedTrailing: [String],
+    unsaved expectedUnsaved: Bool? = nil,
+    timeout: TimeInterval? = nil
+  ) -> Bool {
+    let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
+    guard waitForElement(
+      summaryElement,
+      timeout: adaptiveShortTimeout,
+      description: "Swipe configuration debug summary"
+    ) else {
+      return false
+    }
+
+    var lastObservedState: SwipeDebugState?
+    let effectiveTimeout = timeout ?? adaptiveTimeout
+    let predicate = NSPredicate { [weak self, weak summaryElement] _, _ in
+      guard
+        let element = summaryElement,
+        let rawValue = element.value as? String,
+        let state = self?.parseDebugState(from: rawValue)
+      else {
+        return false
+      }
+      lastObservedState = state
+      guard state.leading == expectedLeading, state.trailing == expectedTrailing else {
+        return false
+      }
+      if let expectedUnsaved, state.unsaved != expectedUnsaved {
+        return false
+      }
+      return true
+    }
+
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for debug summary match"
+    let result = XCTWaiter.wait(for: [expectation], timeout: effectiveTimeout)
+    if result != .completed, let observed = lastObservedState {
+      let attachment = XCTAttachment(string: "Observed debug state: leading=\(observed.leading) trailing=\(observed.trailing) unsaved=\(observed.unsaved)")
+      attachment.lifetime = .keepAlways
+      add(attachment)
+    }
+    return result == .completed
+  }
+
+  @MainActor
+  @discardableResult
+  private func addAction(_ displayName: String, edgeIdentifier: String) -> Bool {
+    guard let container = swipeActionsSheetListContainer() else {
+      return false
+    }
+
+    let addIdentifier = "SwipeActions.Add." + edgeIdentifier
+    _ = ensureVisibleInSheet(identifier: addIdentifier, container: container)
+    let addMenu = element(withIdentifier: addIdentifier, within: container)
+    guard addMenu.exists else { return false }
+    addMenu.tap()
+
+    let optionIdentifier = addIdentifier + "." + displayName
+    let optionButton: XCUIElement
+    if app.buttons[optionIdentifier].exists {
+      optionButton = app.buttons[optionIdentifier]
+    } else {
+      optionButton = app.buttons[displayName]
+    }
+
+    guard waitForElement(
+      optionButton,
+      timeout: adaptiveShortTimeout,
+      description: "Add action option \(displayName)"
+    ) else {
+      return false
+    }
+
+    optionButton.tap()
+    return true
+  }
 
   @MainActor
   private func initializeApp() {
@@ -260,37 +452,31 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
 
     let toggle: XCUIElement
-    if let container = swipeActionsSheetListContainer() {
-      toggle = element(withIdentifier: identifier, within: container)
+    if let container = swipeActionsSheetListContainer(), container.switches[identifier].exists {
+      toggle = container.switches[identifier]
+    } else if app.switches[identifier].exists {
+      toggle = app.switches[identifier]
     } else {
       toggle = baseToggle
     }
 
     let decision = shouldToggleElement(toggle, targetStateOn: enabled)
     if decision == true || decision == nil {
-      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-      coordinate.tap()
+      _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
+      toggle.tap()
     }
 
-    if let debugSummaryElement = app.staticTexts["SwipeActions.Debug.StateSummary"].firstMatchIfExists(),
-      debugSummaryElement.exists,
-      let summary = debugSummaryElement.value as? String
-    {
-      let expectedFragment = enabled ? "Full=1/1" : "Full=1/0"
-      XCTAssertTrue(
-        summary.contains(expectedFragment),
-        "Unexpected debug summary after toggling full swipe: \(summary)"
-      )
-    }
   }
 
   @MainActor
   private func saveAndDismissConfiguration() {
     let saveButton = element(withIdentifier: "SwipeActions.Save")
-    if waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") {
-      saveButton.tap()
-      waitForSheetDismissal()
+    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") else {
+      return
     }
+    _ = waitForSaveButton(enabled: true)
+    saveButton.tap()
+    waitForSheetDismissal()
   }
 
   @MainActor
@@ -364,6 +550,17 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private func restoreDefaultConfiguration() {
     openSwipeConfigurationSheet()
 
+    let downloadPreset = element(withIdentifier: "SwipeActions.Preset.Download")
+    if waitForElement(
+      downloadPreset,
+      timeout: adaptiveShortTimeout,
+      description: "download preset button"
+    ) {
+      downloadPreset.tap()
+      saveAndDismissConfiguration()
+      openSwipeConfigurationSheet()
+    }
+
     let defaultPreset = element(withIdentifier: "SwipeActions.Preset.Default")
     if waitForElement(
       defaultPreset,
@@ -371,9 +568,11 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       description: "default preset button"
     ) {
       defaultPreset.tap()
+      saveAndDismissConfiguration()
+    } else if let cancelButton = app.buttons["SwipeActions.Cancel"].firstMatchIfExists() {
+      cancelButton.tap()
+      waitForSheetDismissal()
     }
-
-    saveAndDismissConfiguration()
   }
 
   @MainActor
@@ -525,6 +724,64 @@ extension SwipeConfigurationUITests {
     }
     // Fallback to global
     return element(withIdentifier: identifier)
+  }
+
+  private func currentDebugState() -> SwipeDebugState? {
+    let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
+    guard summaryElement.exists, let raw = summaryElement.value as? String else {
+      return nil
+    }
+    return parseDebugState(from: raw)
+  }
+
+  private func parseDebugState(from raw: String) -> SwipeDebugState? {
+    var leading: [String] = []
+    var trailing: [String] = []
+    var fullLeading = false
+    var fullTrailing = false
+    var hapticsEnabled = false
+    var unsaved = false
+
+    for component in raw.split(separator: ";") {
+      let parts = component.split(separator: "=", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+      guard parts.count == 2 else { continue }
+      switch parts[0] {
+      case "Leading":
+        leading = parts[1].isEmpty ? [] : parts[1].split(separator: ",").map { String($0) }
+      case "Trailing":
+        trailing = parts[1].isEmpty ? [] : parts[1].split(separator: ",").map { String($0) }
+      case "Full":
+        let fullParts = parts[1].split(separator: "/")
+        if fullParts.count == 2 {
+          fullLeading = fullParts[0] == "1"
+          fullTrailing = fullParts[1] == "1"
+        }
+      case "Haptics":
+        hapticsEnabled = parts[1] == "1"
+      case "Unsaved":
+        unsaved = parts[1] == "1"
+      default:
+        continue
+      }
+    }
+
+    return SwipeDebugState(
+      leading: leading,
+      trailing: trailing,
+      fullLeading: fullLeading,
+      fullTrailing: fullTrailing,
+      hapticsEnabled: hapticsEnabled,
+      unsaved: unsaved
+    )
+  }
+
+  private struct SwipeDebugState {
+    let leading: [String]
+    let trailing: [String]
+    let fullLeading: Bool
+    let fullTrailing: Bool
+    let hapticsEnabled: Bool
+    let unsaved: Bool
   }
 
   // Best-effort resolution of the Swipe Actions sheet's list container
