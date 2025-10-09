@@ -7,8 +7,10 @@
 
 import XCTest
 import Foundation
+import OSLog
 
 final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
+  private let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationUITests")
   nonisolated(unsafe) var app: XCUIApplication!
 
   override func setUpWithError() throws {
@@ -453,9 +455,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func logDebugState(_ label: String) {
     if let state = currentDebugState() {
-      print("[SwipeUITestDebug] \(label): leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)")
+      logger.debug("[SwipeUITestDebug] \(label, privacy: .public): leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)")
     } else {
-      print("[SwipeUITestDebug] \(label): state unavailable")
+      logger.debug("[SwipeUITestDebug] \(label, privacy: .public): state unavailable")
     }
   }
 
@@ -470,7 +472,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(identifier: identifier, container: container)
     }
-    print("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription)")
+    logger.debug("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)")
     presetButton.tap()
     logDebugState("after applyPreset \(identifier)")
   }
@@ -658,7 +660,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
 
     if let state = currentDebugState() {
-      print("[SwipeUITestDebug] leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)")
+      logger.debug("[SwipeUITestDebug] leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)")
       let attachment = XCTAttachment(string: "AssertActionList debug state: leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)")
       attachment.lifetime = .keepAlways
       add(attachment)

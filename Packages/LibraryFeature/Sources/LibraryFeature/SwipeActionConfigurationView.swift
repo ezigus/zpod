@@ -2,6 +2,7 @@ import CoreModels
 import SettingsDomain
 import SharedUtilities
 import SwiftUI
+import OSLog
 
 public struct SwipeActionConfigurationView: View {
   @Environment(\.dismiss) private var dismiss
@@ -9,6 +10,7 @@ public struct SwipeActionConfigurationView: View {
   private let hapticsService: HapticFeedbackServicing
   private let onSave: ((SwipeConfiguration) -> Void)?
   private let debugEnabled = ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1"
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeActionConfigurationView")
   @State private var leadingFullSwipe: Bool
   @State private var trailingFullSwipe: Bool
   @State private var hapticsEnabledState: Bool
@@ -326,7 +328,7 @@ public struct SwipeActionConfigurationView: View {
 
   private func debugLog(_ message: String) {
     guard debugEnabled else { return }
-    print("[SwipeConfigDebug] \(message)")
+    Self.logger.debug("[SwipeConfigDebug] \(message, privacy: .public)")
   }
 }
 

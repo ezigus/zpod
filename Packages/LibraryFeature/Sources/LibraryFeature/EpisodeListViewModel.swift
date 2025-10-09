@@ -105,7 +105,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
       do {
         let _ = try await viewModel.batchOperationManager.executeBatchOperation(batchOperation)
       } catch {
-        print("Failed to add episode to playlist: \(error)")
+        Self.logger.error("Failed to add episode to playlist: \(error, privacy: .public)")
       }
     }
   }
@@ -124,7 +124,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   @Published public private(set) var activeBatchOperations: [BatchOperation] = [] {
     didSet {
       #if DEBUG
-        print("[UITEST_OVERLAY] activeBatchOperations count: \(activeBatchOperations.count)")
+        self.overlayLogger.debug("[UITEST_OVERLAY] activeBatchOperations count: \(self.activeBatchOperations.count, privacy: .public)")
       #endif
     }
   }
@@ -152,6 +152,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   private var bannerDismissTask: Task<Void, Never>?
   private var allEpisodes: [Episode] = []
   private var hasSeededUITestOverlay = false
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
   private let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
 
   public init(
@@ -260,7 +261,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     do {
       let _ = try await batchOperationManager.executeBatchOperation(batchOperation)
     } catch {
-      print("Failed to delete episode: \(error)")
+      Self.logger.error("Failed to delete episode: \(error, privacy: .public)")
     }
   }
 
@@ -316,7 +317,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
       exitMultiSelectMode()
     } catch {
       // Handle error - in a real implementation, this would show an error message
-      print("Batch operation failed: \(error)")
+      Self.logger.error("Batch operation failed: \(error, privacy: .public)")
     }
   }
 
@@ -489,7 +490,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     }
 
     let seedEpisodeIDs = makeSeedEpisodeIDs()
-    print("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs)")
+    overlayLogger.debug("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs, privacy: .public)")
 
     if seedEpisodeIDs.isEmpty {
       overlayLogger.debug(
@@ -505,7 +506,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
     overlayLogger.debug(
       "Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
-    print("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count) IDs")
+    overlayLogger.debug("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count, privacy: .public) IDs")
 
     var seededOperation = BatchOperation(
       operationType: .markAsPlayed,
@@ -834,7 +835,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
         do {
           let _ = try await batchOperationManager.executeBatchOperation(retryBatch)
         } catch {
-          print("Retry batch operation failed: \(error)")
+          Self.logger.error("Retry batch operation failed: \(error, privacy: .public)")
         }
       }
     }
@@ -888,7 +889,7 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
       do {
         let _ = try await batchOperationManager.executeBatchOperation(undoBatch)
       } catch {
-        print("Undo batch operation failed: \(error)")
+        Self.logger.error("Undo batch operation failed: \(error, privacy: .public)")
       }
     }
   }

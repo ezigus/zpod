@@ -7,6 +7,7 @@
 
 import CoreModels
 import Foundation
+import OSLog
 import Persistence
 import PlaybackEngine
 import SettingsDomain
@@ -19,6 +20,7 @@ import SwiftUI
 
 /// Main episode list view that displays episodes for a given podcast with batch operation support
 public struct EpisodeListView: View {
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListView")
   let podcast: Podcast
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
@@ -29,7 +31,7 @@ public struct EpisodeListView: View {
     let dependencies = EpisodeListDependencyProvider.shared
     if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
       #if DEBUG
-        print("EpisodeListView: using stub download coordinator for UI tests")
+        Self.logger.debug("EpisodeListView: using stub download coordinator for UI tests")
       #endif
       self._viewModel = StateObject(
         wrappedValue: EpisodeListViewModel(
@@ -42,7 +44,7 @@ public struct EpisodeListView: View {
         ))
     } else {
       #if DEBUG
-        print("EpisodeListView: using DownloadCoordinatorBridge")
+        Self.logger.debug("EpisodeListView: using DownloadCoordinatorBridge")
       #endif
       let bridge = DownloadCoordinatorBridge.shared
       self._viewModel = StateObject(

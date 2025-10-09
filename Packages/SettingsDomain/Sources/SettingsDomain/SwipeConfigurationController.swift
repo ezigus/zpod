@@ -1,8 +1,10 @@
 import Foundation
 import CoreModels
+import OSLog
 
 @MainActor
 public final class SwipeConfigurationController: ObservableObject, FeatureConfigurationControlling {
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationController")
   @Published public private(set) var draft: SwipeConfiguration
   @Published private(set) var baseline: SwipeConfiguration
   @Published public private(set) var isSaving = false
@@ -46,7 +48,7 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   }
 
   public func applyPreset(_ preset: SwipeActionSettings) {
-    print("[SwipeConfigController] applyPreset -> leading=\(preset.leadingActions.map(\.rawValue))")
+    Self.logger.debug("applyPreset leading=\(preset.leadingActions.map(\.rawValue), privacy: .public)")
     updateDraft { draft in
       draft.swipeActions = SwipeActionSettings(
         leadingActions: preset.leadingActions,
