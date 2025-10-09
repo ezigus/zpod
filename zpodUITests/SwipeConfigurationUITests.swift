@@ -59,15 +59,44 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     try navigateToEpisodeList()
     openSwipeConfigurationSheet()
 
-    applyPreset(identifier: "SwipeActions.Preset.Playback")
+    configurePlaybackLayoutManually()
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["play", "addToPlaylist"],
+        trailing: ["download", "favorite"],
+        unsaved: true
+      ),
+      "Manual playback layout should mark sheet as dirty before save"
+    )
     saveAndDismissConfiguration()
 
     relaunchApp(resetDefaults: false)
     try navigateToEpisodeList()
 
-    let episode = try requireEpisodeButton()
+    openSwipeConfigurationSheet()
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["play", "addToPlaylist"],
+        trailing: ["download", "favorite"],
+        unsaved: false
+      ),
+      "Playback preset should persist across relaunch"
+    )
+    if app.buttons["SwipeActions.Cancel"].waitForExistence(timeout: adaptiveShortTimeout) {
+      tapElement(app.buttons["SwipeActions.Cancel"], description: "SwipeActions.Cancel")
+      waitForSheetDismissal()
+    }
 
-    episode.swipeRight()
+    let episode = try requireEpisodeButton()
+    XCTAssertTrue(
+      waitForElement(
+        episode,
+        timeout: adaptiveShortTimeout,
+        description: "episode cell for swipe"
+      )
+    )
+
+    revealLeadingSwipeActions(for: episode)
     // EpisodeListView assigns identifiers as `SwipeAction.<rawValue>`
     let addToPlaylistButton = element(withIdentifier: "SwipeAction.addToPlaylist")
     XCTAssertTrue(
@@ -186,7 +215,20 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
 
     let addButton = element(withIdentifier: "SwipeActions.Add.Leading")
-    XCTAssertFalse(addButton.exists, "Add Action menu should disappear once limit reached")
+    XCTAssertTrue(
+      waitForElementToDisappear(addButton, timeout: adaptiveShortTimeout),
+      "Add Action menu should disappear once limit reached"
+    )
+
+    let trailingAddButton = element(withIdentifier: "SwipeActions.Add.Trailing")
+    XCTAssertTrue(
+      waitForElement(
+        trailingAddButton,
+        timeout: adaptiveShortTimeout,
+        description: "Trailing add action menu"
+      ),
+      "Trailing add action menu should remain visible when under the limit"
+    )
 
     restoreDefaultConfiguration()
   }
@@ -290,7 +332,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     _ = ensureVisibleInSheet(identifier: rowIdentifier, container: container)
     let scopedButton = container.buttons["Remove " + displayName]
     let removeButton = scopedButton.exists ? scopedButton : app.buttons["Remove " + displayName]
-    guard waitForElement(removeButton, timeout: adaptiveShortTimeout, description: "Remove " + displayName) else {
+    guard removeButton.waitForExistence(timeout: adaptiveShortTimeout) else {
       return false
     }
     removeButton.tap()
@@ -350,7 +392,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func initializeApp() {
     resetSwipeSettingsToDefault()
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1", "UITEST_RESET_SWIPE_SETTINGS": "1"])
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1"])
   }
 
   @MainActor
@@ -359,7 +401,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     if resetDefaults {
       resetSwipeSettingsToDefault()
     }
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1", "UITEST_RESET_SWIPE_SETTINGS": resetDefaults ? "1" : "0"])
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1"])
   }
 
   @MainActor
@@ -473,7 +515,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       _ = ensureVisibleInSheet(identifier: identifier, container: container)
     }
     logger.debug("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)")
-    presetButton.tap()
+    tapElement(presetButton, description: identifier)
     logDebugState("after applyPreset \(identifier)")
   }
 
@@ -517,6 +559,27 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       }
     }
     logDebugState("after setHaptics")
+  }
+
+  @MainActor
+  private func tapElement(_ element: XCUIElement, description: String) {
+    if element.isHittable {
+      element.tap()
+      return
+    }
+
+    let coordinate = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    coordinate.tap()
+    logger.debug(
+      "[SwipeUITestDebug] forced coordinate tap for \(description, privacy: .public)"
+    )
+  }
+
+  @MainActor
+  private func revealLeadingSwipeActions(for element: XCUIElement) {
+    let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+    let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+    start.press(forDuration: 0.05, thenDragTo: end)
   }
 
   @MainActor
