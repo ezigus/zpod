@@ -32,10 +32,28 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   }
 
   override func tearDownWithError() throws {
-    if let app, app.state == .runningForeground || app.state == .runningBackground {
-      app.terminate()
+    guard let currentApp = app else {
+      app = nil
+      try super.tearDownWithError()
+      return
     }
-    app = nil
+
+    let terminationExpectation = expectation(description: "Terminate running app")
+    let appToTerminate = currentApp
+
+    Task {
+      await MainActor.run {
+        defer { terminationExpectation.fulfill() }
+        if appToTerminate.state == .runningForeground || appToTerminate.state == .runningBackground {
+          appToTerminate.terminate()
+        }
+        self.app = nil
+      }
+    }
+
+    wait(for: [terminationExpectation], timeout: adaptiveShortTimeout)
+
+    try super.tearDownWithError()
   }
 
   @MainActor
