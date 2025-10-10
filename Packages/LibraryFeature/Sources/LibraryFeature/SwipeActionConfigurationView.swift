@@ -1,8 +1,9 @@
 import CoreModels
+import Foundation
+import OSLog
 import SettingsDomain
 import SharedUtilities
 import SwiftUI
-import OSLog
 
 public struct SwipeActionConfigurationView: View {
   @Environment(\.dismiss) private var dismiss
@@ -276,6 +277,13 @@ public struct SwipeActionConfigurationView: View {
   ) -> some View {
     Button {
       debugLog("UI tapped preset \(identifier)")
+      #if DEBUG
+        if let suiteName = ProcessInfo.processInfo.environment["UITEST_USER_DEFAULTS_SUITE"],
+          let debugDefaults = UserDefaults(suiteName: suiteName)
+        {
+          debugDefaults.set(identifier, forKey: "SwipeActions.Debug.LastPreset")
+        }
+      #endif
       controller.applyPreset(preset)
     } label: {
       HStack {

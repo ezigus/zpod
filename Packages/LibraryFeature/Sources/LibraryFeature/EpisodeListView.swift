@@ -1211,10 +1211,27 @@ private final class EpisodeListDependencyProvider {
   private init() {
     self.playbackService = EnhancedEpisodePlayer()
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
-    let settingsRepository = UserDefaultsSettingsRepository(userDefaults: .standard)
-    if ProcessInfo.processInfo.environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
-      Task { await settingsRepository.saveGlobalUISettings(.default) }
+    let environment = ProcessInfo.processInfo.environment
+    let userDefaults: UserDefaults
+    if let suiteName = environment["UITEST_USER_DEFAULTS_SUITE"], !suiteName.isEmpty,
+      let suiteDefaults = UserDefaults(suiteName: suiteName)
+    {
+      if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
+        suiteDefaults.removePersistentDomain(forName: suiteName)
+      }
+      userDefaults = suiteDefaults
+    } else {
+      if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
+        if let bundleID = Bundle.main.bundleIdentifier {
+          UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        } else {
+          UserDefaults.standard.removeObject(forKey: "global_ui_settings")
+        }
+      }
+      userDefaults = .standard
     }
+
+    let settingsRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
     let settingsManager = SettingsManager(repository: settingsRepository)
     self.settingsManager = settingsManager
     self.swipeConfigurationService = settingsManager.swipeConfigurationService

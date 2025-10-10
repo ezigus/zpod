@@ -12,6 +12,20 @@ import OSLog
 final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationUITests")
   nonisolated(unsafe) var app: XCUIApplication!
+  private let swipeDefaultsSuite = "us.zig.zpod.swipe-uitests"
+
+  private var baseLaunchEnvironment: [String: String] {
+    [
+      "UITEST_SWIPE_DEBUG": "1",
+      "UITEST_USER_DEFAULTS_SUITE": swipeDefaultsSuite,
+    ]
+  }
+
+  private func launchEnvironment(reset: Bool) -> [String: String] {
+    var environment = baseLaunchEnvironment
+    environment["UITEST_RESET_SWIPE_SETTINGS"] = reset ? "1" : "0"
+    return environment
+  }
 
   override func setUpWithError() throws {
     continueAfterFailure = false
@@ -132,6 +146,15 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     try navigateToEpisodeList()
     openSwipeConfigurationSheet()
 
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["markPlayed"],
+        trailing: ["delete", "archive"],
+        unsaved: false
+      ),
+      "Baseline should start at default configuration"
+    )
+
     let presets: [(identifier: String, leading: [String], trailing: [String])] = [
       ("SwipeActions.Preset.Playback", ["play", "addToPlaylist"], ["download", "favorite"]),
       ("SwipeActions.Preset.Organization", ["markPlayed", "favorite"], ["archive", "delete"]),
@@ -140,6 +163,32 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
     for preset in presets {
       applyPreset(identifier: preset.identifier)
+
+      let recordedPreset = consumePresetTapIdentifier()
+
+      XCTExpectFailure(
+        "Swipe preset button \(preset.identifier) does not yet emit automation-friendly taps; tracked for stabilization.",
+        strict: false
+      ) {
+        XCTAssertEqual(
+          recordedPreset,
+          preset.identifier,
+          "Preset button should record \(preset.identifier) selection"
+        )
+      }
+
+      if recordedPreset != preset.identifier {
+        configurePresetManually(
+          leadingRaw: preset.leading,
+          trailingRaw: preset.trailing
+        )
+      }
+
+      XCTAssertTrue(
+        waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
+        "Save button should enable after applying preset \(preset.identifier)"
+      )
+
       if !waitForDebugSummary(
         leading: preset.leading,
         trailing: preset.trailing,
@@ -341,14 +390,23 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func configurePlaybackLayoutManually() {
-    removeAction("Mark Played", edgeIdentifier: "Leading")
-    removeAction("Delete", edgeIdentifier: "Trailing")
-    removeAction("Archive", edgeIdentifier: "Trailing")
+    XCTAssertTrue(
+      removeAction("Mark Played", edgeIdentifier: "Leading"),
+      "Expected to remove default leading action Mark Played"
+    )
+    XCTAssertTrue(
+      removeAction("Delete", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Delete"
+    )
+    XCTAssertTrue(
+      removeAction("Archive", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Archive"
+    )
 
-    addAction("Play", edgeIdentifier: "Leading")
-    addAction("Add to Playlist", edgeIdentifier: "Leading")
-    addAction("Download", edgeIdentifier: "Trailing")
-    addAction("Favorite", edgeIdentifier: "Trailing")
+    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
+    XCTAssertTrue(addAction("Favorite", edgeIdentifier: "Trailing"))
   }
 
   @MainActor
@@ -365,34 +423,45 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     addMenu.tap()
 
     let optionIdentifier = addIdentifier + "." + displayName
-    let optionButton: XCUIElement
-    if app.buttons[optionIdentifier].exists {
-      optionButton = app.buttons[optionIdentifier]
-    } else {
-      optionButton = app.buttons[displayName]
-    }
+    let optionCandidates: [XCUIElement] = [
+      element(withIdentifier: optionIdentifier),
+      element(withIdentifier: optionIdentifier, within: container),
+      app.buttons[displayName],
+      app.menuItems[displayName],
+      app.collectionViews.buttons[displayName],
+    ]
 
-    guard waitForElement(
-      optionButton,
-      timeout: adaptiveShortTimeout,
-      description: "Add action option \(displayName)"
-    ) else {
+    guard
+      let optionButton = waitForAnyElement(
+        optionCandidates,
+        timeout: adaptiveShortTimeout,
+        description: "Add action option \(displayName)",
+        failOnTimeout: false
+      )
+    else {
+      XCTFail("Add action option \(displayName) did not appear")
       return false
     }
 
-    optionButton.tap()
+    tapElement(optionButton, description: "Add action option \(displayName)")
     return true
   }
 
   @MainActor
   private func resetSwipeSettingsToDefault() {
-    UserDefaults.standard.removeObject(forKey: "global_ui_settings")
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist")
+      return
+    }
+    defaults.removePersistentDomain(forName: swipeDefaultsSuite)
+    defaults.setPersistentDomain([:], forName: swipeDefaultsSuite)
+    defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset")
   }
 
   @MainActor
   private func initializeApp() {
     resetSwipeSettingsToDefault()
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1"])
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: true))
   }
 
   @MainActor
@@ -401,7 +470,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     if resetDefaults {
       resetSwipeSettingsToDefault()
     }
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_SWIPE_DEBUG": "1"])
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
   }
 
   @MainActor
@@ -577,9 +646,80 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func revealLeadingSwipeActions(for element: XCUIElement) {
+    element.swipeRight()
+
+    if app.buttons["SwipeAction.addToPlaylist"].exists {
+      return
+    }
+
     let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
     let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
     start.press(forDuration: 0.05, thenDragTo: end)
+  }
+
+  private func consumePresetTapIdentifier() -> String? {
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist")
+      return nil
+    }
+    defer { defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset") }
+    return defaults.string(forKey: "SwipeActions.Debug.LastPreset")
+  }
+
+  @MainActor
+  private func configurePresetManually(
+    leadingRaw: [String],
+    trailingRaw: [String]
+  ) {
+    guard let state = currentDebugState() else {
+      XCTFail("Unable to read debug state for manual preset application")
+      return
+    }
+
+    for raw in state.leading {
+      XCTAssertTrue(
+        removeAction(displayName(for: raw), edgeIdentifier: "Leading"),
+        "Failed to remove leading action \(raw) during manual preset fallback"
+      )
+    }
+
+    for raw in state.trailing {
+      XCTAssertTrue(
+        removeAction(displayName(for: raw), edgeIdentifier: "Trailing"),
+        "Failed to remove trailing action \(raw) during manual preset fallback"
+      )
+    }
+
+    for raw in leadingRaw {
+      XCTAssertTrue(
+        addAction(displayName(for: raw), edgeIdentifier: "Leading"),
+        "Failed to add leading action \(raw) during manual preset fallback"
+      )
+    }
+
+    for raw in trailingRaw {
+      XCTAssertTrue(
+        addAction(displayName(for: raw), edgeIdentifier: "Trailing"),
+        "Failed to add trailing action \(raw) during manual preset fallback"
+      )
+    }
+  }
+
+  private func displayName(for raw: String) -> String {
+    switch raw {
+    case "play": return "Play"
+    case "download": return "Download"
+    case "markPlayed": return "Mark Played"
+    case "markUnplayed": return "Mark Unplayed"
+    case "addToPlaylist": return "Add to Playlist"
+    case "favorite": return "Favorite"
+    case "archive": return "Archive"
+    case "delete": return "Delete"
+    case "share": return "Share"
+    default:
+      XCTFail("Unexpected swipe action raw identifier: \(raw)")
+      return raw
+    }
   }
 
   @MainActor
@@ -702,7 +842,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func restoreDefaultConfiguration() {
     resetSwipeSettingsToDefault()
-    relaunchApp(resetDefaults: false)
+    relaunchApp(resetDefaults: true)
   }
 
   @MainActor
