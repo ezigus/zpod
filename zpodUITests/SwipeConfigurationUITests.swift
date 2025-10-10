@@ -164,59 +164,24 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     for preset in presets {
       applyPreset(identifier: preset.identifier)
 
-      let recordedPreset = consumePresetTapIdentifier()
-
-      XCTExpectFailure(
-        "Swipe preset button \(preset.identifier) does not yet emit automation-friendly taps; tracked for stabilization.",
-        strict: false
-      ) {
-        XCTAssertEqual(
-          recordedPreset,
-          preset.identifier,
-          "Preset button should record \(preset.identifier) selection"
-        )
-      }
-
-      if recordedPreset != preset.identifier {
-        configurePresetManually(
-          leadingRaw: preset.leading,
-          trailingRaw: preset.trailing
-        )
-      }
-
       XCTAssertTrue(
         waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
         "Save button should enable after applying preset \(preset.identifier)"
       )
 
-      if !waitForDebugSummary(
+      guard waitForDebugSummary(
         leading: preset.leading,
         trailing: preset.trailing,
-        unsaved: nil
-      ) {
+        unsaved: true
+      ) else {
         if let state = currentDebugState() {
-          XCTFail("Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)")
+          XCTFail(
+            "Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
+          )
         } else {
           XCTFail("Debug summary unavailable for preset \(preset.identifier)")
         }
         return
-      }
-
-      guard let state = currentDebugState() else {
-        XCTFail("Debug summary unavailable after applying preset \(preset.identifier)")
-        return
-      }
-
-      if state.unsaved {
-        XCTAssertTrue(
-          waitForSaveButton(enabled: true),
-          "Save button should enable after applying preset \(preset.identifier)"
-        )
-      } else {
-        XCTAssertTrue(
-          waitForSaveButton(enabled: false),
-          "Save button should remain disabled when preset matches baseline"
-        )
       }
     }
 
@@ -455,7 +420,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
     defaults.removePersistentDomain(forName: swipeDefaultsSuite)
     defaults.setPersistentDomain([:], forName: swipeDefaultsSuite)
-    defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset")
   }
 
   @MainActor
@@ -575,14 +539,14 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func applyPreset(identifier: String) {
     let presetButton = element(withIdentifier: identifier)
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+    }
     XCTAssertTrue(
       waitForElement(
         presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: identifier, container: container)
-    }
     logger.debug("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)")
     tapElement(presetButton, description: identifier)
     logDebugState("after applyPreset \(identifier)")
@@ -655,71 +619,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
     let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
     start.press(forDuration: 0.05, thenDragTo: end)
-  }
-
-  private func consumePresetTapIdentifier() -> String? {
-    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
-      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist")
-      return nil
-    }
-    defer { defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset") }
-    return defaults.string(forKey: "SwipeActions.Debug.LastPreset")
-  }
-
-  @MainActor
-  private func configurePresetManually(
-    leadingRaw: [String],
-    trailingRaw: [String]
-  ) {
-    guard let state = currentDebugState() else {
-      XCTFail("Unable to read debug state for manual preset application")
-      return
-    }
-
-    for raw in state.leading {
-      XCTAssertTrue(
-        removeAction(displayName(for: raw), edgeIdentifier: "Leading"),
-        "Failed to remove leading action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in state.trailing {
-      XCTAssertTrue(
-        removeAction(displayName(for: raw), edgeIdentifier: "Trailing"),
-        "Failed to remove trailing action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in leadingRaw {
-      XCTAssertTrue(
-        addAction(displayName(for: raw), edgeIdentifier: "Leading"),
-        "Failed to add leading action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in trailingRaw {
-      XCTAssertTrue(
-        addAction(displayName(for: raw), edgeIdentifier: "Trailing"),
-        "Failed to add trailing action \(raw) during manual preset fallback"
-      )
-    }
-  }
-
-  private func displayName(for raw: String) -> String {
-    switch raw {
-    case "play": return "Play"
-    case "download": return "Download"
-    case "markPlayed": return "Mark Played"
-    case "markUnplayed": return "Mark Unplayed"
-    case "addToPlaylist": return "Add to Playlist"
-    case "favorite": return "Favorite"
-    case "archive": return "Archive"
-    case "delete": return "Delete"
-    case "share": return "Share"
-    default:
-      XCTFail("Unexpected swipe action raw identifier: \(raw)")
-      return raw
-    }
   }
 
   @MainActor
