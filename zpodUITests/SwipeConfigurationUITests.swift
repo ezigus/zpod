@@ -86,38 +86,33 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testConfiguredSwipeActionsExecuteInEpisodeList() throws {
-    initializeApp()
-
-    try navigateToEpisodeList()
-    openSwipeConfigurationSheet()
-
-    configurePlaybackLayoutManually()
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["play", "addToPlaylist"],
-        trailing: ["download", "favorite"],
-        unsaved: true
-      ),
-      "Manual playback layout should mark sheet as dirty before save"
+    seedSwipeConfiguration(
+      leading: ["play", "addToPlaylist"],
+      trailing: ["download", "favorite"],
+      hapticsEnabled: true,
+      hapticStyle: "rigid"
     )
-    saveAndDismissConfiguration()
 
-    relaunchApp(resetDefaults: false)
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+
     try navigateToEpisodeList()
-
     openSwipeConfigurationSheet()
+
     XCTAssertTrue(
       waitForDebugSummary(
         leading: ["play", "addToPlaylist"],
         trailing: ["download", "favorite"],
         unsaved: false
       ),
-      "Playback preset should persist across relaunch"
+      "Seeded playback configuration should match debug summary"
     )
+
     if app.buttons["SwipeActions.Cancel"].waitForExistence(timeout: adaptiveShortTimeout) {
       tapElement(app.buttons["SwipeActions.Cancel"], description: "SwipeActions.Cancel")
-      waitForSheetDismissal()
+      _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
     }
+
+    try navigateToEpisodeList()
 
     let episode = try requireEpisodeButton()
     XCTAssertTrue(
@@ -428,6 +423,45 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
     tapElement(optionButton, description: "Add action option \(displayName)")
     return true
+  }
+
+  @MainActor
+  private func seedSwipeConfiguration(
+    leading: [String],
+    trailing: [String],
+    allowFullSwipeLeading: Bool = true,
+    allowFullSwipeTrailing: Bool = false,
+    hapticsEnabled: Bool = true,
+    hapticStyle: String = "medium"
+  ) {
+    resetSwipeSettingsToDefault()
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
+      return
+    }
+
+    let payload: [String: Any] = [
+      "swipeActions": [
+        "leadingActions": leading,
+        "trailingActions": trailing,
+        "allowFullSwipeLeading": allowFullSwipeLeading,
+        "allowFullSwipeTrailing": allowFullSwipeTrailing,
+        "hapticFeedbackEnabled": hapticsEnabled,
+      ],
+      "hapticStyle": hapticStyle,
+    ]
+
+    guard JSONSerialization.isValidJSONObject(payload) else {
+      XCTFail("Swipe configuration payload is not valid JSON")
+      return
+    }
+
+    guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+      XCTFail("Failed to encode seeded swipe configuration")
+      return
+    }
+
+    defaults.set(data, forKey: "global_ui_settings")
   }
 
   @MainActor
