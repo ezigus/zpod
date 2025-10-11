@@ -40,6 +40,7 @@ public struct FeatureConfigurationRegistry {
     self.features = features
   }
 
+  @MainActor
   public func allDescriptors() async -> [FeatureConfigurationDescriptor] {
     var orderedDescriptors: [FeatureConfigurationDescriptor] = []
     for feature in features {

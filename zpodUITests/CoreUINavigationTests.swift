@@ -179,7 +179,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
                            "Search field should expose label or placeholder text for accessibility")
         }
     }
-    
+
     @MainActor
     func testKeyboardNavigation() throws {
         // Initialize the app
@@ -236,6 +236,71 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
             XCTAssertTrue(tableView.isHittable,
                           "Table view should be keyboard navigable")
         }
+    }
+
+    @MainActor
+    func testSettingsTabPresentsSwipeActions() throws {
+        initializeApp()
+
+        let tabBar = app.tabBars["Main Tab Bar"]
+        XCTAssertTrue(
+            waitForElement(
+                tabBar,
+                timeout: adaptiveShortTimeout,
+                description: "Main tab bar"
+            ),
+            "Main tab bar should be present"
+        )
+
+        let settingsTab = tabBar.buttons["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsTab,
+                timeout: adaptiveShortTimeout,
+                description: "Settings tab"
+            ),
+            "Settings tab should exist"
+        )
+
+        settingsTab.tap()
+
+        let settingsNavigationBar = app.navigationBars["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsNavigationBar,
+                timeout: adaptiveShortTimeout,
+                description: "Settings navigation bar"
+            ),
+            "Settings screen should appear after tapping the tab"
+        )
+
+        let candidates: [XCUIElement] = [
+            app.cells["Settings.Feature.swipeActions"],
+            app.buttons["Swipe Actions"],
+            app.staticTexts["Settings.Feature.Label.swipeActions"],
+            app.staticTexts["Swipe Actions"]
+        ]
+
+        guard let swipeActionsElement = waitForAnyElement(
+            candidates,
+            timeout: adaptiveShortTimeout,
+            description: "Swipe Actions settings row"
+        ) else {
+            XCTFail("Swipe Actions row should be visible in settings")
+            return
+        }
+
+        swipeActionsElement.tap()
+
+        let swipeNavigationBar = app.navigationBars["Swipe Actions"]
+        XCTAssertTrue(
+            waitForElement(
+                swipeNavigationBar,
+                timeout: adaptiveShortTimeout,
+                description: "Swipe Actions configuration"
+            ),
+            "Swipe Actions configuration view should appear"
+        )
     }
     
     // MARK: - App Shortcuts Tests

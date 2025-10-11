@@ -39,6 +39,24 @@ public class SettingsManager {
         swipeConfigurationServiceImpl
     }
 
+    public func makeSwipeConfigurationController() -> SwipeConfigurationController {
+        let controller = SwipeConfigurationController(service: swipeConfigurationServiceImpl)
+        let configuration = SwipeConfiguration(
+            swipeActions: globalUISettings.swipeActions,
+            hapticStyle: globalUISettings.hapticStyle
+        )
+        controller.bootstrap(with: configuration)
+        return controller
+    }
+
+    public func allFeatureDescriptors() async -> [FeatureConfigurationDescriptor] {
+        await featureConfigurationRegistry.allDescriptors()
+    }
+
+    public func controller(forFeature id: String) async -> (any FeatureConfigurationControlling)? {
+        await featureConfigurationRegistry.controller(for: id)
+    }
+
     public init(repository: SettingsRepository) {
         self.repository = repository
 

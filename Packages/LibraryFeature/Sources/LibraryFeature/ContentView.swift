@@ -6,6 +6,8 @@
 //
 
 import CoreModels
+import Persistence
+import SettingsDomain
 import SwiftData
 import SwiftUI
 import UIKit
@@ -291,6 +293,7 @@ public struct ContentView: View {
   // Service instances for dependency injection
   private let podcastManager: PodcastManaging
   private let searchService: SearchServicing
+  @StateObject private var settingsManager: SettingsManager
 
   public init() {
     // Initialize services following the same pattern as ContentViewBridge
@@ -299,6 +302,8 @@ public struct ContentView: View {
     // Create search index sources (empty for now, will be populated as content is added)
     let searchSources: [SearchIndexSource] = []
     self.searchService = SearchService(indexSources: searchSources)
+    let repository = UserDefaultsSettingsRepository()
+    _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
   }
 
   public var body: some View {
@@ -328,6 +333,11 @@ public struct ContentView: View {
       PlayerTabView()
         .tabItem {
           Label("Player", systemImage: "play.circle")
+        }
+
+      SettingsHomeView(settingsManager: settingsManager)
+        .tabItem {
+          Label("Settings", systemImage: "gearshape")
         }
     }
     .background(TabBarIdentifierSetter())

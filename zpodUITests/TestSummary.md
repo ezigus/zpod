@@ -20,6 +20,7 @@ This document outlines the UI testing approach for the main zpod application.
 - VoiceOver navigation flow
 - iPad-specific layout adaptations
 - Quick action handling
+- Settings tab visibility and registry-backed feature navigation
 
 ### Playback UI Tests (`PlaybackUITests.swift`)
 **Purpose**: Verify playback interface controls and platform integrations
