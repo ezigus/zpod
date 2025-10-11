@@ -34,6 +34,7 @@ public class SettingsManager {
 
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
     public let featureConfigurationRegistry: FeatureConfigurationRegistry
+    private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
 
     public var swipeConfigurationService: SwipeConfigurationServicing {
         swipeConfigurationServiceImpl
@@ -53,8 +54,37 @@ public class SettingsManager {
         await featureConfigurationRegistry.allDescriptors()
     }
 
-    public func controller(forFeature id: String) async -> (any FeatureConfigurationControlling)? {
-        await featureConfigurationRegistry.controller(for: id)
+    public func allFeatureSections() async -> [FeatureConfigurationSection] {
+        await featureConfigurationRegistry.groupedDescriptors()
+    }
+
+    public func controller(forFeature id: String, useCache: Bool = true) async -> (any FeatureConfigurationControlling)? {
+        if useCache, let cached = featureControllerCache[id] {
+            return cached
+        }
+
+        let controller: any FeatureConfigurationControlling
+
+        if id == "swipeActions" {
+            let swipeController = SwipeConfigurationController(service: swipeConfigurationServiceImpl)
+            let configuration = SwipeConfiguration(
+                swipeActions: globalUISettings.swipeActions,
+                hapticStyle: globalUISettings.hapticStyle
+            )
+            swipeController.bootstrap(with: configuration)
+            controller = swipeController
+        } else {
+            guard let resolved = await featureConfigurationRegistry.controller(for: id) else {
+                return nil
+            }
+            controller = resolved
+        }
+
+        if useCache {
+            featureControllerCache[id] = controller
+        }
+
+        return controller
     }
 
     public init(repository: SettingsRepository) {

@@ -3,16 +3,16 @@ import SwiftUI
 
 struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
-  @State private var descriptors: [FeatureConfigurationDescriptor] = []
+  @State private var sections: [FeatureConfigurationSection] = []
   @State private var isLoading = true
 
   var body: some View {
     NavigationStack {
       List {
-        if !descriptors.isEmpty {
-          Section("Features") {
-            ForEach(descriptors, id: \.id) { descriptor in
-              NavigationLink(destination: destination(for: descriptor)) {
+        ForEach(sections) { section in
+          Section(section.title ?? "General") {
+            ForEach(section.descriptors, id: \.id) { descriptor in
+              NavigationLink(destination: SettingsFeatureDetailView(descriptor: descriptor, settingsManager: settingsManager)) {
                 Label(descriptor.title, systemImage: descriptor.iconSystemName)
                   .accessibilityIdentifier("Settings.Feature.Label.\(descriptor.id)")
               }
@@ -34,7 +34,7 @@ struct SettingsHomeView: View {
   @MainActor
   private func loadDescriptors() async {
     isLoading = true
-    descriptors = await settingsManager.allFeatureDescriptors()
+    sections = await settingsManager.allFeatureSections()
     isLoading = false
   }
 
@@ -43,7 +43,7 @@ struct SettingsHomeView: View {
     if isLoading {
       ProgressView("Loading Settings…")
         .accessibilityIdentifier("Settings.Loading")
-    } else if descriptors.isEmpty {
+    } else if sections.isEmpty {
       ContentUnavailableView(
         label: {
           Label("No Configurable Features", systemImage: "gearshape")
@@ -56,30 +56,79 @@ struct SettingsHomeView: View {
     }
   }
 
-  @ViewBuilder
-  private func destination(for descriptor: FeatureConfigurationDescriptor) -> some View {
-    switch descriptor.id {
-    case "swipeActions":
-      SwipeSettingsDetailView(settingsManager: settingsManager)
-    default:
-      Text("Feature not yet available.")
-        .foregroundStyle(.secondary)
-        .navigationTitle(descriptor.title)
-    }
-  }
 }
 
-private struct SwipeSettingsDetailView: View {
-  @ObservedObject private var settingsManager: SettingsManager
-  @StateObject private var controller: SwipeConfigurationController
+private struct SettingsFeatureDetailView: View {
+  let descriptor: FeatureConfigurationDescriptor
+  @ObservedObject var settingsManager: SettingsManager
+  @State private var loadState: LoadState = .loading
+  @State private var swipeController: SwipeConfigurationController?
 
-  init(settingsManager: SettingsManager) {
-    self.settingsManager = settingsManager
-    _controller = StateObject(wrappedValue: settingsManager.makeSwipeConfigurationController())
+  private enum LoadState {
+    case loading
+    case ready
+    case unsupported
+    case failure
   }
 
   var body: some View {
-    SwipeActionConfigurationView(controller: controller)
-      .task { await controller.loadBaseline() }
+    content
+      .navigationTitle(descriptor.title)
+      .task(id: descriptor.id) {
+        await loadControllerIfNeeded()
+      }
+  }
+
+  @ViewBuilder
+  private var content: some View {
+    switch loadState {
+    case .loading:
+      ProgressView("Loading…")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("Settings.Feature.Loading")
+    case .ready:
+      if let controller = swipeController {
+        SwipeActionConfigurationView(controller: controller)
+      } else {
+        fallbackUnavailable
+      }
+    case .unsupported:
+      ContentUnavailableView(
+        label: { Label("Unsupported Feature", systemImage: "questionmark.square.dashed") },
+        description: { Text("This feature does not yet provide a configuration surface.") }
+      )
+      .accessibilityIdentifier("Settings.Feature.Unsupported")
+    case .failure:
+      fallbackUnavailable
+    }
+  }
+
+  @MainActor
+  private func loadControllerIfNeeded() async {
+    guard loadState != .ready else { return }
+
+    loadState = .loading
+
+    guard let controller = await settingsManager.controller(forFeature: descriptor.id) else {
+      loadState = .failure
+      return
+    }
+
+    if let swipe = controller as? SwipeConfigurationController {
+      swipeController = swipe
+      await swipe.loadBaseline()
+      loadState = .ready
+    } else {
+      loadState = .unsupported
+    }
+  }
+
+  @ViewBuilder
+  private var fallbackUnavailable: some View {
+    ContentUnavailableView(
+      label: { Label("Feature Unavailable", systemImage: "gearshape") },
+      description: { Text("Unable to load configuration for this feature right now.") }
+    )
+    .accessibilityIdentifier("Settings.Feature.Unavailable")
   }
 }

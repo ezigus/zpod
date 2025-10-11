@@ -33,6 +33,18 @@ public protocol ConfigurableFeature: AnyObject, Sendable {
   @MainActor func makeController() -> any FeatureConfigurationControlling
 }
 
+public struct FeatureConfigurationSection: Equatable, Sendable, Identifiable {
+  public let id: String
+  public let title: String?
+  public var descriptors: [FeatureConfigurationDescriptor]
+
+  public init(id: String, title: String?, descriptors: [FeatureConfigurationDescriptor]) {
+    self.id = id
+    self.title = title
+    self.descriptors = descriptors
+  }
+}
+
 public struct FeatureConfigurationRegistry {
   private let features: [ConfigurableFeature]
 
@@ -57,5 +69,32 @@ public struct FeatureConfigurationRegistry {
     }
     guard await feature.isAvailable() else { return nil }
     return feature.makeController()
+  }
+
+  @MainActor
+  public func groupedDescriptors() async -> [FeatureConfigurationSection] {
+    var sections: [FeatureConfigurationSection] = []
+    var sectionIndex: [String: Int] = [:]
+
+    for feature in features {
+      guard await feature.isAvailable() else { continue }
+      let descriptor = feature.descriptor
+      let key = descriptor.category ?? "__default__"
+
+      if let index = sectionIndex[key] {
+        sections[index].descriptors.append(descriptor)
+      } else {
+        sectionIndex[key] = sections.count
+        sections.append(
+          FeatureConfigurationSection(
+            id: key,
+            title: descriptor.category,
+            descriptors: [descriptor]
+          )
+        )
+      }
+    }
+
+    return sections
   }
 }

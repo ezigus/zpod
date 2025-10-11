@@ -60,4 +60,33 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
       "Factory controller should mirror current global UI settings"
     )
   }
+
+  func testGroupedDescriptorsProducesSections() async throws {
+    let sections = await settingsManager.allFeatureSections()
+    XCTAssertEqual(sections.count, 1)
+    XCTAssertEqual(sections.first?.title, "Interaction")
+    XCTAssertEqual(sections.first?.descriptors.first?.id, "swipeActions")
+  }
+
+  func testControllerCachingReturnsSameInstance() async throws {
+    let first = await settingsManager.controller(forFeature: "swipeActions") as? SwipeConfigurationController
+    let second = await settingsManager.controller(forFeature: "swipeActions") as? SwipeConfigurationController
+
+    XCTAssertNotNil(first)
+    XCTAssertNotNil(second)
+    if let first, let second {
+      XCTAssertTrue(first === second, "controller(forFeature:) should cache instances by default")
+    }
+  }
+
+  func testControllerCacheBypassReturnsNewInstance() async throws {
+    let cached = await settingsManager.controller(forFeature: "swipeActions") as? SwipeConfigurationController
+    let fresh = await settingsManager.controller(forFeature: "swipeActions", useCache: false) as? SwipeConfigurationController
+
+    XCTAssertNotNil(cached)
+    XCTAssertNotNil(fresh)
+    if let cached, let fresh {
+      XCTAssertFalse(cached === fresh, "Requesting controller without cache should yield a new instance")
+    }
+  }
 }
