@@ -13,6 +13,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationUITests")
   nonisolated(unsafe) var app: XCUIApplication!
   private let swipeDefaultsSuite = "us.zig.zpod.swipe-uitests"
+  private var seededConfigurationPayload: String?
 
   private var baseLaunchEnvironment: [String: String] {
     [
@@ -24,6 +25,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private func launchEnvironment(reset: Bool) -> [String: String] {
     var environment = baseLaunchEnvironment
     environment["UITEST_RESET_SWIPE_SETTINGS"] = reset ? "1" : "0"
+    if let payload = seededConfigurationPayload {
+      environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"] = payload
+    }
     return environment
   }
 
@@ -94,6 +98,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     )
 
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+    seededConfigurationPayload = nil
 
     try navigateToEpisodeList()
     openSwipeConfigurationSheet()
@@ -367,27 +372,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   }
 
   @MainActor
-  private func configurePlaybackLayoutManually() {
-    XCTAssertTrue(
-      removeAction("Mark Played", edgeIdentifier: "Leading"),
-      "Expected to remove default leading action Mark Played"
-    )
-    XCTAssertTrue(
-      removeAction("Delete", edgeIdentifier: "Trailing"),
-      "Expected to remove default trailing action Delete"
-    )
-    XCTAssertTrue(
-      removeAction("Archive", edgeIdentifier: "Trailing"),
-      "Expected to remove default trailing action Archive"
-    )
-
-    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
-    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
-    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
-    XCTAssertTrue(addAction("Favorite", edgeIdentifier: "Trailing"))
-  }
-
-  @MainActor
   @discardableResult
   private func addAction(_ displayName: String, edgeIdentifier: String) -> Bool {
     guard let container = swipeActionsSheetListContainer() else {
@@ -426,45 +410,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   }
 
   @MainActor
-  private func seedSwipeConfiguration(
-    leading: [String],
-    trailing: [String],
-    allowFullSwipeLeading: Bool = true,
-    allowFullSwipeTrailing: Bool = false,
-    hapticsEnabled: Bool = true,
-    hapticStyle: String = "medium"
-  ) {
-    resetSwipeSettingsToDefault()
-    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
-      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
-      return
-    }
-
-    let payload: [String: Any] = [
-      "swipeActions": [
-        "leadingActions": leading,
-        "trailingActions": trailing,
-        "allowFullSwipeLeading": allowFullSwipeLeading,
-        "allowFullSwipeTrailing": allowFullSwipeTrailing,
-        "hapticFeedbackEnabled": hapticsEnabled,
-      ],
-      "hapticStyle": hapticStyle,
-    ]
-
-    guard JSONSerialization.isValidJSONObject(payload) else {
-      XCTFail("Swipe configuration payload is not valid JSON")
-      return
-    }
-
-    guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
-      XCTFail("Failed to encode seeded swipe configuration")
-      return
-    }
-
-    defaults.set(data, forKey: "global_ui_settings")
-  }
-
-  @MainActor
   private func resetSwipeSettingsToDefault() {
     guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
       XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist")
@@ -478,6 +423,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private func initializeApp() {
     resetSwipeSettingsToDefault()
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: true))
+    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -487,6 +433,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       resetSwipeSettingsToDefault()
     }
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
+    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -906,6 +853,67 @@ extension XCUIElement {
 }
 
 extension SwipeConfigurationUITests {
+  @MainActor
+  fileprivate func configurePlaybackLayoutManually() {
+    XCTAssertTrue(
+      removeAction("Mark Played", edgeIdentifier: "Leading"),
+      "Expected to remove default leading action Mark Played"
+    )
+    XCTAssertTrue(
+      removeAction("Delete", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Delete"
+    )
+    XCTAssertTrue(
+      removeAction("Archive", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Archive"
+    )
+
+    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
+    XCTAssertTrue(addAction("Favorite", edgeIdentifier: "Trailing"))
+  }
+
+  @MainActor
+  fileprivate func seedSwipeConfiguration(
+    leading: [String],
+    trailing: [String],
+    allowFullSwipeLeading: Bool = true,
+    allowFullSwipeTrailing: Bool = false,
+    hapticsEnabled: Bool = true,
+    hapticStyle: String = "medium"
+  ) {
+    resetSwipeSettingsToDefault()
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
+      return
+    }
+
+    let payload: [String: Any] = [
+      "swipeActions": [
+        "leadingActions": leading,
+        "trailingActions": trailing,
+        "allowFullSwipeLeading": allowFullSwipeLeading,
+        "allowFullSwipeTrailing": allowFullSwipeTrailing,
+        "hapticFeedbackEnabled": hapticsEnabled,
+      ],
+      "hapticStyle": hapticStyle,
+    ]
+
+    guard JSONSerialization.isValidJSONObject(payload) else {
+      XCTFail("Swipe configuration payload is not valid JSON")
+      return
+    }
+
+    guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+      XCTFail("Failed to encode seeded swipe configuration")
+      return
+    }
+
+    defaults.set(data, forKey: "global_ui_settings")
+    seededConfigurationPayload = data.base64EncodedString()
+  }
+
   @MainActor
   fileprivate func element(withIdentifier identifier: String) -> XCUIElement {
     let queries: [XCUIElementQuery] = [

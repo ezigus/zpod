@@ -1219,6 +1219,11 @@ private final class EpisodeListDependencyProvider {
       if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
         suiteDefaults.removePersistentDomain(forName: suiteName)
       }
+      if let seededConfigBase64 = environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"],
+        let seededData = Data(base64Encoded: seededConfigBase64)
+      {
+        suiteDefaults.set(seededData, forKey: "global_ui_settings")
+      }
       userDefaults = suiteDefaults
     } else {
       if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
@@ -1227,6 +1232,11 @@ private final class EpisodeListDependencyProvider {
         } else {
           UserDefaults.standard.removeObject(forKey: "global_ui_settings")
         }
+      }
+      if let seededConfigBase64 = environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"],
+        let seededData = Data(base64Encoded: seededConfigBase64)
+      {
+        UserDefaults.standard.set(seededData, forKey: "global_ui_settings")
       }
       userDefaults = .standard
     }
