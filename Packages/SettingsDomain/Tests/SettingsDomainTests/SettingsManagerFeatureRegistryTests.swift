@@ -63,9 +63,16 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
 
   func testGroupedDescriptorsProducesSections() async throws {
     let sections = await settingsManager.allFeatureSections()
-    XCTAssertEqual(sections.count, 1)
-    XCTAssertEqual(sections.first?.title, "Interaction")
-    XCTAssertEqual(sections.first?.descriptors.first?.id, "swipeActions")
+    XCTAssertEqual(sections.count, 3)
+
+    XCTAssertEqual(sections[0].title, "Interaction")
+    XCTAssertEqual(sections[0].descriptors.first?.id, "swipeActions")
+
+    XCTAssertEqual(sections[1].title, "Playback")
+    XCTAssertEqual(sections[1].descriptors.first?.id, "playbackPreferences")
+
+    XCTAssertEqual(sections[2].title, "Downloads")
+    XCTAssertEqual(sections[2].descriptors.first?.id, "downloadPolicies")
   }
 
   func testControllerCachingReturnsSameInstance() async throws {
@@ -87,6 +94,28 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertNotNil(fresh)
     if let cached, let fresh {
       XCTAssertFalse(cached === fresh, "Requesting controller without cache should yield a new instance")
+    }
+  }
+
+  func testPlaybackControllerCaching() async throws {
+    let first = await settingsManager.controller(forFeature: "playbackPreferences") as? PlaybackConfigurationController
+    let second = await settingsManager.controller(forFeature: "playbackPreferences") as? PlaybackConfigurationController
+
+    XCTAssertNotNil(first)
+    XCTAssertNotNil(second)
+    if let first, let second {
+      XCTAssertTrue(first === second)
+    }
+  }
+
+  func testPlaybackControllerBypassReturnsNewInstance() async throws {
+    let cached = await settingsManager.controller(forFeature: "playbackPreferences") as? PlaybackConfigurationController
+    let fresh = await settingsManager.controller(forFeature: "playbackPreferences", useCache: false) as? PlaybackConfigurationController
+
+    XCTAssertNotNil(cached)
+    XCTAssertNotNil(fresh)
+    if let cached, let fresh {
+      XCTAssertFalse(cached === fresh)
     }
   }
 }

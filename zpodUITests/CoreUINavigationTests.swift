@@ -302,6 +302,71 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
             "Swipe Actions configuration view should appear"
         )
     }
+
+    @MainActor
+    func testSettingsTabPresentsPlaybackPreferences() throws {
+        initializeApp()
+
+        let tabBar = app.tabBars["Main Tab Bar"]
+        XCTAssertTrue(
+            waitForElement(
+                tabBar,
+                timeout: adaptiveShortTimeout,
+                description: "Main tab bar"
+            ),
+            "Main tab bar should be present"
+        )
+
+        let settingsTab = tabBar.buttons["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsTab,
+                timeout: adaptiveShortTimeout,
+                description: "Settings tab"
+            ),
+            "Settings tab should exist"
+        )
+
+        settingsTab.tap()
+
+        let settingsNavigationBar = app.navigationBars["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsNavigationBar,
+                timeout: adaptiveShortTimeout,
+                description: "Settings navigation bar"
+            ),
+            "Settings screen should appear after tapping the tab"
+        )
+
+        let candidates: [XCUIElement] = [
+            app.cells["Settings.Feature.playbackPreferences"],
+            app.staticTexts["Settings.Feature.Label.playbackPreferences"],
+            app.staticTexts["Playback Preferences"],
+            app.buttons["Playback Preferences"]
+        ]
+
+        guard let playbackRow = waitForAnyElement(
+            candidates,
+            timeout: adaptiveShortTimeout,
+            description: "Playback preferences settings row"
+        ) else {
+            XCTFail("Playback preferences row should be visible in settings")
+            return
+        }
+
+        playbackRow.tap()
+
+        let playbackNavBar = app.navigationBars["Playback"]
+        XCTAssertTrue(
+            waitForElement(
+                playbackNavBar,
+                timeout: adaptiveShortTimeout,
+                description: "Playback configuration screen"
+            ),
+            "Playback configuration view should appear"
+        )
+    }
     
     // MARK: - App Shortcuts Tests
     // Covers: iOS Quick Actions from ui spec

@@ -33,11 +33,16 @@ public class SettingsManager {
     #endif
 
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
+    private let playbackConfigurationServiceImpl: PlaybackConfigurationServicing
     public let featureConfigurationRegistry: FeatureConfigurationRegistry
     private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
 
     public var swipeConfigurationService: SwipeConfigurationServicing {
         swipeConfigurationServiceImpl
+    }
+
+    public var playbackConfigurationService: PlaybackConfigurationServicing {
+        playbackConfigurationServiceImpl
     }
 
     public func makeSwipeConfigurationController() -> SwipeConfigurationController {
@@ -47,6 +52,12 @@ public class SettingsManager {
             hapticStyle: globalUISettings.hapticStyle
         )
         controller.bootstrap(with: configuration)
+        return controller
+    }
+
+    public func makePlaybackConfigurationController() -> PlaybackConfigurationController {
+        let controller = PlaybackConfigurationController(service: playbackConfigurationServiceImpl)
+        controller.bootstrap(with: globalPlaybackSettings)
         return controller
     }
 
@@ -66,13 +77,9 @@ public class SettingsManager {
         let controller: any FeatureConfigurationControlling
 
         if id == "swipeActions" {
-            let swipeController = SwipeConfigurationController(service: swipeConfigurationServiceImpl)
-            let configuration = SwipeConfiguration(
-                swipeActions: globalUISettings.swipeActions,
-                hapticStyle: globalUISettings.hapticStyle
-            )
-            swipeController.bootstrap(with: configuration)
-            controller = swipeController
+            controller = makeSwipeConfigurationController()
+        } else if id == "playbackPreferences" {
+            controller = makePlaybackConfigurationController()
         } else {
             guard let resolved = await featureConfigurationRegistry.controller(for: id) else {
                 return nil
@@ -91,17 +98,13 @@ public class SettingsManager {
         self.repository = repository
 
         let swipeService = SwipeConfigurationService(repository: repository)
+        let playbackService = PlaybackConfigurationService(repository: repository)
         self.swipeConfigurationServiceImpl = swipeService
+        self.playbackConfigurationServiceImpl = playbackService
         self.featureConfigurationRegistry = FeatureConfigurationRegistry(
             features: [
                 SwipeConfigurationFeature(service: swipeService),
-                PlaceholderConfigurableFeature(descriptor: .init(
-                    id: "playbackPreferences",
-                    title: "Playback Preferences",
-                    iconSystemName: "dial.medium",
-                    category: "Playback",
-                    analyticsKey: "settings.playback"
-                )),
+                PlaybackConfigurationFeature(service: playbackService),
                 PlaceholderConfigurableFeature(descriptor: .init(
                     id: "downloadPolicies",
                     title: "Download Policies",

@@ -62,13 +62,18 @@ private struct SettingsFeatureDetailView: View {
   let descriptor: FeatureConfigurationDescriptor
   @ObservedObject var settingsManager: SettingsManager
   @State private var loadState: LoadState = .loading
-  @State private var swipeController: SwipeConfigurationController?
+  @State private var loadedContent: LoadedContent?
 
   private enum LoadState {
     case loading
     case ready
     case unsupported
     case failure
+  }
+
+  private enum LoadedContent {
+    case swipe(SwipeConfigurationController)
+    case playback(PlaybackConfigurationController)
   }
 
   var body: some View {
@@ -87,11 +92,7 @@ private struct SettingsFeatureDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("Settings.Feature.Loading")
     case .ready:
-      if let controller = swipeController {
-        SwipeActionConfigurationView(controller: controller)
-      } else {
-        fallbackUnavailable
-      }
+      readyContentView
     case .unsupported:
       ContentUnavailableView(
         label: { Label("Coming Soon", systemImage: "hammer") },
@@ -115,12 +116,20 @@ private struct SettingsFeatureDetailView: View {
     }
 
     if let swipe = controller as? SwipeConfigurationController {
-      swipeController = swipe
+      loadedContent = .swipe(swipe)
       await swipe.loadBaseline()
       loadState = .ready
-    } else {
-      loadState = .unsupported
+      return
     }
+
+    if let playback = controller as? PlaybackConfigurationController {
+      loadedContent = .playback(playback)
+      await playback.loadBaseline()
+      loadState = .ready
+      return
+    }
+
+    loadState = .unsupported
   }
 
   @ViewBuilder
@@ -130,5 +139,19 @@ private struct SettingsFeatureDetailView: View {
       description: { Text("Unable to load configuration for this feature right now.") }
     )
     .accessibilityIdentifier("Settings.Feature.Unavailable")
+  }
+
+  @ViewBuilder
+  private var readyContentView: some View {
+    if let loadedContent {
+      switch loadedContent {
+      case .swipe(let controller):
+        SwipeActionConfigurationView(controller: controller)
+      case .playback(let controller):
+        PlaybackConfigurationView(controller: controller)
+      }
+    } else {
+      fallbackUnavailable
+    }
   }
 }
