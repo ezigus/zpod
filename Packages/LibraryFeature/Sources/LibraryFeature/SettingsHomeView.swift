@@ -74,6 +74,7 @@ private struct SettingsFeatureDetailView: View {
   private enum LoadedContent {
     case swipe(SwipeConfigurationController)
     case playback(PlaybackConfigurationController)
+    case downloads(DownloadConfigurationController)
   }
 
   var body: some View {
@@ -129,6 +130,13 @@ private struct SettingsFeatureDetailView: View {
       return
     }
 
+    if let downloads = controller as? DownloadConfigurationController {
+      loadedContent = .downloads(downloads)
+      await downloads.loadBaseline()
+      loadState = .ready
+      return
+    }
+
     loadState = .unsupported
   }
 
@@ -149,6 +157,8 @@ private struct SettingsFeatureDetailView: View {
         SwipeActionConfigurationView(controller: controller)
       case .playback(let controller):
         PlaybackConfigurationView(controller: controller)
+      case .downloads(let controller):
+        DownloadConfigurationView(controller: controller)
       }
     } else {
       fallbackUnavailable

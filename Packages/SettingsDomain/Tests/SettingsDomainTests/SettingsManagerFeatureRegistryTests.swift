@@ -118,4 +118,26 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
       XCTAssertFalse(cached === fresh)
     }
   }
+
+  func testDownloadControllerCaching() async throws {
+    let first = await settingsManager.controller(forFeature: "downloadPolicies") as? DownloadConfigurationController
+    let second = await settingsManager.controller(forFeature: "downloadPolicies") as? DownloadConfigurationController
+
+    XCTAssertNotNil(first)
+    XCTAssertNotNil(second)
+    if let first, let second {
+      XCTAssertTrue(first === second)
+    }
+  }
+
+  func testDownloadControllerBypassReturnsNewInstance() async throws {
+    let cached = await settingsManager.controller(forFeature: "downloadPolicies") as? DownloadConfigurationController
+    let fresh = await settingsManager.controller(forFeature: "downloadPolicies", useCache: false) as? DownloadConfigurationController
+
+    XCTAssertNotNil(cached)
+    XCTAssertNotNil(fresh)
+    if let cached, let fresh {
+      XCTAssertFalse(cached === fresh)
+    }
+  }
 }

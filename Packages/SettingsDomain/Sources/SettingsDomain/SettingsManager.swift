@@ -34,6 +34,7 @@ public class SettingsManager {
 
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
     private let playbackConfigurationServiceImpl: PlaybackConfigurationServicing
+    private let downloadConfigurationServiceImpl: DownloadConfigurationServicing
     public let featureConfigurationRegistry: FeatureConfigurationRegistry
     private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
 
@@ -43,6 +44,10 @@ public class SettingsManager {
 
     public var playbackConfigurationService: PlaybackConfigurationServicing {
         playbackConfigurationServiceImpl
+    }
+
+    public var downloadConfigurationService: DownloadConfigurationServicing {
+        downloadConfigurationServiceImpl
     }
 
     public func makeSwipeConfigurationController() -> SwipeConfigurationController {
@@ -58,6 +63,12 @@ public class SettingsManager {
     public func makePlaybackConfigurationController() -> PlaybackConfigurationController {
         let controller = PlaybackConfigurationController(service: playbackConfigurationServiceImpl)
         controller.bootstrap(with: globalPlaybackSettings)
+        return controller
+    }
+
+    public func makeDownloadConfigurationController() -> DownloadConfigurationController {
+        let controller = DownloadConfigurationController(service: downloadConfigurationServiceImpl)
+        controller.bootstrap(with: globalDownloadSettings)
         return controller
     }
 
@@ -80,6 +91,8 @@ public class SettingsManager {
             controller = makeSwipeConfigurationController()
         } else if id == "playbackPreferences" {
             controller = makePlaybackConfigurationController()
+        } else if id == "downloadPolicies" {
+            controller = makeDownloadConfigurationController()
         } else {
             guard let resolved = await featureConfigurationRegistry.controller(for: id) else {
                 return nil
@@ -99,19 +112,15 @@ public class SettingsManager {
 
         let swipeService = SwipeConfigurationService(repository: repository)
         let playbackService = PlaybackConfigurationService(repository: repository)
+        let downloadService = DownloadConfigurationService(repository: repository)
         self.swipeConfigurationServiceImpl = swipeService
         self.playbackConfigurationServiceImpl = playbackService
+        self.downloadConfigurationServiceImpl = downloadService
         self.featureConfigurationRegistry = FeatureConfigurationRegistry(
             features: [
                 SwipeConfigurationFeature(service: swipeService),
                 PlaybackConfigurationFeature(service: playbackService),
-                PlaceholderConfigurableFeature(descriptor: .init(
-                    id: "downloadPolicies",
-                    title: "Download Policies",
-                    iconSystemName: "tray.and.arrow.down",
-                    category: "Downloads",
-                    analyticsKey: "settings.downloads"
-                ))
+                DownloadConfigurationFeature(service: downloadService)
             ]
         )
 

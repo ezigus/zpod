@@ -367,6 +367,71 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
             "Playback configuration view should appear"
         )
     }
+
+    @MainActor
+    func testSettingsTabPresentsDownloadPolicies() throws {
+        initializeApp()
+
+        let tabBar = app.tabBars["Main Tab Bar"]
+        XCTAssertTrue(
+            waitForElement(
+                tabBar,
+                timeout: adaptiveShortTimeout,
+                description: "Main tab bar"
+            ),
+            "Main tab bar should be present"
+        )
+
+        let settingsTab = tabBar.buttons["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsTab,
+                timeout: adaptiveShortTimeout,
+                description: "Settings tab"
+            ),
+            "Settings tab should exist"
+        )
+
+        settingsTab.tap()
+
+        let settingsNavigationBar = app.navigationBars["Settings"]
+        XCTAssertTrue(
+            waitForElement(
+                settingsNavigationBar,
+                timeout: adaptiveShortTimeout,
+                description: "Settings navigation bar"
+            ),
+            "Settings screen should appear after tapping the tab"
+        )
+
+        let candidates: [XCUIElement] = [
+            app.cells["Settings.Feature.downloadPolicies"],
+            app.staticTexts["Settings.Feature.Label.downloadPolicies"],
+            app.staticTexts["Download Policies"],
+            app.buttons["Download Policies"]
+        ]
+
+        guard let downloadsRow = waitForAnyElement(
+            candidates,
+            timeout: adaptiveShortTimeout,
+            description: "Download policies settings row"
+        ) else {
+            XCTFail("Download policies row should be visible in settings")
+            return
+        }
+
+        downloadsRow.tap()
+
+        let downloadsNavBar = app.navigationBars["Downloads"]
+        XCTAssertTrue(
+            waitForElement(
+                downloadsNavBar,
+                timeout: adaptiveShortTimeout,
+                description: "Download configuration screen"
+            ),
+            "Download configuration view should appear"
+        )
+    }
     
     // MARK: - App Shortcuts Tests
     // Covers: iOS Quick Actions from ui spec
