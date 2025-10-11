@@ -93,7 +93,23 @@ public class SettingsManager {
         let swipeService = SwipeConfigurationService(repository: repository)
         self.swipeConfigurationServiceImpl = swipeService
         self.featureConfigurationRegistry = FeatureConfigurationRegistry(
-            features: [SwipeConfigurationFeature(service: swipeService)]
+            features: [
+                SwipeConfigurationFeature(service: swipeService),
+                PlaceholderConfigurableFeature(descriptor: .init(
+                    id: "playbackPreferences",
+                    title: "Playback Preferences",
+                    iconSystemName: "dial.medium",
+                    category: "Playback",
+                    analyticsKey: "settings.playback"
+                )),
+                PlaceholderConfigurableFeature(descriptor: .init(
+                    id: "downloadPolicies",
+                    title: "Download Policies",
+                    iconSystemName: "tray.and.arrow.down",
+                    category: "Downloads",
+                    analyticsKey: "settings.downloads"
+                ))
+            ]
         )
 
         // Initialize with defaults temporarily
@@ -305,3 +321,25 @@ public class SettingsManager {
 #if canImport(SwiftUI)
 extension SettingsManager: ObservableObject {}
 #endif
+
+// MARK: - Placeholder Feature
+
+final class PlaceholderConfigurableFeature: ConfigurableFeature, @unchecked Sendable {
+    let descriptor: FeatureConfigurationDescriptor
+
+    init(descriptor: FeatureConfigurationDescriptor) {
+        self.descriptor = descriptor
+    }
+
+    func isAvailable() async -> Bool { true }
+
+    @MainActor
+    func makeController() -> any FeatureConfigurationControlling {
+        PlaceholderConfigurationController()
+    }
+}
+
+@MainActor
+private final class PlaceholderConfigurationController: FeatureConfigurationControlling {
+    func resetToBaseline() async {}
+}

@@ -94,8 +94,8 @@ private struct SettingsFeatureDetailView: View {
       }
     case .unsupported:
       ContentUnavailableView(
-        label: { Label("Unsupported Feature", systemImage: "questionmark.square.dashed") },
-        description: { Text("This feature does not yet provide a configuration surface.") }
+        label: { Label("Coming Soon", systemImage: "hammer") },
+        description: { Text("This configuration will be available in a future update.") }
       )
       .accessibilityIdentifier("Settings.Feature.Unsupported")
     case .failure:
