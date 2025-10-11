@@ -63,6 +63,9 @@ final class SwipeConfigurationControllerTests: XCTestCase {
 
     XCTAssertEqual(controller.leadingActions, [.play, .addToPlaylist])
     XCTAssertEqual(controller.trailingActions, [.download, .favorite])
+    XCTAssertTrue(controller.allowFullSwipeLeading)
+    XCTAssertFalse(controller.allowFullSwipeTrailing)
+    XCTAssertTrue(controller.hapticsEnabled)
     XCTAssertTrue(controller.hasUnsavedChanges)
   }
 

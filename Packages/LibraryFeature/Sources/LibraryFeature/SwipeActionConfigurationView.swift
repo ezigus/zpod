@@ -17,6 +17,7 @@ public struct SwipeActionConfigurationView: View {
   @State private var hapticsEnabledState: Bool
   @State private var hapticStyleState: SwipeHapticStyle
   @State private var baselineLoaded = false
+  @State private var pendingAddEdge: SwipeConfigurationController.SwipeEdge?
 
   public init(
     controller: SwipeConfigurationController,
@@ -34,17 +35,36 @@ public struct SwipeActionConfigurationView: View {
 
   public var body: some View {
     NavigationStack {
-      ScrollView {
-        LazyVStack(spacing: 24) {
-          leadingSection
-          trailingSection
-          hapticsSection
-          presetsSection
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+      List {
+        leadingSection
+        trailingSection
+        hapticsSection
+        presetsSection
       }
-      .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+      .listStyle(.insetGrouped)
+#if DEBUG
+        .overlay(alignment: .topLeading) {
+          if debugEnabled {
+            debugStateProbe
+              .allowsHitTesting(false)
+          }
+        }
+#endif
+      .sheet(isPresented: Binding(
+        get: { pendingAddEdge != nil },
+        set: { if !$0 { pendingAddEdge = nil } }
+      )) {
+        if let edge = pendingAddEdge {
+          AddActionPicker(
+            edge: edge,
+            edgeIdentifier: edgeIdentifier(edge),
+            actions: controller.availableActions(for: edge)
+          ) { action in
+            controller.addAction(action, edge: edge)
+            pendingAddEdge = nil
+          }
+        }
+      }
       .task {
         await controller.loadBaseline()
         baselineLoaded = true
@@ -81,13 +101,13 @@ public struct SwipeActionConfigurationView: View {
   }
 
   private var leadingSection: some View {
-    configurationSection(title: String(localized: "Leading Actions", bundle: .main)) {
+    Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
       ForEach(controller.leadingActions, id: \.self) { action in
         actionRow(for: action, edge: .leading)
       }
 
       if controller.canAddMoreActions(to: .leading) {
-        addActionMenu(for: .leading)
+        addActionTrigger(for: .leading)
       }
 
       Toggle(
@@ -104,13 +124,13 @@ public struct SwipeActionConfigurationView: View {
   }
 
   private var trailingSection: some View {
-    configurationSection(title: String(localized: "Trailing Actions", bundle: .main)) {
+    Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
       ForEach(controller.trailingActions, id: \.self) { action in
         actionRow(for: action, edge: .trailing)
       }
 
       if controller.canAddMoreActions(to: .trailing) {
-        addActionMenu(for: .trailing)
+        addActionTrigger(for: .trailing)
       }
 
       Toggle(
@@ -128,7 +148,7 @@ public struct SwipeActionConfigurationView: View {
   }
 
   private var hapticsSection: some View {
-    configurationSection(title: String(localized: "Haptics", bundle: .main)) {
+    Section(header: Text(String(localized: "Haptics", bundle: .main))) {
       Toggle(
         "Enable Haptic Feedback",
         isOn: $hapticsEnabledState
@@ -160,7 +180,7 @@ public struct SwipeActionConfigurationView: View {
   }
 
   private var presetsSection: some View {
-    configurationSection(title: String(localized: "Presets", bundle: .main)) {
+    Section(header: Text(String(localized: "Presets", bundle: .main))) {
       presetRow(
         title: String(localized: "Restore Default", bundle: .main),
         identifier: "SwipeActions.Preset.Default",
@@ -185,20 +205,19 @@ public struct SwipeActionConfigurationView: View {
         preset: .downloadFocused
       )
 
-      #if DEBUG
-        debugStateProbe
-      #endif
     }
   }
 
-  private func addActionMenu(for edge: SwipeConfigurationController.SwipeEdge) -> some View {
-    Menu("Add Action") {
-      ForEach(controller.availableActions(for: edge), id: \.self) { action in
-        Button(action.displayName) {
-          controller.addAction(action, edge: edge)
-        }
-        .accessibilityIdentifier(
-          "SwipeActions.Add." + edgeIdentifier(edge) + "." + action.displayName)
+  private func addActionTrigger(for edge: SwipeConfigurationController.SwipeEdge) -> some View {
+    Button {
+      pendingAddEdge = edge
+    } label: {
+      HStack {
+        Text(String(localized: "Add Action", bundle: .main))
+        Spacer()
+        Image(systemName: "chevron.right")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(Color.secondary)
       }
     }
     .accessibilityIdentifier("SwipeActions.Add." + edgeIdentifier(edge))
@@ -210,31 +229,6 @@ public struct SwipeActionConfigurationView: View {
       return "Leading"
     case .trailing:
       return "Trailing"
-    }
-  }
-
-  @ViewBuilder
-  private func configurationSection<Content: View>(
-    title: String,
-    @ViewBuilder content: () -> Content
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(LocalizedStringKey(title))
-        .font(.headline)
-        .foregroundStyle(Color.primary)
-
-      VStack(alignment: .leading, spacing: 8) {
-        content()
-      }
-      .padding(16)
-      .background(
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .fill(Color(uiColor: .secondarySystemGroupedBackground))
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .stroke(Color(uiColor: .separator).opacity(0.3), lineWidth: 1)
-      )
     }
   }
 
@@ -277,13 +271,12 @@ public struct SwipeActionConfigurationView: View {
   ) -> some View {
     Button {
       debugLog("UI tapped preset \(identifier)")
-      #if DEBUG
-        if let suiteName = ProcessInfo.processInfo.environment["UITEST_USER_DEFAULTS_SUITE"],
-          let debugDefaults = UserDefaults(suiteName: suiteName)
-        {
-          debugDefaults.set(identifier, forKey: "SwipeActions.Debug.LastPreset")
-        }
-      #endif
+      if debugEnabled,
+        let suiteName = ProcessInfo.processInfo.environment["UITEST_USER_DEFAULTS_SUITE"],
+        let debugDefaults = UserDefaults(suiteName: suiteName)
+      {
+        debugDefaults.set(identifier, forKey: "SwipeActions.Debug.LastPreset")
+      }
       controller.applyPreset(preset)
     } label: {
       HStack {
@@ -299,6 +292,8 @@ public struct SwipeActionConfigurationView: View {
       .padding(.vertical, 8)
     }
     .buttonStyle(.plain)
+    .accessibilityLabel(Text(title))
+    .accessibilityAddTraits(.isButton)
     .contentShape(Rectangle())
     .accessibilityIdentifier(identifier)
   }
@@ -311,7 +306,7 @@ public struct SwipeActionConfigurationView: View {
       && controller.hapticsEnabled == preset.hapticFeedbackEnabled
   }
 
-  #if DEBUG
+#if DEBUG
     private var debugStateProbe: some View {
       Text(debugStateSummary)
         .font(.caption2)
@@ -357,6 +352,51 @@ extension Color {
       self = .red
     case .gray:
       self = .gray
+    }
+  }
+}
+
+private struct AddActionPicker: View {
+  @Environment(\.dismiss) private var dismiss
+  let edge: SwipeConfigurationController.SwipeEdge
+  let edgeIdentifier: String
+  let actions: [SwipeActionType]
+  let onSelect: (SwipeActionType) -> Void
+
+  var body: some View {
+    NavigationStack {
+      List(actions, id: \.self) { action in
+        Button {
+          onSelect(action)
+          dismiss()
+        } label: {
+          HStack {
+            Text(action.displayName)
+              .foregroundStyle(Color.primary)
+            Spacer()
+          }
+        }
+        .accessibilityIdentifier(
+          "SwipeActions.Add." + edgeIdentifier + "." + action.displayName
+        )
+      }
+      .listStyle(.insetGrouped)
+      .navigationTitle(title)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Cancel") { dismiss() }
+        }
+      }
+    }
+    .presentationDetents([.medium, .large])
+  }
+
+  private var title: String {
+    switch edge {
+    case .leading:
+      return String(localized: "Add Leading Action", bundle: .main)
+    case .trailing:
+      return String(localized: "Add Trailing Action", bundle: .main)
     }
   }
 }

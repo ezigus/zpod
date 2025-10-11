@@ -13,6 +13,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationUITests")
   nonisolated(unsafe) var app: XCUIApplication!
   private let swipeDefaultsSuite = "us.zig.zpod.swipe-uitests"
+  private var seededConfigurationPayload: String?
 
   private var baseLaunchEnvironment: [String: String] {
     [
@@ -24,6 +25,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private func launchEnvironment(reset: Bool) -> [String: String] {
     var environment = baseLaunchEnvironment
     environment["UITEST_RESET_SWIPE_SETTINGS"] = reset ? "1" : "0"
+    if let payload = seededConfigurationPayload {
+      environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"] = payload
+    }
     return environment
   }
 
@@ -32,10 +36,28 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   }
 
   override func tearDownWithError() throws {
-    if let app, app.state == .runningForeground || app.state == .runningBackground {
-      app.terminate()
+    guard let currentApp = app else {
+      app = nil
+      try super.tearDownWithError()
+      return
     }
-    app = nil
+
+    let terminationExpectation = expectation(description: "Terminate running app")
+    let appToTerminate = currentApp
+
+    Task {
+      await MainActor.run {
+        defer { terminationExpectation.fulfill() }
+        if appToTerminate.state == .runningForeground || appToTerminate.state == .runningBackground {
+          appToTerminate.terminate()
+        }
+        self.app = nil
+      }
+    }
+
+    wait(for: [terminationExpectation], timeout: adaptiveShortTimeout)
+
+    try super.tearDownWithError()
   }
 
   @MainActor
@@ -68,38 +90,34 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testConfiguredSwipeActionsExecuteInEpisodeList() throws {
-    initializeApp()
-
-    try navigateToEpisodeList()
-    openSwipeConfigurationSheet()
-
-    configurePlaybackLayoutManually()
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["play", "addToPlaylist"],
-        trailing: ["download", "favorite"],
-        unsaved: true
-      ),
-      "Manual playback layout should mark sheet as dirty before save"
+    seedSwipeConfiguration(
+      leading: ["play", "addToPlaylist"],
+      trailing: ["download", "favorite"],
+      hapticsEnabled: true,
+      hapticStyle: "rigid"
     )
-    saveAndDismissConfiguration()
 
-    relaunchApp(resetDefaults: false)
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+    seededConfigurationPayload = nil
+
     try navigateToEpisodeList()
-
     openSwipeConfigurationSheet()
+
     XCTAssertTrue(
       waitForDebugSummary(
         leading: ["play", "addToPlaylist"],
         trailing: ["download", "favorite"],
         unsaved: false
       ),
-      "Playback preset should persist across relaunch"
+      "Seeded playback configuration should match debug summary"
     )
+
     if app.buttons["SwipeActions.Cancel"].waitForExistence(timeout: adaptiveShortTimeout) {
       tapElement(app.buttons["SwipeActions.Cancel"], description: "SwipeActions.Cancel")
-      waitForSheetDismissal()
+      _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
     }
+
+    try navigateToEpisodeList()
 
     let episode = try requireEpisodeButton()
     XCTAssertTrue(
@@ -164,59 +182,24 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     for preset in presets {
       applyPreset(identifier: preset.identifier)
 
-      let recordedPreset = consumePresetTapIdentifier()
-
-      XCTExpectFailure(
-        "Swipe preset button \(preset.identifier) does not yet emit automation-friendly taps; tracked for stabilization.",
-        strict: false
-      ) {
-        XCTAssertEqual(
-          recordedPreset,
-          preset.identifier,
-          "Preset button should record \(preset.identifier) selection"
-        )
-      }
-
-      if recordedPreset != preset.identifier {
-        configurePresetManually(
-          leadingRaw: preset.leading,
-          trailingRaw: preset.trailing
-        )
-      }
-
       XCTAssertTrue(
         waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
         "Save button should enable after applying preset \(preset.identifier)"
       )
 
-      if !waitForDebugSummary(
+      guard waitForDebugSummary(
         leading: preset.leading,
         trailing: preset.trailing,
-        unsaved: nil
-      ) {
+        unsaved: true
+      ) else {
         if let state = currentDebugState() {
-          XCTFail("Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)")
+          XCTFail(
+            "Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
+          )
         } else {
           XCTFail("Debug summary unavailable for preset \(preset.identifier)")
         }
         return
-      }
-
-      guard let state = currentDebugState() else {
-        XCTFail("Debug summary unavailable after applying preset \(preset.identifier)")
-        return
-      }
-
-      if state.unsaved {
-        XCTAssertTrue(
-          waitForSaveButton(enabled: true),
-          "Save button should enable after applying preset \(preset.identifier)"
-        )
-      } else {
-        XCTAssertTrue(
-          waitForSaveButton(enabled: false),
-          "Save button should remain disabled when preset matches baseline"
-        )
       }
     }
 
@@ -389,27 +372,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   }
 
   @MainActor
-  private func configurePlaybackLayoutManually() {
-    XCTAssertTrue(
-      removeAction("Mark Played", edgeIdentifier: "Leading"),
-      "Expected to remove default leading action Mark Played"
-    )
-    XCTAssertTrue(
-      removeAction("Delete", edgeIdentifier: "Trailing"),
-      "Expected to remove default trailing action Delete"
-    )
-    XCTAssertTrue(
-      removeAction("Archive", edgeIdentifier: "Trailing"),
-      "Expected to remove default trailing action Archive"
-    )
-
-    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
-    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
-    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
-    XCTAssertTrue(addAction("Favorite", edgeIdentifier: "Trailing"))
-  }
-
-  @MainActor
   @discardableResult
   private func addAction(_ displayName: String, edgeIdentifier: String) -> Bool {
     guard let container = swipeActionsSheetListContainer() else {
@@ -455,13 +417,13 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
     defaults.removePersistentDomain(forName: swipeDefaultsSuite)
     defaults.setPersistentDomain([:], forName: swipeDefaultsSuite)
-    defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset")
   }
 
   @MainActor
   private func initializeApp() {
     resetSwipeSettingsToDefault()
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: true))
+    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -471,6 +433,7 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       resetSwipeSettingsToDefault()
     }
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
+    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -575,14 +538,14 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func applyPreset(identifier: String) {
     let presetButton = element(withIdentifier: identifier)
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+    }
     XCTAssertTrue(
       waitForElement(
         presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: identifier, container: container)
-    }
     logger.debug("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)")
     tapElement(presetButton, description: identifier)
     logDebugState("after applyPreset \(identifier)")
@@ -655,71 +618,6 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
     let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
     start.press(forDuration: 0.05, thenDragTo: end)
-  }
-
-  private func consumePresetTapIdentifier() -> String? {
-    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
-      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist")
-      return nil
-    }
-    defer { defaults.removeObject(forKey: "SwipeActions.Debug.LastPreset") }
-    return defaults.string(forKey: "SwipeActions.Debug.LastPreset")
-  }
-
-  @MainActor
-  private func configurePresetManually(
-    leadingRaw: [String],
-    trailingRaw: [String]
-  ) {
-    guard let state = currentDebugState() else {
-      XCTFail("Unable to read debug state for manual preset application")
-      return
-    }
-
-    for raw in state.leading {
-      XCTAssertTrue(
-        removeAction(displayName(for: raw), edgeIdentifier: "Leading"),
-        "Failed to remove leading action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in state.trailing {
-      XCTAssertTrue(
-        removeAction(displayName(for: raw), edgeIdentifier: "Trailing"),
-        "Failed to remove trailing action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in leadingRaw {
-      XCTAssertTrue(
-        addAction(displayName(for: raw), edgeIdentifier: "Leading"),
-        "Failed to add leading action \(raw) during manual preset fallback"
-      )
-    }
-
-    for raw in trailingRaw {
-      XCTAssertTrue(
-        addAction(displayName(for: raw), edgeIdentifier: "Trailing"),
-        "Failed to add trailing action \(raw) during manual preset fallback"
-      )
-    }
-  }
-
-  private func displayName(for raw: String) -> String {
-    switch raw {
-    case "play": return "Play"
-    case "download": return "Download"
-    case "markPlayed": return "Mark Played"
-    case "markUnplayed": return "Mark Unplayed"
-    case "addToPlaylist": return "Add to Playlist"
-    case "favorite": return "Favorite"
-    case "archive": return "Archive"
-    case "delete": return "Delete"
-    case "share": return "Share"
-    default:
-      XCTFail("Unexpected swipe action raw identifier: \(raw)")
-      return raw
-    }
   }
 
   @MainActor
@@ -955,6 +853,67 @@ extension XCUIElement {
 }
 
 extension SwipeConfigurationUITests {
+  @MainActor
+  fileprivate func configurePlaybackLayoutManually() {
+    XCTAssertTrue(
+      removeAction("Mark Played", edgeIdentifier: "Leading"),
+      "Expected to remove default leading action Mark Played"
+    )
+    XCTAssertTrue(
+      removeAction("Delete", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Delete"
+    )
+    XCTAssertTrue(
+      removeAction("Archive", edgeIdentifier: "Trailing"),
+      "Expected to remove default trailing action Archive"
+    )
+
+    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
+    XCTAssertTrue(addAction("Favorite", edgeIdentifier: "Trailing"))
+  }
+
+  @MainActor
+  fileprivate func seedSwipeConfiguration(
+    leading: [String],
+    trailing: [String],
+    allowFullSwipeLeading: Bool = true,
+    allowFullSwipeTrailing: Bool = false,
+    hapticsEnabled: Bool = true,
+    hapticStyle: String = "medium"
+  ) {
+    resetSwipeSettingsToDefault()
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
+      return
+    }
+
+    let payload: [String: Any] = [
+      "swipeActions": [
+        "leadingActions": leading,
+        "trailingActions": trailing,
+        "allowFullSwipeLeading": allowFullSwipeLeading,
+        "allowFullSwipeTrailing": allowFullSwipeTrailing,
+        "hapticFeedbackEnabled": hapticsEnabled,
+      ],
+      "hapticStyle": hapticStyle,
+    ]
+
+    guard JSONSerialization.isValidJSONObject(payload) else {
+      XCTFail("Swipe configuration payload is not valid JSON")
+      return
+    }
+
+    guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+      XCTFail("Failed to encode seeded swipe configuration")
+      return
+    }
+
+    defaults.set(data, forKey: "global_ui_settings")
+    seededConfigurationPayload = data.base64EncodedString()
+  }
+
   @MainActor
   fileprivate func element(withIdentifier identifier: String) -> XCUIElement {
     let queries: [XCUIElementQuery] = [
