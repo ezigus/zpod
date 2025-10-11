@@ -5,6 +5,8 @@
 //  Created for Issue 02.1.1: Episode List Display and Basic Navigation
 //
 
+// swiftlint:disable file_length type_body_length
+
 import CoreModels
 import Foundation
 import OSLog
@@ -1269,3 +1271,5 @@ extension Color {
     }
   }
 }
+
+// swiftlint:enable file_length type_body_length

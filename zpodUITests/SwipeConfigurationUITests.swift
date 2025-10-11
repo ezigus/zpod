@@ -5,6 +5,8 @@
 //  Created for Issue 02.1.6.2: Swipe Gesture Configuration UI Tests
 //
 
+// swiftlint:disable type_body_length
+
 import XCTest
 import Foundation
 import OSLog
@@ -173,10 +175,22 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
       "Baseline should start at default configuration"
     )
 
-    let presets: [(identifier: String, leading: [String], trailing: [String])] = [
-      ("SwipeActions.Preset.Playback", ["play", "addToPlaylist"], ["download", "favorite"]),
-      ("SwipeActions.Preset.Organization", ["markPlayed", "favorite"], ["archive", "delete"]),
-      ("SwipeActions.Preset.Download", ["download", "markPlayed"], ["archive", "delete"]),
+    let presets: [SwipePresetExpectation] = [
+      SwipePresetExpectation(
+        identifier: "SwipeActions.Preset.Playback",
+        leading: ["play", "addToPlaylist"],
+        trailing: ["download", "favorite"]
+      ),
+      SwipePresetExpectation(
+        identifier: "SwipeActions.Preset.Organization",
+        leading: ["markPlayed", "favorite"],
+        trailing: ["archive", "delete"]
+      ),
+      SwipePresetExpectation(
+        identifier: "SwipeActions.Preset.Download",
+        leading: ["download", "markPlayed"],
+        trailing: ["archive", "delete"]
+      ),
     ]
 
     for preset in presets {
@@ -193,9 +207,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         unsaved: true
       ) else {
         if let state = currentDebugState() {
-          XCTFail(
-            "Debug summary mismatch for preset \(preset.identifier). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
-          )
+          let message = "Debug summary mismatch for preset \(preset.identifier). "
+            + "Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
+          XCTFail(message)
         } else {
           XCTFail("Debug summary unavailable for preset \(preset.identifier)")
         }
@@ -213,9 +227,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     try navigateToEpisodeList()
     openSwipeConfigurationSheet()
 
-    let leadingSequence: [(displayName: String, rawValue: String)] = [
-      ("Play", "play"),
-      ("Add to Playlist", "addToPlaylist"),
+    let leadingSequence: [SwipeActionDescriptor] = [
+      SwipeActionDescriptor(displayName: "Play", rawValue: "play"),
+      SwipeActionDescriptor(displayName: "Add to Playlist", rawValue: "addToPlaylist"),
     ]
 
     var accumulatedLeading = ["markPlayed"]
@@ -233,7 +247,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         unsaved: true
       ) {
         if let state = currentDebugState() {
-          XCTFail("Debug summary mismatch after adding \(entry.displayName). Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)")
+          let message = "Debug summary mismatch after adding \(entry.displayName). "
+            + "Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
+          XCTFail(message)
         } else {
           XCTFail("Debug summary unavailable after adding \(entry.displayName)")
         }
@@ -1016,15 +1032,26 @@ extension SwipeConfigurationUITests {
     )
   }
 
-  private struct SwipeDebugState {
-    let leading: [String]
-    let trailing: [String]
-    let fullLeading: Bool
-    let fullTrailing: Bool
-    let hapticsEnabled: Bool
-    let unsaved: Bool
-    let baselineLoaded: Bool
-  }
+private struct SwipeDebugState {
+  let leading: [String]
+  let trailing: [String]
+  let fullLeading: Bool
+  let fullTrailing: Bool
+  let hapticsEnabled: Bool
+  let unsaved: Bool
+  let baselineLoaded: Bool
+}
+
+private struct SwipePresetExpectation {
+  let identifier: String
+  let leading: [String]
+  let trailing: [String]
+}
+
+private struct SwipeActionDescriptor {
+  let displayName: String
+  let rawValue: String
+}
 
   // Best-effort resolution of the Swipe Actions sheet's list container
   @MainActor
@@ -1064,21 +1091,21 @@ extension SwipeConfigurationUITests {
 
       let collections = root.collectionViews.matching(NSPredicate(value: true))
       for i in 0..<collections.count {
-        let cv = collections.element(boundBy: i)
-        if cv.exists
-          && cv.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+        let collectionCandidate = collections.element(boundBy: i)
+        if collectionCandidate.exists
+          && collectionCandidate.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
         {
-          return cv
+          return collectionCandidate
         }
       }
 
       let scrolls = root.scrollViews.matching(NSPredicate(value: true))
       for i in 0..<scrolls.count {
-        let sv = scrolls.element(boundBy: i)
-        if sv.exists
-          && sv.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+        let scrollCandidate = scrolls.element(boundBy: i)
+        if scrollCandidate.exists
+          && scrollCandidate.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
         {
-          return sv
+          return scrollCandidate
         }
       }
       return nil
@@ -1186,3 +1213,5 @@ extension SwipeConfigurationUITests {
     return nil
   }
 }
+
+// swiftlint:enable type_body_length
