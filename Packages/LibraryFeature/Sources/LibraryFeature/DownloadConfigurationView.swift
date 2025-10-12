@@ -69,7 +69,8 @@ public struct DownloadConfigurationView: View {
           set: { controller.setMaxConcurrentDownloads($0) }
         ),
         in: ValidationConstants.minConcurrentDownloads...ValidationConstants.maxConcurrentDownloads,
-        accessibilityIdentifier: "Download.ConcurrentStepper"
+        accessibilityIdentifier: "Download.ConcurrentStepper",
+        footer: "Higher values allow more simultaneous downloads but may impact bandwidth."
       ) { value in
         LocalizedStringKey("Concurrent downloads: \(value)")
       }
@@ -81,7 +82,8 @@ public struct DownloadConfigurationView: View {
           set: { controller.setUpdateFrequency($0) }
         ),
         options: UpdateFrequency.allCases,
-        accessibilityIdentifier: "Download.UpdateFrequencyPicker"
+        accessibilityIdentifier: "Download.UpdateFrequencyPicker",
+        footer: "Controls how often new episodes are discovered."
       ) { frequency in
         Text(frequency.displayName).tag(frequency)
       }
@@ -99,7 +101,8 @@ public struct DownloadConfigurationView: View {
         options: RetentionPolicyOption
           .options(including: controller.retentionPolicy)
           .map(\.policy),
-        accessibilityIdentifier: "Download.RetentionPicker"
+        accessibilityIdentifier: "Download.RetentionPicker",
+        footer: "Determines when completed episodes are removed."
       ) { policy in
         Text(RetentionPolicyOption.label(for: policy)).tag(policy)
       }

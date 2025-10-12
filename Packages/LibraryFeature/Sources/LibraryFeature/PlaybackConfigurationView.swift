@@ -66,6 +66,7 @@ public struct PlaybackConfigurationView: View {
         valueAccessibilityIdentifier: "Playback.SpeedValue",
         valueFont: .headline,
         valueForegroundStyle: .primary,
+        footer: "Adjust playback speed between half and triple speed.",
         formatValue: { value in String(format: "%.1fx", value) }
       )
 
@@ -80,6 +81,7 @@ public struct PlaybackConfigurationView: View {
 
       SettingsToggleRow(
         "Smart speed",
+        subtitle: "Trim silence without changing voice pitch.",
         isOn: Binding(
           get: { controller.smartSpeedEnabled },
           set: { controller.setSmartSpeedEnabled($0) }
@@ -173,6 +175,7 @@ public struct PlaybackConfigurationView: View {
           in: 0.5...10,
           step: 0.5,
           valueAccessibilityIdentifier: "Playback.CrossfadeDurationValue",
+          footer: "Fade between episodes to avoid abrupt starts/stops.",
           formatValue: { value in String(format: "%.1f seconds", value) }
         )
       }
@@ -196,6 +199,7 @@ public struct PlaybackConfigurationView: View {
           in: 0.5...0.99,
           step: 0.01,
           valueAccessibilityIdentifier: "Playback.PlayedThresholdValue",
+          footer: "Episodes will auto-mark as played once the threshold is reached.",
           formatValue: { value in String(format: "%.0f%% of episode", value * 100) }
         )
       }

@@ -297,6 +297,8 @@ struct SettingsPickerRow<Selection: Hashable, Content: View>: View {
     let options: [Selection]
     var accessibilityIdentifier: String?
     let optionLabel: (Selection) -> Content
+    var footer: LocalizedStringKey?
+    var footerForegroundStyle: Color = .secondary
     var onSelectionChange: ((Selection) -> Void)?
 
     init(
@@ -304,6 +306,8 @@ struct SettingsPickerRow<Selection: Hashable, Content: View>: View {
         selection: Binding<Selection>,
         options: [Selection],
         accessibilityIdentifier: String? = nil,
+        footer: LocalizedStringKey? = nil,
+        footerForegroundStyle: Color = .secondary,
         onSelectionChange: ((Selection) -> Void)? = nil,
         @ViewBuilder optionLabel: @escaping (Selection) -> Content
     ) {
@@ -312,20 +316,30 @@ struct SettingsPickerRow<Selection: Hashable, Content: View>: View {
         self.options = options
         self.accessibilityIdentifier = accessibilityIdentifier
         self.optionLabel = optionLabel
+        self.footer = footer
+        self.footerForegroundStyle = footerForegroundStyle
         self.onSelectionChange = onSelectionChange
     }
 
     var body: some View {
-        Picker(title, selection: Binding(
-            get: { selection },
-            set: { newValue in
-                selection = newValue
-                onSelectionChange?(newValue)
+        VStack(alignment: .leading, spacing: 4) {
+            Picker(title, selection: Binding(
+                get: { selection },
+                set: { newValue in
+                    selection = newValue
+                    onSelectionChange?(newValue)
+                }
+            )) {
+                ForEach(options, id: \.self, content: optionLabel)
             }
-        )) {
-            ForEach(options, id: \.self, content: optionLabel)
+            .applyAccessibilityIdentifier(accessibilityIdentifier)
+
+            if let footer {
+                Text(footer)
+                    .font(.footnote)
+                    .foregroundStyle(footerForegroundStyle)
+            }
         }
-        .applyAccessibilityIdentifier(accessibilityIdentifier)
     }
 }
 
