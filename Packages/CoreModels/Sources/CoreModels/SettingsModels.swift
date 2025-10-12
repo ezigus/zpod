@@ -187,3 +187,68 @@ public struct UISettings: Codable, Equatable, Sendable {
         hapticStyle: .medium
     )
 }
+
+// MARK: - Appearance Settings
+
+public enum AppearanceTheme: String, CaseIterable, Codable, Sendable {
+    case system
+    case light
+    case dark
+    case highContrast
+
+    public var displayName: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .highContrast: return "High Contrast"
+        }
+    }
+}
+
+public enum AppearanceTint: String, CaseIterable, Codable, Sendable {
+    case accent
+    case blue
+    case orange
+    case purple
+    case green
+    case pink
+
+    public var displayName: String {
+        switch self {
+        case .accent: return "Accent"
+        case .blue: return "Blue"
+        case .orange: return "Orange"
+        case .purple: return "Purple"
+        case .green: return "Green"
+        case .pink: return "Pink"
+        }
+    }
+}
+
+public struct AppearanceSettings: Codable, Equatable, Sendable {
+    public var theme: AppearanceTheme
+    public var preferredTint: AppearanceTint
+    public var typographyScale: Double
+    public var reduceMotionEnabled: Bool
+    public var reduceHapticsEnabled: Bool
+    public var highContrastEnabled: Bool
+
+    public init(
+        theme: AppearanceTheme = .system,
+        preferredTint: AppearanceTint = .accent,
+        typographyScale: Double = 1.0,
+        reduceMotionEnabled: Bool = false,
+        reduceHapticsEnabled: Bool = false,
+        highContrastEnabled: Bool = false
+    ) {
+        self.theme = theme
+        self.preferredTint = preferredTint
+        self.typographyScale = typographyScale
+        self.reduceMotionEnabled = reduceMotionEnabled
+        self.reduceHapticsEnabled = reduceHapticsEnabled
+        self.highContrastEnabled = highContrastEnabled
+    }
+
+    public static let `default` = AppearanceSettings()
+}

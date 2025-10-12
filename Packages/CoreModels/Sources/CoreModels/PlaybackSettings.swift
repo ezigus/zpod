@@ -1,5 +1,26 @@
 @preconcurrency import Foundation
 
+/// Notification delivery cadence.
+public enum NotificationDeliverySchedule: String, CaseIterable, Codable, Sendable {
+    case immediate
+    case batched
+    case dailyDigest
+    case weeklySummary
+
+    public var localizedDescription: String {
+        switch self {
+        case .immediate:
+            return "Immediate"
+        case .batched:
+            return "Batched"
+        case .dailyDigest:
+            return "Daily Digest"
+        case .weeklySummary:
+            return "Weekly Summary"
+        }
+    }
+}
+
 /// Global notification settings
 public struct NotificationSettings: Codable, Equatable, Sendable {
     public var newEpisodeNotificationsEnabled: Bool
@@ -10,6 +31,9 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
     public var quietHoursEnd: String // "HH:mm" format
     public var soundEnabled: Bool?
     public var customSounds: [String: String]?
+    public var deliverySchedule: NotificationDeliverySchedule
+    public var focusModeIntegrationEnabled: Bool
+    public var liveActivitiesEnabled: Bool
     
     public init(
         newEpisodeNotificationsEnabled: Bool = true,
@@ -19,7 +43,10 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
         quietHoursStart: String = "22:00",
         quietHoursEnd: String = "08:00",
         soundEnabled: Bool? = nil,
-        customSounds: [String: String]? = nil
+        customSounds: [String: String]? = nil,
+        deliverySchedule: NotificationDeliverySchedule = .immediate,
+        focusModeIntegrationEnabled: Bool = false,
+        liveActivitiesEnabled: Bool = true
     ) {
         self.newEpisodeNotificationsEnabled = newEpisodeNotificationsEnabled
         self.downloadCompleteNotificationsEnabled = downloadCompleteNotificationsEnabled
@@ -29,6 +56,9 @@ public struct NotificationSettings: Codable, Equatable, Sendable {
         self.quietHoursEnd = quietHoursEnd
         self.soundEnabled = soundEnabled
         self.customSounds = customSounds
+        self.deliverySchedule = deliverySchedule
+        self.focusModeIntegrationEnabled = focusModeIntegrationEnabled
+        self.liveActivitiesEnabled = liveActivitiesEnabled
     }
     
     public static let `default` = NotificationSettings()

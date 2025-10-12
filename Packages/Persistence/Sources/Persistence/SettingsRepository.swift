@@ -13,6 +13,7 @@ public enum SettingsChange: Equatable, Sendable {
     case globalNotification(NotificationSettings)
     case globalPlayback(PlaybackSettings)
     case globalUI(UISettings)
+    case globalAppearance(AppearanceSettings)
     case podcastDownload(String, PodcastDownloadSettings?)
     case podcastPlayback(String, PodcastPlaybackSettings?)
 }
@@ -31,6 +32,9 @@ public protocol SettingsRepository: Sendable {
     
     func loadGlobalUISettings() async -> UISettings
     func saveGlobalUISettings(_ settings: UISettings) async
+
+    func loadGlobalAppearanceSettings() async -> AppearanceSettings
+    func saveGlobalAppearanceSettings(_ settings: AppearanceSettings) async
     
     // Per-podcast overrides
     func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings?
@@ -70,6 +74,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         static let globalNotification = "global_notification_settings"
         static let globalPlayback = "global_playback_settings"
         static let globalUI = "global_ui_settings"
+        static let globalAppearance = "global_appearance_settings"
         static let podcastDownloadPrefix = "podcast_download_"
         static let podcastPlaybackPrefix = "podcast_playback_"
     }
@@ -190,6 +195,35 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         } catch {
             #if canImport(os)
             os_log("Failed to encode global UI settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+        }
+    }
+
+    public func loadGlobalAppearanceSettings() async -> AppearanceSettings {
+        guard let data = userDefaults.data(forKey: Keys.globalAppearance) else {
+            return AppearanceSettings.default
+        }
+
+        do {
+            return try JSONDecoder().decode(AppearanceSettings.self, from: data)
+        } catch {
+            #if canImport(os)
+            os_log("Failed to decode global appearance settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+            return AppearanceSettings.default
+        }
+    }
+
+    public func saveGlobalAppearanceSettings(_ settings: AppearanceSettings) async {
+        do {
+            let data = try JSONEncoder().encode(settings)
+            userDefaults.set(data, forKey: Keys.globalAppearance)
+            #if canImport(Combine)
+            settingsChangeSubject.send(.globalAppearance(settings))
+            #endif
+        } catch {
+            #if canImport(os)
+            os_log("Failed to encode global appearance settings: %{public}@", log: logger, type: .error, error.localizedDescription)
             #endif
         }
     }

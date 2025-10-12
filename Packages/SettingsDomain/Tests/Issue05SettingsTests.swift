@@ -105,10 +105,14 @@ final class Issue05SettingsTests: XCTestCase {
         let settings = NotificationSettings.default
         
         // Then: Should have expected default values
-        XCTAssertEqual(settings.newEpisodeNotifications, true)
-        XCTAssertEqual(settings.downloadCompleteNotifications, false)
-        XCTAssertEqual(settings.soundEnabled, true)
-        XCTAssertTrue(settings.customSounds.isEmpty)
+        XCTAssertTrue(settings.newEpisodeNotificationsEnabled)
+        XCTAssertTrue(settings.downloadCompleteNotificationsEnabled)
+        XCTAssertTrue(settings.playbackNotificationsEnabled)
+        XCTAssertNil(settings.soundEnabled)
+        XCTAssertNil(settings.customSounds)
+        XCTAssertEqual(settings.deliverySchedule, .immediate)
+        XCTAssertFalse(settings.focusModeIntegrationEnabled)
+        XCTAssertTrue(settings.liveActivitiesEnabled)
     }
     
     func testNotificationSettingsWithCustomSounds() {
@@ -118,25 +122,39 @@ final class Issue05SettingsTests: XCTestCase {
             "podcast-2": "bell.wav"
         ]
         let settings = NotificationSettings(
-            newEpisodeNotifications: true,
-            downloadCompleteNotifications: true,
+            newEpisodeNotificationsEnabled: true,
+            downloadCompleteNotificationsEnabled: true,
+            playbackNotificationsEnabled: true,
+            quietHoursEnabled: false,
             soundEnabled: true,
-            customSounds: customSounds
+            customSounds: customSounds,
+            deliverySchedule: .batched,
+            focusModeIntegrationEnabled: true,
+            liveActivitiesEnabled: false
         )
         
         // Then: Should have expected values
-        XCTAssertEqual(settings.customSounds.count, 2)
-        XCTAssertEqual(settings.customSounds["podcast-1"], "chime.wav")
-        XCTAssertEqual(settings.customSounds["podcast-2"], "bell.wav")
+        XCTAssertEqual(settings.customSounds?["podcast-1"], "chime.wav")
+        XCTAssertEqual(settings.customSounds?["podcast-2"], "bell.wav")
+        XCTAssertEqual(settings.deliverySchedule, .batched)
+        XCTAssertTrue(settings.focusModeIntegrationEnabled)
+        XCTAssertFalse(settings.liveActivitiesEnabled)
     }
     
     func testNotificationSettingsCodable() throws {
         // Given: NotificationSettings with custom sounds
         let original = NotificationSettings(
-            newEpisodeNotifications: false,
-            downloadCompleteNotifications: true,
+            newEpisodeNotificationsEnabled: false,
+            downloadCompleteNotificationsEnabled: true,
+            playbackNotificationsEnabled: false,
+            quietHoursEnabled: true,
+            quietHoursStart: "20:00",
+            quietHoursEnd: "07:00",
             soundEnabled: false,
-            customSounds: ["test": "sound.wav"]
+            customSounds: ["test": "sound.wav"],
+            deliverySchedule: .weeklySummary,
+            focusModeIntegrationEnabled: true,
+            liveActivitiesEnabled: false
         )
         
         // When: Encode and decode
@@ -144,6 +162,33 @@ final class Issue05SettingsTests: XCTestCase {
         let decoded = try JSONDecoder().decode(NotificationSettings.self, from: data)
         
         // Then: Should round-trip correctly
+        XCTAssertEqual(original, decoded)
+    }
+
+    func testAppearanceSettingsDefaults() {
+        let settings = AppearanceSettings.default
+
+        XCTAssertEqual(settings.theme, .system)
+        XCTAssertEqual(settings.preferredTint, .accent)
+        XCTAssertEqual(settings.typographyScale, 1.0, accuracy: 0.0001)
+        XCTAssertFalse(settings.reduceMotionEnabled)
+        XCTAssertFalse(settings.reduceHapticsEnabled)
+        XCTAssertFalse(settings.highContrastEnabled)
+    }
+
+    func testAppearanceSettingsCodable() throws {
+        let original = AppearanceSettings(
+            theme: .highContrast,
+            preferredTint: .orange,
+            typographyScale: 1.35,
+            reduceMotionEnabled: true,
+            reduceHapticsEnabled: true,
+            highContrastEnabled: true
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(AppearanceSettings.self, from: data)
+
         XCTAssertEqual(original, decoded)
     }
     
@@ -177,17 +222,41 @@ final class Issue05SettingsTests: XCTestCase {
         let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
         
         let originalSettings = NotificationSettings(
-            newEpisodeNotifications: false,
-            downloadCompleteNotifications: true,
+            newEpisodeNotificationsEnabled: false,
+            downloadCompleteNotificationsEnabled: true,
+            playbackNotificationsEnabled: true,
             soundEnabled: false,
-            customSounds: ["test": "test.wav"]
+            customSounds: ["test": "test.wav"],
+            deliverySchedule: .dailyDigest,
+            focusModeIntegrationEnabled: true,
+            liveActivitiesEnabled: false
         )
-        
+
         // When: Save and load settings
         repository.saveGlobalNotificationSettings(originalSettings)
         let loadedSettings = repository.loadGlobalNotificationSettings()
-        
+
         // Then: Should load same settings
+        XCTAssertEqual(loadedSettings, originalSettings)
+    }
+
+    func testUserDefaultsSettingsRepositorySaveLoadAppearanceSettings() {
+        let userDefaults = UserDefaults(suiteName: "test-appearance")!
+        userDefaults.removePersistentDomain(forName: "test-appearance")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+
+        let originalSettings = AppearanceSettings(
+            theme: .dark,
+            preferredTint: .purple,
+            typographyScale: 1.25,
+            reduceMotionEnabled: true,
+            reduceHapticsEnabled: false,
+            highContrastEnabled: true
+        )
+
+        repository.saveGlobalAppearanceSettings(originalSettings)
+        let loadedSettings = repository.loadGlobalAppearanceSettings()
+
         XCTAssertEqual(loadedSettings, originalSettings)
     }
     

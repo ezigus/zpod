@@ -23,6 +23,53 @@ final class SettingsFeatureRouteFactoryTests: XCTestCase {
         XCTAssertNotNil(destination)
     }
 
+    func testMakeRouteReturnsNotificationsRoute() async {
+        let initial = NotificationSettings(
+            newEpisodeNotificationsEnabled: false,
+            downloadCompleteNotificationsEnabled: true,
+            playbackNotificationsEnabled: true,
+            quietHoursEnabled: false,
+            deliverySchedule: .dailyDigest,
+            focusModeIntegrationEnabled: true,
+            liveActivitiesEnabled: false
+        )
+        let service = InMemoryNotificationsService(initial: initial)
+        let controller = NotificationsConfigurationController(service: service)
+
+        let route = SettingsFeatureRouteFactory.makeRoute(
+            descriptorID: "notifications",
+            controller: controller
+        )
+
+        XCTAssertNotNil(route)
+        await route?.loadBaseline()
+        XCTAssertEqual(controller.deliverySchedule, .dailyDigest)
+        XCTAssertNotNil(route?.destination())
+    }
+
+    func testMakeRouteReturnsAppearanceRoute() async {
+        let initial = AppearanceSettings(
+            theme: .dark,
+            preferredTint: .purple,
+            typographyScale: 1.2,
+            reduceMotionEnabled: true,
+            reduceHapticsEnabled: false,
+            highContrastEnabled: true
+        )
+        let service = InMemoryAppearanceService(initial: initial)
+        let controller = AppearanceConfigurationController(service: service)
+
+        let route = SettingsFeatureRouteFactory.makeRoute(
+            descriptorID: "appearance",
+            controller: controller
+        )
+
+        XCTAssertNotNil(route)
+        await route?.loadBaseline()
+        XCTAssertEqual(controller.typographyScale, 1.2, accuracy: 0.001)
+        XCTAssertNotNil(route?.destination())
+    }
+
     func testMakeRouteReturnsPlaybackRoute() async {
         let initial = PlaybackSettings(globalPlaybackSpeed: 1.5)
         let service = InMemoryPlaybackService(initial: initial)
@@ -145,6 +192,58 @@ actor InMemoryDownloadService: DownloadConfigurationServicing {
     }
 
     private func storeContinuation(_ continuation: AsyncStream<DownloadSettings>.Continuation) {
+        self.continuation = continuation
+    }
+}
+
+actor InMemoryNotificationsService: NotificationsConfigurationServicing {
+    private var stored: NotificationSettings
+    private var continuation: AsyncStream<NotificationSettings>.Continuation?
+
+    init(initial: NotificationSettings) {
+        self.stored = initial
+    }
+
+    func load() async -> NotificationSettings { stored }
+
+    func save(_ settings: NotificationSettings) async {
+        stored = settings
+        continuation?.yield(settings)
+    }
+
+    nonisolated func updatesStream() -> AsyncStream<NotificationSettings> {
+        AsyncStream { continuation in
+            Task { await self.storeContinuation(continuation) }
+        }
+    }
+
+    private func storeContinuation(_ continuation: AsyncStream<NotificationSettings>.Continuation) {
+        self.continuation = continuation
+    }
+}
+
+actor InMemoryAppearanceService: AppearanceConfigurationServicing {
+    private var stored: AppearanceSettings
+    private var continuation: AsyncStream<AppearanceSettings>.Continuation?
+
+    init(initial: AppearanceSettings) {
+        stored = initial
+    }
+
+    func load() async -> AppearanceSettings { stored }
+
+    func save(_ settings: AppearanceSettings) async {
+        stored = settings
+        continuation?.yield(settings)
+    }
+
+    nonisolated func updatesStream() -> AsyncStream<AppearanceSettings> {
+        AsyncStream { continuation in
+            Task { await self.storeContinuation(continuation) }
+        }
+    }
+
+    private func storeContinuation(_ continuation: AsyncStream<AppearanceSettings>.Continuation) {
         self.continuation = continuation
     }
 }

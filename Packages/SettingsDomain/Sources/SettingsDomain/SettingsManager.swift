@@ -23,20 +23,32 @@ public class SettingsManager {
     #if canImport(Combine)
     @Published public private(set) var globalDownloadSettings: DownloadSettings
     @Published public private(set) var globalNotificationSettings: NotificationSettings  
+    @Published public private(set) var globalAppearanceSettings: AppearanceSettings
     @Published public private(set) var globalPlaybackSettings: PlaybackSettings
     @Published public private(set) var globalUISettings: UISettings
     #else
     public private(set) var globalDownloadSettings: DownloadSettings
     public private(set) var globalNotificationSettings: NotificationSettings
+    public private(set) var globalAppearanceSettings: AppearanceSettings
     public private(set) var globalPlaybackSettings: PlaybackSettings
     public private(set) var globalUISettings: UISettings
     #endif
 
+    private let notificationsConfigurationServiceImpl: NotificationsConfigurationServicing
+    private let appearanceConfigurationServiceImpl: AppearanceConfigurationServicing
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
     private let playbackConfigurationServiceImpl: PlaybackConfigurationServicing
     private let downloadConfigurationServiceImpl: DownloadConfigurationServicing
     public let featureConfigurationRegistry: FeatureConfigurationRegistry
     private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
+
+    public var notificationsConfigurationService: NotificationsConfigurationServicing {
+        notificationsConfigurationServiceImpl
+    }
+
+    public var appearanceConfigurationService: AppearanceConfigurationServicing {
+        appearanceConfigurationServiceImpl
+    }
 
     public var swipeConfigurationService: SwipeConfigurationServicing {
         swipeConfigurationServiceImpl
@@ -57,6 +69,18 @@ public class SettingsManager {
             hapticStyle: globalUISettings.hapticStyle
         )
         controller.bootstrap(with: configuration)
+        return controller
+    }
+
+    public func makeNotificationsConfigurationController() -> NotificationsConfigurationController {
+        let controller = NotificationsConfigurationController(service: notificationsConfigurationServiceImpl)
+        controller.bootstrap(with: globalNotificationSettings)
+        return controller
+    }
+
+    public func makeAppearanceConfigurationController() -> AppearanceConfigurationController {
+        let controller = AppearanceConfigurationController(service: appearanceConfigurationServiceImpl)
+        controller.bootstrap(with: globalAppearanceSettings)
         return controller
     }
 
@@ -87,7 +111,11 @@ public class SettingsManager {
 
         let controller: any FeatureConfigurationControlling
 
-        if id == "swipeActions" {
+        if id == "notifications" {
+            controller = makeNotificationsConfigurationController()
+        } else if id == "appearance" {
+            controller = makeAppearanceConfigurationController()
+        } else if id == "swipeActions" {
             controller = makeSwipeConfigurationController()
         } else if id == "playbackPreferences" {
             controller = makePlaybackConfigurationController()
@@ -110,14 +138,20 @@ public class SettingsManager {
     public init(repository: SettingsRepository) {
         self.repository = repository
 
+        let notificationsService = NotificationsConfigurationService(repository: repository)
+        let appearanceService = AppearanceConfigurationService(repository: repository)
         let swipeService = SwipeConfigurationService(repository: repository)
         let playbackService = PlaybackConfigurationService(repository: repository)
         let downloadService = DownloadConfigurationService(repository: repository)
+        self.notificationsConfigurationServiceImpl = notificationsService
+        self.appearanceConfigurationServiceImpl = appearanceService
         self.swipeConfigurationServiceImpl = swipeService
         self.playbackConfigurationServiceImpl = playbackService
         self.downloadConfigurationServiceImpl = downloadService
         self.featureConfigurationRegistry = FeatureConfigurationRegistry(
             features: [
+                NotificationsConfigurationFeature(service: notificationsService),
+                AppearanceConfigurationFeature(service: appearanceService),
                 SwipeConfigurationFeature(service: swipeService),
                 PlaybackConfigurationFeature(service: playbackService),
                 DownloadConfigurationFeature(service: downloadService)
@@ -127,6 +161,7 @@ public class SettingsManager {
         // Initialize with defaults temporarily
         self.globalDownloadSettings = DownloadSettings.default
         self.globalNotificationSettings = NotificationSettings.default
+        self.globalAppearanceSettings = AppearanceSettings.default
         self.globalPlaybackSettings = PlaybackSettings()
         self.globalUISettings = UISettings.default
         
@@ -134,12 +169,14 @@ public class SettingsManager {
         Task {
             let downloadSettings = await repository.loadGlobalDownloadSettings()
             let notificationSettings = await repository.loadGlobalNotificationSettings()
+            let appearanceSettings = await repository.loadGlobalAppearanceSettings()
             let playbackSettings = await repository.loadGlobalPlaybackSettings()
             let uiSettings = await repository.loadGlobalUISettings()
             
             await MainActor.run {
                 self.globalDownloadSettings = downloadSettings
                 self.globalNotificationSettings = notificationSettings
+                self.globalAppearanceSettings = appearanceSettings
                 self.globalPlaybackSettings = playbackSettings
                 self.globalUISettings = uiSettings
             }
@@ -227,7 +264,10 @@ public class SettingsManager {
             quietHoursStart: global.quietHoursStart,
             quietHoursEnd: global.quietHoursEnd,
             soundEnabled: global.soundEnabled,
-            customSounds: global.customSounds
+            customSounds: global.customSounds,
+            deliverySchedule: global.deliverySchedule,
+            focusModeIntegrationEnabled: global.focusModeIntegrationEnabled,
+            liveActivitiesEnabled: global.liveActivitiesEnabled
         )
     }
     
@@ -266,7 +306,13 @@ public class SettingsManager {
         await repository.saveGlobalNotificationSettings(settings)
         globalNotificationSettings = settings
     }
-    
+
+    /// Update global appearance settings
+    public func updateGlobalAppearanceSettings(_ settings: AppearanceSettings) async {
+        await repository.saveGlobalAppearanceSettings(settings)
+        globalAppearanceSettings = settings
+    }
+
     /// Update global UI settings
     public func updateGlobalUISettings(_ settings: UISettings) async {
         await repository.saveGlobalUISettings(settings)
@@ -313,6 +359,8 @@ public class SettingsManager {
             globalDownloadSettings = settings
         case .globalNotification(let settings):
             globalNotificationSettings = settings
+        case .globalAppearance(let settings):
+            globalAppearanceSettings = settings
         case .globalPlayback(let settings):
             globalPlaybackSettings = settings
         case .globalUI(let settings):

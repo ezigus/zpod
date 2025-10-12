@@ -14,6 +14,18 @@ enum SettingsFeatureRouteFactory {
     controller: any FeatureConfigurationControlling
   ) -> SettingsFeatureRoute? {
     switch descriptorID {
+    case "notifications":
+      guard let controller = controller as? NotificationsConfigurationController else { return nil }
+      return SettingsFeatureRoute(
+        loadBaseline: { await controller.loadBaseline() },
+        destination: { AnyView(NotificationsConfigurationView(controller: controller)) }
+      )
+    case "appearance":
+      guard let controller = controller as? AppearanceConfigurationController else { return nil }
+      return SettingsFeatureRoute(
+        loadBaseline: { await controller.loadBaseline() },
+        destination: { AnyView(AppearanceConfigurationView(controller: controller)) }
+      )
     case "swipeActions":
       guard let controller = controller as? SwipeConfigurationController else { return nil }
       return SettingsFeatureRoute(

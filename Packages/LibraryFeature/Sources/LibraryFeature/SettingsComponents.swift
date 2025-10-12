@@ -107,7 +107,7 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
 }
 
 struct SettingsPresetButton: View {
-    let title: LocalizedStringKey
+    private let titleText: Text
     var description: LocalizedStringKey?
     var accessibilityIdentifier: String?
     var isActive: Bool
@@ -120,7 +120,21 @@ struct SettingsPresetButton: View {
         accessibilityIdentifier: String? = nil,
         action: @escaping () -> Void
     ) {
-        self.title = title
+        self.titleText = Text(title)
+        self.description = description
+        self.isActive = isActive
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.action = action
+    }
+
+    init(
+        verbatim title: String,
+        description: LocalizedStringKey? = nil,
+        isActive: Bool,
+        accessibilityIdentifier: String? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.titleText = Text(verbatim: title)
         self.description = description
         self.isActive = isActive
         self.accessibilityIdentifier = accessibilityIdentifier
@@ -131,7 +145,7 @@ struct SettingsPresetButton: View {
         Button(action: action) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: description == nil ? 0 : 4) {
-                    Text(title)
+                    titleText
                         .foregroundStyle(Color.primary)
                     if let description {
                         Text(description)

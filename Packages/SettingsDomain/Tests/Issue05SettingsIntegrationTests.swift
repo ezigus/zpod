@@ -126,20 +126,49 @@ final class Issue05SettingsIntegrationTests: XCTestCase {
         
         // When: Set global notification settings with custom sounds
         let globalNotifications = NotificationSettings(
-            newEpisodeNotifications: true,
-            downloadCompleteNotifications: false,
+            newEpisodeNotificationsEnabled: true,
+            downloadCompleteNotificationsEnabled: false,
+            playbackNotificationsEnabled: true,
+            quietHoursEnabled: false,
             soundEnabled: true,
-            customSounds: [podcastId: "custom-chime.wav"]
+            customSounds: [podcastId: "custom-chime.wav"],
+            deliverySchedule: .dailyDigest,
+            focusModeIntegrationEnabled: false,
+            liveActivitiesEnabled: true
         )
         manager.updateGlobalNotificationSettings(globalNotifications)
         
         // Then: Effective settings should include custom sound
         let effective = manager.effectiveNotificationSettings(for: podcastId)
         
-        XCTAssertEqual(effective.newEpisodeNotifications, true)
-        XCTAssertEqual(effective.downloadCompleteNotifications, false)
+        XCTAssertTrue(effective.newEpisodeNotificationsEnabled)
+        XCTAssertFalse(effective.downloadCompleteNotificationsEnabled)
         XCTAssertEqual(effective.soundEnabled, true)
-        XCTAssertEqual(effective.customSounds[podcastId], "custom-chime.wav")
+        XCTAssertEqual(effective.customSounds?[podcastId], "custom-chime.wav")
+    }
+
+    @MainActor
+    func testAppearanceSettingsIntegration() async {
+        let userDefaults = UserDefaults(suiteName: "test-appearance-integration")!
+        userDefaults.removePersistentDomain(forName: "test-appearance-integration")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        let manager = SettingsManager(repository: repository)
+
+        let appearance = AppearanceSettings(
+            theme: .dark,
+            preferredTint: .pink,
+            typographyScale: 1.3,
+            reduceMotionEnabled: true,
+            reduceHapticsEnabled: true,
+            highContrastEnabled: false
+        )
+
+        await manager.updateGlobalAppearanceSettings(appearance)
+
+        XCTAssertEqual(manager.globalAppearanceSettings.theme, .dark)
+        XCTAssertEqual(manager.globalAppearanceSettings.preferredTint, .pink)
+        XCTAssertTrue(manager.globalAppearanceSettings.reduceMotionEnabled)
+        XCTAssertEqual(manager.globalAppearanceSettings.typographyScale, 1.3, accuracy: 0.0001)
     }
     
     @MainActor
