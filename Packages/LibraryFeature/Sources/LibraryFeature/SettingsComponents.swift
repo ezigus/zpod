@@ -5,6 +5,8 @@ struct SettingsToggleRow: View {
     var subtitle: LocalizedStringKey?
     @Binding var isOn: Bool
     var accessibilityIdentifier: String?
+    var footer: LocalizedStringKey?
+    var footerForegroundStyle: Color = .secondary
     var onToggle: ((Bool) -> Void)?
 
     init(
@@ -12,17 +14,21 @@ struct SettingsToggleRow: View {
         subtitle: LocalizedStringKey? = nil,
         isOn: Binding<Bool>,
         accessibilityIdentifier: String? = nil,
+        footer: LocalizedStringKey? = nil,
+        footerForegroundStyle: Color = .secondary,
         onToggle: ((Bool) -> Void)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
         self._isOn = isOn
         self.accessibilityIdentifier = accessibilityIdentifier
+        self.footer = footer
+        self.footerForegroundStyle = footerForegroundStyle
         self.onToggle = onToggle
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: subtitle == nil ? 0 : 4) {
+        VStack(alignment: .leading, spacing: 4) {
             Toggle(title, isOn: Binding(
                 get: { isOn },
                 set: { newValue in
@@ -38,8 +44,14 @@ struct SettingsToggleRow: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            if let footer {
+                Text(footer)
+                    .font(.footnote)
+                    .foregroundStyle(footerForegroundStyle)
+            }
         }
-        .padding(.vertical, subtitle == nil ? 0 : 2)
+        .padding(.vertical, (subtitle ?? footer) == nil ? 0 : 2)
     }
 }
 
