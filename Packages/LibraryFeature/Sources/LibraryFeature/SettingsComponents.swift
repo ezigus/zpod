@@ -49,6 +49,8 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
     let options: [Selection]
     let optionLabel: (Selection) -> Content
     var accessibilityIdentifier: String?
+    var footer: LocalizedStringKey?
+    var footerForegroundStyle: Color = .secondary
     var onSelectionChange: ((Selection) -> Void)?
 
     init(
@@ -56,6 +58,8 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
         selection: Binding<Selection>,
         options: [Selection],
         accessibilityIdentifier: String? = nil,
+        footer: LocalizedStringKey? = nil,
+        footerForegroundStyle: Color = .secondary,
         onSelectionChange: ((Selection) -> Void)? = nil,
         @ViewBuilder optionLabel: @escaping (Selection) -> Content
     ) {
@@ -64,6 +68,8 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
         self.options = options
         self.optionLabel = optionLabel
         self.accessibilityIdentifier = accessibilityIdentifier
+        self.footer = footer
+        self.footerForegroundStyle = footerForegroundStyle
         self.onSelectionChange = onSelectionChange
     }
 
@@ -79,6 +85,12 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
         }
         .pickerStyle(.segmented)
         .applyAccessibilityIdentifier(accessibilityIdentifier)
+
+        if let footer {
+            Text(footer)
+                .font(.footnote)
+                .foregroundStyle(footerForegroundStyle)
+        }
     }
 }
 
@@ -138,6 +150,8 @@ struct SettingsSliderRow: View {
     var valueAccessibilityIdentifier: String?
     var valueFont: Font = .footnote
     var valueForegroundStyle: Color = .secondary
+    var footer: LocalizedStringKey?
+    var footerForegroundStyle: Color = .secondary
     var formatValue: (Double) -> String
     var onEditingChanged: ((Bool) -> Void)?
 
@@ -150,6 +164,8 @@ struct SettingsSliderRow: View {
         valueAccessibilityIdentifier: String? = nil,
         valueFont: Font = .footnote,
         valueForegroundStyle: Color = .secondary,
+        footer: LocalizedStringKey? = nil,
+        footerForegroundStyle: Color = .secondary,
         formatValue: @escaping (Double) -> String,
         onEditingChanged: ((Bool) -> Void)? = nil
     ) {
@@ -161,6 +177,8 @@ struct SettingsSliderRow: View {
         self.valueAccessibilityIdentifier = valueAccessibilityIdentifier
         self.valueFont = valueFont
         self.valueForegroundStyle = valueForegroundStyle
+        self.footer = footer
+        self.footerForegroundStyle = footerForegroundStyle
         self.formatValue = formatValue
         self.onEditingChanged = onEditingChanged
     }
@@ -208,6 +226,12 @@ struct SettingsSliderRow: View {
                 .font(valueFont)
                 .foregroundStyle(valueForegroundStyle)
                 .applyAccessibilityIdentifier(valueAccessibilityIdentifier)
+
+            if let footer {
+                Text(footer)
+                    .font(.footnote)
+                    .foregroundStyle(footerForegroundStyle)
+            }
         }
     }
 
@@ -222,6 +246,8 @@ struct SettingsStepperRow: View {
     let range: ClosedRange<Int>
     let step: Int
     var accessibilityIdentifier: String?
+    var footer: LocalizedStringKey?
+    var footerForegroundStyle: Color = .secondary
     var onChange: ((Int) -> Void)?
 
     init(
@@ -229,6 +255,8 @@ struct SettingsStepperRow: View {
         in range: ClosedRange<Int>,
         step: Int = 1,
         accessibilityIdentifier: String? = nil,
+        footer: LocalizedStringKey? = nil,
+        footerForegroundStyle: Color = .secondary,
         onChange: ((Int) -> Void)? = nil,
         titleProvider: @escaping (Int) -> LocalizedStringKey
     ) {
@@ -236,6 +264,8 @@ struct SettingsStepperRow: View {
         self.range = range
         self.step = step
         self.accessibilityIdentifier = accessibilityIdentifier
+        self.footer = footer
+        self.footerForegroundStyle = footerForegroundStyle
         self.onChange = onChange
         self.titleProvider = titleProvider
     }
@@ -252,6 +282,12 @@ struct SettingsStepperRow: View {
             Text(titleProvider(value))
         }
         .applyAccessibilityIdentifier(accessibilityIdentifier)
+
+        if let footer {
+            Text(footer)
+                .font(.footnote)
+                .foregroundStyle(footerForegroundStyle)
+        }
     }
 }
 
