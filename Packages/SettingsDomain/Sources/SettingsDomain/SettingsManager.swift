@@ -20,22 +20,25 @@ public class SettingsManager {
     #endif
     
     // Published properties for reactive UI
-    #if canImport(Combine)
+#if canImport(Combine)
     @Published public private(set) var globalDownloadSettings: DownloadSettings
     @Published public private(set) var globalNotificationSettings: NotificationSettings  
     @Published public private(set) var globalAppearanceSettings: AppearanceSettings
+    @Published public private(set) var globalSmartListAutomationSettings: SmartListRefreshConfiguration
     @Published public private(set) var globalPlaybackSettings: PlaybackSettings
     @Published public private(set) var globalUISettings: UISettings
-    #else
+#else
     public private(set) var globalDownloadSettings: DownloadSettings
     public private(set) var globalNotificationSettings: NotificationSettings
     public private(set) var globalAppearanceSettings: AppearanceSettings
+    public private(set) var globalSmartListAutomationSettings: SmartListRefreshConfiguration
     public private(set) var globalPlaybackSettings: PlaybackSettings
     public private(set) var globalUISettings: UISettings
-    #endif
+#endif
 
     private let notificationsConfigurationServiceImpl: NotificationsConfigurationServicing
     private let appearanceConfigurationServiceImpl: AppearanceConfigurationServicing
+    private let smartListAutomationServiceImpl: SmartListAutomationConfigurationServicing
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
     private let playbackConfigurationServiceImpl: PlaybackConfigurationServicing
     private let downloadConfigurationServiceImpl: DownloadConfigurationServicing
@@ -48,6 +51,10 @@ public class SettingsManager {
 
     public var appearanceConfigurationService: AppearanceConfigurationServicing {
         appearanceConfigurationServiceImpl
+    }
+
+    public var smartListAutomationService: SmartListAutomationConfigurationServicing {
+        smartListAutomationServiceImpl
     }
 
     public var swipeConfigurationService: SwipeConfigurationServicing {
@@ -84,6 +91,12 @@ public class SettingsManager {
         return controller
     }
 
+    public func makeSmartListAutomationConfigurationController() -> SmartListAutomationConfigurationController {
+        let controller = SmartListAutomationConfigurationController(service: smartListAutomationServiceImpl)
+        controller.bootstrap(with: globalSmartListAutomationSettings)
+        return controller
+    }
+
     public func makePlaybackConfigurationController() -> PlaybackConfigurationController {
         let controller = PlaybackConfigurationController(service: playbackConfigurationServiceImpl)
         controller.bootstrap(with: globalPlaybackSettings)
@@ -115,6 +128,8 @@ public class SettingsManager {
             controller = makeNotificationsConfigurationController()
         } else if id == "appearance" {
             controller = makeAppearanceConfigurationController()
+        } else if id == "smartListAutomation" {
+            controller = makeSmartListAutomationConfigurationController()
         } else if id == "swipeActions" {
             controller = makeSwipeConfigurationController()
         } else if id == "playbackPreferences" {
@@ -140,11 +155,13 @@ public class SettingsManager {
 
         let notificationsService = NotificationsConfigurationService(repository: repository)
         let appearanceService = AppearanceConfigurationService(repository: repository)
+        let smartListService = SmartListAutomationConfigurationService(repository: repository)
         let swipeService = SwipeConfigurationService(repository: repository)
         let playbackService = PlaybackConfigurationService(repository: repository)
         let downloadService = DownloadConfigurationService(repository: repository)
         self.notificationsConfigurationServiceImpl = notificationsService
         self.appearanceConfigurationServiceImpl = appearanceService
+        self.smartListAutomationServiceImpl = smartListService
         self.swipeConfigurationServiceImpl = swipeService
         self.playbackConfigurationServiceImpl = playbackService
         self.downloadConfigurationServiceImpl = downloadService
@@ -152,6 +169,7 @@ public class SettingsManager {
             features: [
                 NotificationsConfigurationFeature(service: notificationsService),
                 AppearanceConfigurationFeature(service: appearanceService),
+                SmartListAutomationConfigurationFeature(service: smartListService),
                 SwipeConfigurationFeature(service: swipeService),
                 PlaybackConfigurationFeature(service: playbackService),
                 DownloadConfigurationFeature(service: downloadService)
@@ -162,21 +180,24 @@ public class SettingsManager {
         self.globalDownloadSettings = DownloadSettings.default
         self.globalNotificationSettings = NotificationSettings.default
         self.globalAppearanceSettings = AppearanceSettings.default
+        self.globalSmartListAutomationSettings = SmartListRefreshConfiguration()
         self.globalPlaybackSettings = PlaybackSettings()
         self.globalUISettings = UISettings.default
-        
+
         // Load initial values from repository asynchronously after initialization
         Task {
             let downloadSettings = await repository.loadGlobalDownloadSettings()
             let notificationSettings = await repository.loadGlobalNotificationSettings()
             let appearanceSettings = await repository.loadGlobalAppearanceSettings()
+            let smartListAutomationSettings = await repository.loadSmartListAutomationSettings()
             let playbackSettings = await repository.loadGlobalPlaybackSettings()
             let uiSettings = await repository.loadGlobalUISettings()
-            
+
             await MainActor.run {
                 self.globalDownloadSettings = downloadSettings
                 self.globalNotificationSettings = notificationSettings
                 self.globalAppearanceSettings = appearanceSettings
+                self.globalSmartListAutomationSettings = smartListAutomationSettings
                 self.globalPlaybackSettings = playbackSettings
                 self.globalUISettings = uiSettings
             }
@@ -313,6 +334,12 @@ public class SettingsManager {
         globalAppearanceSettings = settings
     }
 
+    /// Update smart list automation settings
+    public func updateSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async {
+        await repository.saveSmartListAutomationSettings(settings)
+        globalSmartListAutomationSettings = settings
+    }
+
     /// Update global UI settings
     public func updateGlobalUISettings(_ settings: UISettings) async {
         await repository.saveGlobalUISettings(settings)
@@ -361,6 +388,8 @@ public class SettingsManager {
             globalNotificationSettings = settings
         case .globalAppearance(let settings):
             globalAppearanceSettings = settings
+        case .globalSmartListAutomation(let settings):
+            globalSmartListAutomationSettings = settings
         case .globalPlayback(let settings):
             globalPlaybackSettings = settings
         case .globalUI(let settings):

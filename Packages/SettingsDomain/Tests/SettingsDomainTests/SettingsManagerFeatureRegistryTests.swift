@@ -42,6 +42,10 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
       "Registry should include the appearance descriptor"
     )
     XCTAssertTrue(
+      descriptors.contains(where: { $0.id == "smartListAutomation" }),
+      "Registry should include the smart list automation descriptor"
+    )
+    XCTAssertTrue(
       descriptors.contains(where: { $0.id == "swipeActions" }),
       "Registry should include the swipe configuration descriptor"
     )
@@ -87,6 +91,19 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     )
   }
 
+  func testRegistryControllerFactoryReturnsSmartListAutomationController() async throws {
+    let controller = await settingsManager.featureConfigurationRegistry.controller(for: "smartListAutomation")
+    let automationController = controller as? SmartListAutomationConfigurationController
+    XCTAssertNotNil(automationController)
+
+    await automationController?.loadBaseline()
+    XCTAssertEqual(
+      automationController?.maxRefreshPerCycle,
+      settingsManager.globalSmartListAutomationSettings.maxRefreshPerCycle,
+      "Smart list automation controller should load baseline configuration"
+    )
+  }
+
   func testManagerProvidesPreloadedSwipeController() async throws {
     let controller = settingsManager.makeSwipeConfigurationController()
     XCTAssertEqual(
@@ -115,9 +132,18 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     )
   }
 
+  func testManagerProvidesPreloadedSmartListAutomationController() async throws {
+    let controller = settingsManager.makeSmartListAutomationConfigurationController()
+    XCTAssertEqual(
+      controller.maxRefreshPerCycle,
+      settingsManager.globalSmartListAutomationSettings.maxRefreshPerCycle,
+      "Factory smart list controller should mirror current automation settings"
+    )
+  }
+
   func testGroupedDescriptorsProducesSections() async throws {
     let sections = await settingsManager.allFeatureSections()
-    XCTAssertEqual(sections.count, 5)
+    XCTAssertEqual(sections.count, 6)
 
     XCTAssertEqual(sections[0].title, "Engagement")
     XCTAssertEqual(sections[0].descriptors.first?.id, "notifications")
@@ -125,14 +151,17 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertEqual(sections[1].title, "Personalization")
     XCTAssertEqual(sections[1].descriptors.first?.id, "appearance")
 
-    XCTAssertEqual(sections[2].title, "Interaction")
-    XCTAssertEqual(sections[2].descriptors.first?.id, "swipeActions")
+    XCTAssertEqual(sections[2].title, "Automation")
+    XCTAssertEqual(sections[2].descriptors.first?.id, "smartListAutomation")
 
-    XCTAssertEqual(sections[3].title, "Playback")
-    XCTAssertEqual(sections[3].descriptors.first?.id, "playbackPreferences")
+    XCTAssertEqual(sections[3].title, "Interaction")
+    XCTAssertEqual(sections[3].descriptors.first?.id, "swipeActions")
 
-    XCTAssertEqual(sections[4].title, "Downloads")
-    XCTAssertEqual(sections[4].descriptors.first?.id, "downloadPolicies")
+    XCTAssertEqual(sections[4].title, "Playback")
+    XCTAssertEqual(sections[4].descriptors.first?.id, "playbackPreferences")
+
+    XCTAssertEqual(sections[5].title, "Downloads")
+    XCTAssertEqual(sections[5].descriptors.first?.id, "downloadPolicies")
   }
 
   func testControllerCachingReturnsSameInstance() async throws {
@@ -187,6 +216,28 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertNotNil(fresh)
     if let cached, let fresh {
       XCTAssertFalse(cached === fresh, "Bypassing cache should return new appearance controller")
+    }
+  }
+
+  func testSmartListControllerCaching() async throws {
+    let first = await settingsManager.controller(forFeature: "smartListAutomation") as? SmartListAutomationConfigurationController
+    let second = await settingsManager.controller(forFeature: "smartListAutomation") as? SmartListAutomationConfigurationController
+
+    XCTAssertNotNil(first)
+    XCTAssertNotNil(second)
+    if let first, let second {
+      XCTAssertTrue(first === second, "Smart list controller should be cached by default")
+    }
+  }
+
+  func testSmartListControllerBypassReturnsNewInstance() async throws {
+    let cached = await settingsManager.controller(forFeature: "smartListAutomation") as? SmartListAutomationConfigurationController
+    let fresh = await settingsManager.controller(forFeature: "smartListAutomation", useCache: false) as? SmartListAutomationConfigurationController
+
+    XCTAssertNotNil(cached)
+    XCTAssertNotNil(fresh)
+    if let cached, let fresh {
+      XCTAssertFalse(cached === fresh, "Bypassing cache should return new smart list controller")
     }
   }
 

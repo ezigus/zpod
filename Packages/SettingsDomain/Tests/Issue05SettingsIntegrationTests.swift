@@ -170,6 +170,29 @@ final class Issue05SettingsIntegrationTests: XCTestCase {
         XCTAssertTrue(manager.globalAppearanceSettings.reduceMotionEnabled)
         XCTAssertEqual(manager.globalAppearanceSettings.typographyScale, 1.3, accuracy: 0.0001)
     }
+
+    @MainActor
+    func testSmartListAutomationIntegration() async {
+        let userDefaults = UserDefaults(suiteName: "test-smartlist-integration")!
+        userDefaults.removePersistentDomain(forName: "test-smartlist-integration")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        let manager = SettingsManager(repository: repository)
+
+        let automation = SmartListRefreshConfiguration(
+            isEnabled: false,
+            globalInterval: 1800,
+            maxRefreshPerCycle: 3,
+            refreshOnForeground: false,
+            refreshOnNetworkChange: true
+        )
+
+        await manager.updateSmartListAutomationSettings(automation)
+
+        XCTAssertFalse(manager.globalSmartListAutomationSettings.isEnabled)
+        XCTAssertEqual(manager.globalSmartListAutomationSettings.globalInterval, 1800, accuracy: 0.001)
+        XCTAssertEqual(manager.globalSmartListAutomationSettings.maxRefreshPerCycle, 3)
+        XCTAssertTrue(manager.globalSmartListAutomationSettings.refreshOnNetworkChange)
+    }
     
     @MainActor
     func testSettingsManagerReactiveIntegration() {

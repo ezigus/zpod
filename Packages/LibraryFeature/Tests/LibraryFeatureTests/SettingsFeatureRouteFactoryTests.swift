@@ -70,6 +70,28 @@ final class SettingsFeatureRouteFactoryTests: XCTestCase {
         XCTAssertNotNil(route?.destination())
     }
 
+    func testMakeRouteReturnsSmartListAutomationRoute() async {
+        let initial = SmartListRefreshConfiguration(
+            isEnabled: true,
+            globalInterval: 900,
+            maxRefreshPerCycle: 5,
+            refreshOnForeground: true,
+            refreshOnNetworkChange: false
+        )
+        let service = InMemorySmartListAutomationService(initial: initial)
+        let controller = SmartListAutomationConfigurationController(service: service)
+
+        let route = SettingsFeatureRouteFactory.makeRoute(
+            descriptorID: "smartListAutomation",
+            controller: controller
+        )
+
+        XCTAssertNotNil(route)
+        await route?.loadBaseline()
+        XCTAssertEqual(controller.maxRefreshPerCycle, 5)
+        XCTAssertNotNil(route?.destination())
+    }
+
     func testMakeRouteReturnsPlaybackRoute() async {
         let initial = PlaybackSettings(globalPlaybackSpeed: 1.5)
         let service = InMemoryPlaybackService(initial: initial)
@@ -244,6 +266,32 @@ actor InMemoryAppearanceService: AppearanceConfigurationServicing {
     }
 
     private func storeContinuation(_ continuation: AsyncStream<AppearanceSettings>.Continuation) {
+        self.continuation = continuation
+    }
+}
+
+actor InMemorySmartListAutomationService: SmartListAutomationConfigurationServicing {
+    private var stored: SmartListRefreshConfiguration
+    private var continuation: AsyncStream<SmartListRefreshConfiguration>.Continuation?
+
+    init(initial: SmartListRefreshConfiguration) {
+        stored = initial
+    }
+
+    func load() async -> SmartListRefreshConfiguration { stored }
+
+    func save(_ settings: SmartListRefreshConfiguration) async {
+        stored = settings
+        continuation?.yield(settings)
+    }
+
+    nonisolated func updatesStream() -> AsyncStream<SmartListRefreshConfiguration> {
+        AsyncStream { continuation in
+            Task { await self.storeContinuation(continuation) }
+        }
+    }
+
+    private func storeContinuation(_ continuation: AsyncStream<SmartListRefreshConfiguration>.Continuation) {
         self.continuation = continuation
     }
 }

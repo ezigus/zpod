@@ -48,7 +48,7 @@ public extension Notification.Name {
 // MARK: - Background Refresh Configuration
 
 /// Configuration for smart list background refresh
-public struct SmartListRefreshConfiguration: Codable, Sendable {
+public struct SmartListRefreshConfiguration: Codable, Equatable, Sendable {
     /// Whether background refresh is enabled globally
     public let isEnabled: Bool
     

@@ -14,6 +14,7 @@ public enum SettingsChange: Equatable, Sendable {
     case globalPlayback(PlaybackSettings)
     case globalUI(UISettings)
     case globalAppearance(AppearanceSettings)
+    case globalSmartListAutomation(SmartListRefreshConfiguration)
     case podcastDownload(String, PodcastDownloadSettings?)
     case podcastPlayback(String, PodcastPlaybackSettings?)
 }
@@ -35,6 +36,9 @@ public protocol SettingsRepository: Sendable {
 
     func loadGlobalAppearanceSettings() async -> AppearanceSettings
     func saveGlobalAppearanceSettings(_ settings: AppearanceSettings) async
+
+    func loadSmartListAutomationSettings() async -> SmartListRefreshConfiguration
+    func saveSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async
     
     // Per-podcast overrides
     func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings?
@@ -75,6 +79,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         static let globalPlayback = "global_playback_settings"
         static let globalUI = "global_ui_settings"
         static let globalAppearance = "global_appearance_settings"
+        static let globalSmartListAutomation = "smart_list_background_configuration"
         static let podcastDownloadPrefix = "podcast_download_"
         static let podcastPlaybackPrefix = "podcast_playback_"
     }
@@ -224,6 +229,35 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         } catch {
             #if canImport(os)
             os_log("Failed to encode global appearance settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+        }
+    }
+
+    public func loadSmartListAutomationSettings() async -> SmartListRefreshConfiguration {
+        guard let data = userDefaults.data(forKey: Keys.globalSmartListAutomation) else {
+            return SmartListRefreshConfiguration()
+        }
+
+        do {
+            return try JSONDecoder().decode(SmartListRefreshConfiguration.self, from: data)
+        } catch {
+            #if canImport(os)
+            os_log("Failed to decode smart list automation settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+            return SmartListRefreshConfiguration()
+        }
+    }
+
+    public func saveSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async {
+        do {
+            let data = try JSONEncoder().encode(settings)
+            userDefaults.set(data, forKey: Keys.globalSmartListAutomation)
+            #if canImport(Combine)
+            settingsChangeSubject.send(.globalSmartListAutomation(settings))
+            #endif
+        } catch {
+            #if canImport(os)
+            os_log("Failed to encode smart list automation settings: %{public}@", log: logger, type: .error, error.localizedDescription)
             #endif
         }
     }

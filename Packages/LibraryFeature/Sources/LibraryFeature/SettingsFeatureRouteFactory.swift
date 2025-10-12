@@ -26,6 +26,12 @@ enum SettingsFeatureRouteFactory {
         loadBaseline: { await controller.loadBaseline() },
         destination: { AnyView(AppearanceConfigurationView(controller: controller)) }
       )
+    case "smartListAutomation":
+      guard let controller = controller as? SmartListAutomationConfigurationController else { return nil }
+      return SettingsFeatureRoute(
+        loadBaseline: { await controller.loadBaseline() },
+        destination: { AnyView(SmartListAutomationConfigurationView(controller: controller)) }
+      )
     case "swipeActions":
       guard let controller = controller as? SwipeConfigurationController else { return nil }
       return SettingsFeatureRoute(

@@ -191,6 +191,21 @@ final class Issue05SettingsTests: XCTestCase {
 
         XCTAssertEqual(original, decoded)
     }
+
+    func testSmartListRefreshConfigurationCodable() throws {
+        let original = SmartListRefreshConfiguration(
+            isEnabled: false,
+            globalInterval: 1800,
+            maxRefreshPerCycle: 4,
+            refreshOnForeground: false,
+            refreshOnNetworkChange: true
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(SmartListRefreshConfiguration.self, from: data)
+
+        XCTAssertEqual(original, decoded)
+    }
     
     // MARK: - UserDefaultsSettingsRepository Tests
     
@@ -256,6 +271,25 @@ final class Issue05SettingsTests: XCTestCase {
 
         repository.saveGlobalAppearanceSettings(originalSettings)
         let loadedSettings = repository.loadGlobalAppearanceSettings()
+
+        XCTAssertEqual(loadedSettings, originalSettings)
+    }
+
+    func testUserDefaultsSettingsRepositorySaveLoadSmartListAutomationSettings() async {
+        let userDefaults = UserDefaults(suiteName: "test-smartlist")!
+        userDefaults.removePersistentDomain(forName: "test-smartlist")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+
+        let originalSettings = SmartListRefreshConfiguration(
+            isEnabled: false,
+            globalInterval: 1200,
+            maxRefreshPerCycle: 2,
+            refreshOnForeground: true,
+            refreshOnNetworkChange: false
+        )
+
+        await repository.saveSmartListAutomationSettings(originalSettings)
+        let loadedSettings = await repository.loadSmartListAutomationSettings()
 
         XCTAssertEqual(loadedSettings, originalSettings)
     }
