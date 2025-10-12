@@ -148,16 +148,14 @@ public class SettingsManager {
         // Bridge repository change notifications to a synchronous publisher
         #if canImport(Combine)
         Task { [weak self] in
-            guard let self else { return }
             let repoPublisher = await repository.settingsChangedPublisher
-            await MainActor.run {
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
                 repoPublisher
+                    .receive(on: DispatchQueue.main)
                     .sink { [weak self] change in
-                        guard let self else { return }
-                        Task { @MainActor in
-                            await self.handleSettingsChange(change)
-                            self.settingsChangeSubject.send(change)
-                        }
+                        guard let self = self else { return }
+                        self.applyRepositoryChange(change)
                     }
                     .store(in: &self.cancellables)
             }
@@ -309,25 +307,40 @@ public class SettingsManager {
     
     // MARK: - Private Methods
     
-    private func handleSettingsChange(_ change: SettingsChange) async {
-        await MainActor.run {
-            switch change {
-            case .globalDownload(let settings):
-                globalDownloadSettings = settings
-            case .globalNotification(let settings):
-                globalNotificationSettings = settings
-            case .globalPlayback(let settings):
-                globalPlaybackSettings = settings
-            case .globalUI(let settings):
-                globalUISettings = settings
-            case .podcastDownload, .podcastPlayback:
-                // Per-podcast changes don't update published global properties
-                // They affect effective settings resolution only
-                break
-            }
+    private func handleSettingsChange(_ change: SettingsChange) {
+        switch change {
+        case .globalDownload(let settings):
+            globalDownloadSettings = settings
+        case .globalNotification(let settings):
+            globalNotificationSettings = settings
+        case .globalPlayback(let settings):
+            globalPlaybackSettings = settings
+        case .globalUI(let settings):
+            globalUISettings = settings
+        case .podcastDownload, .podcastPlayback:
+            // Per-podcast changes don't update published global properties
+            // They affect effective settings resolution only
+            break
         }
     }
 }
+
+#if canImport(Combine)
+extension SettingsManager {
+    @MainActor
+    private func applyRepositoryChange(_ change: SettingsChange) {
+        handleSettingsChange(change)
+        settingsChangeSubject.send(change)
+    }
+}
+#else
+extension SettingsManager {
+    @MainActor
+    private func applyRepositoryChange(_ change: SettingsChange) {
+        handleSettingsChange(change)
+    }
+}
+#endif
 
 // MARK: - ObservableObject Conformance
 #if canImport(SwiftUI)
