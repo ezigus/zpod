@@ -129,6 +129,83 @@ struct SettingsPresetButton: View {
     }
 }
 
+struct SettingsStepperRow: View {
+    let titleProvider: (Int) -> LocalizedStringKey
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    var accessibilityIdentifier: String?
+    var onChange: ((Int) -> Void)?
+
+    init(
+        value: Binding<Int>,
+        in range: ClosedRange<Int>,
+        step: Int = 1,
+        accessibilityIdentifier: String? = nil,
+        onChange: ((Int) -> Void)? = nil,
+        titleProvider: @escaping (Int) -> LocalizedStringKey
+    ) {
+        self._value = value
+        self.range = range
+        self.step = step
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.onChange = onChange
+        self.titleProvider = titleProvider
+    }
+
+    var body: some View {
+        Stepper(value: Binding(
+            get: { value },
+            set: { newValue in
+                let clamped = min(max(newValue, range.lowerBound), range.upperBound)
+                value = clamped
+                onChange?(clamped)
+            }
+        ), in: range, step: step) {
+            Text(titleProvider(value))
+        }
+        .applyAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct SettingsPickerRow<Selection: Hashable, Content: View>: View {
+    let title: LocalizedStringKey
+    @Binding var selection: Selection
+    let options: [Selection]
+    var accessibilityIdentifier: String?
+    let optionLabel: (Selection) -> Content
+    var onSelectionChange: ((Selection) -> Void)?
+
+    init(
+        _ title: LocalizedStringKey,
+        selection: Binding<Selection>,
+        options: [Selection],
+        accessibilityIdentifier: String? = nil,
+        onSelectionChange: ((Selection) -> Void)? = nil,
+        @ViewBuilder optionLabel: @escaping (Selection) -> Content
+    ) {
+        self.title = title
+        self._selection = selection
+        self.options = options
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.optionLabel = optionLabel
+        self.onSelectionChange = onSelectionChange
+    }
+
+    var body: some View {
+        Picker(title, selection: Binding(
+            get: { selection },
+            set: { newValue in
+                selection = newValue
+                onSelectionChange?(newValue)
+            }
+        )) {
+            ForEach(options, id: \.self, content: optionLabel)
+        }
+        .applyAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
 private struct OptionalAccessibilityIdentifierModifier: ViewModifier {
     let identifier: String?
 

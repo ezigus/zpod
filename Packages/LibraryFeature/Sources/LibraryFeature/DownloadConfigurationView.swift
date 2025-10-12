@@ -63,37 +63,46 @@ public struct DownloadConfigurationView: View {
 
   private var limitsSection: some View {
     Section("Limits") {
-      Stepper(value: Binding(
-        get: { controller.maxConcurrentDownloads },
-        set: { controller.setMaxConcurrentDownloads($0) }
-      ), in: ValidationConstants.minConcurrentDownloads...ValidationConstants.maxConcurrentDownloads) {
-        Text("Concurrent downloads: \(controller.maxConcurrentDownloads)")
+      SettingsStepperRow(
+        value: Binding(
+          get: { controller.maxConcurrentDownloads },
+          set: { controller.setMaxConcurrentDownloads($0) }
+        ),
+        in: ValidationConstants.minConcurrentDownloads...ValidationConstants.maxConcurrentDownloads,
+        accessibilityIdentifier: "Download.ConcurrentStepper"
+      ) { value in
+        LocalizedStringKey("Concurrent downloads: \(value)")
       }
-      .accessibilityIdentifier("Download.ConcurrentStepper")
 
-      Picker("Refresh frequency", selection: Binding(
-        get: { controller.updateFrequency },
-        set: { controller.setUpdateFrequency($0) }
-      )) {
-        ForEach(UpdateFrequency.allCases, id: \.self) { frequency in
-          Text(frequency.displayName).tag(frequency)
-        }
+      SettingsPickerRow(
+        "Refresh frequency",
+        selection: Binding(
+          get: { controller.updateFrequency },
+          set: { controller.setUpdateFrequency($0) }
+        ),
+        options: UpdateFrequency.allCases,
+        accessibilityIdentifier: "Download.UpdateFrequencyPicker"
+      ) { frequency in
+        Text(frequency.displayName).tag(frequency)
       }
-      .accessibilityIdentifier("Download.UpdateFrequencyPicker")
     }
   }
 
   private var retentionSection: some View {
     Section("Retention") {
-      Picker("Keep episodes", selection: Binding(
-        get: { controller.retentionPolicy },
-        set: { controller.setRetentionPolicy($0) }
-      )) {
-        ForEach(RetentionPolicyOption.options(including: controller.retentionPolicy), id: \.self) { option in
-          Text(option.label).tag(option.policy)
-        }
+      SettingsPickerRow(
+        "Keep episodes",
+        selection: Binding(
+          get: { controller.retentionPolicy },
+          set: { controller.setRetentionPolicy($0) }
+        ),
+        options: RetentionPolicyOption
+          .options(including: controller.retentionPolicy)
+          .map(\.policy),
+        accessibilityIdentifier: "Download.RetentionPicker"
+      ) { policy in
+        Text(RetentionPolicyOption.label(for: policy)).tag(policy)
       }
-      .accessibilityIdentifier("Download.RetentionPicker")
     }
   }
 
@@ -125,7 +134,7 @@ private struct RetentionPolicyOption: Hashable {
     return options
   }
 
-  private static func label(for policy: RetentionPolicy) -> String {
+  static func label(for policy: RetentionPolicy) -> String {
     switch policy {
     case .keepAll:
       return "Keep all episodes"

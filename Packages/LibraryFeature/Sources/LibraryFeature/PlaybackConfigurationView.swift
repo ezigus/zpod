@@ -93,37 +93,53 @@ public struct PlaybackConfigurationView: View {
   @ViewBuilder
   private var skipControlsSection: some View {
     Section("Skip Controls") {
-      Stepper(value: Binding(
-        get: { controller.skipForwardInterval },
-        set: { controller.setSkipForwardInterval($0) }
-      ), in: 5...120, step: 5) {
-        Text("Skip forward: \(controller.skipForwardInterval) sec")
+      SettingsStepperRow(
+        value: Binding(
+          get: { controller.skipForwardInterval },
+          set: { controller.setSkipForwardInterval($0) }
+        ),
+        in: 5...120,
+        step: 5,
+        accessibilityIdentifier: "Playback.SkipForwardStepper"
+      ) { value in
+        LocalizedStringKey("Skip forward: \(value) sec")
       }
-      .accessibilityIdentifier("Playback.SkipForwardStepper")
 
-      Stepper(value: Binding(
-        get: { controller.skipBackwardInterval },
-        set: { controller.setSkipBackwardInterval($0) }
-      ), in: 5...120, step: 5) {
-        Text("Skip backward: \(controller.skipBackwardInterval) sec")
+      SettingsStepperRow(
+        value: Binding(
+          get: { controller.skipBackwardInterval },
+          set: { controller.setSkipBackwardInterval($0) }
+        ),
+        in: 5...120,
+        step: 5,
+        accessibilityIdentifier: "Playback.SkipBackwardStepper"
+      ) { value in
+        LocalizedStringKey("Skip backward: \(value) sec")
       }
-      .accessibilityIdentifier("Playback.SkipBackwardStepper")
 
-      Stepper(value: Binding(
-        get: { controller.skipIntroSeconds },
-        set: { controller.setSkipIntroSeconds($0) }
-      ), in: 0...300, step: 5) {
-        Text("Skip intro: \(controller.skipIntroSeconds) sec")
+      SettingsStepperRow(
+        value: Binding(
+          get: { controller.skipIntroSeconds },
+          set: { controller.setSkipIntroSeconds($0) }
+        ),
+        in: 0...300,
+        step: 5,
+        accessibilityIdentifier: "Playback.SkipIntroStepper"
+      ) { value in
+        LocalizedStringKey("Skip intro: \(value) sec")
       }
-      .accessibilityIdentifier("Playback.SkipIntroStepper")
 
-      Stepper(value: Binding(
-        get: { controller.skipOutroSeconds },
-        set: { controller.setSkipOutroSeconds($0) }
-      ), in: 0...300, step: 5) {
-        Text("Skip outro: \(controller.skipOutroSeconds) sec")
+      SettingsStepperRow(
+        value: Binding(
+          get: { controller.skipOutroSeconds },
+          set: { controller.setSkipOutroSeconds($0) }
+        ),
+        in: 0...300,
+        step: 5,
+        accessibilityIdentifier: "Playback.SkipOutroStepper"
+      ) { value in
+        LocalizedStringKey("Skip outro: \(value) sec")
       }
-      .accessibilityIdentifier("Playback.SkipOutroStepper")
     }
   }
 
