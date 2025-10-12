@@ -45,6 +45,12 @@ enum SettingsFeatureRouteFactory {
         loadBaseline: { await controller.loadBaseline() },
         destination: { AnyView(PlaybackConfigurationView(controller: controller)) }
       )
+    case "playbackPresets":
+      guard let controller = controller as? PlaybackPresetConfigurationController else { return nil }
+      return SettingsFeatureRoute(
+        loadBaseline: { await controller.loadBaseline() },
+        destination: { AnyView(PlaybackPresetConfigurationView(controller: controller)) }
+      )
 
     case "downloadPolicies":
       guard let controller = controller as? DownloadConfigurationController else { return nil }

@@ -15,6 +15,7 @@ public enum SettingsChange: Equatable, Sendable {
     case globalUI(UISettings)
     case globalAppearance(AppearanceSettings)
     case globalSmartListAutomation(SmartListRefreshConfiguration)
+    case globalPlaybackPresets(PlaybackPresetLibrary)
     case podcastDownload(String, PodcastDownloadSettings?)
     case podcastPlayback(String, PodcastPlaybackSettings?)
 }
@@ -30,7 +31,7 @@ public protocol SettingsRepository: Sendable {
     
     func loadGlobalPlaybackSettings() async -> PlaybackSettings
     func saveGlobalPlaybackSettings(_ settings: PlaybackSettings) async
-    
+
     func loadGlobalUISettings() async -> UISettings
     func saveGlobalUISettings(_ settings: UISettings) async
 
@@ -39,6 +40,9 @@ public protocol SettingsRepository: Sendable {
 
     func loadSmartListAutomationSettings() async -> SmartListRefreshConfiguration
     func saveSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async
+
+    func loadPlaybackPresetLibrary() async -> PlaybackPresetLibrary
+    func savePlaybackPresetLibrary(_ library: PlaybackPresetLibrary) async
     
     // Per-podcast overrides
     func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings?
@@ -80,6 +84,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         static let globalUI = "global_ui_settings"
         static let globalAppearance = "global_appearance_settings"
         static let globalSmartListAutomation = "smart_list_background_configuration"
+        static let playbackPresetLibrary = "playback_preset_library"
         static let podcastDownloadPrefix = "podcast_download_"
         static let podcastPlaybackPrefix = "podcast_playback_"
     }
@@ -258,6 +263,35 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         } catch {
             #if canImport(os)
             os_log("Failed to encode smart list automation settings: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+        }
+    }
+
+    public func loadPlaybackPresetLibrary() async -> PlaybackPresetLibrary {
+        guard let data = userDefaults.data(forKey: Keys.playbackPresetLibrary) else {
+            return PlaybackPresetLibrary.default
+        }
+
+        do {
+            return try JSONDecoder().decode(PlaybackPresetLibrary.self, from: data)
+        } catch {
+            #if canImport(os)
+            os_log("Failed to decode playback preset library: %{public}@", log: logger, type: .error, error.localizedDescription)
+            #endif
+            return PlaybackPresetLibrary.default
+        }
+    }
+
+    public func savePlaybackPresetLibrary(_ library: PlaybackPresetLibrary) async {
+        do {
+            let data = try JSONEncoder().encode(library)
+            userDefaults.set(data, forKey: Keys.playbackPresetLibrary)
+            #if canImport(Combine)
+            settingsChangeSubject.send(.globalPlaybackPresets(library))
+            #endif
+        } catch {
+            #if canImport(os)
+            os_log("Failed to encode playback preset library: %{public}@", log: logger, type: .error, error.localizedDescription)
             #endif
         }
     }

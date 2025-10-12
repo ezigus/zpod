@@ -25,6 +25,7 @@ public class SettingsManager {
     @Published public private(set) var globalNotificationSettings: NotificationSettings  
     @Published public private(set) var globalAppearanceSettings: AppearanceSettings
     @Published public private(set) var globalSmartListAutomationSettings: SmartListRefreshConfiguration
+    @Published public private(set) var playbackPresetLibrary: PlaybackPresetLibrary
     @Published public private(set) var globalPlaybackSettings: PlaybackSettings
     @Published public private(set) var globalUISettings: UISettings
 #else
@@ -32,6 +33,7 @@ public class SettingsManager {
     public private(set) var globalNotificationSettings: NotificationSettings
     public private(set) var globalAppearanceSettings: AppearanceSettings
     public private(set) var globalSmartListAutomationSettings: SmartListRefreshConfiguration
+    public private(set) var playbackPresetLibrary: PlaybackPresetLibrary
     public private(set) var globalPlaybackSettings: PlaybackSettings
     public private(set) var globalUISettings: UISettings
 #endif
@@ -39,10 +41,11 @@ public class SettingsManager {
     private let notificationsConfigurationServiceImpl: NotificationsConfigurationServicing
     private let appearanceConfigurationServiceImpl: AppearanceConfigurationServicing
     private let smartListAutomationServiceImpl: SmartListAutomationConfigurationServicing
+    private let playbackPresetConfigurationServiceImpl: PlaybackPresetConfigurationServicing
     private let swipeConfigurationServiceImpl: SwipeConfigurationServicing
     private let playbackConfigurationServiceImpl: PlaybackConfigurationServicing
     private let downloadConfigurationServiceImpl: DownloadConfigurationServicing
-    public let featureConfigurationRegistry: FeatureConfigurationRegistry
+    public lazy var featureConfigurationRegistry: FeatureConfigurationRegistry = buildFeatureRegistry()
     private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
 
     public var notificationsConfigurationService: NotificationsConfigurationServicing {
@@ -55,6 +58,10 @@ public class SettingsManager {
 
     public var smartListAutomationService: SmartListAutomationConfigurationServicing {
         smartListAutomationServiceImpl
+    }
+
+    public var playbackPresetConfigurationService: PlaybackPresetConfigurationServicing {
+        playbackPresetConfigurationServiceImpl
     }
 
     public var swipeConfigurationService: SwipeConfigurationServicing {
@@ -97,6 +104,18 @@ public class SettingsManager {
         return controller
     }
 
+    public func makePlaybackPresetConfigurationController() -> PlaybackPresetConfigurationController {
+        let controller = PlaybackPresetConfigurationController(
+            service: playbackPresetConfigurationServiceImpl,
+            applyPresetHandler: { [weak self] preset, library in
+                guard let self else { return }
+                self.didUpdatePlaybackPresetLibrary(library, activePreset: preset)
+            }
+        )
+        controller.bootstrap(with: playbackPresetLibrary)
+        return controller
+    }
+
     public func makePlaybackConfigurationController() -> PlaybackConfigurationController {
         let controller = PlaybackConfigurationController(service: playbackConfigurationServiceImpl)
         controller.bootstrap(with: globalPlaybackSettings)
@@ -134,6 +153,8 @@ public class SettingsManager {
             controller = makeSwipeConfigurationController()
         } else if id == "playbackPreferences" {
             controller = makePlaybackConfigurationController()
+        } else if id == "playbackPresets" {
+            controller = makePlaybackPresetConfigurationController()
         } else if id == "downloadPolicies" {
             controller = makeDownloadConfigurationController()
         } else {
@@ -156,31 +177,23 @@ public class SettingsManager {
         let notificationsService = NotificationsConfigurationService(repository: repository)
         let appearanceService = AppearanceConfigurationService(repository: repository)
         let smartListService = SmartListAutomationConfigurationService(repository: repository)
+        let playbackPresetService = PlaybackPresetConfigurationService(repository: repository)
         let swipeService = SwipeConfigurationService(repository: repository)
         let playbackService = PlaybackConfigurationService(repository: repository)
         let downloadService = DownloadConfigurationService(repository: repository)
         self.notificationsConfigurationServiceImpl = notificationsService
         self.appearanceConfigurationServiceImpl = appearanceService
         self.smartListAutomationServiceImpl = smartListService
+        self.playbackPresetConfigurationServiceImpl = playbackPresetService
         self.swipeConfigurationServiceImpl = swipeService
         self.playbackConfigurationServiceImpl = playbackService
         self.downloadConfigurationServiceImpl = downloadService
-        self.featureConfigurationRegistry = FeatureConfigurationRegistry(
-            features: [
-                NotificationsConfigurationFeature(service: notificationsService),
-                AppearanceConfigurationFeature(service: appearanceService),
-                SmartListAutomationConfigurationFeature(service: smartListService),
-                SwipeConfigurationFeature(service: swipeService),
-                PlaybackConfigurationFeature(service: playbackService),
-                DownloadConfigurationFeature(service: downloadService)
-            ]
-        )
-
         // Initialize with defaults temporarily
         self.globalDownloadSettings = DownloadSettings.default
         self.globalNotificationSettings = NotificationSettings.default
         self.globalAppearanceSettings = AppearanceSettings.default
         self.globalSmartListAutomationSettings = SmartListRefreshConfiguration()
+        self.playbackPresetLibrary = PlaybackPresetLibrary.default
         self.globalPlaybackSettings = PlaybackSettings()
         self.globalUISettings = UISettings.default
 
@@ -190,6 +203,7 @@ public class SettingsManager {
             let notificationSettings = await repository.loadGlobalNotificationSettings()
             let appearanceSettings = await repository.loadGlobalAppearanceSettings()
             let smartListAutomationSettings = await repository.loadSmartListAutomationSettings()
+            let presetLibrary = await repository.loadPlaybackPresetLibrary()
             let playbackSettings = await repository.loadGlobalPlaybackSettings()
             let uiSettings = await repository.loadGlobalUISettings()
 
@@ -198,6 +212,7 @@ public class SettingsManager {
                 self.globalNotificationSettings = notificationSettings
                 self.globalAppearanceSettings = appearanceSettings
                 self.globalSmartListAutomationSettings = smartListAutomationSettings
+                self.playbackPresetLibrary = presetLibrary
                 self.globalPlaybackSettings = playbackSettings
                 self.globalUISettings = uiSettings
             }
@@ -390,6 +405,8 @@ public class SettingsManager {
             globalAppearanceSettings = settings
         case .globalSmartListAutomation(let settings):
             globalSmartListAutomationSettings = settings
+        case .globalPlaybackPresets(let library):
+            playbackPresetLibrary = library
         case .globalPlayback(let settings):
             globalPlaybackSettings = settings
         case .globalUI(let settings):
@@ -418,6 +435,39 @@ extension SettingsManager {
     }
 }
 #endif
+
+private extension SettingsManager {
+    func didUpdatePlaybackPresetLibrary(_ library: PlaybackPresetLibrary, activePreset: PlaybackPreset?) {
+        playbackPresetLibrary = library
+        var targetSettings = globalPlaybackSettings
+        if let preset = activePreset {
+            targetSettings = preset.applying(to: targetSettings)
+        } else {
+            targetSettings.activePresetID = nil
+        }
+        Task { await updateGlobalPlaybackSettings(targetSettings) }
+    }
+
+    func buildFeatureRegistry() -> FeatureConfigurationRegistry {
+        FeatureConfigurationRegistry(
+            features: [
+                NotificationsConfigurationFeature(service: notificationsConfigurationServiceImpl),
+                AppearanceConfigurationFeature(service: appearanceConfigurationServiceImpl),
+                SmartListAutomationConfigurationFeature(service: smartListAutomationServiceImpl),
+                PlaybackPresetConfigurationFeature(
+                    service: playbackPresetConfigurationServiceImpl,
+                    applyPresetHandler: { [weak self] preset, library in
+                        guard let self else { return }
+                        self.didUpdatePlaybackPresetLibrary(library, activePreset: preset)
+                    }
+                ),
+                SwipeConfigurationFeature(service: swipeConfigurationServiceImpl),
+                PlaybackConfigurationFeature(service: playbackConfigurationServiceImpl),
+                DownloadConfigurationFeature(service: downloadConfigurationServiceImpl)
+            ]
+        )
+    }
+}
 
 // MARK: - ObservableObject Conformance
 #if canImport(SwiftUI)

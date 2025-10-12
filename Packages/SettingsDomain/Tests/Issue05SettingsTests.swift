@@ -293,6 +293,39 @@ final class Issue05SettingsTests: XCTestCase {
 
         XCTAssertEqual(loadedSettings, originalSettings)
     }
+
+    func testUserDefaultsSettingsRepositorySaveLoadPlaybackPresetLibrary() async {
+        let userDefaults = UserDefaults(suiteName: "test-playback-presets")!
+        userDefaults.removePersistentDomain(forName: "test-playback-presets")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+
+        let customPreset = PlaybackPreset(
+            id: "custom",
+            name: "Morning Walk",
+            description: "Balanced for morning walks",
+            playbackSpeed: 1.2,
+            skipForwardInterval: 40,
+            skipBackwardInterval: 20,
+            skipIntroSeconds: 10,
+            skipOutroSeconds: 10,
+            continuousPlayback: true,
+            crossFadeEnabled: true,
+            crossFadeDuration: 1.0,
+            autoMarkAsPlayed: true,
+            playedThreshold: 0.88
+        )
+
+        let originalLibrary = PlaybackPresetLibrary(
+            builtInPresets: PlaybackPresetLibrary.defaultBuiltInPresets,
+            customPresets: [customPreset],
+            activePresetID: customPreset.id
+        )
+
+        await repository.savePlaybackPresetLibrary(originalLibrary)
+        let loadedLibrary = await repository.loadPlaybackPresetLibrary()
+
+        XCTAssertEqual(loadedLibrary, originalLibrary)
+    }
     
     func testUserDefaultsSettingsRepositorySaveLoadPodcastDownloadSettings() {
         // Given: Repository with test UserDefaults

@@ -92,6 +92,42 @@ final class SettingsFeatureRouteFactoryTests: XCTestCase {
         XCTAssertNotNil(route?.destination())
     }
 
+    func testMakeRouteReturnsPlaybackPresetRoute() async {
+        let initial = PlaybackPresetLibrary(
+            builtInPresets: PlaybackPresetLibrary.defaultBuiltInPresets,
+            customPresets: [
+                PlaybackPreset(
+                    id: "custom-1",
+                    name: "Commute",
+                    description: "Faster speed for short drives",
+                    playbackSpeed: 1.4,
+                    skipForwardInterval: 45,
+                    skipBackwardInterval: 15,
+                    skipIntroSeconds: 20,
+                    skipOutroSeconds: 10,
+                    continuousPlayback: true,
+                    crossFadeEnabled: true,
+                    crossFadeDuration: 1.0,
+                    autoMarkAsPlayed: true,
+                    playedThreshold: 0.85
+                )
+            ],
+            activePresetID: "custom-1"
+        )
+        let service = InMemoryPlaybackPresetService(initial: initial)
+        let controller = PlaybackPresetConfigurationController(service: service) { _, _ in }
+
+        let route = SettingsFeatureRouteFactory.makeRoute(
+            descriptorID: "playbackPresets",
+            controller: controller
+        )
+
+        XCTAssertNotNil(route)
+        await route?.loadBaseline()
+        XCTAssertEqual(controller.draftLibrary.activePresetID, "custom-1")
+        XCTAssertNotNil(route?.destination())
+    }
+
     func testMakeRouteReturnsPlaybackRoute() async {
         let initial = PlaybackSettings(globalPlaybackSpeed: 1.5)
         let service = InMemoryPlaybackService(initial: initial)
@@ -292,6 +328,32 @@ actor InMemorySmartListAutomationService: SmartListAutomationConfigurationServic
     }
 
     private func storeContinuation(_ continuation: AsyncStream<SmartListRefreshConfiguration>.Continuation) {
+        self.continuation = continuation
+    }
+}
+
+actor InMemoryPlaybackPresetService: PlaybackPresetConfigurationServicing {
+    private var stored: PlaybackPresetLibrary
+    private var continuation: AsyncStream<PlaybackPresetLibrary>.Continuation?
+
+    init(initial: PlaybackPresetLibrary) {
+        self.stored = initial
+    }
+
+    func loadLibrary() async -> PlaybackPresetLibrary { stored }
+
+    func saveLibrary(_ library: PlaybackPresetLibrary) async {
+        stored = library
+        continuation?.yield(library)
+    }
+
+    nonisolated func updatesStream() -> AsyncStream<PlaybackPresetLibrary> {
+        AsyncStream { continuation in
+            Task { await self.storeContinuation(continuation) }
+        }
+    }
+
+    private func storeContinuation(_ continuation: AsyncStream<PlaybackPresetLibrary>.Continuation) {
         self.continuation = continuation
     }
 }

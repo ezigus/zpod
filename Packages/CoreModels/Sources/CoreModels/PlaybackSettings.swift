@@ -82,6 +82,7 @@ public struct PlaybackSettings: Codable, Equatable, Sendable {
     public var outroSkipDurations: [String: Int]?
     public var autoMarkAsPlayed: Bool?
     public var playedThreshold: Double?
+    public var activePresetID: String?
     
     public init(
         playbackSpeed: Double = 1.0,
@@ -99,7 +100,8 @@ public struct PlaybackSettings: Codable, Equatable, Sendable {
         introSkipDurations: [String: Int]? = nil,
         outroSkipDurations: [String: Int]? = nil,
         autoMarkAsPlayed: Bool? = nil,
-        playedThreshold: Double? = nil
+        playedThreshold: Double? = nil,
+        activePresetID: String? = nil
     ) {
         self.playbackSpeed = playbackSpeed
         self.skipIntroSeconds = skipIntroSeconds
@@ -117,6 +119,7 @@ public struct PlaybackSettings: Codable, Equatable, Sendable {
         self.outroSkipDurations = outroSkipDurations
         self.autoMarkAsPlayed = autoMarkAsPlayed
         self.playedThreshold = playedThreshold
+        self.activePresetID = activePresetID
     }
 }
 

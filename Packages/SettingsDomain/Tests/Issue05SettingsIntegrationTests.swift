@@ -193,6 +193,41 @@ final class Issue05SettingsIntegrationTests: XCTestCase {
         XCTAssertEqual(manager.globalSmartListAutomationSettings.maxRefreshPerCycle, 3)
         XCTAssertTrue(manager.globalSmartListAutomationSettings.refreshOnNetworkChange)
     }
+
+    @MainActor
+    func testPlaybackPresetLibraryIntegration() async {
+        let userDefaults = UserDefaults(suiteName: "test-playback-presets-integration")!
+        userDefaults.removePersistentDomain(forName: "test-playback-presets-integration")
+        let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        let manager = SettingsManager(repository: repository)
+
+        let customPreset = PlaybackPreset(
+            id: "evening",
+            name: "Evening Wind Down",
+            description: "Slower speed for winding down",
+            playbackSpeed: 0.95,
+            skipForwardInterval: 20,
+            skipBackwardInterval: 10,
+            skipIntroSeconds: 5,
+            skipOutroSeconds: 10,
+            continuousPlayback: false,
+            crossFadeEnabled: true,
+            crossFadeDuration: 0.8,
+            autoMarkAsPlayed: false,
+            playedThreshold: 0.92
+        )
+
+        let library = PlaybackPresetLibrary(
+            builtInPresets: PlaybackPresetLibrary.defaultBuiltInPresets,
+            customPresets: [customPreset],
+            activePresetID: customPreset.id
+        )
+
+        await manager.playbackPresetConfigurationService.saveLibrary(library)
+        let controller = manager.makePlaybackPresetConfigurationController()
+        await controller.loadBaseline()
+        XCTAssertEqual(controller.draftLibrary.activePresetID, customPreset.id)
+    }
     
     @MainActor
     func testSettingsManagerReactiveIntegration() {

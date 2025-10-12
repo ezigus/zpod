@@ -141,6 +141,15 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     )
   }
 
+  func testManagerProvidesPreloadedPlaybackPresetController() async throws {
+    let controller = settingsManager.makePlaybackPresetConfigurationController()
+    XCTAssertEqual(
+      controller.draftLibrary.activePresetID,
+      settingsManager.playbackPresetLibrary.activePresetID,
+      "Factory playback preset controller should mirror library state"
+    )
+  }
+
   func testGroupedDescriptorsProducesSections() async throws {
     let sections = await settingsManager.allFeatureSections()
     XCTAssertEqual(sections.count, 6)
@@ -158,7 +167,8 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertEqual(sections[3].descriptors.first?.id, "swipeActions")
 
     XCTAssertEqual(sections[4].title, "Playback")
-    XCTAssertEqual(sections[4].descriptors.first?.id, "playbackPreferences")
+    XCTAssertTrue(sections[4].descriptors.contains(where: { $0.id == "playbackPreferences" }))
+    XCTAssertTrue(sections[4].descriptors.contains(where: { $0.id == "playbackPresets" }))
 
     XCTAssertEqual(sections[5].title, "Downloads")
     XCTAssertEqual(sections[5].descriptors.first?.id, "downloadPolicies")
@@ -238,6 +248,28 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertNotNil(fresh)
     if let cached, let fresh {
       XCTAssertFalse(cached === fresh, "Bypassing cache should return new smart list controller")
+    }
+  }
+
+  func testPlaybackPresetControllerCaching() async throws {
+    let first = await settingsManager.controller(forFeature: "playbackPresets") as? PlaybackPresetConfigurationController
+    let second = await settingsManager.controller(forFeature: "playbackPresets") as? PlaybackPresetConfigurationController
+
+    XCTAssertNotNil(first)
+    XCTAssertNotNil(second)
+    if let first, let second {
+      XCTAssertTrue(first === second, "Playback preset controller should be cached by default")
+    }
+  }
+
+  func testPlaybackPresetControllerBypassReturnsNewInstance() async throws {
+    let cached = await settingsManager.controller(forFeature: "playbackPresets") as? PlaybackPresetConfigurationController
+    let fresh = await settingsManager.controller(forFeature: "playbackPresets", useCache: false) as? PlaybackPresetConfigurationController
+
+    XCTAssertNotNil(cached)
+    XCTAssertNotNil(fresh)
+    if let cached, let fresh {
+      XCTAssertFalse(cached === fresh, "Bypassing cache should return new playback preset controller")
     }
   }
 
