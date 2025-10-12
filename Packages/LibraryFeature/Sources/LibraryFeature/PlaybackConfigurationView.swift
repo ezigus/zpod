@@ -70,17 +70,23 @@ public struct PlaybackConfigurationView: View {
           .accessibilityIdentifier("Playback.SpeedValue")
       }
 
-      Toggle("Continuous playback", isOn: Binding(
-        get: { controller.continuousPlaybackEnabled },
-        set: { controller.setContinuousPlayback($0) }
-      ))
-      .accessibilityIdentifier("Playback.ContinuousToggle")
+      SettingsToggleRow(
+        "Continuous playback",
+        isOn: Binding(
+          get: { controller.continuousPlaybackEnabled },
+          set: { controller.setContinuousPlayback($0) }
+        ),
+        accessibilityIdentifier: "Playback.ContinuousToggle"
+      )
 
-      Toggle("Smart speed", isOn: Binding(
-        get: { controller.smartSpeedEnabled },
-        set: { controller.setSmartSpeedEnabled($0) }
-      ))
-      .accessibilityIdentifier("Playback.SmartSpeedToggle")
+      SettingsToggleRow(
+        "Smart speed",
+        isOn: Binding(
+          get: { controller.smartSpeedEnabled },
+          set: { controller.setSmartSpeedEnabled($0) }
+        ),
+        accessibilityIdentifier: "Playback.SmartSpeedToggle"
+      )
     }
   }
 
@@ -124,17 +130,23 @@ public struct PlaybackConfigurationView: View {
   @ViewBuilder
   private var enhancementsSection: some View {
     Section("Enhancements") {
-      Toggle("Volume boost", isOn: Binding(
-        get: { controller.volumeBoostEnabled },
-        set: { controller.setVolumeBoostEnabled($0) }
-      ))
-      .accessibilityIdentifier("Playback.VolumeBoostToggle")
+      SettingsToggleRow(
+        "Volume boost",
+        isOn: Binding(
+          get: { controller.volumeBoostEnabled },
+          set: { controller.setVolumeBoostEnabled($0) }
+        ),
+        accessibilityIdentifier: "Playback.VolumeBoostToggle"
+      )
 
-      Toggle("Crossfade", isOn: Binding(
-        get: { controller.crossFadeEnabled },
-        set: { controller.setCrossFadeEnabled($0) }
-      ))
-      .accessibilityIdentifier("Playback.CrossfadeToggle")
+      SettingsToggleRow(
+        "Crossfade",
+        isOn: Binding(
+          get: { controller.crossFadeEnabled },
+          set: { controller.setCrossFadeEnabled($0) }
+        ),
+        accessibilityIdentifier: "Playback.CrossfadeToggle"
+      )
 
       if controller.crossFadeEnabled {
         Slider(
@@ -153,11 +165,14 @@ public struct PlaybackConfigurationView: View {
           .accessibilityIdentifier("Playback.CrossfadeDurationValue")
       }
 
-      Toggle("Auto mark as played", isOn: Binding(
-        get: { controller.autoMarkAsPlayedEnabled },
-        set: { controller.setAutoMarkAsPlayed($0) }
-      ))
-      .accessibilityIdentifier("Playback.AutoMarkToggle")
+      SettingsToggleRow(
+        "Auto mark as played",
+        isOn: Binding(
+          get: { controller.autoMarkAsPlayedEnabled },
+          set: { controller.setAutoMarkAsPlayed($0) }
+        ),
+        accessibilityIdentifier: "Playback.AutoMarkToggle"
+      )
 
       if controller.autoMarkAsPlayedEnabled {
         Slider(

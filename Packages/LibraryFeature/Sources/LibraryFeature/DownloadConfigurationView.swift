@@ -41,17 +41,23 @@ public struct DownloadConfigurationView: View {
 
   private var automaticDownloadSection: some View {
     Section("Automatic Downloads") {
-      Toggle("Enable downloads for new episodes", isOn: Binding(
-        get: { controller.autoDownloadEnabled },
-        set: { controller.setAutoDownloadEnabled($0) }
-      ))
-      .accessibilityIdentifier("Download.AutoToggle")
+      SettingsToggleRow(
+        "Enable downloads for new episodes",
+        isOn: Binding(
+          get: { controller.autoDownloadEnabled },
+          set: { controller.setAutoDownloadEnabled($0) }
+        ),
+        accessibilityIdentifier: "Download.AutoToggle"
+      )
 
-      Toggle("Require Wi-Fi", isOn: Binding(
-        get: { controller.wifiOnlyEnabled },
-        set: { controller.setWifiOnlyEnabled($0) }
-      ))
-      .accessibilityIdentifier("Download.WifiOnlyToggle")
+      SettingsToggleRow(
+        "Require Wi-Fi",
+        isOn: Binding(
+          get: { controller.wifiOnlyEnabled },
+          set: { controller.setWifiOnlyEnabled($0) }
+        ),
+        accessibilityIdentifier: "Download.WifiOnlyToggle"
+      )
     }
   }
 
