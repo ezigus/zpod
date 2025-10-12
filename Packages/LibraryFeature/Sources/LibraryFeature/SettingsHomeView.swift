@@ -62,19 +62,13 @@ private struct SettingsFeatureDetailView: View {
   let descriptor: FeatureConfigurationDescriptor
   @ObservedObject var settingsManager: SettingsManager
   @State private var loadState: LoadState = .loading
-  @State private var loadedContent: LoadedContent?
+  @State private var route: SettingsFeatureRoute?
 
   private enum LoadState {
     case loading
     case ready
     case unsupported
     case failure
-  }
-
-  private enum LoadedContent {
-    case swipe(SwipeConfigurationController)
-    case playback(PlaybackConfigurationController)
-    case downloads(DownloadConfigurationController)
   }
 
   var body: some View {
@@ -116,28 +110,17 @@ private struct SettingsFeatureDetailView: View {
       return
     }
 
-    if let swipe = controller as? SwipeConfigurationController {
-      loadedContent = .swipe(swipe)
-      await swipe.loadBaseline()
-      loadState = .ready
+    guard let resolvedRoute = SettingsFeatureRouteFactory.makeRoute(
+      descriptorID: descriptor.id,
+      controller: controller
+    ) else {
+      loadState = .unsupported
       return
     }
 
-    if let playback = controller as? PlaybackConfigurationController {
-      loadedContent = .playback(playback)
-      await playback.loadBaseline()
-      loadState = .ready
-      return
-    }
-
-    if let downloads = controller as? DownloadConfigurationController {
-      loadedContent = .downloads(downloads)
-      await downloads.loadBaseline()
-      loadState = .ready
-      return
-    }
-
-    loadState = .unsupported
+    route = resolvedRoute
+    await resolvedRoute.loadBaseline()
+    loadState = .ready
   }
 
   @ViewBuilder
@@ -151,15 +134,8 @@ private struct SettingsFeatureDetailView: View {
 
   @ViewBuilder
   private var readyContentView: some View {
-    if let loadedContent {
-      switch loadedContent {
-      case .swipe(let controller):
-        SwipeActionConfigurationView(controller: controller)
-      case .playback(let controller):
-        PlaybackConfigurationView(controller: controller)
-      case .downloads(let controller):
-        DownloadConfigurationView(controller: controller)
-      }
+    if let route {
+      route.destination()
     } else {
       fallbackUnavailable
     }
