@@ -110,13 +110,11 @@ public struct SwipeActionConfigurationView: View {
         addActionTrigger(for: .leading)
       }
 
-      Toggle(
+      SettingsToggleRow(
         "Allow Full Swipe",
-        isOn: $leadingFullSwipe
-      )
-      .toggleStyle(.switch)
-      .accessibilityIdentifier("SwipeActions.Leading.FullSwipe")
-      .onChange(of: leadingFullSwipe) { newValue in
+        isOn: $leadingFullSwipe,
+        accessibilityIdentifier: "SwipeActions.Leading.FullSwipe"
+      ) { newValue in
         controller.setFullSwipe(newValue, edge: .leading)
         debugLog("UI toggled leading full swipe -> \(newValue)")
       }
@@ -133,13 +131,11 @@ public struct SwipeActionConfigurationView: View {
         addActionTrigger(for: .trailing)
       }
 
-      Toggle(
+      SettingsToggleRow(
         "Allow Full Swipe",
-        isOn: $trailingFullSwipe
-      )
-      .toggleStyle(.switch)
-      .accessibilityIdentifier("SwipeActions.Trailing.FullSwipe")
-      .onChange(of: trailingFullSwipe) { newValue in
+        isOn: $trailingFullSwipe,
+        accessibilityIdentifier: "SwipeActions.Trailing.FullSwipe"
+      ) { newValue in
         controller.setFullSwipe(newValue, edge: .trailing)
         debugLog("UI toggled trailing full swipe -> \(newValue)")
       }
@@ -149,28 +145,24 @@ public struct SwipeActionConfigurationView: View {
 
   private var hapticsSection: some View {
     Section(header: Text(String(localized: "Haptics", bundle: .main))) {
-      Toggle(
+      SettingsToggleRow(
         "Enable Haptic Feedback",
-        isOn: $hapticsEnabledState
-      )
-      .toggleStyle(.switch)
-      .accessibilityIdentifier("SwipeActions.Haptics.Toggle")
-      .onChange(of: hapticsEnabledState) { newValue in
+        isOn: $hapticsEnabledState,
+        accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
+      ) { newValue in
         controller.setHapticsEnabled(newValue)
         guard newValue else { return }
         hapticsService.selectionChanged()
       }
 
-      Picker(
+      SettingsSegmentedPickerRow(
         "Intensity",
-        selection: $hapticStyleState
-      ) {
-        ForEach(SwipeHapticStyle.allCases, id: \.self) { style in
-          Text(style.description).tag(style)
-        }
+        selection: $hapticStyleState,
+        options: SwipeHapticStyle.allCases,
+        accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
+      ) { style in
+        Text(style.description).tag(style)
       }
-      .pickerStyle(.segmented)
-      .accessibilityIdentifier("SwipeActions.Haptics.StylePicker")
       .disabled(!hapticsEnabledState)
       .onChange(of: hapticStyleState) { newStyle in
         controller.setHapticStyle(newStyle)
@@ -269,33 +261,20 @@ public struct SwipeActionConfigurationView: View {
     identifier: String,
     preset: SwipeActionSettings
   ) -> some View {
-    Button {
+    SettingsPresetButton(
+      LocalizedStringKey(title),
+      isActive: isPresetActive(preset),
+      accessibilityIdentifier: identifier
+    ) {
       debugLog("UI tapped preset \(identifier)")
       if debugEnabled,
-        let suiteName = ProcessInfo.processInfo.environment["UITEST_USER_DEFAULTS_SUITE"],
-        let debugDefaults = UserDefaults(suiteName: suiteName)
+         let suiteName = ProcessInfo.processInfo.environment["UITEST_USER_DEFAULTS_SUITE"],
+         let debugDefaults = UserDefaults(suiteName: suiteName)
       {
         debugDefaults.set(identifier, forKey: "SwipeActions.Debug.LastPreset")
       }
       controller.applyPreset(preset)
-    } label: {
-      HStack {
-        Text(title)
-          .foregroundStyle(Color.primary)
-        Spacer()
-        if isPresetActive(preset) {
-          Image(systemName: "checkmark")
-            .foregroundStyle(Color.accentColor)
-        }
-      }
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 8)
     }
-    .buttonStyle(.plain)
-    .accessibilityLabel(Text(title))
-    .accessibilityAddTraits(.isButton)
-    .contentShape(Rectangle())
-    .accessibilityIdentifier(identifier)
   }
 
   private func isPresetActive(_ preset: SwipeActionSettings) -> Bool {
