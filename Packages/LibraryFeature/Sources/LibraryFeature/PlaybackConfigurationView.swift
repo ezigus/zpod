@@ -54,21 +54,20 @@ public struct PlaybackConfigurationView: View {
   @ViewBuilder
   private var playbackSpeedSection: some View {
     Section("Playback Speed") {
-      VStack(alignment: .leading, spacing: 8) {
-        Slider(
-          value: Binding(
-            get: { controller.playbackSpeed },
-            set: { controller.setPlaybackSpeed($0) }
-          ),
-          in: 0.5...3.0,
-          step: 0.1
-        )
-        .accessibilityIdentifier("Playback.SpeedSlider")
-
-        Text(String(format: "%.1fx", controller.playbackSpeed))
-          .font(.headline)
-          .accessibilityIdentifier("Playback.SpeedValue")
-      }
+      SettingsSliderRow(
+        "Playback speed",
+        value: Binding(
+          get: { controller.playbackSpeed },
+          set: { controller.setPlaybackSpeed($0) }
+        ),
+        in: 0.5...3.0,
+        step: 0.1,
+        sliderAccessibilityIdentifier: "Playback.SpeedSlider",
+        valueAccessibilityIdentifier: "Playback.SpeedValue",
+        valueFont: .headline,
+        valueForegroundStyle: .primary,
+        formatValue: { value in String(format: "%.1fx", value) }
+      )
 
       SettingsToggleRow(
         "Continuous playback",
@@ -165,20 +164,17 @@ public struct PlaybackConfigurationView: View {
       )
 
       if controller.crossFadeEnabled {
-        Slider(
+        SettingsSliderRow(
+          "Crossfade duration",
           value: Binding(
             get: { controller.crossFadeDuration },
             set: { controller.setCrossFadeDuration($0) }
           ),
           in: 0.5...10,
-          step: 0.5
-        ) {
-          Text("Crossfade duration")
-        }
-        Text(String(format: "%.1f seconds", controller.crossFadeDuration))
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-          .accessibilityIdentifier("Playback.CrossfadeDurationValue")
+          step: 0.5,
+          valueAccessibilityIdentifier: "Playback.CrossfadeDurationValue",
+          formatValue: { value in String(format: "%.1f seconds", value) }
+        )
       }
 
       SettingsToggleRow(
@@ -191,19 +187,17 @@ public struct PlaybackConfigurationView: View {
       )
 
       if controller.autoMarkAsPlayedEnabled {
-        Slider(
+        SettingsSliderRow(
+          "Played threshold",
           value: Binding(
             get: { controller.playedThreshold },
             set: { controller.setPlayedThreshold($0) }
           ),
-          in: 0.5...0.99
-        ) {
-          Text("Played threshold")
-        }
-        Text(String(format: "%.0f%% of episode", controller.playedThreshold * 100))
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-          .accessibilityIdentifier("Playback.PlayedThresholdValue")
+          in: 0.5...0.99,
+          step: 0.01,
+          valueAccessibilityIdentifier: "Playback.PlayedThresholdValue",
+          formatValue: { value in String(format: "%.0f%% of episode", value * 100) }
+        )
       }
     }
   }

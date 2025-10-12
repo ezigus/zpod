@@ -129,6 +129,93 @@ struct SettingsPresetButton: View {
     }
 }
 
+struct SettingsSliderRow: View {
+    let title: LocalizedStringKey
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    var step: Double?
+    var sliderAccessibilityIdentifier: String?
+    var valueAccessibilityIdentifier: String?
+    var valueFont: Font = .footnote
+    var valueForegroundStyle: Color = .secondary
+    var formatValue: (Double) -> String
+    var onEditingChanged: ((Bool) -> Void)?
+
+    init(
+        _ title: LocalizedStringKey,
+        value: Binding<Double>,
+        in range: ClosedRange<Double>,
+        step: Double? = nil,
+        sliderAccessibilityIdentifier: String? = nil,
+        valueAccessibilityIdentifier: String? = nil,
+        valueFont: Font = .footnote,
+        valueForegroundStyle: Color = .secondary,
+        formatValue: @escaping (Double) -> String,
+        onEditingChanged: ((Bool) -> Void)? = nil
+    ) {
+        self.title = title
+        self._value = value
+        self.range = range
+        self.step = step
+        self.sliderAccessibilityIdentifier = sliderAccessibilityIdentifier
+        self.valueAccessibilityIdentifier = valueAccessibilityIdentifier
+        self.valueFont = valueFont
+        self.valueForegroundStyle = valueForegroundStyle
+        self.formatValue = formatValue
+        self.onEditingChanged = onEditingChanged
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if let step {
+                Slider(
+                    value: Binding(
+                        get: { value },
+                        set: { newValue in
+                            value = clamp(newValue)
+                        }
+                    ),
+                    in: range,
+                    step: step,
+                    onEditingChanged: { editing in
+                        onEditingChanged?(editing)
+                    }
+                ) {
+                    Text(title)
+                }
+                .applyAccessibilityIdentifier(sliderAccessibilityIdentifier)
+            } else {
+                Slider(
+                    value: Binding(
+                        get: { value },
+                        set: { newValue in
+                            value = clamp(newValue)
+                        }
+                    ),
+                    in: range,
+                    onEditingChanged: { editing in
+                        onEditingChanged?(editing)
+                    }
+                )
+                .applyAccessibilityIdentifier(sliderAccessibilityIdentifier)
+            }
+
+            Text(formatValue(value))
+                .font(valueFont)
+                .foregroundStyle(valueForegroundStyle)
+                .applyAccessibilityIdentifier(valueAccessibilityIdentifier)
+        }
+    }
+
+    private func clamp(_ newValue: Double) -> Double {
+        min(max(newValue, range.lowerBound), range.upperBound)
+    }
+}
+
 struct SettingsStepperRow: View {
     let titleProvider: (Int) -> LocalizedStringKey
     @Binding var value: Int
