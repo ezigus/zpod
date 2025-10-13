@@ -400,6 +400,23 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     guard addMenu.exists else { return false }
     addMenu.tap()
 
+    let pickerTitle: String
+    switch edgeIdentifier {
+    case "Leading":
+      pickerTitle = String(localized: "Add Leading Action", bundle: .main)
+    case "Trailing":
+      pickerTitle = String(localized: "Add Trailing Action", bundle: .main)
+    default:
+      pickerTitle = "Add Action"
+    }
+
+    let pickerNavBar = app.navigationBars[pickerTitle]
+    _ = waitForElement(
+      pickerNavBar,
+      timeout: adaptiveShortTimeout,
+      description: "Add action picker navigation bar"
+    )
+
     let optionIdentifier = addIdentifier + "." + displayName
     let optionCandidates: [XCUIElement] = [
       element(withIdentifier: optionIdentifier),
@@ -422,6 +439,13 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
 
     tapElement(optionButton, description: "Add action option \(displayName)")
+
+    if pickerNavBar.exists {
+      _ = waitForElementToDisappear(
+        pickerNavBar,
+        timeout: adaptiveShortTimeout
+      )
+    }
     return true
   }
 

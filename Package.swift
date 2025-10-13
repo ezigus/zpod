@@ -58,6 +58,15 @@ let package = Package(
             ]
         ),
         .testTarget(name: "zpodTests", dependencies: ["zpodLib", "TestSupport"], path: "zpodTests"),
-        .testTarget(name: "IntegrationTests", dependencies: ["zpodLib", "TestSupport"], path: "IntegrationTests"),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "zpodLib",
+                "TestSupport",
+                "SettingsDomain",
+                "Persistence"
+            ],
+            path: "IntegrationTests"
+        ),
     ]
 )

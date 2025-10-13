@@ -357,7 +357,17 @@ public class SettingsManager {
 
     /// Update global UI settings
     public func updateGlobalUISettings(_ settings: UISettings) async {
-        await repository.saveGlobalUISettings(settings)
+        let configuration = SwipeConfiguration(
+            swipeActions: settings.swipeActions,
+            hapticStyle: settings.hapticStyle
+        )
+
+        do {
+            try await swipeConfigurationServiceImpl.save(configuration)
+        } catch {
+            await repository.saveGlobalUISettings(settings)
+        }
+
         globalUISettings = settings
     }
 
