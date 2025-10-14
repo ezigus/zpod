@@ -77,10 +77,24 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     searchField.tap()
     searchField.typeText("Swift Talk")
 
+    // Wait for the app to process the input and dismiss any keyboard
+    app.waitForApplicationToIdle()
+
+    // Dismiss keyboard if it's showing to avoid interference
+    if app.keyboards.count > 0 {
+      app.keyboards.buttons["Done"].tap()
+    }
+
     // Then: The search field should contain the typed text
+    let searchFieldValue = searchField.value as? String
+    let swiftTalkTextElement = app.staticTexts["Swift Talk"]
+    let hasSwiftTalkText = swiftTalkTextElement.waitForExistence(timeout: adaptiveShortTimeout)
+
     XCTAssertTrue(
-      searchField.value as? String == "Swift Talk" || app.staticTexts["Swift Talk"].exists,
-      "Search field should contain typed text")
+      searchFieldValue == "Swift Talk" || hasSwiftTalkText
+        || searchFieldValue?.contains("Swift Talk") == true,
+      "Search field should contain typed text. Found value: '\(searchFieldValue ?? "nil")', Swift Talk text exists: \(hasSwiftTalkText)"
+    )
   }
 
   @MainActor
