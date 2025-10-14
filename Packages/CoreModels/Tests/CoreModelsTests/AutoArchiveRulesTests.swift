@@ -95,7 +95,7 @@ final class AutoArchiveRulesTests: XCTestCase {
     }
     
     func testAutoArchiveRuleWithEnabled() {
-        let rule = AutoArchiveRule(condition: .playedRegardlessOfAge, isEnabled: true)
+        let rule = AutoArchiveRule(isEnabled: true, condition: .playedRegardlessOfAge)
         let disabledRule = rule.withEnabled(false)
         
         XCTAssertFalse(disabledRule.isEnabled)

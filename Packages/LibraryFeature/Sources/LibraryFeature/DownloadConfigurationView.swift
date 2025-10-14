@@ -1,3 +1,4 @@
+#if os(iOS)
 import CoreModels
 import SettingsDomain
 import SwiftUI
@@ -115,6 +116,20 @@ public struct DownloadConfigurationView: View {
     dismiss()
   }
 }
+
+#else
+import CoreModels
+import SettingsDomain
+import SwiftUI
+
+public struct DownloadConfigurationView: View {
+  public init(controller: DownloadConfigurationController, onSave: ((DownloadSettings) -> Void)? = nil) {}
+
+  public var body: some View {
+    Text("Download configuration is available on iOS only.")
+  }
+}
+#endif
 
 private struct RetentionPolicyOption: Hashable {
   let policy: RetentionPolicy

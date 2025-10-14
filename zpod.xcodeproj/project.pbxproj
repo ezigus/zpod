@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
         78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */ = {isa = PBXBuildFile; fileRef = 78294E062E52A4160022CF1B /* run-xcode-tests.sh */; };
         786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
+        F1111111111111111111111A /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = F1234567890ABC12345DEFGH /* LibraryFeature */; };
+        F1111111111111111111111B /* CoreModels in Frameworks */ = {isa = PBXBuildFile; productRef = 320A8153AF4645E1BFE862F9 /* CoreModels */; };
+        F1111111111111111111111C /* SearchDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 32049ED8E56C433DB7220A50 /* SearchDomain */; };
+        F1111111111111111111111D /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
         78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E102E575000001DB480 /* dev-log.issue06.log */; };
         78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0C2E575000001DB480 /* dev-log.issue02.log */; };
         78BF3E1B2E575000001DB480 /* dev-log.issue11.1-rename.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */; };
@@ -24,6 +28,14 @@
         78BF3E252E575000001DB480 /* dev-log.issue11.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E152E575000001DB480 /* dev-log.issue11.log */; };
         78BF3E262E575000001DB480 /* dev-log.issue11.5-refactor.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */; };
         78BF3E272E575000001DB480 /* dev-log.issue07.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E112E575000001DB480 /* dev-log.issue07.log */; };
+        C2B10EA0ACF24C72A9EED05A /* CoreModels in Frameworks */ = {isa = PBXBuildFile; productRef = 320A8153AF4645E1BFE862F9 /* CoreModels */; };
+        186B4D3092654891B23838B6 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 517390C5CD214EF2939E0057 /* Persistence */; };
+        5D9EE8EF1E6A4AC6B0F1A163 /* SettingsDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 4E987F4AAB5F41C79FF51FBC /* SettingsDomain */; };
+        94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
+        715B23139D6B42E897254126 /* SearchDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 32049ED8E56C433DB7220A50 /* SearchDomain */; };
+        AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
+        E8765432109FEDCBA0123456 /* PlaybackEngine in Frameworks */ = {isa = PBXBuildFile; productRef = F2345678901BCD23456EFGHI /* PlaybackEngine */; };
+        F9314B82C43C4A67918A0EB3 /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -66,6 +78,7 @@
         78BF3E152E575000001DB480 /* dev-log.issue11.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.log"; sourceTree = "<group>"; };
         78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.1-rename.log"; sourceTree = "<group>"; };
         78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.5-refactor.log"; sourceTree = "<group>"; };
+        5B6F6F5F341A43FD81D7CB84 /* IntegrationTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IntegrationTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,6 +116,11 @@
             path = zpodUITests;
             sourceTree = "<group>";
         };
+        448868E042ED492A85BE6C62 /* IntegrationTests */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            path = IntegrationTests;
+            sourceTree = "<group>";
+        };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +129,10 @@
             buildActionMask = 2147483647;
             files = (
                 786D3A092E57371F005A436B /* zpodLib in Frameworks */,
+                F1111111111111111111111A /* LibraryFeature in Frameworks */,
+                F1111111111111111111111B /* CoreModels in Frameworks */,
+                F1111111111111111111111C /* SearchDomain in Frameworks */,
+                F1111111111111111111111D /* DiscoverFeature in Frameworks */,
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
@@ -118,6 +140,13 @@
             isa = PBXFrameworksBuildPhase;
             buildActionMask = 2147483647;
             files = (
+                C2B10EA0ACF24C72A9EED05A /* CoreModels in Frameworks */,
+                186B4D3092654891B23838B6 /* Persistence in Frameworks */,
+                5D9EE8EF1E6A4AC6B0F1A163 /* SettingsDomain in Frameworks */,
+                94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */,
+                715B23139D6B42E897254126 /* SearchDomain in Frameworks */,
+                F9314B82C43C4A67918A0EB3 /* zpodLib in Frameworks */,
+                E8765432109FEDCBA0123456 /* PlaybackEngine in Frameworks */,
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
@@ -125,6 +154,20 @@
             isa = PBXFrameworksBuildPhase;
             buildActionMask = 2147483647;
             files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        2B4D789C2C9840948EFC9130 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+                C2B10EA0ACF24C72A9EED05A /* CoreModels in Frameworks */,
+                186B4D3092654891B23838B6 /* Persistence in Frameworks */,
+                5D9EE8EF1E6A4AC6B0F1A163 /* SettingsDomain in Frameworks */,
+                94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */,
+                715B23139D6B42E897254126 /* SearchDomain in Frameworks */,
+                AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */,
+                E8765432109FEDCBA0123456 /* PlaybackEngine in Frameworks */,
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
@@ -172,6 +215,7 @@
                 786FD10B2E22E615008CEE55 /* zpod */,
                 780150302E2308900025E4FE /* zpodTests */,
                 786FD12A2E22E617008CEE55 /* zpodUITests */,
+                448868E042ED492A85BE6C62 /* IntegrationTests */,
                 786D3A072E57371F005A436B /* Frameworks */,
                 786FD10A2E22E615008CEE55 /* Products */,
                 78BF3E182E575000001DB480 /* dev-log */,
@@ -184,6 +228,7 @@
                 786FD1092E22E615008CEE55 /* zpod.app */,
                 786FD11D2E22E617008CEE55 /* zpodTests.xctest */,
                 786FD1272E22E617008CEE55 /* zpodUITests.xctest */,
+                5B6F6F5F341A43FD81D7CB84 /* IntegrationTests.xctest */,
             );
             name = Products;
             sourceTree = "<group>";
@@ -231,6 +276,10 @@
             name = zpod;
             packageProductDependencies = (
                 786D3A082E57371F005A436B /* zpodLib */,
+                F1234567890ABC12345DEFGH /* LibraryFeature */,
+                320A8153AF4645E1BFE862F9 /* CoreModels */,
+                32049ED8E56C433DB7220A50 /* SearchDomain */,
+                885611E8E8644D078AC31FA4 /* DiscoverFeature */,
             );
             productName = zpod;
             productReference = 786FD1092E22E615008CEE55 /* zpod.app */;
@@ -254,6 +303,13 @@
             );
             name = zpodTests;
             packageProductDependencies = (
+                320A8153AF4645E1BFE862F9 /* CoreModels */,
+                517390C5CD214EF2939E0057 /* Persistence */,
+                4E987F4AAB5F41C79FF51FBC /* SettingsDomain */,
+                6CB69C377B6742A8A827FE01 /* TestSupport */,
+                32049ED8E56C433DB7220A50 /* SearchDomain */,
+                786D3A082E57371F005A436B /* zpodLib */,
+                F2345678901BCD23456EFGHI /* PlaybackEngine */,
             );
             productName = zpodTests;
             productReference = 786FD11D2E22E617008CEE55 /* zpodTests.xctest */;
@@ -282,6 +338,35 @@
             productReference = 786FD1272E22E617008CEE55 /* zpodUITests.xctest */;
             productType = "com.apple.product-type.bundle.ui-testing";
         };
+        74DF3B58F3B8429A90066E35 /* IntegrationTests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 76A1094B4C9E40ECBF3CD3A4 /* Build configuration list for PBXNativeTarget "IntegrationTests" */;
+            buildPhases = (
+                1BB60993BCD24877A2658F54 /* Sources */,
+                2B4D789C2C9840948EFC9130 /* Frameworks */,
+                1ED966C17BD44525889A489B /* Resources */,
+            );
+            buildRules = (
+            );
+            dependencies = (
+            );
+            fileSystemSynchronizedGroups = (
+                448868E042ED492A85BE6C62 /* IntegrationTests */,
+            );
+            name = IntegrationTests;
+            packageProductDependencies = (
+                320A8153AF4645E1BFE862F9 /* CoreModels */,
+                517390C5CD214EF2939E0057 /* Persistence */,
+                4E987F4AAB5F41C79FF51FBC /* SettingsDomain */,
+                6CB69C377B6742A8A827FE01 /* TestSupport */,
+                32049ED8E56C433DB7220A50 /* SearchDomain */,
+                885611E8E8644D078AC31FA4 /* DiscoverFeature */,
+                F2345678901BCD23456EFGHI /* PlaybackEngine */,
+            );
+            productName = IntegrationTests;
+            productReference = 5B6F6F5F341A43FD81D7CB84 /* IntegrationTests.xctest */;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -302,6 +387,9 @@
                     786FD1262E22E617008CEE55 = {
                         CreatedOnToolsVersion = 16.2;
                         TestTargetID = 786FD1082E22E615008CEE55;
+                    };
+                    74DF3B58F3B8429A90066E35 = {
+                        CreatedOnToolsVersion = 16.4;
                     };
                 };
             };
@@ -329,6 +417,7 @@
                 78BF3E6A2E577C4F001DB480 /* XCLocalSwiftPackageReference "Packages/PlayerFeature" */,
                 78BF3E6B2E577C54001DB480 /* XCLocalSwiftPackageReference "Packages/PlaylistFeature" */,
                 78BF3E6C2E577C59001DB480 /* XCLocalSwiftPackageReference "Packages/RecommendationDomain" */,
+                1869BB7B04E440878263AF56 /* XCLocalSwiftPackageReference "Packages/TestSupport" */,
             );
             preferredProjectObjectVersion = 77;
             productRefGroup = 786FD10A2E22E615008CEE55 /* Products */;
@@ -338,6 +427,7 @@
                 786FD1082E22E615008CEE55 /* zpod */,
                 786FD11C2E22E617008CEE55 /* zpodTests */,
                 786FD1262E22E617008CEE55 /* zpodUITests */,
+                74DF3B58F3B8429A90066E35 /* IntegrationTests */,
             );
         };
 /* End PBXProject section */
@@ -380,6 +470,13 @@
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
+        1ED966C17BD44525889A489B /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -398,6 +495,13 @@
             runOnlyForDeploymentPostprocessing = 0;
         };
         786FD1232E22E617008CEE55 /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        1BB60993BCD24877A2658F54 /* Sources */ = {
             isa = PBXSourcesBuildPhase;
             buildActionMask = 2147483647;
             files = (
@@ -720,6 +824,60 @@
             };
             name = Release;
         };
+        59899817AE2F49B5890BA254 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_IDENTITY = "-";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                DEAD_CODE_STRIPPING = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+                MACOSX_DEPLOYMENT_TARGET = 15.2;
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = us.zig.IntegrationTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = auto;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SUPPORTS_MACCATALYST = NO;
+                SWIFT_EMIT_LOC_STRINGS = NO;
+                SWIFT_VERSION = 6.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/zpod.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/zpod";
+                XROS_DEPLOYMENT_TARGET = 2.2;
+            };
+            name = Debug;
+        };
+        523E007B91CF4D96AF8D92AD /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_IDENTITY = "-";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                DEAD_CODE_STRIPPING = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+                MACOSX_DEPLOYMENT_TARGET = 15.2;
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = us.zig.IntegrationTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = auto;
+                SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+                SUPPORTS_MACCATALYST = NO;
+                SWIFT_EMIT_LOC_STRINGS = NO;
+                SWIFT_VERSION = 6.0;
+                TARGETED_DEVICE_FAMILY = 1;
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/zpod.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/zpod";
+                XROS_DEPLOYMENT_TARGET = 2.2;
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -755,6 +913,15 @@
             buildConfigurations = (
                 786FD1392E22E617008CEE55 /* Debug */,
                 786FD13A2E22E617008CEE55 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        76A1094B4C9E40ECBF3CD3A4 /* Build configuration list for PBXNativeTarget "IntegrationTests" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                59899817AE2F49B5890BA254 /* Debug */,
+                523E007B91CF4D96AF8D92AD /* Release */,
             );
             defaultConfigurationIsVisible = 0;
             defaultConfigurationName = Release;
@@ -818,6 +985,10 @@
             isa = XCLocalSwiftPackageReference;
             relativePath = Packages/RecommendationDomain;
         };
+        1869BB7B04E440878263AF56 /* XCLocalSwiftPackageReference "Packages/TestSupport" */ = {
+            isa = XCLocalSwiftPackageReference;
+            relativePath = Packages/TestSupport;
+        };
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -825,6 +996,46 @@
             isa = XCSwiftPackageProductDependency;
             package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */;
             productName = zpodLib;
+        };
+        320A8153AF4645E1BFE862F9 /* CoreModels */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 786D3A002E573525005A436B /* XCLocalSwiftPackageReference "Packages/CoreModels" */;
+            productName = CoreModels;
+        };
+        517390C5CD214EF2939E0057 /* Persistence */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */;
+            productName = Persistence;
+        };
+        4E987F4AAB5F41C79FF51FBC /* SettingsDomain */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */;
+            productName = SettingsDomain;
+        };
+        32049ED8E56C433DB7220A50 /* SearchDomain */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 78BF3E672E577C40001DB480 /* XCLocalSwiftPackageReference "Packages/SearchDomain" */;
+            productName = SearchDomain;
+        };
+        885611E8E8644D078AC31FA4 /* DiscoverFeature */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 78BF3E682E577C45001DB480 /* XCLocalSwiftPackageReference "Packages/DiscoverFeature" */;
+            productName = DiscoverFeature;
+        };
+        6CB69C377B6742A8A827FE01 /* TestSupport */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 1869BB7B04E440878263AF56 /* XCLocalSwiftPackageReference "Packages/TestSupport" */;
+            productName = TestSupport;
+        };
+        F1234567890ABC12345DEFGH /* LibraryFeature */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 78BF3E692E577C4A001DB480 /* XCLocalSwiftPackageReference "Packages/LibraryFeature" */;
+            productName = LibraryFeature;
+        };
+        F2345678901BCD23456EFGHI /* PlaybackEngine */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */;
+            productName = PlaybackEngine;
         };
 /* End XCSwiftPackageProductDependency section */
     };

@@ -506,7 +506,8 @@ package_supports_host_build() {
   if ! grep -q "platforms" "$manifest"; then
     return 0
   fi
-  if grep -q ".macOS" "$manifest"; then
+  # Check for uncommented .macOS platform declaration
+  if grep -v '^\s*//' "$manifest" | grep -q ".macOS"; then
     return 0
   fi
   return 1

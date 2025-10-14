@@ -1,3 +1,4 @@
+#if os(iOS)
 import CoreModels
 import Foundation
 import OSLog
@@ -313,6 +314,23 @@ public struct SwipeActionConfigurationView: View {
     Self.logger.debug("[SwipeConfigDebug] \(message, privacy: .public)")
   }
 }
+
+#else
+import CoreModels
+import Foundation
+import OSLog
+import SettingsDomain
+import SharedUtilities
+import SwiftUI
+
+public struct SwipeActionConfigurationView: View {
+  public init(controller: SwipeConfigurationController, hapticsService: HapticFeedbackServicing = HapticFeedbackService.shared, onSave: ((SwipeConfiguration) -> Void)? = nil) {}
+
+  public var body: some View {
+    Text("Swipe configuration is available on iOS only.")
+  }
+}
+#endif
 
 extension Color {
   fileprivate init(_ tint: SwipeActionColor) {

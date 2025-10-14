@@ -4,7 +4,27 @@
 //
 //  Advanced rule builder for smart episode lists
 //
+#if !os(iOS)
+import SwiftUI
+import CoreModels
 
+public struct SmartListRuleBuilderView: View {
+    public init(rule: Binding<SmartListRule>, onSave: @escaping (SmartListRule) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Smart list builder is available on iOS only.")
+    }
+}
+
+public struct SmartListCriteriaSelector: View {
+    public init(criteria: Binding<EpisodeSelectionCriteria>, onApply: @escaping (EpisodeSelectionCriteria) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Smart list criteria selector is available on iOS only.")
+    }
+}
+
+#else
 import SwiftUI
 import CoreModels
 
@@ -111,6 +131,7 @@ public class SmartListRuleBuilder: ObservableObject {
         }
     }
 }
+#endif
 
 // MARK: - Smart List Rule Builder View
 
@@ -458,4 +479,3 @@ struct DurationSlider: View {
         }
     }
 }
-

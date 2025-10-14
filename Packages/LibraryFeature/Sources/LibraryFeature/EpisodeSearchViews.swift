@@ -1,3 +1,31 @@
+#if !os(iOS)
+import SwiftUI
+import CoreModels
+import Persistence
+
+public struct EpisodeSearchView: View {
+    public init(episodes: [Episode], filterService: EpisodeFilterService) {}
+
+    public var body: some View {
+        Text("Episode search is available on iOS only.")
+    }
+}
+
+public struct EpisodeSearchResultCell: View {
+    let episode: Episode
+    let highlightTerms: [String]
+
+    public init(episode: Episode, highlightTerms: [String]) {
+        self.episode = episode
+        self.highlightTerms = highlightTerms
+    }
+
+    public var body: some View {
+        Text(episode.title)
+    }
+}
+
+#else
 //
 //  EpisodeSearchViews.swift
 //  LibraryFeature
@@ -511,3 +539,4 @@ extension SuggestionType {
         }
     }
 }
+#endif
