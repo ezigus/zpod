@@ -78,7 +78,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     searchField.typeText("Swift Talk")
 
     // Wait for the app to process the input and dismiss any keyboard
-    app.waitForApplicationToIdle()
+    Thread.sleep(forTimeInterval: 0.5)
 
     // Dismiss keyboard if it's showing to avoid interference
     if app.keyboards.count > 0 {
