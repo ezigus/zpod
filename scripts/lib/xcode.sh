@@ -18,32 +18,47 @@ _xcode_simctl_select() {
   simctl_json="$(xcrun simctl list devices --json 2>/dev/null || true)"
   [[ -z "$simctl_json" ]] && return 1
 
-  local line name runtime os
-  line=""
-  name=""
-  runtime=""
-  os=""
-  while IFS= read -r line; do
-    if [[ "$line" =~ "name" ]]; then
-      name=$(echo "$line" | sed -En 's/.*"name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
-    fi
-    if [[ "$line" =~ "runtime" ]]; then
-      runtime=$(echo "$line" | sed -En 's/.*"runtime"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
-    fi
-    if [[ "$line" =~ "isAvailable" ]]; then
-      if echo "$line" | grep -q 'true'; then
-        if [[ -n "$name" && -n "$runtime" ]]; then
-          os=$(echo "$runtime" | sed -En 's/.*iOS-([0-9]+(-[0-9]+)*).*/\1/p' | tr '-' '.')
-          if [[ "$name" == "$preferred" ]]; then
-            SELECTED_DESTINATION="platform=iOS Simulator,name=${name},OS=${os:-18.0}"
-            DESTINATION_IS_GENERIC=0
-            return 0
+  # Try the preferred device first, then fall back to newer devices before older ones
+  local fallback_devices=(
+    "$preferred"
+    "iPhone 17 Pro"
+    "iPhone 17"
+    "iPhone 17 Pro Max"
+    "iPhone 16 Pro"
+    "iPhone 16 Plus"
+    "iPhone 16"
+    "iPhone 15 Pro"
+    "iPhone 15"
+  )
+
+  local line name runtime os device
+  for device in "${fallback_devices[@]}"; do
+    line=""
+    name=""
+    runtime=""
+    os=""
+    while IFS= read -r line; do
+      if [[ "$line" =~ "name" ]]; then
+        name=$(echo "$line" | sed -En 's/.*"name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+      fi
+      if [[ "$line" =~ "runtime" ]]; then
+        runtime=$(echo "$line" | sed -En 's/.*"runtime"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')
+      fi
+      if [[ "$line" =~ "isAvailable" ]]; then
+        if echo "$line" | grep -q 'true'; then
+          if [[ -n "$name" && -n "$runtime" ]]; then
+            os=$(echo "$runtime" | sed -En 's/.*iOS-([0-9]+(-[0-9]+)*).*/\1/p' | tr '-' '.')
+            if [[ "$name" == "$device" ]]; then
+              SELECTED_DESTINATION="platform=iOS Simulator,name=${name},OS=${os:-18.0}"
+              DESTINATION_IS_GENERIC=0
+              return 0
+            fi
           fi
         fi
+        name=""; runtime=""
       fi
-      name=""; runtime=""
-    fi
-  done <<< "$(echo "$simctl_json" | tr ',' '\n')"
+    done <<< "$(echo "$simctl_json" | tr ',' '\n')"
+  done
   return 1
 }
 

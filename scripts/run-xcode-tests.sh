@@ -19,7 +19,7 @@ source "${SCRIPT_ROOT}/lib/testplan.sh"
 
 SCHEME=""
 WORKSPACE="${REPO_ROOT}/zpod.xcworkspace"
-PREFERRED_SIM="iPhone 16"
+PREFERRED_SIM="iPhone 17 Pro"
 REQUESTED_CLEAN=0
 REQUESTED_BUILDS=""
 REQUESTED_TESTS=""
@@ -427,7 +427,7 @@ Options:
   -p [suite]        Verify test plan coverage (optional suite: default, zpodTests, zpodUITests, IntegrationTests)
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
-  --sim <device>    Preferred simulator name (default: "iPhone 16")
+  --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
   --self-check      Run environment self-checks and exit
   --help            Show this message
 EOF
@@ -582,7 +582,14 @@ build_app_target() {
   require_workspace
   ensure_scheme_available
   init_result_paths "build" "$target_label"
+  local resolved_scheme="$SCHEME"
+  local resolved_sdk="iphonesimulator"
+  local resolved_destination=""
+  if [[ "$target" == "IntegrationTests" ]]; then
+    resolved_scheme="IntegrationTests"
+  fi
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  resolved_destination="$SELECTED_DESTINATION"
 
   local -a args=(
     -workspace "$WORKSPACE"
@@ -658,7 +665,14 @@ test_app_target() {
     return 0
   fi
 
+  local resolved_scheme="$SCHEME"
+  local resolved_sdk="iphonesimulator"
+  local resolved_destination=""
+  if [[ "$target" == "IntegrationTests" ]]; then
+    resolved_scheme="IntegrationTests"
+  fi
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  resolved_destination="$SELECTED_DESTINATION"
 
   if [[ "$target" == "zpod" ]]; then
     local clean_flag=$REQUESTED_CLEAN
@@ -678,9 +692,9 @@ test_app_target() {
 
   local -a args=(
     -workspace "$WORKSPACE"
-    -scheme "$SCHEME"
-    -sdk iphonesimulator
-    -destination "$SELECTED_DESTINATION"
+    -scheme "$resolved_scheme"
+    -sdk "$resolved_sdk"
+    -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
   if [[ $REQUESTED_CLEAN -eq 1 ]]; then
@@ -690,8 +704,10 @@ test_app_target() {
   case "$target" in
     all|zpod)
       args+=(build test);;
-    zpodTests|zpodUITests|IntegrationTests)
+    zpodTests|zpodUITests)
       args+=(build test -only-testing:"$target");;
+    IntegrationTests)
+      args+=(build test);;
     */*)
       args+=(build test -only-testing:"$target");;
     *)
@@ -891,15 +907,32 @@ run_filtered_xcode_tests() {
   local -a filters=("$@")
 
   ensure_scheme_available
+
+  local integration_run=0
+  local filter
+  for filter in "${filters[@]}"; do
+    if [[ "$filter" == IntegrationTests* ]]; then
+      integration_run=1
+      break
+    fi
+  done
+
+  local resolved_scheme="$SCHEME"
+  local resolved_sdk="iphonesimulator"
+  local resolved_destination=""
+  if [[ $integration_run -eq 1 ]]; then
+    resolved_scheme="IntegrationTests"
+  fi
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  resolved_destination="$SELECTED_DESTINATION"
 
   init_result_paths "test" "$label"
 
   local -a args=(
     -workspace "$WORKSPACE"
-    -scheme "$SCHEME"
-    -sdk iphonesimulator
-    -destination "$SELECTED_DESTINATION"
+    -scheme "$resolved_scheme"
+    -sdk "$resolved_sdk"
+    -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
 
@@ -909,10 +942,12 @@ run_filtered_xcode_tests() {
 
   args+=(build test)
 
-  local filter
-  for filter in "${filters[@]}"; do
-    args+=("-only-testing:$filter")
-  done
+  if [[ $integration_run -eq 0 ]]; then
+    local filter
+    for filter in "${filters[@]}"; do
+      args+=("-only-testing:$filter")
+    done
+  fi
 
   log_section "xcodebuild tests (${label})"
   set +e
