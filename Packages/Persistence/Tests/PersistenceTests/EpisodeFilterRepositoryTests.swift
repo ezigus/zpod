@@ -8,25 +8,18 @@ import CoreModels
 final class EpisodeFilterRepositoryTests: XCTestCase {
     
     private var repository: UserDefaultsEpisodeFilterRepository!
-    private var userDefaults: UserDefaults!
-    private var suiteName: String!
+    private var harness: UserDefaultsTestHarness!
     
     override func setUp() async throws {
         try await super.setUp()
         
-        // Create isolated UserDefaults for testing
-        suiteName = "test-episode-filter-\(UUID().uuidString)"
-        userDefaults = UserDefaults(suiteName: suiteName)!
-        userDefaults.removePersistentDomain(forName: suiteName)
-        
-        repository = UserDefaultsEpisodeFilterRepository(userDefaults: userDefaults)
+        harness = makeUserDefaultsHarness(prefix: "episode-filter")
+        repository = UserDefaultsEpisodeFilterRepository(suiteName: harness.suiteName)
     }
     
     override func tearDown() async throws {
-        userDefaults?.removePersistentDomain(forName: suiteName)
-        userDefaults = nil
+        harness = nil
         repository = nil
-        suiteName = nil
         
         try await super.tearDown()
     }
@@ -248,6 +241,7 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 
 // MARK: - Episode Filter Manager Tests
 
+@MainActor
 final class EpisodeFilterManagerTests: XCTestCase {
     
     private var filterManager: EpisodeFilterManager!
@@ -260,6 +254,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
         mockRepository = MockEpisodeFilterRepository()
         filterService = DefaultEpisodeFilterService()
         filterManager = EpisodeFilterManager(repository: mockRepository, filterService: filterService)
+        try await Task.sleep(nanoseconds: 50_000_000)
     }
     
     override func tearDown() async throws {
@@ -306,7 +301,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     @MainActor
-    func testFilterForPodcast_ReturnsCorrectFilter() {
+    func testFilterForPodcast_ReturnsCorrectFilter() async {
         // Given: Podcast with saved filter preference
         let podcastId = "test-podcast"
         let savedFilter = EpisodeFilter(
@@ -315,10 +310,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
         )
         
         // Setup global preferences with podcast preference
-        filterManager.globalPreferences = filterManager.globalPreferences.withPodcastPreference(
-            podcastId: podcastId,
-            filter: savedFilter
-        )
+        await filterManager.setCurrentFilter(savedFilter, forPodcast: podcastId)
         
         // When: Getting filter for podcast
         let retrievedFilter = filterManager.filterForPodcast(podcastId)
@@ -328,7 +320,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     @MainActor
-    func testFilterForPodcast_ReturnsDefaultFilter() {
+    func testFilterForPodcast_ReturnsDefaultFilter() async {
         // Given: Podcast without saved filter preference
         let podcastId = "unknown-podcast"
         
@@ -364,7 +356,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
             name: "Test Smart List",
             filter: EpisodeFilter()
         )
-        filterManager.smartLists.append(smartList)
+        await filterManager.createSmartList(smartList)
         
         // When: Deleting smart list
         await filterManager.deleteSmartList(id: smartList.id)

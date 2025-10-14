@@ -5,16 +5,13 @@ import CoreModels
 
 @MainActor
 final class SettingsManagerFeatureRegistryTests: XCTestCase {
-  private var userDefaults: UserDefaults!
+  private var harness: SettingsRepositoryHarness!
   private var repository: UserDefaultsSettingsRepository!
   private var settingsManager: SettingsManager!
-  private var suiteName: String!
 
   override func setUp() async throws {
-    suiteName = "test.registry.settings.\(UUID().uuidString)"
-    userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+    harness = makeSettingsRepository(prefix: "registry-settings")
+    repository = harness.repository
     settingsManager = SettingsManager(repository: repository)
 
     // Allow async initialization tasks to settle
@@ -22,11 +19,7 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
   }
 
   override func tearDown() async throws {
-    if let suiteName {
-      userDefaults.removePersistentDomain(forName: suiteName)
-    }
-    suiteName = nil
-    userDefaults = nil
+    harness = nil
     repository = nil
     settingsManager = nil
   }
@@ -53,12 +46,11 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
 
   func testRegistryControllerFactoryReturnsSwipeController() async throws {
     let controller = await settingsManager.featureConfigurationRegistry.controller(for: "swipeActions")
-    let swipeController = controller as? SwipeConfigurationController
-    XCTAssertNotNil(swipeController)
+    let swipeController = try XCTUnwrap(controller as? SwipeConfigurationController)
 
-    await swipeController?.loadBaseline()
+    await swipeController.loadBaseline()
     XCTAssertEqual(
-      swipeController?.leadingActions,
+      swipeController.leadingActions,
       settingsManager.globalUISettings.swipeActions.leadingActions,
       "Swipe controller should load baseline leading actions"
     )
@@ -66,12 +58,11 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
 
   func testRegistryControllerFactoryReturnsNotificationsController() async throws {
     let controller = await settingsManager.featureConfigurationRegistry.controller(for: "notifications")
-    let notificationsController = controller as? NotificationsConfigurationController
-    XCTAssertNotNil(notificationsController)
+    let notificationsController = try XCTUnwrap(controller as? NotificationsConfigurationController)
 
-    await notificationsController?.loadBaseline()
+    await notificationsController.loadBaseline()
     XCTAssertEqual(
-      notificationsController?.deliverySchedule,
+      notificationsController.deliverySchedule,
       settingsManager.globalNotificationSettings.deliverySchedule,
       "Notifications controller should load baseline schedule"
     )
@@ -79,12 +70,11 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
 
   func testRegistryControllerFactoryReturnsAppearanceController() async throws {
     let controller = await settingsManager.featureConfigurationRegistry.controller(for: "appearance")
-    let appearanceController = controller as? AppearanceConfigurationController
-    XCTAssertNotNil(appearanceController)
+    let appearanceController = try XCTUnwrap(controller as? AppearanceConfigurationController)
 
-    await appearanceController?.loadBaseline()
+    await appearanceController.loadBaseline()
     XCTAssertEqual(
-      appearanceController?.typographyScale,
+      appearanceController.typographyScale,
       settingsManager.globalAppearanceSettings.typographyScale,
       accuracy: 0.0001,
       "Appearance controller should load baseline scale"
@@ -93,12 +83,11 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
 
   func testRegistryControllerFactoryReturnsSmartListAutomationController() async throws {
     let controller = await settingsManager.featureConfigurationRegistry.controller(for: "smartListAutomation")
-    let automationController = controller as? SmartListAutomationConfigurationController
-    XCTAssertNotNil(automationController)
+    let automationController = try XCTUnwrap(controller as? SmartListAutomationConfigurationController)
 
-    await automationController?.loadBaseline()
+    await automationController.loadBaseline()
     XCTAssertEqual(
-      automationController?.maxRefreshPerCycle,
+      automationController.maxRefreshPerCycle,
       settingsManager.globalSmartListAutomationSettings.maxRefreshPerCycle,
       "Smart list automation controller should load baseline configuration"
     )
@@ -163,12 +152,12 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     XCTAssertEqual(sections[2].title, "Automation")
     XCTAssertEqual(sections[2].descriptors.first?.id, "smartListAutomation")
 
-    XCTAssertEqual(sections[3].title, "Interaction")
-    XCTAssertEqual(sections[3].descriptors.first?.id, "swipeActions")
+    XCTAssertEqual(sections[3].title, "Playback")
+    XCTAssertTrue(sections[3].descriptors.contains(where: { $0.id == "playbackPreferences" }))
+    XCTAssertTrue(sections[3].descriptors.contains(where: { $0.id == "playbackPresets" }))
 
-    XCTAssertEqual(sections[4].title, "Playback")
-    XCTAssertTrue(sections[4].descriptors.contains(where: { $0.id == "playbackPreferences" }))
-    XCTAssertTrue(sections[4].descriptors.contains(where: { $0.id == "playbackPresets" }))
+    XCTAssertEqual(sections[4].title, "Interaction")
+    XCTAssertEqual(sections[4].descriptors.first?.id, "swipeActions")
 
     XCTAssertEqual(sections[5].title, "Downloads")
     XCTAssertEqual(sections[5].descriptors.first?.id, "downloadPolicies")

@@ -9,7 +9,6 @@ import XCTest
 /// persists the latest swipe configuration via the modular service path.
 final class SwipeConfigurationIntegrationTests: XCTestCase {
   private var suiteName: String!
-  private var userDefaults: UserDefaults!
   private var repository: UserDefaultsSettingsRepository!
 
   override func setUpWithError() throws {
@@ -22,17 +21,15 @@ final class SwipeConfigurationIntegrationTests: XCTestCase {
     }
 
     defaults.removePersistentDomain(forName: suiteName)
-    userDefaults = defaults
-    repository = UserDefaultsSettingsRepository(userDefaults: defaults)
+    repository = UserDefaultsSettingsRepository(suiteName: suiteName)
   }
 
   override func tearDownWithError() throws {
     if let suiteName {
-      userDefaults.removePersistentDomain(forName: suiteName)
+      UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
     }
 
     repository = nil
-    userDefaults = nil
     suiteName = nil
 
     try super.tearDownWithError()
@@ -66,7 +63,12 @@ final class SwipeConfigurationIntegrationTests: XCTestCase {
     XCTAssertEqual(persistedSettings, updatedSettings)
 
     // And: a fresh manager observes the saved configuration after "relaunch"
-    let relaunchedRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+    guard let suiteName else {
+      XCTFail("Missing suite name during relaunch")
+      return
+    }
+
+    let relaunchedRepository = UserDefaultsSettingsRepository(suiteName: suiteName)
     let relaunchedManager = SettingsManager(repository: relaunchedRepository)
     try await Task.sleep(nanoseconds: 100_000_000)
 

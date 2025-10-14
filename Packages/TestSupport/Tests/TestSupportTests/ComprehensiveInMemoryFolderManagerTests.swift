@@ -328,7 +328,8 @@ final class ComprehensiveInMemoryFolderManagerTests: XCTestCase {
             .duplicateId("Test duplicate"),
             .notFound("Test not found"),
             .invalidParent("Test invalid parent"),
-            .hasChildren("Test has children")
+            .hasChildren("Test has children"),
+            .circularReference("Test circular reference")
         ]
         
         // When: Getting error descriptions
@@ -346,6 +347,8 @@ final class ComprehensiveInMemoryFolderManagerTests: XCTestCase {
                 XCTAssertTrue(description.contains("Invalid Parent"))
             case .hasChildren:
                 XCTAssertTrue(description.contains("Has Children"))
+            case .circularReference:
+                XCTAssertTrue(description.contains("Circular Reference"))
             }
         }
     }

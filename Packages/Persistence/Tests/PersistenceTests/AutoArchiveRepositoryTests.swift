@@ -5,22 +5,17 @@ import CoreModels
 final class AutoArchiveRepositoryTests: XCTestCase {
     
     var repository: UserDefaultsAutoArchiveRepository!
-    var testUserDefaults: UserDefaults!
+    private var harness: UserDefaultsTestHarness!
     
     override func setUp() async throws {
         try await super.setUp()
         
-        // Create a new user defaults suite for testing
-        let suiteName = "test.autoarchive.\(UUID().uuidString)"
-        testUserDefaults = UserDefaults(suiteName: suiteName)!
-        repository = UserDefaultsAutoArchiveRepository(userDefaults: testUserDefaults)
+        harness = makeUserDefaultsHarness(prefix: "autoarchive")
+        repository = UserDefaultsAutoArchiveRepository(suiteName: harness.suiteName)
     }
     
     override func tearDown() async throws {
-        // Clean up test data
-        if let suite = testUserDefaults.dictionaryRepresentation().keys.first {
-            testUserDefaults.removePersistentDomain(forName: suite)
-        }
+        harness = nil
         try await super.tearDown()
     }
     
@@ -206,20 +201,24 @@ final class AutoArchiveRepositoryTests: XCTestCase {
     
     func testConcurrentSaveAndLoad() async throws {
         let config = GlobalAutoArchiveConfig(isGlobalEnabled: true)
-        
+        guard let repository = repository else {
+            XCTFail("Repository not configured")
+            return
+        }
+
         // Perform concurrent operations
         try await withThrowingTaskGroup(of: Void.self) { group in
             // Save multiple times concurrently
             for _ in 0..<5 {
                 group.addTask {
-                    try await self.repository.saveGlobalConfig(config)
+                    try await repository.saveGlobalConfig(config)
                 }
             }
             
             // Load multiple times concurrently
             for _ in 0..<5 {
                 group.addTask {
-                    _ = try await self.repository.loadGlobalConfig()
+                    _ = try await repository.loadGlobalConfig()
                 }
             }
             

@@ -74,6 +74,14 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
+
+    public init(suiteName: String) {
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            self.userDefaults = suiteDefaults
+        } else {
+            self.userDefaults = .standard
+        }
+    }
     
     // MARK: - Keys for UserDefaults storage
     
@@ -375,14 +383,45 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
         settingsChangeSubject.send(.podcastPlayback(podcastId, nil))
         #endif
     }
-    
+
+    // MARK: - Test Utilities
+
+    public func clearAll() {
+        userDefaults.removeObject(forKey: Keys.globalDownload)
+        userDefaults.removeObject(forKey: Keys.globalNotification)
+        userDefaults.removeObject(forKey: Keys.globalPlayback)
+        userDefaults.removeObject(forKey: Keys.globalUI)
+        userDefaults.removeObject(forKey: Keys.globalAppearance)
+        userDefaults.removeObject(forKey: Keys.globalSmartListAutomation)
+        userDefaults.removeObject(forKey: Keys.playbackPresetLibrary)
+
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+        for key in allKeys {
+            if key.hasPrefix(Keys.podcastDownloadPrefix) || key.hasPrefix(Keys.podcastPlaybackPrefix) {
+                userDefaults.removeObject(forKey: key)
+            }
+        }
+    }
+
     // MARK: - Change Notifications
-    
-    #if canImport(Combine)
+
+#if canImport(Combine)
     public var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> {
         get async {
             return settingsChangeSubject.eraseToAnyPublisher()
         }
     }
-    #endif
+
+    public func settingsChangeStream() -> AsyncStream<SettingsChange> {
+        AsyncStream { continuation in
+            let cancellable = settingsChangeSubject.sink { change in
+                continuation.yield(change)
+            }
+
+            continuation.onTermination = { _ in
+                cancellable.cancel()
+            }
+        }
+    }
+#endif
 }
