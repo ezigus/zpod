@@ -12,8 +12,12 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  xcode-tests:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [zpod, zpodUITests, IntegrationTests]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,16 +94,17 @@ jobs:
           xcrun simctl list devices || true
 
       - name: Clean Build (all targets)
+        if: matrix.target == 'zpod'
         run: |
           set -euo pipefail
           ./scripts/run-xcode-tests.sh -c -b all
         env:
           NSUnbufferedIO: "YES"
 
-      - name: Run Regression Suite
+      - name: Run ${{ matrix.target }} Tests
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t zpod
+          ./scripts/run-xcode-tests.sh -t ${{ matrix.target }}
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
@@ -107,20 +112,20 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          mkdir -p artifacts
+          mkdir -p artifacts/${{ matrix.target }}
           if ls TestResults >/dev/null 2>&1; then
             find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/ \;
+              -exec cp -R {} artifacts/${{ matrix.target }}/ \;
           fi
           if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/
+            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.target }}/
           fi
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts
-          path: artifacts
+          name: test-${{ matrix.target }}
+          path: artifacts/${{ matrix.target }}
           if-no-files-found: warn
 
   syntax-linux:
