@@ -191,7 +191,8 @@ extension ElementWaiting {
     let expectation = XCTestExpectation(description: "Wait for element to disappear")
 
     func poll() {
-      if !element.exists || !element.isHittable {
+      // Only check existence, not hittability to avoid automation errors
+      if !element.exists {
         expectation.fulfill()
         return
       }
@@ -398,7 +399,8 @@ private struct BatchOverlayObservation {
       guard element.exists else { return nil }
       let identifier = element.identifier.isEmpty ? "∅" : element.identifier
       let label = element.label.isEmpty ? "∅" : element.label
-      return "[#\(index)] identifier='\(identifier)' label='\(label)' hittable=\(element.isHittable)"
+      return
+        "[#\(index)] identifier='\(identifier)' label='\(label)' hittable=\(element.isHittable)"
     }
 
     guard !visibleElements.isEmpty else { return "No overlay elements currently visible" }

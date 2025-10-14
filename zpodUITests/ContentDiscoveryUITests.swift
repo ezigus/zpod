@@ -77,12 +77,26 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     searchField.tap()
     searchField.typeText("Swift Talk")
 
-    // Wait for the app to process the input and dismiss any keyboard
-    Thread.sleep(forTimeInterval: 0.5)
-
-    // Dismiss keyboard if it's showing to avoid interference
+    // Dismiss keyboard using proper method - tap return key or tap outside
     if app.keyboards.count > 0 {
-      app.keyboards.buttons["Done"].tap()
+      // Try return key first
+      let returnKey = app.keyboards.buttons["Return"]
+      if returnKey.exists {
+        returnKey.tap()
+      } else {
+        // If no return key, try done button
+        let doneKey = app.keyboards.buttons["Done"]
+        if doneKey.exists {
+          doneKey.tap()
+        } else {
+          // If neither works, tap outside the keyboard to dismiss
+          let searchFieldFrame = searchField.frame
+          let tapPoint = CGPoint(x: searchFieldFrame.midX, y: searchFieldFrame.minY - 20)
+          app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(
+            CGVector(dx: tapPoint.x, dy: tapPoint.y)
+          ).tap()
+        }
+      }
     }
 
     // Then: The search field should contain the typed text
