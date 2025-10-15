@@ -157,26 +157,23 @@ extension ElementWaiting {
   ) -> Bool {
     if element.isHittable { return true }
 
-    let expectation = XCTestExpectation(description: "Wait for hittable \(description)")
+    let endTime = Date().addingTimeInterval(timeout)
 
-    func poll() {
+    while Date() < endTime {
       if element.isHittable {
-        expectation.fulfill()
-        return
+        return true
       }
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        poll()
-      }
+      // Small sleep to prevent excessive polling
+      Thread.sleep(forTimeInterval: 0.1)
     }
 
-    poll()
-
-    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-    if result != .completed {
-      // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
-      XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
-      return false
+    // Final check
+    if element.isHittable {
+      return true
     }
+
+    XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
+    return false
 
     return true
   }

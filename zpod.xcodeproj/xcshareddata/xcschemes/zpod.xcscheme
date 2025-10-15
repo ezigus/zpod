@@ -70,6 +70,24 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Disable Hardware Keyboard"
+               scriptText = "# Disable hardware keyboard to ensure software keyboard appears in UI tests&#10;killall Simulator || true&#10;defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "786FD1082E22E615008CEE55"
+                     BuildableName = "zpod.app"
+                     BlueprintName = "zpod"
+                     ReferencedContainer = "container:zpod.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <TestPlans>
          <TestPlanReference
             reference = "container:zpod.xctestplan"

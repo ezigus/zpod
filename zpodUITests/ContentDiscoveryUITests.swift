@@ -29,12 +29,25 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   private func initializeApp() {
     app = launchConfiguredApp()
 
-    // Navigate to discovery interface for testing
+    // Wait for the main tab bar to be available
     let tabBar = app.tabBars["Main Tab Bar"]
+    XCTAssertTrue(
+      waitForElement(
+        tabBar, timeout: adaptiveTimeout, description: "Main tab bar"),
+      "Main tab bar should be available after app launch")
+
+    // Navigate to discovery interface for testing
     let discoverTab = tabBar.buttons["Discover"]
-    if discoverTab.exists {
-      discoverTab.tap()
-    }
+    XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
+
+    discoverTab.tap()
+
+    // Wait for discover screen to load fully
+    let discoverNavBar = app.navigationBars["Discover"]
+    XCTAssertTrue(
+      waitForElement(
+        discoverNavBar, timeout: adaptiveTimeout, description: "Discover navigation bar"),
+      "Discover screen should load after tapping tab")
   }
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
@@ -75,29 +88,22 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // When: I type in the search field
     searchField.tap()
-    searchField.typeText("Swift Talk")
 
-    // Dismiss keyboard using proper method - tap return key or tap outside
-    if app.keyboards.count > 0 {
-      // Try return key first
-      let returnKey = app.keyboards.buttons["Return"]
-      if returnKey.exists {
-        returnKey.tap()
-      } else {
-        // If no return key, try done button
-        let doneKey = app.keyboards.buttons["Done"]
-        if doneKey.exists {
-          doneKey.tap()
-        } else {
-          // If neither works, tap outside the keyboard to dismiss
-          let searchFieldFrame = searchField.frame
-          let tapPoint = CGPoint(x: searchFieldFrame.midX, y: searchFieldFrame.minY - 20)
-          app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0)).withOffset(
-            CGVector(dx: tapPoint.x, dy: tapPoint.y)
-          ).tap()
-        }
-      }
-    }
+    // Wait for keyboard to appear - this is the real indicator of readiness
+    XCTAssertTrue(
+      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+      "Keyboard should appear after tapping search field")
+
+    // Verify the field is ready for input by checking it has focus
+    let hasKeyboardFocus = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    XCTAssertTrue(
+      hasKeyboardFocus,
+      "Search field should have keyboard focus after tap")
+
+    // Add a small delay to ensure focus is fully established before typing
+    Thread.sleep(forTimeInterval: 1.0)
+
+    searchField.typeText("Swift Talk")
 
     // Then: The search field should contain the typed text
     let searchFieldValue = searchField.value as? String
@@ -121,6 +127,21 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     searchField.tap()
+
+    // Wait for keyboard to appear - this is the real indicator of readiness
+    XCTAssertTrue(
+      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+      "Keyboard should appear after tapping search field")
+
+    // Verify the field is ready for input by checking it has focus
+    let hasKeyboardFocus2 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    XCTAssertTrue(
+      hasKeyboardFocus2,
+      "Search field should have keyboard focus after tap")
+
+    // Add a small delay to ensure focus is fully established before typing
+    Thread.sleep(forTimeInterval: 1.0)
+
     searchField.typeText("test")
 
     // When: I tap the clear button (if it exists)
@@ -440,6 +461,21 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     ).firstMatch
     if searchField.exists {
       searchField.tap()
+
+      // Wait for keyboard to appear - this is the real indicator of readiness
+      XCTAssertTrue(
+        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+        "Keyboard should appear after tapping search field")
+
+      // Verify the field is ready for input by checking it has focus
+      let hasKeyboardFocus3 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+      XCTAssertTrue(
+        hasKeyboardFocus3,
+        "Search field should have keyboard focus after tap")
+
+      // Add a small delay to ensure focus is fully established before typing
+      Thread.sleep(forTimeInterval: 0.5)
+
       searchField.typeText("test")
 
       // When: Search filters become available
@@ -600,6 +636,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     if searchField.exists {
       // When: I interact with the search field
       searchField.tap()
+
+      // Wait for keyboard to appear - this is the real indicator of readiness
+      XCTAssertTrue(
+        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+        "Keyboard should appear after tapping search field")
+
+      // Verify the field is ready for input by checking it has focus
+      let hasKeyboardFocus4 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+      XCTAssertTrue(
+        hasKeyboardFocus4,
+        "Search field should have keyboard focus after tap")
+
+      // Add a small delay to ensure focus is fully established before typing
+      Thread.sleep(forTimeInterval: 0.5)
 
       // Type text into the search field
       searchField.typeText("test")
