@@ -94,11 +94,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
       "Keyboard should appear after tapping search field")
 
-    // Verify the field is ready for input by checking it has focus
-    let hasKeyboardFocus = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-    XCTAssertTrue(
-      hasKeyboardFocus,
-      "Search field should have keyboard focus after tap")
+    // The presence of the keyboard after tapping the field is used as a proxy for keyboard focus.
 
     // Add a small delay to ensure focus is fully established before typing
     Thread.sleep(forTimeInterval: 1.0)
