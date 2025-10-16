@@ -174,8 +174,6 @@ extension ElementWaiting {
 
     XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
     return false
-
-    return true
   }
 
   /// Wait for an element to disappear (non-existent or not hittable). Does not fail on timeout.
