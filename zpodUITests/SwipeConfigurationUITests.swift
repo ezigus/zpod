@@ -1203,10 +1203,13 @@ extension SwipeConfigurationUITests {
       let collections = root.collectionViews.matching(NSPredicate(value: true))
       for i in 0..<collections.count {
         let collectionCandidate = collections.element(boundBy: i)
-        if collectionCandidate.exists
-          && collectionCandidate.descendants(matching: .any).matching(swipePredicate).firstMatch
-            .exists
-        {
+
+        // Break down the complex chained method call for better readability and debugging
+        let descendantsMatchingAny = collectionCandidate.descendants(matching: .any)
+        let swipePredicateMatches = descendantsMatchingAny.matching(swipePredicate)
+        let firstSwipeMatch = swipePredicateMatches.firstMatch
+
+        if collectionCandidate.exists && firstSwipeMatch.exists {
           return collectionCandidate
         }
       }
