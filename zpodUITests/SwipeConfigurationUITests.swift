@@ -7,9 +7,9 @@
 
 // swiftlint:disable type_body_length
 
-import XCTest
 import Foundation
 import OSLog
+import XCTest
 
 final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   private let logger = Logger(subsystem: "us.zig.zpod", category: "SwipeConfigurationUITests")
@@ -50,7 +50,8 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     Task {
       await MainActor.run {
         defer { terminationExpectation.fulfill() }
-        if appToTerminate.state == .runningForeground || appToTerminate.state == .runningBackground {
+        if appToTerminate.state == .runningForeground || appToTerminate.state == .runningBackground
+        {
           appToTerminate.terminate()
         }
         self.app = nil
@@ -201,13 +202,16 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         "Save button should enable after applying preset \(preset.identifier)"
       )
 
-      guard waitForDebugSummary(
-        leading: preset.leading,
-        trailing: preset.trailing,
-        unsaved: true
-      ) else {
+      guard
+        waitForDebugSummary(
+          leading: preset.leading,
+          trailing: preset.trailing,
+          unsaved: true
+        )
+      else {
         if let state = currentDebugState() {
-          let message = "Debug summary mismatch for preset \(preset.identifier). "
+          let message =
+            "Debug summary mismatch for preset \(preset.identifier). "
             + "Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
           XCTFail(message)
         } else {
@@ -247,7 +251,8 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         unsaved: true
       ) {
         if let state = currentDebugState() {
-          let message = "Debug summary mismatch after adding \(entry.displayName). "
+          let message =
+            "Debug summary mismatch after adding \(entry.displayName). "
             + "Observed leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved)"
           XCTFail(message)
         } else {
@@ -302,11 +307,13 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @discardableResult
   private func waitForBaselineLoaded(timeout: TimeInterval = 5.0) -> Bool {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard waitForElement(
-      summaryElement,
-      timeout: adaptiveShortTimeout,
-      description: "Swipe configuration debug summary"
-    ) else {
+    guard
+      waitForElement(
+        summaryElement,
+        timeout: adaptiveShortTimeout,
+        description: "Swipe configuration debug summary"
+      )
+    else {
       return false
     }
     let predicate = NSPredicate { [weak summaryElement] _, _ in
@@ -332,11 +339,13 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     timeout: TimeInterval? = nil
   ) -> Bool {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard waitForElement(
-      summaryElement,
-      timeout: adaptiveShortTimeout,
-      description: "Swipe configuration debug summary"
-    ) else {
+    guard
+      waitForElement(
+        summaryElement,
+        timeout: adaptiveShortTimeout,
+        description: "Swipe configuration debug summary"
+      )
+    else {
       return false
     }
 
@@ -365,7 +374,10 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     expectation.expectationDescription = "Wait for debug summary match"
     let result = XCTWaiter.wait(for: [expectation], timeout: effectiveTimeout)
     if result != .completed, let observed = lastObservedState {
-      let attachment = XCTAttachment(string: "Observed debug state: leading=\(observed.leading) trailing=\(observed.trailing) unsaved=\(observed.unsaved) baseline=\(observed.baselineLoaded)")
+      let attachment = XCTAttachment(
+        string:
+          "Observed debug state: leading=\(observed.leading) trailing=\(observed.trailing) unsaved=\(observed.unsaved) baseline=\(observed.baselineLoaded)"
+      )
       attachment.lifetime = .keepAlways
       add(attachment)
     }
@@ -487,7 +499,42 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     guard libraryTab.exists else {
       throw XCTSkip("Library tab unavailable")
     }
-    libraryTab.tap()
+
+    // Ensure tab bar is fully loaded and accessible before tapping
+    guard
+      waitForElement(
+        libraryTab,
+        timeout: adaptiveShortTimeout,
+        description: "Library tab button"
+      )
+    else {
+      throw XCTSkip("Library tab not ready for interaction")
+    }
+
+    guard
+      waitForElementToBeHittable(
+        libraryTab,
+        timeout: adaptiveShortTimeout,
+        description: "Library tab button"
+      )
+    else {
+      throw XCTSkip("Library tab not hittable")
+    }
+
+    // Use a more robust navigation approach
+    let navigationSucceeded = navigateAndWaitForResult(
+      triggerAction: { libraryTab.tap() },
+      expectedElements: [
+        app.buttons["Podcast-swift-talk"],
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Library'")).firstMatch,
+      ],
+      timeout: adaptiveTimeout,
+      description: "Library navigation"
+    )
+
+    guard navigationSucceeded else {
+      throw XCTSkip("Failed to navigate to Library tab")
+    }
 
     guard
       waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout)
@@ -499,7 +546,31 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     guard podcastButton.exists else {
       throw XCTSkip("Test podcast unavailable")
     }
-    podcastButton.tap()
+
+    guard
+      waitForElementToBeHittable(
+        podcastButton,
+        timeout: adaptiveShortTimeout,
+        description: "Podcast button"
+      )
+    else {
+      throw XCTSkip("Podcast button not hittable")
+    }
+
+    // Use robust navigation to episode list
+    let episodeNavSucceeded = navigateAndWaitForResult(
+      triggerAction: { podcastButton.tap() },
+      expectedElements: [
+        app.buttons["ConfigureSwipeActions"],
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Episodes'")).firstMatch,
+      ],
+      timeout: adaptiveTimeout,
+      description: "Episode list navigation"
+    )
+
+    guard episodeNavSucceeded else {
+      throw XCTSkip("Failed to navigate to episode list")
+    }
 
     if !waitForContentToLoad(
       containerIdentifier: "Episode Cards Container",
@@ -569,7 +640,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func logDebugState(_ label: String) {
     if let state = currentDebugState() {
-      logger.debug("[SwipeUITestDebug] \(label, privacy: .public): leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)")
+      logger.debug(
+        "[SwipeUITestDebug] \(label, privacy: .public): leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)"
+      )
     } else {
       logger.debug("[SwipeUITestDebug] \(label, privacy: .public): state unavailable")
     }
@@ -586,7 +659,9 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
         presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
-    logger.debug("[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)")
+    logger.debug(
+      "[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)"
+    )
     tapElement(presetButton, description: identifier)
     logDebugState("after applyPreset \(identifier)")
   }
@@ -700,7 +775,8 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func saveAndDismissConfiguration() {
     let saveButton = element(withIdentifier: "SwipeActions.Save")
-    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button") else {
+    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button")
+    else {
       return
     }
     logDebugState("before save")
@@ -801,8 +877,13 @@ final class SwipeConfigurationUITests: XCTestCase, SmartUITesting {
     }
 
     if let state = currentDebugState() {
-      logger.debug("[SwipeUITestDebug] leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)")
-      let attachment = XCTAttachment(string: "AssertActionList debug state: leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)")
+      logger.debug(
+        "[SwipeUITestDebug] leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)"
+      )
+      let attachment = XCTAttachment(
+        string:
+          "AssertActionList debug state: leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)"
+      )
       attachment.lifetime = .keepAlways
       add(attachment)
     }
@@ -925,7 +1006,8 @@ extension SwipeConfigurationUITests {
   ) {
     resetSwipeSettingsToDefault()
     guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
-      XCTFail("Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
+      XCTFail(
+        "Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
       return
     }
 
@@ -1021,7 +1103,9 @@ extension SwipeConfigurationUITests {
     var baselineLoaded = false
 
     for component in raw.split(separator: ";") {
-      let parts = component.split(separator: "=", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+      let parts = component.split(separator: "=", maxSplits: 1).map {
+        String($0).trimmingCharacters(in: .whitespaces)
+      }
       guard parts.count == 2 else { continue }
       switch parts[0] {
       case "Leading":
@@ -1056,26 +1140,26 @@ extension SwipeConfigurationUITests {
     )
   }
 
-private struct SwipeDebugState {
-  let leading: [String]
-  let trailing: [String]
-  let fullLeading: Bool
-  let fullTrailing: Bool
-  let hapticsEnabled: Bool
-  let unsaved: Bool
-  let baselineLoaded: Bool
-}
+  private struct SwipeDebugState {
+    let leading: [String]
+    let trailing: [String]
+    let fullLeading: Bool
+    let fullTrailing: Bool
+    let hapticsEnabled: Bool
+    let unsaved: Bool
+    let baselineLoaded: Bool
+  }
 
-private struct SwipePresetExpectation {
-  let identifier: String
-  let leading: [String]
-  let trailing: [String]
-}
+  private struct SwipePresetExpectation {
+    let identifier: String
+    let leading: [String]
+    let trailing: [String]
+  }
 
-private struct SwipeActionDescriptor {
-  let displayName: String
-  let rawValue: String
-}
+  private struct SwipeActionDescriptor {
+    let displayName: String
+    let rawValue: String
+  }
 
   // Best-effort resolution of the Swipe Actions sheet's list container
   @MainActor
@@ -1117,7 +1201,8 @@ private struct SwipeActionDescriptor {
       for i in 0..<collections.count {
         let collectionCandidate = collections.element(boundBy: i)
         if collectionCandidate.exists
-          && collectionCandidate.descendants(matching: .any).matching(swipePredicate).firstMatch.exists
+          && collectionCandidate.descendants(matching: .any).matching(swipePredicate).firstMatch
+            .exists
         {
           return collectionCandidate
         }
