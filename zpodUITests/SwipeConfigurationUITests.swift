@@ -1007,7 +1007,10 @@ extension SwipeConfigurationUITests {
     resetSwipeSettingsToDefault()
     guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
       XCTFail(
-        "Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration")
+        """
+        Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration
+        """
+      )
       return
     }
 
