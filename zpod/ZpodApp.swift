@@ -64,7 +64,16 @@ struct ZpodApp: App {
   }
 
   private func disableHardwareKeyboard() {
+    // Only disable hardware keyboard for UI tests, not integration tests
+    let isUITesting =
+      ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
+
     #if targetEnvironment(simulator)
+      guard isUITesting else {
+        // Don't interfere with integration tests - only apply to UI tests
+        return
+      }
+
       // Disable hardware keyboards in the simulator to ensure software keyboard appears
       let setHardwareLayout = NSSelectorFromString("setHardwareLayout:")
       UITextInputMode.activeInputModes
