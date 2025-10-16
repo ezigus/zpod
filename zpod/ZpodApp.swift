@@ -74,12 +74,10 @@ struct ZpodApp: App {
         return
       }
 
-      // Disable hardware keyboards in the simulator to ensure software keyboard appears
-      let setHardwareLayout = NSSelectorFromString("setHardwareLayout:")
-      UITextInputMode.activeInputModes
-        // Filter `UIKeyboardInputMode`s.
-        .filter({ $0.responds(to: setHardwareLayout) })
-        .forEach { $0.perform(setHardwareLayout, with: nil) }
+      // To ensure the software keyboard appears in the simulator during UI tests,
+      // please manually disable the hardware keyboard in the Simulator via:
+      //  Hardware > Keyboard > "Connect Hardware Keyboard" (uncheck)
+      print("ℹ️ Please disable the hardware keyboard in the Simulator: Hardware > Keyboard > 'Connect Hardware Keyboard'")
     #endif
   }
 }
