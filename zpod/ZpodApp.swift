@@ -18,6 +18,7 @@ struct ZpodApp: App {
 
   init() {
     disableHardwareKeyboard()
+    configureAnimationsForUITesting()
   }
 
   #if canImport(LibraryFeature)
@@ -77,7 +78,44 @@ struct ZpodApp: App {
       // To ensure the software keyboard appears in the simulator during UI tests,
       // please manually disable the hardware keyboard in the Simulator via:
       //  Hardware > Keyboard > "Connect Hardware Keyboard" (uncheck)
-      print("ℹ️ Please disable the hardware keyboard in the Simulator: Hardware > Keyboard > 'Connect Hardware Keyboard'")
+      print(
+        "ℹ️ Please disable the hardware keyboard in the Simulator: Hardware > Keyboard > 'Connect Hardware Keyboard'"
+      )
     #endif
+  }
+
+  private func configureAnimationsForUITesting() {
+    // Disable animations when running UI tests to prevent hanging on "waiting for app to idle"
+    let disableAnimations = ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
+
+    guard disableAnimations else { return }
+
+    print("🧪 UI Test mode - disabling animations to prevent test hanging")
+
+    // Disable UIView animations globally
+    UIView.setAnimationsEnabled(false)
+
+    // Set Core Animation layer speed to complete animations instantly
+    // Setting speed to 0 can cause some issues, so we use a very high value instead
+    DispatchQueue.main.async {
+      for scene in UIApplication.shared.connectedScenes {
+        if let windowScene = scene as? UIWindowScene {
+          for window in windowScene.windows {
+            window.layer.speed = 1000.0  // Complete animations instantly
+          }
+        }
+      }
+    }
+
+    // Apply again after a short delay to catch any windows created later
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      for scene in UIApplication.shared.connectedScenes {
+        if let windowScene = scene as? UIWindowScene {
+          for window in windowScene.windows {
+            window.layer.speed = 1000.0
+          }
+        }
+      }
+    }
   }
 }
