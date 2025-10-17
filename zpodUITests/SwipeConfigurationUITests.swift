@@ -212,6 +212,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     let addMenu = element(withIdentifier: addIdentifier, within: container)
     guard addMenu.exists else { return false }
     addMenu.tap()
+    // Give SwiftUI time to present the action picker sheet
+    sleep(2)
 
     let pickerTitle: String
     switch edgeIdentifier {
@@ -520,6 +522,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       "[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)"
     )
     tapElement(presetButton, description: identifier)
+    // Give SwiftUI time to process the preset application and update the UI
+    sleep(1)
     logDebugState("after applyPreset \(identifier)")
   }
 
