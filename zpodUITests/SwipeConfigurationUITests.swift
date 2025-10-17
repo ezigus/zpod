@@ -541,10 +541,41 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       toggle = baseToggle
     }
 
-    let decision = shouldToggleElement(toggle, targetStateOn: enabled)
-    if decision == true || decision == nil {
-      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-      coordinate.tap()
+    // Check current state from debug summary
+    let preState = currentDebugState()
+    let currentHapticState = preState?.hapticsEnabled ?? false
+    logger.debug(
+      "[SwipeUITestDebug] setHaptics: target=\(enabled ? "on" : "off", privacy: .public), current=\(currentHapticState ? "on" : "off", privacy: .public)"
+    )
+
+    // Only toggle if we need to change state
+    if currentHapticState != enabled {
+      logger.debug(
+        "[SwipeUITestDebug] Attempting to toggle SwipeActions.Haptics.Toggle to \(enabled ? "on" : "off", privacy: .public)"
+      )
+
+      // Try direct tap first
+      toggle.tap()
+      sleep(1)  // Give UI time to update
+
+      // Verify state changed
+      if let postState = currentDebugState(), postState.hapticsEnabled == enabled {
+        logger.debug(
+          "[SwipeUITestDebug] Toggle succeeded with direct tap"
+        )
+      } else {
+        // Fallback to coordinate tap
+        logger.debug(
+          "[SwipeUITestDebug] Direct tap didn't change state, trying coordinate tap"
+        )
+        let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+        coordinate.tap()
+        sleep(1)
+      }
+    } else {
+      logger.debug(
+        "[SwipeUITestDebug] Haptic toggle already in desired state, no tap needed"
+      )
     }
 
     guard enabled else { return }
@@ -611,21 +642,58 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       toggle = baseToggle
     }
 
-    let decision = shouldToggleElement(toggle, targetStateOn: enabled)
-    if decision == true || decision == nil {
-      _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
-      toggle.tap()
+    let validator: (SwipeDebugState) -> Bool = { state in
+      let isEnabled = identifier.contains("Trailing") ? state.fullTrailing : state.fullLeading
+      return isEnabled == enabled
     }
 
-    for _ in 0..<2 {
-      if let state = currentDebugState() {
-        let isEnabled = identifier.contains("Trailing") ? state.fullTrailing : state.fullLeading
-        if isEnabled == enabled { break }
+    // Check current state before attempting toggle
+    logDebugState("before setFullSwipe \(identifier) to \(enabled)")
+    if let currentState = currentDebugState() {
+      let currentValue =
+        identifier.contains("Trailing") ? currentState.fullTrailing : currentState.fullLeading
+      if currentValue == enabled {
+        logger.debug(
+          "[SwipeUITestDebug] \(identifier, privacy: .public) already at target state \(enabled, privacy: .public)"
+        )
+        return
       }
-      toggle.tap()
     }
 
-    logDebugState("after setFullSwipe \(identifier)")
+    let decision = shouldToggleElement(toggle, targetStateOn: enabled)
+    if decision == false {
+      _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: validator)
+      logDebugState("after setFullSwipe \(identifier) (no change needed)")
+      return
+    }
+
+    let attempts = 3
+    for attempt in 0..<attempts {
+      _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
+
+      // Try direct tap first
+      toggle.tap()
+
+      // Give UI time to update
+      sleep(1)
+
+      if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
+        logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1)")
+        return
+      }
+
+      // If that didn't work, try coordinate tap
+      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+      coordinate.tap()
+      sleep(1)
+
+      if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
+        logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1) (coordinate)")
+        return
+      }
+    }
+
+    XCTFail("Timed out toggling \(identifier) to \(enabled)")
 
   }
 
@@ -1215,8 +1283,9 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func element(withIdentifier identifier: String) -> XCUIElement {
-    // Optimized: Use direct descendant search instead of iterating through multiple query types
-    // This reduces UI hierarchy scanning from 7 separate queries to 1 targeted search
+    if let prioritized = prioritizedElement(in: app, identifier: identifier) {
+      return prioritized
+    }
     return app.descendants(matching: .any)[identifier]
   }
 
@@ -1225,13 +1294,33 @@ extension SwipeConfigurationTestCase {
   func element(withIdentifier identifier: String, within container: XCUIElement)
     -> XCUIElement
   {
-    if container.exists {
-      // Optimized: Use direct descendant search within container
-      let containerElement = container.descendants(matching: .any)[identifier]
-      if containerElement.exists { return containerElement }
+    if let prioritized = prioritizedElement(in: container, identifier: identifier) {
+      return prioritized
     }
-    // Fallback to global
     return element(withIdentifier: identifier)
+  }
+
+  @MainActor
+  private func prioritizedElement(in root: XCUIElement, identifier: String) -> XCUIElement? {
+    let queries: [XCUIElement] = [
+      root.buttons[identifier],
+      root.switches[identifier],
+      root.segmentedControls[identifier],
+      root.cells[identifier],
+      root.sliders[identifier],
+      root.textFields[identifier],
+      root.secureTextFields[identifier],
+      root.images[identifier],
+      root.staticTexts[identifier],
+      root.otherElements[identifier],
+    ]
+
+    for candidate in queries where candidate.exists {
+      return candidate
+    }
+
+    let descendant = root.descendants(matching: .any)[identifier]
+    return descendant.exists ? descendant : nil
   }
 
   func currentDebugState() -> SwipeDebugState? {
