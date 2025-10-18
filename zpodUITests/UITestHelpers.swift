@@ -13,6 +13,7 @@ import XCTest
 extension XCTestCase {
   /// Configure XCUITest to avoid hanging on "waiting for app to idle" by disabling quiescence detection
   /// This should be called once per test suite to prevent CI hanging issues
+  @MainActor
   func disableWaitingForIdleIfNeeded() {
     // Apply optimizations in both CI and local environments for better test reliability
     print("🔧 Applying UI test hanging prevention measures")
@@ -199,7 +200,7 @@ extension ElementWaiting {
     poll()
 
     // Wait for either the element to become hittable or timeout
-    let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+    _ = XCTWaiter().wait(for: [expectation], timeout: timeout)
 
     // Final check after waiting
     if element.isHittable {
