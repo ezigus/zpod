@@ -84,6 +84,8 @@
    - Comprehensive tutorial covering test setup, element interaction, assertions
    - Best practices for maintainable test suites
 
+**Advanced Patterns**: See `UI_TESTING_ADVANCED_PATTERNS.md` for community best practices beyond Apple's docs (Screen Object/Robot patterns, visibility verification, complex gestures, system alert handling, debugging techniques).
+
 ## 4. Testing Strategy
 ### Test Types & Locations
 | Type | Purpose | Location |
