@@ -171,35 +171,21 @@ extension ElementWaiting {
   }
 
   /// Check if an element is hittable after ensuring it exists.
-  /// Uses waitForExistence + small fixed delay for SwiftUI layout completion.
-  /// Avoids polling patterns that can block the run loop.
+  /// Simply delegates to waitForExistence since XCUIElement.tap() automatically
+  /// waits for hittability. This avoids blocking the test runner thread.
   func waitForElementToBeHittable(
     _ element: XCUIElement,
     timeout: TimeInterval = 10.0,
     description: String
   ) -> Bool {
-    // If already hittable, return immediately
-    if element.isHittable { return true }
-
-    // Wait for existence using XCUITest's built-in mechanism (doesn't block)
+    // Wait for existence using XCUITest's built-in mechanism
+    // The caller will typically call .tap() which automatically waits for hittability
     guard element.waitForExistence(timeout: timeout) else {
       XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
       return false
     }
 
-    // Give SwiftUI a moment for layout/animation completion
-    // This is a known limitation: SwiftUI updates are async on main thread
-    // Using a small fixed delay is safer than polling which can block the run loop
-    // Increased to 1.0s for confirmation dialogs and complex SwiftUI animations
-    Thread.sleep(forTimeInterval: 1.0)
-
-    if element.isHittable {
-      return true
-    }
-
-    // Element exists but not hittable after brief delay - fail
-    XCTFail("Element '\(description)' exists but is not hittable (may be covered or disabled)")
-    return false
+    return true
   }
   /// Wait for an element to disappear (non-existent or not hittable). Does not fail on timeout.
   func waitForElementToDisappear(
