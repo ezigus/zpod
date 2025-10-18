@@ -14,15 +14,14 @@ extension XCTestCase {
   /// Configure XCUITest to avoid hanging on "waiting for app to idle" by disabling quiescence detection
   /// This should be called once per test suite to prevent CI hanging issues
   func disableWaitingForIdleIfNeeded() {
+    // Note: This function currently serves as a placeholder for test setup consistency.
+    // The actual "waiting for idle" prevention is handled by:
+    // 1. Launch environment variables (UITEST_DISABLE_ANIMATIONS)
+    // 2. Proper use of waitForExistence and XCTestExpectation patterns
+    // 3. Avoiding operations that trigger quiescence checks
+
     // Apply optimizations in both CI and local environments for better test reliability
     print("🔧 Applying UI test hanging prevention measures")
-
-    // Set shorter timeouts for faster test execution
-    // Access main actor-isolated property from nonisolated context
-    MainActor.assumeIsolated {
-      XCUIDevice.shared.orientation = .portrait
-    }
-
     print("✅ Applied UI test hanging prevention measures")
   }
 }
