@@ -104,6 +104,7 @@ GitHub Actions (`.github/workflows/ci.yml`) now:
 
 ### Dev Logs & Artifacts
 - Maintain individual `dev-log/*.md` entries per issue; update with intent, progress, and timestamps (ET) as work evolves.
+- **Update dev-logs incrementally**: Document intent before starting work, add findings during investigation, record solutions after each fix. Include dev-log updates in commits with related code changes when appropriate.
 - Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set).
 - Use `OSLog` for runtime logging inside the app.
 
