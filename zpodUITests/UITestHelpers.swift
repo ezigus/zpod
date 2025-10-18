@@ -170,30 +170,30 @@ extension ElementWaiting {
     return foundElement
   }
 
-  /// Wait until an element is hittable without blocking the main thread
+  /// Check if an element is hittable after ensuring it exists.
+  /// Does NOT busy-wait - uses XCUITest's built-in waitForExistence, then checks hittability once.
+  /// This avoids blocking the run loop which causes test hangs.
   func waitForElementToBeHittable(
     _ element: XCUIElement,
     timeout: TimeInterval = 10.0,
     description: String
   ) -> Bool {
+    // If already hittable, return immediately
     if element.isHittable { return true }
 
-    // Use a predicate expectation that checks hittability on the run loop
-    // This avoids blocking the main thread and allows UI updates to occur
-    let predicate = NSPredicate { [weak element] _, _ in
-      element?.isHittable ?? false
+    // Wait for existence using XCUITest's built-in mechanism (doesn't block)
+    guard element.waitForExistence(timeout: timeout) else {
+      XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
+      return false
     }
 
-    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-    expectation.expectationDescription = "Element '\(description)' to become hittable"
-
-    let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
-
-    if result == .completed {
+    // Check hittability once (no waiting/polling to avoid blocking)
+    if element.isHittable {
       return true
     }
 
-    XCTFail("Element '\(description)' did not become hittable within \(timeout) seconds")
+    // Element exists but not hittable - fail fast
+    XCTFail("Element '\(description)' exists but is not hittable (may be covered or disabled)")
     return false
   }
 
