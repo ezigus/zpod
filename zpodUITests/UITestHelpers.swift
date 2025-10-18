@@ -178,33 +178,18 @@ extension ElementWaiting {
   ) -> Bool {
     if element.isHittable { return true }
 
-    let expectation = XCTestExpectation(description: "Element '\(description)' to become hittable")
-    let endTime = Date().addingTimeInterval(timeout)
-
-    func poll() {
-      if element.isHittable {
-        expectation.fulfill()
-        return
-      }
-
-      guard Date() < endTime else {
-        expectation.fulfill()  // Fulfill to avoid hanging, but we'll check the actual state below
-        return
-      }
-
-      // Schedule next check asynchronously to avoid blocking the main thread
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        poll()
-      }
+    // Use a predicate expectation that checks hittability on the run loop
+    // This avoids blocking the main thread and allows UI updates to occur
+    let predicate = NSPredicate { [weak element] _, _ in
+      element?.isHittable ?? false
     }
 
-    poll()
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Element '\(description)' to become hittable"
 
-    // Wait for either the element to become hittable or timeout
-    _ = XCTWaiter().wait(for: [expectation], timeout: timeout)
+    let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
 
-    // Final check after waiting
-    if element.isHittable {
+    if result == .completed {
       return true
     }
 
