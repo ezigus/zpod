@@ -26,6 +26,64 @@
 - **Never** block the main thread with semaphores or `sleep`; use helper waiters (`waitForAnyElement`, `navigateAndWaitForResult`, `waitForContentToLoad`).
 - UI loading remains asynchronous—show indicators, and wait for state changes instead of fixed timeouts.
 
+### iOS UI Testing Best Practices
+
+**⚠️ IMPORTANT: Review these resources before building or updating UI tests:**
+
+#### Core Principles (FIRST)
+
+- **Fast**: Tests should run quickly; prefer `firstMatch` over `element` when multiple matches exist
+- **Independent**: Tests shouldn't share state; reset app state between tests
+- **Repeatable**: Same results every time; avoid time-dependent assertions
+- **Self-validating**: Automated pass/fail, not manual log interpretation
+- **Timely**: Write tests before or alongside production code (TDD)
+
+#### Waiting & Synchronization
+
+- **Prefer `waitForExistence(timeout:)`** over `exists` checks for reliability
+- **Use XCTestExpectation** for async operations with callbacks
+- **Avoid fixed `sleep()` calls** except as last resort for SwiftUI timing issues
+- **Set appropriate timeouts**: 1-2s for simple UI updates, 5-10s for network operations
+- **Leverage predicates**: Use `XCTNSPredicateExpectation` for complex state changes
+
+#### Element Discovery
+
+- **Use accessibility identifiers** for reliable element targeting: `view.accessibilityIdentifier = "uniqueID"`
+- **Prefer specific queries**: `app.buttons["Login"]` over `app.buttons.element(boundBy: 0)`
+- **Use `children(matching:)` for direct subviews**, `descendants(matching:)` for nested elements
+- **Leverage `firstMatch`** when only one element is needed (faster than `element`)
+- **Query hierarchy efficiently**: More specific queries = better performance
+
+#### Test Reliability
+
+- **Disable animations** in test builds: `UIView.setAnimationsEnabled(false)`
+- **Set `continueAfterFailure = false`** to stop on first failure
+- **Handle system interrupts**: Use `addUIInterruptionMonitor` for permissions/alerts
+- **Mock network layers** to avoid flaky tests from external dependencies
+- **Use launch arguments** to configure test-specific app state
+
+#### SwiftUI-Specific Considerations
+
+- SwiftUI updates UI asynchronously on the main thread
+- XCUITest queries execute immediately after interactions
+- May need strategic delays after state-changing taps (1-2s) until better waiters are available
+- Ensure SwiftUI views have proper accessibility modifiers
+
+#### Key Resources (re-read when updating UI tests)
+
+1. **Hacking with Swift XCUITest Cheat Sheet**: <https://www.hackingwithswift.com/articles/148/xcode-ui-testing-cheat-sheet>
+   - Quick reference for element discovery, interactions, assertions
+   - Covers `waitForExistence`, `firstMatch`, query patterns
+2. **Apple XCTest Documentation**: <https://developer.apple.com/documentation/xctest/user_interface_tests>
+   - Official guidance on UI testing architecture
+   - Asynchronous testing patterns: <https://developer.apple.com/documentation/xctest/asynchronous_tests_and_expectations>
+3. **Vadim Bulavin - Testing Async Code**: <https://www.vadimbulavin.com/unit-testing-async-code-in-swift/>
+   - Mocking patterns, XCTestExpectation usage, busy assertion patterns
+   - Integration vs unit testing strategies
+4. **Kodeco (Ray Wenderlich) UI Testing Tutorial**: <https://www.raywenderlich.com/960290-ios-ui-testing-tutorial>
+   - Comprehensive tutorial covering test setup, element interaction, assertions
+   - Best practices for maintainable test suites
+
 ## 4. Testing Strategy
 ### Test Types & Locations
 | Type | Purpose | Location |
