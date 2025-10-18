@@ -212,8 +212,6 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     let addMenu = element(withIdentifier: addIdentifier, within: container)
     guard addMenu.exists else { return false }
     addMenu.tap()
-    // Give SwiftUI time to present the action picker sheet
-    sleep(2)
 
     let pickerTitle: String
     switch edgeIdentifier {
@@ -270,11 +268,11 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     // Third try: Scroll and look again - but only if needed
     app.swipeUp()
 
-    // Wait briefly for scroll to complete
-    usleep(100_000)  // 0.1 second
-
-    // Try the identifier again after scroll
+    // Wait for element to settle after scroll
     let optionAfterScroll = element(withIdentifier: optionIdentifier, within: container)
+    _ = waitForElement(
+      optionAfterScroll, timeout: adaptiveShortTimeout, description: "option after scroll")
+
     if optionAfterScroll.exists {
       tapElement(optionAfterScroll, description: "Add action option \(displayName) after scroll")
 
@@ -522,8 +520,10 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       "[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)"
     )
     tapElement(presetButton, description: identifier)
-    // Give SwiftUI time to process the preset application and update the UI
-    sleep(1)
+
+    // Wait for preset to be applied by checking unsaved changes state
+    _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
+
     logDebugState("after applyPreset \(identifier)")
   }
 
@@ -560,10 +560,11 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
       // Try direct tap first
       toggle.tap()
-      sleep(1)  // Give UI time to update
 
-      // Verify state changed
-      if let postState = currentDebugState(), postState.hapticsEnabled == enabled {
+      // Wait for state to change with proper timeout
+      if waitForDebugState(
+        timeout: adaptiveShortTimeout, validator: { $0.hapticsEnabled == enabled }) != nil
+      {
         logger.debug(
           "[SwipeUITestDebug] Toggle succeeded with direct tap"
         )
@@ -574,7 +575,10 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
         )
         let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
         coordinate.tap()
-        sleep(1)
+
+        // Wait for state to change after coordinate tap
+        _ = waitForDebugState(
+          timeout: adaptiveShortTimeout, validator: { $0.hapticsEnabled == enabled })
       }
     } else {
       logger.debug(
@@ -678,9 +682,6 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       // Try direct tap first
       toggle.tap()
 
-      // Give UI time to update
-      sleep(1)
-
       if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
         logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1)")
         return
@@ -689,7 +690,6 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       // If that didn't work, try coordinate tap
       let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
       coordinate.tap()
-      sleep(1)
 
       if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
         logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1) (coordinate)")
