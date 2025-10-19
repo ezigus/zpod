@@ -210,16 +210,33 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
   /// where async context is not available or would cause race conditions.
   public func loadGlobalUISettingsSync() -> UISettings {
     guard let data = userDefaults.data(forKey: Keys.globalUI) else {
+      #if DEBUG
+        print("🔍 SettingsRepository: No data found for key '\(Keys.globalUI)', returning default")
+      #endif
       return UISettings.default
     }
 
+    #if DEBUG
+      print(
+        "🔍 SettingsRepository: Found data for key '\(Keys.globalUI)', size: \(data.count) bytes")
+    #endif
+
     do {
-      return try JSONDecoder().decode(UISettings.self, from: data)
+      let settings = try JSONDecoder().decode(UISettings.self, from: data)
+      #if DEBUG
+        print(
+          "🔍 SettingsRepository: Decoded UISettings - hapticFeedbackEnabled: \(settings.swipeActions.hapticFeedbackEnabled)"
+        )
+      #endif
+      return settings
     } catch {
       #if canImport(os)
         os_log(
           "Failed to decode global UI settings: %{public}@", log: logger, type: .error,
           error.localizedDescription)
+      #endif
+      #if DEBUG
+        print("🔍 SettingsRepository: Decode failed: \(error), returning default")
       #endif
       return UISettings.default
     }
