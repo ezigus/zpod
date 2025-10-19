@@ -134,24 +134,19 @@ extension ElementWaiting {
       return element
     }
 
-    // Use XCTestExpectation for proper event-driven waiting
-    let expectation = XCTestExpectation(description: "Wait for \(description)")
+    // Use predicate-based waiting to avoid DispatchQueue.main deadlocks
     var foundElement: XCUIElement?
 
-    func checkElements() {
+    let predicate = NSPredicate { _, _ in
       for element in elements where element.exists {
         foundElement = element
-        expectation.fulfill()
-        return
+        return true
       }
-
-      // Schedule next check using run loop - no Thread.sleep
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        checkElements()
-      }
+      return false
     }
 
-    checkElements()
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for \(description)"
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
 
@@ -194,20 +189,13 @@ extension ElementWaiting {
   ) -> Bool {
     if !element.exists { return true }
 
-    let expectation = XCTestExpectation(description: "Wait for element to disappear")
-
-    func poll() {
-      // Only check existence, not hittability to avoid automation errors
-      if !element.exists {
-        expectation.fulfill()
-        return
-      }
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        poll()
-      }
+    // Use predicate-based waiting to avoid DispatchQueue.main deadlocks
+    let predicate = NSPredicate { _, _ in
+      !element.exists
     }
 
-    poll()
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for element to disappear"
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     return result == .completed
