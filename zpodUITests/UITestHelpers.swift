@@ -311,7 +311,7 @@ extension XCTestCase {
     return anyMatch.exists ? anyMatch : nil
   }
 
-  /// Wait for loading completion using XCTestExpectation pattern
+  /// Wait for loading completion using predicate-based waiting (no async dispatching)
   @MainActor
   func waitForLoadingToComplete(
     in app: XCUIApplication,
@@ -325,17 +325,16 @@ extension XCTestCase {
       "Podcast List Container",
     ]
 
-    // Use XCTestExpectation for event-driven waiting
-    let expectation = XCTestExpectation(description: "App loading completes")
+    // Use predicate for synchronous polling (avoids DispatchQueue.main deadlocks)
+    let predicate = NSPredicate { [weak self] _, _ in
+      guard let self else { return false }
 
-    func checkForLoading() {
       // Check if any common container appears
       for containerIdentifier in commonContainers {
-        if let container = findContainerElement(in: app, identifier: containerIdentifier),
+        if let container = self.findContainerElement(in: app, identifier: containerIdentifier),
           container.exists
         {
-          expectation.fulfill()
-          return
+          return true
         }
       }
 
@@ -346,17 +345,14 @@ extension XCTestCase {
       if (libraryTab.exists && libraryTab.isHittable)
         || (navigationBar.exists && navigationBar.isHittable)
       {
-        expectation.fulfill()
-        return
+        return true
       }
 
-      // Schedule next check
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        checkForLoading()
-      }
+      return false
     }
 
-    checkForLoading()
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "App loading completes"
 
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
@@ -647,61 +643,5 @@ extension SmartUITesting where Self: XCTestCase {
     expectation.expectationDescription = "Content container '\(containerIdentifier)' appears"
 
     return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
-  }
-
-  /// Wait for loading completion using XCTestExpectation pattern
-  @MainActor
-  func waitForLoadingToComplete(
-    in app: XCUIApplication,
-    timeout: TimeInterval = 10.0
-  ) -> Bool {
-    // Common containers to check for
-    let commonContainers = [
-      "Content Container",
-      "Episode Cards Container",
-      "Library Content",
-      "Podcast List Container",
-    ]
-
-    // Use XCTestExpectation for event-driven waiting
-    let expectation = XCTestExpectation(description: "App loading completes")
-
-    func checkForLoading() {
-      // Check if any common container appears
-      for containerIdentifier in commonContainers {
-        if let container = findContainerElement(in: app, identifier: containerIdentifier),
-          container.exists
-        {
-          expectation.fulfill()
-          return
-        }
-      }
-
-      // Fallback: check if main navigation elements are present
-      let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
-      let navigationBar = app.navigationBars.firstMatch
-
-      if (libraryTab.exists && libraryTab.isHittable)
-        || (navigationBar.exists && navigationBar.isHittable)
-      {
-        expectation.fulfill()
-        return
-      }
-
-      // Schedule next check
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        checkForLoading()
-      }
-    }
-
-    checkForLoading()
-
-    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
-      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
-      print("Loading did not complete within \(timeout)s.")
-      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
-    }
-    return result == .completed
   }
 }
