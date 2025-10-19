@@ -1285,15 +1285,8 @@ extension SwipeConfigurationTestCase {
     hapticsEnabled: Bool = true,
     hapticStyle: String = "medium"
   ) {
+    // Clear any existing configuration in test process suite
     resetSwipeSettingsToDefault()
-    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
-      XCTFail(
-        """
-        Expected swipe defaults suite \(swipeDefaultsSuite) to exist for seeding configuration
-        """
-      )
-      return
-    }
 
     let payload: [String: Any] = [
       "swipeActions": [
@@ -1316,7 +1309,8 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    defaults.set(data, forKey: "global_ui_settings")
+    // Store base64 payload for app to read via environment variable
+    // Do NOT write to test process UserDefaults - let app write to its own process
     seededConfigurationPayload = data.base64EncodedString()
   }
 
