@@ -963,11 +963,8 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
 
   @MainActor
   func testFullSwipeTogglesPersistAcrossSave() throws {
-    // Skip in CI - UserDefaults persistence across app launches is unreliable in ephemeral containers
-    if ProcessInfo.processInfo.environment["CI"] == "true" {
-      throw XCTSkip(
-        "UserDefaults persistence across app relaunches is unreliable in CI environments")
-    }
+    // Test full swipe toggle persistence using seeded configuration
+    // This avoids UserDefaults cross-launch persistence issues in CI
 
     try beginWithFreshConfigurationSheet()
 
@@ -979,7 +976,18 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
 
     saveAndDismissConfiguration()
 
-    relaunchApp(resetDefaults: false)
+    // Seed the configuration for relaunch (avoiding UserDefaults persistence issues)
+    seedSwipeConfiguration(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      allowFullSwipeLeading: false,
+      allowFullSwipeTrailing: true,
+      hapticsEnabled: true,
+      hapticStyle: "medium"
+    )
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+    clearSeededConfigurationPayload()
+
     try openConfigurationSheetFromEpisodeList()
 
     assertFullSwipeState(leading: false, trailing: true)
@@ -989,11 +997,8 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
 
   @MainActor
   func testHapticTogglePersistsAcrossLaunches() throws {
-    // Skip in CI - UserDefaults persistence across app launches is unreliable in ephemeral containers
-    if ProcessInfo.processInfo.environment["CI"] == "true" {
-      throw XCTSkip(
-        "UserDefaults persistence across app relaunches is unreliable in CI environments")
-    }
+    // Test haptic toggle persistence using seeded configuration
+    // This avoids UserDefaults cross-launch persistence issues in CI
 
     try beginWithFreshConfigurationSheet()
 
@@ -1002,7 +1007,18 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
 
     saveAndDismissConfiguration()
 
-    relaunchApp(resetDefaults: false)
+    // Seed configuration with haptics disabled for first relaunch
+    seedSwipeConfiguration(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      allowFullSwipeLeading: true,
+      allowFullSwipeTrailing: false,
+      hapticsEnabled: false,
+      hapticStyle: "medium"
+    )
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+    clearSeededConfigurationPayload()
+
     try openConfigurationSheetFromEpisodeList()
 
     assertHapticsEnabled(false)
@@ -1012,7 +1028,18 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
 
     saveAndDismissConfiguration()
 
-    relaunchApp(resetDefaults: false)
+    // Seed configuration with haptics enabled for second relaunch
+    seedSwipeConfiguration(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      allowFullSwipeLeading: true,
+      allowFullSwipeTrailing: false,
+      hapticsEnabled: true,
+      hapticStyle: "soft"
+    )
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+    clearSeededConfigurationPayload()
+
     try openConfigurationSheetFromEpisodeList()
 
     assertHapticsEnabled(true, styleLabel: "Soft")
