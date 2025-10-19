@@ -203,6 +203,12 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
   }
 
   public func loadGlobalUISettings() async -> UISettings {
+    loadGlobalUISettingsSync()
+  }
+
+  /// Synchronous version of loadGlobalUISettings for use during initialization
+  /// where async context is not available or would cause race conditions.
+  public func loadGlobalUISettingsSync() -> UISettings {
     guard let data = userDefaults.data(forKey: Keys.globalUI) else {
       return UISettings.default
     }
