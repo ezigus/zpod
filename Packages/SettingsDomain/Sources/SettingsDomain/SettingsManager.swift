@@ -51,6 +51,10 @@ public class SettingsManager {
     buildFeatureRegistry()
   private var featureControllerCache: [String: any FeatureConfigurationControlling] = [:]
 
+  // Track initial load completion for seeded configurations
+  private var initialLoadTask: Task<Void, Never>?
+  private var initialLoadCompleted = false
+
   public var notificationsConfigurationService: NotificationsConfigurationServicing {
     notificationsConfigurationServiceImpl
   }
@@ -79,13 +83,18 @@ public class SettingsManager {
     downloadConfigurationServiceImpl
   }
 
+  /// Waits for initial settings load to complete. Use this when seeded configurations
+  /// must be applied before creating controllers (e.g., in UI tests).
+  public func waitForInitialLoad() async {
+    guard !initialLoadCompleted else { return }
+    await initialLoadTask?.value
+  }
+
   public func makeSwipeConfigurationController() -> SwipeConfigurationController {
     let controller = SwipeConfigurationController(service: swipeConfigurationServiceImpl)
-    let configuration = SwipeConfiguration(
-      swipeActions: globalUISettings.swipeActions,
-      hapticStyle: globalUISettings.hapticStyle
-    )
-    controller.bootstrap(with: configuration)
+    // Note: Controller will load baseline from repository via service when view appears.
+    // This ensures seeded configurations (in UI tests) or async-loaded settings are
+    // properly applied, avoiding race conditions during initialization.
     return controller
   }
 
@@ -207,7 +216,8 @@ public class SettingsManager {
     self.globalUISettings = UISettings.default
 
     // Load initial values from repository asynchronously after initialization
-    Task {
+    self.initialLoadTask = Task { [weak self] in
+      guard let self else { return }
       let downloadSettings = await repository.loadGlobalDownloadSettings()
       let notificationSettings = await repository.loadGlobalNotificationSettings()
       let appearanceSettings = await repository.loadGlobalAppearanceSettings()
@@ -216,7 +226,8 @@ public class SettingsManager {
       let playbackSettings = await repository.loadGlobalPlaybackSettings()
       let uiSettings = await repository.loadGlobalUISettings()
 
-      await MainActor.run {
+      await MainActor.run { [weak self] in
+        guard let self else { return }
         self.globalDownloadSettings = downloadSettings
         self.globalNotificationSettings = notificationSettings
         self.globalAppearanceSettings = appearanceSettings
@@ -224,6 +235,7 @@ public class SettingsManager {
         self.playbackPresetLibrary = presetLibrary
         self.globalPlaybackSettings = playbackSettings
         self.globalUISettings = uiSettings
+        self.initialLoadCompleted = true
       }
     }  // Bridge repository change notifications to a synchronous publisher
     #if canImport(Combine)

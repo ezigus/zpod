@@ -1,18 +1,21 @@
 # zPod Development Guidelines
 
 ## 1. Targets & Scope
+
 - **Language**: Swift 6.1.2 with strict concurrency compliance.
 - **Platforms**: iPhone (iOS 18+), watchOS 11+, CarPlay. Build UI for iPhone only.
 - **Reference Specs**: All features must trace to `spec/` Given/When/Then scenarios.
 - **Primary device**: iPhone 16 simulator (iOS 18.0 or newer).
 
 ## 2. Workflow Expectations
+
 1. **Design first** – document intent and Mermaid/PlantUML diagrams in the relevant `dev-log/*.md` before writing tests or code.
 2. **TDD always** – add or update specs if the scenario is incomplete, write failing tests, implement, then refactor.
 3. **Automation over manual edits** – use scripts, generators, and formatters whenever possible.
 4. **Version control hygiene** – commit only after tests pass, include matching dev-log updates, then confirm whether to push.
 
 ## 3. Concurrency & Swift Patterns
+
 - Prefer `async`/`await`; avoid completion handlers unless required.
 - Annotate cross-actor types with `Sendable`; mark UI-facing APIs `@MainActor` and explicitly drop isolation with `nonisolated` only when safe.
 - Never change actor isolation on overrides (e.g. `XCTestCase.setUpWithError()` stays nonisolated).
@@ -21,6 +24,7 @@
 - Compile frequently to catch isolation warnings early.
 
 ### UI / XCUI Testing Concurrency Rules
+
 - Keep `setUpWithError()`/`tearDownWithError()` nonisolated; launch apps inside `@MainActor` helpers per test.
 - Store `XCUIApplication` in `nonisolated(unsafe)` properties only after local initialization.
 - **Never** block the main thread with semaphores or `sleep`; use helper waiters (`waitForAnyElement`, `navigateAndWaitForResult`, `waitForContentToLoad`).
@@ -87,7 +91,9 @@
 **Advanced Patterns**: See `UI_TESTING_ADVANCED_PATTERNS.md` for community best practices beyond Apple's docs (Screen Object/Robot patterns, visibility verification, complex gestures, system alert handling, debugging techniques).
 
 ## 4. Testing Strategy
+
 ### Test Types & Locations
+
 | Type | Purpose | Location |
 | --- | --- | --- |
 | Unit | Component logic, models, services | `zpodTests/` |
@@ -96,6 +102,7 @@
 | Package | Module-specific APIs | `Packages/*/Tests/` |
 
 ### General Expectations
+
 - Map every test to a spec scenario; mirror Given/When/Then in comments or structure.
 - Keep fixtures isolated (`UserDefaults` suites, fresh instances per test) and clean up afterwards.
 - Use async test functions and `await` for asynchronous work; respect actor isolation in mocks (mark as `@unchecked Sendable` and guard with locks when needed).
@@ -103,11 +110,13 @@
 - Maintain `TestSummary.md` in each test directory documenting coverage and gaps.
 
 ### API Verification Checklist
+
 1. Inspect implementation files for exact method, property, and enum definitions.
 2. Confirm isolation annotations (`@MainActor`, `Sendable`).
 3. Compile early; fix similar mismatches across the codebase, not just the first failure.
 
 ## 5. Coding Standards
+
 - Follow Swift API Design Guidelines; choose descriptive names and avoid force unwraps.
 - Favor value types; limit class usage to reference semantics.
 - Apply access control intentionally (default to `internal`).
@@ -115,6 +124,7 @@
 - In SwiftUI, keep state minimal (`@State`, `@StateObject`, `@ObservedObject`, `@EnvironmentObject` as appropriate) and ensure accessibility compliance.
 
 ## 6. Architecture & Modularization
+
 - Preferred presentation pattern: MVVM (MVC permitted only for small components).
 - Organize source with `// MARK:` regions and extensions grouped by responsibility; avoid tight coupling—depend on protocols/DI.
 - Package structure: `SharedUtilities → CoreModels → (Networking | Persistence | FeedParsing) → SettingsDomain → Feature UIs (Library, Search, Player, Playlist) → App`. `PlaybackEngine` supports feature UIs and the app.
@@ -122,12 +132,15 @@
 - Modularization path: extract CoreModels/TestSupport first, then Persistence/SettingsDomain, Networking/FeedParsing, optionally PlaybackEngine, and finally feature UIs.
 
 ## 7. Tooling & CI
+
 ### macOS (Full Xcode)
+
+Never run the xcode-build on its own, always use the run-xcode-tests.sh script.
 Use the shared helper script for a quick local verification:
 
 ```bash
 ./scripts/run-xcode-tests.sh --self-check                        # environment sanity checks
-./scripts/run-xcode-tests.sh                                     # default: syntax + build + tests
+./scripts/run-xcode-tests.sh                                     # default: cleans the build, builds, runs syntax and runs full regression 
 ./scripts/run-xcode-tests.sh -s                                  # syntax verification only
 ./scripts/run-xcode-tests.sh -b zpod                             # build without executing tests
 ./scripts/run-xcode-tests.sh -t zpod,zpodUITests                 # targeted test execution
@@ -141,32 +154,32 @@ Use the shared helper script for a quick local verification:
 - Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
 - Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
 - Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite: clean build, syntax check, test-plan coverage, workspace build, all SwiftPM package tests, app regression, and Swift lint.
+- running with -t and the class you want to test will test that specific test class and nothing more.
+- When possible, after each modification made, rerun a very targeted test that will show that the code that was modified works correctly. Once those tests pass 100%, commit those changes locally.  Then complete the full regression test using the default ./scripts/run-xcode-tests.sh without any flags and only then, push the changes to github.
 
 ### Non-macOS / Lightweight Environments
-Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux. The legacy `scripts/dev-build.sh` helpers remain for emergency fallbacks when the CLI script cannot execute (e.g. missing bash features), but they are no longer part of the primary workflow.
+
+Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux.
 
 ### CI Pipeline
-GitHub Actions (`.github/workflows/ci.yml`) now:
-1. Select Xcode 16.4 and perform `./scripts/run-xcode-tests.sh --self-check`.
-2. Ensure a suitable iOS simulator runtime exists (iPhone 16 preferred) and create a device when possible.
-3. Invoke `./scripts/run-xcode-tests.sh -c -s -b zpod -t zpod` for the macOS leg.
-4. Run `./scripts/run-xcode-tests.sh --self-check` and `./scripts/run-xcode-tests.sh -s` on Ubuntu to exercise the SwiftPM fallback path.
-5. Archive crash logs and test reports.
-
-### Known Limitations
-- Full builds/tests require macOS with Xcode.
-- SwiftUI/SwiftData/Combine are unavailable off Apple platforms; `Package.swift` remains experimental and omits iOS-only frameworks.
+as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
 ## 8. Issue & Documentation Management
+
 - Create issues in `Issues/` when work falls outside an existing scope; name files `xx.y-description.md` to preserve ordering. Use sub-issue numbering (e.g. `17.1`) when inserting between existing IDs.
 - Issue files must include description, acceptance criteria, spec references, dependencies, and testing strategy.
 - Add TODO comments as `// TODO: [Issue #xx.y] Description`; remove them once the issue is resolved and update the issue accordingly.
 
 ### Dev Logs & Artifacts
+
 - Maintain individual `dev-log/*.md` entries per issue; update with intent, progress, and timestamps (ET) as work evolves.
 - **Update dev-logs incrementally**: Document intent before starting work, add findings during investigation, record solutions after each fix. Include dev-log updates in commits with related code changes when appropriate.
-- Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set).
+- Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set).  This is done automatically by the ./scripts/run-xcode-tests.sh so you don't need to add to do anything extra when running the script
 - Use `OSLog` for runtime logging inside the app.
+
+### Pull Requests
+
+- Make sure you are doing updates regularly to the pull request, following the same strategy used for the dev-logs
 
 ---
 When in doubt, consult the relevant spec or open a follow-up issue for clarification.

@@ -57,7 +57,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
   public func makeSwipeConfigurationController() -> SwipeConfigurationController {
     let controller = SwipeConfigurationController(service: swipeConfigurationService)
-    controller.bootstrap(with: swipeConfiguration)
+    // Note: Controller will load baseline from service when view appears via .task block.
+    // This avoids race conditions with async settings loading or seeded test configurations.
     return controller
   }
 
@@ -124,7 +125,9 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   @Published public private(set) var activeBatchOperations: [BatchOperation] = [] {
     didSet {
       #if DEBUG
-        self.overlayLogger.debug("[UITEST_OVERLAY] activeBatchOperations count: \(self.activeBatchOperations.count, privacy: .public)")
+        self.overlayLogger.debug(
+          "[UITEST_OVERLAY] activeBatchOperations count: \(self.activeBatchOperations.count, privacy: .public)"
+        )
       #endif
     }
   }
@@ -164,7 +167,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     downloadManager: DownloadManaging? = nil,
     playbackService: EpisodePlaybackService? = nil,
     episodeRepository: EpisodeRepository? = nil,
-    swipeConfigurationService: SwipeConfigurationServicing = EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
+    swipeConfigurationService: SwipeConfigurationServicing =
+      EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
     hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared
   ) {
     self.podcast = podcast
@@ -192,7 +196,9 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
   }
 
-  @usableFromInline static func makeDefaultSwipeConfigurationService() -> SwipeConfigurationServicing {
+  @usableFromInline static func makeDefaultSwipeConfigurationService()
+    -> SwipeConfigurationServicing
+  {
     SwipeConfigurationService(repository: UserDefaultsSettingsRepository())
   }
 
@@ -490,7 +496,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     }
 
     let seedEpisodeIDs = makeSeedEpisodeIDs()
-    overlayLogger.debug("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs, privacy: .public)")
+    overlayLogger.debug(
+      "[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs, privacy: .public)")
 
     if seedEpisodeIDs.isEmpty {
       overlayLogger.debug(
@@ -506,7 +513,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
     overlayLogger.debug(
       "Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
-    overlayLogger.debug("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count, privacy: .public) IDs")
+    overlayLogger.debug(
+      "[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count, privacy: .public) IDs")
 
     var seededOperation = BatchOperation(
       operationType: .markAsPlayed,

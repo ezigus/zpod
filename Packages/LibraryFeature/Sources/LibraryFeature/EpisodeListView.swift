@@ -1262,6 +1262,7 @@ private final class EpisodeListDependencyProvider {
 
     let settingsRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
     let settingsManager = SettingsManager(repository: settingsRepository)
+
     self.settingsManager = settingsManager
     self.swipeConfigurationService = settingsManager.swipeConfigurationService
     self.hapticsService = HapticFeedbackService.shared
