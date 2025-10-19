@@ -1074,7 +1074,20 @@ final class SwipeConfigurationExecutionUITests: SwipeConfigurationTestCase {
 
     dismissConfigurationSheetIfNeeded()
 
-    try navigateToEpisodeList()
+    // We're already on the episode list after dismissing the sheet
+    // Just wait for the episode list content to be ready
+    if !waitForContentToLoad(
+      containerIdentifier: "Episode Cards Container",
+      timeout: adaptiveTimeout
+    ) {
+      // Fallback: check if episode button is present
+      let firstEpisode = try requireEpisodeButton()
+      _ = waitForElement(
+        firstEpisode,
+        timeout: adaptiveTimeout,
+        description: "first episode after sheet dismissal"
+      )
+    }
 
     let episode = try requireEpisodeButton()
     XCTAssertTrue(
