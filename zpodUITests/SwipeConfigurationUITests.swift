@@ -1598,32 +1598,13 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   fileprivate func currentStateIsOn(for element: XCUIElement) -> Bool? {
-    if let boolValue = element.value as? Bool {
-      return boolValue
+    if let directResult = interpretToggleValue(element.value) {
+      return directResult
     }
 
-    if let numberValue = element.value as? NSNumber {
-      return numberValue.boolValue
-    }
-
-    var normalizedString: String?
-    if let stringValue = element.value as? String {
-      normalizedString = stringValue
-    } else if let convertible = element.value as? CustomStringConvertible {
-      normalizedString = convertible.description
-    }
-
-    if let normalized = normalizedString?.trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-    {
-      switch normalized {
-      case "1", "on", "true", "yes":
-        return true
-      case "0", "off", "false", "no":
-        return false
-      default:
-        break
-      }
+    // Attempt to interpret via KVC for UIKit controls that surface optional wrappers
+    if let raw = element.value(forKey: "value"), let interpreted = interpretToggleValue(raw) {
+      return interpreted
     }
 
     if element.isSelected { return true }
@@ -1640,6 +1621,67 @@ extension SwipeConfigurationTestCase {
       attachment.name = "Toggle Value Snapshot"
       attachment.lifetime = .keepAlways
       add(attachment)
+    }
+
+    return nil
+  }
+
+  @MainActor
+  private func interpretToggleValue(_ raw: Any?) -> Bool? {
+    guard let raw else { return nil }
+
+    if let boolValue = raw as? Bool {
+      return boolValue
+    }
+
+    if let numberValue = raw as? NSNumber {
+      return numberValue.boolValue
+    }
+
+    if let intValue = raw as? Int {
+      return intValue != 0
+    }
+
+    if let doubleValue = raw as? Double {
+      return doubleValue != 0.0
+    }
+
+    if let stringValue = raw as? String {
+      return interpretToggleString(stringValue)
+    }
+
+    if let convertible = raw as? CustomStringConvertible {
+      return interpretToggleString(convertible.description)
+    }
+
+    return nil
+  }
+
+  @MainActor
+  private func interpretToggleString(_ raw: String) -> Bool? {
+    var candidate = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !candidate.isEmpty else { return nil }
+
+    while candidate.hasPrefix("Optional(") && candidate.hasSuffix(")") {
+      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    let lowered = candidate.lowercased()
+    switch lowered {
+    case "1", "on", "true", "yes", "enabled":
+      return true
+    case "0", "off", "false", "no", "disabled":
+      return false
+    default:
+      break
+    }
+
+    if let intValue = Int(candidate) {
+      return intValue != 0
+    }
+
+    if let doubleValue = Double(candidate) {
+      return doubleValue != 0.0
     }
 
     return nil

@@ -317,6 +317,11 @@ extension XCTestCase {
     let predicate = NSPredicate { [weak self] _, _ in
       guard let self else { return false }
 
+      // Presence of the batch operations overlay indicates the view finished loading
+      if app.otherElements["Batch Operation Progress"].exists {
+        return true
+      }
+
       // Check if any common container appears
       for containerIdentifier in commonContainers {
         if let container = self.findContainerElement(in: app, identifier: containerIdentifier),
@@ -329,9 +334,11 @@ extension XCTestCase {
       // Fallback: check if main navigation elements are present
       let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
       let navigationBar = app.navigationBars.firstMatch
+      let swiftPodcast = app.buttons["Podcast-swift-talk"]
 
       if (libraryTab.exists && libraryTab.isHittable)
         || (navigationBar.exists && navigationBar.isHittable)
+        || swiftPodcast.exists
       {
         return true
       }
