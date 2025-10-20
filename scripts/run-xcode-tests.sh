@@ -690,10 +690,15 @@ test_app_target() {
 
   init_result_paths "test" "$target"
   if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
-    log_warn "Generic simulator destination detected; running build only and skipping UI/unit tests"
+    if [[ "$target" == "AppSmokeTests" || "$target" == "zpodUITests" || "$target" == "IntegrationTests" ]]; then
+      log_error "No concrete iOS Simulator runtime is available; cannot execute ${target}"
+      log_error "Ensure the 'Ensure iOS Simulator runtime is installed' step downloads a device runtime before running tests."
+      add_summary "test" "${target}" "error" "" "" "" "" "" "failed (no simulator runtime)"
+      exit 2
+    fi
+    log_warn "Generic simulator destination detected; running build only"
     build_app_target "$target"
-    log_warn "Swift Package tests skipped due to simulator unavailability"
-    add_summary "test" "${target}" "warn" "" "" "" "" "" "skipped (generic simulator destination)"
+    add_summary "test" "${target}" "warn" "" "" "" "" "" "build only (generic simulator destination)"
     return 0
   fi
 
@@ -934,6 +939,13 @@ run_filtered_xcode_tests() {
   resolved_destination="$SELECTED_DESTINATION"
 
   init_result_paths "test" "$label"
+
+  if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
+    log_error "No concrete iOS Simulator runtime is available; cannot execute ${label}"
+    log_error "Install an iOS simulator runtime before rerunning the script."
+    add_summary "test" "${label}" "error" "" "" "" "" "" "failed (no simulator runtime)"
+    exit 2
+  fi
 
   local -a args=(
     -workspace "$WORKSPACE"

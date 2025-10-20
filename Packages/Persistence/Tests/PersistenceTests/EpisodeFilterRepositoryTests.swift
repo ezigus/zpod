@@ -241,7 +241,6 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 
 // MARK: - Episode Filter Manager Tests
 
-@MainActor
 final class EpisodeFilterManagerTests: XCTestCase {
     
     private var filterManager: EpisodeFilterManager!
@@ -251,9 +250,12 @@ final class EpisodeFilterManagerTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         
-        mockRepository = MockEpisodeFilterRepository()
-        filterService = DefaultEpisodeFilterService()
-        filterManager = EpisodeFilterManager(repository: mockRepository, filterService: filterService)
+        let repository = MockEpisodeFilterRepository()
+        let service = DefaultEpisodeFilterService()
+        let manager = await MainActor.run { EpisodeFilterManager(repository: repository, filterService: service) }
+        mockRepository = repository
+        filterService = service
+        filterManager = manager
         try await Task.sleep(nanoseconds: 50_000_000)
     }
     

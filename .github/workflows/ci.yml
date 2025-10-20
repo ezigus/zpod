@@ -17,7 +17,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [AppSmokeTests, zpodUITests, IntegrationTests]
+        include:
+          - name: AppSmoke
+            tests: AppSmokeTests
+          - name: UITests-Navigation
+            tests: zpodUITests/CoreUINavigationTests,zpodUITests/EpisodeListUITests
+          - name: UITests-ContentDiscovery
+            tests: zpodUITests/ContentDiscoveryUITests
+          - name: UITests-Playback
+            tests: zpodUITests/PlaybackUITests
+          - name: UITests-BatchOperations
+            tests: zpodUITests/BatchOperationUITests
+          - name: UITests-SwipeConfiguration
+            tests: zpodUITests/SwipeConfigurationPersistenceUITests,zpodUITests/SwipeConfigurationExecutionUITests,zpodUITests/SwipeConfigurationPresetCyclingUITests,zpodUITests/SwipeConfigurationActionManagementUITests
+          - name: Integration
+            tests: IntegrationTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,17 +108,17 @@ jobs:
           xcrun simctl list devices || true
 
       - name: Clean Build (all targets)
-        if: matrix.target == 'AppSmokeTests'
+        if: matrix.tests == 'AppSmokeTests'
         run: |
           set -euo pipefail
           ./scripts/run-xcode-tests.sh -c -b all
         env:
           NSUnbufferedIO: "YES"
 
-      - name: Run ${{ matrix.target }} Tests
+      - name: Run ${{ matrix.name }} Tests
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t ${{ matrix.target }}
+          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
@@ -112,20 +126,20 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          mkdir -p artifacts/${{ matrix.target }}
+          mkdir -p artifacts/${{ matrix.name }}
           if ls TestResults >/dev/null 2>&1; then
             find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.target }}/ \;
+              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
           fi
           if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.target }}/
+            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
           fi
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-${{ matrix.target }}
-          path: artifacts/${{ matrix.target }}
+          name: test-${{ matrix.name }}
+          path: artifacts/${{ matrix.name }}
           if-no-files-found: warn
 
   package-tests:

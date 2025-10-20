@@ -164,7 +164,7 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 ### CI Pipeline
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
-- CI fan-out: each package runs `swift test` in its own matrix job (`./scripts/run-xcode-tests.sh -t <Package>`), while `AppSmokeTests` covers the umbrella module and `zpodUITests`/`IntegrationTests` remain dedicated jobs.
+- CI fan-out: each package runs `swift test` in its own matrix job (`./scripts/run-xcode-tests.sh -t <Package>`), `AppSmokeTests` covers the umbrella module, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
 
 ## 8. Issue & Documentation Management
 

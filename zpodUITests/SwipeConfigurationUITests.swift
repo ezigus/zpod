@@ -16,6 +16,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   nonisolated(unsafe) var app: XCUIApplication!
   private let swipeDefaultsSuite = "us.zig.zpod.swipe-uitests"
   private var seededConfigurationPayload: String?
+  private var pendingSeedExpectation: SeedExpectation?
 
   private var baseLaunchEnvironment: [String: String] {
     [
@@ -26,7 +27,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   func launchEnvironment(reset: Bool) -> [String: String] {
     var environment = baseLaunchEnvironment
-    environment["UITEST_RESET_SWIPE_SETTINGS"] = reset ? "1" : "0"
+    let shouldReset = reset || seededConfigurationPayload != nil
+    environment["UITEST_RESET_SWIPE_SETTINGS"] = shouldReset ? "1" : "0"
     if let payload = seededConfigurationPayload {
       environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"] = payload
     }
@@ -316,7 +318,6 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   func initializeApp() {
     resetSwipeSettingsToDefault()
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: true))
-    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -326,7 +327,6 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       resetSwipeSettingsToDefault()
     }
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
-    seededConfigurationPayload = nil
   }
 
   @MainActor
@@ -457,6 +457,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     ]
 
     if existingIndicators.contains(where: { $0.exists }) {
+      completeSeedIfNeeded()
       return
     }
 
@@ -492,6 +493,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     _ = waitForBaselineLoaded()
     logDebugState("baseline after open")
     reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
+    completeSeedIfNeeded()
   }
 
   @MainActor
@@ -941,7 +943,6 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
       hapticStyle: "medium"
     )
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    clearSeededConfigurationPayload()
 
     try openConfigurationSheetFromEpisodeList()
 
@@ -972,7 +973,6 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
       hapticStyle: "medium"
     )
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    clearSeededConfigurationPayload()
 
     try openConfigurationSheetFromEpisodeList()
 
@@ -993,7 +993,6 @@ final class SwipeConfigurationPersistenceUITests: SwipeConfigurationTestCase {
       hapticStyle: "soft"
     )
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    clearSeededConfigurationPayload()
 
     try openConfigurationSheetFromEpisodeList()
 
@@ -1014,7 +1013,6 @@ final class SwipeConfigurationExecutionUITests: SwipeConfigurationTestCase {
     )
 
     app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    clearSeededConfigurationPayload()
 
     try openConfigurationSheetFromEpisodeList()
 
@@ -1281,10 +1279,50 @@ extension SwipeConfigurationTestCase {
     // Store base64 payload for app to read via environment variable
     // Do NOT write to test process UserDefaults - let app write to its own process
     seededConfigurationPayload = data.base64EncodedString()
+    pendingSeedExpectation = SeedExpectation(
+      leading: leading,
+      trailing: trailing,
+      hapticsEnabled: hapticsEnabled
+    )
   }
 
   func clearSeededConfigurationPayload() {
     seededConfigurationPayload = nil
+    pendingSeedExpectation = nil
+  }
+
+  @MainActor
+  private func completeSeedIfNeeded(timeout: TimeInterval = 10.0) {
+    guard let expectation = pendingSeedExpectation else { return }
+
+    guard
+      waitForDebugState(timeout: timeout, validator: { state in
+        guard state.baselineLoaded else { return false }
+
+        // State values use raw swipe action identifiers
+        let leadingMatches = state.leading == expectation.leading
+        let trailingMatches = state.trailing == expectation.trailing
+        let hapticsMatches = state.hapticsEnabled == expectation.hapticsEnabled
+        return leadingMatches && trailingMatches && hapticsMatches
+      }) != nil
+    else {
+      let stateDescription: String
+      if let state = currentDebugState() {
+        stateDescription = "leading=\(state.leading) trailing=\(state.trailing) haptics=\(state.hapticsEnabled)"
+      } else {
+        stateDescription = "<unavailable>"
+      }
+      let summary = "expectedLeading=\(expectation.leading)\nexpectedTrailing=\(expectation.trailing)\nexpectedHaptics=\(expectation.hapticsEnabled)\nobserved=\(stateDescription)"
+      let attachment = XCTAttachment(string: summary)
+      attachment.name = "Seeded Swipe Configuration Diagnostics"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+      XCTFail("Seeded swipe configuration did not materialize within \(timeout) seconds")
+      clearSeededConfigurationPayload()
+      return
+    }
+
+    clearSeededConfigurationPayload()
   }
 
   @MainActor
@@ -1392,6 +1430,12 @@ extension SwipeConfigurationTestCase {
     let hapticsEnabled: Bool
     let unsaved: Bool
     let baselineLoaded: Bool
+  }
+
+  struct SeedExpectation {
+    let leading: [String]
+    let trailing: [String]
+    let hapticsEnabled: Bool
   }
 
   struct SwipePresetExpectation {

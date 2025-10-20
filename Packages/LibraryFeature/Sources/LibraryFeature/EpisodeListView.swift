@@ -1221,6 +1221,7 @@ private final class EpisodeListDependencyProvider {
       if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
         suiteDefaults.removePersistentDomain(forName: suiteName)
         print("🧪 UI Test: Reset swipe settings suite '\(suiteName)'")
+        suiteDefaults.synchronize()
       }
       if let seededConfigBase64 = environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"],
         let seededData = Data(base64Encoded: seededConfigBase64)
