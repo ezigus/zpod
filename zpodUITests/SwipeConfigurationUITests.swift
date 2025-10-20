@@ -529,61 +529,26 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   @MainActor
   func setHaptics(enabled: Bool, styleLabel: String) {
-    let baseToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
-    }
-    guard waitForElement(baseToggle, timeout: adaptiveShortTimeout, description: "haptic toggle")
-    else {
+    guard let toggle = resolveToggleSwitch(identifier: "SwipeActions.Haptics.Toggle") else {
+      attachToggleDiagnostics(identifier: "SwipeActions.Haptics.Toggle", context: "setHaptics missing toggle")
+      XCTFail("Expected haptics toggle to exist")
       return
     }
 
-    let toggle: XCUIElement
     if let container = swipeActionsSheetListContainer() {
-      toggle = element(withIdentifier: "SwipeActions.Haptics.Toggle", within: container)
-    } else {
-      toggle = baseToggle
+      _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
+    }
+    guard waitForElement(toggle, timeout: adaptiveShortTimeout, description: "haptic toggle") else {
+      attachToggleDiagnostics(identifier: "SwipeActions.Haptics.Toggle", context: "setHaptics toggle did not appear", element: toggle)
+      return
     }
 
-    // Check current state from debug summary
-    let preState = currentDebugState()
-    let currentHapticState = preState?.hapticsEnabled ?? false
-    logger.debug(
-      "[SwipeUITestDebug] setHaptics: target=\(enabled ? "on" : "off", privacy: .public), current=\(currentHapticState ? "on" : "off", privacy: .public)"
-    )
+    if let decision = shouldToggleElement(toggle, targetStateOn: enabled), decision {
+      tapToggle(toggle, identifier: "SwipeActions.Haptics.Toggle", targetOn: enabled)
 
-    // Only toggle if we need to change state
-    if currentHapticState != enabled {
-      logger.debug(
-        "[SwipeUITestDebug] Attempting to toggle SwipeActions.Haptics.Toggle to \(enabled ? "on" : "off", privacy: .public)"
-      )
-
-      // Try direct tap first
-      toggle.tap()
-
-      // Wait for state to change with proper timeout
-      if waitForDebugState(
-        timeout: adaptiveShortTimeout, validator: { $0.hapticsEnabled == enabled }) != nil
-      {
-        logger.debug(
-          "[SwipeUITestDebug] Toggle succeeded with direct tap"
-        )
-      } else {
-        // Fallback to coordinate tap
-        logger.debug(
-          "[SwipeUITestDebug] Direct tap didn't change state, trying coordinate tap"
-        )
-        let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-        coordinate.tap()
-
-        // Wait for state to change after coordinate tap
-        _ = waitForDebugState(
-          timeout: adaptiveShortTimeout, validator: { $0.hapticsEnabled == enabled })
+      if waitForDebugState(timeout: adaptiveShortTimeout, validator: { $0.hapticsEnabled == enabled }) == nil {
+        attachToggleDiagnostics(identifier: "SwipeActions.Haptics.Toggle", context: "setHaptics debug state mismatch", element: toggle)
       }
-    } else {
-      logger.debug(
-        "[SwipeUITestDebug] Haptic toggle already in desired state, no tap needed"
-      )
     }
 
     guard enabled else { return }
@@ -633,21 +598,18 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   @MainActor
   func setFullSwipeToggle(identifier: String, enabled: Bool) {
-    let baseToggle = element(withIdentifier: identifier)
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(identifier: identifier, container: container)
     }
-    guard waitForElement(baseToggle, timeout: adaptiveShortTimeout, description: identifier) else {
+    guard let toggle = resolveToggleSwitch(identifier: identifier) else {
+      attachToggleDiagnostics(identifier: identifier, context: "setFullSwipeToggle missing toggle")
+      XCTFail("Expected toggle \(identifier) to exist")
       return
     }
 
-    let toggle: XCUIElement
-    if let container = swipeActionsSheetListContainer(), container.switches[identifier].exists {
-      toggle = container.switches[identifier]
-    } else if app.switches[identifier].exists {
-      toggle = app.switches[identifier]
-    } else {
-      toggle = baseToggle
+    guard waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier) else {
+      attachToggleDiagnostics(identifier: identifier, context: "setFullSwipeToggle toggle did not appear", element: toggle)
+      return
     }
 
     let validator: (SwipeDebugState) -> Bool = { state in
@@ -677,26 +639,15 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
     let attempts = 3
     for attempt in 0..<attempts {
-      _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
-
-      // Try direct tap first
-      toggle.tap()
+      tapToggle(toggle, identifier: identifier, targetOn: enabled)
 
       if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
         logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1)")
         return
       }
-
-      // If that didn't work, try coordinate tap
-      let coordinate = toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-      coordinate.tap()
-
-      if waitForDebugState(timeout: adaptiveShortTimeout, validator: validator) != nil {
-        logDebugState("after setFullSwipe \(identifier) attempt \(attempt + 1) (coordinate)")
-        return
-      }
     }
 
+    attachToggleDiagnostics(identifier: identifier, context: "setFullSwipeToggle timed out", element: toggle)
     XCTFail("Timed out toggling \(identifier) to \(enabled)")
 
   }
@@ -746,7 +697,11 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   @MainActor
   func assertToggleState(identifier: String, expected: Bool) {
-    let toggle = element(withIdentifier: identifier)
+    guard let toggle = resolveToggleSwitch(identifier: identifier) else {
+      attachToggleDiagnostics(identifier: identifier, context: "assertToggleState missing toggle")
+      XCTFail("Toggle \(identifier) should exist")
+      return
+    }
     XCTAssertTrue(
       waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
       "Toggle \(identifier) should exist"
@@ -772,6 +727,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       } else {
         message = "Toggle \(identifier) state mismatch (debug summary unavailable)"
       }
+      attachToggleDiagnostics(identifier: identifier, context: "assertToggleState mismatch", element: toggle)
       XCTFail(message)
       return
     }
@@ -779,14 +735,13 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   @MainActor
   func assertHapticStyleSelected(label: String) {
-    let segmentedControl =
-      app.segmentedControls["SwipeActions.Haptics.StylePicker"].exists
-      ? app.segmentedControls["SwipeActions.Haptics.StylePicker"]
-      : app.segmentedControls.firstMatch
+    let segmentedControl = app.segmentedControls
+      .matching(identifier: "SwipeActions.Haptics.StylePicker")
+      .firstMatch
     XCTAssertTrue(
       waitForElement(
         segmentedControl,
-        timeout: adaptiveShortTimeout,
+        timeout: adaptiveTimeout,
         description: "haptic style segmented control"
       ),
       "Haptic style segmented control should exist"
@@ -794,7 +749,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     let button = segmentedControl.buttons[label]
     XCTAssertTrue(
       waitForElement(
-        button, timeout: adaptiveShortTimeout, description: "haptic style option \(label)"),
+        button, timeout: adaptiveTimeout, description: "haptic style option \(label)"),
       "Haptic style option \(label) should exist"
     )
     XCTAssertTrue(button.isSelected, "Haptic style option \(label) should remain selected")
@@ -1354,8 +1309,8 @@ extension SwipeConfigurationTestCase {
   @MainActor
   private func prioritizedElement(in root: XCUIElement, identifier: String) -> XCUIElement? {
     let queries: [XCUIElement] = [
+      root.switches.matching(identifier: identifier).firstMatch,
       root.buttons[identifier],
-      root.switches[identifier],
       root.segmentedControls[identifier],
       root.cells[identifier],
       root.sliders[identifier],
@@ -1685,6 +1640,96 @@ extension SwipeConfigurationTestCase {
     }
 
     return nil
+  }
+
+  @MainActor
+  private func resolveToggleSwitch(identifier: String) -> XCUIElement? {
+    if let container = swipeActionsSheetListContainer() {
+      let scoped = container.switches.matching(identifier: identifier).firstMatch
+      if scoped.exists { return scoped }
+
+      let descendant = container.descendants(matching: .switch).matching(identifier: identifier).firstMatch
+      if descendant.exists { return descendant }
+    }
+
+    let global = app.switches.matching(identifier: identifier).firstMatch
+    if global.exists { return global }
+
+    let fallback = element(withIdentifier: identifier)
+    if fallback.elementType == .switch { return fallback }
+
+    let nested = fallback.switches.matching(identifier: identifier).firstMatch
+    if nested.exists { return nested }
+
+    let anySwitch = fallback.descendants(matching: .switch).firstMatch
+    if anySwitch.exists { return anySwitch }
+
+    return fallback.exists ? fallback : nil
+  }
+
+  @MainActor
+  private func tapToggle(_ toggle: XCUIElement, identifier: String, targetOn: Bool) {
+    _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
+
+    let interactiveToggle: XCUIElement = {
+      let directChild = toggle.switches.element(boundBy: 0)
+      if directChild.exists {
+        return directChild
+      }
+      let descendant = toggle.descendants(matching: .switch).element(boundBy: 0)
+      return descendant.exists ? descendant : toggle
+    }()
+
+    interactiveToggle.tap()
+
+    if toggleIsInDesiredState(toggle, targetOn: targetOn) {
+      return
+    }
+
+    let offsetX: CGFloat = targetOn ? 0.8 : 0.2
+    let coordinate = interactiveToggle.coordinate(withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
+    coordinate.tap()
+
+    if toggleIsInDesiredState(toggle, targetOn: targetOn) {
+      return
+    }
+
+    interactiveToggle.press(forDuration: 0.05)
+  }
+
+  @MainActor
+  private func toggleIsInDesiredState(_ toggle: XCUIElement, targetOn: Bool) -> Bool {
+    guard let state = currentStateIsOn(for: toggle) else { return false }
+    return state == targetOn
+  }
+
+  @MainActor
+  private func attachToggleDiagnostics(
+    identifier: String,
+    context: String,
+    element: XCUIElement? = nil
+  ) {
+    var lines: [String] = ["Context: \(context)", "Identifier: \(identifier)"]
+    let element = element ?? resolveToggleSwitch(identifier: identifier)
+
+    if let element {
+      lines.append("exists: \(element.exists)")
+      lines.append("isHittable: \(element.isHittable)")
+      lines.append("isEnabled: \(element.isEnabled)")
+      lines.append("elementType: \(element.elementType.rawValue)")
+      if let value = element.value {
+        lines.append("value: \(value)")
+      }
+      lines.append("frame: \(NSCoder.string(for: element.frame))")
+      lines.append("debugDescription: \(element.debugDescription)")
+    } else {
+      lines.append("element: nil")
+    }
+
+    let attachment = XCTAttachment(string: lines.joined(separator: "\n"))
+    attachment.name = "Toggle Diagnostics"
+    attachment.lifetime = .keepAlways
+    add(attachment)
   }
 }
 
