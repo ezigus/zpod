@@ -58,7 +58,11 @@ let package = Package(
                 ".vscode/",
             ]
         ),
-        .testTarget(name: "zpodTests", dependencies: ["zpodLib", "TestSupport"], path: "zpodTests"),
+        .testTarget(
+            name: "AppSmokeTests",
+            dependencies: ["zpodLib", "SharedUtilities", "TestSupport"],
+            path: "AppSmokeTests"
+        ),
         .testTarget(
             name: "IntegrationTests",
             dependencies: [

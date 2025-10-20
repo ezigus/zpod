@@ -424,7 +424,7 @@ Options:
   -c                Clean before running build/test
   -s                Run Swift syntax verification only (no build or tests)
   -l                Run Swift lint checks (swiftlint/swift-format if available)
-  -p [suite]        Verify test plan coverage (optional suite: default, zpodTests, zpodUITests, IntegrationTests)
+  -p [suite]        Verify test plan coverage (optional suite: default, AppSmokeTests, zpodUITests, IntegrationTests)
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
@@ -466,7 +466,7 @@ self_check() {
   fi
 
   REQUESTED_BUILDS="zpod"
-  REQUESTED_TESTS="zpodTests"
+  REQUESTED_TESTS="AppSmokeTests"
   log_info "Argument parsing sanity check passed"
 
   log_success "Self-check complete"
@@ -677,8 +677,14 @@ test_app_target() {
 
   if [[ "$target" == "zpod" ]]; then
     local clean_flag=$REQUESTED_CLEAN
-    run_filtered_xcode_tests "${target}-unit" "$clean_flag" "zpodTests"
+    run_filtered_xcode_tests "${target}-smoke" "$clean_flag" "AppSmokeTests"
     run_filtered_xcode_tests "${target}-ui" 0 "zpodUITests"
+    return
+  fi
+
+  if [[ "$target" == "AppSmokeTests" ]]; then
+    local clean_flag=$REQUESTED_CLEAN
+    run_filtered_xcode_tests "AppSmokeTests" "$clean_flag" "AppSmokeTests"
     return
   fi
 
@@ -705,7 +711,7 @@ test_app_target() {
   case "$target" in
     all|zpod)
       args+=(build test);;
-    zpodTests|zpodUITests)
+    AppSmokeTests|zpodTests|zpodUITests)
       args+=(build test -only-testing:"$target");;
     IntegrationTests)
       args+=(build test);;
@@ -992,7 +998,7 @@ run_test_target() {
   local target
   target=$(resolve_test_identifier "$1") || exit 1
   case "$target" in
-    all|zpod|zpodTests|zpodUITests|IntegrationTests|*/*)
+    all|zpod|AppSmokeTests|zpodTests|zpodUITests|IntegrationTests|*/*)
       test_app_target "$target";;
     "") ;;
     *)
@@ -1008,7 +1014,7 @@ run_test_target() {
 
 infer_target_for_class() {
   local class_name="$1"
-  local search_dirs=("${REPO_ROOT}/zpodUITests" "${REPO_ROOT}/zpodTests" "${REPO_ROOT}/IntegrationTests")
+  local search_dirs=("${REPO_ROOT}/zpodUITests" "${REPO_ROOT}/AppSmokeTests" "${REPO_ROOT}/IntegrationTests")
   local matches=()
   ensure_command rg "ripgrep is required to resolve test names" || exit 1
 
@@ -1033,7 +1039,7 @@ infer_target_for_class() {
   local match_path="${matches[0]}"
   case "$match_path" in
     */zpodUITests/*) echo "zpodUITests";;
-    */zpodTests/*) echo "zpodTests";;
+    */AppSmokeTests/*) echo "AppSmokeTests";;
     */IntegrationTests/*) echo "IntegrationTests";;
     *) return 1;;
   esac
@@ -1043,7 +1049,7 @@ resolve_test_identifier() {
   local spec="$1"
   [[ -z "$spec" ]] && { log_error "Empty test identifier"; return 1; }
 
-  local known_targets=(all zpod zpodTests zpodUITests IntegrationTests)
+  local known_targets=(all zpod AppSmokeTests zpodUITests IntegrationTests)
   local candidate
   for candidate in "${known_targets[@]}"; do
     if [[ "$spec" == "$candidate" ]]; then
@@ -1051,6 +1057,11 @@ resolve_test_identifier() {
       return 0
     fi
   done
+
+  if [[ "$spec" == "zpodTests" ]]; then
+    echo "AppSmokeTests"
+    return 0
+  fi
 
   if is_package_target "$spec"; then
     echo "$spec"

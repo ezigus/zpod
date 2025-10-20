@@ -96,7 +96,7 @@
 
 | Type | Purpose | Location |
 | --- | --- | --- |
-| Unit | Component logic, models, services | `zpodTests/` |
+| Unit | App smoke validation & module re-export checks | `AppSmokeTests/` |
 | UI | End-to-end user flows, accessibility | `zpodUITests/` |
 | Integration | Cross-module workflows, platform services | `IntegrationTests/` |
 | Package | Module-specific APIs | `Packages/*/Tests/` |
@@ -163,6 +163,8 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 
 ### CI Pipeline
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
+
+- CI fan-out: each package runs `swift test` in its own matrix job (`./scripts/run-xcode-tests.sh -t <Package>`), while `AppSmokeTests` covers the umbrella module and `zpodUITests`/`IntegrationTests` remain dedicated jobs.
 
 ## 8. Issue & Documentation Management
 

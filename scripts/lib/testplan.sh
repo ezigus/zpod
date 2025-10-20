@@ -102,7 +102,7 @@ _verify_testplan_scheme_for_suite() {
     ""|zpod|default)
       echo "zpod"
       ;;
-    zpodTests|zpodUITests)
+    AppSmokeTests|zpodTests|zpodUITests)
       echo "zpod"
       ;;
     IntegrationTests)

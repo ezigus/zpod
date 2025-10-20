@@ -27,13 +27,13 @@
             buildForProfiling = "NO"
             buildForArchiving = "NO"
             buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD11C2E22E617008CEE55"
-               BuildableName = "zpodTests.xctest"
-               BlueprintName = "zpodTests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD11C2E22E617008CEE55"
+            BuildableName = "AppSmokeTests.xctest"
+            BlueprintName = "AppSmokeTests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -97,13 +97,13 @@
       <Testables>
          <TestableReference
             skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD11C2E22E617008CEE55"
-               BuildableName = "zpodTests.xctest"
-               BlueprintName = "zpodTests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD11C2E22E617008CEE55"
+            BuildableName = "AppSmokeTests.xctest"
+            BlueprintName = "AppSmokeTests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
          </TestableReference>
          <TestableReference
             skipped = "NO">

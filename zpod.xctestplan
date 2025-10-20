@@ -18,7 +18,7 @@
       "target": {
         "containerPath": "container:zpod.xcodeproj",
         "identifier": "786FD11C2E22E617008CEE55",
-        "name": "zpodTests"
+        "name": "AppSmokeTests"
       }
     },
     {
