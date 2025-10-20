@@ -5,7 +5,7 @@
 //  Created for Issue 02.1.6.2: Swipe Gesture Configuration UI Tests
 //
 
-// swiftlint:disable type_body_length
+// swiftlint:disable file_length type_body_length
 
 import Foundation
 import OSLog
@@ -1267,6 +1267,7 @@ extension XCUIElement {
 }
 
 extension SwipeConfigurationTestCase {
+  @MainActor private static var reportedToggleValueSignatures = Set<String>()
   @MainActor
   func configurePlaybackLayoutManually() {
     // Remove default actions - continue even if some fail
@@ -1597,11 +1598,28 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   fileprivate func currentStateIsOn(for element: XCUIElement) -> Bool? {
-    if let value = element.value as? String {
-      switch value.lowercased() {
-      case "1", "on", "true":
+    if let boolValue = element.value as? Bool {
+      return boolValue
+    }
+
+    if let numberValue = element.value as? NSNumber {
+      return numberValue.boolValue
+    }
+
+    var normalizedString: String?
+    if let stringValue = element.value as? String {
+      normalizedString = stringValue
+    } else if let convertible = element.value as? CustomStringConvertible {
+      normalizedString = convertible.description
+    }
+
+    if let normalized = normalizedString?.trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+    {
+      switch normalized {
+      case "1", "on", "true", "yes":
         return true
-      case "0", "off", "false":
+      case "0", "off", "false", "no":
         return false
       default:
         break
@@ -1609,6 +1627,20 @@ extension SwipeConfigurationTestCase {
     }
 
     if element.isSelected { return true }
+
+    let signature: String
+    if let rawValue = element.value {
+      signature = "\(type(of: rawValue))::\(String(describing: rawValue))"
+    } else {
+      signature = "nil"
+    }
+
+    if Self.reportedToggleValueSignatures.insert(signature).inserted {
+      let attachment = XCTAttachment(string: "Unrecognized toggle value signature: \(signature)")
+      attachment.name = "Toggle Value Snapshot"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+    }
 
     return nil
   }
