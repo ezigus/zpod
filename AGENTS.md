@@ -140,7 +140,7 @@ Use the shared helper script for a quick local verification:
 
 ```bash
 ./scripts/run-xcode-tests.sh --self-check                        # environment sanity checks
-./scripts/run-xcode-tests.sh                                     # default: cleans the build, builds, runs syntax and runs full regression 
+./scripts/run-xcode-tests.sh                                     # default: syntax gate → AppSmoke gate → full regression
 ./scripts/run-xcode-tests.sh -s                                  # syntax verification only
 ./scripts/run-xcode-tests.sh -b zpod                             # build without executing tests
 ./scripts/run-xcode-tests.sh -t zpod,zpodUITests                 # targeted test execution
@@ -153,7 +153,7 @@ Use the shared helper script for a quick local verification:
 - `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
 - Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
 - Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
-- Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite: clean build, syntax check, test-plan coverage, workspace build, all SwiftPM package tests, app regression, and Swift lint.
+- Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite in gated order: syntax check first, AppSmokeTests second, then test-plan coverage, workspace build, all SwiftPM package tests, integration + UI suites, and Swift lint. Syntax or AppSmoke failures stop the remaining phases immediately so follow-ups always start from a healthy base.
 - running with -t and the class you want to test will test that specific test class and nothing more.
 - When possible, after each modification made, rerun a very targeted test that will show that the code that was modified works correctly. Once those tests pass 100%, commit those changes locally.  Then complete the full regression test using the default ./scripts/run-xcode-tests.sh without any flags and only then, push the changes to github.
 
@@ -164,7 +164,7 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 ### CI Pipeline
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
-- CI fan-out: each package runs `swift test` in its own matrix job (`./scripts/run-xcode-tests.sh -t <Package>`), `AppSmokeTests` covers the umbrella module, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
+- CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
 
 ## 8. Issue & Documentation Management
 

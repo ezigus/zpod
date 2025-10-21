@@ -12,14 +12,128 @@ on:
       - main
 
 jobs:
+  preflight:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+      - name: Self-check build script
+        run: ./scripts/run-xcode-tests.sh --self-check
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Ensure iOS Simulator runtime is installed
+        run: |
+          set -euo pipefail
+          echo "Checking installed runtimes before download..."
+          xcrun simctl list runtimes || true
+
+          HAS_IOS_RUNTIME=$(xcrun simctl list runtimes | grep -c "iOS ") || true
+          if [ "$HAS_IOS_RUNTIME" -eq 0 ]; then
+            echo "No iOS runtimes found. Attempting to download iOS platform..."
+            sudo xcodebuild -runFirstLaunch || true
+            if xcodebuild -help | grep -q "-downloadPlatform"; then
+              sudo xcodebuild -downloadPlatform iOS || true
+            fi
+            if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+              echo "Retrying with -downloadAllPlatforms..."
+              if xcodebuild -help | grep -q "-downloadAllPlatforms"; then
+                sudo xcodebuild -downloadAllPlatforms || true
+              fi
+            fi
+            echo "Runtimes after download attempt:"
+            xcrun simctl list runtimes || true
+          fi
+
+          if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+            echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
+          fi
+
+      - name: Create iOS Simulator device if needed
+        run: |
+          set -euo pipefail
+          echo "Ensuring at least one iPhone simulator exists..."
+
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=json.load(sys.stdin).get('runtimes',[]); pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]; pref=pref or [x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]; print(pref[0]['identifier'] if pref else '')")
+          if [ -z "$RUNTIME_ID" ]; then
+            echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
+          else
+            DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            if ! xcrun simctl list devicetypes | grep -q "$DEVTYPE"; then
+              DEVTYPE=$(\
+                xcrun simctl list devicetypes | awk -F'[()]' \
+                  '/iPhone 17 Pro Max/{print $2; exit} \
+                   /iPhone 17 Pro/{print $2; exit} \
+                   /iPhone 17/{print $2; exit} \
+                   /iPhone 16 Pro Max/{print $2; exit} \
+                   /iPhone 16 Pro/{print $2; exit} \
+                   /iPhone 16/{print $2; exit} \
+                   /iPhone 15/{print $2; exit} \
+                   /iPhone 14/{print $2; exit}'
+              )
+            fi
+            if [ -z "$DEVTYPE" ]; then
+              echo "⚠️ Could not find an iPhone device type to create. Skipping device creation."
+            else
+              if ! xcrun simctl list devices | grep -q "iPhone 16 (CI)"; then
+                echo "Creating simulator: name='iPhone 16 (CI)', type=$DEVTYPE, runtime=$RUNTIME_ID"
+                xcrun simctl create "iPhone 16 (CI)" "$DEVTYPE" "$RUNTIME_ID" || true
+              else
+                echo "Simulator 'iPhone 16 (CI)' already exists"
+              fi
+            fi
+          fi
+
+          xcrun simctl list devices || true
+
+      - name: Swift syntax verification
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -s
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Clean build (all targets)
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -c -b all
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Run AppSmoke tests
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -t AppSmokeTests
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Archive Preflight Results
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/preflight
+          if ls TestResults >/dev/null 2>&1; then
+            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
+              -exec cp -R {} artifacts/preflight/ \;
+          fi
+      - name: Upload Preflight Artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-preflight
+          path: artifacts/preflight
+          if-no-files-found: warn
+
   xcode-tests:
+    needs: preflight
     runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: AppSmoke
-            tests: AppSmokeTests
           - name: UITests-Navigation
             tests: zpodUITests/CoreUINavigationTests,zpodUITests/EpisodeListUITests
           - name: UITests-ContentDiscovery
@@ -107,14 +221,6 @@ jobs:
 
           xcrun simctl list devices || true
 
-      - name: Clean Build (all targets)
-        if: matrix.tests == 'AppSmokeTests'
-        run: |
-          set -euo pipefail
-          ./scripts/run-xcode-tests.sh -c -b all
-        env:
-          NSUnbufferedIO: "YES"
-
       - name: Run ${{ matrix.name }} Tests
         run: |
           set -euo pipefail
@@ -144,6 +250,7 @@ jobs:
 
   package-tests:
     runs-on: macos-latest
+    needs: preflight
     strategy:
       fail-fast: false
       matrix:
@@ -187,6 +294,7 @@ jobs:
 
   syntax-linux:
     runs-on: ubuntu-latest
+    needs: preflight
     steps:
       - name: Checkout
         uses: actions/checkout@v4

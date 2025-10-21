@@ -40,6 +40,174 @@ TESTPLAN_LAST_MISSING_NAMES=""
 
 declare -a SUMMARY_ITEMS=()
 
+EXIT_STATUS=0
+INTERRUPTED=0
+CURRENT_PHASE=""
+CURRENT_PHASE_CATEGORY=""
+SUMMARY_PRINTED=0
+CURRENT_PHASE_RECORDED=0
+
+update_exit_status() {
+  local code="$1"
+  [[ -z "$code" ]] && return
+  if (( code != 0 )); then
+    if (( EXIT_STATUS == 0 )); then
+      EXIT_STATUS=$code
+    fi
+  fi
+}
+
+status_symbol() {
+  local status="$1"
+  case "$status" in
+    success) printf '✅';;
+    warn) printf '⚠️';;
+    error|fail|failed) printf '❌';;
+    interrupted) printf '⏸️';;
+    *) printf 'ℹ️';;
+  esac
+}
+
+begin_phase() {
+  CURRENT_PHASE="$1"
+  CURRENT_PHASE_CATEGORY="$2"
+  CURRENT_PHASE_RECORDED=0
+}
+
+mark_phase_summary_recorded() {
+  CURRENT_PHASE_RECORDED=1
+}
+
+execute_phase() {
+  local label="$1"
+  local category="$2"
+  shift 2
+  local -a command=("$@")
+
+  begin_phase "$label" "$category"
+  set +e
+  "${command[@]}"
+  local status=$?
+  set -e
+
+  if (( status != 0 )); then
+    if (( CURRENT_PHASE_RECORDED == 0 )); then
+      add_summary "$category" "$label" "error" "" "" "" "" "" "failed"
+    fi
+    update_exit_status "$status"
+  fi
+
+  CURRENT_PHASE=""
+  CURRENT_PHASE_CATEGORY=""
+  CURRENT_PHASE_RECORDED=0
+
+  return "$status"
+}
+
+category_in() {
+  local value="$1"
+  shift
+  local candidate
+  for candidate in "$@"; do
+    if [[ "$value" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+print_section_header() {
+  local title="$1"
+  printf '================================\n%s\n================================\n' "$title"
+}
+
+format_summary_line() {
+  local category="$1"
+  local name="$2"
+  local status="$3"
+  local log_path="$4"
+  local total="$5"
+  local passed="$6"
+  local failed="$7"
+  local skipped="$8"
+  local note="$9"
+
+  local symbol
+  symbol=$(status_symbol "$status")
+  local line="  ${symbol} ${name}"
+  if [[ "$category" == "test" && -n "$total" ]]; then
+    line+=" – ${total} total (passed ${passed}, failed ${failed}, skipped ${skipped})"
+  fi
+  if [[ -n "$note" ]]; then
+    line+=" – ${note}"
+  fi
+  if [[ -n "$log_path" ]]; then
+    line+=" – log: ${log_path}"
+  fi
+  printf '%s\n' "$line"
+}
+
+categorize_test_entry() {
+  local name="$1"
+  case "$name" in
+    package\ *) echo "Package Tests";;
+    *AppSmokeTests*|*zpod-smoke*) echo "Unit Tests";;
+    *IntegrationTests*|*Integration*) echo "Integration Tests";;
+    *UITests*|*-ui|*UITests-*) echo "UI Tests";;
+    *) echo "Other Tests";;
+  esac
+}
+
+print_entries_for_categories() {
+  local -a categories=("$@")
+  local found=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]}"; do
+    IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
+    if category_in "$category" "${categories[@]}"; then
+      format_summary_line "$category" "$name" "$status" "$log_path" "$total" "$passed" "$failed" "$skipped" "$note"
+      found=1
+    fi
+  done
+  if (( found == 0 )); then
+    printf '  (none)\n'
+  fi
+}
+
+finalize_and_exit() {
+  local code="$1"
+  trap - ERR INT
+  if (( SUMMARY_PRINTED == 0 )); then
+    print_summary
+  fi
+  SUMMARY_PRINTED=1
+  exit "$code"
+}
+
+handle_interrupt() {
+  INTERRUPTED=1
+  if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
+    add_summary "${CURRENT_PHASE_CATEGORY:-phase}" "$CURRENT_PHASE" "interrupted" "" "" "" "" "" "interrupted by user"
+  fi
+  update_exit_status 130
+  finalize_and_exit "$EXIT_STATUS"
+}
+
+handle_unexpected_error() {
+  local status=$1
+  local line=$2
+  if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
+    add_summary "${CURRENT_PHASE_CATEGORY:-script}" "$CURRENT_PHASE" "error" "" "" "" "" "" "script error at line ${line}"
+  else
+    add_summary "script" "runtime" "error" "" "" "" "" "" "script error at line ${line}"
+  fi
+  update_exit_status "$status"
+  finalize_and_exit "$EXIT_STATUS"
+}
+
+trap 'handle_interrupt' INT
+trap 'handle_unexpected_error $? $LINENO' ERR
+
 add_summary() {
   local category="$1"
   local name="$2"
@@ -50,6 +218,7 @@ add_summary() {
   local failed="${7:-}"
   local skipped="${8:-}"
   local note="${9:-}"
+  mark_phase_summary_recorded
   SUMMARY_ITEMS+=("${category}|${name}|${status}|${log_path}|${total}|${passed}|${failed}|${skipped}|${note}")
 }
 
@@ -260,61 +429,139 @@ summarize_testplan_note() {
   printf "%s" "$note"
 }
 
-print_summary() {
-  if [[ ${#SUMMARY_ITEMS[@]} -eq 0 ]]; then
-    return
-  fi
-  log_section "Summary"
+tally_counts() {
+  local -a categories=("$@")
+  local total=0
+  local success=0
+  local warn=0
+  local error=0
+  local interrupted=0
   local entry
   for entry in "${SUMMARY_ITEMS[@]}"; do
-    IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
-
-    local category_label
-    case "$category" in
-      build) category_label="Build" ;;
-      lint) category_label="Lint" ;;
-      syntax) category_label="Syntax" ;;
-      test) category_label="Tests" ;;
-      testplan) category_label="Test Plan" ;;
-      *) category_label="$category" ;;
-    esac
-
-    local prefix="${category_label}: ${name}"
-    local detail="${prefix}"
-    local -a extra_parts=()
-    if [[ "$category" == "test" && -n "$total" ]]; then
-      extra_parts+=("${total} total (passed ${passed}, failed ${failed}, skipped ${skipped})")
+    IFS='|' read -r category _ status _ <<< "$entry"
+    if category_in "$category" "${categories[@]}"; then
+      ((total++))
+      case "$status" in
+        success) ((success++));;
+        warn) ((warn++));;
+        error|fail|failed) ((error++));;
+        interrupted) ((interrupted++));;
+      esac
     fi
-    if [[ -n "$note" ]]; then
-      extra_parts+=("${note}")
-    fi
-    if [[ -n "$log_path" ]]; then
-      extra_parts+=("log: ${log_path}")
-    fi
-    if [[ ${#extra_parts[@]} -gt 0 ]]; then
-      detail="${prefix} – ${extra_parts[0]}"
-      local idx=1
-      while [[ $idx -lt ${#extra_parts[@]} ]]; do
-        detail+="; ${extra_parts[$idx]}"
-        ((idx++))
-      done
-    fi
-
-    case "$status" in
-      success)
-        log_success "$detail"
-        ;;
-      warn)
-        log_warn "$detail"
-        ;;
-      error|fail|failed)
-        log_error "$detail"
-        ;;
-      *)
-        log_info "$detail"
-        ;;
-    esac
   done
+  printf '%s|%s|%s|%s|%s' "$total" "$success" "$warn" "$error" "$interrupted"
+}
+
+sum_test_case_counts() {
+  local total=0
+  local passed=0
+  local failed=0
+  local skipped=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]}"; do
+    IFS='|' read -r category _ status _ t p f s _ <<< "$entry"
+    if [[ "$category" == "test" && -n "$t" ]]; then
+      ((total+=t))
+      ((passed+=p))
+      ((failed+=f))
+      ((skipped+=s))
+    fi
+  done
+  printf '%s|%s|%s|%s' "$total" "$passed" "$failed" "$skipped"
+}
+
+print_test_execution_summary() {
+  local -a groups=("Unit Tests" "Integration Tests" "UI Tests" "Package Tests" "Other Tests")
+  local group
+  local entry
+  local any=0
+  for group in "${groups[@]}"; do
+    local group_found=0
+    for entry in "${SUMMARY_ITEMS[@]}"; do
+      IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
+      if [[ "$category" != "test" ]]; then
+        continue
+      fi
+      local bucket
+      bucket=$(categorize_test_entry "$name")
+      if [[ "$bucket" == "$group" ]]; then
+        if (( group_found == 0 )); then
+          printf '%s:\n' "$group"
+          group_found=1
+        fi
+        format_summary_line "$category" "$name" "$status" "$log_path" "$total" "$passed" "$failed" "$skipped" "$note"
+      fi
+    done
+    if (( group_found == 0 )); then
+      continue
+    fi
+    any=1
+  done
+  if (( any == 0 )); then
+    printf '  (none)\n'
+  fi
+}
+
+print_summary() {
+  (( SUMMARY_PRINTED == 0 )) || return
+  SUMMARY_PRINTED=1
+
+  if [[ ${#SUMMARY_ITEMS[@]} -eq 0 ]]; then
+    print_section_header "Summary"
+    printf 'No phases executed.\n'
+    return
+  fi
+
+  local build_counts
+  build_counts=$(tally_counts syntax build testplan script)
+  IFS='|' read -r build_total build_success build_warn build_error build_interrupted <<< "$build_counts"
+
+  local lint_counts
+  lint_counts=$(tally_counts lint)
+  IFS='|' read -r lint_total lint_success lint_warn lint_error lint_interrupted <<< "$lint_counts"
+
+  print_section_header "Build Summary"
+  print_entries_for_categories syntax build testplan script
+
+  if (( lint_total > 0 )); then
+    print_section_header "Lint Summary"
+    print_entries_for_categories lint
+  fi
+
+  print_section_header "Test Execution Summary"
+  print_test_execution_summary
+
+  local test_totals
+  test_totals=$(sum_test_case_counts)
+  IFS='|' read -r test_total_count test_passed_count test_failed_count test_skipped_count <<< "$test_totals"
+
+  local test_counts
+  test_counts=$(tally_counts test)
+  IFS='|' read -r tests_total tests_success tests_warn tests_error tests_interrupted <<< "$test_counts"
+
+  print_section_header "Overall Status"
+
+  local overall_message
+  if (( INTERRUPTED == 1 || tests_interrupted > 0 || build_interrupted > 0 || lint_interrupted > 0 )); then
+    overall_message="⏸️  Regression interrupted"
+  elif (( build_error > 0 || tests_error > 0 || lint_error > 0 )); then
+    overall_message="⚠️  Regression completed with failures"
+  elif (( build_warn > 0 || tests_warn > 0 || lint_warn > 0 )); then
+    overall_message="⚠️  Regression completed with warnings"
+  else
+    overall_message="✅ Regression completed successfully"
+  fi
+  printf '%s\n' "$overall_message"
+
+  printf '  Builds: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$build_success" "$build_warn" "$build_error" "$build_interrupted"
+  printf '  Tests: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$tests_success" "$tests_warn" "$tests_error" "$tests_interrupted"
+  printf '  Lint: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$lint_success" "$lint_warn" "$lint_error" "$lint_interrupted"
+
+  if [[ -n "$test_total_count" && "$test_total_count" -ne 0 ]]; then
+    printf '  Test Cases: %s passed, %s failed, %s skipped (total %s)\n' "$test_passed_count" "$test_failed_count" "$test_skipped_count" "$test_total_count"
+  fi
+
+  printf '  Exit Status: %s\n' "$EXIT_STATUS"
 }
 
 ensure_swift_format_tool() {
@@ -566,15 +813,27 @@ dev_build_enhanced_syntax() {
 run_syntax_check() {
   init_result_paths "syntax" "swift"
   log_section "Syntax check"
+  set +e
   (
     cd "$REPO_ROOT"
     dev_build_enhanced_syntax
   ) | tee "$RESULT_LOG"
+  local syntax_status=${PIPESTATUS[0]}
+  set -e
 
-  log_success "Syntax check finished -> $RESULT_LOG"
   local note=""
   note=$(summarize_syntax_log "$RESULT_LOG")
+
+  if (( syntax_status != 0 )); then
+    log_error "Syntax check failed (status ${syntax_status}) -> $RESULT_LOG"
+    add_summary "syntax" "Swift syntax" "error" "$RESULT_LOG" "" "" "" "" "failed"
+    update_exit_status "$syntax_status"
+    return "$syntax_status"
+  fi
+
+  log_success "Syntax check finished -> $RESULT_LOG"
   add_summary "syntax" "Swift syntax" "success" "$RESULT_LOG" "" "" "" "" "$note"
+  return 0
 }
 
 build_app_target() {
@@ -605,11 +864,24 @@ build_app_target() {
   args+=(build)
 
   log_section "xcodebuild ${target_label}"
+  set +e
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
-  log_success "Build finished -> $RESULT_LOG"
+  local xc_status=${PIPESTATUS[0]}
+  set -e
+
   local note=""
   note=$(collect_build_summary_info "$RESULT_LOG")
+
+  if (( xc_status != 0 )); then
+    log_error "Build failed (${target_label}) status ${xc_status} -> $RESULT_LOG"
+    add_summary "build" "${target_label}" "error" "$RESULT_LOG" "" "" "" "" "failed"
+    update_exit_status "$xc_status"
+    return "$xc_status"
+  fi
+
+  log_success "Build finished -> $RESULT_LOG"
   add_summary "build" "${target_label}" "success" "$RESULT_LOG" "" "" "" "" "$note"
+  return 0
 }
 
 build_package_target() {
@@ -623,30 +895,47 @@ build_package_target() {
   fi
   init_result_paths "build_pkg" "$package"
   log_section "swift build (${package})"
-  build_swift_package "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
-  log_success "Package build finished -> $RESULT_LOG"
+  set +e
+  build_swift_package "$package" "$REQUESTED_CLEAN"
+  local pkg_status=$?
+  set -e
+
   local note=""
   note=$(collect_build_summary_info "$RESULT_LOG")
+
+  if (( pkg_status != 0 )); then
+    log_error "Package build failed (${package}) status ${pkg_status} -> $RESULT_LOG"
+    add_summary "build" "package ${package}" "error" "$RESULT_LOG" "" "" "" "" "failed"
+    update_exit_status "$pkg_status"
+    return "$pkg_status"
+  fi
+
+  log_success "Package build finished -> $RESULT_LOG"
   add_summary "build" "package ${package}" "success" "$RESULT_LOG" "" "" "" "" "$note"
+  return 0
 }
 
 run_build_target() {
   local target="$1"
   case "$target" in
     all)
-      build_app_target "zpod"
+      if ! build_app_target "zpod"; then
+        return $?
+      fi
       local pkg
       while IFS= read -r pkg; do
         [[ -z "$pkg" ]] && continue
-        build_package_target "$pkg"
+        if ! build_package_target "$pkg"; then
+          return $?
+        fi
       done < <(list_package_targets)
       ;;
     zpod)
-      build_app_target "$target";;
+      build_app_target "$target" || return $?;;
     "") ;;
     *)
       if is_package_target "$target"; then
-        build_package_target "$target"
+        build_package_target "$target" || return $?
       else
         log_error "Unknown build target: $target"
         exit 1
@@ -694,10 +983,13 @@ test_app_target() {
       log_error "No concrete iOS Simulator runtime is available; cannot execute ${target}"
       log_error "Ensure the 'Ensure iOS Simulator runtime is installed' step downloads a device runtime before running tests."
       add_summary "test" "${target}" "error" "" "" "" "" "" "failed (no simulator runtime)"
-      exit 2
+      update_exit_status 2
+      return 2
     fi
     log_warn "Generic simulator destination detected; running build only"
-    build_app_target "$target"
+    if ! build_app_target "$target"; then
+      return $?
+    fi
     add_summary "test" "${target}" "warn" "" "" "" "" "" "build only (generic simulator destination)"
     return 0
   fi
@@ -729,6 +1021,7 @@ test_app_target() {
 
   log_section "xcodebuild tests (${target})"
   set +e
+  set +e
   xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
   local xc_status=${PIPESTATUS[0]}
   set -e
@@ -739,14 +1032,18 @@ test_app_target() {
     case $inspect_status in
       0)
         log_error "Tests failed (status $xc_status) -> $RESULT_LOG"
-        exit $xc_status
+        add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "failed"
+        update_exit_status "$xc_status"
+        return "$xc_status"
         ;;
       1)
         log_warn "xcodebuild exited with status $xc_status but no test failures detected; treating as success"
         ;;
       *)
         log_error "xcodebuild exited with status $xc_status and result bundle could not be inspected"
-        exit $xc_status
+        add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "result bundle inspection failed"
+        update_exit_status "$xc_status"
+        return "$xc_status"
         ;;
     esac
   fi
@@ -763,6 +1060,7 @@ test_app_target() {
     fi
   fi
   add_summary "test" "${target}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
+  return 0
 }
 
 test_package_target() {
@@ -776,9 +1074,21 @@ test_package_target() {
   fi
   init_result_paths "test_pkg" "$package"
   log_section "swift test (${package})"
-  run_swift_package_target_tests "$package" "$REQUESTED_CLEAN" | tee "$RESULT_LOG"
+  set +e
+  run_swift_package_target_tests "$package" "$REQUESTED_CLEAN"
+  local pkg_status=$?
+  set -e
+
+  if (( pkg_status != 0 )); then
+    log_error "Package tests failed (${package}) status ${pkg_status} -> $RESULT_LOG"
+    add_summary "test" "package ${package}" "error" "$RESULT_LOG" "" "" "" "" "failed"
+    update_exit_status "$pkg_status"
+    return "$pkg_status"
+  fi
+
   log_success "Package tests finished -> $RESULT_LOG"
   add_summary "test" "package ${package}" "success" "$RESULT_LOG"
+  return 0
 }
 
 run_swift_lint() {
@@ -786,50 +1096,86 @@ run_swift_lint() {
   log_section "Swift lint"
 
   if command_exists swiftlint; then
+    set +e
     (
       cd "$REPO_ROOT"
       swiftlint lint
     ) | tee "$RESULT_LOG"
-    log_success "SwiftLint finished -> $RESULT_LOG"
+    local lint_status=${PIPESTATUS[0]}
+    set -e
     local note=""
     note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
+    if (( lint_status != 0 )); then
+      log_error "SwiftLint failed (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swiftlint" "error" "$RESULT_LOG" "" "" "" "" "failed"
+      update_exit_status "$lint_status"
+      return "$lint_status"
+    fi
+    log_success "SwiftLint finished -> $RESULT_LOG"
     add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
   if command_exists swift-format; then
+    set +e
     (
       cd "$REPO_ROOT"
       swift-format lint --recursive .
     ) | tee "$RESULT_LOG"
-    log_success "swift-format lint finished -> $RESULT_LOG"
+    local lint_status=${PIPESTATUS[0]}
+    set -e
     local note=""
     note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
+    if (( lint_status != 0 )); then
+      log_error "swift-format lint failed (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swift-format" "error" "$RESULT_LOG" "" "" "" "" "failed"
+      update_exit_status "$lint_status"
+      return "$lint_status"
+    fi
+    log_success "swift-format lint finished -> $RESULT_LOG"
     add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
   if command_exists swiftformat; then
+    set +e
     (
       cd "$REPO_ROOT"
       swiftformat --lint .
     ) | tee "$RESULT_LOG"
-    log_success "swiftformat lint finished -> $RESULT_LOG"
+    local lint_status=${PIPESTATUS[0]}
+    set -e
     local note=""
     note=$(summarize_lint_log "swiftformat" "$RESULT_LOG")
+    if (( lint_status != 0 )); then
+      log_error "swiftformat lint failed (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swiftformat" "error" "$RESULT_LOG" "" "" "" "" "failed"
+      update_exit_status "$lint_status"
+      return "$lint_status"
+    fi
+    log_success "swiftformat lint finished -> $RESULT_LOG"
     add_summary "lint" "swiftformat" "success" "$RESULT_LOG" "" "" "" "" "$note"
     return 0
   fi
 
   if ensure_swift_format_tool; then
     if command_exists swift-format; then
+      set +e
       (
         cd "$REPO_ROOT"
         swift-format lint --recursive .
       ) | tee "$RESULT_LOG"
-      log_success "swift-format lint finished -> $RESULT_LOG"
+      local lint_status=${PIPESTATUS[0]}
+      set -e
       local note=""
       note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
+      if (( lint_status != 0 )); then
+        log_error "swift-format lint failed (status ${lint_status}) -> $RESULT_LOG"
+        add_summary "lint" "swift-format" "error" "$RESULT_LOG" "" "" "" "" "failed"
+        update_exit_status "$lint_status"
+        return "$lint_status"
+      fi
+      log_success "swift-format lint finished -> $RESULT_LOG"
       add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
       return 0
     fi
@@ -851,13 +1197,22 @@ run_swift_lint() {
     fi
 
     if command_exists swiftlint; then
+      set +e
       (
         cd "$REPO_ROOT"
         swiftlint lint
       ) | tee "$RESULT_LOG"
-      log_success "SwiftLint finished -> $RESULT_LOG"
+      local lint_status=${PIPESTATUS[0]}
+      set -e
       local note=""
       note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
+      if (( lint_status != 0 )); then
+        log_error "SwiftLint failed (status ${lint_status}) -> $RESULT_LOG"
+        add_summary "lint" "swiftlint" "error" "$RESULT_LOG" "" "" "" "" "failed"
+        update_exit_status "$lint_status"
+        return "$lint_status"
+      fi
+      log_success "SwiftLint finished -> $RESULT_LOG"
       add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
       return 0
     fi
@@ -944,7 +1299,8 @@ run_filtered_xcode_tests() {
     log_error "No concrete iOS Simulator runtime is available; cannot execute ${label}"
     log_error "Install an iOS simulator runtime before rerunning the script."
     add_summary "test" "${label}" "error" "" "" "" "" "" "failed (no simulator runtime)"
-    exit 2
+    update_exit_status 2
+    return 2
   fi
 
   local -a args=(
@@ -980,14 +1336,18 @@ run_filtered_xcode_tests() {
     case $inspect_status in
       0)
         log_error "Tests failed (${label}) status $xc_status -> $RESULT_LOG"
-        exit $xc_status
+        add_summary "test" "${label}" "error" "$RESULT_LOG" "" "" "" "" "failed"
+        update_exit_status "$xc_status"
+        return "$xc_status"
         ;;
       1)
         log_warn "xcodebuild exited with status $xc_status for ${label} but no test failures detected; treating as success"
         ;;
       *)
         log_error "xcodebuild exited with status $xc_status for ${label} and result bundle could not be inspected"
-        exit $xc_status
+        add_summary "test" "${label}" "error" "$RESULT_LOG" "" "" "" "" "result bundle inspection failed"
+        update_exit_status "$xc_status"
+        return "$xc_status"
         ;;
     esac
   fi
@@ -1004,6 +1364,7 @@ run_filtered_xcode_tests() {
     fi
   fi
   add_summary "test" "${label}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
+  return 0
 }
 
 run_test_target() {
@@ -1011,11 +1372,11 @@ run_test_target() {
   target=$(resolve_test_identifier "$1") || exit 1
   case "$target" in
     all|zpod|AppSmokeTests|zpodTests|zpodUITests|IntegrationTests|*/*)
-      test_app_target "$target";;
+      test_app_target "$target" || return $?;;
     "") ;;
     *)
       if is_package_target "$target"; then
-        test_package_target "$target"
+        test_package_target "$target" || return $?
       else
         log_error "Unknown test target: $target"
         exit 1
@@ -1141,29 +1502,29 @@ resolve_test_identifier() {
 
 full_clean_build() {
   REQUESTED_CLEAN=1
-  build_app_target "zpod"
+  build_app_target "zpod" || return $?
 }
 
 full_build_no_test() {
-  build_app_target "zpod"
+  build_app_target "zpod" || return $?
 }
 
 full_build_and_test() {
   REQUESTED_CLEAN=1
-  build_app_target "zpod"
-  test_app_target "zpod"
+  build_app_target "zpod" || return $?
+  test_app_target "zpod" || return $?
 }
 
 partial_clean_build() {
   local module="$1"
   REQUESTED_CLEAN=1
-  run_build_target "$module"
+  run_build_target "$module" || return $?
 }
 
 partial_build_and_test() {
   local module="$1"
-  run_build_target "$module"
-  run_test_target "$module"
+  run_build_target "$module" || return $?
+  run_test_target "$module" || return $?
 }
 
 while [[ $# -gt 0 ]]; do
@@ -1232,7 +1593,7 @@ echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BU
 did_run_anything=0
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
-  run_syntax_check
+  execute_phase "Swift syntax" "syntax" run_syntax_check
   did_run_anything=1
 fi
 
@@ -1241,7 +1602,7 @@ if [[ -n "$REQUESTED_BUILDS" ]]; then
   for item in "${__ZPOD_SPLIT_RESULT[@]}"; do
     item="$(trim "$item")"
     [[ -z "$item" ]] && continue
-    run_build_target "$item"
+    execute_phase "Build ${item}" "build" run_build_target "$item"
     did_run_anything=1
   done
 fi
@@ -1251,73 +1612,56 @@ if [[ -n "$REQUESTED_TESTS" ]]; then
   for item in "${__ZPOD_SPLIT_RESULT[@]}"; do
     item="$(trim "$item")"
     [[ -z "$item" ]] && continue
-    run_test_target "$item"
+    execute_phase "Test ${item}" "test" run_test_target "$item"
     did_run_anything=1
   done
 fi
 
 if [[ $REQUEST_TESTPLAN -eq 1 ]]; then
-  if run_testplan_check "$REQUEST_TESTPLAN_SUITE"; then
-    :
-  else
-    status=$?
-    case $status in
-      2)
-        log_warn "Test plan coverage incomplete"
-        print_summary
-        exit 2
-        ;;
-      *)
-        log_error "Failed to verify test plan coverage"
-        print_summary
-        exit 1
-        ;;
-    esac
-  fi
+  execute_phase "Test plan ${REQUEST_TESTPLAN_SUITE:-default}" "testplan" run_testplan_check "$REQUEST_TESTPLAN_SUITE"
   did_run_anything=1
 fi
 
 if [[ $REQUESTED_LINT -eq 1 ]]; then
-  run_swift_lint
+  execute_phase "Swift lint" "lint" run_swift_lint
   did_run_anything=1
 fi
 
 if [[ $did_run_anything -eq 1 ]]; then
-  print_summary
-  exit 0
+  finalize_and_exit "$EXIT_STATUS"
 fi
 
 REQUESTED_CLEAN=1
-run_syntax_check
-
-if run_testplan_check ""; then
-  :
-else
-  status=$?
-  case $status in
-    2)
-      log_warn "Test plan coverage incomplete"
-      print_summary
-      exit 2
-      ;;
-    *)
-      log_error "Failed to verify test plan coverage"
-      print_summary
-      exit 1
-      ;;
-  esac
+if ! execute_phase "Swift syntax" "syntax" run_syntax_check; then
+  finalize_and_exit "$EXIT_STATUS"
 fi
 
-run_build_target "all"
-REQUESTED_CLEAN=0
+if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; then
+  finalize_and_exit "$EXIT_STATUS"
+fi
+
+execute_phase "Test plan default" "testplan" run_testplan_check ""
+
+execute_phase "Build zpod" "build" build_app_target "zpod"
 
 if mapfile -t __ZPOD_ALL_PACKAGES < <(list_package_targets); then
   for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
-    run_test_target "$pkg"
+    execute_phase "Build package ${pkg}" "build" build_package_target "$pkg"
   done
-  unset __ZPOD_ALL_PACKAGES
+else
+  __ZPOD_ALL_PACKAGES=()
 fi
 
-run_test_target "zpod"
-run_swift_lint
-print_summary
+REQUESTED_CLEAN=0
+
+for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
+  execute_phase "Package tests ${pkg}" "test" test_package_target "$pkg"
+done
+unset __ZPOD_ALL_PACKAGES
+
+execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
+execute_phase "UI tests" "test" run_test_target "zpodUITests"
+
+execute_phase "Swift lint" "lint" run_swift_lint
+
+finalize_and_exit "$EXIT_STATUS"

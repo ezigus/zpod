@@ -40,8 +40,12 @@ build_swift_package() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
+  set +e
   MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
+  local build_status=${PIPESTATUS[0]}
+  set -e
   popd >/dev/null
+  return "$build_status"
 }
 
 run_swift_package_target_tests() {
@@ -56,6 +60,10 @@ run_swift_package_target_tests() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
+  set +e
   MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
+  local test_status=${PIPESTATUS[0]}
+  set -e
   popd >/dev/null
+  return "$test_status"
 }

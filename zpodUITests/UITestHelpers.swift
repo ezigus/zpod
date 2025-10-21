@@ -6,6 +6,7 @@
 //  No artificial wait states - relies on natural system events
 //
 
+import Foundation
 import XCTest
 
 // MARK: - UI Test Automation Fix for "Waiting for App to Idle" Hanging
@@ -418,6 +419,8 @@ extension SmartUITesting where Self: XCTestCase {
   @MainActor
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
+    forceTerminateAppIfRunning()
+
     let application =
       environmentOverrides.isEmpty
       ? XCUIApplication.configuredForUITests()
@@ -438,6 +441,23 @@ extension SmartUITesting where Self: XCTestCase {
     _ = waitForBatchOverlayDismissalIfNeeded(in: application)
 
     return application
+  }
+
+  @MainActor
+  func forceTerminateAppIfRunning(bundleIdentifier: String = "us.zig.zpod") {
+    let existingApp = XCUIApplication(bundleIdentifier: bundleIdentifier)
+    guard existingApp.state != .notRunning else { return }
+
+    existingApp.terminate()
+
+    let deadline = Date().addingTimeInterval(5.0)
+    while existingApp.state != .notRunning && Date() < deadline {
+      RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+    }
+
+    if existingApp.state != .notRunning {
+      XCTFail("Unable to terminate application before relaunch. Current state: \(existingApp.state.rawValue)")
+    }
   }
 
   @MainActor
