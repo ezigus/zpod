@@ -128,7 +128,9 @@ jobs:
           if-no-files-found: warn
 
   xcode-tests:
-    needs: preflight
+    needs:
+      - preflight
+      - package-tests
     runs-on: macos-latest
     strategy:
       fail-fast: false
