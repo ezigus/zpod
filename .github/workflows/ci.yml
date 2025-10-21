@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      matrix:
+        description: "Choose which matrix to run (all, packages, ui, linux)"
+        required: false
+        default: "all"
   push:
     branches:
       - main
@@ -128,6 +133,7 @@ jobs:
           if-no-files-found: warn
 
   xcode-tests:
+    if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs:
       - preflight
       - package-tests
@@ -252,6 +258,7 @@ jobs:
 
   package-tests:
     runs-on: macos-latest
+    if: github.event.inputs.matrix == 'packages' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs: preflight
     strategy:
       fail-fast: false
@@ -296,6 +303,7 @@ jobs:
 
   syntax-linux:
     runs-on: ubuntu-latest
+    if: github.event.inputs.matrix == 'linux' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs: preflight
     steps:
       - name: Checkout
