@@ -78,6 +78,24 @@ select_destination() {
   DESTINATION_IS_GENERIC=0
   SELECTED_DESTINATION=""
 
+  if [[ -n "${ZPOD_SIMULATOR_UDID:-}" ]]; then
+    local udid="$ZPOD_SIMULATOR_UDID"
+    if command_exists xcrun; then
+      local device_state
+      device_state="$(xcrun simctl list devices -j 2>/dev/null | python3 -c "import json,sys; devices=json.load(sys.stdin).get('devices',{}); print('1' if any(d.get('udid')=='${udid}' and d.get('isAvailable') for runtime in devices.values() for d in runtime) else '')" || true)"
+      if [[ -n "$device_state" ]]; then
+        SELECTED_DESTINATION="platform=iOS Simulator,id=${udid}"
+        DESTINATION_IS_GENERIC=0
+        log_info "Using simulator destination from ZPOD_SIMULATOR_UDID: id=${udid}"
+        return 0
+      else
+        log_warn "Requested simulator UDID ${udid} not available; falling back to automatic selection"
+      fi
+    else
+      log_warn "xcrun unavailable while honoring ZPOD_SIMULATOR_UDID; falling back to automatic selection"
+    fi
+  fi
+
   if _xcode_simctl_select "$preferred_sim"; then
     log_info "Using simulator destination: ${SELECTED_DESTINATION}"
     return 0

@@ -150,6 +150,11 @@ Use the shared helper script for a quick local verification:
 
 > ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
+**Simulator / DerivedData overrides**
+- `ZPOD_SIMULATOR_UDID` (optional): forces the harness to target a specific CoreSimulator device. The script validates availability via `simctl list devices` before emitting `-destination platform=iOS Simulator,id=<udid>`.
+- `ZPOD_DERIVED_DATA_PATH` (optional): when set, the harness creates the folder and forwards `-derivedDataPath` to each `xcodebuild` invocation—ideal for isolating suites in CI.
+- CI sets both automatically; local developers can opt-in when needing deterministic devices or sandboxed DerivedData.
+
 - `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
 - Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
 - Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
@@ -165,6 +170,7 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
 - CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
+- UI/Integration jobs now provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`), export its UDID plus a suite-specific DerivedData path, and tear both down in `if: always()` cleanup steps. Matrix parallelism is capped at 3 to maintain throughput without reintroducing simulator contention.
 
 ## 8. Issue & Documentation Management
 

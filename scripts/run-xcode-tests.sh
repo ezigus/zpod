@@ -1001,6 +1001,11 @@ test_app_target() {
     -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
+
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    mkdir -p "$ZPOD_DERIVED_DATA_PATH"
+    args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
+  fi
   if [[ $REQUESTED_CLEAN -eq 1 ]]; then
     args+=(clean)
   fi
@@ -1310,6 +1315,11 @@ run_filtered_xcode_tests() {
     -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
+
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    mkdir -p "$ZPOD_DERIVED_DATA_PATH"
+    args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
+  fi
 
   if [[ $clean_flag -eq 1 ]]; then
     args+=(clean)

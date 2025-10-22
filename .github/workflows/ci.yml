@@ -140,7 +140,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 3
       matrix:
         include:
           - name: UITests-Navigation
@@ -193,42 +193,41 @@ jobs:
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
-      - name: Create iOS Simulator device if needed
+      - name: Provision dedicated simulator & derived data
+        id: provision-sim
         run: |
           set -euo pipefail
-          echo "Ensuring at least one iPhone simulator exists..."
 
-          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=json.load(sys.stdin).get('runtimes',[]); pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]; pref=pref or [x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]; print(pref[0]['identifier'] if pref else '')")
+          MATRIX_NAME="${{ matrix.name }}"
+          SAFE_NAME=$(echo "$MATRIX_NAME" | tr '[:space:]/' '-' | tr -c 'A-Za-z0-9_-.' '-')
+          DERIVED_PATH="$PWD/tmp_ci/DerivedData/${SAFE_NAME}"
+
+          rm -rf "$DERIVED_PATH"
+          mkdir -p "$DERIVED_PATH"
+          echo "ZPOD_DERIVED_DATA_PATH=$DERIVED_PATH" >> "$GITHUB_ENV"
+          echo "derived_path=$DERIVED_PATH" >> "$GITHUB_OUTPUT"
+
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; runtimes=json.load(sys.stdin).get('runtimes',[]); preferred=[r for r in runtimes if r.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and r.get('isAvailable')]; preferred = preferred or [r for r in runtimes if r.get('platform','')=='iOS' and r.get('isAvailable')]; print(preferred[0]['identifier'] if preferred else '')" || true)
+
           if [ -z "$RUNTIME_ID" ]; then
-            echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
-          else
-            DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16
-            if ! xcrun simctl list devicetypes | grep -q "$DEVTYPE"; then
-              DEVTYPE=$(\
-                xcrun simctl list devicetypes | awk -F'[()]' \
-                  '/iPhone 17 Pro Max/{print $2; exit} \
-                   /iPhone 17 Pro/{print $2; exit} \
-                   /iPhone 17/{print $2; exit} \
-                   /iPhone 16 Pro Max/{print $2; exit} \
-                   /iPhone 16 Pro/{print $2; exit} \
-                   /iPhone 16/{print $2; exit} \
-                   /iPhone 15/{print $2; exit} \
-                   /iPhone 14/{print $2; exit}'
-              )
-            fi
-            if [ -z "$DEVTYPE" ]; then
-              echo "⚠️ Could not find an iPhone device type to create. Skipping device creation."
-            else
-              if ! xcrun simctl list devices | grep -q "iPhone 16 (CI)"; then
-                echo "Creating simulator: name='iPhone 16 (CI)', type=$DEVTYPE, runtime=$RUNTIME_ID"
-                xcrun simctl create "iPhone 16 (CI)" "$DEVTYPE" "$RUNTIME_ID" || true
-              else
-                echo "Simulator 'iPhone 16 (CI)' already exists"
-              fi
-            fi
+            echo "::warning::Unable to determine an iOS runtime; tests will fall back to default destination."
+            exit 0
           fi
 
-          xcrun simctl list devices || true
+          DEVTYPE=$(xcrun simctl list devicetypes | awk -F'[()]' '/iPhone 17 Pro Max/{print $2; exit} /iPhone 17 Pro/{print $2; exit} /iPhone 17/{print $2; exit} /iPhone 16 Pro Max/{print $2; exit} /iPhone 16 Pro/{print $2; exit} /iPhone 16/{print $2; exit} /iPhone 15 Pro/{print $2; exit} /iPhone 15/{print $2; exit} /iPhone 14 Pro/{print $2; exit} /iPhone 14/{print $2; exit}')
+
+          if [ -z "$DEVTYPE" ]; then
+            echo "::warning::Could not resolve an iPhone device type; tests will fall back to default destination."
+            exit 0
+          fi
+
+          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
+          UDID=$(xcrun simctl create "$SIM_NAME" "$DEVTYPE" "$RUNTIME_ID")
+          echo "Created simulator ${SIM_NAME} (${UDID})"
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Run ${{ matrix.name }} Tests
         run: |
@@ -237,6 +236,8 @@ jobs:
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
+          ZPOD_SIMULATOR_UDID: ${{ steps.provision-sim.outputs.udid }}
+          ZPOD_DERIVED_DATA_PATH: ${{ steps.provision-sim.outputs.derived_path }}
       - name: Archive Test Results
         if: always()
         run: |
@@ -256,6 +257,19 @@ jobs:
           name: test-${{ matrix.name }}
           path: artifacts/${{ matrix.name }}
           if-no-files-found: warn
+
+      - name: Cleanup dedicated simulator
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
+            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
+            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
+            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
+          fi
+          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
+            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
+          fi
 
   package-tests:
     runs-on: macos-latest
