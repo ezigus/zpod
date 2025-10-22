@@ -845,7 +845,7 @@ build_app_target() {
   local resolved_scheme="$SCHEME"
   local resolved_sdk="iphonesimulator"
   local resolved_destination=""
-  if [[ "$target" == "IntegrationTests" ]]; then
+  if [[ "$target_label" == "IntegrationTests" ]]; then
     resolved_scheme="IntegrationTests"
   fi
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
@@ -1644,13 +1644,15 @@ execute_phase "Test plan default" "testplan" run_testplan_check ""
 
 execute_phase "Build zpod" "build" build_app_target "zpod"
 
-if mapfile -t __ZPOD_ALL_PACKAGES < <(list_package_targets); then
-  for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
-    execute_phase "Build package ${pkg}" "build" build_package_target "$pkg"
-  done
-else
-  __ZPOD_ALL_PACKAGES=()
-fi
+__ZPOD_ALL_PACKAGES=()
+while IFS= read -r pkg; do
+  [[ -z "$pkg" ]] && continue
+  __ZPOD_ALL_PACKAGES+=("$pkg")
+done < <(list_package_targets)
+
+for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
+  execute_phase "Build package ${pkg}" "build" build_package_target "$pkg"
+done
 
 REQUESTED_CLEAN=0
 
