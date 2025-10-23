@@ -173,6 +173,7 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 - UI/Integration jobs now provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`), export its UDID plus a suite-specific DerivedData path, and tear both down in `if: always()` cleanup steps. Matrix parallelism is capped at 3 to maintain throughput without reintroducing simulator contention.
 - The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script’s automatic destination selection.
 - Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
+- Preflight now provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
 
 ## 8. Issue & Documentation Management
 
