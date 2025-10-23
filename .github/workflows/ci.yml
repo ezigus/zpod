@@ -260,6 +260,21 @@ jobs:
           fi
 
           echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+
+          echo "Booting simulator ${SIM_NAME} (${UDID})"
+          set +e
+          xcrun simctl boot "$UDID"
+          boot_status=$?
+          if [ $boot_status -ne 0 ]; then
+            echo "::warning::simctl boot returned status ${boot_status} for ${UDID}"
+          fi
+          xcrun simctl bootstatus "$UDID" -b
+          bootstatus_status=$?
+          if [ $bootstatus_status -ne 0 ]; then
+            echo "::warning::simctl bootstatus failed for ${UDID} (status ${bootstatus_status})"
+          fi
+          set -e
+
           echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
           echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"

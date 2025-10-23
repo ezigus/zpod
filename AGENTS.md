@@ -172,6 +172,7 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 - CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
 - UI/Integration jobs now provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`), export its UDID plus a suite-specific DerivedData path, and tear both down in `if: always()` cleanup steps. Matrix parallelism is capped at 3 to maintain throughput without reintroducing simulator contention.
 - The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script’s automatic destination selection.
+- Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
 
 ## 8. Issue & Documentation Management
 
