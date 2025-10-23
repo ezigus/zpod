@@ -200,6 +200,7 @@ jobs:
 
           MATRIX_NAME="${{ matrix.name }}"
           SAFE_NAME=$(echo "$MATRIX_NAME" | tr '[:space:]/' '-' | tr -c 'A-Za-z0-9_-.' '-')
+          SAFE_NAME="${SAFE_NAME%-}"
           DERIVED_PATH="$PWD/tmp_ci/DerivedData/${SAFE_NAME}"
 
           rm -rf "$DERIVED_PATH"
@@ -214,16 +215,51 @@ jobs:
             exit 0
           fi
 
-          DEVTYPE=$(xcrun simctl list devicetypes | awk -F'[()]' '/iPhone 17 Pro Max/{print $2; exit} /iPhone 17 Pro/{print $2; exit} /iPhone 17/{print $2; exit} /iPhone 16 Pro Max/{print $2; exit} /iPhone 16 Pro/{print $2; exit} /iPhone 16/{print $2; exit} /iPhone 15 Pro/{print $2; exit} /iPhone 15/{print $2; exit} /iPhone 14 Pro/{print $2; exit} /iPhone 14/{print $2; exit}')
+          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
+          DEVICE_CANDIDATES=(
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13
+          )
 
-          if [ -z "$DEVTYPE" ]; then
-            echo "::warning::Could not resolve an iPhone device type; tests will fall back to default destination."
+          DEVICE_LIST=$(xcrun simctl list devicetypes)
+          SELECTED_DEVICE=""
+          UDID=""
+          CREATE_LOG=$(mktemp)
+
+          for candidate in "${DEVICE_CANDIDATES[@]}"; do
+            if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
+              continue
+            fi
+            echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
+            set +e
+            UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
+            status=$?
+            set -e
+            UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
+            if [ $status -eq 0 ] && [ -n "$UDID" ]; then
+              SELECTED_DEVICE="$candidate"
+              break
+            fi
+            echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
+            UDID=""
+          done
+
+          rm -f "$CREATE_LOG"
+
+          if [ -z "$UDID" ]; then
+            echo "::warning::Unable to create a dedicated simulator for runtime ${RUNTIME_ID}; tests will fall back to automatic destination."
             exit 0
           fi
 
-          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
-          UDID=$(xcrun simctl create "$SIM_NAME" "$DEVTYPE" "$RUNTIME_ID")
-          echo "Created simulator ${SIM_NAME} (${UDID})"
+          echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
           echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
           echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
