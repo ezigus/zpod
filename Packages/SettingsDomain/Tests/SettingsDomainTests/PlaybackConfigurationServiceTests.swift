@@ -5,28 +5,16 @@ import Persistence
 
 final class PlaybackConfigurationServiceTests: XCTestCase {
   func testLoadReturnsDefaultsWhenEmpty() async {
-    let suiteName = "playback-service-empty-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = PlaybackConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "playback-service-empty")
+    let service = PlaybackConfigurationService(repository: harness.repository)
 
     let settings = await service.load()
     XCTAssertEqual(settings, PlaybackSettings())
   }
 
   func testSavePersistsAcrossInstances() async {
-    let suiteName = "playback-service-roundtrip-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = PlaybackConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "playback-service-roundtrip")
+    let service = PlaybackConfigurationService(repository: harness.repository)
     let expected = PlaybackSettings(
       playbackSpeed: 1.25,
       skipIntroSeconds: 10,
@@ -45,19 +33,13 @@ final class PlaybackConfigurationServiceTests: XCTestCase {
 
     await service.save(expected)
 
-    let reloaded = await PlaybackConfigurationService(repository: repository).load()
+    let reloaded = await PlaybackConfigurationService(repository: harness.repository).load()
     XCTAssertEqual(reloaded, expected)
   }
 
   func testUpdatesStreamPublishesChanges() async {
-    let suiteName = "playback-service-stream-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = PlaybackConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "playback-service-stream")
+    let service = PlaybackConfigurationService(repository: harness.repository)
     let expectation = expectation(description: "Received playback update")
 
     let task = Task {

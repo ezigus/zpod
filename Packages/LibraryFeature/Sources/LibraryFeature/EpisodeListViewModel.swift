@@ -57,7 +57,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
   public func makeSwipeConfigurationController() -> SwipeConfigurationController {
     let controller = SwipeConfigurationController(service: swipeConfigurationService)
-    controller.bootstrap(with: swipeConfiguration)
+    // Note: Controller will load baseline from service when view appears via .task block.
+    // This avoids race conditions with async settings loading or seeded test configurations.
     return controller
   }
 
@@ -124,7 +125,9 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
   @Published public private(set) var activeBatchOperations: [BatchOperation] = [] {
     didSet {
       #if DEBUG
-        self.overlayLogger.debug("[UITEST_OVERLAY] activeBatchOperations count: \(self.activeBatchOperations.count, privacy: .public)")
+        self.overlayLogger.debug(
+          "[UITEST_OVERLAY] activeBatchOperations count: \(self.activeBatchOperations.count, privacy: .public)"
+        )
       #endif
     }
   }
@@ -164,7 +167,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     downloadManager: DownloadManaging? = nil,
     playbackService: EpisodePlaybackService? = nil,
     episodeRepository: EpisodeRepository? = nil,
-    swipeConfigurationService: SwipeConfigurationServicing = EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
+    swipeConfigurationService: SwipeConfigurationServicing =
+      EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
     hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared
   ) {
     self.podcast = podcast
@@ -192,7 +196,9 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
   }
 
-  @usableFromInline static func makeDefaultSwipeConfigurationService() -> SwipeConfigurationServicing {
+  @usableFromInline static func makeDefaultSwipeConfigurationService()
+    -> SwipeConfigurationServicing
+  {
     SwipeConfigurationService(repository: UserDefaultsSettingsRepository())
   }
 
@@ -474,7 +480,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     after delay: TimeInterval,
     remainingRetries: Int
   ) async {
-    guard ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1" else { return }
+    let forcingOverlay = ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1"
+    guard forcingOverlay else { return }
     guard !hasSeededUITestOverlay else { return }
     guard activeBatchOperations.isEmpty else {
       overlayLogger.debug("Forced overlay already active; skipping reseed")
@@ -490,7 +497,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     }
 
     let seedEpisodeIDs = makeSeedEpisodeIDs()
-    overlayLogger.debug("[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs, privacy: .public)")
+    overlayLogger.debug(
+      "[UITEST_OVERLAY] candidate episode IDs: \(seedEpisodeIDs, privacy: .public)")
 
     if seedEpisodeIDs.isEmpty {
       overlayLogger.debug(
@@ -506,7 +514,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
 
     overlayLogger.debug(
       "Seeding forced overlay with \(seedEpisodeIDs.count, privacy: .public) episodes")
-    overlayLogger.debug("[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count, privacy: .public) IDs")
+    overlayLogger.debug(
+      "[UITEST_OVERLAY] seeding overlay with \(seedEpisodeIDs.count, privacy: .public) IDs")
 
     var seededOperation = BatchOperation(
       operationType: .markAsPlayed,
@@ -514,6 +523,11 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     ).withStatus(.running)
 
     activeBatchOperations = [seededOperation]
+
+    if forcingOverlay {
+      overlayLogger.debug("Forced overlay seeded; leaving batch operation in running state for UI tests")
+      return
+    }
 
     launchTask { viewModel in
       try? await Task.sleep(nanoseconds: 12_000_000_000)

@@ -27,13 +27,13 @@
             buildForProfiling = "NO"
             buildForArchiving = "NO"
             buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD11C2E22E617008CEE55"
-               BuildableName = "zpodTests.xctest"
-               BlueprintName = "zpodTests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD11C2E22E617008CEE55"
+            BuildableName = "AppSmokeTests.xctest"
+            BlueprintName = "AppSmokeTests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -41,14 +41,28 @@
             buildForProfiling = "NO"
             buildForArchiving = "NO"
             buildForAnalyzing = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD1262E22E617008CEE55"
-               BuildableName = "zpodUITests.xctest"
-               BlueprintName = "zpodUITests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD1262E22E617008CEE55"
+            BuildableName = "zpodUITests.xctest"
+            BlueprintName = "zpodUITests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
+        </BuildActionEntry>
+        <BuildActionEntry
+           buildForTesting = "YES"
+           buildForRunning = "NO"
+           buildForProfiling = "NO"
+           buildForArchiving = "NO"
+           buildForAnalyzing = "NO">
+           <BuildableReference
+              BuildableIdentifier = "primary"
+              BlueprintIdentifier = "74DF3B58F3B8429A90066E35"
+              BuildableName = "IntegrationTests.xctest"
+              BlueprintName = "IntegrationTests"
+              ReferencedContainer = "container:zpod.xcodeproj">
+           </BuildableReference>
+        </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -56,6 +70,24 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Disable Hardware Keyboard"
+               scriptText = "# Disable hardware keyboard to ensure software keyboard appears in UI tests&#10;killall Simulator || true&#10;defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false&#10;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "786FD1082E22E615008CEE55"
+                     BuildableName = "zpod.app"
+                     BlueprintName = "zpod"
+                     ReferencedContainer = "container:zpod.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <TestPlans>
          <TestPlanReference
             reference = "container:zpod.xctestplan"
@@ -65,24 +97,34 @@
       <Testables>
          <TestableReference
             skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD11C2E22E617008CEE55"
-               BuildableName = "zpodTests.xctest"
-               BlueprintName = "zpodTests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD11C2E22E617008CEE55"
+            BuildableName = "AppSmokeTests.xctest"
+            BlueprintName = "AppSmokeTests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
          </TestableReference>
          <TestableReference
             skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "786FD1262E22E617008CEE55"
-               BuildableName = "zpodUITests.xctest"
-               BlueprintName = "zpodUITests"
-               ReferencedContainer = "container:zpod.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "786FD1262E22E617008CEE55"
+            BuildableName = "zpodUITests.xctest"
+            BlueprintName = "zpodUITests"
+            ReferencedContainer = "container:zpod.xcodeproj">
+         </BuildableReference>
+        </TestableReference>
+        <TestableReference
+           skipped = "NO">
+           <BuildableReference
+              BuildableIdentifier = "primary"
+              BlueprintIdentifier = "74DF3B58F3B8429A90066E35"
+              BuildableName = "IntegrationTests.xctest"
+              BlueprintName = "IntegrationTests"
+              ReferencedContainer = "container:zpod.xcodeproj">
+           </BuildableReference>
+        </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

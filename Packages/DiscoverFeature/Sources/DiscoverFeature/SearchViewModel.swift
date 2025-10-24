@@ -65,6 +65,7 @@ public final class SearchViewModel: ObservableObject {
     private let searchService: SearchServicing
     private let podcastManager: PodcastManaging
     private let rssParser: RSSFeedParsing
+    private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
     private let debounceInterval: TimeInterval = 0.3
     
@@ -73,12 +74,14 @@ public final class SearchViewModel: ObservableObject {
     public init(
         searchService: SearchServicing,
         podcastManager: PodcastManaging,
-        rssParser: RSSFeedParsing = DefaultRSSFeedParser()
+        rssParser: RSSFeedParsing = DefaultRSSFeedParser(),
+        userDefaults: UserDefaults = .standard
     ) {
         self.searchService = searchService
         self.podcastManager = podcastManager
         self.rssParser = rssParser
-        
+        self.userDefaults = userDefaults
+
         setupSearchDebouncing()
         loadSearchHistory()
     }
@@ -119,6 +122,8 @@ public final class SearchViewModel: ObservableObject {
     
     /// Subscribe to a podcast from search results
     public func subscribe(to podcast: Podcast) {
+        let existingPodcast = podcastManager.find(id: podcast.id)
+
         let subscribedPodcast = Podcast(
             id: podcast.id,
             title: podcast.title,
@@ -129,12 +134,16 @@ public final class SearchViewModel: ObservableObject {
             categories: podcast.categories,
             episodes: podcast.episodes,
             isSubscribed: true,
-            dateAdded: Date(),
+            dateAdded: existingPodcast?.dateAdded ?? Date(),
             folderId: podcast.folderId,
             tagIds: podcast.tagIds
         )
         
-        podcastManager.add(subscribedPodcast)
+        if existingPodcast != nil {
+            podcastManager.update(subscribedPodcast)
+        } else {
+            podcastManager.add(subscribedPodcast)
+        }
     }
     
     /// Add podcast by RSS feed URL
@@ -218,15 +227,15 @@ public final class SearchViewModel: ObservableObject {
     }
     
     private func loadSearchHistory() {
-        if let data = UserDefaults.standard.data(forKey: "SearchHistory"),
+        if let data = userDefaults.data(forKey: "SearchHistory"),
            let history = try? JSONDecoder().decode([String].self, from: data) {
             searchHistory = history
         }
     }
-    
+
     private func saveSearchHistory() {
         if let data = try? JSONEncoder().encode(searchHistory) {
-            UserDefaults.standard.set(data, forKey: "SearchHistory")
+            userDefaults.set(data, forKey: "SearchHistory")
         }
     }
 }

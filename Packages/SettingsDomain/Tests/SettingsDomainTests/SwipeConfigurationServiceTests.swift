@@ -6,11 +6,8 @@ import Persistence
 final class SwipeConfigurationServiceTests: XCTestCase {
   func testLoadReturnsDefaultsWhenRepositoryEmpty() async throws {
     // Given
-    let suiteName = "swipe-service-empty-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = SwipeConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "swipe-service-empty")
+    let service = SwipeConfigurationService(repository: harness.repository)
 
     // When
     let configuration = await service.load()
@@ -22,11 +19,8 @@ final class SwipeConfigurationServiceTests: XCTestCase {
 
   func testSavePersistsConfigurationAcrossServiceInstances() async throws {
     // Given
-    let suiteName = "swipe-service-roundtrip-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = SwipeConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "swipe-service-roundtrip")
+    let service = SwipeConfigurationService(repository: harness.repository)
     let expected = SwipeConfiguration(
       swipeActions: SwipeActionSettings(
         leadingActions: [.favorite, .play],
@@ -40,7 +34,7 @@ final class SwipeConfigurationServiceTests: XCTestCase {
 
     // When
     try await service.save(expected)
-    let reloaded = await SwipeConfigurationService(repository: repository).load()
+    let reloaded = await SwipeConfigurationService(repository: harness.repository).load()
 
     // Then
     XCTAssertEqual(reloaded, expected)
@@ -48,11 +42,8 @@ final class SwipeConfigurationServiceTests: XCTestCase {
 
   func testUpdatesStreamPublishesSavedConfigurations() async throws {
     // Given
-    let suiteName = "swipe-service-stream-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = SwipeConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "swipe-service-stream")
+    let service = SwipeConfigurationService(repository: harness.repository)
     let expectation = expectation(description: "Received update")
     expectation.expectedFulfillmentCount = 1
 

@@ -5,26 +5,16 @@ import Persistence
 
 final class DownloadConfigurationServiceTests: XCTestCase {
   func testLoadReturnsDefaultsWhenEmpty() async {
-    let suiteName = "download-service-empty-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = DownloadConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "download-service-empty")
+    let service = DownloadConfigurationService(repository: harness.repository)
 
     let settings = await service.load()
     XCTAssertEqual(settings, DownloadSettings.default)
   }
 
   func testSavePersistsAcrossInstances() async {
-    let suiteName = "download-service-roundtrip-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = DownloadConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "download-service-roundtrip")
+    let service = DownloadConfigurationService(repository: harness.repository)
     let expected = DownloadSettings(
       autoDownloadEnabled: true,
       wifiOnly: false,
@@ -35,18 +25,13 @@ final class DownloadConfigurationServiceTests: XCTestCase {
 
     await service.save(expected)
 
-    let reloaded = await DownloadConfigurationService(repository: repository).load()
+    let reloaded = await DownloadConfigurationService(repository: harness.repository).load()
     XCTAssertEqual(reloaded, expected)
   }
 
   func testUpdatesStreamPublishesChanges() async {
-    let suiteName = "download-service-stream-\(UUID().uuidString)"
-    let userDefaults = UserDefaults(suiteName: suiteName)!
-    userDefaults.removePersistentDomain(forName: suiteName)
-    defer { userDefaults.removePersistentDomain(forName: suiteName) }
-
-    let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
-    let service = DownloadConfigurationService(repository: repository)
+    let harness = makeSettingsRepository(prefix: "download-service-stream")
+    let service = DownloadConfigurationService(repository: harness.repository)
     let expectation = expectation(description: "Received download update")
 
     let task = Task {

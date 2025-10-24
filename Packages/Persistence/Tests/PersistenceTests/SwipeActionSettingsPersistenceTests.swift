@@ -11,20 +11,16 @@ import XCTest
 
 final class SwipeActionSettingsPersistenceTests: XCTestCase {
     
-    var userDefaults: UserDefaults!
     var repository: UserDefaultsSettingsRepository!
+    private var harness: UserDefaultsTestHarness!
     
     override func setUp() async throws {
-        // Use a unique suite name for each test to avoid conflicts
-        let suiteName = "test.swipe.settings.\(UUID().uuidString)"
-        userDefaults = UserDefaults(suiteName: suiteName)!
-        repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        harness = makeUserDefaultsHarness(prefix: "swipe-settings")
+        repository = UserDefaultsSettingsRepository(suiteName: harness.suiteName)
     }
     
     override func tearDown() async throws {
-        // Clean up
-        userDefaults.removePersistentDomain(forName: userDefaults.dictionaryRepresentation().keys.first ?? "")
-        userDefaults = nil
+        harness = nil
         repository = nil
     }
     
@@ -126,12 +122,14 @@ final class SwipeActionSettingsPersistenceTests: XCTestCase {
     func testUISettingsChangeNotification() async throws {
         let expectation = XCTestExpectation(description: "Settings change notification")
         
-        let publisher = await repository.settingsChangedPublisher
-        
-        let cancellable = publisher.sink { change in
-            if case .globalUI(let settings) = change {
-                XCTAssertEqual(settings.hapticStyle, .heavy)
-                expectation.fulfill()
+        let stream = await repository.settingsChangeStream()
+        let listener = Task {
+            for await change in stream {
+                if case .globalUI(let settings) = change,
+                   settings.hapticStyle == .heavy {
+                    expectation.fulfill()
+                    break
+                }
             }
         }
         
@@ -142,7 +140,7 @@ final class SwipeActionSettingsPersistenceTests: XCTestCase {
         await repository.saveGlobalUISettings(newSettings)
         
         await fulfillment(of: [expectation], timeout: 2.0)
-        cancellable.cancel()
+        listener.cancel()
     }
     #endif
     
@@ -187,7 +185,7 @@ final class SwipeActionSettingsPersistenceTests: XCTestCase {
     func testCorruptedDataFallback() async throws {
         // Save corrupted data directly to UserDefaults
         let corruptedData = Data([0xFF, 0xFF, 0xFF])
-        userDefaults.set(corruptedData, forKey: "global_ui_settings")
+        harness.userDefaults.set(corruptedData, forKey: "global_ui_settings")
         
         // Should return default when data is corrupted
         let loaded = await repository.loadGlobalUISettings()
