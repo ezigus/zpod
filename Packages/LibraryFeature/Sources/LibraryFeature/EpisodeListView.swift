@@ -1220,31 +1220,50 @@ private final class EpisodeListDependencyProvider {
     {
       if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
         suiteDefaults.removePersistentDomain(forName: suiteName)
+        print("🧪 UI Test: Reset swipe settings suite '\(suiteName)'")
+        suiteDefaults.synchronize()
       }
       if let seededConfigBase64 = environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"],
         let seededData = Data(base64Encoded: seededConfigBase64)
       {
+        print(
+          "🧪 UI Test: Applying seeded configuration (suite). Base64 length: \(seededConfigBase64.count), Data size: \(seededData.count) bytes"
+        )
         suiteDefaults.set(seededData, forKey: "global_ui_settings")
+        suiteDefaults.synchronize()
+        print("🧪 UI Test: Seeded configuration written to suite '\(suiteName)'")
+      } else if environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"] != nil {
+        print("⚠️ UI Test: UITEST_SEEDED_SWIPE_CONFIGURATION_B64 present but base64 decode failed!")
       }
       userDefaults = suiteDefaults
     } else {
       if environment["UITEST_RESET_SWIPE_SETTINGS"] == "1" {
         if let bundleID = Bundle.main.bundleIdentifier {
           UserDefaults.standard.removePersistentDomain(forName: bundleID)
+          print("🧪 UI Test: Reset swipe settings (standard UserDefaults)")
         } else {
           UserDefaults.standard.removeObject(forKey: "global_ui_settings")
+          print("🧪 UI Test: Removed global_ui_settings from standard UserDefaults")
         }
       }
       if let seededConfigBase64 = environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"],
         let seededData = Data(base64Encoded: seededConfigBase64)
       {
+        print(
+          "🧪 UI Test: Applying seeded configuration (standard). Base64 length: \(seededConfigBase64.count), Data size: \(seededData.count) bytes"
+        )
         UserDefaults.standard.set(seededData, forKey: "global_ui_settings")
+        UserDefaults.standard.synchronize()
+        print("🧪 UI Test: Seeded configuration written to standard UserDefaults")
+      } else if environment["UITEST_SEEDED_SWIPE_CONFIGURATION_B64"] != nil {
+        print("⚠️ UI Test: UITEST_SEEDED_SWIPE_CONFIGURATION_B64 present but base64 decode failed!")
       }
       userDefaults = .standard
     }
 
     let settingsRepository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
     let settingsManager = SettingsManager(repository: settingsRepository)
+
     self.settingsManager = settingsManager
     self.swipeConfigurationService = settingsManager.swipeConfigurationService
     self.hapticsService = HapticFeedbackService.shared

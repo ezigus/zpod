@@ -5,6 +5,8 @@ let package = Package(
   name: "DiscoverFeature",
   platforms: [
     .iOS(.v18),
+    // TODO: Add macOS support when UIKit-specific adapters are replaced with macOS-compatible alternatives
+    // .macOS(.v14),
     .watchOS(.v11),
   ],
   products: [

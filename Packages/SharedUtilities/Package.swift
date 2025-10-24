@@ -5,6 +5,7 @@ let package = Package(
   name: "SharedUtilities",
   platforms: [
     .iOS(.v18),
+    .macOS(.v14),
     .watchOS(.v11),
     .macOS(.v14),
   ],

@@ -5,26 +5,18 @@ import CoreModels
 final class AutoArchiveRepositoryTests: XCTestCase {
     
     var repository: UserDefaultsAutoArchiveRepository!
-    var testUserDefaults: UserDefaults!
+    private var harness: UserDefaultsTestHarness!
     
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-
-        // Create a new user defaults suite for testing
-        let suiteName = "test.autoarchive.\(UUID().uuidString)"
-        let userDefaults = UserDefaults(suiteName: suiteName)!
-        repository = UserDefaultsAutoArchiveRepository(userDefaults: userDefaults)
-        testUserDefaults = userDefaults
+    override func setUp() async throws {
+        try await super.setUp()
+        
+        harness = makeUserDefaultsHarness(prefix: "autoarchive")
+        repository = UserDefaultsAutoArchiveRepository(suiteName: harness.suiteName)
     }
-
-    override func tearDownWithError() throws {
-        // Clean up test data
-        if let suite = testUserDefaults.dictionaryRepresentation().keys.first {
-            testUserDefaults.removePersistentDomain(forName: suite)
-        }
-        testUserDefaults = nil
-        repository = nil
-        try super.tearDownWithError()
+    
+    override func tearDown() async throws {
+        harness = nil
+        try await super.tearDown()
     }
     
     // MARK: - Global Config Tests
@@ -209,31 +201,30 @@ final class AutoArchiveRepositoryTests: XCTestCase {
     
     func testConcurrentSaveAndLoad() async throws {
         let config = GlobalAutoArchiveConfig(isGlobalEnabled: true)
-        
-        // Perform concurrent operations
         guard let repository = repository else {
-            XCTFail("Repository not initialized")
+            XCTFail("Repository not configured")
             return
         }
 
+        // Perform concurrent operations
         try await withThrowingTaskGroup(of: Void.self) { group in
             // Save multiple times concurrently
             for _ in 0..<5 {
-                group.addTask { [repository] in
+                group.addTask {
                     try await repository.saveGlobalConfig(config)
                 }
             }
             
             // Load multiple times concurrently
             for _ in 0..<5 {
-                group.addTask { [repository] in
+                group.addTask {
                     _ = try await repository.loadGlobalConfig()
                 }
             }
             
             try await group.waitForAll()
         }
-
+        
         // Should still be able to load successfully
         let loaded = try await repository.loadGlobalConfig()
         XCTAssertNotNil(loaded)

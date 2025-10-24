@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      matrix:
+        description: "Choose which matrix to run (all, packages, ui, linux)"
+        required: false
+        default: "all"
   push:
     branches:
       - main
@@ -12,7 +17,7 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  preflight:
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -52,79 +57,382 @@ jobs:
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
-      - name: Create iOS Simulator device if needed
+      - name: Provision preflight simulator & derived data
+        id: preflight-sim
         run: |
           set -euo pipefail
-          echo "Ensuring at least one iPhone simulator exists..."
 
-          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=json.load(sys.stdin).get('runtimes',[]); pref=[x for x in r if x.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and x.get('isAvailable')]; pref=pref or [x for x in r if x.get('platform','')=='iOS' and x.get('isAvailable')]; print(pref[0]['identifier'] if pref else '')")
+          SAFE_NAME="preflight"
+          DERIVED_PATH="$PWD/tmp_ci/DerivedData/${SAFE_NAME}"
+
+          rm -rf "$DERIVED_PATH"
+          mkdir -p "$DERIVED_PATH"
+          echo "ZPOD_DERIVED_DATA_PATH=$DERIVED_PATH" >> "$GITHUB_ENV"
+          echo "derived_path=$DERIVED_PATH" >> "$GITHUB_OUTPUT"
+
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; runtimes=json.load(sys.stdin).get('runtimes',[]); preferred=[r for r in runtimes if r.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and r.get('isAvailable')]; preferred = preferred or [r for r in runtimes if r.get('platform','')=='iOS' and r.get('isAvailable')]; print(preferred[0]['identifier'] if preferred else '')" || true)
+
           if [ -z "$RUNTIME_ID" ]; then
-            echo "⚠️ Could not determine an available iOS runtime identifier. Relying on generic simulator destination."
-          else
-            DEVTYPE=com.apple.CoreSimulator.SimDeviceType.iPhone-16
-            if ! xcrun simctl list devicetypes | grep -q "$DEVTYPE"; then
-              DEVTYPE=$(\
-                xcrun simctl list devicetypes | awk -F'[()]' \
-                  '/iPhone 17 Pro Max/{print $2; exit} \
-                   /iPhone 17 Pro/{print $2; exit} \
-                   /iPhone 17/{print $2; exit} \
-                   /iPhone 16 Pro Max/{print $2; exit} \
-                   /iPhone 16 Pro/{print $2; exit} \
-                   /iPhone 16/{print $2; exit} \
-                   /iPhone 15/{print $2; exit} \
-                   /iPhone 14/{print $2; exit}'
-              )
-            fi
-            if [ -z "$DEVTYPE" ]; then
-              echo "⚠️ Could not find an iPhone device type to create. Skipping device creation."
-            else
-              if ! xcrun simctl list devices | grep -q "iPhone 16 (CI)"; then
-                echo "Creating simulator: name='iPhone 16 (CI)', type=$DEVTYPE, runtime=$RUNTIME_ID"
-                xcrun simctl create "iPhone 16 (CI)" "$DEVTYPE" "$RUNTIME_ID" || true
-              else
-                echo "Simulator 'iPhone 16 (CI)' already exists"
-              fi
-            fi
+            echo "::warning::Unable to determine an iOS runtime; tests will use default destination."
+            exit 0
           fi
 
-          xcrun simctl list devices || true
+          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
+          DEVICE_CANDIDATES=(
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13
+          )
 
-      - name: Clean Build (all targets)
+          DEVICE_LIST=$(xcrun simctl list devicetypes)
+          SELECTED_DEVICE=""
+          UDID=""
+          CREATE_LOG=$(mktemp)
+
+          for candidate in "${DEVICE_CANDIDATES[@]}"; do
+            if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
+              continue
+            fi
+            echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
+            set +e
+            UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
+            status=$?
+            set -e
+            UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
+            if [ $status -eq 0 ] && [ -n "$UDID" ]; then
+              SELECTED_DEVICE="$candidate"
+              break
+            fi
+            echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
+            UDID=""
+          done
+
+          rm -f "$CREATE_LOG"
+
+          if [ -z "$UDID" ]; then
+            echo "::warning::Unable to create a dedicated simulator for runtime ${RUNTIME_ID}; tests will use default destination."
+            exit 0
+          fi
+
+          echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+          echo "Booting simulator ${SIM_NAME} (${UDID})"
+          set +e
+          xcrun simctl boot "$UDID"
+          boot_status=$?
+          if [ $boot_status -ne 0 ]; then
+            echo "::warning::simctl boot returned status ${boot_status} for ${UDID}"
+          fi
+          xcrun simctl bootstatus "$UDID" -b
+          bootstatus_status=$?
+          if [ $bootstatus_status -ne 0 ]; then
+            echo "::warning::simctl bootstatus failed for ${UDID} (status ${bootstatus_status})"
+          fi
+          set -e
+
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Swift syntax verification
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -s
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Clean build (all targets)
         run: |
           set -euo pipefail
           ./scripts/run-xcode-tests.sh -c -b all
         env:
           NSUnbufferedIO: "YES"
 
-      - name: Run Regression Suite
+      - name: Run AppSmoke tests
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t zpod
+          ./scripts/run-xcode-tests.sh -t AppSmokeTests
+        env:
+          NSUnbufferedIO: "YES"
+          ZPOD_SIMULATOR_UDID: ${{ steps.preflight-sim.outputs.udid }}
+          ZPOD_DERIVED_DATA_PATH: ${{ steps.preflight-sim.outputs.derived_path }}
+
+      - name: Archive Preflight Results
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/preflight
+          if ls TestResults >/dev/null 2>&1; then
+            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
+              -exec cp -R {} artifacts/preflight/ \;
+          fi
+      - name: Upload Preflight Artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-preflight
+          path: artifacts/preflight
+          if-no-files-found: warn
+
+      - name: Cleanup preflight simulator
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -n "${{ steps.preflight-sim.outputs.udid }}" ]; then
+            echo "Cleaning up simulator ${{ steps.preflight-sim.outputs.sim_name }} (${{ steps.preflight-sim.outputs.udid }})"
+            xcrun simctl shutdown "${{ steps.preflight-sim.outputs.udid }}" || true
+            xcrun simctl delete "${{ steps.preflight-sim.outputs.udid }}" || true
+          fi
+          if [ -n "${{ steps.preflight-sim.outputs.derived_path }}" ]; then
+            rm -rf "${{ steps.preflight-sim.outputs.derived_path }}"
+          fi
+
+  xcode-tests:
+    if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    needs:
+      - preflight
+      - package-tests
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - name: UITests-Navigation
+            tests: zpodUITests/CoreUINavigationTests,zpodUITests/EpisodeListUITests
+          - name: UITests-ContentDiscovery
+            tests: zpodUITests/ContentDiscoveryUITests
+          - name: UITests-Playback
+            tests: zpodUITests/PlaybackUITests
+          - name: UITests-BatchOperations
+            tests: zpodUITests/BatchOperationUITests
+          - name: UITests-SwipeConfiguration
+            tests: zpodUITests/SwipeConfigurationPersistenceUITests,zpodUITests/SwipeConfigurationExecutionUITests,zpodUITests/SwipeConfigurationPresetCyclingUITests,zpodUITests/SwipeConfigurationActionManagementUITests
+          - name: Integration
+            tests: IntegrationTests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+      - name: Self-check build script
+        run: ./scripts/run-xcode-tests.sh --self-check
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Ensure iOS Simulator runtime is installed
+        run: |
+          set -euo pipefail
+          echo "Checking installed runtimes before download..."
+          xcrun simctl list runtimes || true
+
+          HAS_IOS_RUNTIME=$(xcrun simctl list runtimes | grep -c "iOS ") || true
+          if [ "$HAS_IOS_RUNTIME" -eq 0 ]; then
+            echo "No iOS runtimes found. Attempting to download iOS platform..."
+            sudo xcodebuild -runFirstLaunch || true
+            if xcodebuild -help | grep -q "-downloadPlatform"; then
+              sudo xcodebuild -downloadPlatform iOS || true
+            fi
+            if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+              echo "Retrying with -downloadAllPlatforms..."
+              if xcodebuild -help | grep -q "-downloadAllPlatforms"; then
+                sudo xcodebuild -downloadAllPlatforms || true
+              fi
+            fi
+            echo "Runtimes after download attempt:"
+            xcrun simctl list runtimes || true
+          fi
+
+          if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+            echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
+          fi
+
+      - name: Provision dedicated simulator & derived data
+        id: provision-sim
+        run: |
+          set -euo pipefail
+
+          MATRIX_NAME="${{ matrix.name }}"
+          SAFE_NAME=$(echo "$MATRIX_NAME" | tr '[:space:]/' '-' | tr -c 'A-Za-z0-9_-.' '-')
+          SAFE_NAME="${SAFE_NAME%-}"
+          DERIVED_PATH="$PWD/tmp_ci/DerivedData/${SAFE_NAME}"
+
+          rm -rf "$DERIVED_PATH"
+          mkdir -p "$DERIVED_PATH"
+          echo "ZPOD_DERIVED_DATA_PATH=$DERIVED_PATH" >> "$GITHUB_ENV"
+          echo "derived_path=$DERIVED_PATH" >> "$GITHUB_OUTPUT"
+
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; runtimes=json.load(sys.stdin).get('runtimes',[]); preferred=[r for r in runtimes if r.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and r.get('isAvailable')]; preferred = preferred or [r for r in runtimes if r.get('platform','')=='iOS' and r.get('isAvailable')]; print(preferred[0]['identifier'] if preferred else '')" || true)
+
+          if [ -z "$RUNTIME_ID" ]; then
+            echo "::warning::Unable to determine an iOS runtime; tests will fall back to default destination."
+            exit 0
+          fi
+
+          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
+          DEVICE_CANDIDATES=(
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13
+          )
+
+          DEVICE_LIST=$(xcrun simctl list devicetypes)
+          SELECTED_DEVICE=""
+          UDID=""
+          CREATE_LOG=$(mktemp)
+
+          for candidate in "${DEVICE_CANDIDATES[@]}"; do
+            if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
+              continue
+            fi
+            echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
+            set +e
+            UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
+            status=$?
+            set -e
+            UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
+            if [ $status -eq 0 ] && [ -n "$UDID" ]; then
+              SELECTED_DEVICE="$candidate"
+              break
+            fi
+            echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
+            UDID=""
+          done
+
+          rm -f "$CREATE_LOG"
+
+          if [ -z "$UDID" ]; then
+            echo "::warning::Unable to create a dedicated simulator for runtime ${RUNTIME_ID}; tests will fall back to automatic destination."
+            exit 0
+          fi
+
+          echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+
+          echo "Booting simulator ${SIM_NAME} (${UDID})"
+          set +e
+          xcrun simctl boot "$UDID"
+          boot_status=$?
+          if [ $boot_status -ne 0 ]; then
+            echo "::warning::simctl boot returned status ${boot_status} for ${UDID}"
+          fi
+          xcrun simctl bootstatus "$UDID" -b
+          bootstatus_status=$?
+          if [ $bootstatus_status -ne 0 ]; then
+            echo "::warning::simctl bootstatus failed for ${UDID} (status ${bootstatus_status})"
+          fi
+          set -e
+
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Run ${{ matrix.name }} Tests
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
+          ZPOD_SIMULATOR_UDID: ${{ steps.provision-sim.outputs.udid }}
+          ZPOD_DERIVED_DATA_PATH: ${{ steps.provision-sim.outputs.derived_path }}
       - name: Archive Test Results
         if: always()
         run: |
           set -euo pipefail
-          mkdir -p artifacts
+          mkdir -p artifacts/${{ matrix.name }}
           if ls TestResults >/dev/null 2>&1; then
             find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/ \;
+              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
           fi
           if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/
+            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
           fi
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts
-          path: artifacts
+          name: test-${{ matrix.name }}
+          path: artifacts/${{ matrix.name }}
+          if-no-files-found: warn
+
+      - name: Cleanup dedicated simulator
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
+            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
+            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
+            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
+          fi
+          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
+            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
+          fi
+
+  package-tests:
+    runs-on: macos-latest
+    if: github.event.inputs.matrix == 'packages' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          [CoreModels, SharedUtilities, Persistence, FeedParsing, Networking, SettingsDomain,
+           SearchDomain, RecommendationDomain, PlaybackEngine, LibraryFeature, PlayerFeature,
+           DiscoverFeature, PlaylistFeature, TestSupport]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.4'
+      - name: Self-check build script
+        run: ./scripts/run-xcode-tests.sh --self-check
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Run ${{ matrix.package }} Package Tests
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -t ${{ matrix.package }}
+        env:
+          NSUnbufferedIO: "YES"
+      - name: Archive Test Results
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/${{ matrix.package }}
+          if ls TestResults >/dev/null 2>&1; then
+            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
+              -exec cp -R {} artifacts/${{ matrix.package }}/ \;
+          fi
+      - name: Upload Test Artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-package-${{ matrix.package }}
+          path: artifacts/${{ matrix.package }}
           if-no-files-found: warn
 
   syntax-linux:
     runs-on: ubuntu-latest
+    if: github.event.inputs.matrix == 'linux' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    needs: preflight
     steps:
       - name: Checkout
         uses: actions/checkout@v4

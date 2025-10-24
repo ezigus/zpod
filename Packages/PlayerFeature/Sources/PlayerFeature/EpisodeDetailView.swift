@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import CoreModels
 import PlaybackEngine
@@ -179,6 +180,20 @@ public struct EpisodeDetailView: View {
     return String(format: "%d:%02d", minutes, remainingSeconds)
   }
 }
+
+#else
+import SwiftUI
+import CoreModels
+import PlaybackEngine
+
+public struct EpisodeDetailView: View {
+  public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {}
+
+  public var body: some View {
+    Text("Episode detail view is available on iOS only.")
+  }
+}
+#endif
 
 // MARK: - Previews
 #Preview("Episode with Description") {

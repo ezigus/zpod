@@ -12,6 +12,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
 
   override func setUpWithError() throws {
     continueAfterFailure = false
+    disableWaitingForIdleIfNeeded()
 
     // Initialize app without @MainActor calls in setup
     // XCUIApplication creation and launch will be done in test methods

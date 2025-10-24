@@ -5,8 +5,8 @@ final class AutoArchiveServiceTests: XCTestCase {
     
     var service: DefaultAutoArchiveService!
     
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         service = DefaultAutoArchiveService()
     }
     
@@ -33,10 +33,10 @@ final class AutoArchiveServiceTests: XCTestCase {
             isArchived: isArchived
         )
     }
-    
+
     // MARK: - shouldArchive Tests
     
-    func testShouldArchive_PlayedAndOlderThanDays() {
+    func testShouldArchive_PlayedAndOlderThanDays() async {
         let thirtyOneDaysAgo = Calendar.current.date(byAdding: .day, value: -31, to: Date())!
         let twentyNineDaysAgo = Calendar.current.date(byAdding: .day, value: -29, to: Date())!
         
@@ -47,35 +47,30 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Played and old enough - should archive
         let oldPlayed = createEpisode(id: "1", isPlayed: true, pubDate: thirtyOneDaysAgo)
-        let shouldArchiveOldPlayed = service.shouldArchive(oldPlayed, basedOn: rule)
-        XCTAssertTrue(shouldArchiveOldPlayed)
+        XCTAssertTrue(service.shouldArchive(oldPlayed, basedOn: rule))
         
         // Played but not old enough - should not archive
         let recentPlayed = createEpisode(id: "2", isPlayed: true, pubDate: twentyNineDaysAgo)
-        let shouldArchiveRecentPlayed = service.shouldArchive(recentPlayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveRecentPlayed)
+        XCTAssertFalse(service.shouldArchive(recentPlayed, basedOn: rule))
         
         // Old enough but not played - should not archive
         let oldUnplayed = createEpisode(id: "3", isPlayed: false, pubDate: thirtyOneDaysAgo)
-        let shouldArchiveOldUnplayed = service.shouldArchive(oldUnplayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveOldUnplayed)
+        XCTAssertFalse(service.shouldArchive(oldUnplayed, basedOn: rule))
     }
     
-    func testShouldArchive_PlayedRegardlessOfAge() {
+    func testShouldArchive_PlayedRegardlessOfAge() async {
         let rule = AutoArchiveRule(condition: .playedRegardlessOfAge)
         
         // Played - should archive
         let played = createEpisode(id: "1", isPlayed: true)
-        let shouldArchivePlayed = service.shouldArchive(played, basedOn: rule)
-        XCTAssertTrue(shouldArchivePlayed)
+        XCTAssertTrue(service.shouldArchive(played, basedOn: rule))
         
         // Not played - should not archive
         let unplayed = createEpisode(id: "2", isPlayed: false)
-        let shouldArchiveUnplayed = service.shouldArchive(unplayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveUnplayed)
+        XCTAssertFalse(service.shouldArchive(unplayed, basedOn: rule))
     }
     
-    func testShouldArchive_OlderThanDays() {
+    func testShouldArchive_OlderThanDays() async {
         let hundredDaysAgo = Calendar.current.date(byAdding: .day, value: -100, to: Date())!
         let eightyDaysAgo = Calendar.current.date(byAdding: .day, value: -80, to: Date())!
         
@@ -86,16 +81,14 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Old enough - should archive regardless of play status
         let oldEpisode = createEpisode(id: "1", isPlayed: false, pubDate: hundredDaysAgo)
-        let shouldArchiveOldEpisode = service.shouldArchive(oldEpisode, basedOn: rule)
-        XCTAssertTrue(shouldArchiveOldEpisode)
+        XCTAssertTrue(service.shouldArchive(oldEpisode, basedOn: rule))
         
         // Not old enough - should not archive
         let recentEpisode = createEpisode(id: "2", isPlayed: true, pubDate: eightyDaysAgo)
-        let shouldArchiveRecentEpisode = service.shouldArchive(recentEpisode, basedOn: rule)
-        XCTAssertFalse(shouldArchiveRecentEpisode)
+        XCTAssertFalse(service.shouldArchive(recentEpisode, basedOn: rule))
     }
     
-    func testShouldArchive_DownloadedAndPlayed() {
+    func testShouldArchive_DownloadedAndPlayed() async {
         let rule = AutoArchiveRule(condition: .downloadedAndPlayed)
         
         // Downloaded and played - should archive
@@ -104,8 +97,7 @@ final class AutoArchiveServiceTests: XCTestCase {
             isPlayed: true,
             downloadStatus: .downloaded
         )
-        let shouldArchiveDownloadedPlayed = service.shouldArchive(downloadedPlayed, basedOn: rule)
-        XCTAssertTrue(shouldArchiveDownloadedPlayed)
+        XCTAssertTrue(service.shouldArchive(downloadedPlayed, basedOn: rule))
         
         // Downloaded but not played - should not archive
         let downloadedUnplayed = createEpisode(
@@ -113,8 +105,7 @@ final class AutoArchiveServiceTests: XCTestCase {
             isPlayed: false,
             downloadStatus: .downloaded
         )
-        let shouldArchiveDownloadedUnplayed = service.shouldArchive(downloadedUnplayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveDownloadedUnplayed)
+        XCTAssertFalse(service.shouldArchive(downloadedUnplayed, basedOn: rule))
         
         // Played but not downloaded - should not archive
         let notDownloadedPlayed = createEpisode(
@@ -122,11 +113,10 @@ final class AutoArchiveServiceTests: XCTestCase {
             isPlayed: true,
             downloadStatus: .notDownloaded
         )
-        let shouldArchiveNotDownloadedPlayed = service.shouldArchive(notDownloadedPlayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveNotDownloadedPlayed)
+        XCTAssertFalse(service.shouldArchive(notDownloadedPlayed, basedOn: rule))
     }
     
-    func testShouldArchive_ExcludeFavorites() {
+    func testShouldArchive_ExcludeFavorites() async {
         let rule = AutoArchiveRule(
             condition: .playedRegardlessOfAge,
             excludeFavorites: true
@@ -134,16 +124,14 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Played but favorited - should not archive
         let favoritedPlayed = createEpisode(id: "1", isPlayed: true, isFavorited: true)
-        let shouldArchiveFavoritedPlayed = service.shouldArchive(favoritedPlayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveFavoritedPlayed)
+        XCTAssertFalse(service.shouldArchive(favoritedPlayed, basedOn: rule))
         
         // Played and not favorited - should archive
         let regularPlayed = createEpisode(id: "2", isPlayed: true, isFavorited: false)
-        let shouldArchiveRegularPlayed = service.shouldArchive(regularPlayed, basedOn: rule)
-        XCTAssertTrue(shouldArchiveRegularPlayed)
+        XCTAssertTrue(service.shouldArchive(regularPlayed, basedOn: rule))
     }
     
-    func testShouldArchive_ExcludeBookmarked() {
+    func testShouldArchive_ExcludeBookmarked() async {
         let rule = AutoArchiveRule(
             condition: .playedRegardlessOfAge,
             excludeBookmarked: true
@@ -151,25 +139,22 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Played but bookmarked - should not archive
         let bookmarkedPlayed = createEpisode(id: "1", isPlayed: true, isBookmarked: true)
-        let shouldArchiveBookmarkedPlayed = service.shouldArchive(bookmarkedPlayed, basedOn: rule)
-        XCTAssertFalse(shouldArchiveBookmarkedPlayed)
+        XCTAssertFalse(service.shouldArchive(bookmarkedPlayed, basedOn: rule))
         
         // Played and not bookmarked - should archive
         let regularPlayed = createEpisode(id: "2", isPlayed: true, isBookmarked: false)
-        let shouldArchiveRegularPlayedWhenNotBookmarked = service.shouldArchive(regularPlayed, basedOn: rule)
-        XCTAssertTrue(shouldArchiveRegularPlayedWhenNotBookmarked)
+        XCTAssertTrue(service.shouldArchive(regularPlayed, basedOn: rule))
     }
     
-    func testShouldArchive_AlreadyArchived() {
+    func testShouldArchive_AlreadyArchived() async {
         let rule = AutoArchiveRule(condition: .playedRegardlessOfAge)
         
         // Already archived - should not archive again
         let alreadyArchived = createEpisode(id: "1", isPlayed: true, isArchived: true)
-        let shouldArchiveAlreadyArchived = service.shouldArchive(alreadyArchived, basedOn: rule)
-        XCTAssertFalse(shouldArchiveAlreadyArchived)
+        XCTAssertFalse(service.shouldArchive(alreadyArchived, basedOn: rule))
     }
     
-    func testShouldArchive_DisabledRule() {
+    func testShouldArchive_DisabledRule() async {
         let rule = AutoArchiveRule(
             isEnabled: false,
             condition: .playedRegardlessOfAge
@@ -177,11 +162,10 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Rule is disabled - should not archive
         let played = createEpisode(id: "1", isPlayed: true)
-        let shouldArchivePlayedWhenDisabled = service.shouldArchive(played, basedOn: rule)
-        XCTAssertFalse(shouldArchivePlayedWhenDisabled)
+        XCTAssertFalse(service.shouldArchive(played, basedOn: rule))
     }
     
-    func testShouldArchive_InvalidRule() {
+    func testShouldArchive_InvalidRule() async {
         let rule = AutoArchiveRule(
             condition: .playedAndOlderThanDays,
             daysOld: nil // Invalid - missing required parameter
@@ -189,13 +173,12 @@ final class AutoArchiveServiceTests: XCTestCase {
         
         // Rule is invalid - should not archive
         let episode = createEpisode(id: "1", isPlayed: true)
-        let shouldArchiveInvalidRule = service.shouldArchive(episode, basedOn: rule)
-        XCTAssertFalse(shouldArchiveInvalidRule)
+        XCTAssertFalse(service.shouldArchive(episode, basedOn: rule))
     }
     
     // MARK: - evaluateRules Tests
     
-    func testEvaluateRules_MultipleRules() {
+    func testEvaluateRules_MultipleRules() async {
         let thirtyOneDaysAgo = Calendar.current.date(byAdding: .day, value: -31, to: Date())!
         
         let rule1 = AutoArchiveRule(condition: .playedRegardlessOfAge)
@@ -221,7 +204,7 @@ final class AutoArchiveServiceTests: XCTestCase {
         XCTAssertFalse(episodesToArchive.contains("4"))
     }
     
-    func testEvaluateRules_EmptyRules() {
+    func testEvaluateRules_EmptyRules() async {
         let episodes = [
             createEpisode(id: "1", isPlayed: true)
         ]
@@ -231,7 +214,7 @@ final class AutoArchiveServiceTests: XCTestCase {
         XCTAssertTrue(episodesToArchive.isEmpty)
     }
     
-    func testEvaluateRules_EmptyEpisodes() {
+    func testEvaluateRules_EmptyEpisodes() async {
         let rule = AutoArchiveRule(condition: .playedRegardlessOfAge)
         
         let episodesToArchive = service.evaluateRules([rule], forEpisodes: [])
@@ -241,7 +224,7 @@ final class AutoArchiveServiceTests: XCTestCase {
     
     // MARK: - evaluateForPodcast Tests
     
-    func testEvaluateForPodcast_Enabled() {
+    func testEvaluateForPodcast_Enabled() async {
         let rule = AutoArchiveRule(condition: .playedRegardlessOfAge)
         let config = PodcastAutoArchiveConfig(
             podcastId: "podcast-1",
@@ -260,7 +243,7 @@ final class AutoArchiveServiceTests: XCTestCase {
         XCTAssertTrue(episodesToArchive.contains("1"))
     }
     
-    func testEvaluateForPodcast_Disabled() {
+    func testEvaluateForPodcast_Disabled() async {
         let rule = AutoArchiveRule(condition: .playedRegardlessOfAge)
         let config = PodcastAutoArchiveConfig(
             podcastId: "podcast-1",
@@ -280,17 +263,16 @@ final class AutoArchiveServiceTests: XCTestCase {
     
     // MARK: - shouldRunAutoArchive Tests
     
-    func testShouldRunAutoArchive_NeverRunBefore() {
+    func testShouldRunAutoArchive_NeverRunBefore() async {
         let config = GlobalAutoArchiveConfig(
             isGlobalEnabled: true,
             lastRunAt: nil
         )
         
-        let shouldRunEnabled = service.shouldRunAutoArchive(config)
-        XCTAssertTrue(shouldRunEnabled)
+        XCTAssertTrue(service.shouldRunAutoArchive(config))
     }
     
-    func testShouldRunAutoArchive_IntervalElapsed() {
+    func testShouldRunAutoArchive_IntervalElapsed() async {
         let oneHourAgo = Date().addingTimeInterval(-3600)
         let config = GlobalAutoArchiveConfig(
             isGlobalEnabled: true,
@@ -298,11 +280,10 @@ final class AutoArchiveServiceTests: XCTestCase {
             lastRunAt: oneHourAgo
         )
         
-        let shouldRunEnabledWithCutoff = service.shouldRunAutoArchive(config)
-        XCTAssertTrue(shouldRunEnabledWithCutoff)
+        XCTAssertTrue(service.shouldRunAutoArchive(config))
     }
     
-    func testShouldRunAutoArchive_IntervalNotElapsed() {
+    func testShouldRunAutoArchive_IntervalNotElapsed() async {
         let fiveMinutesAgo = Date().addingTimeInterval(-300)
         let config = GlobalAutoArchiveConfig(
             isGlobalEnabled: true,
@@ -310,17 +291,15 @@ final class AutoArchiveServiceTests: XCTestCase {
             lastRunAt: fiveMinutesAgo
         )
         
-        let shouldRunDisabled = service.shouldRunAutoArchive(config)
-        XCTAssertFalse(shouldRunDisabled)
+        XCTAssertFalse(service.shouldRunAutoArchive(config))
     }
     
-    func testShouldRunAutoArchive_GloballyDisabled() {
+    func testShouldRunAutoArchive_GloballyDisabled() async {
         let config = GlobalAutoArchiveConfig(
             isGlobalEnabled: false,
             lastRunAt: nil
         )
         
-        let shouldRunManual = service.shouldRunAutoArchive(config)
-        XCTAssertFalse(shouldRunManual)
+        XCTAssertFalse(service.shouldRunAutoArchive(config))
     }
 }

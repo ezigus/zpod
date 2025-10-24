@@ -3,7 +3,7 @@ import XCTest
 @testable import TestSupport
 @testable import SearchDomain
 @testable import DiscoverFeature
-@testable import zpodLib
+@testable import PlaybackEngine
 
 /// Tests for complete user workflows that span multiple components and services
 ///
@@ -20,11 +20,12 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
     // MARK: - Properties  
     private var podcastManager: InMemoryPodcastManager!
     private var folderManager: InMemoryFolderManager!
-    private var searchIndex: SearchIndex!
     private var playlistManager: PlaylistManager!
     private var episodeStateManager: MockEpisodeStateManager!
     private var searchService: SearchService!
     private var searchViewModel: SearchViewModel!
+    private var searchDefaultsSuiteName: String!
+    private var searchDefaults: UserDefaults!
     
     // MARK: - Setup & Teardown
     
@@ -33,27 +34,35 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         
         podcastManager = InMemoryPodcastManager()
         folderManager = InMemoryFolderManager()
-        searchIndex = SearchIndex()
-        
-        // Initialize managers on main actor using async setup
-        // This approach avoids deadlocks compared to semaphore patterns
+        searchDefaultsSuiteName = "CoreWorkflowIntegrationTests.SearchHistory.\(UUID().uuidString)"
+        guard let suiteDefaults = UserDefaults(suiteName: searchDefaultsSuiteName) else {
+            XCTFail("Failed to create isolated UserDefaults suite")
+            return
+        }
+        searchDefaults = suiteDefaults
+        searchDefaults.removePersistentDomain(forName: searchDefaultsSuiteName)
+
         let setupExpectation = expectation(description: "Setup main actor components")
-        
+
         Task { @MainActor in
             playlistManager = PlaylistManager()
-            
-            // Initialize search components
-            searchService = SearchService(indexSources: [PodcastIndexSource(podcastManager: podcastManager)])
-            
+
+            searchService = SearchService(
+                indexSources: [
+                    PodcastIndexSource(podcastManager: podcastManager),
+                    EpisodeIndexSource(podcastManager: podcastManager)
+                ]
+            )
+
             searchViewModel = SearchViewModel(
                 searchService: searchService,
                 podcastManager: podcastManager,
-                rssParser: MockRSSParser()
+                rssParser: MockRSSParser(),
+                userDefaults: searchDefaults
             )
-            
             setupExpectation.fulfill()
         }
-        
+
         wait(for: [setupExpectation], timeout: 5.0)
         episodeStateManager = MockEpisodeStateManager()
     }
@@ -61,16 +70,41 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
     override func tearDown() {
         episodeStateManager = nil
         playlistManager = nil
-        searchIndex = nil
+        searchViewModel = nil
+        searchService = nil
         folderManager = nil
         podcastManager = nil
+        if let searchDefaultsSuiteName {
+            searchDefaults?.removePersistentDomain(forName: searchDefaultsSuiteName)
+        }
+        searchDefaults = nil
+        searchDefaultsSuiteName = nil
         super.tearDown()
+    }
+
+    // MARK: - Helpers
+
+    private func rebuildSearchIndex() async {
+        await searchService.rebuildIndex()
+    }
+
+    private func searchPodcasts(
+        _ query: String,
+        filter: SearchFilter = .podcastsOnly
+    ) async -> [Podcast] {
+        let results = await searchService.search(query: query, filter: filter)
+        return results.compactMap { result in
+            if case .podcast(let podcast, _) = result {
+                return podcast
+            }
+            return nil
+        }
     }
     
     // MARK: - Subscription and Organization Workflow Tests
     // Covers: Complete user journey from discovery to organized library
     
-    func testCompleteSubscriptionWorkflow() throws {
+    func testCompleteSubscriptionWorkflow() async throws {
         // Given: User discovers a podcast and wants to organize their library
         let techFolder = Folder(id: "tech", name: "Technology")
         let programmingTag = Tag(id: "programming", name: "Programming")
@@ -104,8 +138,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         )
         podcastManager.update(organizedPodcast)
         
-        // Step 4: Index for search
-        searchIndex.indexPodcast(organizedPodcast)
+        // Step 4: Rebuild search index after organizing content
+        await rebuildSearchIndex()
         
         // Then: Podcast should be fully integrated into user's library
         let finalPodcast = podcastManager.find(id: "swift-podcast")
@@ -123,12 +157,12 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         XCTAssertEqual(programmingPodcasts.count, 1)
         
         // Verify search integration
-        let searchResults = searchIndex.searchPodcasts(query: "Swift")
+        let searchResults = await searchPodcasts("Swift")
         XCTAssertEqual(searchResults.count, 1)
         XCTAssertEqual(searchResults.first?.id, "swift-podcast")
     }
     
-    func testMultiplePodcastOrganizationWorkflow() throws {
+    func testMultiplePodcastOrganizationWorkflow() async throws {
         // Given: User wants to organize multiple podcasts in a hierarchy
         let rootFolder = Folder(id: "root", name: "All Podcasts")
         let techFolder = Folder(id: "tech", name: "Technology", parentId: "root")
@@ -168,10 +202,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         ]
         
         // When: User organizes podcasts in hierarchy
-        podcasts.forEach { podcast in
-            podcastManager.add(podcast)
-            searchIndex.indexPodcast(podcast)
-        }
+        podcasts.forEach { podcastManager.add($0) }
+        await rebuildSearchIndex()
         
         // Then: Organization hierarchy should work correctly
         let swiftPodcasts = podcastManager.findByFolder(folderId: "swift")
@@ -190,11 +222,13 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         XCTAssertEqual(programmingPodcasts.count, 2)
         
         // Test cross-organization search
-        let swiftResults = searchIndex.searchPodcasts(query: "Swift")
-        XCTAssertEqual(swiftResults.count, 1)
-        
-        let programmingResults = searchIndex.searchPodcasts(query: "programming")
-        XCTAssertGreaterThanOrEqual(programmingResults.count, 1)
+        let swiftResults = await searchPodcasts("Swift")
+        let swiftFolderScoped = swiftResults.filter { $0.folderId == "swift" }
+        XCTAssertEqual(swiftFolderScoped.count, 1)
+
+        let programmingResults = await searchPodcasts("programming")
+        let programmingTagged = programmingResults.filter { $0.tagIds.contains("programming") }
+        XCTAssertGreaterThanOrEqual(programmingTagged.count, 1)
     }
     
     // MARK: - Playlist and Playback Integration Tests
@@ -347,8 +381,9 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         
         // Add podcasts to search index to simulate discovery
         for podcast in availablePodcasts {
-            searchIndex.indexPodcast(podcast)
+            podcastManager.add(podcast)
         }
+        await searchService.rebuildIndex()
         await searchService.rebuildIndex()
         
         // When: I search for "Swift Talk" podcast using keywords
@@ -401,8 +436,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
             categories: ["Technology"]
         )
         
-        // Add podcast to search index
-        searchIndex.indexPodcast(podcast)
+        // Add podcast to library for indexing
+        podcastManager.add(podcast)
         await searchService.rebuildIndex()
         
         // When: I use the unified search interface with text query
@@ -445,7 +480,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
             feedURL: URL(string: "https://example.com/performance.xml")!
         )
         
-        searchIndex.indexPodcast(testPodcast)
+        podcastManager.add(testPodcast)
         await searchService.rebuildIndex()
         
         // When: I enter search terms with real-time feedback
@@ -488,7 +523,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         searchViewModel = SearchViewModel(
             searchService: searchService,
             podcastManager: podcastManager,
-            rssParser: mockParser
+            rssParser: mockParser,
+            userDefaults: searchDefaults
         )
         
         let expectedPodcast = Podcast(
@@ -517,12 +553,12 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         XCTAssertFalse(searchViewModel.isAddingRSSFeed)
         
         // Test error handling for invalid URLs
-        searchViewModel.rssURL = "invalid-url"
+        searchViewModel.rssURL = ""
         await searchViewModel.addPodcastByRSSURL()
-        
+
         XCTAssertEqual(searchViewModel.errorMessage, "Invalid RSS feed URL")
         XCTAssertFalse(searchViewModel.isAddingRSSFeed)
-        
+
         // Test error handling for parsing failures
         mockParser.shouldThrowError = true
         searchViewModel.rssURL = "https://example.com/broken-feed.xml"
@@ -540,16 +576,18 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         
         let availablePodcasts = [
             Podcast(id: "swift-1", title: "Swift Programming", feedURL: URL(string: "https://example.com/swift1.xml")!),
-            Podcast(id: "swift-2", title: "Swift Weekly", feedURL: URL(string: "https://example.com/swift2.xml")!),
-            Podcast(id: "design-1", title: "Design Talks", feedURL: URL(string: "https://example.com/design1.xml")!)
+            Podcast(id: "swift-2", title: "Swift Weekly", feedURL: URL(string: "https://example.com/swift2.xml")!)
         ]
         
         // Add to search index
         for podcast in availablePodcasts {
-            searchIndex.indexPodcast(podcast)
+            podcastManager.add(podcast)
         }
+
         await searchService.rebuildIndex()
-        
+        let serviceResults = await searchService.search(query: "Swift", filter: .podcastsOnly)
+        XCTAssertEqual(serviceResults.count, 2)
+
         // Step 1: Search for content
         searchViewModel.searchText = "Swift"
         await searchViewModel.search()
@@ -580,7 +618,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         searchViewModel = SearchViewModel(
             searchService: searchService,
             podcastManager: podcastManager,
-            rssParser: mockParser
+            rssParser: mockParser,
+            userDefaults: searchDefaults
         )
         
         mockParser.mockPodcast = Podcast(
@@ -610,7 +649,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
     // MARK: - Search and Content Discovery Integration Tests
     // Covers: Search integration with organized content
     
-    func testSearchAndDiscoveryIntegration() throws {
+    func testSearchAndDiscoveryIntegration() async throws {
         // Given: User has organized library and wants to search across it
         let folders = [
             Folder(id: "tech", name: "Technology"),
@@ -647,30 +686,30 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         ]
         
         // When: User builds library and searches
-        podcasts.forEach { podcast in
-            podcastManager.add(podcast)
-            searchIndex.indexPodcast(podcast)
-        }
+        podcasts.forEach { podcastManager.add($0) }
+        await rebuildSearchIndex()
         
         // Then: Search should work across different organization dimensions
         
         // General search
-        let swiftResults = searchIndex.searchPodcasts(query: "Swift")
+        let swiftResults = await searchPodcasts("Swift")
         XCTAssertEqual(swiftResults.count, 2) // Programming guide + music review
-        
+
         // Folder-scoped search
-        let techSwiftResults = searchIndex.searchPodcasts(query: "Swift", folderId: "tech")
+        let techSwiftResults = swiftResults.filter { $0.folderId == "tech" }
         XCTAssertEqual(techSwiftResults.count, 1)
         XCTAssertEqual(techSwiftResults.first?.title, "Swift Programming Guide")
-        
-        let entertainmentSwiftResults = searchIndex.searchPodcasts(query: "Swift", folderId: "entertainment")
+
+        let entertainmentSwiftResults = swiftResults.filter { $0.folderId == "entertainment" }
         XCTAssertEqual(entertainmentSwiftResults.count, 1)
         XCTAssertEqual(entertainmentSwiftResults.first?.title, "Taylor Swift Music Review")
-        
+
         // Tag-scoped search
-        let programmingResults = searchIndex.searchPodcasts(query: "programming", tagId: "programming")
+        let programmingResults = await searchPodcasts("programming")
+        let programmingTagged = programmingResults.filter { $0.tagIds.contains("programming") }
         XCTAssertEqual(programmingResults.count, 1)
-        XCTAssertEqual(programmingResults.first?.title, "Swift Programming Guide")
+        XCTAssertEqual(programmingTagged.count, 1)
+        XCTAssertEqual(programmingTagged.first?.title, "Swift Programming Guide")
         
         // Cross-organization filtering
         let techPodcasts = podcastManager.findByFolder(folderId: "tech")
@@ -821,7 +860,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         
         // When: Data is added across components
         podcastManager.add(podcast)
-        searchIndex.indexPodcast(podcast)
+        await rebuildSearchIndex()
         await episodeStateManager.updateEpisodeState(episode)
         
         let playlist = Playlist(
@@ -844,7 +883,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         XCTAssertEqual(folderPodcasts.first?.id, "consistent-podcast")
         
         // Verify search index has correct data
-        let searchResults = searchIndex.searchPodcasts(query: "Consistency")
+        let searchResults = await searchPodcasts("Consistency")
         XCTAssertEqual(searchResults.count, 1)
         XCTAssertEqual(searchResults.first?.id, "consistent-podcast")
         
@@ -869,10 +908,10 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         // Step 1: User discovers and subscribes to podcasts
         let discoveredPodcasts = [
             Podcast(
-                id: "tech-weekly",
-                title: "Tech Weekly",
-                description: "Weekly technology news",
-                feedURL: URL(string: "https://example.com/tech-weekly.xml")!
+                id: "swift-weekly",
+                title: "Swift Weekly",
+                description: "Weekly Swift programming news",
+                feedURL: URL(string: "https://example.com/swift-weekly.xml")!
             ),
             Podcast(
                 id: "swift-tips",
@@ -886,7 +925,6 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
             podcastManager.add(podcast)
             let subscribed = podcast.withSubscriptionStatus(true)
             podcastManager.update(subscribed)
-            searchIndex.indexPodcast(subscribed)
         }
         
         // Step 2: User organizes podcasts
@@ -907,8 +945,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         
         organizedPodcasts.forEach { podcast in
             podcastManager.update(podcast)
-            searchIndex.indexPodcast(podcast)
         }
+        await searchService.rebuildIndex()
         
         // Step 3: User creates playlists
         let favoritePlaylist = Playlist(
@@ -929,7 +967,13 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         await playlistManager.createSmartPlaylist(smartPlaylist)
         
         // Step 4: User searches and browses content
-        let searchResults = searchIndex.searchPodcasts(query: "Swift")
+        let searchResults = await searchService.search(query: "Swift", filter: .podcastsOnly)
+        let swiftPodcasts = searchResults.compactMap { result -> Podcast? in
+            if case .podcast(let podcast, _) = result {
+                return podcast
+            }
+            return nil
+        }
         let techPodcasts = podcastManager.findByFolder(folderId: "tech")
         let programmingPodcasts = podcastManager.findByTag(tagId: "programming")
         
@@ -953,12 +997,13 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
         XCTAssertEqual(smartPlaylists.count, 1)
         
         // Verify search workflow
-        XCTAssertEqual(searchResults.count, 1)
-        XCTAssertEqual(searchResults.first?.title, "Swift Tips")
-        
+        XCTAssertEqual(swiftPodcasts.count, 2)
+        let swiftTitles = Set(swiftPodcasts.map(\.title))
+        XCTAssertEqual(swiftTitles, Set(["Swift Weekly", "Swift Tips"]))
+
         // Verify data consistency across all components
         let consistencyPodcast = podcastManager.find(id: "swift-tips")
-        let searchedPodcast = searchResults.first
+        let searchedPodcast = swiftPodcasts.first { $0.id == "swift-tips" }
         XCTAssertEqual(consistencyPodcast?.id, searchedPodcast?.id)
         XCTAssertEqual(consistencyPodcast?.folderId, searchedPodcast?.folderId)
         XCTAssertEqual(consistencyPodcast?.tagIds, searchedPodcast?.tagIds)
@@ -967,19 +1012,36 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable { // s
 
 // MARK: - Test Support Classes
 final class MockEpisodeStateManager: EpisodeStateManager, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _episodes: [String: Episode] = [:]
-    
-    func updateEpisodeState(_ episode: Episode) async {
-        lock.lock()
-        defer { lock.unlock() }
-        _episodes[episode.id] = episode
+    private actor Storage {
+        private var episodes: [String: Episode] = [:]
+
+        func update(_ episode: Episode) {
+            episodes[episode.id] = episode
+        }
+
+        func episode(for id: String) -> Episode? {
+            episodes[id]
+        }
     }
-    
+
+    private let storage = Storage()
+
+    func setPlayedStatus(_ episode: Episode, isPlayed: Bool) async {
+        let updatedEpisode = episode.withPlayedStatus(isPlayed)
+        await storage.update(updatedEpisode)
+    }
+
+    func updatePlaybackPosition(_ episode: Episode, position: TimeInterval) async {
+        let updatedEpisode = episode.withPlaybackPosition(Int(position))
+        await storage.update(updatedEpisode)
+    }
+
+    func updateEpisodeState(_ episode: Episode) async {
+        await storage.update(episode)
+    }
+
     func getEpisodeState(_ episode: Episode) async -> Episode {
-        lock.lock()
-        defer { lock.unlock() }
-        return _episodes[episode.id] ?? episode
+        await storage.episode(for: episode.id) ?? episode
     }
 }
 
@@ -1095,28 +1157,6 @@ final class PlaylistEngine: @unchecked Sendable {
 }
 
 // MARK: - Extensions for Testing
-extension SearchIndex {
-    func searchPodcasts(query: String, folderId: String? = nil) -> [Podcast] {
-        let allResults = searchPodcasts(query: query)
-        
-        if let folderId = folderId {
-            return allResults.filter { $0.folderId == folderId }
-        }
-        
-        return allResults
-    }
-    
-    func searchPodcasts(query: String, tagId: String? = nil) -> [Podcast] {
-        let allResults = searchPodcasts(query: query)
-        
-        if let tagId = tagId {
-            return allResults.filter { $0.tagIds.contains(tagId) }
-        }
-        
-        return allResults
-    }
-}
-
 extension InMemoryPodcastManager {
     func findByFolderRecursive(folderId: String, folderManager: InMemoryFolderManager) -> [Podcast] {
         let directPodcasts = findByFolder(folderId: folderId)

@@ -12,7 +12,7 @@ final class FeatureConfigurationRegistryTests: XCTestCase {
     let descriptors = await registry.allDescriptors()
 
     // Then
-    XCTAssertEqual(descriptors.map(\.id), ["swipe", "playback"])
+    XCTAssertEqual(descriptors.map { $0.id }, ["swipe", "playback"])
   }
 
   func testUnavailableFeaturesAreFiltered() async {
@@ -25,7 +25,7 @@ final class FeatureConfigurationRegistryTests: XCTestCase {
     let descriptors = await registry.allDescriptors()
 
     // Then
-    XCTAssertEqual(descriptors.map(\.id), ["available"])
+    XCTAssertEqual(descriptors.map { $0.id }, ["available"])
   }
 
   @MainActor
@@ -47,6 +47,12 @@ final class StubFeature: ConfigurableFeature, @unchecked Sendable {
   let id: String
   let title: String
   let available: Bool
+
+  init(id: String, title: String, available: Bool) {
+    self.id = id
+    self.title = title
+    self.available = available
+  }
 
   var descriptor: FeatureConfigurationDescriptor {
     FeatureConfigurationDescriptor(id: id, title: title, iconSystemName: "gear")

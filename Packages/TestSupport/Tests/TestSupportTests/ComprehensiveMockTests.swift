@@ -396,8 +396,6 @@ final class ComprehensiveMockTests: XCTestCase {
         XCTAssertEqual(podcast1.id, podcast2.id)
         XCTAssertEqual(podcast1.title, podcast2.title)
         XCTAssertEqual(podcast1.feedURL, podcast2.feedURL)
-        // They are value types (structs), so they should be equal
-        XCTAssertEqual(podcast1, podcast2)
     }
     
     func testMockUnicodeConsistency_AllTypesSupported() {

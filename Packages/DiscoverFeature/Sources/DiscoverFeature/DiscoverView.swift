@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import CoreModels
 import SearchDomain
@@ -405,6 +406,20 @@ public struct DiscoverView: View {
         }
     }
 }
+#else
+import SwiftUI
+import CoreModels
+import SearchDomain
+import FeedParsing
+
+public struct DiscoverView: View {
+    public init(searchService: SearchServicing, podcastManager: PodcastManaging, rssParser: RSSFeedParsing = DefaultRSSFeedParser()) {}
+
+    public var body: some View {
+        Text("Discover view is available on iOS only.")
+    }
+}
+#endif
 
 #if DEBUG
 struct DiscoverView_Previews: PreviewProvider {

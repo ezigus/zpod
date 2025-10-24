@@ -14,6 +14,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
   override func setUpWithError() throws {
     continueAfterFailure = false
+    disableWaitingForIdleIfNeeded()
 
     // Initialize app without @MainActor calls in setup
     // XCUIApplication creation and launch will be done in test methods
@@ -29,12 +30,25 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   private func initializeApp() {
     app = launchConfiguredApp()
 
-    // Navigate to discovery interface for testing
+    // Wait for the main tab bar to be available
     let tabBar = app.tabBars["Main Tab Bar"]
+    XCTAssertTrue(
+      waitForElement(
+        tabBar, timeout: adaptiveTimeout, description: "Main tab bar"),
+      "Main tab bar should be available after app launch")
+
+    // Navigate to discovery interface for testing
     let discoverTab = tabBar.buttons["Discover"]
-    if discoverTab.exists {
-      discoverTab.tap()
-    }
+    XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
+
+    discoverTab.tap()
+
+    // Wait for discover screen to load fully
+    let discoverNavBar = app.navigationBars["Discover"]
+    XCTAssertTrue(
+      waitForElement(
+        discoverNavBar, timeout: adaptiveTimeout, description: "Discover navigation bar"),
+      "Discover screen should load after tapping tab")
   }
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
@@ -75,12 +89,33 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // When: I type in the search field
     searchField.tap()
+
+    // Wait for keyboard to appear - this is the real indicator of readiness
+    XCTAssertTrue(
+      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+      "Keyboard should appear after tapping search field")
+
+    // The presence of the keyboard after tapping the field is used as a proxy for keyboard focus.
+
+    // Wait for focus to be fully established before typing using proper async pattern
+    let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      focusExpectation.fulfill()
+    }
+    _ = XCTWaiter.wait(for: [focusExpectation], timeout: 1.0)
+
     searchField.typeText("Swift Talk")
 
     // Then: The search field should contain the typed text
+    let searchFieldValue = searchField.value as? String
+    let swiftTalkTextElement = app.staticTexts["Swift Talk"]
+    let hasSwiftTalkText = swiftTalkTextElement.waitForExistence(timeout: adaptiveShortTimeout)
+
     XCTAssertTrue(
-      searchField.value as? String == "Swift Talk" || app.staticTexts["Swift Talk"].exists,
-      "Search field should contain typed text")
+      searchFieldValue == "Swift Talk" || hasSwiftTalkText
+        || searchFieldValue?.contains("Swift Talk") == true,
+      "Search field should contain typed text. Found value: '\(searchFieldValue ?? "nil")', Swift Talk text exists: \(hasSwiftTalkText)"
+    )
   }
 
   @MainActor
@@ -93,6 +128,25 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     searchField.tap()
+
+    // Wait for keyboard to appear - this is the real indicator of readiness
+    XCTAssertTrue(
+      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+      "Keyboard should appear after tapping search field")
+
+    // Verify the field is ready for input by checking it has focus
+    let hasKeyboardFocus2 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    XCTAssertTrue(
+      hasKeyboardFocus2,
+      "Search field should have keyboard focus after tap")
+
+    // Wait for focus to be fully established before typing using proper async pattern
+    let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      focusExpectation.fulfill()
+    }
+    _ = XCTWaiter.wait(for: [focusExpectation], timeout: 1.0)
+
     searchField.typeText("test")
 
     // When: I tap the clear button (if it exists)
@@ -412,6 +466,25 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     ).firstMatch
     if searchField.exists {
       searchField.tap()
+
+      // Wait for keyboard to appear - this is the real indicator of readiness
+      XCTAssertTrue(
+        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+        "Keyboard should appear after tapping search field")
+
+      // Verify the field is ready for input by checking it has focus
+      let hasKeyboardFocus3 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+      XCTAssertTrue(
+        hasKeyboardFocus3,
+        "Search field should have keyboard focus after tap")
+
+      // Wait for focus to be fully established before typing using proper async pattern
+      let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        focusExpectation.fulfill()
+      }
+      _ = XCTWaiter.wait(for: [focusExpectation], timeout: 0.5)
+
       searchField.typeText("test")
 
       // When: Search filters become available
@@ -572,6 +645,24 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     if searchField.exists {
       // When: I interact with the search field
       searchField.tap()
+
+      // Wait for keyboard to appear - this is the real indicator of readiness
+      XCTAssertTrue(
+        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+        "Keyboard should appear after tapping search field")
+
+      // Verify the field is ready for input by checking it has focus
+      let hasKeyboardFocus4 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+      XCTAssertTrue(
+        hasKeyboardFocus4,
+        "Search field should have keyboard focus after tap")
+
+      // Wait for focus to be fully established before typing using proper async pattern
+      let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        focusExpectation.fulfill()
+      }
+      _ = XCTWaiter.wait(for: [focusExpectation], timeout: 0.5)
 
       // Type text into the search field
       searchField.typeText("test")

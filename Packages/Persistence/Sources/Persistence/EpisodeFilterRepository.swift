@@ -43,6 +43,14 @@ public actor UserDefaultsEpisodeFilterRepository: EpisodeFilterRepository {
     public init(userDefaults: UserDefaults) {
         self.userDefaults = userDefaults
     }
+
+    public init(suiteName: String) {
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            self.userDefaults = suiteDefaults
+        } else {
+            self.userDefaults = .standard
+        }
+    }
     
     // MARK: - Global Preferences
     

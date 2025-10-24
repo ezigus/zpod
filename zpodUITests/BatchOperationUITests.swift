@@ -12,6 +12,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
   override func setUpWithError() throws {
     continueAfterFailure = false
+    disableWaitingForIdleIfNeeded()
     // XCUIApplication setup is performed inside each test via initializeApp()
   }
 
@@ -45,7 +46,8 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     let overlayAppeared = waitForBatchOverlayAppearance(in: app, timeout: adaptiveShortTimeout)
     if !overlayAppeared {
       print(app.debugDescription)
-      XCTFail("Overlay should be visible once the episode list is rendered\n\(app.debugDescription)")
+      XCTFail(
+        "Overlay should be visible once the episode list is rendered\n\(app.debugDescription)")
       return
     }
 

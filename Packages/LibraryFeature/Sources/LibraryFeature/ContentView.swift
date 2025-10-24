@@ -10,7 +10,9 @@ import Persistence
 import SettingsDomain
 import SwiftData
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 #if canImport(DiscoverFeature)
   import DiscoverFeature
@@ -150,6 +152,7 @@ import UIKit
   private struct PlaylistTabView: View { var body: some View { Text("Playlists") } }
 #endif
 
+#if canImport(UIKit)
 // MARK: - UIKit Introspection Helper for Tab Bar Identifier
 private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
   private let maxAttempts = 50
@@ -285,6 +288,9 @@ private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     return nil
   }
 }
+#endif
+
+#if os(iOS)
 
 public struct ContentView: View {
   @Environment(\.modelContext) private var modelContext
@@ -340,7 +346,9 @@ public struct ContentView: View {
           Label("Settings", systemImage: "gearshape")
         }
     }
+#if canImport(UIKit)
     .background(TabBarIdentifierSetter())
+#endif
   }
 }
 
@@ -907,3 +915,15 @@ struct EpisodeDetailPlaceholder: View {
   ContentView()
     .modelContainer(for: Item.self, inMemory: true)
 }
+
+#else
+
+public struct ContentView: View {
+  public init() {}
+
+  public var body: some View {
+    Text("Library content is available on iOS only.")
+  }
+}
+
+#endif

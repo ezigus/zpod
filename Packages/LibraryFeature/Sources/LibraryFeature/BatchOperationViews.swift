@@ -1,3 +1,30 @@
+#if !os(iOS)
+import SwiftUI
+import CoreModels
+
+public struct BatchOperationView: View {
+    public init(selectedEpisodes: [Episode], availableOperations: [BatchOperationType], onOperationSelected: @escaping (BatchOperationType) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Batch operations are available on iOS only.")
+    }
+}
+
+public struct BatchOperationProgressView: View {
+    let batchOperation: BatchOperation
+
+    public init(batchOperation: BatchOperation, onCancel: @escaping () -> Void, onRetry: (() -> Void)? = nil, onUndo: (() -> Void)? = nil) {
+        self.batchOperation = batchOperation
+    }
+
+    public var body: some View {
+        ProgressView(value: batchOperation.progress) {
+            Text(batchOperation.operationType.displayName)
+        }
+    }
+}
+
+#else
 import SwiftUI
 import CoreModels
 
@@ -480,3 +507,4 @@ public struct EpisodeSelectionCriteriaView: View {
         onApply(finalCriteria)
     }
 }
+#endif
