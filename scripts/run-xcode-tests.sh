@@ -222,6 +222,34 @@ add_summary() {
   SUMMARY_ITEMS+=("${category}|${name}|${status}|${log_path}|${total}|${passed}|${failed}|${skipped}|${note}")
 }
 
+ensure_host_app_product() {
+  if [[ -z "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    return 0
+  fi
+
+  local expected_app="$ZPOD_DERIVED_DATA_PATH/Build/Products/Debug-iphonesimulator/zpod.app/zpod"
+  if [[ -f "$expected_app" ]]; then
+    return 0
+  fi
+
+  log_info "Host app missing at ${expected_app}; building zpod target before running tests"
+
+  local original_clean=$REQUESTED_CLEAN
+  REQUESTED_CLEAN=0
+  if ! build_app_target "zpod"; then
+    REQUESTED_CLEAN=$original_clean
+    log_error "Failed to build host app in ${ZPOD_DERIVED_DATA_PATH}"
+    return 1
+  fi
+  REQUESTED_CLEAN=$original_clean
+
+  if [[ ! -f "$expected_app" ]]; then
+    log_warn "Host app still missing at ${expected_app} after rebuild"
+  fi
+
+  return 0
+}
+
 extract_test_counts() {
   local summary="$1"
   summary="${summary//$'\r'/}"
@@ -1297,6 +1325,10 @@ run_filtered_xcode_tests() {
   fi
   select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
   resolved_destination="$SELECTED_DESTINATION"
+
+  if [[ $integration_run -eq 0 ]]; then
+    ensure_host_app_product || return $?
+  fi
 
   init_result_paths "test" "$label"
 

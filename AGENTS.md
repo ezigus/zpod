@@ -174,6 +174,7 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 - The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script’s automatic destination selection.
 - Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
 - Preflight now provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
+- UI suites auto-build `zpod.app` inside the suite’s DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn’t been produced yet.
 
 ## 8. Issue & Documentation Management
 
