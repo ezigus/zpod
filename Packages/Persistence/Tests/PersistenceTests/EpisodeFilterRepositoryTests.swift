@@ -248,26 +248,26 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 
 // MARK: - Episode Filter Manager Tests
 
+@MainActor
 final class EpisodeFilterManagerTests: XCTestCase {
     
     private var filterManager: EpisodeFilterManager!
     private var mockRepository: MockEpisodeFilterRepository!
     private var filterService: DefaultEpisodeFilterService!
     
-    override func setUp() async throws {
-        try await super.setUp()
-        
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+
         mockRepository = MockEpisodeFilterRepository()
         filterService = DefaultEpisodeFilterService()
         filterManager = EpisodeFilterManager(repository: mockRepository, filterService: filterService)
     }
-    
-    override func tearDown() async throws {
+
+    override func tearDownWithError() throws {
         filterManager = nil
         mockRepository = nil
         filterService = nil
-        
-        try await super.tearDown()
+        try super.tearDownWithError()
     }
     
     // MARK: - Filter Management Tests
@@ -315,11 +315,8 @@ final class EpisodeFilterManagerTests: XCTestCase {
         )
         
         // Setup global preferences with podcast preference
-        filterManager.globalPreferences = filterManager.globalPreferences.withPodcastPreference(
-            podcastId: podcastId,
-            filter: savedFilter
-        )
-        
+        await filterManager.setCurrentFilter(savedFilter, forPodcast: podcastId)
+
         // When: Getting filter for podcast
         let retrievedFilter = filterManager.filterForPodcast(podcastId)
         
@@ -364,7 +361,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
             name: "Test Smart List",
             filter: EpisodeFilter()
         )
-        filterManager.smartLists.append(smartList)
+        await filterManager.createSmartList(smartList)
         
         // When: Deleting smart list
         await filterManager.deleteSmartList(id: smartList.id)

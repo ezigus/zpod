@@ -1,5 +1,7 @@
 #if canImport(Combine)
 @preconcurrency import Combine
+
+extension AnyPublisher: @unchecked Sendable where Output: Sendable, Failure == Never {}
 #endif
 import Foundation
 #if canImport(os)
@@ -381,7 +383,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     #if canImport(Combine)
     public var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> {
         get async {
-            return settingsChangeSubject.eraseToAnyPublisher()
+            settingsChangeSubject.eraseToAnyPublisher()
         }
     }
     #endif
