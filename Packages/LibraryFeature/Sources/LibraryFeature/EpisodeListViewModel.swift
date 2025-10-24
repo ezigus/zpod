@@ -480,7 +480,8 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     after delay: TimeInterval,
     remainingRetries: Int
   ) async {
-    guard ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1" else { return }
+    let forcingOverlay = ProcessInfo.processInfo.environment["UITEST_FORCE_BATCH_OVERLAY"] == "1"
+    guard forcingOverlay else { return }
     guard !hasSeededUITestOverlay else { return }
     guard activeBatchOperations.isEmpty else {
       overlayLogger.debug("Forced overlay already active; skipping reseed")
@@ -522,6 +523,11 @@ public final class EpisodeListViewModel: ObservableObject {  // swiftlint:disabl
     ).withStatus(.running)
 
     activeBatchOperations = [seededOperation]
+
+    if forcingOverlay {
+      overlayLogger.debug("Forced overlay seeded; leaving batch operation in running state for UI tests")
+      return
+    }
 
     launchTask { viewModel in
       try? await Task.sleep(nanoseconds: 12_000_000_000)
