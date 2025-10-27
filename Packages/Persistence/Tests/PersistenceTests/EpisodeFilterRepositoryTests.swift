@@ -241,25 +241,30 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 
 // MARK: - Episode Filter Manager Tests
 
-@MainActor
 final class EpisodeFilterManagerTests: XCTestCase {
-    private var filterManager: EpisodeFilterManager!
-    private var mockRepository: MockEpisodeFilterRepository!
-    private var filterService: DefaultEpisodeFilterService!
+  private var filterManager: EpisodeFilterManager!
+  private var mockRepository: MockEpisodeFilterRepository!
+  private var filterService: DefaultEpisodeFilterService!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        mockRepository = MockEpisodeFilterRepository()
-        filterService = DefaultEpisodeFilterService()
-        filterManager = EpisodeFilterManager(repository: mockRepository, filterService: filterService)
+  override func setUp() async throws {
+    try await super.setUp()
+    mockRepository = MockEpisodeFilterRepository()
+    filterService = DefaultEpisodeFilterService()
+    guard let repository = mockRepository, let service = filterService else {
+      XCTFail("Failed to allocate episode filter test dependencies")
+      return
     }
+    filterManager = await MainActor.run { [repository, service] in
+      EpisodeFilterManager(repository: repository, filterService: service)
+    }
+  }
 
-    override func tearDownWithError() throws {
-        filterManager = nil
-        mockRepository = nil
-        filterService = nil
-        try super.tearDownWithError()
-    }
+  override func tearDown() async throws {
+    filterManager = nil
+    mockRepository = nil
+    filterService = nil
+    try await super.tearDown()
+  }
     
     // MARK: - Filter Management Tests
     
