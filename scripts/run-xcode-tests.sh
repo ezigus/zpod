@@ -878,6 +878,9 @@ build_app_target() {
   fi
   select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
   resolved_destination="$SELECTED_DESTINATION"
+  if [[ "$target_label" == "zpod" && -n "${ZPOD_SIMULATOR_UDID:-}" ]]; then
+    resolved_destination="id=${ZPOD_SIMULATOR_UDID}"
+  fi
 
   local -a args=(
     -workspace "$WORKSPACE"
