@@ -242,30 +242,40 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 // MARK: - Episode Filter Manager Tests
 
 final class EpisodeFilterManagerTests: XCTestCase {
-    
-    private var filterManager: EpisodeFilterManager!
-    private var mockRepository: MockEpisodeFilterRepository!
-    private var filterService: DefaultEpisodeFilterService!
-    
-    override func setUp() async throws {
-        try await super.setUp()
-        
-        let repository = MockEpisodeFilterRepository()
-        let service = DefaultEpisodeFilterService()
-        let manager = await MainActor.run { EpisodeFilterManager(repository: repository, filterService: service) }
-        mockRepository = repository
-        filterService = service
-        filterManager = manager
-        try await Task.sleep(nanoseconds: 50_000_000)
+  private var filterManager: EpisodeFilterManager!
+  private var mockRepository: MockEpisodeFilterRepository!
+  private var filterService: DefaultEpisodeFilterService!
+
+  override func setUp() async throws {
+    try await super.setUp()
+    mockRepository = MockEpisodeFilterRepository()
+    filterService = DefaultEpisodeFilterService()
+    guard let repository = mockRepository, let service = filterService else {
+      XCTFail("Failed to allocate episode filter test dependencies")
+      return
     }
-    
-    override func tearDown() async throws {
-        filterManager = nil
-        mockRepository = nil
-        filterService = nil
-        
-        try await super.tearDown()
+    filterManager = await MainActor.run { [repository, service] in
+      EpisodeFilterManager(repository: repository, filterService: service)
     }
+    await waitForInitialManagerLoad()
+  }
+
+  override func tearDown() async throws {
+    filterManager = nil
+    mockRepository = nil
+    filterService = nil
+    try await super.tearDown()
+  }
+
+  private func waitForInitialManagerLoad() async {
+    guard let mockRepository else { return }
+    for _ in 0..<50 {
+      if mockRepository.loadSmartListsCallCount > 0 { return }
+      await Task.yield()
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    XCTFail("EpisodeFilterManager failed to complete initial load before test execution")
+  }
     
     // MARK: - Filter Management Tests
     
@@ -322,7 +332,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     @MainActor
-    func testFilterForPodcast_ReturnsDefaultFilter() async {
+    func testFilterForPodcast_ReturnsDefaultFilter() {
         // Given: Podcast without saved filter preference
         let podcastId = "unknown-podcast"
         
@@ -384,6 +394,8 @@ final class EpisodeFilterManagerTests: XCTestCase {
     private var globalPreferences: GlobalFilterPreferences?
     private var podcastFilters: [String: EpisodeFilter] = [:]
     private var smartLists: [SmartEpisodeList] = []
+    var loadGlobalPreferencesCallCount = 0
+    var loadSmartListsCallCount = 0
     
     func saveGlobalPreferences(_ preferences: GlobalFilterPreferences) async throws {
         saveGlobalPreferencesCalled = true
@@ -391,6 +403,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     func loadGlobalPreferences() async throws -> GlobalFilterPreferences? {
+        loadGlobalPreferencesCallCount += 1
         return globalPreferences
     }
     
@@ -412,6 +425,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     func loadSmartLists() async throws -> [SmartEpisodeList] {
+        loadSmartListsCallCount += 1
         return smartLists
     }
     

@@ -10,18 +10,19 @@ import XCTest
 @testable import CoreModels
 
 final class SwipeActionSettingsPersistenceTests: XCTestCase {
-    
-    var repository: UserDefaultsSettingsRepository!
+    private var repository: UserDefaultsSettingsRepository!
     private var harness: UserDefaultsTestHarness!
-    
-    override func setUp() async throws {
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         harness = makeUserDefaultsHarness(prefix: "swipe-settings")
         repository = UserDefaultsSettingsRepository(suiteName: harness.suiteName)
     }
-    
-    override func tearDown() async throws {
-        harness = nil
+
+    override func tearDownWithError() throws {
         repository = nil
+        harness = nil
+        try super.tearDownWithError()
     }
     
     // MARK: - Global UI Settings Tests
@@ -122,7 +123,7 @@ final class SwipeActionSettingsPersistenceTests: XCTestCase {
     func testUISettingsChangeNotification() async throws {
         let expectation = XCTestExpectation(description: "Settings change notification")
         
-        let stream = await repository.settingsChangeStream()
+        let stream = repository.settingsChangeStream()
         let listener = Task {
             for await change in stream {
                 if case .globalUI(let settings) = change,

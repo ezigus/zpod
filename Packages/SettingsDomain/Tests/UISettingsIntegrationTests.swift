@@ -140,14 +140,16 @@ final class UISettingsIntegrationTests: XCTestCase {
         let expectation = XCTestExpectation(description: "UI settings change notification")
         expectation.expectedFulfillmentCount = 1
         
-        settingsManager.settingsChangePublisher
-            .sink { change in
+        let listener = Task {
+            let stream = repository.settingsChangeStream()
+            for await change in stream {
                 receivedChanges.append(change)
                 if case .globalUI = change {
                     expectation.fulfill()
+                    break
                 }
             }
-            .store(in: &cancellables)
+        }
         
         // When: Update UI settings
         let newSettings = UISettings(
@@ -158,6 +160,7 @@ final class UISettingsIntegrationTests: XCTestCase {
         
         // Then: Should receive change notification
         await fulfillment(of: [expectation], timeout: 2.0)
+        listener.cancel()
         
         let uiChanges = receivedChanges.compactMap { change -> UISettings? in
             if case .globalUI(let settings) = change {
