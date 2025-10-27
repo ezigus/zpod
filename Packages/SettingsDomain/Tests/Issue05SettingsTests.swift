@@ -379,11 +379,15 @@ final class Issue05SettingsTests: XCTestCase {
         let repository = UserDefaultsSettingsRepository(userDefaults: userDefaults)
         
         var receivedChanges: [SettingsChange] = []
-        repository.settingsChangedPublisher
-            .sink { change in
+        let expectation = expectation(description: "settings change received")
+        let changeTask = Task {
+            let stream = repository.settingsChangeStream()
+            for await change in stream {
                 receivedChanges.append(change)
+                expectation.fulfill()
+                break
             }
-            .store(in: &cancellables)
+        }
         
         let downloadSettings = DownloadSettings(
             autoDownloadEnabled: true,
@@ -393,8 +397,10 @@ final class Issue05SettingsTests: XCTestCase {
         )
         
         // When: Save global download settings
-        repository.saveGlobalDownloadSettings(downloadSettings)
-        
+        await repository.saveGlobalDownloadSettings(downloadSettings)
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+
         // Then: Should receive change notification
         XCTAssertEqual(receivedChanges.count, 1)
         if case .globalDownload(let settings) = receivedChanges.first {
@@ -402,6 +408,8 @@ final class Issue05SettingsTests: XCTestCase {
         } else {
             XCTFail("Expected globalDownload change notification")
         }
+
+        changeTask.cancel()
     }
     
     func testUserDefaultsSettingsRepositoryCorruptedDataFallback() {

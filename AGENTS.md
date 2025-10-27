@@ -22,6 +22,7 @@
 - Avoid capturing `self` across actors; copy values locally.
 - Validate APIs before use—confirm enum cases, signatures, and optionality.
 - Compile frequently to catch isolation warnings early.
+- Persistence notifications must flow through the `SettingsRepository.settingsChangeStream()` async stream; materialize the stream from the owning actor, consume it from detached tasks, and prefer `MainActor.run {}` for UI-facing updates—do **not** resurrect Combine publishers or access repository actors directly from main-actor tasks.
 
 ### UI / XCUI Testing Concurrency Rules
 

@@ -3,20 +3,19 @@ import XCTest
 import CoreModels
 
 final class AutoArchiveRepositoryTests: XCTestCase {
-    
-    var repository: UserDefaultsAutoArchiveRepository!
+    private var repository: UserDefaultsAutoArchiveRepository!
     private var harness: UserDefaultsTestHarness!
-    
-    override func setUp() async throws {
-        try await super.setUp()
-        
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         harness = makeUserDefaultsHarness(prefix: "autoarchive")
         repository = UserDefaultsAutoArchiveRepository(suiteName: harness.suiteName)
     }
-    
-    override func tearDown() async throws {
+
+    override func tearDownWithError() throws {
+        repository = nil
         harness = nil
-        try await super.tearDown()
+        try super.tearDownWithError()
     }
     
     // MARK: - Global Config Tests
@@ -201,23 +200,19 @@ final class AutoArchiveRepositoryTests: XCTestCase {
     
     func testConcurrentSaveAndLoad() async throws {
         let config = GlobalAutoArchiveConfig(isGlobalEnabled: true)
-        guard let repository = repository else {
-            XCTFail("Repository not configured")
-            return
-        }
+        let repository = self.repository!
 
-        // Perform concurrent operations
         try await withThrowingTaskGroup(of: Void.self) { group in
             // Save multiple times concurrently
             for _ in 0..<5 {
-                group.addTask {
+                group.addTask { [repository] in
                     try await repository.saveGlobalConfig(config)
                 }
             }
             
             // Load multiple times concurrently
             for _ in 0..<5 {
-                group.addTask {
+                group.addTask { [repository] in
                     _ = try await repository.loadGlobalConfig()
                 }
             }

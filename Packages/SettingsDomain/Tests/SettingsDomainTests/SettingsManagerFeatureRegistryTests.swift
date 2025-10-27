@@ -14,8 +14,7 @@ final class SettingsManagerFeatureRegistryTests: XCTestCase {
     repository = harness.repository
     settingsManager = SettingsManager(repository: repository)
 
-    // Allow async initialization tasks to settle
-    try await Task.sleep(nanoseconds: 50_000_000)
+    await settingsManager.waitForInitialLoad()
   }
 
   override func tearDown() async throws {

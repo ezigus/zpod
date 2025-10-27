@@ -1,20 +1,5 @@
-#if canImport(Combine)
-@preconcurrency import Combine
-
-extension AnyPublisher: @unchecked Sendable where Output: Sendable, Failure == Never {}
-#endif
-import Foundation
-#if canImport(os)
-import os.log
-#endif
-=======
->>>>>>> origin/main
 import CoreModels
 import Foundation
-
-#if canImport(Combine)
-  @preconcurrency import Combine
-#endif
 #if canImport(os)
   import os.log
 #endif
@@ -66,17 +51,13 @@ public protocol SettingsRepository: Sendable {
   func removePodcastPlaybackSettings(podcastId: String) async
 
   // Change notifications
-  #if canImport(Combine)
-    var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> { get async }
-  #endif
+  nonisolated func settingsChangeStream() -> AsyncStream<SettingsChange>
 }
 
 /// UserDefaults-based implementation of SettingsRepository
 public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository {
   private let userDefaults: UserDefaults
-  #if canImport(Combine)
-    private let settingsChangeSubject = PassthroughSubject<SettingsChange, Never>()
-  #endif
+  private var changeContinuations: [UUID: AsyncStream<SettingsChange>.Continuation] = [:]
 
   // Logger for settings-related errors
   #if canImport(os)
@@ -110,6 +91,20 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     static let podcastPlaybackPrefix = "podcast_playback_"
   }
 
+  private func broadcast(_ change: SettingsChange) {
+    for continuation in changeContinuations.values {
+      continuation.yield(change)
+    }
+  }
+
+  private func addContinuation(id: UUID, continuation: AsyncStream<SettingsChange>.Continuation) {
+    changeContinuations[id] = continuation
+  }
+
+  private func removeContinuation(id: UUID) {
+    changeContinuations.removeValue(forKey: id)
+  }
+
   // MARK: - Global Settings
 
   public func loadGlobalDownloadSettings() async -> DownloadSettings {
@@ -135,9 +130,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(settings)
       userDefaults.set(data, forKey: Keys.globalDownload)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalDownload(settings))
-      #endif
+      broadcast(.globalDownload(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -168,9 +162,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(settings)
       userDefaults.set(data, forKey: Keys.globalNotification)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalNotification(settings))
-      #endif
+      broadcast(.globalNotification(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -201,9 +194,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(settings)
       userDefaults.set(data, forKey: Keys.globalPlayback)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalPlayback(settings))
-      #endif
+      broadcast(.globalPlayback(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -263,9 +255,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
       // that terminate the app immediately after saving)
       try? await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
 
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalUI(settings))
-      #endif
+      broadcast(.globalUI(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -296,9 +287,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(settings)
       userDefaults.set(data, forKey: Keys.globalAppearance)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalAppearance(settings))
-      #endif
+      broadcast(.globalAppearance(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -329,9 +319,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(settings)
       userDefaults.set(data, forKey: Keys.globalSmartListAutomation)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalSmartListAutomation(settings))
-      #endif
+      broadcast(.globalSmartListAutomation(settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -362,9 +351,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     do {
       let data = try JSONEncoder().encode(library)
       userDefaults.set(data, forKey: Keys.playbackPresetLibrary)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.globalPlaybackPresets(library))
-      #endif
+      broadcast(.globalPlaybackPresets(library))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -399,9 +387,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
       let data = try JSONEncoder().encode(settings)
       let key = Keys.podcastDownloadPrefix + settings.podcastId
       userDefaults.set(data, forKey: key)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.podcastDownload(settings.podcastId, settings))
-      #endif
+      broadcast(.podcastDownload(settings.podcastId, settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -414,9 +401,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
   public func removePodcastDownloadSettings(podcastId: String) async {
     let key = Keys.podcastDownloadPrefix + podcastId
     userDefaults.removeObject(forKey: key)
-    #if canImport(Combine)
-      settingsChangeSubject.send(.podcastDownload(podcastId, nil))
-    #endif
+    broadcast(.podcastDownload(podcastId, nil))
+
   }
 
   public func loadPodcastPlaybackSettings(podcastId: String) async -> PodcastPlaybackSettings? {
@@ -444,9 +430,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
       let data = try JSONEncoder().encode(settings)
       let key = Keys.podcastPlaybackPrefix + podcastId
       userDefaults.set(data, forKey: key)
-      #if canImport(Combine)
-        settingsChangeSubject.send(.podcastPlayback(podcastId, settings))
-      #endif
+      broadcast(.podcastPlayback(podcastId, settings))
+
     } catch {
       #if canImport(os)
         os_log(
@@ -459,9 +444,8 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
   public func removePodcastPlaybackSettings(podcastId: String) async {
     let key = Keys.podcastPlaybackPrefix + podcastId
     userDefaults.removeObject(forKey: key)
-    #if canImport(Combine)
-      settingsChangeSubject.send(.podcastPlayback(podcastId, nil))
-    #endif
+    broadcast(.podcastPlayback(podcastId, nil))
+
   }
 
   // MARK: - Test Utilities
@@ -485,23 +469,13 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
 
   // MARK: - Change Notifications
 
-  #if canImport(Combine)
-    public var settingsChangedPublisher: AnyPublisher<SettingsChange, Never> {
-      get async {
-        settingsChangeSubject.eraseToAnyPublisher()
+  public nonisolated func settingsChangeStream() -> AsyncStream<SettingsChange> {
+    AsyncStream { continuation in
+      let id = UUID()
+      Task { await self.addContinuation(id: id, continuation: continuation) }
+      continuation.onTermination = { _ in
+        Task { await self.removeContinuation(id: id) }
       }
     }
-
-    public func settingsChangeStream() -> AsyncStream<SettingsChange> {
-      AsyncStream { continuation in
-        let cancellable = settingsChangeSubject.sink { change in
-          continuation.yield(change)
-        }
-
-        continuation.onTermination = { _ in
-          cancellable.cancel()
-        }
-      }
-    }
-  #endif
+  }
 }

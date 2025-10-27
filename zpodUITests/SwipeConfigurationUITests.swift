@@ -474,7 +474,13 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       return
     }
 
-    configureButton.tap()
+    _ = waitForElementToBeHittable(
+      configureButton,
+      timeout: adaptiveShortTimeout,
+      description: "configure swipe actions button"
+    )
+
+    tapElement(configureButton, description: "configure swipe actions button")
 
     let refreshedIndicators: [XCUIElement] = [
       app.navigationBars["Swipe Actions"],

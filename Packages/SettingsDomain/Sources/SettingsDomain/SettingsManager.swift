@@ -4,7 +4,7 @@ import Persistence
 import SharedUtilities
 
 #if canImport(Combine)
-  @preconcurrency import Combine
+  import Combine
 #endif
 #if canImport(SwiftUI)
   import SwiftUI
@@ -14,11 +14,6 @@ import SharedUtilities
 @MainActor
 public class SettingsManager {
   internal let repository: SettingsRepository
-  #if canImport(Combine)
-    private var cancellables = Set<AnyCancellable>()
-    // Bridge subject to expose a synchronous publisher without awaiting the repository
-    private let settingsChangeSubject = PassthroughSubject<SettingsChange, Never>()
-  #endif
 
   // Published properties for reactive UI
   #if canImport(Combine)
@@ -54,6 +49,7 @@ public class SettingsManager {
   // Track initial load completion for seeded configurations
   private var initialLoadTask: Task<Void, Never>?
   private var initialLoadCompleted = false
+  private var settingsChangeObservationTask: Task<Void, Never>?
 
   public var notificationsConfigurationService: NotificationsConfigurationServicing {
     notificationsConfigurationServiceImpl
@@ -216,15 +212,15 @@ public class SettingsManager {
     self.globalUISettings = UISettings.default
 
     // Load initial values from repository asynchronously after initialization
-    self.initialLoadTask = Task { [weak self] in
-      guard let self else { return }
-      let downloadSettings = await repository.loadGlobalDownloadSettings()
-      let notificationSettings = await repository.loadGlobalNotificationSettings()
-      let appearanceSettings = await repository.loadGlobalAppearanceSettings()
-      let smartListAutomationSettings = await repository.loadSmartListAutomationSettings()
-      let presetLibrary = await repository.loadPlaybackPresetLibrary()
-      let playbackSettings = await repository.loadGlobalPlaybackSettings()
-      let uiSettings = await repository.loadGlobalUISettings()
+    let repositoryActor = repository
+    self.initialLoadTask = Task { [repositoryActor] in
+      let downloadSettings = await repositoryActor.loadGlobalDownloadSettings()
+      let notificationSettings = await repositoryActor.loadGlobalNotificationSettings()
+      let appearanceSettings = await repositoryActor.loadGlobalAppearanceSettings()
+      let smartListAutomationSettings = await repositoryActor.loadSmartListAutomationSettings()
+      let presetLibrary = await repositoryActor.loadPlaybackPresetLibrary()
+      let playbackSettings = await repositoryActor.loadGlobalPlaybackSettings()
+      let uiSettings = await repositoryActor.loadGlobalUISettings()
 
       await MainActor.run { [weak self] in
         guard let self else { return }
@@ -237,22 +233,22 @@ public class SettingsManager {
         self.globalUISettings = uiSettings
         self.initialLoadCompleted = true
       }
-    }  // Bridge repository change notifications to a synchronous publisher
-    #if canImport(Combine)
-      Task { [weak self] in
-        let repoPublisher = await repository.settingsChangedPublisher
+    }
+
+    // Bridge repository change notifications to main-actor updates without
+    // requiring cross-actor access to the manager instance.
+    let settingsChangeStream = repositoryActor.settingsChangeStream()
+    settingsChangeObservationTask = Task.detached { [weak self, settingsChangeStream] in
+      for await change in settingsChangeStream {
         await MainActor.run { [weak self] in
-          guard let self = self else { return }
-          repoPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] change in
-              guard let self = self else { return }
-              self.applyRepositoryChange(change)
-            }
-            .store(in: &self.cancellables)
+          self?.applyRepositoryChange(change)
         }
       }
-    #endif
+    }
+  }
+
+  deinit {
+    settingsChangeObservationTask?.cancel()
   }
 
   // MARK: - Cascading Resolution
@@ -419,13 +415,6 @@ public class SettingsManager {
 
   // MARK: - Change Notifications
 
-  /// Publisher for settings changes (forwarded from repository via bridge)
-  #if canImport(Combine)
-    public var settingsChangePublisher: AnyPublisher<SettingsChange, Never> {
-      settingsChangeSubject.eraseToAnyPublisher()
-    }
-  #endif
-
   // MARK: - Private Methods
 
   private func handleSettingsChange(_ change: SettingsChange) {
@@ -452,22 +441,12 @@ public class SettingsManager {
   }
 }
 
-#if canImport(Combine)
-  extension SettingsManager {
-    @MainActor
-    private func applyRepositoryChange(_ change: SettingsChange) {
-      handleSettingsChange(change)
-      settingsChangeSubject.send(change)
-    }
+extension SettingsManager {
+  @MainActor
+  private func applyRepositoryChange(_ change: SettingsChange) {
+    handleSettingsChange(change)
   }
-#else
-  extension SettingsManager {
-    @MainActor
-    private func applyRepositoryChange(_ change: SettingsChange) {
-      handleSettingsChange(change)
-    }
-  }
-#endif
+}
 
 extension SettingsManager {
   fileprivate func didUpdatePlaybackPresetLibrary(

@@ -104,16 +104,28 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     }
     _ = XCTWaiter.wait(for: [focusExpectation], timeout: 1.0)
 
-    searchField.typeText("Swift Talk")
+    let desiredQuery = "Swift Talk"
+    searchField.typeText(desiredQuery)
 
-    // Then: The search field should contain the typed text
+    // Then: Wait for the full query to land in the field (accounts for async UI updates)
+    let valueExpectation = XCTNSPredicateExpectation(
+      predicate: NSPredicate { _, _ in
+        guard let currentValue = searchField.value as? String else { return false }
+        return currentValue.localizedCaseInsensitiveContains(desiredQuery)
+      },
+      object: nil
+    )
+    valueExpectation.expectationDescription = "Search field reflects \(desiredQuery)"
+
+    let expectationResult = XCTWaiter.wait(for: [valueExpectation], timeout: adaptiveShortTimeout)
     let searchFieldValue = searchField.value as? String
-    let swiftTalkTextElement = app.staticTexts["Swift Talk"]
+
+    // Also accept the UI presenting a result cell if the text field clears (common on some devices)
+    let swiftTalkTextElement = app.staticTexts[desiredQuery]
     let hasSwiftTalkText = swiftTalkTextElement.waitForExistence(timeout: adaptiveShortTimeout)
 
     XCTAssertTrue(
-      searchFieldValue == "Swift Talk" || hasSwiftTalkText
-        || searchFieldValue?.contains("Swift Talk") == true,
+      expectationResult == .completed || hasSwiftTalkText,
       "Search field should contain typed text. Found value: '\(searchFieldValue ?? "nil")', Swift Talk text exists: \(hasSwiftTalkText)"
     )
   }

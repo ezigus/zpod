@@ -241,30 +241,24 @@ final class EpisodeFilterRepositoryTests: XCTestCase {
 
 // MARK: - Episode Filter Manager Tests
 
+@MainActor
 final class EpisodeFilterManagerTests: XCTestCase {
-    
     private var filterManager: EpisodeFilterManager!
     private var mockRepository: MockEpisodeFilterRepository!
     private var filterService: DefaultEpisodeFilterService!
-    
-    override func setUp() async throws {
-        try await super.setUp()
-        
-        let repository = MockEpisodeFilterRepository()
-        let service = DefaultEpisodeFilterService()
-        let manager = await MainActor.run { EpisodeFilterManager(repository: repository, filterService: service) }
-        mockRepository = repository
-        filterService = service
-        filterManager = manager
-        try await Task.sleep(nanoseconds: 50_000_000)
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        mockRepository = MockEpisodeFilterRepository()
+        filterService = DefaultEpisodeFilterService()
+        filterManager = EpisodeFilterManager(repository: mockRepository, filterService: filterService)
     }
-    
-    override func tearDown() async throws {
+
+    override func tearDownWithError() throws {
         filterManager = nil
         mockRepository = nil
         filterService = nil
-        
-        try await super.tearDown()
+        try super.tearDownWithError()
     }
     
     // MARK: - Filter Management Tests
@@ -322,7 +316,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     @MainActor
-    func testFilterForPodcast_ReturnsDefaultFilter() async {
+    func testFilterForPodcast_ReturnsDefaultFilter() {
         // Given: Podcast without saved filter preference
         let podcastId = "unknown-podcast"
         
