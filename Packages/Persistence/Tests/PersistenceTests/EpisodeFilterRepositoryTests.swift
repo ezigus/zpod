@@ -257,6 +257,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     filterManager = await MainActor.run { [repository, service] in
       EpisodeFilterManager(repository: repository, filterService: service)
     }
+    await waitForInitialManagerLoad()
   }
 
   override func tearDown() async throws {
@@ -264,6 +265,15 @@ final class EpisodeFilterManagerTests: XCTestCase {
     mockRepository = nil
     filterService = nil
     try await super.tearDown()
+  }
+
+  private func waitForInitialManagerLoad() async {
+    guard let mockRepository else { return }
+    for _ in 0..<50 {
+      if mockRepository.loadSmartListsCallCount > 0 { return }
+      await Task.yield()
+    }
+    XCTFail("EpisodeFilterManager failed to complete initial load before test execution")
   }
     
     // MARK: - Filter Management Tests
@@ -383,6 +393,8 @@ final class EpisodeFilterManagerTests: XCTestCase {
     private var globalPreferences: GlobalFilterPreferences?
     private var podcastFilters: [String: EpisodeFilter] = [:]
     private var smartLists: [SmartEpisodeList] = []
+    var loadGlobalPreferencesCallCount = 0
+    var loadSmartListsCallCount = 0
     
     func saveGlobalPreferences(_ preferences: GlobalFilterPreferences) async throws {
         saveGlobalPreferencesCalled = true
@@ -390,6 +402,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     func loadGlobalPreferences() async throws -> GlobalFilterPreferences? {
+        loadGlobalPreferencesCallCount += 1
         return globalPreferences
     }
     
@@ -411,6 +424,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     }
     
     func loadSmartLists() async throws -> [SmartEpisodeList] {
+        loadSmartListsCallCount += 1
         return smartLists
     }
     
