@@ -415,6 +415,36 @@ enum BatchOverlayWaitResult: Equatable {
 
 extension SmartUITesting where Self: XCTestCase {
 
+  /// Polls for a condition until it becomes true or the timeout elapses.
+  /// Useful for UI values that update asynchronously without triggering XC expectations.
+  @MainActor
+  @discardableResult
+  func waitUntil(
+    timeout: TimeInterval = 1.0,
+    pollInterval: TimeInterval = 0.1,
+    description: String = "condition",
+    condition: () -> Bool
+  ) -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      if condition() { return true }
+      RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
+    }
+    return condition()
+  }
+
+  /// Waits until the provided text field reports keyboard focus.
+  @MainActor
+  func waitForKeyboardFocus(
+    on element: XCUIElement,
+    timeout: TimeInterval = 1.0,
+    description: String
+  ) -> Bool {
+    waitUntil(timeout: timeout, pollInterval: 0.05, description: description) {
+      (element.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    }
+  }
+
   /// Launches a configured application and waits for the main tab bar to appear so tests start from a stable state.
   @MainActor
   @discardableResult
