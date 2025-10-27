@@ -1049,11 +1049,19 @@ test_app_target() {
     all|zpod)
       args+=(build test);;
     AppSmokeTests|zpodTests|zpodUITests)
-      args+=(build test -only-testing:"$target");;
+      args+=(build test -only-testing:"$target")
+      if [[ "$target" == "zpodUITests" ]]; then
+        args+=(-skip-testing:IntegrationTests)
+      fi
+      ;;
     IntegrationTests)
       args+=(build test);;
     */*)
-      args+=(build test -only-testing:"$target");;
+      args+=(build test -only-testing:"$target")
+      if [[ "$target" == zpodUITests/* ]]; then
+        args+=(-skip-testing:IntegrationTests)
+      fi
+      ;;
     *)
       args+=(build test)
       ;;
