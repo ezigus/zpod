@@ -272,6 +272,7 @@ final class EpisodeFilterManagerTests: XCTestCase {
     for _ in 0..<50 {
       if mockRepository.loadSmartListsCallCount > 0 { return }
       await Task.yield()
+      try? await Task.sleep(nanoseconds: 50_000_000)
     }
     XCTFail("EpisodeFilterManager failed to complete initial load before test execution")
   }
