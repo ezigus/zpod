@@ -876,16 +876,20 @@ build_app_target() {
   if [[ "$target_label" == "IntegrationTests" ]]; then
     resolved_scheme="IntegrationTests"
   fi
-  select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
   resolved_destination="$SELECTED_DESTINATION"
 
   local -a args=(
     -workspace "$WORKSPACE"
-    -scheme "$SCHEME"
-    -sdk iphonesimulator
-    -destination "$SELECTED_DESTINATION"
+    -scheme "$resolved_scheme"
+    -sdk "$resolved_sdk"
+    -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    mkdir -p "$ZPOD_DERIVED_DATA_PATH"
+    args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
+  fi
   if [[ $REQUESTED_CLEAN -eq 1 ]]; then
     args+=(clean)
   fi
