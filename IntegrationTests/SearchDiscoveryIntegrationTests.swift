@@ -134,7 +134,6 @@ final class SearchDiscoveryIntegrationTests: XCTestCase, @unchecked Sendable {
             podcastManager.add(podcast)
         }
         await searchService.rebuildIndex()
-        await searchService.rebuildIndex()
         
         // When: I search for "Swift Talk" podcast using keywords
         searchViewModel.searchText = "Swift Talk"
