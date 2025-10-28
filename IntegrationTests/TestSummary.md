@@ -43,9 +43,16 @@
   - **Gaps**: Download and playback preset migrations will require follow-up coverage once their modular paths land (Issue 02.1.6.4).
 
 ## Coverage Summary
-- Total Integration Tests: 1,623 lines across 7 files
+- Total Integration Test Code: 1,623 lines across 7 Swift files (excludes TestSummary.md)
+  - CoreWorkflowIntegrationTests: 260 lines
+  - SearchDiscoveryIntegrationTests: 476 lines
+  - PlaylistPlaybackIntegrationTests: 254 lines
+  - OrganizationIntegrationTests: 196 lines
+  - IntegrationTestSupport: 221 lines
+  - SimpleCoreIntegrationTests: 135 lines (pre-existing)
+  - SwipeConfigurationIntegrationTests: 81 lines (pre-existing)
 - CoreWorkflowIntegrationTests reduced from 1,190 to 260 lines (78% reduction)
-- All tests now below SwiftLint type_body_length threshold (500 lines)
+- All files now below SwiftLint type_body_length threshold (500 lines)
 - No SwiftLint suppressions required
 
 ## Open Questions
