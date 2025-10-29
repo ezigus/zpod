@@ -93,7 +93,5 @@ extension EpisodeListViewModel {
     }
   }
   
-  private static var logger: Logger {
-    Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
-  }
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
 }
