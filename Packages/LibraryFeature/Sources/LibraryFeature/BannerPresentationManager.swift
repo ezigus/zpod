@@ -10,42 +10,6 @@ import CoreModels
 import Foundation
 import SwiftUI
 
-// MARK: - Banner State
-
-/// Represents the state of a banner displayed in the episode list
-public struct EpisodeListBannerState: Equatable {
-  public let title: String
-  public let subtitle: String
-  public let style: Style
-  public let retry: (() -> Void)?
-  public let undo: (() -> Void)?
-  
-  public enum Style: Equatable {
-    case success
-    case failure
-  }
-  
-  public init(
-    title: String,
-    subtitle: String,
-    style: Style,
-    retry: (() -> Void)? = nil,
-    undo: (() -> Void)? = nil
-  ) {
-    self.title = title
-    self.subtitle = subtitle
-    self.style = style
-    self.retry = retry
-    self.undo = undo
-  }
-  
-  public static func == (lhs: EpisodeListBannerState, rhs: EpisodeListBannerState) -> Bool {
-    lhs.title == rhs.title &&
-    lhs.subtitle == rhs.subtitle &&
-    lhs.style == rhs.style
-  }
-}
-
 // MARK: - Protocol
 
 /// Manages banner presentation and dismissal for episode list operations
