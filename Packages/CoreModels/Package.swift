@@ -14,12 +14,14 @@ let package = Package(
       targets: ["CoreModels"])
   ],
   dependencies: [
-    // Remove PlaybackEngine dependency for now to focus on CoreModels tests
+    .package(path: "../SharedUtilities"),
   ],
   targets: [
     .target(
       name: "CoreModels",
-      dependencies: []
+      dependencies: [
+        .product(name: "SharedUtilities", package: "SharedUtilities"),
+      ]
     ),
     .testTarget(
       name: "CoreModelsTests",
