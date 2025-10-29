@@ -162,14 +162,14 @@ public final class EpisodeListViewModel: ObservableObject {
   internal let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
   
   // MARK: - Coordinators
-  internal lazy var downloadProgressCoordinator: (EpisodeDownloadProgressCoordinating & ObservableObject) = {
+  internal lazy var downloadProgressCoordinator: EpisodeDownloadProgressCoordinator = {
     EpisodeDownloadProgressCoordinator(
       downloadProgressProvider: self.downloadProgressProvider,
       episodeLookup: { [weak self] id in self?.episodeForID(id) },
       episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
     )
   }()
-  internal lazy var bannerManager: (BannerPresentationManaging & ObservableObject) = {
+  internal lazy var bannerManager: BannerPresentationManager = {
     BannerPresentationManager(
       retryHandler: { [weak self] operationID in
         await self?.retryBatchOperation(operationID)
