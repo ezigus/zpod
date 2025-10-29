@@ -36,7 +36,7 @@ public struct AdvancedSearchEvaluator: Sendable {
             let filteredEpisodes = sortedResults.filter { result in
                 let filtered = filterEvaluator.applyFilter([result.episode], filter: filter)
                 let sorted = sortService.sortEpisodes(filtered, by: filter.sortBy)
-                return sorted.count > 0
+                return !sorted.isEmpty
             }
             return filteredEpisodes
         } else {
