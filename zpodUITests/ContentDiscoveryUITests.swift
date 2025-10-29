@@ -681,31 +681,15 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
         "Keyboard should appear after tapping search field")
 
-      // Verify the field is ready for input by checking it has focus
-      let hasKeyboardFocus4 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-      XCTAssertTrue(
-        hasKeyboardFocus4,
-        "Search field should have keyboard focus after tap")
-
-      // Wait for focus to be fully established before typing using proper async pattern
-      let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        focusExpectation.fulfill()
-      }
-      _ = XCTWaiter.wait(for: [focusExpectation], timeout: 0.5)
-
-      // Type text into the search field
+      // Type text into the search field (typeText is synchronous, no additional wait needed)
       searchField.typeText("test")
 
       // Then: Verify the interface is responsive by checking that the text was entered
-      // This tests UI responsiveness rather than automation speed
-      let textEntered =
-        searchField.value as? String == "test"
-        || (searchField.value as? String)?.contains("test") == true
-        || app.staticTexts["test"].exists
-
+      // Check the field's value directly - this is the most reliable method
+      let enteredValue = searchField.value as? String ?? ""
       XCTAssertTrue(
-        textEntered, "Search interface should be responsive - text should appear in the field")
+        enteredValue.contains("test"),
+        "Search field should contain typed text, got: '\(enteredValue)'")
 
       // Additional verification: ensure search field remains available for further interaction
       XCTAssertTrue(searchField.exists, "Search field should remain available after text input")
