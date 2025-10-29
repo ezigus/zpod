@@ -245,10 +245,8 @@ public enum SmartListRuleValue: Codable, Equatable, Sendable {
     }
     
     private func formatDuration(_ duration: TimeInterval) -> String {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.hour, .minute]
-        formatter.unitsStyle = .abbreviated
-        return formatter.string(from: duration) ?? "\(Int(duration))s"
+        // Use TimeInterval extension for cross-platform compatibility
+        return duration.abbreviatedDescription(includeSeconds: true)
     }
 }
 
