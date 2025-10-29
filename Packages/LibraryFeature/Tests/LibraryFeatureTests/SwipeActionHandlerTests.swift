@@ -71,7 +71,7 @@ final class SwipeActionHandlerTests: XCTestCase {
     )
     
     // Allow async task to complete
-    try? await Task.sleep(nanoseconds: 100_000_000)
+    try await Task.sleep(nanoseconds: 100_000_000)
     
     // Then: Quick play handler should be called
     XCTAssertNotNil(playedEpisode)
