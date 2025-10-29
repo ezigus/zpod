@@ -8,6 +8,7 @@
 
 import CoreModels
 import Foundation
+import Persistence
 import SwiftUI
 
 // MARK: - Smart List View Model

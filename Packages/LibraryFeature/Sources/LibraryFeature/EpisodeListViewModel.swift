@@ -127,8 +127,8 @@ public final class EpisodeListViewModel: ObservableObject {
   }
 
   // Batch operation properties
-  @Published public private(set) var selectionState = EpisodeSelectionState()
-  @Published public private(set) var activeBatchOperations: [BatchOperation] = [] {
+  @Published public internal(set) var selectionState = EpisodeSelectionState()
+  @Published public internal(set) var activeBatchOperations: [BatchOperation] = [] {
     didSet {
       #if DEBUG
         self.overlayLogger.debug(
@@ -157,6 +157,8 @@ public final class EpisodeListViewModel: ObservableObject {
   private let filterManager: EpisodeFilterManager?
   internal let batchOperationManager: BatchOperationManaging
   internal let downloadManager: DownloadManaging?
+  private let downloadProgressProvider: DownloadProgressProviding?
+  private let playbackService: EpisodePlaybackService?
   private let episodeRepository: EpisodeRepository?
   private let swipeConfigurationService: SwipeConfigurationServicing
   private var cancellables = Set<AnyCancellable>()
@@ -166,10 +168,31 @@ public final class EpisodeListViewModel: ObservableObject {
   internal let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
   
   // MARK: - Coordinators
-  internal let downloadProgressCoordinator: EpisodeDownloadProgressCoordinating
-  internal let bannerManager: BannerPresentationManaging
+  internal lazy var downloadProgressCoordinator: EpisodeDownloadProgressCoordinating = {
+    EpisodeDownloadProgressCoordinator(
+      downloadProgressProvider: self.downloadProgressProvider,
+      episodeLookup: { [weak self] id in self?.episodeForID(id) },
+      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
+    )
+  }()
+  internal lazy var bannerManager: BannerPresentationManaging = {
+    BannerPresentationManager(
+      retryHandler: { [weak self] operationID in
+        await self?.retryBatchOperation(operationID)
+      },
+      undoHandler: { [weak self] operationID in
+        await self?.undoBatchOperation(operationID)
+      }
+    )
+  }()
   private let swipeActionHandler: SwipeActionHandling
-  private let playbackCoordinator: EpisodePlaybackCoordinating
+  private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
+    EpisodePlaybackCoordinator(
+      playbackService: self.playbackService,
+      episodeLookup: { [weak self] id in self?.episodeForID(id) },
+      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
+    )
+  }()
 
   public init(
     podcast: Podcast,
@@ -189,35 +212,15 @@ public final class EpisodeListViewModel: ObservableObject {
     self.filterManager = filterManager
     self.batchOperationManager = batchOperationManager
     self.downloadManager = downloadManager
+    self.downloadProgressProvider = downloadProgressProvider
+    self.playbackService = playbackService
     self.episodeRepository = episodeRepository
     self.swipeConfigurationService = swipeConfigurationService
     self.allEpisodes = podcast.episodes
     self.swipeConfiguration = .default
     
-    // Initialize coordinators
-    self.downloadProgressCoordinator = EpisodeDownloadProgressCoordinator(
-      downloadProgressProvider: downloadProgressProvider,
-      episodeLookup: { [weak self] id in self?.episodeForID(id) },
-      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
-    )
-    
-    self.bannerManager = BannerPresentationManager(
-      retryHandler: { [weak self] operationID in
-        await self?.retryBatchOperation(operationID)
-      },
-      undoHandler: { [weak self] operationID in
-        await self?.undoBatchOperation(operationID)
-      }
-    )
-    
     self.swipeActionHandler = SwipeActionHandler(
       hapticFeedbackService: hapticFeedbackService
-    )
-    
-    self.playbackCoordinator = EpisodePlaybackCoordinator(
-      playbackService: playbackService,
-      episodeLookup: { [weak self] id in self?.episodeForID(id) },
-      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
     )
 
     // Load saved filter for this podcast

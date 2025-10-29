@@ -8,6 +8,7 @@
 
 import CoreModels
 import Foundation
+import OSLog
 
 // MARK: - Selection Management
 
@@ -72,7 +73,7 @@ extension EpisodeListViewModel {
       exitMultiSelectMode()
     } catch {
       // Handle error - in a real implementation, this would show an error message
-      Self.logger.error("Batch operation failed: \(error, privacy: .public)")
+      Self.selectionLogger.error("Batch operation failed: \(error, privacy: .public)")
     }
   }
 
@@ -125,7 +126,8 @@ extension EpisodeListViewModel {
     ]
   }
   
-  private static var logger: OSLog.Logger {
-    OSLog.Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
-  }
+  private static let selectionLogger = Logger(
+    subsystem: "us.zig.zpod",
+    category: "EpisodeListViewModel.Selection"
+  )
 }
