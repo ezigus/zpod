@@ -36,15 +36,40 @@ public protocol EpisodeFilterService: Sendable {
 // MARK: - Default Implementation
 
 /// Default implementation using composable helper services.
-/// Delegates to specialized helpers for filtering, sorting, searching, and smart list evaluation.
+///
+/// This actor delegates to specialized Sendable helper services for filtering, sorting,
+/// searching, and smart list evaluation. The decomposition into helpers:
+/// - Reduces the main service from 700+ lines to ~150 lines
+/// - Improves testability by isolating concerns
+/// - Maintains actor safety through Sendable value types
+/// - Preserves backward compatibility with existing consumers
+///
+/// Architecture:
+/// - `EpisodeFilterEvaluator`: Evaluates filter conditions and applies filters
+/// - `EpisodeSortService`: Handles all sorting logic
+/// - `EpisodeSearchHelper`: Basic text search matching
+/// - `AdvancedSearchEvaluator`: Advanced search with scoring and highlighting
+/// - `SmartListRuleEvaluator`: Smart list rule evaluation
+///
+/// All helpers are Sendable structs (value types) that can be safely used across
+/// actor boundaries, allowing all methods to be `nonisolated` for easy consumption.
 public actor DefaultEpisodeFilterService: EpisodeFilterService {
     
     // MARK: - Helper Services
     
+    /// Evaluates filter conditions and applies filter logic
     private let filterEvaluator = EpisodeFilterEvaluator()
+    
+    /// Handles all episode sorting operations
     private let sortService = EpisodeSortService()
+    
+    /// Performs basic text-based episode search
     private let searchHelper = EpisodeSearchHelper()
+    
+    /// Performs advanced search with scoring and highlighting
     private let advancedSearchEvaluator = AdvancedSearchEvaluator()
+    
+    /// Evaluates smart list rules and conditions
     private let smartListRuleEvaluator = SmartListRuleEvaluator()
     
     // MARK: - Initialization
