@@ -1,4 +1,5 @@
 import Foundation
+import SharedUtilities
 
 // MARK: - Episode Filtering Protocol
 
@@ -685,10 +686,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService { // swiftlint:di
     
     /// Format duration for search
     nonisolated private func formatDuration(_ duration: TimeInterval) -> String {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.hour, .minute, .second]
-        formatter.unitsStyle = .abbreviated
-        return formatter.string(from: duration) ?? ""
+        duration.abbreviatedDescription(includeSeconds: true)
     }
 }
 
