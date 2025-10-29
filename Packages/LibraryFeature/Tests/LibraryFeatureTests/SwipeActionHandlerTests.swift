@@ -263,7 +263,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     )
     
     // Allow async task to complete
-    try? await Task.sleep(nanoseconds: 100_000_000)
+    do {
+      try await Task.sleep(nanoseconds: 100_000_000)
+    } catch {
+      XCTFail("Task.sleep failed: \(error)")
+    }
     
     // Then: Delete handler should be called
     XCTAssertNotNil(deletedEpisode)
