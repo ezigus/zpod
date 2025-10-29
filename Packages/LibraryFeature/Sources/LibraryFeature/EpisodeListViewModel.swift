@@ -143,14 +143,8 @@ public final class EpisodeListViewModel: ObservableObject {
   @Published public var pendingPlaylistEpisode: Episode?
   @Published public var pendingShareEpisode: Episode?
 
-  // Delegate to coordinators for these published properties
-  public var downloadProgressByEpisodeID: [String: EpisodeDownloadProgressUpdate] {
-    downloadProgressCoordinator.downloadProgressByEpisodeID
-  }
-  
-  public var bannerState: EpisodeListBannerState? {
-    bannerManager.bannerState
-  }
+  @Published public private(set) var downloadProgressByEpisodeID: [String: EpisodeDownloadProgressUpdate] = [:]
+  @Published public private(set) var bannerState: EpisodeListBannerState?
 
   private let podcast: Podcast
   private let filterService: EpisodeFilterService
@@ -168,14 +162,14 @@ public final class EpisodeListViewModel: ObservableObject {
   internal let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
   
   // MARK: - Coordinators
-  internal lazy var downloadProgressCoordinator: EpisodeDownloadProgressCoordinating = {
+  internal lazy var downloadProgressCoordinator: (EpisodeDownloadProgressCoordinating & ObservableObject) = {
     EpisodeDownloadProgressCoordinator(
       downloadProgressProvider: self.downloadProgressProvider,
       episodeLookup: { [weak self] id in self?.episodeForID(id) },
       episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
     )
   }()
-  internal lazy var bannerManager: BannerPresentationManaging = {
+  internal lazy var bannerManager: (BannerPresentationManaging & ObservableObject) = {
     BannerPresentationManager(
       retryHandler: { [weak self] operationID in
         await self?.retryBatchOperation(operationID)
@@ -218,10 +212,12 @@ public final class EpisodeListViewModel: ObservableObject {
     self.swipeConfigurationService = swipeConfigurationService
     self.allEpisodes = podcast.episodes
     self.swipeConfiguration = .default
-    
+
     self.swipeActionHandler = SwipeActionHandler(
       hapticFeedbackService: hapticFeedbackService
     )
+
+    bindCoordinatorPublishing()
 
     // Load saved filter for this podcast
     loadInitialFilter()
@@ -349,6 +345,25 @@ public final class EpisodeListViewModel: ObservableObject {
         self?.updateBatchOperation(batchOperation)
       }
       .store(in: &cancellables)
+  }
+
+  private func bindCoordinatorPublishing() {
+    downloadProgressCoordinator.objectWillChange
+      .sink { [weak self] _ in
+        guard let self else { return }
+        self.downloadProgressByEpisodeID = self.downloadProgressCoordinator.downloadProgressByEpisodeID
+      }
+      .store(in: &cancellables)
+
+    bannerManager.objectWillChange
+      .sink { [weak self] _ in
+        guard let self else { return }
+        self.bannerState = self.bannerManager.bannerState
+      }
+      .store(in: &cancellables)
+
+    downloadProgressByEpisodeID = downloadProgressCoordinator.downloadProgressByEpisodeID
+    bannerState = bannerManager.bannerState
   }
 
   private func observeSwipeConfiguration() {

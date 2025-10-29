@@ -33,7 +33,7 @@ public protocol EpisodeDownloadProgressCoordinating: AnyObject {
 
 /// Default implementation of download progress coordination
 @MainActor
-public final class EpisodeDownloadProgressCoordinator: EpisodeDownloadProgressCoordinating {
+public final class EpisodeDownloadProgressCoordinator: ObservableObject, EpisodeDownloadProgressCoordinating {
   @Published public private(set) var downloadProgressByEpisodeID: [String: EpisodeDownloadProgressUpdate] = [:]
   
   private let downloadProgressProvider: DownloadProgressProviding?
