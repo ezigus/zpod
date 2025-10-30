@@ -75,12 +75,24 @@ jobs:
       - name: Build host app and test bundles for reuse
         run: |
           set -euo pipefail
+          DEST_PATH="$PWD/tmp_ci/DerivedData/HostPrebuild"
           xcodebuild \
             -workspace zpod.xcworkspace \
-            -scheme "zpod (zpod project)" \
+            -scheme zpod \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$PWD/tmp_ci/DerivedData/HostPrebuild" \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath "$DEST_PATH" \
+            build-for-testing
+          HOST_APP="$DEST_PATH/Build/Products/Debug-iphonesimulator/zpod.app"
+          if [ ! -f "$HOST_APP/zpod" ] && [ -f "$HOST_APP/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$HOST_APP/zpod"
+          fi
+          xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme IntegrationTests \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath "$DEST_PATH" \
             build-for-testing
         env:
           NSUnbufferedIO: "YES"
@@ -93,6 +105,9 @@ jobs:
             echo "Expected host app bundle not found at $HOST_DIR/zpod.app" >&2
             ls -R "$HOST_DIR" || true
             exit 1
+          fi
+          if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
           fi
           mkdir -p artifacts
           tar -czf artifacts/host-app.tar.gz -C "$HOST_DIR" .
@@ -432,6 +447,9 @@ jobs:
           HOST_DIR="${{ steps.integration-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
           mkdir -p "$HOST_DIR"
           tar -xzf host-app/host-app.tar.gz -C "$HOST_DIR"
+          if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
+          fi
 
       - name: Run Integration Tests
         run: |
@@ -636,6 +654,9 @@ jobs:
           HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
           mkdir -p "$HOST_DIR"
           tar -xzf host-app/host-app.tar.gz -C "$HOST_DIR"
+          if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
+          fi
 
       - name: Run ${{ matrix.name }} Tests
         run: |
