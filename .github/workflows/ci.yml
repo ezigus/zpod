@@ -140,10 +140,12 @@ jobs:
           mkdir -p artifacts
           tar -czf artifacts/host-app.tar.gz -C "$HOST_DIR" .
           
-          # Generate checksum for integrity verification
-          shasum -a 256 artifacts/host-app.tar.gz > artifacts/host-app.tar.gz.sha256
+          # Generate checksum for integrity verification (use relative path in checksum file)
+          cd artifacts
+          shasum -a 256 host-app.tar.gz > host-app.tar.gz.sha256
           echo "Generated artifact checksum:"
-          cat artifacts/host-app.tar.gz.sha256
+          cat host-app.tar.gz.sha256
+          cd ..
 
       - name: Upload Host App Artifact
         uses: actions/upload-artifact@v4
