@@ -70,6 +70,39 @@ jobs:
           ./scripts/run-xcode-tests.sh -c -b all
         env:
           NSUnbufferedIO: "YES"
+          ZPOD_DERIVED_DATA_PATH: ${{ github.workspace }}/tmp_ci/DerivedData/HostPrebuild
+
+      - name: Build host app and test bundles for reuse
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme "zpod (zpod project)" \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$PWD/tmp_ci/DerivedData/HostPrebuild" \
+            build-for-testing
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Package host app bundle
+        run: |
+          set -euo pipefail
+          HOST_DIR="$PWD/tmp_ci/DerivedData/HostPrebuild/Build/Products/Debug-iphonesimulator"
+          if [ ! -d "$HOST_DIR/zpod.app" ]; then
+            echo "Expected host app bundle not found at $HOST_DIR/zpod.app" >&2
+            ls -R "$HOST_DIR" || true
+            exit 1
+          fi
+          mkdir -p artifacts
+          tar -czf artifacts/host-app.tar.gz -C "$HOST_DIR" .
+
+      - name: Upload Host App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-app
+          path: artifacts/host-app.tar.gz
+          if-no-files-found: error
 
       - name: Archive Preflight Results
         if: always()
@@ -387,6 +420,19 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Download host app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
+
+      - name: Restore host app bundle
+        run: |
+          set -euo pipefail
+          HOST_DIR="${{ steps.integration-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
+          mkdir -p "$HOST_DIR"
+          tar -xzf host-app/host-app.tar.gz -C "$HOST_DIR"
+
       - name: Run Integration Tests
         run: |
           set -euo pipefail
@@ -396,6 +442,7 @@ jobs:
           UITEST_TIMEOUT_SCALE: "1.5"
           ZPOD_SIMULATOR_UDID: ${{ steps.integration-sim.outputs.udid }}
           ZPOD_DERIVED_DATA_PATH: ${{ steps.integration-sim.outputs.derived_path }}
+          ZPOD_TEST_WITHOUT_BUILDING: "1"
 
       - name: Archive Test Results
         if: always()
@@ -577,6 +624,19 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Download host app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
+
+      - name: Restore host app bundle
+        run: |
+          set -euo pipefail
+          HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
+          mkdir -p "$HOST_DIR"
+          tar -xzf host-app/host-app.tar.gz -C "$HOST_DIR"
+
       - name: Run ${{ matrix.name }} Tests
         run: |
           set -euo pipefail
@@ -586,6 +646,7 @@ jobs:
           UITEST_TIMEOUT_SCALE: "1.5"
           ZPOD_SIMULATOR_UDID: ${{ steps.provision-sim.outputs.udid }}
           ZPOD_DERIVED_DATA_PATH: ${{ steps.provision-sim.outputs.derived_path }}
+          ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
         run: |

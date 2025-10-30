@@ -232,6 +232,11 @@ ensure_host_app_product() {
     return 0
   fi
 
+  if [[ "${ZPOD_TEST_WITHOUT_BUILDING:-0}" == "1" ]]; then
+    log_error "Host app missing at ${expected_app} but rebuilds are disabled (ZPOD_TEST_WITHOUT_BUILDING=1)"
+    return 1
+  fi
+
   log_info "Host app missing at ${expected_app}; building zpod target before running tests"
 
   local original_clean=$REQUESTED_CLEAN
@@ -244,7 +249,8 @@ ensure_host_app_product() {
   REQUESTED_CLEAN=$original_clean
 
   if [[ ! -f "$expected_app" ]]; then
-    log_warn "Host app still missing at ${expected_app} after rebuild"
+    log_error "Host app still missing at ${expected_app} after rebuild"
+    return 1
   fi
 
   return 0
@@ -1041,29 +1047,41 @@ test_app_target() {
     mkdir -p "$ZPOD_DERIVED_DATA_PATH"
     args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
   fi
-  if [[ $REQUESTED_CLEAN -eq 1 ]]; then
+  local use_test_without_building=0
+  if [[ "${ZPOD_TEST_WITHOUT_BUILDING:-0}" == "1" ]]; then
+    use_test_without_building=1
+  fi
+
+  if [[ $REQUESTED_CLEAN -eq 1 && $use_test_without_building -eq 0 ]]; then
     args+=(clean)
+  fi
+
+  local -a action_args=()
+  if [[ $use_test_without_building -eq 1 ]]; then
+    action_args+=(test-without-building)
+  else
+    action_args+=(build test)
   fi
 
   case "$target" in
     all|zpod)
-      args+=(build test);;
+      args+=("${action_args[@]}");;
     AppSmokeTests|zpodTests|zpodUITests)
-      args+=(build test -only-testing:"$target")
+      args+=("${action_args[@]}" -only-testing:"$target")
       if [[ "$target" == "zpodUITests" ]]; then
         args+=(-skip-testing:IntegrationTests)
       fi
       ;;
     IntegrationTests)
-      args+=(build test);;
+      args+=("${action_args[@]}");;
     */*)
-      args+=(build test -only-testing:"$target")
+      args+=("${action_args[@]}" -only-testing:"$target")
       if [[ "$target" == zpodUITests/* ]]; then
         args+=(-skip-testing:IntegrationTests)
       fi
       ;;
     *)
-      args+=(build test)
+      args+=("${action_args[@]}")
       ;;
   esac
 
@@ -1368,11 +1386,20 @@ run_filtered_xcode_tests() {
     args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
   fi
 
-  if [[ $clean_flag -eq 1 ]]; then
+  local use_test_without_building=0
+  if [[ "${ZPOD_TEST_WITHOUT_BUILDING:-0}" == "1" ]]; then
+    use_test_without_building=1
+  fi
+
+  if [[ $clean_flag -eq 1 && $use_test_without_building -eq 0 ]]; then
     args+=(clean)
   fi
 
-  args+=(build test)
+  if [[ $use_test_without_building -eq 1 ]]; then
+    args+=(test-without-building)
+  else
+    args+=(build test)
+  fi
 
   if [[ $integration_run -eq 0 ]]; then
     local filter
