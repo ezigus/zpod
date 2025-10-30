@@ -302,6 +302,39 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
+
+      - name: Pre-warm simulator for unit tests
+        if: steps.unit-sim.outputs.udid != ''
+        run: |
+          set -euo pipefail
+          UDID="${{ steps.unit-sim.outputs.udid }}"
+          
+          echo "Pre-warming simulator services for faster test execution..."
+          
+          # Wait for SpringBoard to be fully ready
+          echo "Waiting for SpringBoard to launch..."
+          timeout 30 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.SpringBoard; do
+              sleep 0.5
+            done
+          " || echo "Warning: SpringBoard check timed out"
+          
+          # Pre-warm accessibility services (critical for UI testing)
+          echo "Initializing accessibility services..."
+          xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
+          
+          # Wait for accessibility server to be ready
+          timeout 15 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; do
+              sleep 0.5
+            done
+          " || echo "Warning: Accessibility service check timed out"
+          
+          # Small delay to let services stabilize
+          sleep 2
+          
+          echo "✅ Simulator pre-warming complete"
+
       - name: Download host app artifact
         uses: actions/download-artifact@v4
         with:
@@ -558,6 +591,39 @@ jobs:
             rm -rf "$TEMP_DIR"
             exit 1
           fi
+
+      - name: Pre-warm simulator for integration tests
+        if: steps.integration-sim.outputs.udid != ''
+        run: |
+          set -euo pipefail
+          UDID="${{ steps.integration-sim.outputs.udid }}"
+          
+          echo "Pre-warming simulator services for faster test execution..."
+          
+          # Wait for SpringBoard to be fully ready
+          echo "Waiting for SpringBoard to launch..."
+          timeout 30 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.SpringBoard; do
+              sleep 0.5
+            done
+          " || echo "Warning: SpringBoard check timed out"
+          
+          # Pre-warm accessibility services (critical for UI testing)
+          echo "Initializing accessibility services..."
+          xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
+          
+          # Wait for accessibility server to be ready
+          timeout 15 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; do
+              sleep 0.5
+            done
+          " || echo "Warning: Accessibility service check timed out"
+          
+          # Small delay to let services stabilize
+          sleep 2
+          
+          echo "✅ Simulator pre-warming complete"
+
           
           # Create symlink if needed
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
@@ -838,6 +904,43 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
+
+      - name: Pre-warm simulator for UI tests
+        if: steps.provision-sim.outputs.udid != ''
+        run: |
+          set -euo pipefail
+          UDID="${{ steps.provision-sim.outputs.udid }}"
+          
+          echo "Pre-warming simulator services for faster test execution..."
+          
+          # Wait for SpringBoard to be fully ready
+          echo "Waiting for SpringBoard to launch..."
+          timeout 30 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.SpringBoard; do
+              sleep 0.5
+            done
+          " || echo "Warning: SpringBoard check timed out"
+          
+          # Pre-warm accessibility services (critical for UI testing)
+          echo "Initializing accessibility services..."
+          xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
+          
+          # Wait for accessibility server to be ready
+          timeout 15 bash -c "
+            while ! xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; do
+              sleep 0.5
+            done
+          " || echo "Warning: Accessibility service check timed out"
+          
+          # Enable software keyboard (critical for keyboard tests)
+          echo "Configuring keyboard settings..."
+          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
+          
+          # Small delay to let services stabilize
+          sleep 2
+          
+          echo "✅ Simulator pre-warming complete"
+
           mkdir -p artifacts/${{ matrix.name }}
           if ls TestResults >/dev/null 2>&1; then
             find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
