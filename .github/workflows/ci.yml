@@ -593,6 +593,27 @@ jobs:
             rm -rf "$TEMP_DIR"
             exit 1
           fi
+          
+          # Create symlink if needed
+          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
+            echo "Creating symlink: zpod -> zpod.debug.dylib"
+            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
+          fi
+          
+          # Verify main binary exists
+          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
+            echo "❌ Main binary missing after extraction"
+            ls -la "$TEMP_DIR/zpod.app/" || true
+            rm -rf "$TEMP_DIR"
+            exit 1
+          fi
+          
+          # Atomic move to final location
+          HOST_DIR="${{ steps.integration-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
+          mkdir -p "$(dirname "$HOST_DIR")"
+          mv "$TEMP_DIR" "$HOST_DIR"
+          
+          echo "✅ Host app bundle restored successfully to $HOST_DIR"
 
       - name: Pre-warm simulator for integration tests
         if: steps.integration-sim.outputs.udid != ''
