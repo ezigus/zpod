@@ -264,6 +264,22 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Download host app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
+
+      - name: Restore host app bundle
+        run: |
+          set -euo pipefail
+          HOST_DIR="${{ steps.unit-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
+          mkdir -p "$HOST_DIR"
+          tar -xzf host-app/host-app.tar.gz -C "$HOST_DIR"
+          if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
+          fi
+
       - name: Run AppSmoke tests
         run: |
           set -euo pipefail
@@ -272,6 +288,7 @@ jobs:
           NSUnbufferedIO: "YES"
           ZPOD_SIMULATOR_UDID: ${{ steps.unit-sim.outputs.udid }}
           ZPOD_DERIVED_DATA_PATH: ${{ steps.unit-sim.outputs.derived_path }}
+          ZPOD_TEST_WITHOUT_BUILDING: "1"
 
       - name: Archive Test Results
         if: always()
