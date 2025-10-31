@@ -64,37 +64,37 @@ public final class EpisodeListViewModel: ObservableObject {
   public func performSwipeAction(_ action: SwipeActionType, for episode: Episode) {
     swipeActionHandler.triggerHapticIfNeeded(configuration: swipeConfiguration)
     
-    swipeActionHandler.performSwipeAction(
-      action,
-      for: episode,
-      quickPlayHandler: { [weak self] episode in
+    let callbacks = SwipeActionCallbacks(
+      quickPlay: { [weak self] episode in
         await self?.quickPlayEpisode(episode)
       },
-      downloadHandler: { [weak self] episode in
+      download: { [weak self] episode in
         self?.startEpisodeDownload(episode)
       },
-      markPlayedHandler: { [weak self] episode in
+      markPlayed: { [weak self] episode in
         self?.markEpisodeAsPlayed(episode)
       },
-      markUnplayedHandler: { [weak self] episode in
+      markUnplayed: { [weak self] episode in
         self?.markEpisodeAsUnplayed(episode)
       },
-      playlistSelectionHandler: { [weak self] episode in
+      selectPlaylist: { [weak self] episode in
         self?.preparePlaylistSelection(for: episode)
       },
-      favoriteToggleHandler: { [weak self] episode in
+      toggleFavorite: { [weak self] episode in
         self?.toggleEpisodeFavorite(episode)
       },
-      archiveToggleHandler: { [weak self] episode in
+      toggleArchive: { [weak self] episode in
         self?.toggleEpisodeArchiveStatus(episode)
       },
-      deleteHandler: { [weak self] episode in
+      deleteEpisode: { [weak self] episode in
         await self?.deleteEpisode(episode)
       },
-      shareHandler: { [weak self] episode in
+      shareEpisode: { [weak self] episode in
         self?.prepareShare(for: episode)
       }
     )
+
+    swipeActionHandler.performSwipeAction(action, for: episode, callbacks: callbacks)
   }
 
   public func addPendingEpisodeToPlaylist(_ playlistID: String) {
