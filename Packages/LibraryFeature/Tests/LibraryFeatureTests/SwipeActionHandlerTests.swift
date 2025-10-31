@@ -54,21 +54,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var playedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .play,
-      for: testEpisode,
-      quickPlayHandler: { episode in
-        playedEpisode = episode
-      },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(quickPlay: { episode in
+      playedEpisode = episode
+    })
+
+    handler.performSwipeAction(.play, for: testEpisode, callbacks: callbacks)
     
     // Allow async task to complete
     try await Task.sleep(nanoseconds: 100_000_000)
@@ -84,21 +74,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var downloadedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .download,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { episode in
-        downloadedEpisode = episode
-      },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(download: { episode in
+      downloadedEpisode = episode
+    })
+
+    handler.performSwipeAction(.download, for: testEpisode, callbacks: callbacks)
     
     // Then: Download handler should be called
     XCTAssertNotNil(downloadedEpisode)
@@ -111,21 +91,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var markedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .markPlayed,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { episode in
-        markedEpisode = episode
-      },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(markPlayed: { episode in
+      markedEpisode = episode
+    })
+
+    handler.performSwipeAction(.markPlayed, for: testEpisode, callbacks: callbacks)
     
     // Then: Mark played handler should be called
     XCTAssertNotNil(markedEpisode)
@@ -138,21 +108,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var markedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .markUnplayed,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { episode in
-        markedEpisode = episode
-      },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(markUnplayed: { episode in
+      markedEpisode = episode
+    })
+
+    handler.performSwipeAction(.markUnplayed, for: testEpisode, callbacks: callbacks)
     
     // Then: Mark unplayed handler should be called
     XCTAssertNotNil(markedEpisode)
@@ -165,21 +125,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var selectedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .addToPlaylist,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { episode in
-        selectedEpisode = episode
-      },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(selectPlaylist: { episode in
+      selectedEpisode = episode
+    })
+
+    handler.performSwipeAction(.addToPlaylist, for: testEpisode, callbacks: callbacks)
     
     // Then: Playlist selection handler should be called
     XCTAssertNotNil(selectedEpisode)
@@ -192,21 +142,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var favoritedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .favorite,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { episode in
-        favoritedEpisode = episode
-      },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(toggleFavorite: { episode in
+      favoritedEpisode = episode
+    })
+
+    handler.performSwipeAction(.favorite, for: testEpisode, callbacks: callbacks)
     
     // Then: Favorite toggle handler should be called
     XCTAssertNotNil(favoritedEpisode)
@@ -219,21 +159,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var archivedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .archive,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { episode in
-        archivedEpisode = episode
-      },
-      deleteHandler: { _ in },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(toggleArchive: { episode in
+      archivedEpisode = episode
+    })
+
+    handler.performSwipeAction(.archive, for: testEpisode, callbacks: callbacks)
     
     // Then: Archive toggle handler should be called
     XCTAssertNotNil(archivedEpisode)
@@ -246,21 +176,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var deletedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .delete,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { episode in
-        deletedEpisode = episode
-      },
-      shareHandler: { _ in }
-    )
+    let callbacks = SwipeActionCallbacks(deleteEpisode: { episode in
+      deletedEpisode = episode
+    })
+
+    handler.performSwipeAction(.delete, for: testEpisode, callbacks: callbacks)
     
     // Allow async task to complete
     do {
@@ -280,21 +200,11 @@ final class SwipeActionHandlerTests: XCTestCase {
     var sharedEpisode: Episode?
     
     // When: Performing the action
-    handler.performSwipeAction(
-      .share,
-      for: testEpisode,
-      quickPlayHandler: { _ in },
-      downloadHandler: { _ in },
-      markPlayedHandler: { _ in },
-      markUnplayedHandler: { _ in },
-      playlistSelectionHandler: { _ in },
-      favoriteToggleHandler: { _ in },
-      archiveToggleHandler: { _ in },
-      deleteHandler: { _ in },
-      shareHandler: { episode in
-        sharedEpisode = episode
-      }
-    )
+    let callbacks = SwipeActionCallbacks(shareEpisode: { episode in
+      sharedEpisode = episode
+    })
+
+    handler.performSwipeAction(.share, for: testEpisode, callbacks: callbacks)
     
     // Then: Share handler should be called
     XCTAssertNotNil(sharedEpisode)

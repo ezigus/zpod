@@ -11,6 +11,44 @@ import Foundation
 import SettingsDomain
 import SharedUtilities
 
+// MARK: - Callback Container
+
+/// Groups the closures needed to process swipe actions so the handler signature
+/// remains concise and SwiftLint-compliant.
+public struct SwipeActionCallbacks {
+  public let quickPlay: (Episode) async -> Void
+  public let download: (Episode) -> Void
+  public let markPlayed: (Episode) -> Void
+  public let markUnplayed: (Episode) -> Void
+  public let selectPlaylist: (Episode) -> Void
+  public let toggleFavorite: (Episode) -> Void
+  public let toggleArchive: (Episode) -> Void
+  public let deleteEpisode: (Episode) async -> Void
+  public let shareEpisode: (Episode) -> Void
+
+  public init(
+    quickPlay: @escaping (Episode) async -> Void = { _ in },
+    download: @escaping (Episode) -> Void = { _ in },
+    markPlayed: @escaping (Episode) -> Void = { _ in },
+    markUnplayed: @escaping (Episode) -> Void = { _ in },
+    selectPlaylist: @escaping (Episode) -> Void = { _ in },
+    toggleFavorite: @escaping (Episode) -> Void = { _ in },
+    toggleArchive: @escaping (Episode) -> Void = { _ in },
+    deleteEpisode: @escaping (Episode) async -> Void = { _ in },
+    shareEpisode: @escaping (Episode) -> Void = { _ in }
+  ) {
+    self.quickPlay = quickPlay
+    self.download = download
+    self.markPlayed = markPlayed
+    self.markUnplayed = markUnplayed
+    self.selectPlaylist = selectPlaylist
+    self.toggleFavorite = toggleFavorite
+    self.toggleArchive = toggleArchive
+    self.deleteEpisode = deleteEpisode
+    self.shareEpisode = shareEpisode
+  }
+}
+
 // MARK: - Protocol
 
 /// Handles swipe action execution and haptic feedback
@@ -20,15 +58,7 @@ public protocol SwipeActionHandling: AnyObject {
   func performSwipeAction(
     _ action: SwipeActionType,
     for episode: Episode,
-    quickPlayHandler: @escaping (Episode) async -> Void,
-    downloadHandler: @escaping (Episode) -> Void,
-    markPlayedHandler: @escaping (Episode) -> Void,
-    markUnplayedHandler: @escaping (Episode) -> Void,
-    playlistSelectionHandler: @escaping (Episode) -> Void,
-    favoriteToggleHandler: @escaping (Episode) -> Void,
-    archiveToggleHandler: @escaping (Episode) -> Void,
-    deleteHandler: @escaping (Episode) async -> Void,
-    shareHandler: @escaping (Episode) -> Void
+    callbacks: SwipeActionCallbacks
   )
   
   /// Trigger haptic feedback if enabled
@@ -49,39 +79,31 @@ public final class SwipeActionHandler: SwipeActionHandling {
   public func performSwipeAction(
     _ action: SwipeActionType,
     for episode: Episode,
-    quickPlayHandler: @escaping (Episode) async -> Void,
-    downloadHandler: @escaping (Episode) -> Void,
-    markPlayedHandler: @escaping (Episode) -> Void,
-    markUnplayedHandler: @escaping (Episode) -> Void,
-    playlistSelectionHandler: @escaping (Episode) -> Void,
-    favoriteToggleHandler: @escaping (Episode) -> Void,
-    archiveToggleHandler: @escaping (Episode) -> Void,
-    deleteHandler: @escaping (Episode) async -> Void,
-    shareHandler: @escaping (Episode) -> Void
+    callbacks: SwipeActionCallbacks
   ) {
     switch action {
     case .play:
       Task {
-        await quickPlayHandler(episode)
+        await callbacks.quickPlay(episode)
       }
     case .download:
-      downloadHandler(episode)
+      callbacks.download(episode)
     case .markPlayed:
-      markPlayedHandler(episode)
+      callbacks.markPlayed(episode)
     case .markUnplayed:
-      markUnplayedHandler(episode)
+      callbacks.markUnplayed(episode)
     case .addToPlaylist:
-      playlistSelectionHandler(episode)
+      callbacks.selectPlaylist(episode)
     case .favorite:
-      favoriteToggleHandler(episode)
+      callbacks.toggleFavorite(episode)
     case .archive:
-      archiveToggleHandler(episode)
+      callbacks.toggleArchive(episode)
     case .delete:
       Task {
-        await deleteHandler(episode)
+        await callbacks.deleteEpisode(episode)
       }
     case .share:
-      shareHandler(episode)
+      callbacks.shareEpisode(episode)
     }
   }
   
