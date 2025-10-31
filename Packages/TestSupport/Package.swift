@@ -12,13 +12,15 @@ let package = Package(
     .library(name: "TestSupport", targets: ["TestSupport"])
   ],
   dependencies: [
-    .package(path: "../CoreModels")
+    .package(path: "../CoreModels"),
+    .package(path: "../PlaybackEngine")
   ],
   targets: [
     .target(
       name: "TestSupport",
       dependencies: [
-        .product(name: "CoreModels", package: "CoreModels")
+        .product(name: "CoreModels", package: "CoreModels"),
+        .product(name: "PlaybackEngine", package: "PlaybackEngine")
       ],
       path: "Sources"
     ),
@@ -27,6 +29,7 @@ let package = Package(
       dependencies: [
         "TestSupport",
         .product(name: "CoreModels", package: "CoreModels"),
+        .product(name: "PlaybackEngine", package: "PlaybackEngine")
       ],
       path: "Tests"
     ),
