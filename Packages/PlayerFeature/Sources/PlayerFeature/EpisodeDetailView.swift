@@ -232,7 +232,9 @@ public struct EpisodeDetailView: View {
             Spacer()
             
             Button(action: {
-              viewModel.addBookmarkAtCurrentPosition(label: "Bookmark at \(viewModel.formattedCurrentTime)")
+              // Use timestamp in milliseconds for unique label
+              let timestampMs = Int(viewModel.currentPosition * 1000)
+              viewModel.addBookmarkAtCurrentPosition(label: "Bookmark at \(viewModel.formattedCurrentTime) (\(timestampMs)ms)")
             }) {
               Label("Add", systemImage: "plus.circle.fill")
                 .font(.subheadline)

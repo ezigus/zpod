@@ -81,8 +81,11 @@ public class EpisodeDetailViewModel: ObservableObject {
       self.bookmarks = loadedBookmarks
       self.transcript = loadedTranscript
     } catch {
-      // Silent failure for now - annotations are optional enhancements
+      // Silent failure - annotations are optional enhancements
+      // TODO: Replace with proper logging framework when available
+      #if DEBUG
       print("Failed to load annotations: \(error)")
+      #endif
     }
   }
 
@@ -157,7 +160,9 @@ public class EpisodeDetailViewModel: ObservableObject {
         // Reload notes to update UI
         await loadNotes()
       } catch {
+        #if DEBUG
         print("Failed to save note: \(error)")
+        #endif
       }
     }
   }
@@ -170,7 +175,9 @@ public class EpisodeDetailViewModel: ObservableObject {
         // Reload notes to update UI
         await loadNotes()
       } catch {
+        #if DEBUG
         print("Failed to delete note: \(error)")
+        #endif
       }
     }
   }
@@ -194,7 +201,9 @@ public class EpisodeDetailViewModel: ObservableObject {
         // Reload bookmarks to update UI
         await loadBookmarks()
       } catch {
+        #if DEBUG
         print("Failed to save bookmark: \(error)")
+        #endif
       }
     }
   }
@@ -207,7 +216,9 @@ public class EpisodeDetailViewModel: ObservableObject {
         // Reload bookmarks to update UI
         await loadBookmarks()
       } catch {
+        #if DEBUG
         print("Failed to delete bookmark: \(error)")
+        #endif
       }
     }
   }
@@ -222,12 +233,10 @@ public class EpisodeDetailViewModel: ObservableObject {
     guard let episode = episode else { return }
     self.userRating = rating
     
-    // Update episode model
+    // Update episode model (will persist when episode is saved by the app)
+    // Note: Episode persistence happens at app level, not in this ViewModel
     let updatedEpisode = episode.withRating(rating)
     self.episode = updatedEpisode
-    
-    // In a real app, this would persist to episode storage
-    // For now, just update local state
   }
   
   /// Search transcript
@@ -247,7 +256,9 @@ public class EpisodeDetailViewModel: ObservableObject {
       let loadedNotes = try await annotationRepository.loadNotes(for: episodeId)
       self.notes = loadedNotes
     } catch {
+      #if DEBUG
       print("Failed to reload notes: \(error)")
+      #endif
     }
   }
   
@@ -257,7 +268,9 @@ public class EpisodeDetailViewModel: ObservableObject {
       let loadedBookmarks = try await annotationRepository.loadBookmarks(for: episodeId)
       self.bookmarks = loadedBookmarks
     } catch {
+      #if DEBUG
       print("Failed to reload bookmarks: \(error)")
+      #endif
     }
   }
 

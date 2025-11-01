@@ -57,6 +57,9 @@ public struct EpisodeTranscript: Codable, Equatable, Sendable {
 // MARK: - Transcript Helpers
 
 public extension EpisodeTranscript {
+    /// Default segment duration assumption when end time is not specified (in seconds)
+    private static let defaultSegmentDuration: TimeInterval = 10.0
+    
     /// Full transcript text (all segments concatenated)
     var fullText: String {
         segments.map { $0.text }.joined(separator: " ")
@@ -84,7 +87,7 @@ public extension EpisodeTranscript {
     func segments(in range: ClosedRange<TimeInterval>) -> [TranscriptSegment] {
         segments.filter { segment in
             let start = segment.startTime
-            let end = segment.endTime ?? (segment.startTime + 10) // Assume 10s if no end
+            let end = segment.endTime ?? (segment.startTime + Self.defaultSegmentDuration)
             
             // Segment overlaps with range
             return (start >= range.lowerBound && start <= range.upperBound) ||
