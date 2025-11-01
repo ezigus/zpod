@@ -17,6 +17,7 @@ let package = Package(
   dependencies: [
     .package(path: "../CoreModels"),
     .package(path: "../PlaybackEngine"),
+    .package(path: "../Persistence"),
     .package(path: "../SharedUtilities"),
     .package(path: "../TestSupport"),
   ],
@@ -26,6 +27,7 @@ let package = Package(
       dependencies: [
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "PlaybackEngine", package: "PlaybackEngine"),
+        .product(name: "Persistence", package: "Persistence"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
       ],
       path: "Sources"

@@ -162,6 +162,192 @@ public struct EpisodeDetailView: View {
           .background(Color(.systemGray6))
           .cornerRadius(12)
         }
+        
+        // Metadata section
+        if let metadata = viewModel.metadata {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("Episode Information")
+              .font(.headline)
+              .fontWeight(.semibold)
+            
+            VStack(spacing: 8) {
+              if let fileSize = metadata.formattedFileSize {
+                MetadataRow(label: "File Size", value: fileSize)
+              }
+              if let bitrate = metadata.formattedBitrate {
+                MetadataRow(label: "Bitrate", value: bitrate)
+              }
+              if let format = metadata.format {
+                MetadataRow(label: "Format", value: format.uppercased())
+              }
+              if let sampleRate = metadata.formattedSampleRate {
+                MetadataRow(label: "Sample Rate", value: sampleRate)
+              }
+              if let channels = metadata.channelDescription {
+                MetadataRow(label: "Audio", value: channels)
+              }
+            }
+          }
+          .padding()
+          .background(Color(.systemGray6))
+          .cornerRadius(12)
+        }
+        
+        // Rating section
+        VStack(alignment: .leading, spacing: 12) {
+          Text("Your Rating")
+            .font(.headline)
+            .fontWeight(.semibold)
+          
+          HStack(spacing: 8) {
+            ForEach(1...5, id: \.self) { star in
+              Button(action: {
+                viewModel.setRating(viewModel.userRating == star ? nil : star)
+              }) {
+                Image(systemName: viewModel.userRating ?? 0 >= star ? "star.fill" : "star")
+                  .font(.title3)
+                  .foregroundColor(.yellow)
+              }
+            }
+            
+            if let rating = viewModel.userRating {
+              Text("(\(rating)/5)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 4)
+            }
+          }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+        
+        // Bookmarks section
+        VStack(alignment: .leading, spacing: 12) {
+          HStack {
+            Text("Bookmarks")
+              .font(.headline)
+              .fontWeight(.semibold)
+            
+            Spacer()
+            
+            Button(action: {
+              viewModel.addBookmarkAtCurrentPosition(label: "Bookmark at \(viewModel.formattedCurrentTime)")
+            }) {
+              Label("Add", systemImage: "plus.circle.fill")
+                .font(.subheadline)
+            }
+            .disabled(viewModel.episode == nil)
+          }
+          
+          if viewModel.bookmarks.isEmpty {
+            Text("No bookmarks yet. Add one during playback!")
+              .font(.caption)
+              .foregroundColor(.secondary)
+              .padding(.vertical, 8)
+          } else {
+            LazyVStack(alignment: .leading, spacing: 8) {
+              ForEach(viewModel.bookmarks) { bookmark in
+                HStack {
+                  Button(action: {
+                    viewModel.jumpToBookmark(bookmark)
+                  }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                      Text(bookmark.displayLabel)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .multilineTextAlignment(.leading)
+                      
+                      Text(bookmark.formattedTimestamp)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+                  }
+                  .buttonStyle(PlainButtonStyle())
+                  
+                  Spacer()
+                  
+                  Button(action: {
+                    viewModel.deleteBookmark(bookmark)
+                  }) {
+                    Image(systemName: "trash")
+                      .font(.caption)
+                      .foregroundColor(.red)
+                  }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color(.systemGray5))
+                .cornerRadius(8)
+              }
+            }
+          }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+        
+        // Notes section
+        VStack(alignment: .leading, spacing: 12) {
+          Text("Notes")
+            .font(.headline)
+            .fontWeight(.semibold)
+          
+          if viewModel.notes.isEmpty {
+            Text("No notes yet. Tap to add your first note!")
+              .font(.caption)
+              .foregroundColor(.secondary)
+              .padding(.vertical, 8)
+          } else {
+            LazyVStack(alignment: .leading, spacing: 8) {
+              ForEach(viewModel.notes) { note in
+                VStack(alignment: .leading, spacing: 4) {
+                  Text(note.text)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.leading)
+                  
+                  if note.hasTags {
+                    HStack(spacing: 4) {
+                      ForEach(note.tags, id: \.self) { tag in
+                        Text("#\(tag)")
+                          .font(.caption2)
+                          .padding(.horizontal, 6)
+                          .padding(.vertical, 2)
+                          .background(Color.accentColor.opacity(0.2))
+                          .cornerRadius(4)
+                      }
+                    }
+                  }
+                  
+                  HStack {
+                    if let timestamp = note.formattedTimestamp {
+                      Text("at \(timestamp)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                      viewModel.deleteNote(note)
+                    }) {
+                      Image(systemName: "trash")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                    }
+                  }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color(.systemGray5))
+                .cornerRadius(8)
+              }
+            }
+          }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
 
         Spacer()
       }
@@ -178,6 +364,27 @@ public struct EpisodeDetailView: View {
     let minutes = Int(seconds) / 60
     let remainingSeconds = Int(seconds) % 60
     return String(format: "%d:%02d", minutes, remainingSeconds)
+  }
+}
+
+// MARK: - Helper Views
+
+private struct MetadataRow: View {
+  let label: String
+  let value: String
+  
+  var body: some View {
+    HStack {
+      Text(label)
+        .font(.subheadline)
+        .foregroundColor(.secondary)
+      Spacer()
+      Text(value)
+        .font(.subheadline)
+        .fontWeight(.medium)
+    }
+    .padding(.horizontal, 12)
+    .padding(.vertical, 4)
   }
 }
 

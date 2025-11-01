@@ -2,6 +2,7 @@
 import Foundation
 import CoreModels
 import PlaybackEngine
+import Persistence
 
 /// ViewModel for Episode Detail view, coordinates with EpisodePlaybackService
 @MainActor
@@ -15,9 +16,17 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var playbackSpeed: Float = 1.0
   @Published public var chapters: [Chapter] = []
   @Published public var currentChapter: Chapter?
+  
+  // Annotation properties
+  @Published public var metadata: EpisodeMetadata?
+  @Published public var notes: [EpisodeNote] = []
+  @Published public var bookmarks: [EpisodeBookmark] = []
+  @Published public var transcript: EpisodeTranscript?
+  @Published public var userRating: Int?
 
   private let playbackService: EpisodePlaybackService
   private let sleepTimer: SleepTimer
+  private let annotationRepository: EpisodeAnnotationRepository
   private var cancellables = Set<AnyCancellable>()
   private var currentState: EpisodePlaybackState?
 
@@ -28,7 +37,8 @@ public class EpisodeDetailViewModel: ObservableObject {
 
   public init(
     playbackService: EpisodePlaybackService? = nil,
-    sleepTimer: SleepTimer? = nil
+    sleepTimer: SleepTimer? = nil,
+    annotationRepository: EpisodeAnnotationRepository? = nil
   ) {
     // Use provided service or create enhanced player (fallback to stub for compatibility)
     self.playbackService = playbackService ?? EnhancedEpisodePlayer()
@@ -38,17 +48,42 @@ public class EpisodeDetailViewModel: ObservableObject {
     } else {
       self.sleepTimer = SleepTimer()
     }
+    // Use provided repository or create default
+    self.annotationRepository = annotationRepository ?? UserDefaultsEpisodeAnnotationRepository()
     observePlaybackState()
   }
 
   public func loadEpisode(_ episode: Episode) {
     self.episode = episode
+    self.userRating = episode.rating
     // Episode currently has no chapters property; set empty and await parsing support
     self.chapters = []
     updateCurrentChapter()
     updatePlaybackSpeed()
     // Reset UI state when loading a new episode
     updateUIFromCurrentState()
+    // Load annotations
+    Task {
+      await loadAnnotations(for: episode.id)
+    }
+  }
+  
+  private func loadAnnotations(for episodeId: String) async {
+    do {
+      let loadedMetadata = try await annotationRepository.loadMetadata(for: episodeId)
+      let loadedNotes = try await annotationRepository.loadNotes(for: episodeId)
+      let loadedBookmarks = try await annotationRepository.loadBookmarks(for: episodeId)
+      let loadedTranscript = try await annotationRepository.loadTranscript(for: episodeId)
+      
+      // Update UI on main actor
+      self.metadata = loadedMetadata
+      self.notes = loadedNotes
+      self.bookmarks = loadedBookmarks
+      self.transcript = loadedTranscript
+    } catch {
+      // Silent failure for now - annotations are optional enhancements
+      print("Failed to load annotations: \(error)")
+    }
   }
 
   public func playPause() {
@@ -110,6 +145,120 @@ public class EpisodeDetailViewModel: ObservableObject {
 
   public var sleepTimerRemainingTime: TimeInterval {
     sleepTimer.remainingTime
+  }
+  
+  // MARK: - Annotation Management
+  
+  /// Add or update a note
+  public func saveNote(_ note: EpisodeNote) {
+    Task {
+      do {
+        try await annotationRepository.saveNote(note)
+        // Reload notes to update UI
+        await loadNotes()
+      } catch {
+        print("Failed to save note: \(error)")
+      }
+    }
+  }
+  
+  /// Delete a note
+  public func deleteNote(_ note: EpisodeNote) {
+    Task {
+      do {
+        try await annotationRepository.deleteNote(id: note.id)
+        // Reload notes to update UI
+        await loadNotes()
+      } catch {
+        print("Failed to delete note: \(error)")
+      }
+    }
+  }
+  
+  /// Add a bookmark at current position
+  public func addBookmarkAtCurrentPosition(label: String = "") {
+    guard let episodeId = episode?.id else { return }
+    let bookmark = EpisodeBookmark(
+      episodeId: episodeId,
+      timestamp: currentPosition,
+      label: label
+    )
+    saveBookmark(bookmark)
+  }
+  
+  /// Save a bookmark
+  public func saveBookmark(_ bookmark: EpisodeBookmark) {
+    Task {
+      do {
+        try await annotationRepository.saveBookmark(bookmark)
+        // Reload bookmarks to update UI
+        await loadBookmarks()
+      } catch {
+        print("Failed to save bookmark: \(error)")
+      }
+    }
+  }
+  
+  /// Delete a bookmark
+  public func deleteBookmark(_ bookmark: EpisodeBookmark) {
+    Task {
+      do {
+        try await annotationRepository.deleteBookmark(id: bookmark.id)
+        // Reload bookmarks to update UI
+        await loadBookmarks()
+      } catch {
+        print("Failed to delete bookmark: \(error)")
+      }
+    }
+  }
+  
+  /// Jump to a bookmark's position
+  public func jumpToBookmark(_ bookmark: EpisodeBookmark) {
+    seek(to: bookmark.timestamp)
+  }
+  
+  /// Set episode rating
+  public func setRating(_ rating: Int?) {
+    guard let episode = episode else { return }
+    self.userRating = rating
+    
+    // Update episode model
+    let updatedEpisode = episode.withRating(rating)
+    self.episode = updatedEpisode
+    
+    // In a real app, this would persist to episode storage
+    // For now, just update local state
+  }
+  
+  /// Search transcript
+  public func searchTranscript(_ query: String) -> [TranscriptSearchResult] {
+    guard let transcript = transcript else { return [] }
+    return transcript.searchWithRanges(query)
+  }
+  
+  /// Jump to transcript segment
+  public func jumpToTranscriptSegment(_ segment: TranscriptSegment) {
+    seek(to: segment.startTime)
+  }
+  
+  private func loadNotes() async {
+    guard let episodeId = episode?.id else { return }
+    do {
+      let loadedNotes = try await annotationRepository.loadNotes(for: episodeId)
+      self.notes = loadedNotes
+    } catch {
+      print("Failed to reload notes: \(error)")
+    }
+  }
+  
+  private func loadBookmarks() async {
+    guard let episodeId = episode?.id else { return }
+    do {
+      let loadedBookmarks = try await annotationRepository.loadBookmarks(for: episodeId)
+      self.bookmarks = loadedBookmarks
+    } catch {
+      print("Failed to reload bookmarks: \(error)")
+    }
   }
 
   private func observePlaybackState() {
