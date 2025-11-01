@@ -61,11 +61,30 @@ final class EpisodeAnnotationModelsTests: XCTestCase {
         // Given: Metadata with stereo channels
         let stereo = EpisodeMetadata(episodeId: "episode-1", channels: 2)
         let mono = EpisodeMetadata(episodeId: "episode-2", channels: 1)
-        
+
         // When: Accessing channel description
         // Then: Should return appropriate labels
         XCTAssertEqual(stereo.channelDescription, "Stereo")
         XCTAssertEqual(mono.channelDescription, "Mono")
+    }
+
+    func testEpisodeMetadataFormattedCommunityRating() {
+        // Given: Metadata with community rating and count
+        let metadata = EpisodeMetadata(
+            episodeId: "episode-123",
+            communityRating: 4.5,
+            ratingsCount: 87
+        )
+
+        // When: Formatting community rating
+        let formatted = metadata.formattedCommunityRating
+
+        // Then: Should include star and count information
+        XCTAssertEqual(formatted, "4.5★ (87)")
+
+        // And: Formatting without count should omit parentheses
+        let withoutCount = EpisodeMetadata(episodeId: "episode-321", communityRating: 3.7)
+        XCTAssertEqual(withoutCount.formattedCommunityRating, "3.7★")
     }
     
     // MARK: - EpisodeNote Tests

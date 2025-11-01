@@ -18,6 +18,7 @@ final class EpisodeListViewModelTests: XCTestCase {
   private var filterManager: EpisodeFilterManager!
   private var mockSwipeConfigurationService: MockSwipeConfigurationService!
   private var mockHapticsService: MockHapticsService!
+  private var annotationRepository: RecordingAnnotationRepository!
 
   override func setUp() async throws {
     try await super.setUp()
@@ -32,12 +33,15 @@ final class EpisodeListViewModelTests: XCTestCase {
     mockSwipeConfigurationService = MockSwipeConfigurationService(configuration: .default)
     mockHapticsService = MockHapticsService()
 
+    annotationRepository = RecordingAnnotationRepository()
+
     viewModel = EpisodeListViewModel(
       podcast: testPodcast,
       filterService: mockFilterService,
       filterManager: filterManager,
       swipeConfigurationService: mockSwipeConfigurationService,
-      hapticFeedbackService: mockHapticsService
+      hapticFeedbackService: mockHapticsService,
+      annotationRepository: annotationRepository
     )
   }
 
@@ -49,6 +53,7 @@ final class EpisodeListViewModelTests: XCTestCase {
     recordingRepository = nil
     mockSwipeConfigurationService = nil
     mockHapticsService = nil
+    annotationRepository = nil
 
     try await super.tearDown()
   }
@@ -179,6 +184,21 @@ final class EpisodeListViewModelTests: XCTestCase {
 
     // Then: Should update episode rating
     XCTAssertTrue(true, "Should handle rating update without crashing")
+  }
+
+  func testRefreshNoteCountsLoadsFromRepository() async throws {
+    // Given: Stored annotations for episodes
+    let episodeID = testPodcast.episodes[0].id
+    await annotationRepository.setNotes([
+      EpisodeNote(episodeId: episodeID, text: "First"),
+      EpisodeNote(episodeId: episodeID, text: "Second")
+    ], for: episodeID)
+
+    // When: Refreshing note counts
+    try await viewModel.refreshNoteCounts()
+
+    // Then: Note count badge data should be populated
+    XCTAssertEqual(viewModel.noteCounts[episodeID], 2)
   }
 
   // MARK: - Filter Summary Tests
@@ -371,6 +391,77 @@ final class EpisodeListViewModelTests: XCTestCase {
       episodes: episodes
     )
   }
+}
+
+actor RecordingAnnotationRepository: EpisodeAnnotationRepository {
+  private var notesByEpisode: [String: [EpisodeNote]] = [:]
+
+  func setNotes(_ notes: [EpisodeNote], for episodeId: String) {
+    notesByEpisode[episodeId] = notes
+  }
+
+  // MARK: - Metadata
+
+  func saveMetadata(_ metadata: EpisodeMetadata) async throws {}
+
+  func loadMetadata(for episodeId: String) async throws -> EpisodeMetadata? { nil }
+
+  func deleteMetadata(for episodeId: String) async throws {}
+
+  // MARK: - Notes
+
+  func saveNote(_ note: EpisodeNote) async throws {
+    var notes = notesByEpisode[note.episodeId] ?? []
+    if let index = notes.firstIndex(where: { $0.id == note.id }) {
+      notes[index] = note
+    } else {
+      notes.append(note)
+    }
+    notesByEpisode[note.episodeId] = notes
+  }
+
+  func loadNotes(for episodeId: String) async throws -> [EpisodeNote] {
+    notesByEpisode[episodeId] ?? []
+  }
+
+  func loadNote(id: String) async throws -> EpisodeNote? {
+    notesByEpisode.values.flatMap { $0 }.first { $0.id == id }
+  }
+
+  func deleteNote(id: String) async throws {
+    for (episodeId, notes) in notesByEpisode {
+      if let index = notes.firstIndex(where: { $0.id == id }) {
+        var updated = notes
+        updated.remove(at: index)
+        notesByEpisode[episodeId] = updated
+        return
+      }
+    }
+  }
+
+  func deleteAllNotes(for episodeId: String) async throws {
+    notesByEpisode.removeValue(forKey: episodeId)
+  }
+
+  // MARK: - Bookmarks
+
+  func saveBookmark(_ bookmark: EpisodeBookmark) async throws {}
+
+  func loadBookmarks(for episodeId: String) async throws -> [EpisodeBookmark] { [] }
+
+  func loadBookmark(id: String) async throws -> EpisodeBookmark? { nil }
+
+  func deleteBookmark(id: String) async throws {}
+
+  func deleteAllBookmarks(for episodeId: String) async throws {}
+
+  // MARK: - Transcript
+
+  func saveTranscript(_ transcript: EpisodeTranscript) async throws {}
+
+  func loadTranscript(for episodeId: String) async throws -> EpisodeTranscript? { nil }
+
+  func deleteTranscript(for episodeId: String) async throws {}
 }
 
 @MainActor

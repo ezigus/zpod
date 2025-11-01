@@ -7,6 +7,15 @@ import PlaybackEngine
 public struct EpisodeDetailView: View {
   @StateObject private var viewModel: EpisodeDetailViewModel
   let episode: Episode
+  @State private var noteDraftText = ""
+  @State private var noteDraftTags = ""
+  @State private var includeCurrentTimestamp = false
+  @State private var editingNote: EpisodeNote?
+  @State private var bookmarkLabel = ""
+  @State private var useCurrentTimestampForBookmark = true
+  @State private var customBookmarkTimestamp = ""
+  @State private var bookmarkValidationMessage: String?
+  @State private var transcriptSearchText = ""
 
   public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
@@ -163,35 +172,7 @@ public struct EpisodeDetailView: View {
           .cornerRadius(12)
         }
         
-        // Metadata section
-        if let metadata = viewModel.metadata {
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Episode Information")
-              .font(.headline)
-              .fontWeight(.semibold)
-            
-            VStack(spacing: 8) {
-              if let fileSize = metadata.formattedFileSize {
-                MetadataRow(label: "File Size", value: fileSize)
-              }
-              if let bitrate = metadata.formattedBitrate {
-                MetadataRow(label: "Bitrate", value: bitrate)
-              }
-              if let format = metadata.format {
-                MetadataRow(label: "Format", value: format.uppercased())
-              }
-              if let sampleRate = metadata.formattedSampleRate {
-                MetadataRow(label: "Sample Rate", value: sampleRate)
-              }
-              if let channels = metadata.channelDescription {
-                MetadataRow(label: "Audio", value: channels)
-              }
-            }
-          }
-          .padding()
-          .background(Color(.systemGray6))
-          .cornerRadius(12)
-        }
+        metadataSection
         
         // Rating section
         VStack(alignment: .leading, spacing: 12) {
@@ -217,6 +198,17 @@ public struct EpisodeDetailView: View {
                 .padding(.leading, 4)
             }
           }
+
+          if let community = viewModel.metadata?.formattedCommunityRating {
+            Text("Community: \(community)")
+              .font(.caption)
+              .foregroundColor(.secondary)
+              .accessibilityLabel("Community rating \(community)")
+          } else {
+            Text("Community rating coming soon")
+              .font(.caption)
+              .foregroundColor(.secondary)
+          }
         }
         .padding()
         .background(Color(.systemGray6))
@@ -224,26 +216,14 @@ public struct EpisodeDetailView: View {
         
         // Bookmarks section
         VStack(alignment: .leading, spacing: 12) {
-          HStack {
-            Text("Bookmarks")
-              .font(.headline)
-              .fontWeight(.semibold)
-            
-            Spacer()
-            
-            Button(action: {
-              // Use timestamp in milliseconds for unique label
-              let timestampMs = Int(viewModel.currentPosition * 1000)
-              viewModel.addBookmarkAtCurrentPosition(label: "Bookmark at \(viewModel.formattedCurrentTime) (\(timestampMs)ms)")
-            }) {
-              Label("Add", systemImage: "plus.circle.fill")
-                .font(.subheadline)
-            }
-            .disabled(viewModel.episode == nil)
-          }
-          
+          Text("Bookmarks")
+            .font(.headline)
+            .fontWeight(.semibold)
+
+          bookmarkComposer
+
           if viewModel.bookmarks.isEmpty {
-            Text("No bookmarks yet. Add one during playback!")
+            Text("No bookmarks yet. Add one to jump back to important moments.")
               .font(.caption)
               .foregroundColor(.secondary)
               .padding(.vertical, 8)
@@ -259,16 +239,16 @@ public struct EpisodeDetailView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .multilineTextAlignment(.leading)
-                      
+
                       Text(bookmark.formattedTimestamp)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     }
                   }
                   .buttonStyle(PlainButtonStyle())
-                  
+
                   Spacer()
-                  
+
                   Button(action: {
                     viewModel.deleteBookmark(bookmark)
                   }) {
@@ -294,20 +274,23 @@ public struct EpisodeDetailView: View {
           Text("Notes")
             .font(.headline)
             .fontWeight(.semibold)
-          
+
+          noteComposer
+
           if viewModel.notes.isEmpty {
-            Text("No notes yet. Tap to add your first note!")
+            Text("No notes yet. Capture your thoughts with the composer above.")
               .font(.caption)
               .foregroundColor(.secondary)
               .padding(.vertical, 8)
           } else {
             LazyVStack(alignment: .leading, spacing: 8) {
               ForEach(viewModel.notes) { note in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                   Text(note.text)
                     .font(.subheadline)
                     .multilineTextAlignment(.leading)
-                  
+                    .fontWeight(editingNote?.id == note.id ? .semibold : .regular)
+
                   if note.hasTags {
                     HStack(spacing: 4) {
                       ForEach(note.tags, id: \.self) { tag in
@@ -320,18 +303,26 @@ public struct EpisodeDetailView: View {
                       }
                     }
                   }
-                  
+
                   HStack {
                     if let timestamp = note.formattedTimestamp {
                       Text("at \(timestamp)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     }
-                    
+
                     Spacer()
-                    
+
+                    Button("Edit") {
+                      beginEditing(note)
+                    }
+                    .font(.caption2)
+
                     Button(action: {
                       viewModel.deleteNote(note)
+                      if editingNote?.id == note.id {
+                        resetNoteComposer()
+                      }
                     }) {
                       Image(systemName: "trash")
                         .font(.caption2)
@@ -341,7 +332,9 @@ public struct EpisodeDetailView: View {
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-                .background(Color(.systemGray5))
+                .background(
+                  editingNote?.id == note.id ? Color.accentColor.opacity(0.1) : Color(.systemGray5)
+                )
                 .cornerRadius(8)
               }
             }
@@ -352,46 +345,8 @@ public struct EpisodeDetailView: View {
         .cornerRadius(12)
         
         // Transcript section
-        if let transcript = viewModel.transcript {
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Transcript")
-              .font(.headline)
-              .fontWeight(.semibold)
-            
-            VStack(alignment: .leading, spacing: 8) {
-              ForEach(transcript.segments) { segment in
-                Button(action: {
-                  viewModel.jumpToTranscriptSegment(segment)
-                }) {
-                  HStack(alignment: .top, spacing: 8) {
-                    Text(formatChapterTime(segment.startTime))
-                      .font(.caption)
-                      .foregroundColor(.secondary)
-                      .frame(width: 50, alignment: .leading)
-                    
-                    Text(segment.text)
-                      .font(.subheadline)
-                      .foregroundColor(.primary)
-                      .multilineTextAlignment(.leading)
-                      .frame(maxWidth: .infinity, alignment: .leading)
-                  }
-                  .padding(.vertical, 6)
-                  .padding(.horizontal, 10)
-                  .background(
-                    // Highlight current segment
-                    viewModel.transcript?.segment(at: viewModel.currentPosition)?.id == segment.id
-                      ? Color.accentColor.opacity(0.2)
-                      : Color(.systemGray5)
-                  )
-                  .cornerRadius(6)
-                }
-                .buttonStyle(PlainButtonStyle())
-              }
-            }
-          }
-          .padding()
-          .background(Color(.systemGray6))
-          .cornerRadius(12)
+        if viewModel.transcript != nil {
+          transcriptSection
         }
 
         Spacer()
@@ -402,6 +357,13 @@ public struct EpisodeDetailView: View {
     .navigationBarTitleDisplayMode(.inline)
     .onAppear {
       viewModel.loadEpisode(episode)
+      bookmarkLabel = defaultBookmarkLabel()
+      transcriptSearchText = viewModel.transcriptSearchQuery
+    }
+    .onChange(of: viewModel.transcriptSearchQuery) { newValue in
+      if transcriptSearchText != newValue {
+        transcriptSearchText = newValue
+      }
     }
   }
 
@@ -410,6 +372,368 @@ public struct EpisodeDetailView: View {
     let remainingSeconds = Int(seconds) % 60
     return String(format: "%d:%02d", minutes, remainingSeconds)
   }
+
+  private func transcriptRow(for segment: TranscriptSegment, highlightQuery: String) -> some View {
+    Button(action: {
+      viewModel.jumpToTranscriptSegment(segment)
+    }) {
+      HStack(alignment: .top, spacing: 8) {
+        Text(formatChapterTime(segment.startTime))
+          .font(.caption)
+          .foregroundColor(.secondary)
+          .frame(width: 50, alignment: .leading)
+
+        highlightedTranscriptText(segment.text, query: highlightQuery)
+          .font(.subheadline)
+          .foregroundColor(.primary)
+          .multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .padding(.vertical, 6)
+      .padding(.horizontal, 10)
+      .background(
+        viewModel.transcript?.segment(at: viewModel.currentPosition)?.id == segment.id
+          ? Color.accentColor.opacity(0.2)
+          : Color(.systemGray5)
+      )
+      .cornerRadius(6)
+    }
+    .buttonStyle(PlainButtonStyle())
+  }
+
+  private var bookmarkComposer: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      TextField("Bookmark label", text: $bookmarkLabel)
+        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+      Toggle(
+        "Use current playback time (\(viewModel.formattedCurrentTime))",
+        isOn: $useCurrentTimestampForBookmark
+      )
+      .onChange(of: useCurrentTimestampForBookmark) { isUsingCurrent in
+        if isUsingCurrent {
+          customBookmarkTimestamp = ""
+        }
+      }
+
+      if !useCurrentTimestampForBookmark {
+        TextField("Custom timestamp (hh:mm:ss or mm:ss)", text: $customBookmarkTimestamp)
+          .textFieldStyle(RoundedBorderTextFieldStyle())
+          .keyboardType(.numbersAndPunctuation)
+          .textInputAutocapitalization(.never)
+      }
+
+      if let message = bookmarkValidationMessage {
+        Text(message)
+          .font(.caption)
+          .foregroundColor(.red)
+      }
+
+      HStack {
+        Button(action: saveBookmark) {
+          Label("Save Bookmark", systemImage: "bookmark.fill")
+        }
+        .disabled(viewModel.episode == nil)
+
+        Button("Reset", action: resetBookmarkComposer)
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  private var noteComposer: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      TextEditor(text: $noteDraftText)
+        .frame(minHeight: 80)
+        .overlay(
+          RoundedRectangle(cornerRadius: 8)
+            .stroke(Color(.systemGray4))
+        )
+        .accessibilityLabel(editingNote != nil ? "Edit note" : "New note")
+
+      TextField("Tags (comma separated)", text: $noteDraftTags)
+        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+      Toggle(
+        "Attach current timestamp (\(viewModel.formattedCurrentTime))",
+        isOn: $includeCurrentTimestamp
+      )
+      .disabled(editingNote != nil)
+
+      HStack {
+        Button(action: saveCurrentNote) {
+          Label(editingNote == nil ? "Save Note" : "Update Note", systemImage: "square.and.pencil")
+        }
+        .disabled(noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+        if editingNote != nil {
+          Button("Cancel", action: resetNoteComposer)
+            .font(.caption)
+            .foregroundColor(.secondary)
+        } else if !noteDraftText.isEmpty || !noteDraftTags.isEmpty {
+          Button("Clear", action: resetNoteComposer)
+            .font(.caption)
+            .foregroundColor(.secondary)
+        }
+      }
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  private func highlightedTranscriptText(_ text: String, query: String) -> Text {
+    guard !query.isEmpty else { return Text(text) }
+
+    var result = Text("")
+    var searchStart = text.startIndex
+
+    while searchStart < text.endIndex,
+      let range = text.range(
+        of: query,
+        options: [.caseInsensitive, .diacriticInsensitive],
+        range: searchStart..<text.endIndex,
+        locale: .current
+      )
+    {
+      if range.lowerBound > searchStart {
+        let prefix = text[searchStart..<range.lowerBound]
+        result = result + Text(String(prefix))
+      }
+
+      let match = text[range]
+      result = result + Text(String(match)).bold().foregroundStyle(Color.accentColor)
+
+      searchStart = range.upperBound
+    }
+
+    if searchStart < text.endIndex {
+      let suffix = text[searchStart..<text.endIndex]
+      result = result + Text(String(suffix))
+    }
+
+    return result
+  }
+
+  private func saveBookmark() {
+    bookmarkValidationMessage = nil
+
+    let trimmedLabel = bookmarkLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+    let finalLabel = trimmedLabel.isEmpty ? defaultBookmarkLabel() : trimmedLabel
+
+    let timestamp: TimeInterval
+    if useCurrentTimestampForBookmark {
+      timestamp = viewModel.currentPosition
+    } else {
+      guard let parsed = parseTimestampInput(customBookmarkTimestamp) else {
+        bookmarkValidationMessage = "Enter time as hh:mm:ss, mm:ss, or seconds."
+        return
+      }
+      timestamp = parsed
+    }
+
+    viewModel.createBookmark(at: timestamp, label: finalLabel)
+    resetBookmarkComposer()
+  }
+
+  private func resetBookmarkComposer() {
+    bookmarkLabel = defaultBookmarkLabel()
+    useCurrentTimestampForBookmark = true
+    customBookmarkTimestamp = ""
+    bookmarkValidationMessage = nil
+  }
+
+  private func defaultBookmarkLabel() -> String {
+    "Bookmark at \(viewModel.formattedCurrentTime)"
+  }
+
+  private func parseTimestampInput(_ input: String) -> TimeInterval? {
+    let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+
+    let components = trimmed.split(separator: ":")
+    switch components.count {
+    case 1:
+      return TimeInterval(components[0])
+    case 2:
+      guard let minutes = Double(components[0]),
+            let seconds = Double(components[1]) else { return nil }
+      return minutes * 60 + seconds
+    case 3:
+      guard let hours = Double(components[0]),
+            let minutes = Double(components[1]),
+            let seconds = Double(components[2]) else { return nil }
+      return hours * 3600 + minutes * 60 + seconds
+    default:
+      return nil
+    }
+  }
+
+  private func saveCurrentNote() {
+    let trimmedText = noteDraftText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedText.isEmpty else { return }
+
+    let tags = parseTags(noteDraftTags)
+
+    if let editingNote {
+      let noteToUpdate = editingNote
+      Task {
+        try? await viewModel.updateNote(
+          noteToUpdate,
+          newText: trimmedText,
+          newTags: tags
+        )
+        resetNoteComposer()
+      }
+    } else {
+      let timestamp = includeCurrentTimestamp ? viewModel.currentPosition : nil
+      Task {
+        try? await viewModel.createNote(
+          text: trimmedText,
+          tags: tags,
+          timestamp: timestamp
+        )
+        resetNoteComposer()
+      }
+    }
+  }
+
+  private func resetNoteComposer() {
+    editingNote = nil
+    noteDraftText = ""
+    noteDraftTags = ""
+    includeCurrentTimestamp = false
+  }
+
+  private func beginEditing(_ note: EpisodeNote) {
+    editingNote = note
+    noteDraftText = note.text
+    noteDraftTags = note.tags.joined(separator: ", ")
+    includeCurrentTimestamp = note.timestamp != nil
+  }
+
+  private func parseTags(_ input: String) -> [String] {
+    input
+      .split(separator: ",")
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+  }
+
+  @ViewBuilder
+  private var transcriptSection: some View {
+    if let transcript = viewModel.transcript {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("Transcript")
+          .font(.headline)
+          .fontWeight(.semibold)
+
+        TextField("Search transcript", text: $transcriptSearchText)
+          .textFieldStyle(RoundedBorderTextFieldStyle())
+          .accessibilityLabel("Search transcript")
+          .onChange(of: transcriptSearchText) { newValue in
+            viewModel.updateTranscriptSearch(query: newValue)
+          }
+
+        if !viewModel.transcriptSearchQuery.isEmpty {
+          if viewModel.transcriptSearchResults.isEmpty {
+            Text("No transcript matches for \"\(viewModel.transcriptSearchQuery)\".")
+              .font(.caption)
+              .foregroundColor(.secondary)
+          } else {
+            LazyVStack(alignment: .leading, spacing: 8) {
+              ForEach(viewModel.transcriptSearchResults) { result in
+                transcriptRow(for: result.segment, highlightQuery: viewModel.transcriptSearchQuery)
+              }
+            }
+          }
+        } else {
+          LazyVStack(alignment: .leading, spacing: 8) {
+            ForEach(transcript.segments) { segment in
+              transcriptRow(for: segment, highlightQuery: "")
+            }
+          }
+        }
+      }
+      .padding()
+      .background(Color(.systemGray6))
+      .cornerRadius(12)
+    }
+  }
+
+  private var metadataSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Episode Information")
+        .font(.headline)
+        .fontWeight(.semibold)
+
+      VStack(spacing: 8) {
+        if !episode.podcastTitle.isEmpty {
+          MetadataRow(label: "Podcast", value: episode.podcastTitle)
+        }
+
+        if let pubDate = episode.pubDate {
+          MetadataRow(label: "Published", value: formattedDate(pubDate))
+        }
+
+        if let duration = episode.duration {
+          MetadataRow(label: "Duration", value: formatDuration(duration))
+        }
+
+        if let fileSize = viewModel.metadata?.formattedFileSize {
+          MetadataRow(label: "File Size", value: fileSize)
+        }
+
+        if let bitrate = viewModel.metadata?.formattedBitrate {
+          MetadataRow(label: "Bitrate", value: bitrate)
+        }
+
+        if let format = viewModel.metadata?.format {
+          MetadataRow(label: "Format", value: format.uppercased())
+        }
+
+        if let sampleRate = viewModel.metadata?.formattedSampleRate {
+          MetadataRow(label: "Sample Rate", value: sampleRate)
+        }
+
+        if let channels = viewModel.metadata?.channelDescription {
+          MetadataRow(label: "Audio", value: channels)
+        }
+
+        if viewModel.metadata == nil,
+           episode.podcastTitle.isEmpty,
+           episode.pubDate == nil,
+           episode.duration == nil {
+          Text("Metadata not available")
+            .font(.caption)
+            .foregroundColor(.secondary)
+        }
+      }
+    }
+    .padding()
+    .background(Color(.systemGray6))
+    .cornerRadius(12)
+  }
+
+  private func formattedDate(_ date: Date) -> String {
+    Self.dateFormatter.string(from: date)
+  }
+
+  private func formatDuration(_ seconds: TimeInterval) -> String {
+    if seconds >= 3600 {
+      let hours = Int(seconds) / 3600
+      let minutes = (Int(seconds) % 3600) / 60
+      let secs = Int(seconds) % 60
+      return String(format: "%d:%02d:%02d", hours, minutes, secs)
+    }
+    return formatChapterTime(seconds)
+  }
+
+  private static let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .none
+    return formatter
+  }()
 }
 
 // MARK: - Helper Views

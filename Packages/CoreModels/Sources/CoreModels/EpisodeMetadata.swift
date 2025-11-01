@@ -23,6 +23,12 @@ public struct EpisodeMetadata: Codable, Equatable, Sendable {
     /// Number of audio channels (1 = mono, 2 = stereo)
     public let channels: Int?
     
+    /// Average community rating (1.0 - 5.0)
+    public let communityRating: Double?
+    
+    /// Number of community ratings captured
+    public let ratingsCount: Int?
+
     public init(
         episodeId: String,
         fileSizeBytes: Int64? = nil,
@@ -30,7 +36,9 @@ public struct EpisodeMetadata: Codable, Equatable, Sendable {
         format: String? = nil,
         codec: String? = nil,
         sampleRate: Int? = nil,
-        channels: Int? = nil
+        channels: Int? = nil,
+        communityRating: Double? = nil,
+        ratingsCount: Int? = nil
     ) {
         self.episodeId = episodeId
         self.fileSizeBytes = fileSizeBytes
@@ -39,6 +47,8 @@ public struct EpisodeMetadata: Codable, Equatable, Sendable {
         self.codec = codec
         self.sampleRate = sampleRate
         self.channels = channels
+        self.communityRating = communityRating
+        self.ratingsCount = ratingsCount
     }
 }
 
@@ -76,5 +86,15 @@ public extension EpisodeMetadata {
         case 2: return "Stereo"
         default: return "\(channels) channels"
         }
+    }
+    
+    /// Formatted community rating with star indicator and ratings count
+    var formattedCommunityRating: String? {
+        guard let communityRating = communityRating else { return nil }
+        let roundedRating = String(format: "%.1f★", communityRating)
+        if let ratingsCount = ratingsCount {
+            return "\(roundedRating) (\(ratingsCount))"
+        }
+        return roundedRating
     }
 }

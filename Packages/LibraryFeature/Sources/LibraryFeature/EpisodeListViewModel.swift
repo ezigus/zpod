@@ -20,6 +20,7 @@ public final class EpisodeListViewModel: ObservableObject {
   @Published public var showingFilterSheet = false
   @Published public var showingSwipeConfiguration = false
   @Published public private(set) var swipeConfiguration: SwipeConfiguration
+  @Published public private(set) var noteCounts: [String: Int] = [:]
 
   public var leadingSwipeActions: [SwipeActionType] {
     swipeConfiguration.swipeActions.leadingActions
@@ -154,6 +155,7 @@ public final class EpisodeListViewModel: ObservableObject {
   private let downloadProgressProvider: DownloadProgressProviding?
   private let playbackService: EpisodePlaybackService?
   private let episodeRepository: EpisodeRepository?
+  private let annotationRepository: EpisodeAnnotationRepository?
   private let swipeConfigurationService: SwipeConfigurationServicing
   private var cancellables = Set<AnyCancellable>()
   internal var allEpisodes: [Episode] = []
@@ -199,7 +201,8 @@ public final class EpisodeListViewModel: ObservableObject {
     episodeRepository: EpisodeRepository? = nil,
     swipeConfigurationService: SwipeConfigurationServicing =
       EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
-    hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared
+    hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared,
+    annotationRepository: EpisodeAnnotationRepository? = nil
   ) {
     self.podcast = podcast
     self.filterService = filterService
@@ -210,6 +213,7 @@ public final class EpisodeListViewModel: ObservableObject {
     self.playbackService = playbackService
     self.episodeRepository = episodeRepository
     self.swipeConfigurationService = swipeConfigurationService
+    self.annotationRepository = annotationRepository
     self.allEpisodes = podcast.episodes
     self.swipeConfiguration = .default
 
@@ -228,6 +232,9 @@ public final class EpisodeListViewModel: ObservableObject {
     downloadProgressCoordinator.startMonitoring()
     loadPersistedEpisodes()
     observeSwipeConfiguration()
+    Task {
+      try? await refreshNoteCounts()
+    }
 
   }
 
@@ -275,6 +282,23 @@ public final class EpisodeListViewModel: ObservableObject {
 
   public func toggleEpisodeBookmark(_ episode: Episode) {
     updateEpisode(episode.withBookmarkStatus(!episode.isBookmarked))
+  }
+
+  public func refreshNoteCounts() async throws {
+    guard let annotationRepository else {
+      noteCounts = [:]
+      return
+    }
+
+    var updatedCounts: [String: Int] = [:]
+    for episode in allEpisodes {
+      let notes = try await annotationRepository.loadNotes(for: episode.id)
+      if !notes.isEmpty {
+        updatedCounts[episode.id] = notes.count
+      }
+    }
+
+    noteCounts = updatedCounts
   }
 
   public func toggleEpisodeArchiveStatus(_ episode: Episode) {

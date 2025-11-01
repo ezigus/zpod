@@ -23,6 +23,8 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var bookmarks: [EpisodeBookmark] = []
   @Published public var transcript: EpisodeTranscript?
   @Published public var userRating: Int?
+  @Published public var transcriptSearchQuery: String = ""
+  @Published public var transcriptSearchResults: [TranscriptSearchResult] = []
 
   private let playbackService: EpisodePlaybackService
   private let sleepTimer: SleepTimer
@@ -80,6 +82,7 @@ public class EpisodeDetailViewModel: ObservableObject {
       self.notes = loadedNotes
       self.bookmarks = loadedBookmarks
       self.transcript = loadedTranscript
+      refreshTranscriptSearchResults()
     } catch {
       // Silent failure - annotations are optional enhancements
       // TODO: Replace with proper logging framework when available
@@ -157,7 +160,6 @@ public class EpisodeDetailViewModel: ObservableObject {
     Task {
       do {
         try await annotationRepository.saveNote(note)
-        // Reload notes to update UI
         await loadNotes()
       } catch {
         #if DEBUG
@@ -166,7 +168,7 @@ public class EpisodeDetailViewModel: ObservableObject {
       }
     }
   }
-  
+
   /// Delete a note
   public func deleteNote(_ note: EpisodeNote) {
     Task {
@@ -192,7 +194,18 @@ public class EpisodeDetailViewModel: ObservableObject {
     )
     saveBookmark(bookmark)
   }
-  
+
+  /// Create a bookmark at a specific timestamp
+  public func createBookmark(at timestamp: TimeInterval, label: String) {
+    guard let episodeId = episode?.id else { return }
+    let bookmark = EpisodeBookmark(
+      episodeId: episodeId,
+      timestamp: timestamp,
+      label: label
+    )
+    saveBookmark(bookmark)
+  }
+
   /// Save a bookmark
   public func saveBookmark(_ bookmark: EpisodeBookmark) {
     Task {
@@ -244,12 +257,79 @@ public class EpisodeDetailViewModel: ObservableObject {
     guard let transcript = transcript else { return [] }
     return transcript.searchWithRanges(query)
   }
-  
+
   /// Jump to transcript segment
   public func jumpToTranscriptSegment(_ segment: TranscriptSegment) {
     seek(to: segment.startTime)
   }
-  
+
+  /// Create a new note for the current episode
+  public func createNote(
+    text: String,
+    tags: [String],
+    timestamp: TimeInterval?
+  ) async throws {
+    guard let episodeId = episode?.id else { return }
+    let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedText.isEmpty else { return }
+
+    let cleanedTags = tags
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+
+    var note = EpisodeNote(
+      episodeId: episodeId,
+      text: trimmedText,
+      tags: cleanedTags,
+      timestamp: timestamp
+    )
+
+    try await annotationRepository.saveNote(note)
+    await loadNotes()
+  }
+
+  /// Update an existing note with new text and tags
+  public func updateNote(
+    _ note: EpisodeNote,
+    newText: String,
+    newTags: [String]
+  ) async throws {
+    let trimmedText = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmedText.isEmpty else { return }
+
+    let cleanedTags = newTags
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .filter { !$0.isEmpty }
+
+    var updatedNote = note.withText(trimmedText)
+    updatedNote = updatedNote.withTags(cleanedTags)
+
+    try await annotationRepository.saveNote(updatedNote)
+    await loadNotes()
+  }
+
+  /// Update the transcript search query and results
+  public func updateTranscriptSearch(query: String) {
+    let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    transcriptSearchQuery = trimmedQuery
+
+    guard !trimmedQuery.isEmpty, let transcript else {
+      transcriptSearchResults = []
+      return
+    }
+
+    transcriptSearchResults = transcript.searchWithRanges(trimmedQuery)
+  }
+
+  private func refreshTranscriptSearchResults() {
+    guard !transcriptSearchQuery.isEmpty else {
+      transcriptSearchResults = []
+      return
+    }
+
+    transcriptSearchResults = transcript?.searchWithRanges(transcriptSearchQuery) ?? []
+  }
+
   private func loadNotes() async {
     guard let episodeId = episode?.id else { return }
     do {
