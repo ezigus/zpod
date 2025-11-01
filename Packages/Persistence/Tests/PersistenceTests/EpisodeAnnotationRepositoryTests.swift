@@ -351,10 +351,15 @@ final class EpisodeAnnotationRepositoryTests: XCTestCase {
         try await repository.saveBookmark(bookmark)
         try await repository.saveTranscript(transcript)
         
-        // Then: All should be loadable
-        XCTAssertNotNil(try await repository.loadMetadata(for: "episode-123"))
-        XCTAssertEqual(try await repository.loadNotes(for: "episode-123").count, 1)
-        XCTAssertEqual(try await repository.loadBookmarks(for: "episode-123").count, 1)
-        XCTAssertNotNil(try await repository.loadTranscript(for: "episode-123"))
+        // Then: All should be loadable without hitting concurrency violations
+        let loadedMetadata = try await repository.loadMetadata(for: "episode-123")
+        let loadedNotes = try await repository.loadNotes(for: "episode-123")
+        let loadedBookmarks = try await repository.loadBookmarks(for: "episode-123")
+        let loadedTranscript = try await repository.loadTranscript(for: "episode-123")
+
+        XCTAssertNotNil(loadedMetadata)
+        XCTAssertEqual(loadedNotes.count, 1)
+        XCTAssertEqual(loadedBookmarks.count, 1)
+        XCTAssertNotNil(loadedTranscript)
     }
 }
