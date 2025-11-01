@@ -1,163 +1,143 @@
-//
-//  CarPlayIntegrationTests.swift
-//  LibraryFeature Tests
-//
-//  Created for Issue 02.1.8: CarPlay Integration for Episode Lists
-//
-
 import XCTest
+import CoreModels
+import PlaybackEngine
+@testable import LibraryFeature
 
-/// Tests for CarPlay infrastructure
-/// Note: These tests verify the infrastructure exists and is documented
-/// Full CarPlay template testing requires iOS simulator with CarPlay support on macOS
 final class CarPlayIntegrationTests: XCTestCase {
-  
-  // MARK: - Infrastructure Tests
-  
-  /// Verify CarPlay scene delegate source file exists
-  func testCarPlaySceneDelegateSourceExists() throws {
-    let fileManager = FileManager.default
-    let testFile = URL(fileURLWithPath: #file)
-    let sourcesDir = testFile
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .appendingPathComponent("Sources")
-      .appendingPathComponent("LibraryFeature")
-    
-    let sceneDelegate = sourcesDir.appendingPathComponent("CarPlaySceneDelegate.swift")
-    
-    XCTAssertTrue(
-      fileManager.fileExists(atPath: sceneDelegate.path),
-      "CarPlaySceneDelegate.swift should exist in LibraryFeature sources"
-    )
+
+  func testPodcastItemsAreAlphabetizedAndIncludeEpisodeMetadata() {
+    let podcastA = makePodcast(id: "a", title: "Swift Talk", episodeCount: 2)
+    let podcastB = makePodcast(id: "b", title: "Accidental Tech Podcast", episodeCount: 1)
+
+    let items = CarPlayDataAdapter.makePodcastItems(from: [podcastA, podcastB])
+
+    XCTAssertEqual(items.map(\.title), ["Accidental Tech Podcast", "Swift Talk"])
+    XCTAssertEqual(items.first?.detailText, "1 episode")
+    XCTAssertEqual(items.last?.detailText, "2 episodes")
+    XCTAssertTrue(items.last?.voiceCommands.contains("Play Swift Talk") ?? false)
+    XCTAssertEqual(items.last?.episodes.count, 2)
   }
-  
-  /// Verify CarPlay episode list controller source file exists  
-  func testCarPlayEpisodeListControllerSourceExists() throws {
-    let fileManager = FileManager.default
-    let testFile = URL(fileURLWithPath: #file)
-    let sourcesDir = testFile
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .appendingPathComponent("Sources")
-      .appendingPathComponent("LibraryFeature")
-    
-    let controller = sourcesDir.appendingPathComponent("CarPlayEpisodeListController.swift")
-    
-    XCTAssertTrue(
-      fileManager.fileExists(atPath: controller.path),
-      "CarPlayEpisodeListController.swift should exist in LibraryFeature sources"
+
+  func testEpisodeItemsSortedByPubDateAndLimited() {
+    var podcast = makePodcast(id: "swift", title: "Swift Talk", episodeCount: 0)
+    var episodes: [Episode] = []
+    for index in 0..<150 {
+      episodes.append(
+        Episode(
+          id: "ep-\(index)",
+          title: "Episode \(index)",
+          podcastID: "swift",
+          podcastTitle: "Swift Talk",
+          playbackPosition: index == 0 ? 120 : 0,
+          isPlayed: index == 149,
+          pubDate: Calendar.current.date(byAdding: .day, value: -index, to: Date()),
+          duration: 1800
+        )
+      )
+    }
+    podcast = Podcast(
+      id: podcast.id,
+      title: podcast.title,
+      author: podcast.author,
+      description: podcast.description,
+      artworkURL: podcast.artworkURL,
+      feedURL: podcast.feedURL,
+      categories: podcast.categories,
+      episodes: episodes,
+      isSubscribed: podcast.isSubscribed,
+      dateAdded: podcast.dateAdded,
+      folderId: podcast.folderId,
+      tagIds: podcast.tagIds
     )
+
+    let items = CarPlayDataAdapter.makeEpisodeItems(for: podcast)
+
+    XCTAssertEqual(items.count, 100, "Should limit to the 100 most recent episodes")
+    XCTAssertEqual(items.first?.episode.id, "ep-0", "Most recent episode should appear first")
+    XCTAssertEqual(items.last?.episode.id, "ep-99", "Respect truncation order")
+    XCTAssertTrue(items.first?.detailText.contains("30m") ?? false)
+    XCTAssertTrue(items.first?.voiceCommands.contains("Play Episode 0") ?? false)
+    XCTAssertTrue(items.first?.voiceCommands.contains("from Swift Talk") ?? false)
   }
-  
-  // MARK: - Documentation Tests
-  
-  /// Verify CarPlay setup documentation exists
-  func testCarPlaySetupDocumentationExists() throws {
-    let fileManager = FileManager.default
-    let testFile = URL(fileURLWithPath: #file)
-    let projectRoot = testFile
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-    
-    let setupGuide = projectRoot.appendingPathComponent("CARPLAY_SETUP.md")
-    
-    XCTAssertTrue(
-      fileManager.fileExists(atPath: setupGuide.path),
-      "CARPLAY_SETUP.md should exist at project root"
-    )
+
+  func testPlaybackCoordinatorQueueing() {
+    #if canImport(Combine)
+      let playbackService = StubPlaybackService()
+      let coordinator = CarPlayPlaybackCoordinator(playbackService: playbackService)
+
+      let episode1 = Episode(id: "1", title: "First", podcastID: "pod", podcastTitle: "Podcast")
+      let episode2 = Episode(id: "2", title: "Second", podcastID: "pod", podcastTitle: "Podcast")
+
+      coordinator.enqueue(episode1)
+      coordinator.enqueue(episode2)
+
+      XCTAssertEqual(coordinator.queuedEpisodes.count, 2)
+
+      coordinator.playNow(episode1)
+
+      playbackService.emit(state: .finished(episode1, duration: 10))
+
+      XCTAssertEqual(playbackService.playedEpisodes.map(\.id), ["1", "2"], "Should advance queue after finish")
+      XCTAssertEqual(coordinator.queuedEpisodes.count, 0)
+    #else
+      throw XCTSkip("Combine not available on this platform")
+    #endif
   }
-  
-  /// Verify Issue 02.1.8 documentation exists
-  func testIssue02_1_8DocumentationExists() throws {
-    let fileManager = FileManager.default
-    let testFile = URL(fileURLWithPath: #file)
-    let projectRoot = testFile
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-    
-    let issueDoc = projectRoot
-      .appendingPathComponent("Issues")
-      .appendingPathComponent("02.1.8-carplay-episode-list-integration.md")
-    
-    XCTAssertTrue(
-      fileManager.fileExists(atPath: issueDoc.path),
-      "Issue 02.1.8 documentation should exist"
-    )
-  }
-  
-  /// Verify dev-log entry exists for 02.1.8
-  func testDevLogEntryExists() throws {
-    let fileManager = FileManager.default
-    let testFile = URL(fileURLWithPath: #file)
-    let projectRoot = testFile
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-    
-    let devLog = projectRoot
-      .appendingPathComponent("dev-log")
-      .appendingPathComponent("02.1.8-carplay-episode-list-integration.md")
-    
-    XCTAssertTrue(
-      fileManager.fileExists(atPath: devLog.path),
-      "Dev-log entry for 02.1.8 should exist"
+
+  // MARK: - Helpers
+
+  private func makePodcast(id: String, title: String, episodeCount: Int) -> Podcast {
+    let episodes = (0..<episodeCount).map { index in
+      Episode(
+        id: "\(id)-ep-\(index)",
+        title: "Episode \(index)",
+        podcastID: id,
+        podcastTitle: title,
+        playbackPosition: 0,
+        isPlayed: false,
+        pubDate: Calendar.current.date(byAdding: .day, value: -index, to: Date()),
+        duration: 1800
+      )
+    }
+
+    return Podcast(
+      id: id,
+      title: title,
+      author: "Author",
+      description: "Description",
+      feedURL: URL(string: "https://example.com/feed")!,
+      episodes: episodes,
+      isSubscribed: true,
+      dateAdded: Date()
     )
   }
 }
 
-/*
- MANUAL TESTING CHECKLIST FOR CARPLAY (requires macOS with Xcode)
- 
- Once CarPlay is properly enabled (see CARPLAY_SETUP.md), perform these tests:
- 
- 1. CarPlay Connection
-    - [ ] CarPlay interface appears when simulator connects
-    - [ ] Scene delegate initializes without errors
-    - [ ] Root template displays correctly
- 
- 2. Podcast Library
-    - [ ] Podcast list displays in CarPlay
-    - [ ] Podcast names are readable
-    - [ ] Touch targets are large enough (44pt minimum)
-    - [ ] Selecting podcast shows episode list
- 
- 3. Episode List
-    - [ ] Episode list displays for selected podcast
-    - [ ] Episode titles are readable
-    - [ ] Duration information displays correctly
-    - [ ] Touch targets are large enough
-    - [ ] List limited to 100 items (per CarPlay HIG)
- 
- 4. Playback
-    - [ ] Selecting episode starts playback
-    - [ ] Now Playing template appears
-    - [ ] Playback controls work correctly
-    - [ ] Audio plays through CarPlay audio output
- 
- 5. Voice Control (Siri)
-    - [ ] "Play [podcast name]" works
-    - [ ] "Play latest episode" works
-    - [ ] Voice feedback is appropriate
- 
- 6. Safety Compliance
-    - [ ] Interface is simple and uncluttered
-    - [ ] No complex interactions required
-    - [ ] Text is high contrast and readable at highway speeds
-    - [ ] Complies with CarPlay Human Interface Guidelines
- 
- 7. Error Handling
-    - [ ] Graceful handling when no podcasts exist
-    - [ ] Graceful handling when no episodes exist
-    - [ ] Proper error messaging for playback failures
- 
- See CARPLAY_SETUP.md for full testing procedures and setup instructions.
- */
+#if canImport(Combine)
+  import Combine
+
+  private final class StubPlaybackService: EpisodePlaybackService {
+    private let subject = CurrentValueSubject<EpisodePlaybackState, Never>(
+      .idle(Episode(id: "stub", title: "Stub"))
+    )
+
+    var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+      subject.eraseToAnyPublisher()
+    }
+
+    private(set) var playedEpisodes: [Episode] = []
+
+    func play(episode: Episode, duration maybeDuration: TimeInterval?) {
+      playedEpisodes.append(episode)
+      subject.send(.playing(episode, position: 0, duration: maybeDuration ?? 0))
+    }
+
+    func pause() {
+      subject.send(.paused(playedEpisodes.last ?? Episode(id: "stub", title: "Stub"), position: 0, duration: 0))
+    }
+
+    func emit(state: EpisodePlaybackState) {
+      subject.send(state)
+    }
+  }
+#endif

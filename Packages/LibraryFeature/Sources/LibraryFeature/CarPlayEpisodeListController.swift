@@ -10,138 +10,95 @@ import CarPlay
 import CoreModels
 import Foundation
 import OSLog
-import Persistence
-import PlaybackEngine
 
-/// Controller that manages the episode list template for CarPlay
 @available(iOS 14.0, *)
 @MainActor
 public final class CarPlayEpisodeListController {
-  
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "CarPlayEpisodeListController")
-  
-  /// The podcast whose episodes are being displayed
-  private let podcast: Podcast
-  
-  /// Episodes to display (fetched from repository)
-  private var episodes: [Episode] = []
-  
-  /// Dependencies
-  private let episodeRepository: EpisodeRepository
-  private let playbackService: any PlaybackService
-  
-  /// Initialize with a podcast
-  public init(
-    podcast: Podcast,
-    episodeRepository: EpisodeRepository = EpisodeListDependencyProvider.shared.episodeRepository,
-    playbackService: any PlaybackService = EpisodeListDependencyProvider.shared.playbackService
-  ) {
+
+  private var podcast: Podcast
+  private var episodeItems: [CarPlayEpisodeItem]
+  private let dependencies: CarPlayDependencies
+  weak var interfaceController: CPInterfaceController?
+
+  public init(podcast: Podcast, dependencies: CarPlayDependencies) {
     self.podcast = podcast
-    self.episodeRepository = episodeRepository
-    self.playbackService = playbackService
-    
-    // Load episodes
-    Task {
-      await loadEpisodes()
-    }
+    self.dependencies = dependencies
+    self.episodeItems = CarPlayDataAdapter.makeEpisodeItems(for: podcast)
+  }
+
+  public func update(podcast: Podcast) {
+    guard podcast.id == self.podcast.id else { return }
+    self.podcast = podcast
+    self.episodeItems = CarPlayDataAdapter.makeEpisodeItems(for: podcast)
+  }
+
+  public func setInterfaceController(_ interfaceController: CPInterfaceController?) {
+    self.interfaceController = interfaceController
   }
   
   // MARK: - Episode Loading
   
-  private func loadEpisodes() async {
-    do {
-      // Fetch episodes for this podcast
-      // In a full implementation, this would use the episode repository
-      // For now, using placeholder logic
-      episodes = []
-      Self.logger.info("Loaded \(self.episodes.count) episodes for podcast: \(self.podcast.title)")
-    } catch {
-      Self.logger.error("Failed to load episodes: \(error.localizedDescription)")
-    }
-  }
-  
-  // MARK: - Template Creation
-  
-  /// Create the CarPlay list template for episode browsing
   func createEpisodeListTemplate() -> CPListTemplate {
     let section = createEpisodeSection()
-    
-    let template = CPListTemplate(
-      title: podcast.title,
-      sections: [section]
-    )
-    
+    let template = CPListTemplate(title: podcast.title, sections: [section])
     return template
   }
   
   private func createEpisodeSection() -> CPListSection {
-    let items = episodes.prefix(100).map { episode in
-      createEpisodeListItem(for: episode)
-    }
-    
-    // CarPlay guidelines recommend limiting list length for safety
-    // We limit to 100 items and show most recent episodes first
+    let items = episodeItems.map { createEpisodeListItem(for: $0) }
     let header = items.isEmpty ? "No Episodes" : "Recent Episodes"
-    return CPListSection(items: Array(items), header: header, sectionIndexTitle: nil)
+    return CPListSection(items: items, header: header, sectionIndexTitle: nil)
   }
   
-  private func createEpisodeListItem(for episode: Episode) -> CPListItem {
-    // Format episode metadata for CarPlay display
-    let title = episode.title
-    let duration = formatDuration(episode.duration)
-    let detailText = duration
-    
-    // Create the list item
-    let item = CPListItem(
-      text: title,
-      detailText: detailText,
-      image: nil,  // Could add episode artwork if available
-      accessoryImage: nil,
-      accessoryType: .disclosureIndicator
-    )
-    
-    // Set up the handler for when the item is selected
-    item.handler = { [weak self] _, completion in
-      guard let self = self else {
+  private func createEpisodeListItem(for item: CarPlayEpisodeItem) -> CPListItem {
+    let listItem = CPListItem(text: item.title, detailText: item.detailText)
+    listItem.userInfo = item
+
+    if item.isInProgress {
+      listItem.playbackProgress = item.episode.playbackProgress
+    }
+
+    listItem.handler = { [weak self] _, completion in
+      guard let self else {
         completion()
         return
       }
-      
-      Task { @MainActor in
-        await self.handleEpisodeSelection(episode)
-        completion()
-      }
+      self.presentOptions(for: item.episode)
+      completion()
     }
-    
-    return item
+
+    return listItem
   }
-  
+
   // MARK: - Episode Selection Handling
-  
-  private func handleEpisodeSelection(_ episode: Episode) async {
-    Self.logger.info("Episode selected in CarPlay: \(episode.title)")
-    
-    // Start playback of the selected episode
-    do {
-      try await playbackService.play(episode: episode)
-      Self.logger.info("Started playback of episode: \(episode.title)")
-    } catch {
-      Self.logger.error("Failed to start playback: \(error.localizedDescription)")
-      // In a full implementation, would show error to user via CarPlay alert
+
+  private func presentOptions(for episode: Episode) {
+    guard let interfaceController else {
+      playNow(episode)
+      return
     }
+
+    let playAction = CPAlertAction(title: "Play Now", style: .default) { [weak self] _ in
+      self?.playNow(episode)
+    }
+
+    let queueAction = CPAlertAction(title: "Add to Queue", style: .default) { [weak self] _ in
+      self?.enqueue(episode)
+    }
+
+    let alert = CPAlertTemplate(titleVariants: [episode.title], actions: [playAction, queueAction])
+    interfaceController.presentTemplate(alert, animated: true, completion: nil)
+  }
+
+  private func playNow(_ episode: Episode) {
+    Self.logger.info("Playing episode via CarPlay: \(episode.title)")
+    dependencies.queueManager.playNow(episode)
   }
   
-  // MARK: - Helper Methods
-  
-  private func formatDuration(_ duration: TimeInterval) -> String {
-    let hours = Int(duration) / 3600
-    let minutes = (Int(duration) % 3600) / 60
-    
-    if hours > 0 {
-      return "\(hours)h \(minutes)m"
-    } else {
-      return "\(minutes)m"
-    }
+  private func enqueue(_ episode: Episode) {
+    Self.logger.info("Enqueued episode via CarPlay: \(episode.title)")
+    dependencies.queueManager.enqueue(episode)
   }
 }
 

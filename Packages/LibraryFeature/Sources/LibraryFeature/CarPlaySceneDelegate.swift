@@ -13,21 +13,18 @@ import OSLog
 import Persistence
 import PlaybackEngine
 
-/// CarPlay scene delegate that manages the CarPlay interface lifecycle and templates
 @available(iOS 14.0, *)
 @MainActor
 public final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
-  
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "CarPlaySceneDelegate")
-  
-  /// The CarPlay interface controller
+
   private var interfaceController: CPInterfaceController?
-  
-  /// The root template (tab bar with podcasts and now playing)
   private var rootTemplate: CPTemplate?
-  
-  /// Episode list controllers by podcast ID for caching
   private var episodeListControllers: [String: CarPlayEpisodeListController] = [:]
+  
+  private var dependencies: CarPlayDependencies {
+    CarPlayDependencyRegistry.resolve()
+  }
   
   // MARK: - CPTemplateApplicationSceneDelegate
   
@@ -59,12 +56,11 @@ public final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationScene
       return
     }
     
-    // Create the podcast library list
-    let libraryTemplate = createPodcastLibraryTemplate()
-    
-    // Create a tab bar template with library and now playing
+    let podcasts = CarPlayDataAdapter.makePodcastItems(from: dependencies.podcastManager.all())
+    let libraryTemplate = createPodcastLibraryTemplate(podcasts: podcasts)
+
     let tabBarTemplate = CPTabBarTemplate(templates: [libraryTemplate])
-    
+
     self.rootTemplate = tabBarTemplate
     interfaceController.setRootTemplate(tabBarTemplate, animated: true) { success, error in
       if let error = error {
@@ -74,28 +70,31 @@ public final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationScene
       }
     }
   }
-  
-  private func createPodcastLibraryTemplate() -> CPListTemplate {
-    let listTemplate = CPListTemplate(
-      title: "Podcasts",
-      sections: [createPodcastSection()]
-    )
-    
-    return listTemplate
+
+  private func createPodcastLibraryTemplate(podcasts: [CarPlayPodcastItem]) -> CPListTemplate {
+    let section = createPodcastSection(from: podcasts)
+    return CPListTemplate(title: "Podcasts", sections: [section])
   }
-  
-  private func createPodcastSection() -> CPListSection {
-    // In a full implementation, this would fetch actual podcasts from the repository
-    // For now, create a placeholder that shows the structure
-    let items: [CPListItem] = []
-    
-    // TODO: Fetch podcasts from PodcastRepository
-    // For each podcast, create a CPListItem with handler that shows episode list
-    
-    let section = CPListSection(items: items, header: "Your Podcasts", sectionIndexTitle: nil)
-    return section
+
+  private func createPodcastSection(from podcasts: [CarPlayPodcastItem]) -> CPListSection {
+    let items = podcasts.map { podcast -> CPListItem in
+      let item = CPListItem(text: podcast.title, detailText: podcast.detailText)
+      item.userInfo = podcast
+      item.handler = { [weak self] _, completion in
+        guard let self else {
+          completion()
+          return
+        }
+        self.showEpisodeList(for: podcast.podcast)
+        completion()
+      }
+      return item
+    }
+
+    let header = podcasts.isEmpty ? "No Podcasts" : "Your Podcasts"
+    return CPListSection(items: items, header: header, sectionIndexTitle: nil)
   }
-  
+
   // MARK: - Episode List Navigation
   
   /// Show the episode list for a given podcast
@@ -105,16 +104,7 @@ public final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationScene
       return
     }
     
-    // Get or create the episode list controller for this podcast
-    let controller: CarPlayEpisodeListController
-    if let existing = episodeListControllers[podcast.id] {
-      controller = existing
-    } else {
-      controller = CarPlayEpisodeListController(podcast: podcast)
-      episodeListControllers[podcast.id] = controller
-    }
-    
-    // Create and push the episode list template
+    let controller = episodeListController(for: podcast)
     let episodeListTemplate = controller.createEpisodeListTemplate()
     interfaceController.pushTemplate(episodeListTemplate, animated: true) { success, error in
       if let error = error {
@@ -123,6 +113,19 @@ public final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationScene
         Self.logger.info("Successfully showed episode list for podcast: \(podcast.title)")
       }
     }
+  }
+
+  private func episodeListController(for podcast: Podcast) -> CarPlayEpisodeListController {
+    if let existing = episodeListControllers[podcast.id] {
+      existing.update(podcast: podcast)
+      existing.setInterfaceController(interfaceController)
+      return existing
+    }
+
+    let controller = CarPlayEpisodeListController(podcast: podcast, dependencies: dependencies)
+    controller.setInterfaceController(interfaceController)
+    episodeListControllers[podcast.id] = controller
+    return controller
   }
 }
 

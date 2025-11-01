@@ -91,6 +91,32 @@ struct ZpodApp: App {
 
 Note: Scene configuration is handled via Info.plist, not programmatically.
 
+### Step 3b: Provide CarPlay Dependencies
+
+Configure shared dependencies so the CarPlay layer can access the user's podcast library and playback engine:
+
+```swift
+#if canImport(CarPlay)
+import CarPlay
+import LibraryFeature
+#endif
+
+@main
+struct ZpodApp: App {
+    #if canImport(LibraryFeature)
+    private static let sharedPodcastManager = InMemoryPodcastManager()
+    #endif
+
+    init() {
+        #if canImport(CarPlay)
+        CarPlayDependencyRegistry.configure(podcastManager: Self.sharedPodcastManager)
+        #endif
+    }
+}
+```
+
+> ⚠️ Replace the sample `InMemoryPodcastManager` with the production persistence layer when available. Call `configure(podcastManager:)` before CarPlay connects so the scene delegate resolves the correct dependencies.
+
 ### Step 4: Implement Podcast Loading
 
 The current implementation has placeholder podcast loading. Update `CarPlaySceneDelegate.createPodcastSection()` to fetch real podcasts:
@@ -150,6 +176,8 @@ For voice control support, implement Siri intents:
 Example intent for "Play latest episode":
 - Intent: PlayMediaIntent
 - Parameter: Podcast name or "latest"
+
+Once intents are configured, update `CarPlayDependencyRegistry.configure` to provide any intent handlers or voice metadata refresh hooks so the CarPlay scene can register new voice command variants.
 
 ## Testing
 
