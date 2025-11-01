@@ -485,7 +485,7 @@ public struct EpisodeDetailView: View {
   private func highlightedTranscriptText(_ text: String, query: String) -> Text {
     guard !query.isEmpty else { return Text(text) }
 
-    var result = Text("")
+    var segments: [Text] = []
     var searchStart = text.startIndex
 
     while searchStart < text.endIndex,
@@ -498,21 +498,21 @@ public struct EpisodeDetailView: View {
     {
       if range.lowerBound > searchStart {
         let prefix = text[searchStart..<range.lowerBound]
-        result = result + Text(String(prefix))
+        segments.append(Text(String(prefix)))
       }
 
       let match = text[range]
-      result = result + Text(String(match)).bold().foregroundStyle(Color.accentColor)
+      segments.append(Text(String(match)).bold().foregroundStyle(Color.accentColor))
 
       searchStart = range.upperBound
     }
 
     if searchStart < text.endIndex {
       let suffix = text[searchStart..<text.endIndex]
-      result = result + Text(String(suffix))
+      segments.append(Text(String(suffix)))
     }
 
-    return result
+    return segments.reduce(Text("")) { $0 + $1 }
   }
 
   private func saveBookmark() {
