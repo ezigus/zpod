@@ -1,6 +1,6 @@
 import XCTest
 @testable import CoreModels
-@testable import TestSupport
+import TestSupport
 @testable import PlaybackEngine
 
 /// Integration tests for playlist creation and playback workflows
@@ -14,6 +14,7 @@ final class PlaylistPlaybackIntegrationTests: XCTestCase, @unchecked Sendable {
     // MARK: - Properties  
     private var podcastManager: InMemoryPodcastManager!
     private var playlistManager: PlaylistManager!
+    private var playlistBuilder: PlaylistTestBuilder!
     private var episodeStateManager: MockEpisodeStateManager!
     
     // MARK: - Setup & Teardown
@@ -26,16 +27,19 @@ final class PlaylistPlaybackIntegrationTests: XCTestCase, @unchecked Sendable {
         let setupExpectation = expectation(description: "Setup main actor components")
 
         Task { @MainActor in
-            playlistManager = PlaylistManager()
+            let manager = PlaylistManager()
+            playlistManager = manager
+            playlistBuilder = PlaylistTestBuilder().withPlaylistManager(manager)
             setupExpectation.fulfill()
         }
 
         wait(for: [setupExpectation], timeout: 5.0)
         episodeStateManager = MockEpisodeStateManager()
     }
-    
+
     override func tearDown() {
         episodeStateManager = nil
+        playlistBuilder = nil
         playlistManager = nil
         podcastManager = nil
         super.tearDown()
@@ -96,37 +100,36 @@ final class PlaylistPlaybackIntegrationTests: XCTestCase, @unchecked Sendable {
         podcastManager.add(podcast1)
         podcastManager.add(podcast2)
         
-        // When: User creates manual and smart playlists
-        // Create manual playlist
-        let manualPlaylist = Playlist(
-            name: "My Favorites",
-            episodeIds: ["ep1", "ep3"],
-            continuousPlayback: true,
-            shuffleAllowed: true
-        )
-        await playlistManager.createPlaylist(manualPlaylist)
-        
-        // Create smart playlist for unplayed episodes
-        let smartCriteria = SmartPlaylistCriteria(
-            maxEpisodes: 10,
-            orderBy: .dateAdded,
-            filterRules: [.isPlayed(false)]
-        )
-        let smartPlaylist = SmartPlaylist(
-            name: "Unplayed Episodes",
-            criteria: smartCriteria
-        )
-        await playlistManager.createSmartPlaylist(smartPlaylist)
-        
+        // When: User creates manual and smart playlists via builder
+        _ = await playlistBuilder
+            .addManualPlaylist(
+                name: "My Favorites",
+                episodeIds: ["ep1", "ep3"],
+                continuousPlayback: true,
+                shuffleAllowed: true
+            )
+            .addSmartPlaylist(
+                name: "Unplayed Episodes",
+                maxEpisodes: 10,
+                orderBy: .dateAdded,
+                filterRules: [.isPlayed(false)]
+            )
+
         // Then: Playlists should be created and functional
         let createdPlaylists = await playlistManager.playlists
         XCTAssertEqual(createdPlaylists.count, 1)
-        XCTAssertEqual(createdPlaylists.first?.name, "My Favorites")
-        
+        guard let manualPlaylist = createdPlaylists.first(where: { $0.name == "My Favorites" }) else {
+            XCTFail("Manual playlist not found")
+            return
+        }
+
         let createdSmartPlaylists = await playlistManager.smartPlaylists
         XCTAssertEqual(createdSmartPlaylists.count, 1)
-        XCTAssertEqual(createdSmartPlaylists.first?.name, "Unplayed Episodes")
-        
+        guard let smartPlaylist = createdSmartPlaylists.first(where: { $0.name == "Unplayed Episodes" }) else {
+            XCTFail("Smart playlist not found")
+            return
+        }
+
         // Test playlist functionality with playback engine
         let playlistEngine = PlaylistEngine()
         let queue = await playlistEngine.generatePlaybackQueue(
@@ -198,32 +201,25 @@ final class PlaylistPlaybackIntegrationTests: XCTestCase, @unchecked Sendable {
         podcastManager.add(podcast)
         
         // When: User creates playlists based on episode states
-        let unplayedPlaylist = SmartPlaylist(
-            name: "Unplayed",
-            criteria: SmartPlaylistCriteria(
+        _ = await playlistBuilder
+            .addSmartPlaylist(
+                name: "Unplayed",
                 maxEpisodes: 10,
                 orderBy: .dateAdded,
                 filterRules: [.isPlayed(false)]
             )
-        )
-        
-        let inProgressPlaylist = SmartPlaylist(
-            name: "In Progress",
-            criteria: SmartPlaylistCriteria(
+            .addSmartPlaylist(
+                name: "In Progress",
                 maxEpisodes: 10,
                 orderBy: .dateAdded,
-                filterRules: [.isPlayed(false)] // Episodes with progress but not marked as played
+                filterRules: [.isPlayed(false)]
             )
-        )
-        
-        await playlistManager.createSmartPlaylist(unplayedPlaylist)
-        await playlistManager.createSmartPlaylist(inProgressPlaylist)
-        
+
         // Simulate episode state changes
         for episode in episodes {
             await episodeStateManager.updateEpisodeState(episode)
         }
-        
+
         // Then: Smart playlists should reflect episode states
         let playlistEngine = PlaylistEngine()
         let downloadStatuses: [String: DownloadState] = [
@@ -232,12 +228,18 @@ final class PlaylistPlaybackIntegrationTests: XCTestCase, @unchecked Sendable {
             "ep3": .completed
         ]
         
+        let smartPlaylists = await playlistManager.smartPlaylists
+        guard let unplayedPlaylist = smartPlaylists.first(where: { $0.name == "Unplayed" }) else {
+            XCTFail("Unplayed smart playlist not found")
+            return
+        }
+
         let unplayedResults = await playlistEngine.evaluateSmartPlaylist(
             unplayedPlaylist,
             episodes: episodes,
             downloadStatuses: downloadStatuses
         )
-        
+
         XCTAssertEqual(unplayedResults.count, 2) // ep1 and ep2 are not marked as played
         XCTAssertTrue(unplayedResults.contains { $0.id == "ep1" })
         XCTAssertTrue(unplayedResults.contains { $0.id == "ep2" })

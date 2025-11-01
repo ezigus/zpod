@@ -1,6 +1,6 @@
 import XCTest
 @testable import CoreModels
-@testable import TestSupport
+import TestSupport
 @testable import SearchDomain
 
 /// Simplified integration tests demonstrating cross-package functionality

@@ -1,6 +1,6 @@
 import XCTest
 @testable import CoreModels
-@testable import TestSupport
+import TestSupport
 @testable import SearchDomain
 @testable import DiscoverFeature
 @testable import PlaybackEngine
@@ -21,8 +21,10 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
     private var podcastManager: InMemoryPodcastManager!
     private var folderManager: InMemoryFolderManager!
     private var playlistManager: PlaylistManager!
+    private var playlistBuilder: PlaylistTestBuilder!
     private var episodeStateManager: MockEpisodeStateManager!
     private var searchService: SearchService!
+    private var workflowBuilder: WorkflowTestBuilder!
     
     // MARK: - Setup & Teardown
     
@@ -35,14 +37,26 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         let setupExpectation = expectation(description: "Setup main actor components")
 
         Task { @MainActor in
-            playlistManager = PlaylistManager()
+            let manager = PlaylistManager()
+            playlistManager = manager
 
-            searchService = SearchService(
+            let search = SearchService(
                 indexSources: [
                     PodcastIndexSource(podcastManager: podcastManager),
                     EpisodeIndexSource(podcastManager: podcastManager)
                 ]
             )
+            searchService = search
+
+            let builder = WorkflowTestBuilder()
+            workflowBuilder = builder
+            _ = builder
+                .withPodcastManager(podcastManager)
+                .withFolderManager(folderManager)
+                .withSearchService(search)
+
+            playlistBuilder = PlaylistTestBuilder().withPlaylistManager(manager)
+
             setupExpectation.fulfill()
         }
 
@@ -52,6 +66,8 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
     
     override func tearDown() {
         episodeStateManager = nil
+        playlistBuilder = nil
+        workflowBuilder = nil
         playlistManager = nil
         searchService = nil
         folderManager = nil
@@ -83,18 +99,17 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
     
     func testCrossComponentDataConsistency() async throws {
         // Given: Data that spans multiple components
-        let folder = Folder(id: "consistency-test", name: "Consistency Test")
-        try folderManager.add(folder)
-        
-        let podcast = Podcast(
-            id: "consistent-podcast",
-            title: "Consistency Test Podcast",
-            description: "Testing data consistency",
-            feedURL: URL(string: "https://example.com/consistent.xml")!,
-            folderId: "consistency-test",
-            tagIds: ["test", "consistency"]
-        )
-        
+        try await workflowBuilder
+            .addFolder(id: "consistency-test", name: "Consistency Test")
+            .addPodcast(
+                id: "consistent-podcast",
+                title: "Consistency Test Podcast",
+                description: "Testing data consistency",
+                feedURL: "https://example.com/consistent.xml",
+                folderId: "consistency-test",
+                tagIds: ["test", "consistency"]
+            )
+
         let episode = Episode(
             id: "consistent-episode",
             title: "Consistency Episode",
@@ -108,15 +123,14 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         )
         
         // When: Data is added across components
-        podcastManager.add(podcast)
-        await rebuildSearchIndex()
+        _ = await workflowBuilder.buildSearchIndex()
         await episodeStateManager.updateEpisodeState(episode)
-        
-        let playlist = Playlist(
-            name: "Consistency Playlist",
-            episodeIds: ["consistent-episode"]
-        )
-        await playlistManager.createPlaylist(playlist)
+
+        _ = await playlistBuilder
+            .addManualPlaylist(
+                name: "Consistency Playlist",
+                episodeIds: ["consistent-episode"]
+            )
         
         // Then: Data should be consistent across all components
         
@@ -156,64 +170,51 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         
         // Step 1: User discovers and subscribes to podcasts
         let discoveredPodcasts = [
-            Podcast(
-                id: "swift-weekly",
-                title: "Swift Weekly",
-                description: "Weekly Swift programming news",
-                feedURL: URL(string: "https://example.com/swift-weekly.xml")!
-            ),
-            Podcast(
-                id: "swift-tips",
-                title: "Swift Tips",
-                description: "Daily Swift programming tips",
-                feedURL: URL(string: "https://example.com/swift-tips.xml")!
-            )
+            (id: "swift-weekly", title: "Swift Weekly", description: "Weekly Swift programming news", feedURL: "https://example.com/swift-weekly.xml"),
+            (id: "swift-tips", title: "Swift Tips", description: "Daily Swift programming tips", feedURL: "https://example.com/swift-tips.xml")
         ]
-        
-        discoveredPodcasts.forEach { podcast in
-            podcastManager.add(podcast)
-            let subscribed = podcast.withSubscriptionStatus(true)
-            podcastManager.update(subscribed)
+
+        for podcast in discoveredPodcasts {
+            try await workflowBuilder.addPodcast(
+                id: podcast.id,
+                title: podcast.title,
+                description: podcast.description,
+                feedURL: podcast.feedURL
+            )
+        }
+        _ = await workflowBuilder.buildSearchIndex()
+        for podcast in discoveredPodcasts {
+            _ = await workflowBuilder.subscribeToPodcast(id: podcast.id)
         }
         
         // Step 2: User organizes podcasts
         let techFolder = Folder(id: "tech", name: "Technology")
         try folderManager.add(techFolder)
         
-        let organizedPodcasts = discoveredPodcasts.map { podcast in
-            Podcast(
-                id: podcast.id,
-                title: podcast.title,
-                description: podcast.description,
-                feedURL: podcast.feedURL,
-                isSubscribed: true,
-                folderId: "tech",
-                tagIds: ["programming", "technology"]
-            )
+        let organizedPodcasts: [Podcast] = discoveredPodcasts.compactMap { podcast in
+            guard let existing = podcastManager.find(id: podcast.id) else { return nil }
+            return existing
+                .withSubscriptionStatus(true)
+                .withOrganization(folderId: "tech", tagIds: ["programming", "technology"])
         }
-        
-        organizedPodcasts.forEach { podcast in
-            podcastManager.update(podcast)
-        }
-        await searchService.rebuildIndex()
-        
+
+        organizedPodcasts.forEach { podcastManager.update($0) }
+        await rebuildSearchIndex()
+
         // Step 3: User creates playlists
-        let favoritePlaylist = Playlist(
-            name: "Daily Tech",
-            episodeIds: [],
-            continuousPlayback: true
-        )
-        await playlistManager.createPlaylist(favoritePlaylist)
-        
-        let smartPlaylist = SmartPlaylist(
-            name: "New Tech Episodes",
-            criteria: SmartPlaylistCriteria(
+        _ = await playlistBuilder
+            .addManualPlaylist(
+                name: "Daily Tech",
+                episodeIds: ["swift-weekly-ep1", "swift-tips-ep1"],
+                continuousPlayback: true,
+                shuffleAllowed: true
+            )
+            .addSmartPlaylist(
+                name: "New Tech Episodes",
                 maxEpisodes: 20,
                 orderBy: .dateAdded,
                 filterRules: [.isPlayed(false), .podcastCategory("Technology")]
             )
-        )
-        await playlistManager.createSmartPlaylist(smartPlaylist)
         
         // Step 4: User searches and browses content
         let searchResults = await searchService.search(query: "Swift", filter: .podcastsOnly)
