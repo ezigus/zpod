@@ -66,10 +66,8 @@
         listItem.playbackProgress = item.episode.playbackProgress
       }
 
-      // Add play indicator for currently playing episode
-      if dependencies.playbackService.currentEpisode?.id == item.episode.id {
-        listItem.isPlaying = true
-      }
+      // Note: Cannot reliably detect currently playing episode without exposing currentEpisode in protocol
+      // Future enhancement: Add currentEpisode to EpisodePlaybackService protocol
 
       // Handler for tap selection (also triggered by voice commands)
       listItem.handler = { [weak self] _, completion in
@@ -107,9 +105,9 @@
       }
 
       // Cancel action for safety (driver can dismiss if needed)
-      let cancelAction = CPAlertAction(title: "Cancel", style: .cancel, handler: nil)
-
-      // Use title variants for different screen sizes (HIG compliance)
+      let cancelAction = CPAlertAction(title: "Cancel", style: .cancel) { _ in
+        // No-op: just dismiss the alert
+      }  // Use title variants for different screen sizes (HIG compliance)
       let titleVariants = [
         episode.title,
         truncateTitle(episode.title, maxLength: 40),
