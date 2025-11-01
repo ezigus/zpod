@@ -188,6 +188,25 @@ final class ConsolidatedHelpersTests: XCTestCase {
         XCTAssertEqual(subscribed.title, podcast.title)
     }
     
+    func testPodcast_WithOrganization() {
+        // Given
+        let podcast = Podcast(
+            id: "test",
+            title: "Test Podcast",
+            feedURL: URL(string: "https://example.com/feed.xml")!,
+            isSubscribed: true
+        )
+
+        // When
+        let organized = podcast.withOrganization(folderId: "tech", tagIds: ["swift", "ios"])
+
+        // Then
+        XCTAssertEqual(organized.folderId, "tech")
+        XCTAssertEqual(organized.tagIds, ["swift", "ios"])
+        XCTAssertEqual(organized.id, podcast.id)
+        XCTAssertEqual(organized.isSubscribed, podcast.isSubscribed)
+    }
+    
     func testInMemoryPodcastManager_GetSubscribedPodcasts() {
         // Given
         let manager = InMemoryPodcastManager()

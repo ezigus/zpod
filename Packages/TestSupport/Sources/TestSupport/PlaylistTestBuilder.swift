@@ -1,6 +1,5 @@
 import Foundation
 import CoreModels
-import XCTest
 
 /// Builder for setting up playlist test scenarios
 ///
@@ -41,7 +40,7 @@ public final class PlaylistTestBuilder {
         shuffleAllowed: Bool = true
     ) async -> Self {
         guard let playlistManager = playlistManager else {
-            XCTFail("Playlist manager not configured")
+            assertionFailure("Playlist manager not configured")
             return self
         }
         
@@ -67,7 +66,7 @@ public final class PlaylistTestBuilder {
         filterRules: [SmartPlaylistFilterRule] = []
     ) async -> Self {
         guard let playlistManager = playlistManager else {
-            XCTFail("Playlist manager not configured")
+            assertionFailure("Playlist manager not configured")
             return self
         }
         

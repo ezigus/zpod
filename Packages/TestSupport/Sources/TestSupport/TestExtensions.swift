@@ -22,6 +22,29 @@ extension Podcast {
             tagIds: self.tagIds
         )
     }
+
+    /// Creates a copy of the podcast with updated organizational metadata
+    ///
+    /// - Parameters:
+    ///   - folderId: The folder identifier to assign
+    ///   - tagIds: Tags that should be associated with the podcast
+    /// - Returns: A new podcast instance with the updated organization values
+    public func withOrganization(folderId: String?, tagIds: [String]) -> Podcast {
+        return Podcast(
+            id: self.id,
+            title: self.title,
+            author: self.author,
+            description: self.description,
+            artworkURL: self.artworkURL,
+            feedURL: self.feedURL,
+            categories: self.categories,
+            episodes: self.episodes,
+            isSubscribed: self.isSubscribed,
+            dateAdded: self.dateAdded,
+            folderId: folderId,
+            tagIds: tagIds
+        )
+    }
 }
 
 // MARK: - InMemoryPodcastManager Extensions for Testing
