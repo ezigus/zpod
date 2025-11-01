@@ -19,6 +19,7 @@ struct ZpodApp: App {
   init() {
     disableHardwareKeyboard()
     configureAnimationsForUITesting()
+    configureCarPlayDependencies()
   }
 
   #if canImport(LibraryFeature)
@@ -55,12 +56,22 @@ struct ZpodApp: App {
     }()
   #endif
 
+  #if canImport(LibraryFeature)
+    private static let sharedPodcastManager: InMemoryPodcastManager = InMemoryPodcastManager()
+  #endif
+
   var body: some Scene {
     WindowGroup {
       ContentView()
     }
     #if canImport(LibraryFeature)
       .modelContainer(Self.sharedModelContainer)
+    #endif
+  }
+
+  private func configureCarPlayDependencies() {
+    #if canImport(CarPlay)
+      CarPlayDependencyRegistry.configure(podcastManager: Self.sharedPodcastManager)
     #endif
   }
 
