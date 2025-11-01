@@ -42,7 +42,8 @@ public struct EpisodeListView: View {
           playbackService: dependencies.playbackService,
           episodeRepository: dependencies.episodeRepository,
           swipeConfigurationService: dependencies.swipeConfigurationService,
-          hapticFeedbackService: dependencies.hapticsService
+          hapticFeedbackService: dependencies.hapticsService,
+          annotationRepository: dependencies.annotationRepository
         ))
     } else {
       #if DEBUG
@@ -58,7 +59,8 @@ public struct EpisodeListView: View {
           playbackService: dependencies.playbackService,
           episodeRepository: dependencies.episodeRepository,
           swipeConfigurationService: dependencies.swipeConfigurationService,
-          hapticFeedbackService: dependencies.hapticsService
+          hapticFeedbackService: dependencies.hapticsService,
+          annotationRepository: dependencies.annotationRepository
         ))
     }
   }
@@ -175,6 +177,7 @@ public struct EpisodeListView: View {
     .accessibilityIdentifier("Episode List View")
     .task {
       await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
+      try? await viewModel.refreshNoteCounts()
     }
     .onChange(of: viewModel.filteredEpisodes.count) {
       Task { await viewModel.ensureUITestBatchOverlayIfNeeded() }
@@ -458,7 +461,8 @@ public struct EpisodeListView: View {
             onQuickPlay: nil,
             isSelected: viewModel.isEpisodeSelected(episode.id),
             isInMultiSelectMode: true,
-            onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) }
+            onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) },
+            noteCount: viewModel.noteCounts[episode.id]
           )
           .accessibilityIdentifier("Episode-\(episode.id)")
         } else {
@@ -486,7 +490,8 @@ public struct EpisodeListView: View {
                 }
               },
               isSelected: false,
-              isInMultiSelectMode: false
+              isInMultiSelectMode: false,
+              noteCount: viewModel.noteCounts[episode.id]
             )
           }
           .swipeActions(
@@ -519,7 +524,8 @@ public struct EpisodeListView: View {
             onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
             onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
             onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
-            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) }
+            onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
+            noteCount: viewModel.noteCounts[episode.id]
           )
         }
         .accessibilityIdentifier("Episode-\(episode.id)")
@@ -727,6 +733,7 @@ public struct EpisodeRowView: View {
   let isSelected: Bool
   let isInMultiSelectMode: Bool
   let onSelectionToggle: (() -> Void)?
+  let noteCount: Int?
 
   public init(
     episode: Episode,
@@ -740,7 +747,8 @@ public struct EpisodeRowView: View {
     onQuickPlay: (() -> Void)? = nil,
     isSelected: Bool = false,
     isInMultiSelectMode: Bool = false,
-    onSelectionToggle: (() -> Void)? = nil
+    onSelectionToggle: (() -> Void)? = nil,
+    noteCount: Int? = nil
   ) {
     self.episode = episode
     self.downloadProgress = downloadProgress
@@ -754,6 +762,7 @@ public struct EpisodeRowView: View {
     self.isSelected = isSelected
     self.isInMultiSelectMode = isInMultiSelectMode
     self.onSelectionToggle = onSelectionToggle
+    self.noteCount = noteCount
   }
 
   public var body: some View {
@@ -829,6 +838,10 @@ public struct EpisodeRowView: View {
           .font(.caption)
           .foregroundStyle(.secondary)
       }
+
+      if let noteCount, noteCount > 0 {
+        noteCountBadge(noteCount)
+      }
     }
     .accessibilityIdentifier("Episode Metadata")
   }
@@ -842,6 +855,19 @@ public struct EpisodeRowView: View {
         .foregroundStyle(.secondary)
         .accessibilityIdentifier("Episode Description")
     }
+  }
+
+  private func noteCountBadge(_ count: Int) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "note.text")
+      Text("\(count)")
+    }
+    .padding(.horizontal, 6)
+    .padding(.vertical, 2)
+    .background(Color.accentColor.opacity(0.15))
+    .foregroundStyle(Color.accentColor)
+    .clipShape(Capsule())
+    .accessibilityLabel("Notes: \(count)")
   }
 
   @ViewBuilder
@@ -1206,6 +1232,7 @@ private final class EpisodeListDependencyProvider {
 
   let playbackService: EpisodePlaybackService
   let episodeRepository: EpisodeRepository
+  let annotationRepository: EpisodeAnnotationRepository
   let settingsManager: SettingsManager
   let swipeConfigurationService: SwipeConfigurationServicing
   let hapticsService: HapticFeedbackServicing
@@ -1213,6 +1240,8 @@ private final class EpisodeListDependencyProvider {
   private init() {
     self.playbackService = EnhancedEpisodePlayer()
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
+    self.annotationRepository = UserDefaultsEpisodeAnnotationRepository(
+      suiteName: "us.zig.zpod.episode-annotations")
     let environment = ProcessInfo.processInfo.environment
     let userDefaults: UserDefaults
     if let suiteName = environment["UITEST_USER_DEFAULTS_SUITE"], !suiteName.isEmpty,
