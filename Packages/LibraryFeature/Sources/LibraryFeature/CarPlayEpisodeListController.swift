@@ -9,6 +9,7 @@
   import CarPlay
   import CoreModels
   import Foundation
+  import Intents
   import OSLog
 
   @available(iOS 14.0, *)
@@ -137,11 +138,46 @@
     private func playNow(_ episode: Episode) {
       Self.logger.info("Playing episode via CarPlay: \(episode.title)")
       dependencies.queueManager.playNow(episode)
+
+      // Donate playback activity to Siri for suggestions
+      donatePlaybackActivity(for: episode)
     }
 
     private func enqueue(_ episode: Episode) {
       Self.logger.info("Enqueued episode via CarPlay: \(episode.title)")
       dependencies.queueManager.enqueue(episode)
+    }
+
+    // MARK: - Siri Integration
+
+    /// Donates playback activity to Siri for personalized suggestions
+    @available(iOS 14.0, *)
+    private func donatePlaybackActivity(for episode: Episode) {
+      let mediaItem = INMediaItem(
+        identifier: episode.id.uuidString,
+        title: episode.title,
+        type: .podcastEpisode,
+        artwork: nil
+      )
+
+      let intent = INPlayMediaIntent(
+        mediaItems: [mediaItem],
+        mediaContainer: nil,
+        playShuffled: false,
+        playbackRepeatMode: .none,
+        resumePlayback: false
+      )
+
+      intent.suggestedInvocationPhrase = "Play \(episode.title)"
+
+      let interaction = INInteraction(intent: intent, response: nil)
+      interaction.donate { error in
+        if let error = error {
+          Self.logger.error("Failed to donate media intent: \(error.localizedDescription)")
+        } else {
+          Self.logger.info("Successfully donated playback intent for: \(episode.title)")
+        }
+      }
     }
   }
 #endif
