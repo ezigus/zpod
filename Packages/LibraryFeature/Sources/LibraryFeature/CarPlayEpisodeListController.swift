@@ -154,7 +154,7 @@
     @available(iOS 14.0, *)
     private func donatePlaybackActivity(for episode: Episode) {
       let mediaItem = INMediaItem(
-        identifier: episode.id.uuidString,
+        identifier: episode.id,
         title: episode.title,
         type: .podcastEpisode,
         artwork: nil

@@ -13,9 +13,13 @@ public typealias PodcastManaging = CoreModels.PodcastManaging
 /// should use proper synchronization mechanisms.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
+  private let siriAppGroupSuite = "group.us.zig.zpod"
+  private let siriDevSuite = "dev.us.zig.zpod"
+  private let siriStorageKey = "carplay.podcastSnapshots"
 
   public init(initial: [Podcast] = []) {
     for p in initial { storage[p.id] = p }
+    persistSiriSnapshots()
   }
 
   public func all() -> [Podcast] { Array(storage.values) }
@@ -26,6 +30,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     // Enforce id uniqueness; ignore if already present (could log later)
     guard storage[podcast.id] == nil else { return }
     storage[podcast.id] = podcast
+    persistSiriSnapshots()
   }
 
   public func update(_ podcast: Podcast) {
@@ -62,9 +67,13 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       tagIds: podcast.tagIds
     )
     storage[podcast.id] = merged
+    persistSiriSnapshots()
   }
 
-  public func remove(id: String) { storage.removeValue(forKey: id) }
+  public func remove(id: String) {
+    storage.removeValue(forKey: id)
+    persistSiriSnapshots()
+  }
   
   // MARK: - Organization Filtering
   
@@ -92,4 +101,55 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   public func findUnorganized() -> [Podcast] {
     storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
   }
+
+  private func persistSiriSnapshots() {
+    guard #available(iOS 14.0, *) else { return }
+
+    let podcastSnapshots = storage.values.map { podcast -> SiriPodcastSnapshot in
+      let episodes = podcast.episodes.map { episode -> SiriEpisodeSnapshot in
+        SiriEpisodeSnapshot(
+          id: episode.id,
+          title: episode.title,
+          duration: episode.duration,
+          playbackPosition: episode.playbackPosition,
+          isPlayed: episode.isPlayed,
+          publishedAt: episode.pubDate
+        )
+      }
+      return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
+    }
+
+    let encoder = JSONEncoder()
+
+    if let sharedDefaults = UserDefaults(suiteName: siriAppGroupSuite),
+      let data = try? encoder.encode(podcastSnapshots)
+    {
+      sharedDefaults.set(data, forKey: siriStorageKey)
+      sharedDefaults.synchronize()
+    }
+
+    if let devDefaults = UserDefaults(suiteName: siriDevSuite),
+      let data = try? encoder.encode(podcastSnapshots)
+    {
+      devDefaults.set(data, forKey: siriStorageKey)
+      devDefaults.synchronize()
+    }
+  }
+}
+
+@available(iOS 14.0, *)
+private struct SiriPodcastSnapshot: Codable {
+  let id: String
+  let title: String
+  let episodes: [SiriEpisodeSnapshot]
+}
+
+@available(iOS 14.0, *)
+private struct SiriEpisodeSnapshot: Codable {
+  let id: String
+  let title: String
+  let duration: TimeInterval?
+  let playbackPosition: Int?
+  let isPlayed: Bool
+  let publishedAt: Date?
 }

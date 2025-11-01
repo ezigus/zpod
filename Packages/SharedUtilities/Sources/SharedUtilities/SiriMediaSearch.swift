@@ -63,35 +63,38 @@ public struct SiriMediaSearch {
   }
 
   /// Calculates Levenshtein distance between two strings
-  private static func levenshteinDistance(_ s1: String, _ s2: String) -> Int {
-    let s1 = Array(s1)
-    let s2 = Array(s2)
+  private static func levenshteinDistance(_ first: String, _ second: String) -> Int {
+    let lhsCharacters = Array(first)
+    let rhsCharacters = Array(second)
 
-    var matrix = [[Int]](repeating: [Int](repeating: 0, count: s2.count + 1), count: s1.count + 1)
+    var matrix = [[Int]](
+      repeating: [Int](repeating: 0, count: rhsCharacters.count + 1),
+      count: lhsCharacters.count + 1
+    )
 
-    for i in 0...s1.count {
-      matrix[i][0] = i
+    for rowIndex in 0...lhsCharacters.count {
+      matrix[rowIndex][0] = rowIndex
     }
 
-    for j in 0...s2.count {
-      matrix[0][j] = j
+    for columnIndex in 0...rhsCharacters.count {
+      matrix[0][columnIndex] = columnIndex
     }
 
-    for i in 1...s1.count {
-      for j in 1...s2.count {
-        if s1[i - 1] == s2[j - 1] {
-          matrix[i][j] = matrix[i - 1][j - 1]
+    for rowIndex in 1...lhsCharacters.count {
+      for columnIndex in 1...rhsCharacters.count {
+        if lhsCharacters[rowIndex - 1] == rhsCharacters[columnIndex - 1] {
+          matrix[rowIndex][columnIndex] = matrix[rowIndex - 1][columnIndex - 1]
         } else {
-          matrix[i][j] = min(
-            matrix[i - 1][j] + 1,  // deletion
-            matrix[i][j - 1] + 1,  // insertion
-            matrix[i - 1][j - 1] + 1  // substitution
+          matrix[rowIndex][columnIndex] = min(
+            matrix[rowIndex - 1][columnIndex] + 1,  // deletion
+            matrix[rowIndex][columnIndex - 1] + 1,  // insertion
+            matrix[rowIndex - 1][columnIndex - 1] + 1  // substitution
           )
         }
       }
     }
 
-    return matrix[s1.count][s2.count]
+    return matrix[lhsCharacters.count][rhsCharacters.count]
   }
 
   /// Parses temporal references from search query
