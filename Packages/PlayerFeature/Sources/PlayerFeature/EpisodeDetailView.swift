@@ -348,6 +348,49 @@ public struct EpisodeDetailView: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+        
+        // Transcript section
+        if let transcript = viewModel.transcript {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("Transcript")
+              .font(.headline)
+              .fontWeight(.semibold)
+            
+            VStack(alignment: .leading, spacing: 8) {
+              ForEach(transcript.segments) { segment in
+                Button(action: {
+                  viewModel.jumpToTranscriptSegment(segment)
+                }) {
+                  HStack(alignment: .top, spacing: 8) {
+                    Text(formatChapterTime(segment.startTime))
+                      .font(.caption)
+                      .foregroundColor(.secondary)
+                      .frame(width: 50, alignment: .leading)
+                    
+                    Text(segment.text)
+                      .font(.subheadline)
+                      .foregroundColor(.primary)
+                      .multilineTextAlignment(.leading)
+                      .frame(maxWidth: .infinity, alignment: .leading)
+                  }
+                  .padding(.vertical, 6)
+                  .padding(.horizontal, 10)
+                  .background(
+                    // Highlight current segment
+                    viewModel.transcript?.segment(at: viewModel.currentPosition)?.id == segment.id
+                      ? Color.accentColor.opacity(0.2)
+                      : Color(.systemGray5)
+                  )
+                  .cornerRadius(6)
+                }
+                .buttonStyle(PlainButtonStyle())
+              }
+            }
+          }
+          .padding()
+          .background(Color(.systemGray6))
+          .cornerRadius(12)
+        }
 
         Spacer()
       }
