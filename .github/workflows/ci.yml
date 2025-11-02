@@ -57,6 +57,18 @@ jobs:
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
+      - name: Resolve simulator destination
+        id: resolve-destination
+        run: |
+          set -euo pipefail
+          DESTINATION="$(./scripts/resolve-simulator-destination.sh)"
+          if [ -z "$DESTINATION" ]; then
+            echo "Destination resolution returned empty output" >&2
+            exit 1
+          fi
+          echo "Resolved destination: $DESTINATION"
+          echo "destination=$DESTINATION" >> "$GITHUB_OUTPUT"
+
       - name: Swift syntax verification
         run: |
           set -euo pipefail
@@ -76,12 +88,17 @@ jobs:
         run: |
           set -euo pipefail
           DEST_PATH="$PWD/tmp_ci/DerivedData/HostPrebuild"
+          DESTINATION="${{ steps.resolve-destination.outputs.destination }}"
+          if [ -z "$DESTINATION" ]; then
+            echo "Simulator destination not resolved" >&2
+            exit 1
+          fi
           echo "Building host app (standard build) to ensure binary is produced..."
           xcodebuild \
             -workspace zpod.xcworkspace \
             -scheme 'zpod (zpod project)' \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "$DESTINATION" \
             -derivedDataPath "$DEST_PATH" \
             build
           echo "Building host + test bundles for testing reuse..."
@@ -89,7 +106,7 @@ jobs:
             -workspace zpod.xcworkspace \
             -scheme 'zpod (zpod project)' \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "$DESTINATION" \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
           HOST_APP="$DEST_PATH/Build/Products/Debug-iphonesimulator/zpod.app"
@@ -100,7 +117,7 @@ jobs:
             -workspace zpod.xcworkspace \
             -scheme IntegrationTests \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "$DESTINATION" \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
         env:
