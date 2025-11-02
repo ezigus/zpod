@@ -79,10 +79,9 @@ class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     // Extract search parameters
     let mediaName = search.mediaName
     let mediaType = search.mediaType
-    let reference = search.reference
 
     Self.logger.info(
-      "Search params - name: \(mediaName ?? "nil"), type: \(String(describing: mediaType)), reference: \(String(describing: reference))"
+      "Search params - name: \(mediaName ?? "nil"), type: \(String(describing: mediaType)), reference: \(String(describing: search.reference))"
     )
 
     guard let query = mediaName, !query.isEmpty else {
@@ -93,24 +92,31 @@ class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     let temporalRef = SiriMediaSearch.parseTemporalReference(query)
     Self.logger.info("Temporal reference: \(String(describing: temporalRef))")
 
-    let snapshots = loadSnapshots()
-    guard !snapshots.isEmpty else {
+    guard let resolver = loadResolver() else {
       Self.logger.warning("No podcast snapshots available for Siri search")
       return []
     }
 
-    // Determine whether the user explicitly asked for a podcast show.
-    let wantsPodcastShow = (mediaType == .podcastShow)
-
-    if wantsPodcastShow {
-      return resolvePodcasts(query: query, snapshots: snapshots)
+    if mediaType == .podcastShow {
+      return resolver.searchPodcasts(query: query).map { match in
+        INMediaItem(
+          identifier: match.podcast.id,
+          title: match.podcast.title,
+          type: .podcastShow,
+          artwork: nil
+        )
+      }
     }
 
-    return resolveEpisodes(
-      query: query,
-      snapshots: snapshots,
-      temporalReference: temporalRef
-    )
+    let episodeMatches = resolver.searchEpisodes(query: query, temporalReference: temporalRef)
+    return episodeMatches.map { match in
+      INMediaItem(
+        identifier: match.episode.id,
+        title: match.episode.title,
+        type: .podcastEpisode,
+        artwork: nil
+      )
+    }
   }
 
   // MARK: - Confirm Intent
@@ -126,128 +132,13 @@ class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
 
   // MARK: - Snapshot Loading
 
-  private func loadSnapshots() -> [SiriPodcastSnapshot] {
-    if #available(iOS 14.0, *) {
-      let shared = SiriMediaLibrary.loadFromSharedContainer(suiteName: Self.appGroupSuite)
-      if !shared.isEmpty {
-        return shared
-      }
-    }
-
-    // Development fallback: allow tests to inject data via standard defaults
-    if let defaults = UserDefaults(suiteName: AppGroup.devSuiteName),
-      let data = defaults.data(forKey: SiriMediaLibrary.storageKey),
-      let snapshots = try? JSONDecoder().decode([SiriPodcastSnapshot].self, from: data)
-    {
-      return snapshots
-    }
-
-    return []
-  }
-
-  private func resolveEpisodes(
-    query: String,
-    snapshots: [SiriPodcastSnapshot],
-    temporalReference: SiriMediaSearch.TemporalReference?
-  ) -> [INMediaItem] {
-    var matches: [EpisodeMatch] = []
-
-    for podcast in snapshots {
-      let podcastScore = SiriMediaSearch.fuzzyMatch(query: query, target: podcast.title)
-
-      for episode in podcast.episodes {
-        let episodeScore = SiriMediaSearch.fuzzyMatch(query: query, target: episode.title)
-        let finalScore = max(podcastScore, episodeScore)
-
-        if finalScore >= 0.5 {
-          matches.append(EpisodeMatch(snapshot: episode, podcast: podcast, score: finalScore))
-        }
-      }
-    }
-
-    if let temporalReference {
-      matches = applyTemporalFilter(matches, reference: temporalReference)
-    }
-
-    let topMatches = matches
-      .sorted { lhs, rhs in
-        lhs.score == rhs.score
-          ? (lhs.snapshot.publishedAt ?? .distantPast) > (rhs.snapshot.publishedAt ?? .distantPast)
-          : lhs.score > rhs.score
-      }
-      .prefix(5)
-
-    return topMatches.map { match in
-      INMediaItem(
-        identifier: match.snapshot.id,
-        title: match.snapshot.title,
-        type: .podcastEpisode,
-        artwork: nil
-      )
-    }
-  }
-
-  private func resolvePodcasts(
-    query: String,
-    snapshots: [SiriPodcastSnapshot]
-  ) -> [INMediaItem] {
-    let matches = snapshots
-      .map { snapshot -> (SiriPodcastSnapshot, Double) in
-        (snapshot, SiriMediaSearch.fuzzyMatch(query: query, target: snapshot.title))
-      }
-      .filter { $0.1 >= 0.5 }
-      .sorted { lhs, rhs in lhs.1 > rhs.1 }
-      .prefix(5)
-
-    return matches.map { snapshot, _ in
-      INMediaItem(
-        identifier: snapshot.id,
-        title: snapshot.title,
-        type: .podcastShow,
-        artwork: nil
-      )
-    }
-  }
-
-  private func applyTemporalFilter(
-    _ matches: [EpisodeMatch],
-    reference: SiriMediaSearch.TemporalReference
-  ) -> [EpisodeMatch] {
-    switch reference {
-    case .latest:
-      return matches
-        .grouped(by: { $0.podcast.id })
-        .compactMap { _, group in
-          group.max(by: { (lhs, rhs) -> Bool in
-            (lhs.snapshot.publishedAt ?? .distantPast) < (rhs.snapshot.publishedAt ?? .distantPast)
-          })
-        }
-    case .oldest:
-      return matches
-        .grouped(by: { $0.podcast.id })
-        .compactMap { _, group in
-          group.min(by: { (lhs, rhs) -> Bool in
-            (lhs.snapshot.publishedAt ?? .distantFuture) < (rhs.snapshot.publishedAt ?? .distantFuture)
-          })
-        }
-    }
+  private func loadResolver() -> SiriMediaResolver? {
+    guard #available(iOS 14.0, *) else { return nil }
+    return SiriMediaResolver.loadResolver(
+      primarySuite: Self.appGroupSuite,
+      devSuite: AppGroup.devSuiteName
+    )
   }
 }
 
 // MARK: - Helpers
-
-private extension Array {
-  func grouped<Key: Hashable>(by keyForValue: (Element) -> Key) -> [Key: [Element]] {
-    reduce(into: [:]) { partialResult, element in
-      let key = keyForValue(element)
-      partialResult[key, default: []].append(element)
-    }
-  }
-}
-
-@available(iOS 14.0, *)
-private struct EpisodeMatch {
-  let snapshot: SiriEpisodeSnapshot
-  let podcast: SiriPodcastSnapshot
-  let score: Double
-}
