@@ -5,9 +5,9 @@
 //  Created by Eric Ziegler on 7/12/25.
 //
 
+import SharedUtilities
 import SwiftUI
 import UIKit
-import SharedUtilities
 
 #if canImport(LibraryFeature)
   import SwiftData
@@ -64,10 +64,17 @@ struct ZpodApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView()
+      #if canImport(LibraryFeature)
+        ContentView(podcastManager: Self.sharedPodcastManager)
+      #else
+        ContentView()
+      #endif
     }
     #if canImport(LibraryFeature)
       .modelContainer(Self.sharedModelContainer)
+      .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
+        handlePlayEpisodeActivity(userActivity)
+      }
     #endif
   }
 
@@ -136,4 +143,25 @@ struct ZpodApp: App {
       }
     }
   }
+
+  #if canImport(LibraryFeature)
+    /// Handles NSUserActivity from Siri to play a specific episode
+    private func handlePlayEpisodeActivity(_ userActivity: NSUserActivity) {
+      guard let episodeId = userActivity.userInfo?["episodeId"] as? String else {
+        print("⚠️ handlePlayEpisodeActivity: No episodeId in userInfo")
+        return
+      }
+
+      print("🎧 Siri requested playback for episode: \(episodeId)")
+
+      // Trigger playback via the shared podcast manager
+      // Note: This assumes the PodcastManager has a method to start playback
+      // If not already implemented, this will need to be added
+      Task { @MainActor in
+        // TODO: Implement actual playback triggering
+        // For now, just log that we received the request
+        print("📱 Would start playback for episode: \(episodeId)")
+      }
+    }
+  #endif
 }

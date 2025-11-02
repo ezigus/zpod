@@ -8,6 +8,8 @@
 	<string>development</string>
 	<key>com.apple.developer.siri</key>
 	<true/>
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.us.zig.zpod</string>
