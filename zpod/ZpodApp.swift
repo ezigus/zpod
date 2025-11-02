@@ -66,15 +66,15 @@ struct ZpodApp: App {
     WindowGroup {
       #if canImport(LibraryFeature)
         ContentView(podcastManager: Self.sharedPodcastManager)
+          .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
+            handlePlayEpisodeActivity(userActivity)
+          }
       #else
         ContentView()
       #endif
     }
     #if canImport(LibraryFeature)
       .modelContainer(Self.sharedModelContainer)
-      .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
-        handlePlayEpisodeActivity(userActivity)
-      }
     #endif
   }
 
