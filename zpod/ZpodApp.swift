@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import SharedUtilities
 
 #if canImport(LibraryFeature)
   import SwiftData
@@ -19,6 +20,7 @@ struct ZpodApp: App {
   init() {
     disableHardwareKeyboard()
     configureAnimationsForUITesting()
+    configureSiriSnapshots()
     configureCarPlayDependencies()
   }
 
@@ -73,6 +75,11 @@ struct ZpodApp: App {
     #if canImport(CarPlay)
       CarPlayDependencyRegistry.configure(podcastManager: Self.sharedPodcastManager)
     #endif
+  }
+
+  private func configureSiriSnapshots() {
+    guard #available(iOS 14.0, *) else { return }
+    SiriSnapshotCoordinator(podcastManager: Self.sharedPodcastManager).refreshAll()
   }
 
   private func disableHardwareKeyboard() {
