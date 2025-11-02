@@ -293,3 +293,161 @@ Now Playing Template (system-provided)
 4. Support for advanced playback controls (speed, skip intervals)
 5. Smart episode suggestions based on drive time
 6. Integration with vehicle navigation for arrival-based episode recommendations
+
+## Siri Integration Setup
+
+### Overview
+The Siri integration enables voice control for podcast playback via the `zpodIntents` extension. This allows natural language commands like "Play the latest episode of [podcast]" while connected to CarPlay.
+
+### Prerequisites
+- CarPlay setup completed (see above)
+- Siri capability enabled in Apple Developer account
+- App Groups configured for data sharing
+
+### Step 1: Add Intents Extension to Xcode Project
+
+1. Open `zpod.xcodeproj` in Xcode
+2. File → New → Target
+3. Select "Intents Extension"
+4. Product Name: `zpodIntents`
+5. Bundle ID: `us.zig.zpod.intents`
+6. Check "Include UI Extension": **No**
+7. Add to zpod app target
+
+### Step 2: Configure Main App Entitlements
+
+Add to `zpod/zpod.entitlements`:
+
+```xml
+<key>com.apple.developer.siri</key>
+<true/>
+<key>com.apple.security.application-groups</key>
+<array>
+    <string>group.us.zig.zpod</string>
+</array>
+```
+
+### Step 3: Configure Extension Entitlements
+
+Create `zpodIntents/zpodIntents.entitlements`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"\>
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.us.zig.zpod</string>
+    </array>
+</dict>
+</plist>
+```
+
+### Step 4: Update Privacy Descriptions
+
+Add to `zpod/Info.plist`:
+
+```xml
+<key>NSSiriUsageDescription</key>
+<string>zpod uses Siri to control podcast playback with voice commands while driving.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>zpod needs microphone access for Siri voice commands.</string>
+```
+
+### Step 5: Link Extension Files
+
+The extension files are already created in `zpodIntents/`:
+- `IntentHandler.swift` - Main extension entry point
+- `PlayMediaIntentHandler.swift` - Media playback intent handler
+- `Info.plist` - Extension configuration
+- `README.md` - Documentation
+
+Add these files to the zpodIntents target in Xcode.
+
+### Step 6: Link Shared Code
+
+The extension needs access to podcast/episode data. In Xcode:
+
+1. Select zpodIntents target
+2. Build Phases → Link Binary With Libraries
+3. Add framework: `SharedUtilities.framework`
+4. Add framework: `CoreModels.framework`
+
+### Step 7: Enable Siri Capability
+
+1. Select zpod target in Xcode
+2. Signing & Capabilities tab
+3. Click "+ Capability"
+4. Add "Siri"
+
+### Testing Siri Integration
+
+#### In Simulator
+```bash
+# Enable Siri in simulator
+xcrun simctl spawn booted defaults write com.apple.Siri SiriEnabled -bool true
+
+# Test voice commands (manual)
+# Use Hardware → Siri or hold Home button
+```
+
+#### On Device
+1. Settings → Siri & Search → Enable "Listen for 'Hey Siri'"
+2. Open zpod and play an episode (this donates activity to Siri)
+3. Wait 5-10 minutes for Siri to index
+4. Test commands:
+   - "Hey Siri, play the latest episode of [podcast name]"
+   - "Hey Siri, play [episode title]"
+
+#### Verify Donations
+```bash
+# View Siri donated shortcuts
+# Settings → Siri & Search → zpod
+# Should show recently played episodes as suggestions
+```
+
+### Troubleshooting Siri
+
+**Extension doesn't load:**
+- Verify bundle ID is `us.zig.zpod.intents`
+- Check extension is embedded in main app
+- Rebuild both app and extension
+
+**No search results:**
+- Verify app groups configured correctly
+- Check shared data is accessible
+- Add logging to `PlayMediaIntentHandler.searchMedia()`
+
+**Siri doesn't recognize commands:**
+- Ensure Siri permission granted
+- Check media donations are being made (see logs)
+- Try more specific podcast/episode names
+- Wait longer after donations (can take time to index)
+
+**Commands fail:**
+- Check `zpod` is set as default podcast app in Settings
+- Verify intent handler returns `.handleInApp` code
+- Check main app handles NSUserActivity correctly
+
+### Supported Voice Commands
+
+The current implementation supports:
+- "Play [podcast name]"
+- "Play [episode title]"
+- "Play the latest episode of [podcast]"
+
+Future enhancements (not yet implemented):
+- "Play my queue"
+- "Play unplayed episodes"
+- "Continue listening to podcasts"
+- Multi-language support
+
+### Implementation Notes
+
+1. **Media Donations**: Automatically donated when playing episodes from CarPlay
+2. **Fuzzy Matching**: Uses Levenshtein distance for typo tolerance (see `SiriMediaSearch.swift`)
+3. **Temporal Queries**: Parses "latest", "newest", "recent" to find appropriate episodes
+4. **Disambiguation**: Siri asks for clarification when multiple matches found
+
+See `zpodIntents/README.md` for detailed architecture and implementation details.

@@ -93,6 +93,14 @@
             );
             target = 786FD1082E22E615008CEE55 /* zpod */;
         };
+        A0E1F2B3C4D5678901234577 /* Exceptions for "zpodIntents" folder in "zpodIntents" target */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+                Info.plist,
+                README.md,
+            );
+            target = A0E1F2B3C4D5678901234576 /* zpodIntents */;
+        };
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -134,6 +142,7 @@
                 F1111111111111111111111B /* CoreModels in Frameworks */,
                 F1111111111111111111111C /* SearchDomain in Frameworks */,
                 F1111111111111111111111D /* DiscoverFeature in Frameworks */,
+                D4E5F60718293A4B5C6D7E8F /* SharedUtilities in Frameworks */,
             );
             runOnlyForDeploymentPostprocessing = 0;
         };
@@ -282,6 +291,7 @@
                 320A8153AF4645E1BFE862F9 /* CoreModels */,
                 32049ED8E56C433DB7220A50 /* SearchDomain */,
                 885611E8E8644D078AC31FA4 /* DiscoverFeature */,
+                9ABCDEF0123456789ABCDEFA /* SharedUtilities */,
             );
             productName = zpod;
             productReference = 786FD1092E22E615008CEE55 /* zpod.app */;

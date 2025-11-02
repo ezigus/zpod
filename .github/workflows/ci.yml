@@ -57,6 +57,38 @@ jobs:
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
+      - name: Resolve shared Xcode scheme
+        id: resolve-scheme
+        run: |
+          set -euo pipefail
+          LIST_OUTPUT="$(xcodebuild -workspace zpod.xcworkspace -list)"
+          SCHEME=""
+          for candidate in "zpod (zpod project)" "zpod"; do
+            if printf '%s\n' "$LIST_OUTPUT" | grep -F "        $candidate" >/dev/null 2>&1; then
+              SCHEME="$candidate"
+              break
+            fi
+          done
+          if [ -z "$SCHEME" ]; then
+            echo "Unable to locate a shared scheme in zpod.xcworkspace" >&2
+            printf '%s\n' "$LIST_OUTPUT" >&2
+            exit 1
+          fi
+          echo "Resolved scheme: $SCHEME"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve simulator destination
+        id: resolve-destination
+        run: |
+          set -euo pipefail
+          DESTINATION="$(./scripts/resolve-simulator-destination.sh "iPhone 17 Pro" "${{ steps.resolve-scheme.outputs.scheme }}")"
+          if [ -z "$DESTINATION" ]; then
+            echo "Destination resolution returned empty output" >&2
+            exit 1
+          fi
+          echo "Resolved destination: $DESTINATION"
+          echo "destination=$DESTINATION" >> "$GITHUB_OUTPUT"
+
       - name: Swift syntax verification
         run: |
           set -euo pipefail
@@ -76,11 +108,30 @@ jobs:
         run: |
           set -euo pipefail
           DEST_PATH="$PWD/tmp_ci/DerivedData/HostPrebuild"
+          DESTINATION="${{ steps.resolve-destination.outputs.destination }}"
+          SCHEME="${{ steps.resolve-scheme.outputs.scheme }}"
+          if [ -z "$DESTINATION" ]; then
+            echo "Simulator destination not resolved" >&2
+            exit 1
+          fi
+          if [ -z "$SCHEME" ]; then
+            echo "Xcode scheme not resolved" >&2
+            exit 1
+          fi
+          echo "Building host app (standard build) to ensure binary is produced..."
           xcodebuild \
             -workspace zpod.xcworkspace \
-            -scheme zpod \
+            -scheme "$SCHEME" \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "$DESTINATION" \
+            -derivedDataPath "$DEST_PATH" \
+            build
+          echo "Building host + test bundles for testing reuse..."
+          xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme "$SCHEME" \
+            -sdk iphonesimulator \
+            -destination "$DESTINATION" \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
           HOST_APP="$DEST_PATH/Build/Products/Debug-iphonesimulator/zpod.app"
@@ -91,7 +142,7 @@ jobs:
             -workspace zpod.xcworkspace \
             -scheme IntegrationTests \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "$DESTINATION" \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
         env:

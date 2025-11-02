@@ -1,5 +1,7 @@
 import Foundation
+import OSLog
 import CoreModels
+import SharedUtilities
 
 /// Protocol defining podcast library management responsibilities.
 /// Design reference: dev-log entry "Xcode Project Scaffolding & Initial Manager/View Stubs" (2025-08-10).
@@ -12,10 +14,12 @@ public typealias PodcastManaging = CoreModels.PodcastManaging
 /// single-threaded access patterns during early development. Production implementations
 /// should use proper synchronization mechanisms.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "InMemoryPodcastManager")
   private var storage: [String: Podcast] = [:]
 
   public init(initial: [Podcast] = []) {
     for p in initial { storage[p.id] = p }
+    persistSiriSnapshots()
   }
 
   public func all() -> [Podcast] { Array(storage.values) }
@@ -26,6 +30,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     // Enforce id uniqueness; ignore if already present (could log later)
     guard storage[podcast.id] == nil else { return }
     storage[podcast.id] = podcast
+    persistSiriSnapshots()
   }
 
   public func update(_ podcast: Podcast) {
@@ -62,9 +67,13 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       tagIds: podcast.tagIds
     )
     storage[podcast.id] = merged
+    persistSiriSnapshots()
   }
 
-  public func remove(id: String) { storage.removeValue(forKey: id) }
+  public func remove(id: String) {
+    storage.removeValue(forKey: id)
+    persistSiriSnapshots()
+  }
   
   // MARK: - Organization Filtering
   
@@ -91,5 +100,42 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   
   public func findUnorganized() -> [Podcast] {
     storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
+  }
+
+  private func persistSiriSnapshots() {
+    guard #available(iOS 14.0, *) else { return }
+
+    let subscribedPodcasts = storage.values.filter { $0.isSubscribed }
+    let snapshots = subscribedPodcasts
+      .map(Self.makeSnapshot)
+      .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+
+    do {
+      if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+        try SiriMediaLibrary.save(snapshots, to: sharedDefaults)
+      }
+
+      if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+        try SiriMediaLibrary.save(snapshots, to: devDefaults)
+      }
+    } catch {
+      Self.logger.warning("Failed to persist Siri snapshots: \(error.localizedDescription, privacy: .public)")
+    }
+  }
+
+  @available(iOS 14.0, *)
+  private static func makeSnapshot(from podcast: Podcast) -> SiriPodcastSnapshot {
+    let episodes = podcast.episodes.map { episode in
+      SiriEpisodeSnapshot(
+        id: episode.id,
+        title: episode.title,
+        duration: episode.duration,
+        playbackPosition: episode.playbackPosition,
+        isPlayed: episode.isPlayed,
+        publishedAt: episode.pubDate
+      )
+    }
+
+    return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
   }
 }

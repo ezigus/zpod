@@ -2,6 +2,7 @@ import XCTest
 import Foundation
 @testable import Persistence
 import CoreModels
+import SharedUtilities
 
 // Sendable wrapper for UserDefaults for testing
 final class SendableUserDefaults: @unchecked Sendable {
@@ -46,6 +47,15 @@ final class BasicPersistenceTests: XCTestCase {
         userDefaults = SendableUserDefaults(rawUserDefaults)
         userDefaults.removePersistentDomain(forName: suiteName)
         
+        // Clean shared app group defaults to avoid test bleed
+        if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+            sharedDefaults.removePersistentDomain(forName: AppGroup.suiteName)
+        }
+
+        if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+            devDefaults.removePersistentDomain(forName: AppGroup.devSuiteName)
+        }
+
         // Given: Fresh repositories
         podcastRepository = UserDefaultsPodcastRepository(userDefaults: userDefaults.wrappedValue)
         episodeRepository = UserDefaultsEpisodeRepository(userDefaults: userDefaults.wrappedValue)
@@ -54,6 +64,12 @@ final class BasicPersistenceTests: XCTestCase {
     override func tearDown() async throws {
         // Clean up UserDefaults
         userDefaults?.removePersistentDomain(forName: suiteName)
+        if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+            sharedDefaults.removePersistentDomain(forName: AppGroup.suiteName)
+        }
+        if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+            devDefaults.removePersistentDomain(forName: AppGroup.devSuiteName)
+        }
         userDefaults = nil
         podcastRepository = nil
         episodeRepository = nil
@@ -118,6 +134,54 @@ final class BasicPersistenceTests: XCTestCase {
         XCTAssertNil(podcast, "Non-existent podcast should return nil")
     }
     
+    func testSavePodcastPersistsSiriSnapshots() async throws {
+        guard #available(iOS 14.0, *) else {
+            return
+        }
+
+        let episode = Episode(
+            id: "snapshot-episode",
+            title: "Snapshot Episode",
+            podcastID: "snapshot-podcast",
+            podcastTitle: "Snapshot Podcast",
+            playbackPosition: 120,
+            isPlayed: false,
+            pubDate: Date(),
+            duration: 1800
+        )
+
+        let podcast = Podcast(
+            id: "snapshot-podcast",
+            title: "Snapshot Podcast",
+            author: "Snapshot Author",
+            description: "Podcast used for Siri snapshot validation",
+            artworkURL: nil,
+            feedURL: URL(string: "https://example.com/snapshot.xml")!,
+            categories: ["Technology"],
+            episodes: [episode],
+            isSubscribed: true
+        )
+
+        try await podcastRepository.savePodcast(podcast)
+
+        if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+            let snapshots = try SiriMediaLibrary.load(from: sharedDefaults)
+            XCTAssertEqual(snapshots.count, 1)
+            XCTAssertEqual(snapshots.first?.title, podcast.title)
+            XCTAssertEqual(snapshots.first?.episodes.count, 1)
+            XCTAssertEqual(snapshots.first?.episodes.first?.title, episode.title)
+        } else {
+            XCTFail("Shared UserDefaults suite should exist")
+        }
+
+        if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+            let snapshots = try SiriMediaLibrary.load(from: devDefaults)
+            XCTAssertEqual(snapshots.count, 1)
+        } else {
+            XCTFail("Dev UserDefaults suite should exist")
+        }
+    }
+
     // MARK: - Basic Episode Repository Tests
     
     func testSaveEpisode_Success() async throws {
