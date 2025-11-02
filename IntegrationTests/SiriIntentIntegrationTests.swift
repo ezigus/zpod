@@ -15,14 +15,15 @@ import Intents
 final class SiriIntentIntegrationTests: XCTestCase {
     
     private var testSuite: UserDefaults!
+    private var testSuiteName: String!
     private var testPodcasts: [SiriPodcastSnapshot]!
     
     override func setUpWithError() throws {
         try super.setUpWithError()
         
         // Create isolated test suite
-        let suiteName = "test.siri.intent.\(UUID().uuidString)"
-        testSuite = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        testSuiteName = "test.siri.intent.\(UUID().uuidString)"
+        testSuite = try XCTUnwrap(UserDefaults(suiteName: testSuiteName))
         
         // Prepare test data
         let episode1 = SiriEpisodeSnapshot(
@@ -63,10 +64,11 @@ final class SiriIntentIntegrationTests: XCTestCase {
     
     override func tearDownWithError() throws {
         // Clean up test suite
-        if let suite = testSuite, let name = suite.dictionaryRepresentation().keys.first {
-            suite.removePersistentDomain(forName: name)
+        if let suiteName = testSuiteName {
+            testSuite?.removePersistentDomain(forName: suiteName)
         }
         testSuite = nil
+        testSuiteName = nil
         testPodcasts = nil
         try super.tearDownWithError()
     }

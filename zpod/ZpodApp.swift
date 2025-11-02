@@ -177,7 +177,7 @@ struct ZpodApp: App {
       let podcasts = Self.sharedPodcastManager.all()
       for podcast in podcasts {
         if let episode = podcast.episodes.first(where: { $0.id == episodeId }) {
-          return episode
+          return episode  // Early exit when found
         }
       }
       return nil
