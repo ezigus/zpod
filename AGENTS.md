@@ -33,7 +33,12 @@
 
 ### iOS UI Testing Best Practices
 
-**⚠️ IMPORTANT: Review these resources before building or updating UI tests:**
+**⚠️ IMPORTANT: Review these comprehensive testing resources before building or updating UI tests:**
+
+#### Testing Documentation
+
+- **[Accessibility Testing Best Practices](docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md)** - SwiftUI List row discovery, accessibility identifiers, UIKit fallback patterns
+- **[UI Testing Advanced Patterns](docs/testing/UI_TESTING_ADVANCED_PATTERNS.md)** - Advanced XCUITest patterns, waiting strategies, element queries
 
 #### Core Principles (FIRST)
 
@@ -152,6 +157,7 @@ Use the shared helper script for a quick local verification:
 > ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
 **Simulator / DerivedData overrides**
+
 - `ZPOD_SIMULATOR_UDID` (optional): forces the harness to target a specific CoreSimulator device. The script validates availability via `simctl list devices` before emitting `-destination platform=iOS Simulator,id=<udid>`.
 - `ZPOD_DERIVED_DATA_PATH` (optional): when set, the harness creates the folder and forwards `-derivedDataPath` to each `xcodebuild` invocation—ideal for isolating suites in CI.
 - CI sets both automatically; local developers can opt-in when needing deterministic devices or sandboxed DerivedData.
@@ -168,6 +174,7 @@ Use the shared helper script for a quick local verification:
 Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux.
 
 ### CI Pipeline
+
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
 - CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
@@ -187,8 +194,26 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 
 - Maintain individual `dev-log/*.md` entries per issue; update with intent, progress, and timestamps (ET) as work evolves.
 - **Update dev-logs incrementally**: Document intent before starting work, add findings during investigation, record solutions after each fix. Include dev-log updates in commits with related code changes when appropriate.
+- **Implementation summaries**: Comprehensive post-completion documentation lives in `dev-log/implementation-summaries/` - see [README](dev-log/implementation-summaries/README.md) for details
 - Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set).  This is done automatically by the ./scripts/run-xcode-tests.sh so you don't need to add to do anything extra when running the script
 - Use `OSLog` for runtime logging inside the app.
+
+## 9. CarPlay Development
+
+For CarPlay-specific development, consult these specialized guides:
+
+- **[CarPlay Setup Guide](docs/carplay/SETUP.md)** - Environment configuration, entitlements, simulator setup
+- **[CarPlay HIG Compliance](docs/carplay/HIG_COMPLIANCE.md)** - Human Interface Guidelines validation, compliance checklist
+- **[CarPlay Manual Testing Checklist](docs/carplay/MANUAL_TESTING_CHECKLIST.md)** - 44-scenario manual validation procedures
+
+### Key CarPlay Requirements
+
+- Use standard CarPlay templates (CPListTemplate, CPAlertTemplate, CPTabBarTemplate)
+- Maintain 44pt minimum touch targets
+- Keep list depths under 100 items
+- Provide accessibility labels and hints for VoiceOver
+- Avoid text entry and multi-step flows while driving
+- Always include cancel actions in alerts
 
 ### Pull Requests
 
