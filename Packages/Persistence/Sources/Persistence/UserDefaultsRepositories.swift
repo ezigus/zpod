@@ -1,4 +1,5 @@
 @preconcurrency import Foundation
+import OSLog
 import CoreModels
 import SharedUtilities
 
@@ -13,6 +14,7 @@ public protocol EpisodeRepository: Sendable {
 }
 
 public actor UserDefaultsPodcastRepository: PodcastRepository {
+    private static let logger = Logger(subsystem: "us.zig.zpod", category: "UserDefaultsPodcastRepository")
     private let userDefaults: UserDefaults
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -34,6 +36,9 @@ public actor UserDefaultsPodcastRepository: PodcastRepository {
         do {
             let data = try encoder.encode(podcast)
             userDefaults.set(data, forKey: keyPrefix + podcast.id)
+            if #available(iOS 14.0, *) {
+                persistSiriSnapshots()
+            }
         } catch {
             throw SharedError.persistenceError("Failed to encode podcast: \(error)")
         }
@@ -83,5 +88,51 @@ public actor UserDefaultsEpisodeRepository: EpisodeRepository {
         } catch {
             throw SharedError.persistenceError("Failed to decode episode: \(error)")
         }
+    }
+}
+
+@available(iOS 14.0, *)
+extension UserDefaultsPodcastRepository {
+    private func persistSiriSnapshots() {
+        let dictionary = userDefaults.dictionaryRepresentation()
+        var podcasts: [Podcast] = []
+
+        for (key, value) in dictionary where key.hasPrefix(keyPrefix) {
+            guard let data = value as? Data else { continue }
+            if let podcast = try? decoder.decode(Podcast.self, from: data), podcast.isSubscribed {
+                podcasts.append(podcast)
+            }
+        }
+
+        let snapshots = podcasts
+            .map(Self.makeSnapshot)
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+
+        do {
+            if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+                try SiriMediaLibrary.save(snapshots, to: sharedDefaults)
+            }
+
+            if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+                try SiriMediaLibrary.save(snapshots, to: devDefaults)
+            }
+        } catch {
+            Self.logger.warning("Failed to persist Siri snapshots: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private static func makeSnapshot(from podcast: Podcast) -> SiriPodcastSnapshot {
+        let episodes = podcast.episodes.map { episode in
+            SiriEpisodeSnapshot(
+                id: episode.id,
+                title: episode.title,
+                duration: episode.duration,
+                playbackPosition: episode.playbackPosition,
+                isPlayed: episode.isPlayed,
+                publishedAt: episode.pubDate
+            )
+        }
+
+        return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
     }
 }

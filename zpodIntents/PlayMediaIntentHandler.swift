@@ -13,7 +13,7 @@ import SharedUtilities
 class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
 
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "PlayMediaIntentHandler")
-  private static let appGroupSuite = "group.us.zig.zpod"
+  private static let appGroupSuite = AppGroup.suiteName
 
   // MARK: - Intent Resolution
 
@@ -135,7 +135,7 @@ class PlayMediaIntentHandler: NSObject, INPlayMediaIntentHandling {
     }
 
     // Development fallback: allow tests to inject data via standard defaults
-    if let defaults = UserDefaults(suiteName: "dev.us.zig.zpod"),
+    if let defaults = UserDefaults(suiteName: AppGroup.devSuiteName),
       let data = defaults.data(forKey: SiriMediaLibrary.storageKey),
       let snapshots = try? JSONDecoder().decode([SiriPodcastSnapshot].self, from: data)
     {

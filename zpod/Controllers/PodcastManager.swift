@@ -1,5 +1,7 @@
 import Foundation
+import OSLog
 import CoreModels
+import SharedUtilities
 
 /// Protocol defining podcast library management responsibilities.
 /// Design reference: dev-log entry "Xcode Project Scaffolding & Initial Manager/View Stubs" (2025-08-10).
@@ -12,10 +14,8 @@ public typealias PodcastManaging = CoreModels.PodcastManaging
 /// single-threaded access patterns during early development. Production implementations
 /// should use proper synchronization mechanisms.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "InMemoryPodcastManager")
   private var storage: [String: Podcast] = [:]
-  private let siriAppGroupSuite = "group.us.zig.zpod"
-  private let siriDevSuite = "dev.us.zig.zpod"
-  private let siriStorageKey = "carplay.podcastSnapshots"
 
   public init(initial: [Podcast] = []) {
     for p in initial { storage[p.id] = p }
@@ -105,51 +105,37 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   private func persistSiriSnapshots() {
     guard #available(iOS 14.0, *) else { return }
 
-    let podcastSnapshots = storage.values.map { podcast -> SiriPodcastSnapshot in
-      let episodes = podcast.episodes.map { episode -> SiriEpisodeSnapshot in
-        SiriEpisodeSnapshot(
-          id: episode.id,
-          title: episode.title,
-          duration: episode.duration,
-          playbackPosition: episode.playbackPosition,
-          isPlayed: episode.isPlayed,
-          publishedAt: episode.pubDate
-        )
+    let subscribedPodcasts = storage.values.filter { $0.isSubscribed }
+    let snapshots = subscribedPodcasts
+      .map(Self.makeSnapshot)
+      .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+
+    do {
+      if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+        try SiriMediaLibrary.save(snapshots, to: sharedDefaults)
       }
-      return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
-    }
 
-    let encoder = JSONEncoder()
-
-    if let sharedDefaults = UserDefaults(suiteName: siriAppGroupSuite),
-      let data = try? encoder.encode(podcastSnapshots)
-    {
-      sharedDefaults.set(data, forKey: siriStorageKey)
-      sharedDefaults.synchronize()
-    }
-
-    if let devDefaults = UserDefaults(suiteName: siriDevSuite),
-      let data = try? encoder.encode(podcastSnapshots)
-    {
-      devDefaults.set(data, forKey: siriStorageKey)
-      devDefaults.synchronize()
+      if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+        try SiriMediaLibrary.save(snapshots, to: devDefaults)
+      }
+    } catch {
+      Self.logger.warning("Failed to persist Siri snapshots: \(error.localizedDescription, privacy: .public)")
     }
   }
-}
 
-@available(iOS 14.0, *)
-private struct SiriPodcastSnapshot: Codable {
-  let id: String
-  let title: String
-  let episodes: [SiriEpisodeSnapshot]
-}
+  @available(iOS 14.0, *)
+  private static func makeSnapshot(from podcast: Podcast) -> SiriPodcastSnapshot {
+    let episodes = podcast.episodes.map { episode in
+      SiriEpisodeSnapshot(
+        id: episode.id,
+        title: episode.title,
+        duration: episode.duration,
+        playbackPosition: episode.playbackPosition,
+        isPlayed: episode.isPlayed,
+        publishedAt: episode.pubDate
+      )
+    }
 
-@available(iOS 14.0, *)
-private struct SiriEpisodeSnapshot: Codable {
-  let id: String
-  let title: String
-  let duration: TimeInterval?
-  let playbackPosition: Int?
-  let isPlayed: Bool
-  let publishedAt: Date?
+    return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
+  }
 }

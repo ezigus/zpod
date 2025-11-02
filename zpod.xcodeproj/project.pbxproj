@@ -93,6 +93,14 @@
             );
             target = 786FD1082E22E615008CEE55 /* zpod */;
         };
+        A0E1F2B3C4D5678901234577 /* Exceptions for "zpodIntents" folder in "zpodIntents" target */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+                Info.plist,
+                README.md,
+            );
+            target = A0E1F2B3C4D5678901234576 /* zpodIntents */;
+        };
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
