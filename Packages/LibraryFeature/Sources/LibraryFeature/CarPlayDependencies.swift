@@ -1,6 +1,7 @@
 import CoreModels
 import Foundation
 import PlaybackEngine
+
 #if canImport(Combine)
   import Combine
 #endif
@@ -106,7 +107,7 @@ public enum CarPlayDependencyRegistry {
   }
 
   @MainActor
-  static func resolve() -> CarPlayDependencies {
+  public static func resolve() -> CarPlayDependencies {
     if let cached = cachedDependencies { return cached }
     let dependencies = (customResolver?() ?? defaultDependencies())
     cachedDependencies = dependencies
@@ -135,7 +136,9 @@ private final class EmptyPodcastManager: PodcastManaging {
   func update(_ podcast: Podcast) {}
   func remove(id: String) {}
   func findByFolder(folderId: String) -> [Podcast] { [] }
-  func findByFolderRecursive(folderId: String, folderManager: any FolderManaging) -> [Podcast] { [] }
+  func findByFolderRecursive(folderId: String, folderManager: any FolderManaging) -> [Podcast] {
+    []
+  }
   func findByTag(tagId: String) -> [Podcast] { [] }
   func findUnorganized() -> [Podcast] { [] }
 }
