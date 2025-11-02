@@ -76,11 +76,20 @@ jobs:
         run: |
           set -euo pipefail
           DEST_PATH="$PWD/tmp_ci/DerivedData/HostPrebuild"
+          echo "Building host app (standard build) to ensure binary is produced..."
           xcodebuild \
             -workspace zpod.xcworkspace \
-            -scheme zpod \
+            -scheme 'zpod (zpod project)' \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath "$DEST_PATH" \
+            build
+          echo "Building host + test bundles for testing reuse..."
+          xcodebuild \
+            -workspace zpod.xcworkspace \
+            -scheme 'zpod (zpod project)' \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
           HOST_APP="$DEST_PATH/Build/Products/Debug-iphonesimulator/zpod.app"
@@ -91,7 +100,7 @@ jobs:
             -workspace zpod.xcworkspace \
             -scheme IntegrationTests \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -derivedDataPath "$DEST_PATH" \
             build-for-testing
         env:
