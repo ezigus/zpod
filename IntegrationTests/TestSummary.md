@@ -25,6 +25,11 @@
   - **Highlights**: Complete subscription workflow, folder/tag hierarchies, multi-level organization, search integration with organized content.
   - **Spec Coverage**: `spec.md` lines 114-235 (organization, folders, tags).
 
+- `SiriIntentIntegrationTests.swift` (300 lines)
+  - **Purpose**: Siri/CarPlay intent handling and data sharing (Issue 02.1.8.1).
+  - **Highlights**: Snapshot persistence/decoding, fuzzy search ranking, temporal reference parsing, podcast-level search, resolver loading from app groups, identifier hand-off logic.
+  - **Spec Coverage**: `playback.md` (Siri and Shortcuts Integration), `ui.md` (CarPlay Layout, Voice Control).
+
 ### Shared Utilities
 - `IntegrationTestSupport.swift` (221 lines)
   - **Purpose**: Common mocks and test utilities shared across integration test suites.
@@ -43,11 +48,12 @@
   - **Gaps**: Download and playback preset migrations will require follow-up coverage once their modular paths land (Issue 02.1.6.4).
 
 ## Coverage Summary
-- Total Integration Test Code: 1,623 lines across 7 Swift files (excludes TestSummary.md)
+- Total Integration Test Code: 1,923 lines across 8 Swift files (excludes TestSummary.md)
   - CoreWorkflowIntegrationTests: 260 lines
   - SearchDiscoveryIntegrationTests: 476 lines
   - PlaylistPlaybackIntegrationTests: 254 lines
   - OrganizationIntegrationTests: 196 lines
+  - SiriIntentIntegrationTests: 300 lines (new - Issue 02.1.8.1)
   - IntegrationTestSupport: 221 lines
   - SimpleCoreIntegrationTests: 135 lines (pre-existing)
   - SwipeConfigurationIntegrationTests: 81 lines (pre-existing)
@@ -58,4 +64,5 @@
 ## Open Questions
 - Need macOS/Xcode environment to execute SettingsDomain SwiftPM tests referenced by these suites; current Linux CI leg only performs syntax checks.
 - Future registry features (appearance, notifications, downloads) should gain mirrored integration tests after service migrations stabilize.
+- SiriIntentIntegrationTests verifies snapshot loading and search, but end-to-end Siri voice command testing requires CarPlay simulator on macOS.
 

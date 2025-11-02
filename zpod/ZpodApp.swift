@@ -154,14 +154,33 @@ struct ZpodApp: App {
 
       print("🎧 Siri requested playback for episode: \(episodeId)")
 
-      // Trigger playback via the shared podcast manager
-      // Note: This assumes the PodcastManager has a method to start playback
-      // If not already implemented, this will need to be added
+      // Trigger playback via CarPlay dependencies
       Task { @MainActor in
-        // TODO: Implement actual playback triggering
-        // For now, just log that we received the request
-        print("📱 Would start playback for episode: \(episodeId)")
+        // Find the episode across all podcasts
+        guard let episode = findEpisode(byId: episodeId) else {
+          print("⚠️ Episode not found: \(episodeId)")
+          return
+        }
+
+        print("📱 Starting playback for episode: \(episode.title)")
+        
+        // Get the queue manager from CarPlay dependencies
+        let dependencies = CarPlayDependencyRegistry.resolve()
+        dependencies.queueManager.playNow(episode)
+        
+        print("✅ Episode playback initiated via Siri")
       }
+    }
+
+    /// Searches for an episode by ID across all subscribed podcasts
+    private func findEpisode(byId episodeId: String) -> Episode? {
+      let podcasts = Self.sharedPodcastManager.all()
+      for podcast in podcasts {
+        if let episode = podcast.episodes.first(where: { $0.id == episodeId }) {
+          return episode
+        }
+      }
+      return nil
     }
   #endif
 }
