@@ -1,3 +1,5 @@
+#if canImport(Combine)
+
 import CoreModels
 import Foundation
 import Persistence
@@ -232,3 +234,5 @@ actor RecordingAnnotationRepository: EpisodeAnnotationRepository {
     transcriptByEpisode.removeValue(forKey: episodeId)
   }
 }
+
+#endif

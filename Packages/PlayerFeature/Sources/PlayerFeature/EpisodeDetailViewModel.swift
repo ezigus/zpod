@@ -1,3 +1,78 @@
+#if !canImport(Combine)
+
+import CoreModels
+import Persistence
+import PlaybackEngine
+import Foundation
+
+@MainActor
+public final class EpisodeDetailViewModel {
+  public private(set) var episode: Episode?
+  public private(set) var isPlaying = false
+  public private(set) var currentPosition: TimeInterval = 0
+  public private(set) var progressFraction: Double = 0
+  public private(set) var formattedCurrentTime = "0:00"
+  public private(set) var formattedDuration = "0:00"
+  public private(set) var playbackSpeed: Float = 1.0
+  public private(set) var chapters: [Chapter] = []
+  public private(set) var currentChapter: Chapter?
+  public private(set) var metadata: EpisodeMetadata?
+  public private(set) var notes: [EpisodeNote] = []
+  public private(set) var bookmarks: [EpisodeBookmark] = []
+  public private(set) var transcript: EpisodeTranscript?
+  public private(set) var userRating: Int?
+  public private(set) var transcriptSearchQuery: String = ""
+  public private(set) var transcriptSearchResults: [TranscriptSearchResult] = []
+
+  public init(
+    playbackService: EpisodePlaybackService? = nil,
+    sleepTimer: SleepTimer? = nil,
+    annotationRepository: EpisodeAnnotationRepository? = nil
+  ) {}
+
+  @discardableResult
+  public func loadEpisode(_ episode: Episode) -> Task<Void, Never> {
+    self.episode = episode
+    return Task {}
+  }
+
+  public func playPause() {}
+  public func skipForward() {}
+  public func skipBackward() {}
+  public func seek(to position: TimeInterval) {}
+  public func setPlaybackSpeed(_ speed: Float) { playbackSpeed = speed }
+  public func jumpToChapter(_ chapter: Chapter) {}
+  public func markAsPlayed(_ played: Bool) {}
+  public func startSleepTimer(duration: TimeInterval) {}
+  public func stopSleepTimer() {}
+  public func resetSleepTimer() {}
+  public var sleepTimerActive: Bool { false }
+  public var sleepTimerRemainingTime: TimeInterval { 0 }
+  public func saveNote(_ note: EpisodeNote) {}
+  public func deleteNote(_ note: EpisodeNote) {}
+  public func addBookmarkAtCurrentPosition(label: String = "") {}
+  public func createBookmark(at timestamp: TimeInterval, label: String) {}
+  public func saveBookmark(_ bookmark: EpisodeBookmark) {}
+  public func deleteBookmark(_ bookmark: EpisodeBookmark) {}
+  public func jumpToBookmark(_ bookmark: EpisodeBookmark) {}
+  public func setRating(_ rating: Int?) { userRating = rating }
+  public func searchTranscript(_ query: String) -> [TranscriptSearchResult] { [] }
+  public func jumpToTranscriptSegment(_ segment: TranscriptSegment) {}
+  public func createNote(
+    text: String,
+    tags: [String],
+    timestamp: TimeInterval?
+  ) async throws {}
+  public func updateNote(
+    _ note: EpisodeNote,
+    newText: String,
+    newTags: [String]
+  ) async throws {}
+  public func updateTranscriptSearch(query: String) {}
+}
+
+#else
+
 @preconcurrency import Combine
 import Foundation
 import CoreModels
@@ -439,3 +514,4 @@ public class EpisodeDetailViewModel: ObservableObject {
     return String(format: "%d:%02d", minutes, remainingSeconds)
   }
 }
+#endif
