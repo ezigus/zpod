@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import SwiftUI
 
 public enum PlatformNavigationBarTitleDisplayMode {
@@ -62,3 +63,4 @@ public enum PlatformToolbarPlacement {
 #endif
   }
 }
+#endif
