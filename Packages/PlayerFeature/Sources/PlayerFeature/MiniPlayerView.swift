@@ -5,8 +5,6 @@
 //  Created for Issue 03.1.1.1: Mini-Player Foundation
 //
 
-#if canImport(SwiftUI)
-
 import CoreModels
 import SwiftUI
 
@@ -204,14 +202,4 @@ import PlaybackEngine
     .padding(.bottom, 24)
   }
 }
-#endif
-
-#else
-
-import CoreModels
-
-public struct MiniPlayerView {
-  public init(viewModel: MiniPlayerViewModel, onTapExpand: @escaping () -> Void) {}
-}
-
 #endif

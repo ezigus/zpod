@@ -1,5 +1,3 @@
-#if canImport(Combine)
-
 //
 //  MiniPlayerViewModelTests.swift
 //  PlayerFeatureTests
@@ -7,8 +5,8 @@
 //  Created for Issue 03.1.1.1: Mini-Player Foundation
 //
 
-import Combine
 import Foundation
+import CombineSupport
 import CoreModels
 import PlaybackEngine
 import Testing
@@ -299,5 +297,3 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
     subject.send(state)
   }
 }
-
-#endif

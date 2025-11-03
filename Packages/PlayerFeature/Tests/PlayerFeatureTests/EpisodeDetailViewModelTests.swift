@@ -1,7 +1,5 @@
-#if canImport(Combine)
-
-import CoreModels
 import Foundation
+import CoreModels
 import Persistence
 import XCTest
 
@@ -41,8 +39,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
   func testCreateNotePersistsAndReloads() async throws {
     // Given: An episode with no existing notes
     await repository.setNotes([], for: episode.id)
-    let loadTask = viewModel.loadEpisode(episode)
-    await loadTask.value
+    viewModel.loadEpisode(episode)
 
     // When: Creating a new note
     let timestamp: TimeInterval = 42.5
@@ -72,8 +69,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
       timestamp: 12
     )
     await repository.setNotes([existing], for: episode.id)
-    let loadTask = viewModel.loadEpisode(episode)
-    await loadTask.value
+    viewModel.loadEpisode(episode)
 
     // When: Updating note text and tags
     try await viewModel.updateNote(
@@ -101,9 +97,9 @@ final class EpisodeDetailViewModelTests: XCTestCase {
       ]
     )
     await repository.setTranscript(transcript, for: episode.id)
-    let loadTask = viewModel.loadEpisode(episode)
-    await loadTask.value
+    viewModel.loadEpisode(episode)
 
+    try await waitForTranscriptLoad()
     // When: Searching for transcript matches
     viewModel.updateTranscriptSearch(query: "swift")
 
@@ -111,6 +107,19 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertEqual(viewModel.transcriptSearchResults.count, 1)
     XCTAssertEqual(viewModel.transcriptSearchResults.first?.segment.text, "Swift concurrency essentials")
     XCTAssertEqual(viewModel.transcriptSearchQuery, "swift")
+  }
+
+  // MARK: - Helpers
+
+  private func waitForTranscriptLoad() async throws {
+    for _ in 0..<50 {
+      if viewModel.transcript != nil {
+        return
+      }
+      try await Task.sleep(for: .milliseconds(10))
+      await Task.yield()
+    }
+    XCTFail("Timed out waiting for transcript to load")
   }
 }
 
@@ -234,5 +243,3 @@ actor RecordingAnnotationRepository: EpisodeAnnotationRepository {
     transcriptByEpisode.removeValue(forKey: episodeId)
   }
 }
-
-#endif
