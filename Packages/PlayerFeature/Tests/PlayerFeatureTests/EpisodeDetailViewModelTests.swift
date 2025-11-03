@@ -5,7 +5,6 @@ import XCTest
 
 @testable import PlayerFeature
 
-@MainActor
 final class EpisodeDetailViewModelTests: XCTestCase {
 
   private var repository: RecordingAnnotationRepository!
@@ -16,7 +15,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     try await super.setUp()
 
     repository = RecordingAnnotationRepository()
-    viewModel = EpisodeDetailViewModel(annotationRepository: repository)
+    viewModel = await EpisodeDetailViewModel(annotationRepository: repository)
     episode = Episode(
       id: "episode-1",
       title: "Episode Detail Testing",
@@ -36,6 +35,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     try await super.tearDown()
   }
 
+  @MainActor
   func testCreateNotePersistsAndReloads() async throws {
     // Given: An episode with no existing notes
     await repository.setNotes([], for: episode.id)
@@ -60,6 +60,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertEqual(viewModel.notes.first?.text, "Key takeaway")
   }
 
+  @MainActor
   func testUpdateNoteSavesChanges() async throws {
     // Given: An existing note already persisted
     let existing = EpisodeNote(
@@ -87,6 +88,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertNotNil(viewModel.notes.first?.modifiedAt)
   }
 
+  @MainActor
   func testUpdateTranscriptSearchPopulatesResults() async throws {
     // Given: Transcript data stored in the repository
     let transcript = EpisodeTranscript(
@@ -111,6 +113,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
 
   // MARK: - Helpers
 
+  @MainActor
   private func waitForTranscriptLoad() async throws {
     for _ in 0..<50 {
       if viewModel.transcript != nil {
