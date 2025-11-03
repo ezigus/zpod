@@ -13,6 +13,8 @@
 2. **TDD always** – add or update specs if the scenario is incomplete, write failing tests, implement, then refactor.
 3. **Automation over manual edits** – use scripts, generators, and formatters whenever possible.
 4. **Version control hygiene** – commit only after tests pass, include matching dev-log updates, then confirm whether to push.
+   - PR titles linked to issues must include the issue identifier (e.g. `[#02.5] Testing cleanup fixes`) so GitHub references stay traceable.
+   - When working on a PR, use the PR’s branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
 
 ## 3. Concurrency & Swift Patterns
 
