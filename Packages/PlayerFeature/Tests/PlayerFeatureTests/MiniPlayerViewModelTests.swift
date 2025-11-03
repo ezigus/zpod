@@ -1,3 +1,5 @@
+#if canImport(Combine)
+
 //
 //  MiniPlayerViewModelTests.swift
 //  PlayerFeatureTests
@@ -297,3 +299,5 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
     subject.send(state)
   }
 }
+
+#endif
