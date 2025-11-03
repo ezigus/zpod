@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  BannerPresentationManagerTests.swift
 //  LibraryFeatureTests
@@ -16,13 +17,13 @@ final class BannerPresentationManagerTests: XCTestCase {
   private var retryCallbacks: [String] = []
   private var undoCallbacks: [String] = []
   
-  @MainActor
-  override func setUpWithError() throws {
+  override func setUp() async throws {
+    try await super.setUp()
     continueAfterFailure = false
     retryCallbacks = []
     undoCallbacks = []
     
-    manager = BannerPresentationManager(
+    manager = await BannerPresentationManager(
       autoDismissDelay: 0.5, // Short delay for testing
       retryHandler: { [weak self] operationID in
         self?.retryCallbacks.append(operationID)
@@ -33,37 +34,32 @@ final class BannerPresentationManagerTests: XCTestCase {
     )
   }
   
-  @MainActor
-  override func tearDownWithError() throws {
-    manager.dismissBanner()
+  override func tearDown() async throws {
+    await manager.dismissBanner()
     manager = nil
     retryCallbacks = []
     undoCallbacks = []
+    try await super.tearDown()
   }
   
   // MARK: - Banner Presentation Tests
   
   @MainActor
   func testBannerStateInitiallyNil() {
-    // Given: A new banner manager
-    // When: Checking initial state
-    // Then: Banner state should be nil
     XCTAssertNil(manager.bannerState)
   }
   
   @MainActor
   func testPresentBannerForSuccessfulOperation() {
-    // Given: A completed batch operation
     let operation = BatchOperation(
       operationType: .markAsPlayed,
       episodeIDs: ["ep1", "ep2", "ep3"]
-    ).withStatus(.completed)
-      .withCompletedCount(3)
+    )
+    .withCompleted(3, failed: 0)
+    .withStatus(.completed)
     
-    // When: Presenting a banner
     manager.presentBanner(for: operation)
     
-    // Then: Banner should be displayed with success style
     XCTAssertNotNil(manager.bannerState)
     XCTAssertEqual(manager.bannerState?.title, "Mark as Played Complete")
     XCTAssertTrue(manager.bannerState?.subtitle.contains("3 succeeded") ?? false)
@@ -72,18 +68,15 @@ final class BannerPresentationManagerTests: XCTestCase {
   
   @MainActor
   func testPresentBannerForFailedOperation() {
-    // Given: A failed batch operation
     let operation = BatchOperation(
       operationType: .download,
       episodeIDs: ["ep1", "ep2"]
-    ).withStatus(.failed)
-      .withCompletedCount(0)
-      .withFailedCount(2)
+    )
+    .withCompleted(0, failed: 2)
+    .withStatus(.failed)
     
-    // When: Presenting a banner
     manager.presentBanner(for: operation)
     
-    // Then: Banner should be displayed with failure style
     XCTAssertNotNil(manager.bannerState)
     XCTAssertEqual(manager.bannerState?.title, "Download Failed")
     XCTAssertTrue(manager.bannerState?.subtitle.contains("2 failed") ?? false)
@@ -92,34 +85,30 @@ final class BannerPresentationManagerTests: XCTestCase {
   
   @MainActor
   func testPresentBannerForPartiallySuccessfulOperation() {
-    // Given: A batch operation with mixed results
     let operation = BatchOperation(
       operationType: .favorite,
       episodeIDs: ["ep1", "ep2", "ep3", "ep4"]
-    ).withStatus(.completed)
-      .withCompletedCount(3)
-      .withFailedCount(1)
+    )
+    .withCompleted(3, failed: 1)
+    .withStatus(.completed)
     
-    // When: Presenting a banner
     manager.presentBanner(for: operation)
     
-    // Then: Banner should show both succeeded and failed counts
     XCTAssertNotNil(manager.bannerState)
     XCTAssertTrue(manager.bannerState?.subtitle.contains("3 succeeded") ?? false)
     XCTAssertTrue(manager.bannerState?.subtitle.contains("1 failed") ?? false)
-    XCTAssertEqual(manager.bannerState?.style, .failure) // Failure if any failed
+    XCTAssertEqual(manager.bannerState?.style, .failure)
   }
   
   @MainActor
   func testPresentBannerWithRetryAction() {
-    // Given: A failed batch operation
     let operation = BatchOperation(
       operationType: .download,
       episodeIDs: ["ep1"]
-    ).withStatus(.failed)
-      .withFailedCount(1)
+    )
+    .withCompleted(0, failed: 1)
+    .withStatus(.failed)
     
-    // When: Presenting a banner and invoking retry
     manager.presentBanner(for: operation)
     
     guard let retryAction = manager.bannerState?.retry else {
@@ -127,14 +116,11 @@ final class BannerPresentationManagerTests: XCTestCase {
       return
     }
     
+    let expectation = expectation(description: "Retry callback invoked")
     retryAction()
     
-    // Then: Retry callback should be invoked
-    // Note: Callback is async, so we need to wait
-    let expectation = expectation(description: "Retry callback")
     Task {
       try? await Task.sleep(nanoseconds: 100_000_000)
-      XCTAssertFalse(self.retryCallbacks.isEmpty)
       XCTAssertEqual(self.retryCallbacks.first, operation.id)
       expectation.fulfill()
     }
@@ -143,15 +129,14 @@ final class BannerPresentationManagerTests: XCTestCase {
   }
   
   @MainActor
-  func testPresentBannerWithUndoActionForReversibleOperation() {
-    // Given: A completed reversible batch operation
+  func testPresentBannerWithUndoAction() {
     let operation = BatchOperation(
-      operationType: .markAsPlayed,
+      operationType: .favorite,
       episodeIDs: ["ep1", "ep2"]
-    ).withStatus(.completed)
-      .withCompletedCount(2)
+    )
+    .withCompleted(2, failed: 0)
+    .withStatus(.completed)
     
-    // When: Presenting a banner and invoking undo
     manager.presentBanner(for: operation)
     
     guard let undoAction = manager.bannerState?.undo else {
@@ -159,13 +144,11 @@ final class BannerPresentationManagerTests: XCTestCase {
       return
     }
     
+    let expectation = expectation(description: "Undo callback invoked")
     undoAction()
     
-    // Then: Undo callback should be invoked
-    let expectation = expectation(description: "Undo callback")
     Task {
       try? await Task.sleep(nanoseconds: 100_000_000)
-      XCTAssertFalse(self.undoCallbacks.isEmpty)
       XCTAssertEqual(self.undoCallbacks.first, operation.id)
       expectation.fulfill()
     }
@@ -175,108 +158,176 @@ final class BannerPresentationManagerTests: XCTestCase {
   
   @MainActor
   func testPresentBannerWithNoActionsForNonReversibleOperation() {
-    // Given: A completed non-reversible batch operation with all successes
     let operation = BatchOperation(
       operationType: .delete,
       episodeIDs: ["ep1"]
-    ).withStatus(.completed)
-      .withCompletedCount(1)
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
     
-    // When: Presenting a banner
     manager.presentBanner(for: operation)
     
-    // Then: No retry or undo actions should be present
     XCTAssertNil(manager.bannerState?.retry)
     XCTAssertNil(manager.bannerState?.undo)
   }
   
   @MainActor
   func testDismissBanner() {
-    // Given: A displayed banner
     let operation = BatchOperation(
       operationType: .markAsPlayed,
       episodeIDs: ["ep1"]
-    ).withStatus(.completed)
-      .withCompletedCount(1)
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
     
     manager.presentBanner(for: operation)
     XCTAssertNotNil(manager.bannerState)
     
-    // When: Dismissing the banner
     manager.dismissBanner()
-    
-    // Then: Banner state should be nil
     XCTAssertNil(manager.bannerState)
   }
   
   @MainActor
   func testBannerAutoDismissesAfterDelay() async throws {
-    // Given: A displayed banner with auto-dismiss
     let operation = BatchOperation(
       operationType: .markAsPlayed,
       episodeIDs: ["ep1"]
-    ).withStatus(.completed)
-      .withCompletedCount(1)
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
     
-    // When: Presenting a banner
     manager.presentBanner(for: operation)
     XCTAssertNotNil(manager.bannerState)
     
-    // Then: Banner should still exist immediately
-    XCTAssertNotNil(manager.bannerState)
-    
-    // When: Waiting for auto-dismiss delay
-    try await Task.sleep(nanoseconds: 700_000_000) // 0.7s (delay is 0.5s)
-    
-    // Then: Banner should be dismissed
+    try await Task.sleep(nanoseconds: 700_000_000)
     XCTAssertNil(manager.bannerState)
   }
   
   @MainActor
   func testPresentingNewBannerCancelsPreviousAutoDismiss() async throws {
-    // Given: A displayed banner
     let firstOperation = BatchOperation(
       operationType: .markAsPlayed,
       episodeIDs: ["ep1"]
-    ).withStatus(.completed)
-      .withCompletedCount(1)
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
     
     manager.presentBanner(for: firstOperation)
-    let firstBannerTitle = manager.bannerState?.title
+    let firstTitle = manager.bannerState?.title
     
-    // When: Presenting a second banner before auto-dismiss
-    try await Task.sleep(nanoseconds: 200_000_000) // 0.2s < 0.5s delay
+    try await Task.sleep(nanoseconds: 200_000_000)
     
     let secondOperation = BatchOperation(
       operationType: .download,
       episodeIDs: ["ep2"]
-    ).withStatus(.completed)
-      .withCompletedCount(1)
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
     
     manager.presentBanner(for: secondOperation)
-    let secondBannerTitle = manager.bannerState?.title
+    let secondTitle = manager.bannerState?.title
     
-    // Then: Second banner should be displayed
-    XCTAssertNotEqual(firstBannerTitle, secondBannerTitle)
-    XCTAssertNotNil(manager.bannerState)
+    XCTAssertNotEqual(firstTitle, secondTitle)
     
-    // And: Second banner should auto-dismiss on its own schedule
-    try await Task.sleep(nanoseconds: 700_000_000) // 0.7s total
+    try await Task.sleep(nanoseconds: 700_000_000)
     XCTAssertNil(manager.bannerState)
   }
   
   @MainActor
+  func testPartialSuccessBannerIncludesRetryAndUndo() {
+    let operation = BatchOperation(
+      operationType: .download,
+      episodeIDs: ["ep1", "ep2", "ep3", "ep4"]
+    )
+    .withCompleted(3, failed: 1)
+    .withStatus(.completed)
+    
+    manager.presentBanner(for: operation)
+    
+    XCTAssertNotNil(manager.bannerState?.retry)
+    XCTAssertNotNil(manager.bannerState?.undo)
+  }
+  
+  @MainActor
+  func testFailureBannerOnlyHasRetry() {
+    let operation = BatchOperation(
+      operationType: .download,
+      episodeIDs: ["ep1"]
+    )
+    .withCompleted(0, failed: 1)
+    .withStatus(.failed)
+    
+    manager.presentBanner(for: operation)
+    
+    XCTAssertNotNil(manager.bannerState?.retry)
+    XCTAssertNil(manager.bannerState?.undo)
+  }
+  
+  @MainActor
+  func testUndoOnlyForReversibleOperations() {
+    let reversible = BatchOperation(
+      operationType: .favorite,
+      episodeIDs: ["ep1"]
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
+    
+    manager.presentBanner(for: reversible)
+    XCTAssertNotNil(manager.bannerState?.undo)
+    
+    let irreversible = BatchOperation(
+      operationType: .delete,
+      episodeIDs: ["ep1"]
+    )
+    .withCompleted(1, failed: 0)
+    .withStatus(.completed)
+    
+    manager.presentBanner(for: irreversible)
+    XCTAssertNil(manager.bannerState?.undo)
+  }
+  
+  @MainActor
+  func testPresentBannerForMixedResultsIncludesBothCounts() {
+    let operation = BatchOperation(
+      operationType: .download,
+      episodeIDs: ["ep1", "ep2", "ep3"]
+    )
+    .withCompleted(1, failed: 2)
+    .withStatus(.completed)
+    
+    manager.presentBanner(for: operation)
+    
+    let subtitle = manager.bannerState?.subtitle ?? ""
+    XCTAssertTrue(subtitle.contains("1 succeeded"))
+    XCTAssertTrue(subtitle.contains("2 failed"))
+  }
+  
+  @MainActor
   func testEmptyOperationDoesNotPresentBanner() {
-    // Given: An empty batch operation
     let operation = BatchOperation(
       operationType: .markAsPlayed,
       episodeIDs: []
     ).withStatus(.completed)
     
-    // When: Attempting to present a banner
     manager.presentBanner(for: operation)
-    
-    // Then: No banner should be displayed
     XCTAssertNil(manager.bannerState)
   }
 }
+
+private extension BatchOperation {
+  func withCompleted(_ completed: Int, failed: Int) -> BatchOperation {
+    var copy = self
+    for index in copy.operations.indices {
+      if index < completed {
+        copy.operations[index] = copy.operations[index].withStatus(.completed)
+      } else if index < completed + failed {
+        copy.operations[index] = copy.operations[index].withStatus(.failed)
+      } else {
+        copy.operations[index] = copy.operations[index].withStatus(.pending)
+      }
+    }
+    return copy
+  }
+}
+
+#endif

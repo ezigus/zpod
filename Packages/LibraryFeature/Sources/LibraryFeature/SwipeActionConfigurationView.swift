@@ -47,7 +47,7 @@
             presetsSection
           }
         }
-        .listStyle(.insetGrouped)
+        .platformInsetGroupedListStyle()
         #if DEBUG
           .overlay(alignment: .topLeading) {
             if debugEnabled {
@@ -389,7 +389,7 @@ private struct AddActionPicker: View {
           "SwipeActions.Add." + edgeIdentifier + "." + action.displayName
         )
       }
-      .listStyle(.insetGrouped)
+      .platformInsetGroupedListStyle()
       .navigationTitle(title)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {

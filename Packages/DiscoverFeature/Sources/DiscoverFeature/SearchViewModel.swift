@@ -148,8 +148,11 @@ public final class SearchViewModel: ObservableObject {
     
     /// Add podcast by RSS feed URL
     public func addPodcastByRSSURL() async {
-        guard !rssURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let url = URL(string: rssURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+        let trimmedURL = rssURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedURL.isEmpty,
+              let url = URL(string: trimmedURL),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
             await MainActor.run {
                 errorMessage = "Invalid RSS feed URL"
             }

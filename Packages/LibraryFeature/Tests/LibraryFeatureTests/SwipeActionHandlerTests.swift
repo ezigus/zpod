@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  SwipeActionHandlerTests.swift
 //  LibraryFeatureTests
@@ -277,3 +278,5 @@ private class MockHapticFeedbackService: HapticFeedbackServicing {
     lastIntensity = nil
   }
 }
+
+#endif

@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  BatchOperationTests.swift
 //  LibraryFeatureTests
@@ -504,3 +505,5 @@ class MockEpisodeStateManager: EpisodeStateManager, @unchecked Sendable {
         return episodes[episode.id] ?? episode
     }
 }
+
+#endif

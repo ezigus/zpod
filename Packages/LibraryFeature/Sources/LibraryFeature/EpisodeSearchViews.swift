@@ -69,9 +69,9 @@ public struct EpisodeSearchView: View {
                 }
             }
             .navigationTitle("Search Episodes")
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Menu {
                         Button("Advanced Search") {
                             showingAdvancedSearch = true

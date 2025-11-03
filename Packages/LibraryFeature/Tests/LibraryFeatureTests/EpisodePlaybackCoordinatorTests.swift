@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  EpisodePlaybackCoordinatorTests.swift
 //  LibraryFeatureTests
@@ -210,3 +211,5 @@ private class MockEpisodePlaybackService: EpisodePlaybackService {
     stateSubject.send(state)
   }
 }
+
+#endif

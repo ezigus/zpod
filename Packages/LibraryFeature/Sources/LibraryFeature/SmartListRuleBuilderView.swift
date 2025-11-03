@@ -172,15 +172,15 @@
           previewSection
         }
         .navigationTitle(isEditing ? "Edit Rule" : "Add Rule")
-        .navigationBarTitleDisplayMode(.inline)
+        .platformNavigationBarTitleDisplayMode(.inline)
         .toolbar {
-          ToolbarItem(placement: .navigationBarLeading) {
+          ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
             Button("Cancel") {
               dismiss()
             }
           }
 
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button("Save") {
               onSave(ruleBuilder)
               dismiss()

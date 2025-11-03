@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  EpisodeListViewTests.swift
 //  LibraryFeatureTests
@@ -191,4 +192,6 @@ final class EpisodeListViewTests: XCTestCase {
     }
     
 }
+#endif
+
 #endif

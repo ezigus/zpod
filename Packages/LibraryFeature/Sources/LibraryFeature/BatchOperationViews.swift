@@ -24,6 +24,22 @@ public struct BatchOperationProgressView: View {
     }
 }
 
+public struct PlaylistSelectionView: View {
+    public init(onPlaylistSelected: @escaping (String) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Playlist selection is available on iOS only.")
+    }
+}
+
+public struct EpisodeSelectionCriteriaView: View {
+    public init(onApply: @escaping (EpisodeSelectionCriteria) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Episode selection criteria is available on iOS only.")
+    }
+}
+
 #else
 import SwiftUI
 import CoreModels
@@ -59,10 +75,10 @@ public struct BatchOperationView: View {
                 Spacer()
             }
             .navigationTitle("Batch Operations")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
             }
@@ -397,9 +413,9 @@ public struct PlaylistSelectionView: View {
                 }
             }
             .navigationTitle("Select Playlist")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
             }
@@ -479,13 +495,13 @@ public struct EpisodeSelectionCriteriaView: View {
                 }
             }
             .navigationTitle("Select Episodes")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
                 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Apply") {
                         buildCriteriaAndApply()
                     }

@@ -35,9 +35,9 @@ public struct SmartEpisodeListsView: View {
                 }
             }
             .navigationTitle("Smart Lists")
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Create", systemImage: "plus") {
                         showingCreateSheet = true
                     }
@@ -309,15 +309,15 @@ public struct SmartListBuilderView: View {
                 previewSection
             }
             .navigationTitle(isEditing ? "Edit Smart List" : "Create Smart List")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Save") {
                         saveSmartList()
                     }
@@ -407,8 +407,10 @@ public struct SmartListBuilderView: View {
                 
                 if let maxEpisodes = maxEpisodes {
                     TextField("Max", value: .constant(maxEpisodes), format: .number)
+#if os(iOS)
                         .keyboardType(.numberPad)
                         .textFieldStyle(.roundedBorder)
+#endif
                         .frame(width: 80)
                 } else {
                     Text("No limit")

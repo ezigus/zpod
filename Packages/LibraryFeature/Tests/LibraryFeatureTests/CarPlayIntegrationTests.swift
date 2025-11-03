@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 import CoreModels
 import PlaybackEngine
@@ -140,4 +141,6 @@ final class CarPlayIntegrationTests: XCTestCase {
       subject.send(state)
     }
   }
+#endif
+
 #endif

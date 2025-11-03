@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 import Combine
 @testable import LibraryFeature
@@ -5,87 +6,87 @@ import Combine
 @testable import Persistence
 @testable import PlaybackEngine
 
+@MainActor
 final class EpisodeStatusProgressTests: XCTestCase {
-    private var cancellables: Set<AnyCancellable>!
-    private var podcast: Podcast!
-    private var downloadManager: MockDownloadManager!
-    private var progressProvider: MockDownloadProgressProvider!
-    private var playbackService: MockPlaybackService!
-    private var episodeRepository: MockEpisodeRepository!
-    private var batchOperationManager: MockBatchOperationManager!
-    private var viewModel: EpisodeListViewModel!
+  private var cancellables: Set<AnyCancellable>!
+  private var podcast: Podcast!
+  private var downloadManager: MockDownloadManager!
+  private var progressProvider: MockDownloadProgressProvider!
+  private var playbackService: MockPlaybackService!
+  private var episodeRepository: MockEpisodeRepository!
+  private var batchOperationManager: MockBatchOperationManager!
+  private var viewModel: EpisodeListViewModel!
     
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        cancellables = Set<AnyCancellable>()
-        podcast = Podcast(
-            id: "pod-1",
-            title: "Testing Podcast",
-            author: "QA",
-            description: "QA Episodes",
-            feedURL: URL(string: "https://example.com/feed.xml")!,
-            episodes: [
-                Episode(
-                    id: "ep-1",
-                    title: "Download Fixture",
-                    podcastID: "pod-1",
-                    podcastTitle: "Testing Podcast",
-                    playbackPosition: 0,
-                    isPlayed: false,
-                    pubDate: Date(),
-                    duration: 1800,
-                    description: "Episode used for download progress",
-                    audioURL: URL(string: "https://example.com/audio1.mp3"),
-                    downloadStatus: .notDownloaded
-                ),
-                Episode(
-                    id: "ep-2",
-                    title: "Playback Fixture",
-                    podcastID: "pod-1",
-                    podcastTitle: "Testing Podcast",
-                    playbackPosition: 300,
-                    isPlayed: false,
-                    pubDate: Date(),
-                    duration: 2400,
-                    description: "Episode used for playback",
-                    audioURL: URL(string: "https://example.com/audio2.mp3"),
-                    downloadStatus: .downloaded
-                )
-            ]
+  override func setUp() async throws {
+    try await super.setUp()
+    continueAfterFailure = false
+    cancellables = Set<AnyCancellable>()
+    podcast = Podcast(
+      id: "pod-1",
+      title: "Testing Podcast",
+      author: "QA",
+      description: "QA Episodes",
+      feedURL: URL(string: "https://example.com/feed.xml")!,
+      episodes: [
+        Episode(
+          id: "ep-1",
+          title: "Download Fixture",
+          podcastID: "pod-1",
+          podcastTitle: "Testing Podcast",
+          playbackPosition: 0,
+          isPlayed: false,
+          pubDate: Date(),
+          duration: 1800,
+          description: "Episode used for download progress",
+          audioURL: URL(string: "https://example.com/audio1.mp3"),
+          downloadStatus: .notDownloaded
+        ),
+        Episode(
+          id: "ep-2",
+          title: "Playback Fixture",
+          podcastID: "pod-1",
+          podcastTitle: "Testing Podcast",
+          playbackPosition: 300,
+          isPlayed: false,
+          pubDate: Date(),
+          duration: 2400,
+          description: "Episode used for playback",
+          audioURL: URL(string: "https://example.com/audio2.mp3"),
+          downloadStatus: .downloaded
         )
+      ]
+    )
         
-        downloadManager = MockDownloadManager()
-        progressProvider = MockDownloadProgressProvider()
-        playbackService = MockPlaybackService()
-        episodeRepository = MockEpisodeRepository()
-        batchOperationManager = MockBatchOperationManager()
+    downloadManager = MockDownloadManager()
+    progressProvider = MockDownloadProgressProvider()
+    playbackService = MockPlaybackService()
+    episodeRepository = MockEpisodeRepository()
+    batchOperationManager = MockBatchOperationManager()
         
-        viewModel = EpisodeListViewModel(
-            podcast: podcast,
-            filterService: DefaultEpisodeFilterService(),
-            filterManager: nil,
-            batchOperationManager: batchOperationManager,
-            downloadProgressProvider: progressProvider,
-            downloadManager: downloadManager,
-            playbackService: playbackService,
-            episodeRepository: episodeRepository
-        )
-    }
-    
-    override func tearDownWithError() throws {
-        try super.tearDownWithError()
-        viewModel = nil
-        batchOperationManager = nil
-        episodeRepository = nil
-        playbackService = nil
-        progressProvider = nil
-        downloadManager = nil
-        podcast = nil
-        cancellables = nil
-    }
-    
-    @MainActor
-    func testDownloadProgressUpdatesEpisodeStateAndPersistsOnCompletion() async throws {
+    viewModel = EpisodeListViewModel(
+      podcast: podcast,
+      filterService: DefaultEpisodeFilterService(),
+      filterManager: nil,
+      batchOperationManager: batchOperationManager,
+      downloadProgressProvider: progressProvider,
+      downloadManager: downloadManager,
+      playbackService: playbackService,
+      episodeRepository: episodeRepository
+    )
+  }
+  override func tearDown() async throws {
+    viewModel = nil
+    batchOperationManager = nil
+    episodeRepository = nil
+    playbackService = nil
+    progressProvider = nil
+    downloadManager = nil
+    podcast = nil
+    cancellables = nil
+    try await super.tearDown()
+  }
+  
+  func testDownloadProgressUpdatesEpisodeStateAndPersistsOnCompletion() async throws {
         let progressExpectation = expectation(description: "Progress update applied")
         let completionExpectation = expectation(description: "Completion persisted")
         completionExpectation.expectedFulfillmentCount = 1
@@ -131,7 +132,6 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertTrue(savedIDs.contains("ep-1"))
     }
     
-    @MainActor
     func testPauseAndResumeForwardToDownloadManager() async {
         guard let episode = viewModel.filteredEpisodes.first(where: { $0.id == "ep-1" }) else {
             return XCTFail("Episode missing")
@@ -144,7 +144,6 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertEqual(downloadManager.resumedEpisodes, ["ep-1"])
     }
     
-    @MainActor
     func testQuickPlayCompletionMarksEpisodeAsPlayedAndPersists() async throws {
         let completionExpectation = expectation(description: "Playback completion handled")
         playbackService.onPlay = { episode, _ in
@@ -184,7 +183,7 @@ final class EpisodeStatusProgressTests: XCTestCase {
         playbackService = MockPlaybackService()
         batchOperationManager = MockBatchOperationManager()
 
-        viewModel = EpisodeListViewModel(
+    viewModel = EpisodeListViewModel(
             podcast: podcast,
             filterService: DefaultEpisodeFilterService(),
             filterManager: nil,
@@ -213,7 +212,6 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertTrue(refreshedEpisode?.isPlayed ?? false)
     }
     
-    @MainActor
     func testBatchCompletionDisplaysFailureBannerWithRetry() async throws {
         let bannerExpectation = expectation(description: "Banner emitted")
         viewModel.$bannerState
@@ -245,6 +243,7 @@ final class EpisodeStatusProgressTests: XCTestCase {
 
 // MARK: - Mocks
 
+@MainActor
 private final class MockDownloadManager: DownloadManaging {
     private(set) var pausedEpisodes: [String] = []
     private(set) var resumedEpisodes: [String] = []
@@ -267,6 +266,7 @@ private final class MockDownloadManager: DownloadManaging {
     }
 }
 
+@MainActor
 private final class MockDownloadProgressProvider: DownloadProgressProviding {
     private let subject = PassthroughSubject<EpisodeDownloadProgressUpdate, Never>()
     var progressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {
@@ -278,6 +278,7 @@ private final class MockDownloadProgressProvider: DownloadProgressProviding {
     }
 }
 
+@MainActor
 private final class MockPlaybackService: EpisodePlaybackService {
     #if canImport(Combine)
     private let subject = PassthroughSubject<EpisodePlaybackState, Never>()
@@ -320,6 +321,7 @@ private actor MockEpisodeRepository: EpisodeRepository {
     }
 }
 
+@MainActor
 private final class MockBatchOperationManager: BatchOperationManaging {
     private let subject = PassthroughSubject<BatchOperation, Never>()
     var batchOperationUpdates: AnyPublisher<BatchOperation, Never> {
@@ -340,3 +342,5 @@ private final class MockBatchOperationManager: BatchOperationManaging {
     
     func getActiveBatchOperations() async -> [BatchOperation] { [] }
 }
+
+#endif

@@ -84,9 +84,9 @@ public struct EpisodeListView: View {
       episodeListContent
     }
     .navigationTitle(podcast.title)
-    .navigationBarTitleDisplayMode(.large)
+    .platformNavigationBarTitleDisplayMode(.large)
     .toolbar {
-      ToolbarItemGroup(placement: .topBarTrailing) {
+      ToolbarItemGroup(placement: PlatformToolbarPlacement.primaryAction) {
         if viewModel.isInMultiSelectMode {
           Button("Done") {
             viewModel.exitMultiSelectMode()
@@ -427,7 +427,7 @@ public struct EpisodeListView: View {
       }
     }
     .padding(.vertical, 8)
-    .background(Color(.systemBackground))
+    .background(Color.platformSystemBackground)
   }
 
   @ViewBuilder
@@ -513,7 +513,7 @@ public struct EpisodeListView: View {
           }
         }
       }
-      .listStyle(.insetGrouped)
+      .platformInsetGroupedListStyle()
       .accessibilityIdentifier("Episode Cards Container")
     #else
       // watchOS and CarPlay use simple list layout
@@ -530,7 +530,7 @@ public struct EpisodeListView: View {
         }
         .accessibilityIdentifier("Episode-\(episode.id)")
       }
-      .listStyle(.insetGrouped)
+      .platformInsetGroupedListStyle()
       .accessibilityIdentifier("Episode List")
     #endif
   }
@@ -665,7 +665,7 @@ public struct EpisodeListView: View {
       Spacer()
     }
     .navigationTitle("Episode Details")
-    .navigationBarTitleDisplayMode(.inline)
+    .platformNavigationBarTitleDisplayMode(.inline)
     .accessibilityIdentifier("Episode Detail View")
   }
 

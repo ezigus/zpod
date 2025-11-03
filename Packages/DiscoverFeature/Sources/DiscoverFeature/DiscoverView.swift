@@ -73,7 +73,7 @@ public struct DiscoverView: View {
             }
             .navigationTitle("Discover")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: discoveryToolbarPlacement) {
                     Button {
                         optionsState.presentDialog()
                     } label: {
@@ -158,6 +158,30 @@ public struct DiscoverView: View {
             }
         )
     }
+
+    private var discoveryToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
+    }
+
+    private var rssCancelToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .cancellationAction
+#endif
+    }
+
+    private var historyDoneToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
+    }
     
     // MARK: - View Components
     
@@ -203,7 +227,7 @@ public struct DiscoverView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.platformSystemBackground)
     }
     
     private func filterButton(for filter: SearchFilter) -> some View {
@@ -325,9 +349,11 @@ public struct DiscoverView: View {
                     
                     TextField("https://example.com/podcast.xml", text: $viewModel.rssURL)
                         .textFieldStyle(.roundedBorder)
+#if os(iOS)
                         .keyboardType(.URL)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+#endif
                     
                     Text("Enter the direct RSS feed URL of the podcast you want to add")
                         .font(.caption)
@@ -361,9 +387,11 @@ public struct DiscoverView: View {
             }
             .padding()
             .navigationTitle("Add RSS Feed")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: rssCancelToolbarPlacement) {
                     Button("Cancel") {
                         optionsState.dismissRSSSheet()
                     }
@@ -396,9 +424,11 @@ public struct DiscoverView: View {
                 }
             }
             .navigationTitle("Search History")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: historyDoneToolbarPlacement) {
                     Button("Done") {
                         optionsState.dismissHistorySheet()
                     }

@@ -49,4 +49,18 @@ public extension Color {
     return Color.gray.opacity(0.35)
     #endif
   }
+
+  static var platformSystemBackground: Color {
+    #if canImport(UIKit)
+    return Color(uiColor: .systemBackground)
+    #elseif canImport(AppKit)
+    if #available(macOS 13.0, *) {
+      return Color(nsColor: .windowBackgroundColor)
+    } else {
+      return Color(nsColor: .textBackgroundColor)
+    }
+    #else
+    return Color.white
+    #endif
+  }
 }

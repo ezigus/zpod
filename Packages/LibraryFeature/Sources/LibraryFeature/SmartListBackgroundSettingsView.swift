@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreModels
 import Persistence
+import SharedUtilities
 
 // MARK: - Background Settings View
 
@@ -35,7 +36,7 @@ public struct SmartListBackgroundSettingsView: View {
                 actionsSection
             }
             .navigationTitle("Smart List Automation")
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
             .task {
                 configuration = await backgroundManager.configuration
             }

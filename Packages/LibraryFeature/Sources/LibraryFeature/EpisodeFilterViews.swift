@@ -290,14 +290,14 @@ public struct EpisodeFilterSheet: View {
                 .padding()
             }
             .navigationTitle("Filter Episodes")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onDismiss)
                         .accessibilityIdentifier("Cancel Filter")
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Apply") {
                         let conditions = selectedCriteria.map { EpisodeFilterCondition(criteria: $0) }
                         let filter = EpisodeFilter(

@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 @testable import LibraryFeature
 
@@ -8,3 +9,4 @@ final class LibraryFeatureTests: XCTestCase {
         XCTAssertTrue(true, "LibraryFeature package loads successfully")
     }
 }
+#endif

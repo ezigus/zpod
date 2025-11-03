@@ -71,7 +71,7 @@ import SwiftUI
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Search podcasts")
         .toolbar {
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button(action: {
               showingMenu = true
             }) {
@@ -111,14 +111,14 @@ import SwiftUI
           }
         }
         .navigationTitle("Add RSS Feed")
-        .navigationBarTitleDisplayMode(.inline)
+        .platformNavigationBarTitleDisplayMode(.inline)
         .toolbar {
-          ToolbarItem(placement: .navigationBarLeading) {
+          ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
             Button("Cancel") {
               dismiss()
             }
           }
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button("Add") {
               // No-op for testing
               dismiss()
@@ -843,7 +843,7 @@ import SwiftUI
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(podcastTitle)
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
         } else {
           ScrollView {
             LazyVStack(spacing: 12) {
@@ -856,7 +856,7 @@ import SwiftUI
           }
           .accessibilityIdentifier("Episode Cards Container")
           .navigationTitle(podcastTitle)
-          .navigationBarTitleDisplayMode(.large)
+          .platformNavigationBarTitleDisplayMode(.large)
         }
       }
       .onAppear {
@@ -978,7 +978,7 @@ import SwiftUI
       }
       .accessibilityIdentifier("Episode Detail View")
       .navigationTitle("Episode Detail")
-      .navigationBarTitleDisplayMode(.inline)
+      .platformNavigationBarTitleDisplayMode(.inline)
     }
   }
 

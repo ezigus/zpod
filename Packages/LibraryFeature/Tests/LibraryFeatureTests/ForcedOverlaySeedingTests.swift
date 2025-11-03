@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 @testable import LibraryFeature
 import CoreModels
@@ -45,3 +46,5 @@ final class ForcedOverlaySeedingTests: XCTestCase {
     XCTAssertFalse(operation.operations.isEmpty)
   }
 }
+
+#endif

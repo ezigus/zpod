@@ -26,7 +26,7 @@ public struct PlaybackPresetConfigurationView: View {
       customSection
       actionsSection
     }
-    .listStyle(.insetGrouped)
+    .platformInsetGroupedListStyle()
     .navigationTitle("Playback Presets")
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {

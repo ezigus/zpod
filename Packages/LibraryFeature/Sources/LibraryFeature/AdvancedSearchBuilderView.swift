@@ -29,15 +29,17 @@ struct AdvancedSearchBuilderView: View {
                 .padding()
             }
             .navigationTitle("Advanced Search")
-            .navigationBarTitleDisplayMode(.inline)
+#if os(iOS)
+            .platformNavigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: cancelToolbarPlacement) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: searchToolbarPlacement) {
                     Button("Search") {
                         executeSearch()
                         dismiss()
@@ -179,6 +181,22 @@ struct AdvancedSearchBuilderView: View {
         
         let query = EpisodeSearchQuery(terms: terms, operators: validOperators)
         viewModel.performAdvancedSearch(with: query)
+    }
+    
+    private var cancelToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarLeading
+#else
+        .cancellationAction
+#endif
+    }
+    
+    private var searchToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
     }
 }
 
