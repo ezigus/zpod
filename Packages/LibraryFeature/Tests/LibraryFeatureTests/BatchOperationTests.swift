@@ -7,7 +7,7 @@
 //
 
 import XCTest
-import Combine
+import CombineSupport
 @testable import LibraryFeature
 @testable import CoreModels
 @testable import PlaybackEngine

@@ -1,4 +1,4 @@
-@preconcurrency import Combine
+@preconcurrency import CombineSupport
 import Foundation
 import CoreModels
 import PlaybackEngine

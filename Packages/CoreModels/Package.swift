@@ -15,12 +15,14 @@ let package = Package(
   ],
   dependencies: [
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
   ],
   targets: [
     .target(
       name: "CoreModels",
       dependencies: [
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ]
     ),
     .testTarget(

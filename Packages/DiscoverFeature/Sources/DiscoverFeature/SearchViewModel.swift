@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-import Combine
+import CombineSupport
 import CoreModels
 import SearchDomain
 import FeedParsing

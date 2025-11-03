@@ -1,4 +1,4 @@
-import Combine
+import CombineSupport
 import CoreModels
 
 /// Abstraction for streaming download progress updates from the networking layer.

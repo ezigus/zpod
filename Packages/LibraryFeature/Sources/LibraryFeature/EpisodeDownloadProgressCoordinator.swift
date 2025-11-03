@@ -6,7 +6,7 @@
 //  Extracts download progress monitoring and state management
 //
 
-import Combine
+import CombineSupport
 import CoreModels
 import Foundation
 import OSLog

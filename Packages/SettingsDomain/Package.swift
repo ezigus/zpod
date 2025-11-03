@@ -16,6 +16,7 @@ let package = Package(
   dependencies: [
     .package(path: "../CoreModels"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
     .package(path: "../Persistence"),
   ],
   targets: [
@@ -24,6 +25,7 @@ let package = Package(
       dependencies: [
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
         .product(name: "Persistence", package: "Persistence"),
       ]
     ),
@@ -33,6 +35,7 @@ let package = Package(
         "SettingsDomain",
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
         .product(name: "Persistence", package: "Persistence"),
       ]),
   ]

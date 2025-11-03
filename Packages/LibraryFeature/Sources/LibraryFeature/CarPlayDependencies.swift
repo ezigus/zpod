@@ -3,7 +3,7 @@ import Foundation
 import PlaybackEngine
 
 #if canImport(Combine)
-  import Combine
+  import CombineSupport
 #endif
 
 /// Bundles dependencies required by the CarPlay integration.

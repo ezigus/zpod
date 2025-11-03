@@ -18,6 +18,7 @@ let package = Package(
     .package(path: "../PlaybackEngine"),
     .package(path: "../Persistence"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
     .package(path: "../TestSupport"),
   ],
   targets: [
@@ -28,6 +29,7 @@ let package = Package(
         .product(name: "PlaybackEngine", package: "PlaybackEngine"),
         .product(name: "Persistence", package: "Persistence"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ],
       path: "Sources"
     ),
@@ -36,6 +38,7 @@ let package = Package(
       dependencies: [
         "PlayerFeature",
         .product(name: "TestSupport", package: "TestSupport"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ]
     ),
   ]

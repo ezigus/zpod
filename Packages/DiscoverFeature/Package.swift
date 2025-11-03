@@ -19,6 +19,7 @@ let package = Package(
     .package(path: "../SearchDomain"),
     .package(path: "../FeedParsing"),
     .package(path: "../TestSupport"),
+    .package(path: "../CombineSupport"),
   ],
   targets: [
     .target(
@@ -28,6 +29,7 @@ let package = Package(
         .product(name: "SharedUtilities", package: "SharedUtilities"),
         .product(name: "SearchDomain", package: "SearchDomain"),
         .product(name: "FeedParsing", package: "FeedParsing"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ],
       path: "Sources"
     ),
