@@ -60,22 +60,18 @@ public final class MiniPlayerViewModel: ObservableObject {
   // MARK: - Private Properties
 
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
-  private let queueIsEmpty: @Sendable () -> Bool
+  private let queueIsEmpty: () -> Bool
   private var stateCancellable: AnyCancellable?
 
   // MARK: - Initialization
 
   public init(
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
-    queueIsEmpty: @escaping @Sendable () -> Bool = { true }
+    queueIsEmpty: @escaping () -> Bool = { true }
   ) {
     self.playbackService = playbackService
     self.queueIsEmpty = queueIsEmpty
     subscribeToPlaybackState()
-  }
-
-  deinit {
-    stateCancellable?.cancel()
   }
 
   // MARK: - User Intents

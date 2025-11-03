@@ -1,3 +1,4 @@
+import CoreModels
 import PlaybackEngine
 
 /// Provides a shared view of playback dependencies for iPhone, CarPlay, and Siri surfaces.
@@ -37,4 +38,3 @@ public enum PlaybackEnvironment {
     dependencies.podcastManager
   }
 }
-

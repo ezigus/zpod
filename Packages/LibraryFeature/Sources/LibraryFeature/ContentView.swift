@@ -132,6 +132,7 @@ import SwiftUI
 
 #if canImport(PlayerFeature)
   import PlayerFeature
+  import PlaybackEngine
 #else
   // Fallback placeholder when PlayerFeature module isn't linked
   struct EpisodeDetailView: View {
@@ -362,10 +363,17 @@ import SwiftUI
             }
 
           // Player Tab (placeholder - shows sample episode)
-          PlayerTabView(playbackService: playbackDependencies.playbackService)
-            .tabItem {
-              Label("Player", systemImage: "play.circle")
-            }
+          #if canImport(PlayerFeature)
+            PlayerTabView(playbackService: playbackDependencies.playbackService)
+              .tabItem {
+                Label("Player", systemImage: "play.circle")
+              }
+          #else
+            PlayerTabView()
+              .tabItem {
+                Label("Player", systemImage: "play.circle")
+              }
+          #endif
 
           SettingsHomeView(settingsManager: settingsManager)
             .tabItem {
@@ -387,10 +395,13 @@ import SwiftUI
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showFullPlayer) {
           if let episode = miniPlayerViewModel.currentEpisode {
-            EpisodeDetailView(
-              episode: episode,
-              playbackService: playbackDependencies.playbackService
-            )
+            NavigationStack {
+              EpisodeDetailView(
+                episode: episode,
+                playbackService: playbackDependencies.playbackService
+              )
+            }
+            .accessibilityIdentifier("expanded-player-sheet")
           }
         }
         #endif
@@ -644,63 +655,72 @@ import SwiftUI
   }
 
   /// Player tab that shows the EpisodeDetailView with a sample episode
-  struct PlayerTabView: View {
-    let playbackService: EpisodePlaybackService & EpisodeTransportControlling
-    @State private var isPlaying: Bool = false
-    @State private var progress: Double = 0.25
+  #if canImport(PlayerFeature)
+    struct PlayerTabView: View {
+      let playbackService: EpisodePlaybackService & EpisodeTransportControlling
+      @State private var isPlaying: Bool = false
+      @State private var progress: Double = 0.25
 
-    var body: some View {
-      NavigationStack {
-        ScrollView {
-          VStack(spacing: 16) {
-            playerInterface
+      var body: some View {
+        NavigationStack {
+          ScrollView {
+            VStack(spacing: 16) {
+              playerInterface
 
-            // Sample navigation to a detailed player view (if PlayerFeature linked)
-            NavigationLink("Open Full Player", destination: sampleEpisodeView)
-              .buttonStyle(.bordered)
+              NavigationLink("Open Full Player", destination: sampleEpisodeView)
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("open-full-player")
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
           }
-          .frame(maxWidth: .infinity)
-          .padding()
+          .navigationTitle("Player")
         }
-        .navigationTitle("Player")
+      }
+
+      @ViewBuilder
+      private var playerInterface: some View {
+        VStack(spacing: 16) {
+          PlayerArtworkView()
+          PlayerTitlesView()
+          PlayerProgressSliderView(progress: $progress)
+          PlaybackControlsView(isPlaying: $isPlaying)
+        }
+        .padding()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Player Interface")
+      }
+
+      private var sampleEpisodeView: some View {
+        EpisodeDetailView(
+          episode: sampleEpisode,
+          playbackService: playbackService
+        )
+      }
+
+      private var sampleEpisode: Episode {
+        Episode(
+          id: "sample-1",
+          title: "Sample Episode",
+          podcastID: "sample-podcast",
+          playbackPosition: 0,
+          isPlayed: false,
+          pubDate: Date(),
+          duration: 1800,
+          description: "This is a sample episode to demonstrate the player interface.",
+          audioURL: URL(string: "https://example.com/episode.mp3")
+        )
       }
     }
-
-    // Break up the large view tree into smaller, type-check-friendly pieces
-    @ViewBuilder
-    private var playerInterface: some View {
-      VStack(spacing: 16) {
-        PlayerArtworkView()
-        PlayerTitlesView()
-        PlayerProgressSliderView(progress: $progress)
-        PlaybackControlsView(isPlaying: $isPlaying)
+  #else
+    struct PlayerTabView: View {
+      var body: some View {
+        Text("Player")
+          .font(.title2)
+          .padding()
       }
-      .padding()
-      .accessibilityElement(children: .contain)
-      .accessibilityIdentifier("Player Interface")
     }
-
-    private var sampleEpisodeView: some View {
-      EpisodeDetailView(
-        episode: sampleEpisode,
-        playbackService: playbackService
-      )
-    }
-
-    private var sampleEpisode: Episode {
-      Episode(
-        id: "sample-1",
-        title: "Sample Episode",
-        podcastID: "sample-podcast",
-        playbackPosition: 0,
-        isPlayed: false,
-        pubDate: Date(),
-        duration: 1800,  // 30 minutes
-        description: "This is a sample episode to demonstrate the player interface.",
-        audioURL: URL(string: "https://example.com/episode.mp3")
-      )
-    }
-  }
+  #endif
 
   // MARK: - Player Subviews (extracted to improve type-check performance)
   private struct PlayerArtworkView: View {

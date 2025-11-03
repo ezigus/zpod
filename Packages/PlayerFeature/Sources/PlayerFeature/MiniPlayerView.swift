@@ -175,26 +175,26 @@ public struct MiniPlayerView: View {
 import PlaybackEngine
 
 #Preview {
-  VStack {
+  let episode = Episode(
+    id: "preview-1",
+    title: "Understanding Swift Concurrency",
+    podcastID: "podcast-1",
+    podcastTitle: "Swift Talk",
+    playbackPosition: 0,
+    isPlayed: false,
+    pubDate: Date(),
+    duration: 3600,
+    description: "A deep dive into Swift concurrency",
+    audioURL: URL(string: "https://example.com/episode.mp3"),
+    artworkURL: URL(string: "https://picsum.photos/200")
+  )
+
+  let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
+  let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
+  stubPlayer.play(episode: episode, duration: episode.duration)
+
+  return VStack {
     Spacer()
-
-    let episode = Episode(
-      id: "preview-1",
-      title: "Understanding Swift Concurrency",
-      podcastID: "podcast-1",
-      playbackPosition: 0,
-      isPlayed: false,
-      pubDate: Date(),
-      duration: 3600,
-      description: "A deep dive into Swift concurrency",
-      audioURL: URL(string: "https://example.com/episode.mp3"),
-      artworkURL: URL(string: "https://picsum.photos/200"),
-      podcastTitle: "Swift Talk"
-    )
-
-    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    stubPlayer.play(episode: episode, duration: episode.duration)
 
     MiniPlayerView(viewModel: viewModel) {
       print("Expand tapped")
@@ -203,4 +203,3 @@ import PlaybackEngine
   }
 }
 #endif
-

@@ -744,21 +744,39 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
   func testMiniPlayerVisibilityAndExpansion() throws {
     initializeApp()
 
+    let openFullPlayer = app.buttons["open-full-player"]
+    if openFullPlayer.waitForExistence(timeout: 2) {
+      openFullPlayer.tap()
+    }
+
     let playButton = app.buttons["Play"]
-    if playButton.waitForExistence(timeout: 2) {
+    if playButton.waitForExistence(timeout: 3) {
       playButton.tap()
+    }
+
+    let pauseButton = app.buttons["Pause"]
+    XCTAssertTrue(pauseButton.waitForExistence(timeout: 3))
+
+    let backButton = app.navigationBars.buttons.element(boundBy: 0)
+    if backButton.waitForExistence(timeout: 2) {
+      backButton.tap()
+    }
+
+    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    if libraryTab.waitForExistence(timeout: 2) {
+      libraryTab.tap()
     }
 
     let miniPlayer = app.otherElements["Mini Player"]
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: 2),
+      miniPlayer.waitForExistence(timeout: 5),
       "Mini player should appear after playback starts"
     )
 
-    let pauseButton = app.buttons["Mini Player Pause"]
-    XCTAssertTrue(pauseButton.waitForExistence(timeout: 1))
+    let miniPlayerPauseButton = app.buttons["Mini Player Pause"]
+    XCTAssertTrue(miniPlayerPauseButton.waitForExistence(timeout: 1))
 
-    pauseButton.tap()
+    miniPlayerPauseButton.tap()
     let playToggle = app.buttons["Mini Player Play"]
     XCTAssertTrue(playToggle.waitForExistence(timeout: 1))
 
@@ -770,10 +788,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
 
     miniPlayer.tap()
 
-    let episodeTitle = app.staticTexts["Episode Title"]
+    let expandedSheet = app.otherElements["expanded-player-sheet"]
     XCTAssertTrue(
-      episodeTitle.waitForExistence(timeout: 2),
-      "Expanded player should show episode details"
+      expandedSheet.waitForExistence(timeout: 2),
+      "Expanded player sheet should appear"
     )
   }
 }

@@ -1131,14 +1131,15 @@ test_app_target() {
 
 test_package_target() {
   local package="$1"
+  init_result_paths "test_pkg" "$package"
   if package_supports_host_build "$package"; then
     :
   else
     log_warn "Skipping swift test for package '${package}' (host platform unsupported on this machine)"
-    add_summary "test" "package ${package}" "warn" "" "" "" "" "" "skipped (host platform unsupported)"
+    printf "⚠️ Package %s skipped: host platform does not match declared platforms.\n" "$package" | tee "$RESULT_LOG" >/dev/null
+    add_summary "test" "package ${package}" "warn" "$RESULT_LOG" "" "" "" "" "skipped (host platform unsupported)"
     return 0
   fi
-  init_result_paths "test_pkg" "$package"
   log_section "swift test (${package})"
   set +e
   run_swift_package_target_tests "$package" "$REQUESTED_CLEAN"
