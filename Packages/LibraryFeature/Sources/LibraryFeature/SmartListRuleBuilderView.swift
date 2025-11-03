@@ -4,7 +4,7 @@
 //
 //  Advanced rule builder for smart episode lists
 //
-#if !os(iOS)
+#if !os(iOS) && !os(macOS)
   import SwiftUI
   import CoreModels
 
@@ -139,7 +139,7 @@
   }
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
   // MARK: - Smart List Rule Builder View
 
   public struct SmartListRuleBuilderView: View {

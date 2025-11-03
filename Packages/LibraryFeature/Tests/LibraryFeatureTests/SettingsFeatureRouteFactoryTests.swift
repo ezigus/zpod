@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import XCTest
 import SwiftUI
 import CoreModels
@@ -357,3 +358,4 @@ actor InMemoryPlaybackPresetService: PlaybackPresetConfigurationServicing {
         self.continuation = continuation
     }
 }
+#endif

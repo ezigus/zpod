@@ -297,7 +297,7 @@ import SwiftUI
   }
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
 
   public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
