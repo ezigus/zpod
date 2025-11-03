@@ -5,12 +5,12 @@
 //  Created for Issue 03.1.1.1: Mini-Player Foundation
 //
 
+#if canImport(Combine)
+
 import Combine
 import CoreModels
 import Foundation
 import PlaybackEngine
-
-// MARK: - Display State ------------------------------------------------------
 
 public struct MiniPlayerDisplayState: Equatable, Sendable {
   public static let hidden = MiniPlayerDisplayState(
@@ -42,14 +42,9 @@ public struct MiniPlayerDisplayState: Equatable, Sendable {
   }
 }
 
-/// View model for the mini-player that exposes a compact summary of playback state.
 @MainActor
 public final class MiniPlayerViewModel: ObservableObject {
-  // MARK: - Published State
-
   @Published public private(set) var displayState: MiniPlayerDisplayState = .hidden
-
-  // MARK: - Convenience Accessors
 
   public var currentEpisode: Episode? { displayState.episode }
   public var isPlaying: Bool { displayState.isPlaying }
@@ -57,13 +52,9 @@ public final class MiniPlayerViewModel: ObservableObject {
   public var currentPosition: TimeInterval { displayState.currentPosition }
   public var duration: TimeInterval { displayState.duration }
 
-  // MARK: - Private Properties
-
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
   private let queueIsEmpty: () -> Bool
   private var stateCancellable: AnyCancellable?
-
-  // MARK: - Initialization
 
   public init(
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
@@ -73,8 +64,6 @@ public final class MiniPlayerViewModel: ObservableObject {
     self.queueIsEmpty = queueIsEmpty
     subscribeToPlaybackState()
   }
-
-  // MARK: - User Intents
 
   public func togglePlayPause() {
     if displayState.isPlaying {
@@ -104,8 +93,6 @@ public final class MiniPlayerViewModel: ObservableObject {
   public func skipBackward(interval: TimeInterval? = nil) {
     playbackService.skipBackward(interval: interval)
   }
-
-  // MARK: - Internal Helpers
 
   private func subscribeToPlaybackState() {
     stateCancellable = playbackService.statePublisher
@@ -153,3 +140,63 @@ public final class MiniPlayerViewModel: ObservableObject {
     }
   }
 }
+
+#else
+
+import CoreModels
+import Foundation
+import PlaybackEngine
+
+public struct MiniPlayerDisplayState: Equatable, Sendable {
+  public static let hidden = MiniPlayerDisplayState(
+    isVisible: false,
+    isPlaying: false,
+    episode: nil,
+    currentPosition: 0,
+    duration: 0
+  )
+
+  public var isVisible: Bool
+  public var isPlaying: Bool
+  public var episode: Episode?
+  public var currentPosition: TimeInterval
+  public var duration: TimeInterval
+
+  public init(
+    isVisible: Bool,
+    isPlaying: Bool,
+    episode: Episode?,
+    currentPosition: TimeInterval,
+    duration: TimeInterval
+  ) {
+    self.isVisible = isVisible
+    self.isPlaying = isPlaying
+    self.episode = episode
+    self.currentPosition = currentPosition
+    self.duration = duration
+  }
+}
+
+public final class MiniPlayerViewModel {
+  public private(set) var displayState: MiniPlayerDisplayState = .hidden
+  private let queueIsEmpty: () -> Bool
+
+  public init(
+    playbackService: EpisodePlaybackService & EpisodeTransportControlling,
+    queueIsEmpty: @escaping () -> Bool = { true }
+  ) {
+    self.queueIsEmpty = queueIsEmpty
+  }
+
+  public var currentEpisode: Episode? { displayState.episode }
+  public var isPlaying: Bool { displayState.isPlaying }
+  public var isVisible: Bool { displayState.isVisible }
+  public var currentPosition: TimeInterval { displayState.currentPosition }
+  public var duration: TimeInterval { displayState.duration }
+
+  public func togglePlayPause() {}
+  public func skipForward(interval: TimeInterval? = nil) {}
+  public func skipBackward(interval: TimeInterval? = nil) {}
+}
+
+#endif
