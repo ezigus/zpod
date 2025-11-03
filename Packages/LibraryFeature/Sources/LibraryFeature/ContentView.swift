@@ -138,6 +138,11 @@ import SwiftUI
     let episode: Episode
     var body: some View { Text("Player") }
   }
+  struct MiniPlayerView: View {
+    var body: some View { EmptyView() }
+  }
+  @MainActor
+  class MiniPlayerViewModel: ObservableObject {}
 #endif
 
 #if canImport(PlaylistFeature)
@@ -301,6 +306,12 @@ import SwiftUI
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
     @StateObject private var settingsManager: SettingsManager
+    
+    // Mini-player state
+    #if canImport(PlayerFeature)
+    @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
+    #endif
+    @State private var showFullPlayer = false
 
     public init(podcastManager: PodcastManaging? = nil) {
       // Use provided podcast manager or create a new one (for backward compatibility)
@@ -311,45 +322,69 @@ import SwiftUI
       self.searchService = SearchService(indexSources: searchSources)
       let repository = UserDefaultsSettingsRepository()
       _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
+      
+      // Initialize mini-player with playback service from CarPlay dependencies
+      #if canImport(PlayerFeature)
+      let dependencies = CarPlayDependencyRegistry.resolve()
+      _miniPlayerViewModel = StateObject(wrappedValue: MiniPlayerViewModel(playbackService: dependencies.playbackService))
+      #endif
     }
 
     public var body: some View {
-      TabView {
-        // Library Tab (existing functionality)
-        LibraryView()
+      ZStack(alignment: .bottom) {
+        TabView {
+          // Library Tab (existing functionality)
+          LibraryView()
+            .tabItem {
+              Label("Library", systemImage: "books.vertical")
+            }
+
+          // Discover Tab (placeholder UI)
+          DiscoverView(
+            searchService: searchService,
+            podcastManager: podcastManager
+          )
           .tabItem {
-            Label("Library", systemImage: "books.vertical")
+            Label("Discover", systemImage: "safari")
           }
 
-        // Discover Tab (placeholder UI)
-        DiscoverView(
-          searchService: searchService,
-          podcastManager: podcastManager
-        )
-        .tabItem {
-          Label("Discover", systemImage: "safari")
+          // Playlists Tab (placeholder UI)
+          PlaylistTabView()
+            .tabItem {
+              Label("Playlists", systemImage: "music.note.list")
+            }
+
+          // Player Tab (placeholder - shows sample episode)
+          PlayerTabView()
+            .tabItem {
+              Label("Player", systemImage: "play.circle")
+            }
+
+          SettingsHomeView(settingsManager: settingsManager)
+            .tabItem {
+              Label("Settings", systemImage: "gearshape")
+            }
         }
-
-        // Playlists Tab (placeholder UI)
-        PlaylistTabView()
-          .tabItem {
-            Label("Playlists", systemImage: "music.note.list")
+        #if canImport(UIKit)
+          .background(TabBarIdentifierSetter())
+        #endif
+        
+        // Mini-player overlay
+        #if canImport(PlayerFeature)
+        VStack(spacing: 0) {
+          Spacer()
+          MiniPlayerView(viewModel: miniPlayerViewModel) {
+            showFullPlayer = true
           }
-
-        // Player Tab (placeholder - shows sample episode)
-        PlayerTabView()
-          .tabItem {
-            Label("Player", systemImage: "play.circle")
+        }
+        .ignoresSafeArea(edges: .bottom)
+        .sheet(isPresented: $showFullPlayer) {
+          if let episode = miniPlayerViewModel.currentEpisode {
+            EpisodeDetailView(episode: episode)
           }
-
-        SettingsHomeView(settingsManager: settingsManager)
-          .tabItem {
-            Label("Settings", systemImage: "gearshape")
-          }
+        }
+        #endif
       }
-      #if canImport(UIKit)
-        .background(TabBarIdentifierSetter())
-      #endif
     }
   }
 
