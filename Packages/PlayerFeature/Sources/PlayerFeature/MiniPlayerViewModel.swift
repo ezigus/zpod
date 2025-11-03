@@ -10,94 +10,150 @@ import CoreModels
 import Foundation
 import PlaybackEngine
 
-/// View model for the mini-player that displays current playback state
+// MARK: - Display State ------------------------------------------------------
+
+public struct MiniPlayerDisplayState: Equatable, Sendable {
+  public static let hidden = MiniPlayerDisplayState(
+    isVisible: false,
+    isPlaying: false,
+    episode: nil,
+    currentPosition: 0,
+    duration: 0
+  )
+
+  public var isVisible: Bool
+  public var isPlaying: Bool
+  public var episode: Episode?
+  public var currentPosition: TimeInterval
+  public var duration: TimeInterval
+
+  public init(
+    isVisible: Bool,
+    isPlaying: Bool,
+    episode: Episode?,
+    currentPosition: TimeInterval,
+    duration: TimeInterval
+  ) {
+    self.isVisible = isVisible
+    self.isPlaying = isPlaying
+    self.episode = episode
+    self.currentPosition = currentPosition
+    self.duration = duration
+  }
+}
+
+/// View model for the mini-player that exposes a compact summary of playback state.
 @MainActor
 public final class MiniPlayerViewModel: ObservableObject {
-  // MARK: - Published Properties
-  
-  @Published public private(set) var currentEpisode: Episode?
-  @Published public private(set) var isPlaying: Bool = false
-  @Published public private(set) var isVisible: Bool = false
-  @Published public private(set) var currentPosition: TimeInterval = 0
-  @Published public private(set) var duration: TimeInterval = 0
-  
+  // MARK: - Published State
+
+  @Published public private(set) var displayState: MiniPlayerDisplayState = .hidden
+
+  // MARK: - Convenience Accessors
+
+  public var currentEpisode: Episode? { displayState.episode }
+  public var isPlaying: Bool { displayState.isPlaying }
+  public var isVisible: Bool { displayState.isVisible }
+  public var currentPosition: TimeInterval { displayState.currentPosition }
+  public var duration: TimeInterval { displayState.duration }
+
   // MARK: - Private Properties
-  
-  private let playbackService: EpisodePlaybackService
+
+  private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
+  private let queueIsEmpty: @Sendable () -> Bool
   private var stateCancellable: AnyCancellable?
-  
+
   // MARK: - Initialization
-  
-  public init(playbackService: EpisodePlaybackService) {
+
+  public init(
+    playbackService: EpisodePlaybackService & EpisodeTransportControlling,
+    queueIsEmpty: @escaping @Sendable () -> Bool = { true }
+  ) {
     self.playbackService = playbackService
+    self.queueIsEmpty = queueIsEmpty
     subscribeToPlaybackState()
   }
-  
-  // MARK: - Public Methods
-  
-  /// Toggle play/pause state
+
+  deinit {
+    stateCancellable?.cancel()
+  }
+
+  // MARK: - User Intents
+
   public func togglePlayPause() {
-    if isPlaying {
+    if displayState.isPlaying {
       playbackService.pause()
+      return
+    }
+
+    guard let episode = displayState.episode else { return }
+    let resolvedDuration: TimeInterval?
+    if displayState.duration > 0 {
+      resolvedDuration = displayState.duration
     } else {
-      // Resume playback if we have a current episode
-      if let episode = currentEpisode {
-        playbackService.play(episode: episode, duration: duration > 0 ? duration : nil)
-      }
+      resolvedDuration = episode.duration
+    }
+
+    playbackService.play(episode: episode, duration: resolvedDuration)
+
+    if displayState.currentPosition > 0 {
+      playbackService.seek(to: displayState.currentPosition)
     }
   }
-  
-  /// Skip forward by the configured interval (default 30s)
-  public func skipForward() {
-    // For now, this is a placeholder - full skip implementation will be in follow-up issues
-    // The playback service interface would need to be extended to support seek operations
+
+  public func skipForward(interval: TimeInterval? = nil) {
+    playbackService.skipForward(interval: interval)
   }
-  
-  /// Skip backward by the configured interval (default 15s)
-  public func skipBackward() {
-    // For now, this is a placeholder - full skip implementation will be in follow-up issues
-    // The playback service interface would need to be extended to support seek operations
+
+  public func skipBackward(interval: TimeInterval? = nil) {
+    playbackService.skipBackward(interval: interval)
   }
-  
-  // MARK: - Private Methods
-  
+
+  // MARK: - Internal Helpers
+
   private func subscribeToPlaybackState() {
     stateCancellable = playbackService.statePublisher
-      .receive(on: DispatchQueue.main)
+      .receive(on: RunLoop.main)
       .sink { [weak self] state in
         self?.handlePlaybackStateChange(state)
       }
   }
-  
+
   private func handlePlaybackStateChange(_ state: EpisodePlaybackState) {
     switch state {
-    case .idle(let episode):
-      currentEpisode = episode
-      isPlaying = false
-      isVisible = false
-      currentPosition = 0
-      duration = episode.duration ?? 0
-      
-    case .playing(let episode, let position, let dur):
-      currentEpisode = episode
-      isPlaying = true
-      isVisible = true
-      currentPosition = position
-      duration = dur
-      
-    case .paused(let episode, let position, let dur):
-      currentEpisode = episode
-      isPlaying = false
-      isVisible = true
-      currentPosition = position
-      duration = dur
-      
-    case .finished(let episode, let dur):
-      currentEpisode = episode
-      isPlaying = false
-      isVisible = true
-      currentPosition = dur
-      duration = dur
+    case .idle:
+      displayState = .hidden
+
+    case .playing(let episode, let position, let duration):
+      displayState = MiniPlayerDisplayState(
+        isVisible: true,
+        isPlaying: true,
+        episode: episode,
+        currentPosition: position,
+        duration: duration
+      )
+
+    case .paused(let episode, let position, let duration):
+      displayState = MiniPlayerDisplayState(
+        isVisible: true,
+        isPlaying: false,
+        episode: episode,
+        currentPosition: position,
+        duration: duration
+      )
+
+    case .finished(let episode, let duration):
+      if queueIsEmpty() {
+        displayState = .hidden
+      } else {
+        displayState = MiniPlayerDisplayState(
+          isVisible: true,
+          isPlaying: false,
+          episode: episode,
+          currentPosition: duration,
+          duration: duration
+        )
+      }
     }
   }
 }

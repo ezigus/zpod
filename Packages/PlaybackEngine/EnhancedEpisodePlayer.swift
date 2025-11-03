@@ -8,7 +8,7 @@ import CoreModels
 /// Enhanced playback engine that powers advanced controls for the episode detail surface and
 /// player-focused integration tests.
 @MainActor
-public final class EnhancedEpisodePlayer: EpisodePlaybackService {
+public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTransportControlling {
   private enum Constants {
     static let placeholderEpisode = Episode(id: "enhanced-placeholder", title: "Episode")
     static let finishTolerance: TimeInterval = 1.0

@@ -10,12 +10,12 @@ import PlaybackEngine
 @MainActor
 public struct CarPlayDependencies {
   public let podcastManager: any PodcastManaging
-  public let playbackService: EpisodePlaybackService
+  public let playbackService: EpisodePlaybackService & EpisodeTransportControlling
   public let queueManager: CarPlayQueueManaging
 
   public init(
     podcastManager: any PodcastManaging,
-    playbackService: EpisodePlaybackService,
+    playbackService: EpisodePlaybackService & EpisodeTransportControlling,
     queueManager: CarPlayQueueManaging
   ) {
     self.podcastManager = podcastManager

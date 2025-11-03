@@ -306,11 +306,12 @@ import SwiftUI
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
     @StateObject private var settingsManager: SettingsManager
-    
+
     // Mini-player state
-    #if canImport(PlayerFeature)
+#if canImport(PlayerFeature)
+    private let playbackDependencies: CarPlayDependencies
     @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
-    #endif
+#endif
     @State private var showFullPlayer = false
 
     public init(podcastManager: PodcastManaging? = nil) {
@@ -323,10 +324,16 @@ import SwiftUI
       let repository = UserDefaultsSettingsRepository()
       _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
       
-      // Initialize mini-player with playback service from CarPlay dependencies
+    // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)
-      let dependencies = CarPlayDependencyRegistry.resolve()
-      _miniPlayerViewModel = StateObject(wrappedValue: MiniPlayerViewModel(playbackService: dependencies.playbackService))
+      let dependencies = PlaybackEnvironment.dependencies
+      self.playbackDependencies = dependencies
+      _miniPlayerViewModel = StateObject(
+        wrappedValue: MiniPlayerViewModel(
+          playbackService: dependencies.playbackService,
+          queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+        )
+      )
       #endif
     }
 
@@ -355,7 +362,7 @@ import SwiftUI
             }
 
           // Player Tab (placeholder - shows sample episode)
-          PlayerTabView()
+          PlayerTabView(playbackService: playbackDependencies.playbackService)
             .tabItem {
               Label("Player", systemImage: "play.circle")
             }
@@ -380,7 +387,10 @@ import SwiftUI
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showFullPlayer) {
           if let episode = miniPlayerViewModel.currentEpisode {
-            EpisodeDetailView(episode: episode)
+            EpisodeDetailView(
+              episode: episode,
+              playbackService: playbackDependencies.playbackService
+            )
           }
         }
         #endif
@@ -635,6 +645,7 @@ import SwiftUI
 
   /// Player tab that shows the EpisodeDetailView with a sample episode
   struct PlayerTabView: View {
+    let playbackService: EpisodePlaybackService & EpisodeTransportControlling
     @State private var isPlaying: Bool = false
     @State private var progress: Double = 0.25
 
@@ -670,7 +681,10 @@ import SwiftUI
     }
 
     private var sampleEpisodeView: some View {
-      EpisodeDetailView(episode: sampleEpisode)
+      EpisodeDetailView(
+        episode: sampleEpisode,
+        playbackService: playbackService
+      )
     }
 
     private var sampleEpisode: Episode {

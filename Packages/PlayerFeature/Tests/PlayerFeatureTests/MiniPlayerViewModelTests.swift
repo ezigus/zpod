@@ -13,241 +13,286 @@ import Testing
 
 @MainActor
 struct MiniPlayerViewModelTests {
-  
-  // MARK: - Initial State Tests
-  
-  @Test("MiniPlayerViewModel initializes with idle state")
-  func testInitialState() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    // Give the publisher time to emit initial state
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isPlaying == false)
-    #expect(viewModel.isVisible == false)
-    #expect(viewModel.currentPosition == 0)
-  }
-  
-  // MARK: - Playback State Tests
-  
-  @Test("MiniPlayerViewModel shows when episode is playing")
-  func testShowsWhenPlaying() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    let episode = Episode(
-      id: "test-1",
-      title: "Test Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 1800
+
+  // MARK: - Visibility State -------------------------------------------------
+
+  @Test("Mini player starts hidden when playback is idle")
+  func testInitialStateHidden() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    stubPlayer.play(episode: episode, duration: 1800)
-    
-    // Give the publisher time to emit
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isVisible == true)
-    #expect(viewModel.isPlaying == true)
-    #expect(viewModel.currentEpisode?.id == "test-1")
-    #expect(viewModel.duration == 1800)
+
+    try await waitForStateUpdate()
+    #expect(viewModel.displayState.isVisible == false)
+    #expect(viewModel.displayState.episode == nil)
   }
-  
-  @Test("MiniPlayerViewModel shows when episode is paused")
-  func testShowsWhenPaused() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    let episode = Episode(
-      id: "test-2",
-      title: "Test Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 1800
+
+  @Test("Mini player becomes visible when an episode is playing")
+  func testShowsWhenPlaying() async throws {
+    let episode = sampleEpisode(id: "playing-1")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    stubPlayer.play(episode: episode, duration: 1800)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    stubPlayer.pause()
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isVisible == true)
-    #expect(viewModel.isPlaying == false)
-    #expect(viewModel.currentEpisode?.id == "test-2")
+
+    service.play(episode: episode, duration: 1800)
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.isVisible == true)
+    #expect(viewModel.displayState.isPlaying == true)
+    #expect(viewModel.displayState.episode?.id == "playing-1")
+    #expect(viewModel.displayState.duration == 1800)
   }
-  
-  @Test("MiniPlayerViewModel hides when idle")
-  func testHidesWhenIdle() async {
-    let episode = Episode(
-      id: "test-3",
-      title: "Test Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 1800
+
+  @Test("Mini player remains visible when playback pauses")
+  func testShowsWhenPaused() async throws {
+    let episode = sampleEpisode(id: "paused-1")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isVisible == false)
-    #expect(viewModel.isPlaying == false)
+
+    service.play(episode: episode, duration: 1200)
+    try await waitForStateUpdate()
+    service.pause()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.isVisible == true)
+    #expect(viewModel.displayState.isPlaying == false)
+    #expect(viewModel.displayState.episode?.id == "paused-1")
   }
-  
-  // MARK: - Control Action Tests
-  
-  @Test("togglePlayPause pauses when playing")
-  func testTogglePlayPausePauses() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    let episode = Episode(
-      id: "test-4",
-      title: "Test Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 1800
+
+  @Test("Mini player hides when playback returns to idle")
+  func testHidesWhenIdle() async throws {
+    let episode = sampleEpisode(id: "idle-1")
+    let service = RecordingPlaybackService(initialEpisode: episode)
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    stubPlayer.play(episode: episode, duration: 1800)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isPlaying == true)
-    
+
+    service.emit(.idle(episode))
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.isVisible == false)
+    #expect(viewModel.displayState.isPlaying == false)
+  }
+
+  @Test("Mini player hides when playback finishes and queue is empty")
+  func testHidesWhenFinishedWithEmptyQueue() async throws {
+    let episode = sampleEpisode(id: "finished-1")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service,
+      queueIsEmpty: { true }
+    )
+
+    service.play(episode: episode, duration: 100)
+    try await waitForStateUpdate()
+
+    service.finish()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.isVisible == false)
+    #expect(viewModel.displayState.isPlaying == false)
+  }
+
+  @Test("Mini player stays visible on finish when queue has episodes")
+  func testFinishedStaysVisibleWhenQueueHasEpisodes() async throws {
+    let episode = sampleEpisode(id: "finished-queued")
+    let service = RecordingPlaybackService()
+    var queueEmpty = false
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service,
+      queueIsEmpty: { queueEmpty }
+    )
+
+    service.play(episode: episode, duration: 100)
+    try await waitForStateUpdate()
+
+    queueEmpty = false
+    service.finish()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.isVisible == true)
+    #expect(viewModel.displayState.isPlaying == false)
+    #expect(viewModel.displayState.currentPosition == 100)
+  }
+
+  // MARK: - Transport Actions ------------------------------------------------
+
+  @Test("togglePlayPause pauses when currently playing")
+  func testTogglePlayPausePauses() async throws {
+    let episode = sampleEpisode(id: "toggle-1")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+    #expect(service.pauseCallCount == 0)
+
     viewModel.togglePlayPause()
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isPlaying == false)
+    try await waitForStateUpdate()
+
+    #expect(service.pauseCallCount == 1)
+    #expect(viewModel.displayState.isPlaying == false)
   }
-  
-  @Test("togglePlayPause resumes when paused")
-  func testTogglePlayPauseResumes() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    let episode = Episode(
-      id: "test-5",
-      title: "Test Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 1800
+
+  @Test("togglePlayPause resumes playback when paused")
+  func testTogglePlayPauseResumes() async throws {
+    let episode = sampleEpisode(id: "toggle-2")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    stubPlayer.play(episode: episode, duration: 1800)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    stubPlayer.pause()
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isPlaying == false)
-    
+
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+    service.pause()
+    try await waitForStateUpdate()
+
     viewModel.togglePlayPause()
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isPlaying == true)
+    try await waitForStateUpdate()
+
+    #expect(service.playCallCount == 2) // initial + resume
+    #expect(viewModel.displayState.isPlaying == true)
   }
-  
-  // MARK: - Episode Metadata Tests
-  
-  @Test("MiniPlayerViewModel updates episode metadata")
-  func testUpdatesEpisodeMetadata() async {
-    let stubPlayer = StubEpisodePlayer(ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    let episode1 = Episode(
-      id: "ep-1",
-      title: "First Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Podcast One",
-      duration: 1200
+
+  @Test("Skip forward delegates to transport controller")
+  func testSkipForwardDelegates() async throws {
+    let episode = sampleEpisode(id: "skip-forward")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    stubPlayer.play(episode: episode1, duration: 1200)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.currentEpisode?.title == "First Episode")
-    #expect(viewModel.duration == 1200)
-    
-    let episode2 = Episode(
-      id: "ep-2",
-      title: "Second Episode",
-      podcastID: "podcast-2",
-      podcastTitle: "Podcast Two",
-      duration: 1800
-    )
-    
-    stubPlayer.play(episode: episode2, duration: 1800)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.currentEpisode?.title == "Second Episode")
-    #expect(viewModel.duration == 1800)
+
+    service.play(episode: episode, duration: 600)
+    try await waitForStateUpdate()
+    viewModel.skipForward()
+
+    #expect(service.skipForwardCallCount == 1)
   }
-  
-  // MARK: - Finished State Tests
-  
-  @Test("MiniPlayerViewModel remains visible when episode finishes")
-  func testRemainsVisibleWhenFinished() async {
-    let episode = Episode(
-      id: "test-finished",
-      title: "Finished Episode",
-      podcastID: "podcast-1",
-      podcastTitle: "Test Podcast",
-      duration: 100
+
+  @Test("Skip backward delegates to transport controller")
+  func testSkipBackwardDelegates() async throws {
+    let episode = sampleEpisode(id: "skip-back")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
     )
-    
-    // Create a custom stub that can emit finished state
-    let stubPlayer = FinishableStubPlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
-    stubPlayer.play(episode: episode, duration: 100)
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    stubPlayer.finish()
-    try? await Task.sleep(for: .milliseconds(100))
-    
-    #expect(viewModel.isVisible == true)
-    #expect(viewModel.isPlaying == false)
-    #expect(viewModel.currentPosition == 100)
+
+    service.play(episode: episode, duration: 600)
+    try await waitForStateUpdate()
+    viewModel.skipBackward()
+
+    #expect(service.skipBackwardCallCount == 1)
+  }
+
+  // MARK: - Metadata ---------------------------------------------------------
+
+  @Test("Mini player updates metadata when new episode begins")
+  func testEpisodeMetadataUpdates() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    let first = sampleEpisode(id: "metadata-1", title: "First Episode", podcastTitle: "Podcast One")
+    service.play(episode: first, duration: 1200)
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.episode?.title == "First Episode")
+    #expect(viewModel.displayState.duration == 1200)
+
+    let second = sampleEpisode(id: "metadata-2", title: "Second Episode", podcastTitle: "Podcast Two")
+    service.play(episode: second, duration: 1800)
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.episode?.title == "Second Episode")
+    #expect(viewModel.displayState.episode?.podcastTitle == "Podcast Two")
+    #expect(viewModel.displayState.duration == 1800)
+  }
+
+  // MARK: - Helpers ----------------------------------------------------------
+
+  private func waitForStateUpdate() async throws {
+    try await Task.sleep(for: .milliseconds(50))
+    await Task.yield()
+  }
+
+  private func sampleEpisode(
+    id: String,
+    title: String = "Test Episode",
+    podcastTitle: String = "Test Podcast"
+  ) -> Episode {
+    Episode(
+      id: id,
+      title: title,
+      podcastID: "podcast-\(id)",
+      podcastTitle: podcastTitle,
+      duration: 1800,
+      artworkURL: URL(string: "https://example.com/\(id).jpg")
+    )
   }
 }
 
-// MARK: - Test Helpers
+// MARK: - Recording Test Doubles ---------------------------------------------
 
-/// Extended stub player that can emit finished state for testing
 @MainActor
-private final class FinishableStubPlayer: EpisodePlaybackService {
+private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTransportControlling {
   private let subject: CurrentValueSubject<EpisodePlaybackState, Never>
-  
+  private(set) var currentEpisode: Episode?
+  private var currentDuration: TimeInterval = 0
+
+  var playCallCount = 0
+  var pauseCallCount = 0
+  var skipForwardCallCount = 0
+  var skipBackwardCallCount = 0
+
   var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
     subject.eraseToAnyPublisher()
   }
-  
-  private let ticker: Ticker
-  private var currentEpisode: Episode
-  
-  init(initialEpisode: Episode? = nil, ticker: Ticker) {
-    let ep = initialEpisode ?? Episode(id: "stub", title: "Stub", description: "Stub episode")
-    self.currentEpisode = ep
-    self.ticker = ticker
-    self.subject = CurrentValueSubject(.idle(ep))
+
+  init(initialEpisode: Episode? = nil) {
+    let placeholder = initialEpisode ?? Episode(id: "initial", title: "Initial Episode")
+    subject = CurrentValueSubject(.idle(placeholder))
+    currentEpisode = initialEpisode
   }
-  
+
   func play(episode: Episode, duration maybeDuration: TimeInterval?) {
-    let normalized = (maybeDuration ?? 300) > 0 ? (maybeDuration ?? 300) : 300
+    playCallCount += 1
     currentEpisode = episode
-    subject.send(.playing(episode, position: 0, duration: normalized))
+    currentDuration = maybeDuration ?? episode.duration ?? 300
+    subject.send(.playing(episode, position: 0, duration: currentDuration))
   }
-  
+
   func pause() {
-    subject.send(.paused(currentEpisode, position: 0, duration: 300))
+    pauseCallCount += 1
+    guard let episode = currentEpisode else { return }
+    subject.send(.paused(episode, position: 0, duration: currentDuration))
   }
-  
+
+  func skipForward(interval: TimeInterval?) {
+    skipForwardCallCount += 1
+  }
+
+  func skipBackward(interval: TimeInterval?) {
+    skipBackwardCallCount += 1
+  }
+
+  func seek(to position: TimeInterval) {
+    guard let episode = currentEpisode else { return }
+    subject.send(.playing(episode, position: position, duration: currentDuration))
+  }
+
   func finish() {
-    let duration = currentEpisode.duration ?? 300
-    subject.send(.finished(currentEpisode, duration: duration))
+    guard let episode = currentEpisode else { return }
+    subject.send(.finished(episode, duration: currentDuration))
+  }
+
+  func emit(_ state: EpisodePlaybackState) {
+    subject.send(state)
   }
 }

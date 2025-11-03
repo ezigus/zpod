@@ -36,6 +36,7 @@ This document outlines the UI testing approach for the main zpod application.
 - `spec/ui.md` - Navigating with CarPlay Layout
 - `spec/ui.md` - Apple Watch Support
 - `spec/playback.md` - Player interface scenarios
+- `Issues/03.1.1.1-mini-player-foundation.md` - Mini-player visibility and expansion
 
 **Test Areas**:
 
@@ -45,6 +46,7 @@ This document outlines the UI testing approach for the main zpod application.
 - CarPlay player interface
 - Apple Watch playback controls
 - Bluetooth control handling
+- Mini-player visibility, transport controls, and expansion flow
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 

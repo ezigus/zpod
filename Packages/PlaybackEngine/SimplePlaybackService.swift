@@ -43,6 +43,7 @@ public final class StubEpisodePlayer: EpisodePlaybackService {
   private var currentEpisode: Episode
   private var isPlaying = false
   private var currentPosition: TimeInterval = 0
+  private var currentDuration: TimeInterval = 300
   private var generation = 0
 
   public init(initialEpisode: Episode? = nil, ticker: Ticker) {
@@ -58,6 +59,8 @@ public final class StubEpisodePlayer: EpisodePlaybackService {
     let normalized = (maybeDuration ?? 300) > 0 ? (maybeDuration ?? 300) : 300
     currentEpisode = episode
     isPlaying = true
+    currentDuration = normalized
+    currentPosition = 0
     generation += 1
     
     #if canImport(Combine)
@@ -68,7 +71,36 @@ public final class StubEpisodePlayer: EpisodePlaybackService {
   public func pause() {
     isPlaying = false
     #if canImport(Combine)
-    subject.send(.paused(currentEpisode, position: currentPosition, duration: 300))
+    subject.send(.paused(currentEpisode, position: currentPosition, duration: currentDuration))
+    #endif
+  }
+}
+
+extension StubEpisodePlayer: EpisodeTransportControlling {
+  public func skipForward(interval: TimeInterval?) {
+    let delta = interval ?? 30
+    currentPosition = min(currentPosition + delta, currentDuration)
+    emitTransportState()
+  }
+
+  public func skipBackward(interval: TimeInterval?) {
+    let delta = interval ?? 15
+    currentPosition = max(currentPosition - delta, 0)
+    emitTransportState()
+  }
+
+  public func seek(to position: TimeInterval) {
+    currentPosition = min(max(position, 0), currentDuration)
+    emitTransportState()
+  }
+
+  private func emitTransportState() {
+    #if canImport(Combine)
+      if isPlaying {
+        subject.send(.playing(currentEpisode, position: currentPosition, duration: currentDuration))
+      } else {
+        subject.send(.paused(currentEpisode, position: currentPosition, duration: currentDuration))
+      }
     #endif
   }
 }

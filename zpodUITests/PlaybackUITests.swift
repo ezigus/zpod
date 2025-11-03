@@ -733,4 +733,47 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       }
     }
   }
+
+  // MARK: - Mini Player Tests
+
+  /// Given/When/Then: Issue 03.1.1.1 – Mini-Player Foundation
+  /// - Given an episode is playing from the Player tab
+  /// - When the mini-player becomes visible
+  /// - Then it exposes transport controls and expands to the full player without leaving the tab
+  @MainActor
+  func testMiniPlayerVisibilityAndExpansion() throws {
+    initializeApp()
+
+    let playButton = app.buttons["Play"]
+    if playButton.waitForExistence(timeout: 2) {
+      playButton.tap()
+    }
+
+    let miniPlayer = app.otherElements["Mini Player"]
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: 2),
+      "Mini player should appear after playback starts"
+    )
+
+    let pauseButton = app.buttons["Mini Player Pause"]
+    XCTAssertTrue(pauseButton.waitForExistence(timeout: 1))
+
+    pauseButton.tap()
+    let playToggle = app.buttons["Mini Player Play"]
+    XCTAssertTrue(playToggle.waitForExistence(timeout: 1))
+
+    playToggle.tap()
+    XCTAssertTrue(
+      app.buttons["Mini Player Pause"].waitForExistence(timeout: 1),
+      "Mini player should toggle back to pause state"
+    )
+
+    miniPlayer.tap()
+
+    let episodeTitle = app.staticTexts["Episode Title"]
+    XCTAssertTrue(
+      episodeTitle.waitForExistence(timeout: 2),
+      "Expanded player should show episode details"
+    )
+  }
 }

@@ -1238,7 +1238,7 @@ private final class EpisodeListDependencyProvider {
   let hapticsService: HapticFeedbackServicing
 
   private init() {
-    self.playbackService = EnhancedEpisodePlayer()
+    self.playbackService = PlaybackEnvironment.playbackService
     self.episodeRepository = UserDefaultsEpisodeRepository(suiteName: "us.zig.zpod.episode-state")
     self.annotationRepository = UserDefaultsEpisodeAnnotationRepository(
       suiteName: "us.zig.zpod.episode-annotations")

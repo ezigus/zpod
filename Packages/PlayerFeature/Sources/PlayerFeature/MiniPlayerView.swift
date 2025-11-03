@@ -8,129 +8,168 @@
 import CoreModels
 import SwiftUI
 
-/// Compact mini-player bar that appears during playback
+#if canImport(UIKit)
+  import UIKit
+#endif
+
+/// Compact mini-player bar that appears during playback.
 public struct MiniPlayerView: View {
   @ObservedObject private var viewModel: MiniPlayerViewModel
   private let onTapExpand: () -> Void
-  
+
   public init(viewModel: MiniPlayerViewModel, onTapExpand: @escaping () -> Void) {
     self.viewModel = viewModel
     self.onTapExpand = onTapExpand
   }
-  
+
   public var body: some View {
-    if viewModel.isVisible, let episode = viewModel.currentEpisode {
-      HStack(spacing: 12) {
-        // Episode artwork thumbnail
-        artworkThumbnail
-        
-        // Episode and podcast titles
-        VStack(alignment: .leading, spacing: 4) {
-          Text(episode.title)
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .lineLimit(1)
-            .accessibilityIdentifier("Mini Player Episode Title")
-          
-          if !episode.podcastTitle.isEmpty {
-            Text(episode.podcastTitle)
-              .font(.caption)
-              .foregroundStyle(.secondary)
+    let state = viewModel.displayState
+
+    Group {
+      if state.isVisible, let episode = state.episode {
+        HStack(spacing: 12) {
+          artwork(for: episode)
+
+          VStack(alignment: .leading, spacing: 4) {
+            Text(episode.title)
+              .font(.subheadline)
+              .fontWeight(.semibold)
               .lineLimit(1)
-              .accessibilityIdentifier("Mini Player Podcast Title")
+              .accessibilityIdentifier("Mini Player Episode Title")
+
+            if !episode.podcastTitle.isEmpty {
+              Text(episode.podcastTitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .accessibilityIdentifier("Mini Player Podcast Title")
+            }
           }
+          .frame(maxWidth: .infinity, alignment: .leading)
+
+          transportControls(state: state)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        
-        Spacer()
-        
-        // Transport controls
-        HStack(spacing: 16) {
-          skipBackwardButton
-          playPauseButton
-          skipForwardButton
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(radius: 4, y: 2)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+          performHaptic()
+          onTapExpand()
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Mini Player")
+        .accessibilityLabel("Mini player showing \(episode.title)")
+        .accessibilityHint("Double-tap to open the full player")
+        .transition(.move(edge: .bottom).combined(with: .opacity))
       }
-      .padding(.horizontal, 16)
-      .padding(.vertical, 12)
-      .background(Color(.systemBackground))
-      .overlay(
-        Rectangle()
-          .fill(Color(.separator))
-          .frame(height: 0.5),
-        alignment: .top
-      )
-      .contentShape(Rectangle())
-      .onTapGesture {
-        onTapExpand()
-      }
-      .accessibilityElement(children: .contain)
-      .accessibilityIdentifier("Mini Player")
-      .accessibilityLabel("Mini Player")
     }
+    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
   }
-  
-  // MARK: - Subviews
-  
-  private var artworkThumbnail: some View {
-    RoundedRectangle(cornerRadius: 6)
-      .fill(Color.gray.opacity(0.3))
-      .frame(width: 48, height: 48)
+
+  // MARK: - Subviews ---------------------------------------------------------
+
+  @ViewBuilder
+  private func artwork(for episode: Episode) -> some View {
+    AsyncImage(url: episode.artworkURL) { phase in
+      switch phase {
+      case .empty:
+        placeholderArtwork
+      case .success(let image):
+        image
+          .resizable()
+          .scaledToFill()
+          .frame(width: 52, height: 52)
+          .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+          .transition(.opacity)
+      case .failure:
+        placeholderArtwork
+      @unknown default:
+        placeholderArtwork
+      }
+    }
+    .frame(width: 52, height: 52)
+    .accessibilityHidden(true)
+  }
+
+  private var placeholderArtwork: some View {
+    RoundedRectangle(cornerRadius: 10)
+      .fill(Color.gray.opacity(0.25))
       .overlay(
-        Image(systemName: "music.note")
+        Image(systemName: "mic.fill")
           .font(.title3)
-          .foregroundColor(.gray)
+          .foregroundStyle(.secondary)
       )
-      .accessibilityHidden(true)
   }
-  
-  private var skipBackwardButton: some View {
-    Button {
-      viewModel.skipBackward()
-    } label: {
-      Image(systemName: "gobackward.15")
-        .font(.title3)
-        .foregroundColor(.primary)
-        .frame(width: 44, height: 44)
-        .contentShape(Rectangle())
+
+  @ViewBuilder
+  private func transportControls(state: MiniPlayerDisplayState) -> some View {
+    HStack(spacing: 12) {
+      Button {
+        performHaptic()
+        viewModel.skipBackward()
+      } label: {
+        Image(systemName: "gobackward.15")
+          .font(.title3)
+      }
+      .buttonStyle(PressableButtonStyle())
+      .accessibilityLabel("Skip backward")
+      .accessibilityHint("Jumps back fifteen seconds")
+      .accessibilityIdentifier("Mini Player Skip Backward")
+
+      Button {
+        performHaptic()
+        viewModel.togglePlayPause()
+      } label: {
+        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
+          .font(.title2)
+      }
+      .buttonStyle(PressableButtonStyle())
+      .accessibilityLabel(state.isPlaying ? "Pause" : "Play")
+      .accessibilityHint("Toggles playback")
+      .accessibilityIdentifier(state.isPlaying ? "Mini Player Pause" : "Mini Player Play")
+
+      Button {
+        performHaptic()
+        viewModel.skipForward()
+      } label: {
+        Image(systemName: "goforward.30")
+          .font(.title3)
+      }
+      .buttonStyle(PressableButtonStyle())
+      .accessibilityLabel("Skip forward")
+      .accessibilityHint("Jumps ahead thirty seconds")
+      .accessibilityIdentifier("Mini Player Skip Forward")
     }
-    .accessibilityLabel("Skip Backward")
-    .accessibilityHint("Skip backward 15 seconds")
-    .accessibilityIdentifier("Mini Player Skip Backward")
+    .foregroundStyle(.primary)
   }
-  
-  private var playPauseButton: some View {
-    Button {
-      viewModel.togglePlayPause()
-    } label: {
-      Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-        .font(.title2)
-        .foregroundColor(.primary)
-        .frame(width: 44, height: 44)
-        .contentShape(Rectangle())
-    }
-    .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
-    .accessibilityHint("Toggles playback")
-    .accessibilityIdentifier(viewModel.isPlaying ? "Mini Player Pause" : "Mini Player Play")
+
+  // MARK: - Helpers ----------------------------------------------------------
+
+  private func performHaptic() {
+    #if canImport(UIKit)
+      UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    #endif
   }
-  
-  private var skipForwardButton: some View {
-    Button {
-      viewModel.skipForward()
-    } label: {
-      Image(systemName: "goforward.30")
-        .font(.title3)
-        .foregroundColor(.primary)
+
+  private struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+      configuration.label
         .frame(width: 44, height: 44)
-        .contentShape(Rectangle())
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+        .opacity(configuration.isPressed ? 0.7 : 1.0)
+        .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
     }
-    .accessibilityLabel("Skip Forward")
-    .accessibilityHint("Skip forward 30 seconds")
-    .accessibilityIdentifier("Mini Player Skip Forward")
   }
 }
 
-// MARK: - Preview
+// MARK: - Preview ------------------------------------------------------------
 
 #if DEBUG
 import PlaybackEngine
@@ -138,28 +177,30 @@ import PlaybackEngine
 #Preview {
   VStack {
     Spacer()
-    
-    let stubPlayer = StubEpisodePlayer(
-      initialEpisode: Episode(
-        id: "preview-1",
-        title: "Understanding Swift Concurrency",
-        podcastID: "podcast-1",
-        playbackPosition: 0,
-        isPlayed: false,
-        pubDate: Date(),
-        duration: 3600,
-        description: "A deep dive into Swift concurrency",
-        audioURL: URL(string: "https://example.com/episode.mp3"),
-        podcastTitle: "Swift Talk"
-      ),
-      ticker: TimerTicker()
+
+    let episode = Episode(
+      id: "preview-1",
+      title: "Understanding Swift Concurrency",
+      podcastID: "podcast-1",
+      playbackPosition: 0,
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 3600,
+      description: "A deep dive into Swift concurrency",
+      audioURL: URL(string: "https://example.com/episode.mp3"),
+      artworkURL: URL(string: "https://picsum.photos/200"),
+      podcastTitle: "Swift Talk"
     )
-    
+
+    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
     let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-    
+    stubPlayer.play(episode: episode, duration: episode.duration)
+
     MiniPlayerView(viewModel: viewModel) {
       print("Expand tapped")
     }
+    .padding(.bottom, 24)
   }
 }
 #endif
+
