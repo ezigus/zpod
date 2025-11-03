@@ -332,7 +332,7 @@ public struct EpisodeListView: View {
 
       Divider()
     }
-    .background(Color(.systemGray6))
+    .background(Color.platformSystemGray6)
   }
 
   private func operationColor(for operation: BatchOperationType) -> Color {
@@ -379,7 +379,7 @@ public struct EpisodeListView: View {
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
-      .background(Color(.systemGray6))
+      .background(Color.platformSystemGray6)
       .cornerRadius(10)
       .padding(.horizontal)
 

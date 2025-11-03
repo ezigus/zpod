@@ -8,6 +8,7 @@
 import CoreModels
 import Persistence
 import SettingsDomain
+import SharedUtilities
 import SwiftData
 import SwiftUI
 
@@ -464,7 +465,7 @@ import SwiftUI
                   }
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .padding()
-                  .background(Color(.systemGray6))
+                  .background(Color.platformSystemGray6)
                   .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
@@ -559,7 +560,7 @@ import SwiftUI
             .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(16)
       }
       .buttonStyle(.plain)
@@ -917,7 +918,7 @@ import SwiftUI
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
       }
       .buttonStyle(.plain)

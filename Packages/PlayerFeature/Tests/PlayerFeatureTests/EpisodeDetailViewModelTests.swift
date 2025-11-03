@@ -1,4 +1,5 @@
 import CoreModels
+import Foundation
 import Persistence
 import XCTest
 
@@ -38,7 +39,8 @@ final class EpisodeDetailViewModelTests: XCTestCase {
   func testCreateNotePersistsAndReloads() async throws {
     // Given: An episode with no existing notes
     await repository.setNotes([], for: episode.id)
-    viewModel.loadEpisode(episode)
+    let loadTask = viewModel.loadEpisode(episode)
+    await loadTask.value
 
     // When: Creating a new note
     let timestamp: TimeInterval = 42.5
@@ -53,7 +55,8 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertEqual(storedNotes.count, 1)
     XCTAssertEqual(storedNotes.first?.text, "Key takeaway")
     XCTAssertEqual(storedNotes.first?.tags, ["swift", "concurrency"])
-    XCTAssertEqual(storedNotes.first?.timestamp, timestamp, accuracy: 0.001)
+    let storedTimestamp = try XCTUnwrap(storedNotes.first?.timestamp)
+    XCTAssertEqual(storedTimestamp, timestamp, accuracy: 0.001)
     XCTAssertEqual(viewModel.notes.count, 1)
     XCTAssertEqual(viewModel.notes.first?.text, "Key takeaway")
   }
@@ -67,7 +70,8 @@ final class EpisodeDetailViewModelTests: XCTestCase {
       timestamp: 12
     )
     await repository.setNotes([existing], for: episode.id)
-    viewModel.loadEpisode(episode)
+    let loadTask = viewModel.loadEpisode(episode)
+    await loadTask.value
 
     // When: Updating note text and tags
     try await viewModel.updateNote(
@@ -95,7 +99,8 @@ final class EpisodeDetailViewModelTests: XCTestCase {
       ]
     )
     await repository.setTranscript(transcript, for: episode.id)
-    viewModel.loadEpisode(episode)
+    let loadTask = viewModel.loadEpisode(episode)
+    await loadTask.value
 
     // When: Searching for transcript matches
     viewModel.updateTranscriptSearch(query: "swift")

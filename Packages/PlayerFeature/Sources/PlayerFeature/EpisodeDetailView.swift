@@ -2,6 +2,7 @@
 import SwiftUI
 import CoreModels
 import PlaybackEngine
+import SharedUtilities
 
 /// Episode Detail view showing episode information and playback controls
 public struct EpisodeDetailView: View {
@@ -115,13 +116,13 @@ public struct EpisodeDetailView: View {
                 .foregroundColor(.accentColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color(.systemGray5))
+                .background(Color.platformSystemGray5)
                 .cornerRadius(8)
             }
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
 
         // Chapters section
@@ -159,7 +160,7 @@ public struct EpisodeDetailView: View {
                   .padding(.vertical, 8)
                   .padding(.horizontal, 12)
                   .background(
-                    viewModel.currentChapter?.id == chapter.id ? Color(.systemGray5) : Color.clear
+                    viewModel.currentChapter?.id == chapter.id ? Color.platformSystemGray5 : Color.clear
                   )
                   .cornerRadius(8)
                 }
@@ -168,7 +169,7 @@ public struct EpisodeDetailView: View {
             }
           }
           .padding()
-          .background(Color(.systemGray6))
+          .background(Color.platformSystemGray6)
           .cornerRadius(12)
         }
         
@@ -211,7 +212,7 @@ public struct EpisodeDetailView: View {
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
         
         // Bookmarks section
@@ -259,14 +260,14 @@ public struct EpisodeDetailView: View {
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-                .background(Color(.systemGray5))
+                .background(Color.platformSystemGray5)
                 .cornerRadius(8)
               }
             }
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
         
         // Notes section
@@ -333,7 +334,7 @@ public struct EpisodeDetailView: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
                 .background(
-                  editingNote?.id == note.id ? Color.accentColor.opacity(0.1) : Color(.systemGray5)
+                  editingNote?.id == note.id ? Color.accentColor.opacity(0.1) : Color.platformSystemGray5
                 )
                 .cornerRadius(8)
               }
@@ -341,7 +342,7 @@ public struct EpisodeDetailView: View {
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
         
         // Transcript section
@@ -354,13 +355,15 @@ public struct EpisodeDetailView: View {
       .padding()
     }
     .navigationTitle("Episode")
+#if os(iOS)
     .navigationBarTitleDisplayMode(.inline)
+#endif
     .onAppear {
       viewModel.loadEpisode(episode)
       bookmarkLabel = defaultBookmarkLabel()
       transcriptSearchText = viewModel.transcriptSearchQuery
     }
-    .onChange(of: viewModel.transcriptSearchQuery) { newValue in
+    .onChange(of: viewModel.transcriptSearchQuery) { _, newValue in
       if transcriptSearchText != newValue {
         transcriptSearchText = newValue
       }
@@ -394,7 +397,7 @@ public struct EpisodeDetailView: View {
       .background(
         viewModel.transcript?.segment(at: viewModel.currentPosition)?.id == segment.id
           ? Color.accentColor.opacity(0.2)
-          : Color(.systemGray5)
+          : Color.platformSystemGray5
       )
       .cornerRadius(6)
     }
@@ -410,7 +413,7 @@ public struct EpisodeDetailView: View {
         "Use current playback time (\(viewModel.formattedCurrentTime))",
         isOn: $useCurrentTimestampForBookmark
       )
-      .onChange(of: useCurrentTimestampForBookmark) { isUsingCurrent in
+      .onChange(of: useCurrentTimestampForBookmark) { _, isUsingCurrent in
         if isUsingCurrent {
           customBookmarkTimestamp = ""
         }
@@ -419,8 +422,10 @@ public struct EpisodeDetailView: View {
       if !useCurrentTimestampForBookmark {
         TextField("Custom timestamp (hh:mm:ss or mm:ss)", text: $customBookmarkTimestamp)
           .textFieldStyle(RoundedBorderTextFieldStyle())
+#if os(iOS)
           .keyboardType(.numbersAndPunctuation)
           .textInputAutocapitalization(.never)
+#endif
       }
 
       if let message = bookmarkValidationMessage {
@@ -449,7 +454,7 @@ public struct EpisodeDetailView: View {
         .frame(minHeight: 80)
         .overlay(
           RoundedRectangle(cornerRadius: 8)
-            .stroke(Color(.systemGray4))
+            .stroke(Color.platformSystemGray4)
         )
         .accessibilityLabel(editingNote != nil ? "Edit note" : "New note")
 
@@ -630,7 +635,7 @@ public struct EpisodeDetailView: View {
         TextField("Search transcript", text: $transcriptSearchText)
           .textFieldStyle(RoundedBorderTextFieldStyle())
           .accessibilityLabel("Search transcript")
-          .onChange(of: transcriptSearchText) { newValue in
+          .onChange(of: transcriptSearchText) { _, newValue in
             viewModel.updateTranscriptSearch(query: newValue)
           }
 
@@ -655,7 +660,7 @@ public struct EpisodeDetailView: View {
         }
       }
       .padding()
-      .background(Color(.systemGray6))
+      .background(Color.platformSystemGray6)
       .cornerRadius(12)
     }
   }
@@ -710,7 +715,7 @@ public struct EpisodeDetailView: View {
       }
     }
     .padding()
-    .background(Color(.systemGray6))
+    .background(Color.platformSystemGray6)
     .cornerRadius(12)
   }
 

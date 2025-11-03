@@ -27,6 +27,7 @@ public struct BatchOperationProgressView: View {
 #else
 import SwiftUI
 import CoreModels
+import SharedUtilities
 
 /// View for displaying batch operation options and progress
 public struct BatchOperationView: View {
@@ -97,7 +98,7 @@ public struct BatchOperationView: View {
             
             Divider()
         }
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
     }
     
     private var operationsGrid: some View {
@@ -143,7 +144,7 @@ public struct BatchOperationButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 80)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -340,7 +341,7 @@ public struct BatchOperationProgressView: View {
     private var backgroundColorForStatus: Color {
         switch batchOperation.status {
         case .running:
-            return Color(.systemGray6)
+            return Color.platformSystemGray6
         case .completed:
             return Color.green.opacity(0.1)
         case .failed:

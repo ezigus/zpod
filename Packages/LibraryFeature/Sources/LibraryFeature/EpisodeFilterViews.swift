@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreModels
+import SharedUtilities
 
 // MARK: - Filter Button
 
@@ -141,7 +142,7 @@ public struct FilterCriteriaChip: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.blue : Color(.systemGray6))
+                    .fill(isSelected ? Color.blue : Color.platformSystemGray6)
             )
             .foregroundStyle(isSelected ? .white : .primary)
         }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreModels
+import SharedUtilities
 
 // MARK: - Advanced Search Builder
 
@@ -111,7 +112,7 @@ struct AdvancedSearchBuilderView: View {
             Text(queryPreview)
                 .font(.system(.body, design: .monospaced))
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Color.platformSystemGray6)
                 .cornerRadius(8)
             
             if !isValidQuery {
@@ -257,7 +258,7 @@ struct SearchTermBuilderRow: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
     }
 }
@@ -339,7 +340,7 @@ struct QuickSearchTemplatesView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(Color.platformSystemGray6)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)

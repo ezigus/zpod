@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreModels
 import Persistence
+import SharedUtilities
 
 // MARK: - Smart Episode Lists Main View
 
@@ -249,7 +250,7 @@ struct RuleChip: View {
         .font(.caption2)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
     }
 }

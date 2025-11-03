@@ -3,6 +3,7 @@ import SwiftUI
 import CoreModels
 import SearchDomain
 import FeedParsing
+import SharedUtilities
 
 private struct DiscoveryOptionsState {
     var isDialogPresented = false
@@ -186,7 +187,7 @@ public struct DiscoverView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(12)
             
             // Filter options
@@ -218,7 +219,7 @@ public struct DiscoverView: View {
                 .padding(.vertical, 6)
                 .background(
                     viewModel.currentFilter == filter ? 
-                    Color.accentColor : Color(.systemGray5)
+                    Color.accentColor : Color.platformSystemGray5
                 )
                 .foregroundColor(
                     viewModel.currentFilter == filter ? 

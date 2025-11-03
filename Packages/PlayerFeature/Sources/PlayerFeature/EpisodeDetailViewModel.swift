@@ -31,6 +31,7 @@ public class EpisodeDetailViewModel: ObservableObject {
   private let annotationRepository: EpisodeAnnotationRepository
   private var cancellables = Set<AnyCancellable>()
   private var currentState: EpisodePlaybackState?
+  private var annotationLoadTask: Task<Void, Never>?
 
   // Enhanced player reference for extended features
   private var enhancedPlayer: EnhancedEpisodePlayer? {
@@ -55,7 +56,12 @@ public class EpisodeDetailViewModel: ObservableObject {
     observePlaybackState()
   }
 
-  public func loadEpisode(_ episode: Episode) {
+  deinit {
+    annotationLoadTask?.cancel()
+  }
+
+  @discardableResult
+  public func loadEpisode(_ episode: Episode) -> Task<Void, Never> {
     self.episode = episode
     self.userRating = episode.rating
     // Episode currently has no chapters property; set empty and await parsing support
@@ -65,9 +71,13 @@ public class EpisodeDetailViewModel: ObservableObject {
     // Reset UI state when loading a new episode
     updateUIFromCurrentState()
     // Load annotations
-    Task {
-      await loadAnnotations(for: episode.id)
+    annotationLoadTask?.cancel()
+    let task = Task { [weak self] in
+      guard let self else { return }
+      await self.loadAnnotations(for: episode.id)
     }
+    annotationLoadTask = task
+    return task
   }
   
   private func loadAnnotations(for episodeId: String) async {
@@ -277,7 +287,7 @@ public class EpisodeDetailViewModel: ObservableObject {
       .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
       .filter { !$0.isEmpty }
 
-    var note = EpisodeNote(
+    let note = EpisodeNote(
       episodeId: episodeId,
       text: trimmedText,
       tags: cleanedTags,
