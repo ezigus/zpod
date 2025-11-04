@@ -989,14 +989,16 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // When: Perform swipe down gesture to dismiss
     expandedPlayer.swipeDown()
 
-    // Allow time for dismiss animation
-    sleep(1)
-
     // Then: Expanded player should be dismissed, mini-player should be visible
-    XCTAssertFalse(
-      expandedPlayer.exists,
-      "Expanded player should be dismissed after swipe down"
+    // Use expectation with predicate instead of sleep
+    let dismissedExpectation = expectation(
+      for: NSPredicate(format: "exists == FALSE"),
+      evaluatedWith: expandedPlayer,
+      handler: nil
     )
+    
+    let result = XCTWaiter.wait(for: [dismissedExpectation], timeout: 2.0)
+    XCTAssertEqual(result, .completed, "Expanded player should be dismissed after swipe down")
 
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: 2),

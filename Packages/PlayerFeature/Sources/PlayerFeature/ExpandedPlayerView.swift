@@ -17,6 +17,21 @@ public struct ExpandedPlayerView: View {
   @ObservedObject private var viewModel: ExpandedPlayerViewModel
   @Environment(\.dismiss) private var dismiss
   @Namespace private var animation
+  
+  #if canImport(UIKit)
+  // Prepared haptic generators for responsive feedback
+  private let lightHaptic: UIImpactFeedbackGenerator = {
+    let generator = UIImpactFeedbackGenerator(style: .light)
+    generator.prepare()
+    return generator
+  }()
+  
+  private let mediumHaptic: UIImpactFeedbackGenerator = {
+    let generator = UIImpactFeedbackGenerator(style: .medium)
+    generator.prepare()
+    return generator
+  }()
+  #endif
 
   public init(viewModel: ExpandedPlayerViewModel) {
     self.viewModel = viewModel
@@ -179,14 +194,18 @@ public struct ExpandedPlayerView: View {
                   let newPosition = newFraction * viewModel.duration
                   
                   if !viewModel.isScrubbing {
-                    performHaptic(style: .light)
+                    #if canImport(UIKit)
+                    lightHaptic.impactOccurred()
+                    #endif
                     viewModel.beginScrubbing()
                   }
                   
                   viewModel.updateScrubbingPosition(newPosition)
                 }
                 .onEnded { _ in
-                  performHaptic(style: .medium)
+                  #if canImport(UIKit)
+                  mediumHaptic.impactOccurred()
+                  #endif
                   viewModel.endScrubbing()
                 }
             )
@@ -231,7 +250,9 @@ public struct ExpandedPlayerView: View {
     HStack(spacing: 48) {
       // Skip backward
       Button {
-        performHaptic(style: .light)
+        #if canImport(UIKit)
+        lightHaptic.impactOccurred()
+        #endif
         viewModel.skipBackward()
       } label: {
         Image(systemName: "gobackward.15")
@@ -244,7 +265,9 @@ public struct ExpandedPlayerView: View {
 
       // Play/Pause
       Button {
-        performHaptic(style: .medium)
+        #if canImport(UIKit)
+        mediumHaptic.impactOccurred()
+        #endif
         viewModel.togglePlayPause()
       } label: {
         Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -257,7 +280,9 @@ public struct ExpandedPlayerView: View {
 
       // Skip forward
       Button {
-        performHaptic(style: .light)
+        #if canImport(UIKit)
+        lightHaptic.impactOccurred()
+        #endif
         viewModel.skipForward()
       } label: {
         Image(systemName: "goforward.30")
@@ -284,12 +309,6 @@ public struct ExpandedPlayerView: View {
       // Landscape: constrain to available height
       return min(screenHeight * 0.4, screenWidth * 0.4, 300)
     }
-  }
-
-  private func performHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
-    #if canImport(UIKit)
-      UIImpactFeedbackGenerator(style: style).impactOccurred()
-    #endif
   }
 
   private struct TransportButtonStyle: ButtonStyle {
