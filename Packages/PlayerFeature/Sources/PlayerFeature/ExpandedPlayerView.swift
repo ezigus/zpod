@@ -202,7 +202,8 @@ public struct ExpandedPlayerView: View {
       value: Binding(
         get: { viewModel.currentPosition },
         set: { newValue in
-          let clampedPosition = min(max(newValue, 0), upperBound)
+          let maxBound = max(viewModel.duration, viewModel.currentPosition, 1)
+          let clampedPosition = min(max(newValue, 0), maxBound)
           if !viewModel.isScrubbing {
             viewModel.beginScrubbing()
           }
