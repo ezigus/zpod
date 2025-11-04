@@ -395,15 +395,12 @@ import SwiftUI
         }
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showFullPlayer) {
-          if let episode = miniPlayerViewModel.currentEpisode {
-            NavigationStack {
-              EpisodeDetailView(
-                episode: episode,
-                playbackService: playbackDependencies.playbackService
-              )
-            }
-            .accessibilityIdentifier("expanded-player-sheet")
-          }
+          ExpandedPlayerView(
+            viewModel: ExpandedPlayerViewModel(playbackService: playbackDependencies.playbackService)
+          )
+          .presentationDragIndicator(.hidden)
+          .presentationBackground(.black)
+          .accessibilityIdentifier("expanded-player-sheet")
         }
         #endif
       }
