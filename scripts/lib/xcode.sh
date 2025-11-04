@@ -31,6 +31,54 @@ _xcode_simctl_select() {
     "iPhone 15"
   )
 
+  if command_exists python3; then
+    local dest_info
+    dest_info=$(PREFERRED_DEVICE="$preferred" python3 -c '
+import json
+import os
+import sys
+
+preferred = os.environ.get("PREFERRED_DEVICE", "")
+fallbacks = [name for name in [preferred,
+                "iPhone 17 Pro",
+                "iPhone 17",
+                "iPhone 17 Pro Max",
+                "iPhone 16 Pro",
+                "iPhone 16 Plus",
+                "iPhone 16",
+                "iPhone 15 Pro",
+                "iPhone 15"] if name]
+
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(0)
+
+devices = data.get("devices", {})
+for name in fallbacks:
+  for runtime, runtime_devices in devices.items():
+    for device in runtime_devices:
+      if device.get("name") == name and device.get("isAvailable"):
+        runtime_suffix = runtime.rsplit(".", 1)[-1]
+        if runtime_suffix.startswith("iOS-"):
+          runtime_suffix = runtime_suffix.split("iOS-", 1)[-1]
+        runtime_version = runtime_suffix.replace("-", ".")
+        print(f"{name}|{runtime_version}")
+        sys.exit(0)
+sys.exit(0)
+' <<<"$simctl_json" 2>/dev/null || true)
+    if [[ -n "$dest_info" ]]; then
+      local dest_name dest_os
+      dest_name="${dest_info%%|*}"
+      dest_os="${dest_info##*|}"
+      if [[ -n "$dest_name" && -n "$dest_os" && "$dest_name" != "$dest_os" ]]; then
+        SELECTED_DESTINATION="platform=iOS Simulator,name=${dest_name},OS=${dest_os}"
+        DESTINATION_IS_GENERIC=0
+        return 0
+      fi
+    fi
+  fi
+
   local line name runtime os device
   for device in "${fallback_devices[@]}"; do
     line=""

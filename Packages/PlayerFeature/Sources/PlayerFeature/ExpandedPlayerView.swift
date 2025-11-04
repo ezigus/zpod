@@ -16,21 +16,19 @@ import SwiftUI
 public struct ExpandedPlayerView: View {
   @ObservedObject private var viewModel: ExpandedPlayerViewModel
   @Environment(\.dismiss) private var dismiss
-  @Namespace private var animation
-  
   #if canImport(UIKit)
-  // Prepared haptic generators for responsive feedback
-  private let lightHaptic: UIImpactFeedbackGenerator = {
-    let generator = UIImpactFeedbackGenerator(style: .light)
-    generator.prepare()
-    return generator
-  }()
-  
-  private let mediumHaptic: UIImpactFeedbackGenerator = {
-    let generator = UIImpactFeedbackGenerator(style: .medium)
-    generator.prepare()
-    return generator
-  }()
+    // Prepared haptic generators for responsive feedback
+    private let lightHaptic: UIImpactFeedbackGenerator = {
+      let generator = UIImpactFeedbackGenerator(style: .light)
+      generator.prepare()
+      return generator
+    }()
+
+    private let mediumHaptic: UIImpactFeedbackGenerator = {
+      let generator = UIImpactFeedbackGenerator(style: .medium)
+      generator.prepare()
+      return generator
+    }()
   #endif
 
   public init(viewModel: ExpandedPlayerViewModel) {
@@ -167,67 +165,30 @@ public struct ExpandedPlayerView: View {
   }
 
   private var progressSliderView: some View {
-    VStack(spacing: 8) {
-      // Slider
+    VStack(spacing: 12) {
       GeometryReader { sliderGeometry in
         ZStack(alignment: .leading) {
-          // Track background
           RoundedRectangle(cornerRadius: 2)
             .fill(Color.white.opacity(0.2))
             .frame(height: 4)
 
-          // Progress fill
           RoundedRectangle(cornerRadius: 2)
             .fill(Color.white)
             .frame(width: sliderGeometry.size.width * viewModel.progressFraction, height: 4)
 
-          // Thumb
           Circle()
             .fill(Color.white)
             .frame(width: 16, height: 16)
             .shadow(radius: 2)
             .offset(x: sliderGeometry.size.width * viewModel.progressFraction - 8)
-            .gesture(
-              DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                  let newFraction = min(max(value.location.x / sliderGeometry.size.width, 0), 1)
-                  let newPosition = newFraction * viewModel.duration
-                  
-                  if !viewModel.isScrubbing {
-                    #if canImport(UIKit)
-                    lightHaptic.impactOccurred()
-                    #endif
-                    viewModel.beginScrubbing()
-                  }
-                  
-                  viewModel.updateScrubbingPosition(newPosition)
-                }
-                .onEnded { _ in
-                  #if canImport(UIKit)
-                  mediumHaptic.impactOccurred()
-                  #endif
-                  viewModel.endScrubbing()
-                }
-            )
+        }
+        .accessibilityHidden(true)
+        .overlay {
+          progressAccessibilitySlider
         }
       }
-      .frame(height: 20)
-      .accessibilityElement()
-      .accessibilityLabel("Playback progress")
-      .accessibilityValue("\(viewModel.formattedCurrentTime) of \(viewModel.formattedDuration)")
-      .accessibilityAdjustableAction { direction in
-        let skipInterval: TimeInterval = 15
-        switch direction {
-        case .increment:
-          viewModel.skipForward(interval: skipInterval)
-        case .decrement:
-          viewModel.skipBackward(interval: skipInterval)
-        @unknown default:
-          break
-        }
-      }
+      .frame(height: 44)
 
-      // Time labels
       HStack {
         Text(viewModel.formattedCurrentTime)
           .font(.caption)
@@ -246,18 +207,64 @@ public struct ExpandedPlayerView: View {
     }
   }
 
+  @ViewBuilder
+  private var progressAccessibilitySlider: some View {
+    let upperBound = max(viewModel.duration, viewModel.currentPosition, 1)
+
+    // Invisible system slider keeps accessibility and UI tests aligned with the custom scrubber UI.
+    Slider(
+      value: Binding(
+        get: { viewModel.currentPosition },
+        set: { newValue in
+          let clampedPosition = min(max(newValue, 0), upperBound)
+          if !viewModel.isScrubbing {
+            viewModel.beginScrubbing()
+          }
+          viewModel.updateScrubbingPosition(clampedPosition)
+        }
+      ),
+      in: 0...upperBound,
+      onEditingChanged: { editing in
+        #if canImport(UIKit)
+          if editing {
+            lightHaptic.impactOccurred()
+          } else {
+            mediumHaptic.impactOccurred()
+          }
+        #endif
+        if editing {
+          viewModel.beginScrubbing()
+        } else {
+          viewModel.endScrubbing()
+        }
+      }
+    )
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .labelsHidden()
+    .tint(.clear)
+    .opacity(0.01)
+    .accessibilityIdentifier("Progress Slider")
+    .accessibilityLabel("Progress Slider")
+    .accessibilityHint("Adjust playback position")
+    .accessibilityValue(
+      Text("\(viewModel.formattedCurrentTime) of \(viewModel.formattedDuration)")
+    )
+    .disabled(viewModel.episode == nil || viewModel.duration <= 0)
+  }
+
   private var transportControlsView: some View {
     HStack(spacing: 48) {
       // Skip backward
       Button {
         #if canImport(UIKit)
-        lightHaptic.impactOccurred()
+          lightHaptic.impactOccurred()
         #endif
         viewModel.skipBackward()
       } label: {
         Image(systemName: "gobackward.15")
           .font(.system(size: 32))
           .foregroundStyle(.white)
+          .frame(width: 72, height: 72)
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel("Skip backward 15 seconds")
@@ -266,28 +273,31 @@ public struct ExpandedPlayerView: View {
       // Play/Pause
       Button {
         #if canImport(UIKit)
-        mediumHaptic.impactOccurred()
+          mediumHaptic.impactOccurred()
         #endif
         viewModel.togglePlayPause()
       } label: {
         Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
           .font(.system(size: 80))
           .foregroundStyle(.white)
+          .frame(width: 96, height: 96)
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
-      .accessibilityIdentifier(viewModel.isPlaying ? "Expanded Player Pause" : "Expanded Player Play")
+      .accessibilityIdentifier(
+        viewModel.isPlaying ? "Expanded Player Pause" : "Expanded Player Play")
 
       // Skip forward
       Button {
         #if canImport(UIKit)
-        lightHaptic.impactOccurred()
+          lightHaptic.impactOccurred()
         #endif
         viewModel.skipForward()
       } label: {
         Image(systemName: "goforward.30")
           .font(.system(size: 32))
           .foregroundStyle(.white)
+          .frame(width: 72, height: 72)
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel("Skip forward 30 seconds")
@@ -300,7 +310,7 @@ public struct ExpandedPlayerView: View {
   private func artworkSize(for geometry: GeometryProxy) -> CGFloat {
     let screenWidth = geometry.size.width
     let screenHeight = geometry.size.height
-    
+
     // Adjust size based on orientation and available space
     if screenHeight > screenWidth {
       // Portrait: use most of the width
