@@ -212,10 +212,10 @@ public struct ExpandedPlayerView: View {
       in: 0...upperBound,
       onEditingChanged: { editing in
         if editing {
-          performHaptic(style: .light)
+          performLightHaptic()
           viewModel.beginScrubbing()
         } else {
-          performHaptic(style: .medium)
+          performMediumHaptic()
           viewModel.endScrubbing()
         }
       }
@@ -237,7 +237,7 @@ public struct ExpandedPlayerView: View {
     HStack(spacing: 48) {
       // Skip backward
       Button {
-        performHaptic(style: .light)
+        performLightHaptic()
         viewModel.skipBackward()
       } label: {
         Image(systemName: "gobackward.15")
@@ -251,7 +251,7 @@ public struct ExpandedPlayerView: View {
 
       // Play/Pause
       Button {
-        performHaptic(style: .medium)
+        performMediumHaptic()
         viewModel.togglePlayPause()
       } label: {
         Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -266,7 +266,7 @@ public struct ExpandedPlayerView: View {
 
       // Skip forward
       Button {
-        performHaptic(style: .light)
+        performLightHaptic()
         viewModel.skipForward()
       } label: {
         Image(systemName: "goforward.30")
@@ -296,9 +296,17 @@ public struct ExpandedPlayerView: View {
     }
   }
 
-  private func performHaptic(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+  private func performLightHaptic() {
     #if canImport(UIKit)
-      let generator = UIImpactFeedbackGenerator(style: style)
+      let generator = UIImpactFeedbackGenerator(style: .light)
+      generator.prepare()
+      generator.impactOccurred()
+    #endif
+  }
+  
+  private func performMediumHaptic() {
+    #if canImport(UIKit)
+      let generator = UIImpactFeedbackGenerator(style: .medium)
       generator.prepare()
       generator.impactOccurred()
     #endif
