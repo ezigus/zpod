@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 import PlaybackEngine
 @testable import LibraryFeature
@@ -35,3 +36,5 @@ final class PlaybackEnvironmentTests: XCTestCase {
     )
   }
 }
+
+#endif

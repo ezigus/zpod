@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  EpisodeListViewTests.swift
 //  LibraryFeatureTests
@@ -5,6 +6,7 @@
 //  Created for Issue 02.1.1: Episode List Display and Basic Navigation
 //
 
+#if canImport(SwiftUI)
 import XCTest
 import SwiftUI
 @testable import LibraryFeature
@@ -190,3 +192,6 @@ final class EpisodeListViewTests: XCTestCase {
     }
     
 }
+#endif
+
+#endif

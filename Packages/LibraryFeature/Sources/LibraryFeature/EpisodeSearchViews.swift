@@ -2,6 +2,7 @@
 import SwiftUI
 import CoreModels
 import Persistence
+import SharedUtilities
 
 public struct EpisodeSearchView: View {
     public init(episodes: [Episode], filterService: EpisodeFilterService) {}
@@ -37,6 +38,7 @@ public struct EpisodeSearchResultCell: View {
 import SwiftUI
 import CoreModels
 import Persistence
+import SharedUtilities
 
 // MARK: - Enhanced Episode Search View
 
@@ -67,9 +69,9 @@ public struct EpisodeSearchView: View {
                 }
             }
             .navigationTitle("Search Episodes")
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Menu {
                         Button("Advanced Search") {
                             showingAdvancedSearch = true
@@ -121,7 +123,7 @@ public struct EpisodeSearchView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(10)
             
             // Active Query Display (for advanced searches)
@@ -273,7 +275,7 @@ struct SearchSuggestionRow: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color(.systemGray5))
+                        .background(Color.platformSystemGray5)
                         .cornerRadius(8)
                 }
             }
@@ -353,7 +355,7 @@ struct SearchResultCard: View {
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
+                        .fill(Color.platformSystemGray5)
                 }
                 .frame(width: 60, height: 60)
                 .cornerRadius(8)
@@ -372,7 +374,7 @@ struct SearchResultCard: View {
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color(.systemGray5))
+                            .background(Color.platformSystemGray5)
                             .cornerRadius(4)
                     }
                     
@@ -397,7 +399,7 @@ struct SearchResultCard: View {
                     .foregroundColor(.secondary)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(Color(.systemGray6))
+                    .background(Color.platformSystemGray6)
                     .cornerRadius(8)
             }
             
@@ -493,7 +495,7 @@ struct AdvancedQueryDisplayView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(8)
     }
 }
@@ -522,7 +524,7 @@ struct AdvancedTermChip: View {
         .font(.caption)
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Color(.systemGray5))
+        .background(Color.platformSystemGray5)
         .cornerRadius(6)
     }
 }

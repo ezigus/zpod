@@ -26,6 +26,7 @@ let package = Package(
         .package(path: "Packages/PlayerFeature"),
         .package(path: "Packages/DiscoverFeature"),
         .package(path: "Packages/PlaylistFeature"),
+        .package(path: "Packages/CombineSupport"),
     ],
     targets: [
         .target(

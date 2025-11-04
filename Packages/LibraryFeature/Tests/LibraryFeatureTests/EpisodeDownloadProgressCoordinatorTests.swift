@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  EpisodeDownloadProgressCoordinatorTests.swift
 //  LibraryFeatureTests
@@ -7,10 +8,11 @@
 //
 
 import XCTest
-import Combine
+import CombineSupport
 @testable import LibraryFeature
 import CoreModels
 
+@MainActor
 final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
   
   private var coordinator: EpisodeDownloadProgressCoordinator!
@@ -18,8 +20,8 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
   private var updatedEpisodes: [Episode] = []
   private var testEpisode: Episode!
   
-  @MainActor
-  override func setUpWithError() throws {
+  override func setUp() async throws {
+    try await super.setUp()
     continueAfterFailure = false
     
     testEpisode = Episode(
@@ -46,18 +48,17 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     )
   }
   
-  @MainActor
-  override func tearDownWithError() throws {
+  override func tearDown() async throws {
     coordinator.stopMonitoring()
     coordinator = nil
     mockProgressProvider = nil
     updatedEpisodes = []
     testEpisode = nil
+    try await super.tearDown()
   }
   
   // MARK: - Download Progress Tests
   
-  @MainActor
   func testDownloadProgressInitiallyEmpty() {
     // Given: A new coordinator
     // When: Checking initial state
@@ -66,7 +67,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertNil(coordinator.downloadProgress(for: testEpisode.id))
   }
   
-  @MainActor
   func testStartMonitoringReceivesProgressUpdates() async throws {
     // Given: A coordinator ready to monitor
     let expectation = expectation(description: "Progress update received")
@@ -95,7 +95,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     await fulfillment(of: [expectation], timeout: 1.0)
   }
   
-  @MainActor
   func testDownloadProgressUpdatesEpisodeStatus() async throws {
     // Given: A coordinator monitoring progress
     coordinator.startMonitoring()
@@ -116,7 +115,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertEqual(updatedEpisodes.last?.downloadStatus, .downloading)
   }
   
-  @MainActor
   func testDownloadCompletedUpdatesEpisodeStatus() async throws {
     // Given: A coordinator monitoring progress
     coordinator.startMonitoring()
@@ -137,7 +135,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertEqual(updatedEpisodes.last?.downloadStatus, .downloaded)
   }
   
-  @MainActor
   func testDownloadFailedUpdatesEpisodeStatus() async throws {
     // Given: A coordinator monitoring progress
     coordinator.startMonitoring()
@@ -158,7 +155,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertEqual(updatedEpisodes.last?.downloadStatus, .failed)
   }
   
-  @MainActor
   func testDownloadPausedUpdatesEpisodeStatus() async throws {
     // Given: A coordinator monitoring progress
     coordinator.startMonitoring()
@@ -179,7 +175,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertEqual(updatedEpisodes.last?.downloadStatus, .paused)
   }
   
-  @MainActor
   func testProgressClearedAfterCompletion() async throws {
     // Given: A coordinator monitoring progress with a completed download
     coordinator.startMonitoring()
@@ -204,7 +199,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertNil(coordinator.downloadProgress(for: testEpisode.id))
   }
   
-  @MainActor
   func testStopMonitoringStopsReceivingUpdates() async throws {
     // Given: A coordinator that was monitoring
     coordinator.startMonitoring()
@@ -228,7 +222,6 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     XCTAssertTrue(updatedEpisodes.isEmpty)
   }
   
-  @MainActor
   func testNilProviderDoesNotCrash() {
     // Given: A coordinator with no progress provider
     let nilCoordinator = EpisodeDownloadProgressCoordinator(
@@ -248,7 +241,8 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
 
 // MARK: - Mock Download Progress Provider
 
-private class MockDownloadProgressProvider: DownloadProgressProviding {
+@MainActor
+private final class MockDownloadProgressProvider: DownloadProgressProviding {
   private let progressSubject = PassthroughSubject<EpisodeDownloadProgressUpdate, Never>()
   
   var progressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {
@@ -259,3 +253,5 @@ private class MockDownloadProgressProvider: DownloadProgressProviding {
     progressSubject.send(update)
   }
 }
+
+#endif

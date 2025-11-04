@@ -8,6 +8,7 @@
 import CoreModels
 import Persistence
 import SettingsDomain
+import SharedUtilities
 import SwiftData
 import SwiftUI
 
@@ -70,7 +71,7 @@ import SwiftUI
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Search podcasts")
         .toolbar {
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button(action: {
               showingMenu = true
             }) {
@@ -110,14 +111,14 @@ import SwiftUI
           }
         }
         .navigationTitle("Add RSS Feed")
-        .navigationBarTitleDisplayMode(.inline)
+        .platformNavigationBarTitleDisplayMode(.inline)
         .toolbar {
-          ToolbarItem(placement: .navigationBarLeading) {
+          ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
             Button("Cancel") {
               dismiss()
             }
           }
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button("Add") {
               // No-op for testing
               dismiss()
@@ -297,7 +298,7 @@ import SwiftUI
   }
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
 
   public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -464,7 +465,7 @@ import SwiftUI
                   }
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .padding()
-                  .background(Color(.systemGray6))
+                  .background(Color.platformSystemGray6)
                   .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
@@ -559,7 +560,7 @@ import SwiftUI
             .foregroundColor(.secondary)
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(16)
       }
       .buttonStyle(.plain)
@@ -842,7 +843,7 @@ import SwiftUI
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(podcastTitle)
-            .navigationBarTitleDisplayMode(.large)
+            .platformNavigationBarTitleDisplayMode(.large)
         } else {
           ScrollView {
             LazyVStack(spacing: 12) {
@@ -855,7 +856,7 @@ import SwiftUI
           }
           .accessibilityIdentifier("Episode Cards Container")
           .navigationTitle(podcastTitle)
-          .navigationBarTitleDisplayMode(.large)
+          .platformNavigationBarTitleDisplayMode(.large)
         }
       }
       .onAppear {
@@ -917,7 +918,7 @@ import SwiftUI
           }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
       }
       .buttonStyle(.plain)
@@ -977,7 +978,7 @@ import SwiftUI
       }
       .accessibilityIdentifier("Episode Detail View")
       .navigationTitle("Episode Detail")
-      .navigationBarTitleDisplayMode(.inline)
+      .platformNavigationBarTitleDisplayMode(.inline)
     }
   }
 

@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  EpisodePlaybackCoordinatorTests.swift
 //  LibraryFeatureTests
@@ -7,7 +8,7 @@
 //
 
 import XCTest
-import Combine
+import CombineSupport
 @testable import LibraryFeature
 import CoreModels
 import PlaybackEngine
@@ -210,3 +211,5 @@ private class MockEpisodePlaybackService: EpisodePlaybackService {
     stateSubject.send(state)
   }
 }
+
+#endif

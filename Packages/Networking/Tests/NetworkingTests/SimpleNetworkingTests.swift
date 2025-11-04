@@ -1,7 +1,7 @@
 import XCTest
 import Foundation
 #if canImport(Combine)
-@preconcurrency import Combine
+@preconcurrency import CombineSupport
 #endif
 @testable import Networking
 import CoreModels

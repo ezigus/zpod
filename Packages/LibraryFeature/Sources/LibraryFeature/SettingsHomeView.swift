@@ -1,5 +1,6 @@
 import SettingsDomain
 import SwiftUI
+import SharedUtilities
 
 struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
@@ -21,7 +22,7 @@ struct SettingsHomeView: View {
           }
         }
       }
-      .listStyle(.insetGrouped)
+      .platformInsetGroupedListStyle()
       .overlay {
         overlayContent()
       }

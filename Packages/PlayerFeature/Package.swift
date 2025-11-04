@@ -5,8 +5,7 @@ let package = Package(
   name: "PlayerFeature",
   platforms: [
     .iOS(.v18),
-    // TODO: Add macOS support when UIKit-specific adapters are replaced with macOS-compatible alternatives
-    // .macOS(.v14),
+    .macOS(.v14),
     .watchOS(.v11),
   ],
   products: [
@@ -19,6 +18,7 @@ let package = Package(
     .package(path: "../PlaybackEngine"),
     .package(path: "../Persistence"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
     .package(path: "../TestSupport"),
   ],
   targets: [
@@ -29,6 +29,7 @@ let package = Package(
         .product(name: "PlaybackEngine", package: "PlaybackEngine"),
         .product(name: "Persistence", package: "Persistence"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ],
       path: "Sources"
     ),
@@ -37,6 +38,7 @@ let package = Package(
       dependencies: [
         "PlayerFeature",
         .product(name: "TestSupport", package: "TestSupport"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ]
     ),
   ]

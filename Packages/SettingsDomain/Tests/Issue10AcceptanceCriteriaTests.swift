@@ -1,6 +1,6 @@
 import XCTest
 #if canImport(Combine)
-@preconcurrency import Combine
+@preconcurrency import CombineSupport
 #endif
 @testable import zpod
 

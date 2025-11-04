@@ -1,7 +1,10 @@
+#if os(iOS)
 import CoreModels
 import Foundation
 import Persistence
 import SharedUtilities
+import SettingsDomain
+import SettingsDomain
 import XCTest
 
 @testable import LibraryFeature
@@ -465,7 +468,7 @@ actor RecordingAnnotationRepository: EpisodeAnnotationRepository {
 }
 
 @MainActor
-actor MockSwipeConfigurationService: SwipeConfigurationServicing {
+final class MockSwipeConfigurationService: SwipeConfigurationServicing, @unchecked Sendable {
   private var configuration: SwipeConfiguration
   private var continuations: [UUID: AsyncStream<SwipeConfiguration>.Continuation] = [:]
 
@@ -479,34 +482,32 @@ actor MockSwipeConfigurationService: SwipeConfigurationServicing {
 
   func save(_ configuration: SwipeConfiguration) async throws {
     self.configuration = configuration
-    for continuation in continuations.values {
-      continuation.yield(configuration)
-    }
+    broadcast(configuration)
   }
 
   nonisolated func updatesStream() -> AsyncStream<SwipeConfiguration> {
     AsyncStream { continuation in
       let id = UUID()
-      Task { await self.registerContinuation(continuation, id: id) }
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        continuation.onTermination = { _ in
+          Task { @MainActor [weak self] in self?.continuations[id] = nil }
+        }
+        self.continuations[id] = continuation
+        continuation.yield(self.configuration)
+      }
     }
   }
 
-  func replace(configuration: SwipeConfiguration) async {
+  @MainActor func replace(configuration: SwipeConfiguration) {
     self.configuration = configuration
+    broadcast(configuration)
   }
 
-  private func removeContinuation(id: UUID) {
-    continuations[id] = nil
-  }
-
-  private func registerContinuation(
-    _ continuation: AsyncStream<SwipeConfiguration>.Continuation,
-    id: UUID
-  ) {
-    continuation.onTermination = { [weak self] _ in
-      Task { await self?.removeContinuation(id: id) }
+  @MainActor private func broadcast(_ configuration: SwipeConfiguration) {
+    for continuation in continuations.values {
+      continuation.yield(configuration)
     }
-    continuations[id] = continuation
   }
 }
 
@@ -726,3 +727,5 @@ actor RecordingEpisodeFilterRepository: EpisodeFilterRepository {
     deletedSmartListIDs.append(id)
   }
 }
+
+#endif

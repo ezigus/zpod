@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreModels
+import SharedUtilities
 
 // MARK: - Advanced Search Builder
 
@@ -28,15 +29,17 @@ struct AdvancedSearchBuilderView: View {
                 .padding()
             }
             .navigationTitle("Advanced Search")
-            .navigationBarTitleDisplayMode(.inline)
+#if os(iOS)
+            .platformNavigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: cancelToolbarPlacement) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: searchToolbarPlacement) {
                     Button("Search") {
                         executeSearch()
                         dismiss()
@@ -111,7 +114,7 @@ struct AdvancedSearchBuilderView: View {
             Text(queryPreview)
                 .font(.system(.body, design: .monospaced))
                 .padding()
-                .background(Color(.systemGray6))
+                .background(Color.platformSystemGray6)
                 .cornerRadius(8)
             
             if !isValidQuery {
@@ -178,6 +181,22 @@ struct AdvancedSearchBuilderView: View {
         
         let query = EpisodeSearchQuery(terms: terms, operators: validOperators)
         viewModel.performAdvancedSearch(with: query)
+    }
+    
+    private var cancelToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarLeading
+#else
+        .cancellationAction
+#endif
+    }
+    
+    private var searchToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
     }
 }
 
@@ -257,7 +276,7 @@ struct SearchTermBuilderRow: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
         .cornerRadius(12)
     }
 }
@@ -339,7 +358,7 @@ struct QuickSearchTemplatesView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(Color(.systemGray6))
+                    .background(Color.platformSystemGray6)
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)

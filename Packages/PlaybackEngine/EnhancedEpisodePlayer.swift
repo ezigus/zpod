@@ -2,7 +2,7 @@ import CoreModels
 @preconcurrency import Foundation
 
 #if canImport(Combine)
-  @preconcurrency import Combine
+  @preconcurrency import CombineSupport
 #endif
 
 /// Enhanced playback engine that powers advanced controls for the episode detail surface and

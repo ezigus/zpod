@@ -5,7 +5,8 @@
 //  Created for Issue 03.1.1.1: Mini-Player Foundation
 //
 
-import Combine
+import Foundation
+import CombineSupport
 import CoreModels
 import PlaybackEngine
 import Testing

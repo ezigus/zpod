@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 import CoreModels
 import PlaybackEngine
@@ -114,7 +115,7 @@ final class CarPlayIntegrationTests: XCTestCase {
 }
 
 #if canImport(Combine)
-  import Combine
+  import CombineSupport
 
   private final class StubPlaybackService: EpisodePlaybackService {
     private let subject = CurrentValueSubject<EpisodePlaybackState, Never>(
@@ -140,4 +141,6 @@ final class CarPlayIntegrationTests: XCTestCase {
       subject.send(state)
     }
   }
+#endif
+
 #endif

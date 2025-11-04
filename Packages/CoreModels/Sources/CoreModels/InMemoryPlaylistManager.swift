@@ -1,6 +1,6 @@
 import Foundation
 #if canImport(Combine)
-@preconcurrency import Combine
+@preconcurrency import CombineSupport
 
 /// In-memory playlist manager for testing
 @available(macOS 10.15, *)

@@ -24,9 +24,26 @@ public struct BatchOperationProgressView: View {
     }
 }
 
+public struct PlaylistSelectionView: View {
+    public init(onPlaylistSelected: @escaping (String) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Playlist selection is available on iOS only.")
+    }
+}
+
+public struct EpisodeSelectionCriteriaView: View {
+    public init(onApply: @escaping (EpisodeSelectionCriteria) -> Void, onCancel: @escaping () -> Void) {}
+
+    public var body: some View {
+        Text("Episode selection criteria is available on iOS only.")
+    }
+}
+
 #else
 import SwiftUI
 import CoreModels
+import SharedUtilities
 
 /// View for displaying batch operation options and progress
 public struct BatchOperationView: View {
@@ -58,10 +75,10 @@ public struct BatchOperationView: View {
                 Spacer()
             }
             .navigationTitle("Batch Operations")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
             }
@@ -97,7 +114,7 @@ public struct BatchOperationView: View {
             
             Divider()
         }
-        .background(Color(.systemGray6))
+        .background(Color.platformSystemGray6)
     }
     
     private var operationsGrid: some View {
@@ -143,7 +160,7 @@ public struct BatchOperationButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 80)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -340,7 +357,7 @@ public struct BatchOperationProgressView: View {
     private var backgroundColorForStatus: Color {
         switch batchOperation.status {
         case .running:
-            return Color(.systemGray6)
+            return Color.platformSystemGray6
         case .completed:
             return Color.green.opacity(0.1)
         case .failed:
@@ -396,9 +413,9 @@ public struct PlaylistSelectionView: View {
                 }
             }
             .navigationTitle("Select Playlist")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
             }
@@ -478,13 +495,13 @@ public struct EpisodeSelectionCriteriaView: View {
                 }
             }
             .navigationTitle("Select Episodes")
-            .navigationBarTitleDisplayMode(.inline)
+            .platformNavigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
                 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Apply") {
                         buildCriteriaAndApply()
                     }

@@ -6,7 +6,7 @@
 //  Extracts playback state management and episode position tracking
 //
 
-import Combine
+import CombineSupport
 import CoreModels
 import Foundation
 import PlaybackEngine

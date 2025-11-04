@@ -1,3 +1,5 @@
+#if os(iOS)
+#if canImport(SwiftUI)
 import XCTest
 import SwiftUI
 import CoreModels
@@ -145,8 +147,14 @@ final class SettingsFeatureRouteFactoryTests: XCTestCase {
     }
 
     func testMakeRouteReturnsDownloadRoute() async {
-        var initial = DownloadSettings.default
-        initial.autoDownloadEnabled = false
+        let defaults = DownloadSettings.default
+        let initial = DownloadSettings(
+            autoDownloadEnabled: false,
+            wifiOnly: defaults.wifiOnly,
+            maxConcurrentDownloads: defaults.maxConcurrentDownloads,
+            retentionPolicy: defaults.retentionPolicy,
+            defaultUpdateFrequency: defaults.defaultUpdateFrequency
+        )
         let service = InMemoryDownloadService(initial: initial)
         let controller = DownloadConfigurationController(service: service)
 
@@ -357,3 +365,6 @@ actor InMemoryPlaybackPresetService: PlaybackPresetConfigurationServicing {
         self.continuation = continuation
     }
 }
+#endif
+
+#endif

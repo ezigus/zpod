@@ -4,7 +4,7 @@
 //
 //  Advanced rule builder for smart episode lists
 //
-#if !os(iOS)
+#if !os(iOS) && !os(macOS)
   import SwiftUI
   import CoreModels
 
@@ -33,6 +33,7 @@
 #else
   import SwiftUI
   import CoreModels
+  import SharedUtilities
 
   // MARK: - Smart List Rule Builder Model
 
@@ -139,7 +140,7 @@
   }
 #endif
 
-#if os(iOS)
+#if os(iOS) || os(macOS)
   // MARK: - Smart List Rule Builder View
 
   public struct SmartListRuleBuilderView: View {
@@ -171,15 +172,15 @@
           previewSection
         }
         .navigationTitle(isEditing ? "Edit Rule" : "Add Rule")
-        .navigationBarTitleDisplayMode(.inline)
+        .platformNavigationBarTitleDisplayMode(.inline)
         .toolbar {
-          ToolbarItem(placement: .navigationBarLeading) {
+          ToolbarItem(placement: PlatformToolbarPlacement.cancellationAction) {
             Button("Cancel") {
               dismiss()
             }
           }
 
-          ToolbarItem(placement: .navigationBarTrailing) {
+          ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
             Button("Save") {
               onSave(ruleBuilder)
               dismiss()
@@ -378,7 +379,7 @@
             .font(.caption)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(8)
           }
         }

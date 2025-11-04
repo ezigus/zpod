@@ -10,7 +10,7 @@ import XCTest
 @testable import Persistence
 @testable import CoreModels
 #if canImport(Combine)
-import Combine
+import CombineSupport
 #endif
 
 @MainActor

@@ -1,10 +1,10 @@
+import Foundation
 import CoreModels
 import Persistence
 import XCTest
 
 @testable import PlayerFeature
 
-@MainActor
 final class EpisodeDetailViewModelTests: XCTestCase {
 
   private var repository: RecordingAnnotationRepository!
@@ -15,7 +15,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     try await super.setUp()
 
     repository = RecordingAnnotationRepository()
-    viewModel = EpisodeDetailViewModel(annotationRepository: repository)
+    viewModel = await EpisodeDetailViewModel(annotationRepository: repository)
     episode = Episode(
       id: "episode-1",
       title: "Episode Detail Testing",
@@ -35,6 +35,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     try await super.tearDown()
   }
 
+  @MainActor
   func testCreateNotePersistsAndReloads() async throws {
     // Given: An episode with no existing notes
     await repository.setNotes([], for: episode.id)
@@ -53,11 +54,13 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertEqual(storedNotes.count, 1)
     XCTAssertEqual(storedNotes.first?.text, "Key takeaway")
     XCTAssertEqual(storedNotes.first?.tags, ["swift", "concurrency"])
-    XCTAssertEqual(storedNotes.first?.timestamp, timestamp, accuracy: 0.001)
+    let storedTimestamp = try XCTUnwrap(storedNotes.first?.timestamp)
+    XCTAssertEqual(storedTimestamp, timestamp, accuracy: 0.001)
     XCTAssertEqual(viewModel.notes.count, 1)
     XCTAssertEqual(viewModel.notes.first?.text, "Key takeaway")
   }
 
+  @MainActor
   func testUpdateNoteSavesChanges() async throws {
     // Given: An existing note already persisted
     let existing = EpisodeNote(
@@ -85,6 +88,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertNotNil(viewModel.notes.first?.modifiedAt)
   }
 
+  @MainActor
   func testUpdateTranscriptSearchPopulatesResults() async throws {
     // Given: Transcript data stored in the repository
     let transcript = EpisodeTranscript(
@@ -97,6 +101,7 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     await repository.setTranscript(transcript, for: episode.id)
     viewModel.loadEpisode(episode)
 
+    try await waitForTranscriptLoad()
     // When: Searching for transcript matches
     viewModel.updateTranscriptSearch(query: "swift")
 
@@ -104,6 +109,20 @@ final class EpisodeDetailViewModelTests: XCTestCase {
     XCTAssertEqual(viewModel.transcriptSearchResults.count, 1)
     XCTAssertEqual(viewModel.transcriptSearchResults.first?.segment.text, "Swift concurrency essentials")
     XCTAssertEqual(viewModel.transcriptSearchQuery, "swift")
+  }
+
+  // MARK: - Helpers
+
+  @MainActor
+  private func waitForTranscriptLoad() async throws {
+    for _ in 0..<50 {
+      if viewModel.transcript != nil {
+        return
+      }
+      try await Task.sleep(for: .milliseconds(10))
+      await Task.yield()
+    }
+    XCTFail("Timed out waiting for transcript to load")
   }
 }
 

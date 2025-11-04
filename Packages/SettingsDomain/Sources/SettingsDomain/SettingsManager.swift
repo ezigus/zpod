@@ -4,7 +4,7 @@ import Persistence
 import SharedUtilities
 
 #if canImport(Combine)
-  import Combine
+  import CombineSupport
 #endif
 #if canImport(SwiftUI)
   import SwiftUI

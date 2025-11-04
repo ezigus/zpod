@@ -1,3 +1,4 @@
+#if os(iOS)
 //
 //  BatchOperationTests.swift
 //  LibraryFeatureTests
@@ -6,7 +7,7 @@
 //
 
 import XCTest
-import Combine
+import CombineSupport
 @testable import LibraryFeature
 @testable import CoreModels
 @testable import PlaybackEngine
@@ -504,3 +505,5 @@ class MockEpisodeStateManager: EpisodeStateManager, @unchecked Sendable {
         return episodes[episode.id] ?? episode
     }
 }
+
+#endif

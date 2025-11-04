@@ -1,8 +1,9 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
 import SwiftUI
 import CoreModels
 import SearchDomain
 import FeedParsing
+import SharedUtilities
 
 private struct DiscoveryOptionsState {
     var isDialogPresented = false
@@ -72,7 +73,7 @@ public struct DiscoverView: View {
             }
             .navigationTitle("Discover")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: discoveryToolbarPlacement) {
                     Button {
                         optionsState.presentDialog()
                     } label: {
@@ -157,6 +158,30 @@ public struct DiscoverView: View {
             }
         )
     }
+
+    private var discoveryToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
+    }
+
+    private var rssCancelToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .cancellationAction
+#endif
+    }
+
+    private var historyDoneToolbarPlacement: ToolbarItemPlacement {
+#if os(iOS)
+        .navigationBarTrailing
+#else
+        .primaryAction
+#endif
+    }
     
     // MARK: - View Components
     
@@ -186,7 +211,7 @@ public struct DiscoverView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(.systemGray6))
+            .background(Color.platformSystemGray6)
             .cornerRadius(12)
             
             // Filter options
@@ -202,7 +227,7 @@ public struct DiscoverView: View {
             }
         }
         .padding()
-        .background(Color(.systemBackground))
+        .background(Color.platformSystemBackground)
     }
     
     private func filterButton(for filter: SearchFilter) -> some View {
@@ -218,7 +243,7 @@ public struct DiscoverView: View {
                 .padding(.vertical, 6)
                 .background(
                     viewModel.currentFilter == filter ? 
-                    Color.accentColor : Color(.systemGray5)
+                    Color.accentColor : Color.platformSystemGray5
                 )
                 .foregroundColor(
                     viewModel.currentFilter == filter ? 
@@ -324,9 +349,11 @@ public struct DiscoverView: View {
                     
                     TextField("https://example.com/podcast.xml", text: $viewModel.rssURL)
                         .textFieldStyle(.roundedBorder)
+#if os(iOS)
                         .keyboardType(.URL)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+#endif
                     
                     Text("Enter the direct RSS feed URL of the podcast you want to add")
                         .font(.caption)
@@ -360,9 +387,11 @@ public struct DiscoverView: View {
             }
             .padding()
             .navigationTitle("Add RSS Feed")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: rssCancelToolbarPlacement) {
                     Button("Cancel") {
                         optionsState.dismissRSSSheet()
                     }
@@ -395,9 +424,11 @@ public struct DiscoverView: View {
                 }
             }
             .navigationTitle("Search History")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: historyDoneToolbarPlacement) {
                     Button("Done") {
                         optionsState.dismissHistorySheet()
                     }

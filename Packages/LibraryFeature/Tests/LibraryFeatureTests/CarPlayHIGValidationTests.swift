@@ -1,3 +1,4 @@
+#if os(iOS)
 import XCTest
 import CoreModels
 @testable import LibraryFeature
@@ -360,3 +361,5 @@ final class CarPlayHIGValidationTests: XCTestCase {
     return String(title[..<index]) + "..."
   }
 }
+
+#endif

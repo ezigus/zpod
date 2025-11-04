@@ -5,8 +5,7 @@ let package = Package(
   name: "DiscoverFeature",
   platforms: [
     .iOS(.v18),
-    // TODO: Add macOS support when UIKit-specific adapters are replaced with macOS-compatible alternatives
-    // .macOS(.v14),
+    .macOS(.v14),
     .watchOS(.v11),
   ],
   products: [
@@ -20,6 +19,7 @@ let package = Package(
     .package(path: "../SearchDomain"),
     .package(path: "../FeedParsing"),
     .package(path: "../TestSupport"),
+    .package(path: "../CombineSupport"),
   ],
   targets: [
     .target(
@@ -29,6 +29,7 @@ let package = Package(
         .product(name: "SharedUtilities", package: "SharedUtilities"),
         .product(name: "SearchDomain", package: "SearchDomain"),
         .product(name: "FeedParsing", package: "FeedParsing"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ],
       path: "Sources"
     ),

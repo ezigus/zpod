@@ -17,13 +17,15 @@ let package = Package(
   dependencies: [
     .package(path: "../CoreModels"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
     .package(path: "../TestSupport"),
   ],
   targets: [
     .target(
       name: "PlaybackEngine",
       dependencies: [
-        "CoreModels"
+        "CoreModels",
+        "CombineSupport"
       ],
       path: ".",
       exclude: ["Package.swift", "Tests"]
@@ -34,6 +36,7 @@ let package = Package(
         "PlaybackEngine",
         "CoreModels",
         "SharedUtilities",
+        "CombineSupport",
         "TestSupport",
       ],
       path: "Tests"

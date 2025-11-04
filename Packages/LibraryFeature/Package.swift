@@ -5,8 +5,7 @@ let package = Package(
   name: "LibraryFeature",
   platforms: [
     .iOS(.v18),
-    // TODO: Add macOS support when UIKit-specific adapters are replaced with macOS-compatible alternatives
-    // .macOS(.v14),
+    .macOS(.v14),
     .watchOS(.v11),
   ],
   products: [
@@ -17,6 +16,7 @@ let package = Package(
   dependencies: [
     .package(path: "../CoreModels"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
     .package(path: "../SearchDomain"),
     .package(path: "../TestSupport"),
     .package(path: "../SettingsDomain"),
@@ -33,6 +33,7 @@ let package = Package(
       dependencies: [
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
         .product(name: "SearchDomain", package: "SearchDomain"),
         .product(name: "TestSupport", package: "TestSupport"),
         .product(name: "SettingsDomain", package: "SettingsDomain"),
@@ -51,6 +52,7 @@ let package = Package(
         "LibraryFeature",
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ]
     ),
   ]

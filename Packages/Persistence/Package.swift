@@ -14,6 +14,7 @@ let package = Package(
   dependencies: [
     .package(path: "../CoreModels"),
     .package(path: "../SharedUtilities"),
+    .package(path: "../CombineSupport"),
   ],
   targets: [
     .target(
@@ -21,6 +22,7 @@ let package = Package(
       dependencies: [
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
+        .product(name: "CombineSupport", package: "CombineSupport"),
       ],
       path: "Sources"
     ),
