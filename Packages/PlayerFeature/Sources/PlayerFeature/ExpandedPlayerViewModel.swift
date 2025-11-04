@@ -1,0 +1,144 @@
+//
+//  ExpandedPlayerViewModel.swift
+//  PlayerFeature
+//
+//  Created for Issue 03.1.1.2: Expanded Player Layout & Interaction
+//
+
+import CombineSupport
+import CoreModels
+import Foundation
+import PlaybackEngine
+
+/// View model for the full-screen expanded player interface.
+@MainActor
+public final class ExpandedPlayerViewModel: ObservableObject {
+  // MARK: - Published State
+
+  @Published public private(set) var episode: Episode?
+  @Published public private(set) var isPlaying: Bool = false
+  @Published public private(set) var currentPosition: TimeInterval = 0
+  @Published public private(set) var duration: TimeInterval = 0
+  @Published public private(set) var isScrubbing: Bool = false
+
+  // MARK: - Computed Properties
+
+  public var progressFraction: Double {
+    guard duration > 0 else { return 0 }
+    return min(max(currentPosition / duration, 0), 1)
+  }
+
+  public var formattedCurrentTime: String {
+    formatTime(currentPosition)
+  }
+
+  public var formattedDuration: String {
+    formatTime(duration)
+  }
+
+  // MARK: - Private Properties
+
+  private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
+  private var stateCancellable: AnyCancellable?
+
+  // MARK: - Initialization
+
+  public init(playbackService: EpisodePlaybackService & EpisodeTransportControlling) {
+    self.playbackService = playbackService
+    subscribeToPlaybackState()
+  }
+
+  // MARK: - User Intents
+
+  public func togglePlayPause() {
+    if isPlaying {
+      playbackService.pause()
+      return
+    }
+
+    guard let episode = episode else { return }
+    let resolvedDuration = duration > 0 ? duration : episode.duration
+    playbackService.play(episode: episode, duration: resolvedDuration)
+
+    if currentPosition > 0 {
+      playbackService.seek(to: currentPosition)
+    }
+  }
+
+  public func skipForward(interval: TimeInterval? = nil) {
+    playbackService.skipForward(interval: interval)
+  }
+
+  public func skipBackward(interval: TimeInterval? = nil) {
+    playbackService.skipBackward(interval: interval)
+  }
+
+  public func beginScrubbing() {
+    isScrubbing = true
+  }
+
+  public func updateScrubbingPosition(_ position: TimeInterval) {
+    guard isScrubbing else { return }
+    currentPosition = min(max(position, 0), duration)
+  }
+
+  public func endScrubbing() {
+    guard isScrubbing else { return }
+    isScrubbing = false
+    playbackService.seek(to: currentPosition)
+  }
+
+  // MARK: - Internal Helpers
+
+  private func subscribeToPlaybackState() {
+    stateCancellable = playbackService.statePublisher
+      .receive(on: RunLoop.main)
+      .sink { [weak self] state in
+        self?.handlePlaybackStateChange(state)
+      }
+  }
+
+  private func handlePlaybackStateChange(_ state: EpisodePlaybackState) {
+    // Don't update position while user is actively scrubbing
+    guard !isScrubbing else { return }
+
+    switch state {
+    case .idle(let episode):
+      self.episode = episode
+      self.isPlaying = false
+      self.currentPosition = 0
+      self.duration = 0
+
+    case .playing(let episode, let position, let duration):
+      self.episode = episode
+      self.isPlaying = true
+      self.currentPosition = position
+      self.duration = duration
+
+    case .paused(let episode, let position, let duration):
+      self.episode = episode
+      self.isPlaying = false
+      self.currentPosition = position
+      self.duration = duration
+
+    case .finished(let episode, let duration):
+      self.episode = episode
+      self.isPlaying = false
+      self.currentPosition = duration
+      self.duration = duration
+    }
+  }
+
+  private func formatTime(_ interval: TimeInterval) -> String {
+    let seconds = Int(interval)
+    let hours = seconds / 3600
+    let minutes = (seconds % 3600) / 60
+    let secs = seconds % 60
+
+    if hours > 0 {
+      return String(format: "%d:%02d:%02d", hours, minutes, secs)
+    } else {
+      return String(format: "%d:%02d", minutes, secs)
+    }
+  }
+}
