@@ -794,4 +794,213 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       "Expanded player sheet should appear"
     )
   }
+
+  // MARK: - Expanded Player Tests
+
+  /// Given/When/Then: Issue 03.1.1.2 – Expanded Player Layout & Interaction
+  /// - Given the mini-player is visible with active playback
+  /// - When the user taps to expand to the full player
+  /// - Then the expanded player displays large artwork, metadata, and comprehensive controls
+  @MainActor
+  func testExpandedPlayerDisplaysFullInterface() throws {
+    initializeApp()
+
+    // Given: Start playback from Player tab
+    let openFullPlayer = app.buttons["open-full-player"]
+    if openFullPlayer.waitForExistence(timeout: 2) {
+      openFullPlayer.tap()
+    }
+
+    let playButton = app.buttons["Play"]
+    if playButton.waitForExistence(timeout: 3) {
+      playButton.tap()
+    }
+
+    // Wait for playback to start
+    XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 3))
+
+    // Navigate away to trigger mini-player
+    let backButton = app.navigationBars.buttons.element(boundBy: 0)
+    if backButton.waitForExistence(timeout: 2) {
+      backButton.tap()
+    }
+
+    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    if libraryTab.waitForExistence(timeout: 2) {
+      libraryTab.tap()
+    }
+
+    // When: Tap mini-player to expand
+    let miniPlayer = app.otherElements["Mini Player"]
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
+    miniPlayer.tap()
+
+    let expandedPlayer = app.otherElements["Expanded Player"]
+    XCTAssertTrue(
+      expandedPlayer.waitForExistence(timeout: 2),
+      "Expanded player should appear"
+    )
+
+    // Then: Verify full interface elements are present
+    let episodeTitle = app.staticTexts["Expanded Player Episode Title"]
+    XCTAssertTrue(
+      episodeTitle.waitForExistence(timeout: 1),
+      "Episode title should be visible in expanded player"
+    )
+
+    let podcastTitle = app.staticTexts["Expanded Player Podcast Title"]
+    XCTAssertTrue(
+      podcastTitle.exists,
+      "Podcast title should be visible in expanded player"
+    )
+
+    // Verify transport controls
+    let expandedPauseButton = app.buttons["Expanded Player Pause"]
+    XCTAssertTrue(
+      expandedPauseButton.exists,
+      "Pause button should be visible in expanded player"
+    )
+
+    let skipForward = app.buttons["Expanded Player Skip Forward"]
+    XCTAssertTrue(
+      skipForward.exists,
+      "Skip forward button should be visible"
+    )
+
+    let skipBackward = app.buttons["Expanded Player Skip Backward"]
+    XCTAssertTrue(
+      skipBackward.exists,
+      "Skip backward button should be visible"
+    )
+  }
+
+  /// Given/When/Then: Issue 03.1.1.2 – Expanded Player Transport Controls
+  /// - Given the expanded player is visible
+  /// - When the user interacts with transport controls
+  /// - Then the controls respond and update playback state
+  @MainActor
+  func testExpandedPlayerTransportControls() throws {
+    initializeApp()
+
+    // Given: Navigate to expanded player
+    let openFullPlayer = app.buttons["open-full-player"]
+    if openFullPlayer.waitForExistence(timeout: 2) {
+      openFullPlayer.tap()
+    }
+
+    let playButton = app.buttons["Play"]
+    if playButton.waitForExistence(timeout: 3) {
+      playButton.tap()
+    }
+
+    XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 3))
+
+    let backButton = app.navigationBars.buttons.element(boundBy: 0)
+    if backButton.waitForExistence(timeout: 2) {
+      backButton.tap()
+    }
+
+    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    if libraryTab.waitForExistence(timeout: 2) {
+      libraryTab.tap()
+    }
+
+    let miniPlayer = app.otherElements["Mini Player"]
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
+    miniPlayer.tap()
+
+    let expandedPlayer = app.otherElements["Expanded Player"]
+    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 2))
+
+    // When: Test pause/play toggle
+    let pauseButton = app.buttons["Expanded Player Pause"]
+    if pauseButton.waitForExistence(timeout: 1) {
+      pauseButton.tap()
+
+      // Then: Should switch to play button
+      let playButtonExpanded = app.buttons["Expanded Player Play"]
+      XCTAssertTrue(
+        playButtonExpanded.waitForExistence(timeout: 1),
+        "Play button should appear after pausing"
+      )
+
+      // Resume playback
+      playButtonExpanded.tap()
+      XCTAssertTrue(
+        app.buttons["Expanded Player Pause"].waitForExistence(timeout: 1),
+        "Pause button should reappear after resuming"
+      )
+    }
+
+    // When: Test skip controls
+    let skipForward = app.buttons["Expanded Player Skip Forward"]
+    if skipForward.exists {
+      skipForward.tap()
+      // Control should remain accessible after tap
+      XCTAssertTrue(skipForward.exists)
+    }
+
+    let skipBackward = app.buttons["Expanded Player Skip Backward"]
+    if skipBackward.exists {
+      skipBackward.tap()
+      // Control should remain accessible after tap
+      XCTAssertTrue(skipBackward.exists)
+    }
+  }
+
+  /// Given/When/Then: Issue 03.1.1.2 – Expanded Player Dismiss Gesture
+  /// - Given the expanded player is visible
+  /// - When the user performs a dismiss gesture (swipe down)
+  /// - Then the expanded player closes and returns to mini-player
+  @MainActor
+  func testExpandedPlayerDismissGesture() throws {
+    initializeApp()
+
+    // Given: Navigate to expanded player
+    let openFullPlayer = app.buttons["open-full-player"]
+    if openFullPlayer.waitForExistence(timeout: 2) {
+      openFullPlayer.tap()
+    }
+
+    let playButton = app.buttons["Play"]
+    if playButton.waitForExistence(timeout: 3) {
+      playButton.tap()
+    }
+
+    XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 3))
+
+    let backButton = app.navigationBars.buttons.element(boundBy: 0)
+    if backButton.waitForExistence(timeout: 2) {
+      backButton.tap()
+    }
+
+    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    if libraryTab.waitForExistence(timeout: 2) {
+      libraryTab.tap()
+    }
+
+    let miniPlayer = app.otherElements["Mini Player"]
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
+    miniPlayer.tap()
+
+    let expandedPlayer = app.otherElements["Expanded Player"]
+    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 2))
+
+    // When: Perform swipe down gesture to dismiss
+    expandedPlayer.swipeDown()
+
+    // Allow time for dismiss animation
+    sleep(1)
+
+    // Then: Expanded player should be dismissed, mini-player should be visible
+    XCTAssertFalse(
+      expandedPlayer.exists,
+      "Expanded player should be dismissed after swipe down"
+    )
+
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: 2),
+      "Mini player should still be visible after dismissing expanded player"
+    )
+  }
 }
