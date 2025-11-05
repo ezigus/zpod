@@ -310,10 +310,10 @@ import SwiftUI
     @StateObject private var settingsManager: SettingsManager
 
     // Mini-player state
-#if canImport(PlayerFeature)
-    private let playbackDependencies: CarPlayDependencies
-    @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
-#endif
+    #if canImport(PlayerFeature)
+      private let playbackDependencies: CarPlayDependencies
+      @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
+    #endif
     @State private var showFullPlayer = false
 
     public init(podcastManager: PodcastManaging? = nil) {
@@ -325,17 +325,17 @@ import SwiftUI
       self.searchService = SearchService(indexSources: searchSources)
       let repository = UserDefaultsSettingsRepository()
       _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
-      
-    // Initialize mini-player with playback service from CarPlay dependencies
+
+      // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)
-      let dependencies = PlaybackEnvironment.dependencies
-      self.playbackDependencies = dependencies
-      _miniPlayerViewModel = StateObject(
-        wrappedValue: MiniPlayerViewModel(
-          playbackService: dependencies.playbackService,
-          queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+        let dependencies = PlaybackEnvironment.dependencies
+        self.playbackDependencies = dependencies
+        _miniPlayerViewModel = StateObject(
+          wrappedValue: MiniPlayerViewModel(
+            playbackService: dependencies.playbackService,
+            queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+          )
         )
-      )
       #endif
     }
 
@@ -384,24 +384,24 @@ import SwiftUI
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())
         #endif
-        
+
         // Mini-player overlay
         #if canImport(PlayerFeature)
-        VStack(spacing: 0) {
-          Spacer()
-          MiniPlayerView(viewModel: miniPlayerViewModel) {
-            showFullPlayer = true
+          VStack(spacing: 0) {
+            Spacer()
+            MiniPlayerView(viewModel: miniPlayerViewModel) {
+              showFullPlayer = true
+            }
           }
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .sheet(isPresented: $showFullPlayer) {
-          ExpandedPlayerView(
-            viewModel: ExpandedPlayerViewModel(playbackService: playbackDependencies.playbackService)
-          )
-          .presentationDragIndicator(.hidden)
-          .presentationBackground(.black)
-          .accessibilityIdentifier("expanded-player-sheet")
-        }
+          .ignoresSafeArea(edges: .bottom)
+          .sheet(isPresented: $showFullPlayer) {
+            ExpandedPlayerView(
+              viewModel: ExpandedPlayerViewModel(
+                playbackService: playbackDependencies.playbackService)
+            )
+            .presentationDragIndicator(.hidden)
+            .presentationBackground(.black)
+          }
         #endif
       }
     }

@@ -835,9 +835,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
     miniPlayer.tap()
 
+    // SwiftUI sheet presentations need a moment to animate
     let expandedPlayer = app.otherElements["Expanded Player"]
     XCTAssertTrue(
-      expandedPlayer.waitForExistence(timeout: 2),
+      expandedPlayer.waitForExistence(timeout: 5),
       "Expanded player should appear"
     )
 
@@ -909,8 +910,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
     miniPlayer.tap()
 
+    // SwiftUI sheet presentations need a moment to animate
     let expandedPlayer = app.otherElements["Expanded Player"]
-    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 2))
+    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 5))
 
     // When: Test pause/play toggle
     let pauseButton = app.buttons["Expanded Player Pause"]
@@ -983,8 +985,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: 5))
     miniPlayer.tap()
 
+    // SwiftUI sheet presentations need a moment to animate
     let expandedPlayer = app.otherElements["Expanded Player"]
-    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 2))
+    XCTAssertTrue(expandedPlayer.waitForExistence(timeout: 5))
 
     // When: Perform swipe down gesture to dismiss
     expandedPlayer.swipeDown()
@@ -996,7 +999,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       evaluatedWith: expandedPlayer,
       handler: nil
     )
-    
+
     let result = XCTWaiter.wait(for: [dismissedExpectation], timeout: 2.0)
     XCTAssertEqual(result, .completed, "Expanded player should be dismissed after swipe down")
 

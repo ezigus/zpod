@@ -66,10 +66,10 @@ public struct ExpandedPlayerView: View {
         }
         .padding(.top, 8)
         .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Expanded Player")
       }
     }
-    .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("Expanded Player")
   }
 
   // MARK: - Subviews
@@ -304,7 +304,7 @@ public struct ExpandedPlayerView: View {
       generator.impactOccurred()
     #endif
   }
-  
+
   private func performMediumHaptic() {
     #if canImport(UIKit)
       let generator = UIImpactFeedbackGenerator(style: .medium)
