@@ -1,10 +1,11 @@
-#if canImport(Combine)
-@preconcurrency import CombineSupport
-#endif
-import Foundation
 import CoreModels
+import Foundation
 import Persistence
 import SharedUtilities
+
+#if canImport(Combine)
+  @preconcurrency import CombineSupport
+#endif
 
 /// Coordinates all download-related operations
 @MainActor
@@ -16,11 +17,11 @@ public class DownloadCoordinator {
   private let autoProcessingEnabled: Bool
 
   #if canImport(Combine)
-  private var cancellables = Set<AnyCancellable>()
-  private let episodeProgressSubject = PassthroughSubject<EpisodeDownloadProgressUpdate, Never>()
-  public var episodeProgressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {
-    episodeProgressSubject.eraseToAnyPublisher()
-  }
+    private var cancellables = Set<AnyCancellable>()
+    private let episodeProgressSubject = PassthroughSubject<EpisodeDownloadProgressUpdate, Never>()
+    public var episodeProgressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {
+      episodeProgressSubject.eraseToAnyPublisher()
+    }
   #endif
   private let maxRetryCount = 3
   private let retryDelays: [TimeInterval] = [5, 15, 60]  // Exponential backoff
@@ -53,20 +54,20 @@ public class DownloadCoordinator {
     let task = DownloadTask(
       id: "manual_\(episode.id)_\(Date().timeIntervalSince1970)",
       episodeId: episode.id,
-      podcastId: episode.id, // Episodes don't have separate podcastId in the current model
+      podcastId: episode.id,  // Episodes don't have separate podcastId in the current model
       audioURL: episode.audioURL ?? URL(string: "https://example.com/default.mp3")!,
       title: episode.title,
-      estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) }, // Rough estimate
+      estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) },  // Rough estimate
       priority: priorityEnum
     )
     queueManager.addToQueue(task)
-#if canImport(Combine)
-    if let info = queueManager.getTask(id: task.id) {
-      emitProgress(for: info, statusOverride: .queued, message: "Queued")
-    } else {
-      emitProgress(forEpisodeID: episode.id, fraction: 0, status: .queued, message: "Queued")
-    }
-#endif
+    #if canImport(Combine)
+      if let info = queueManager.getTask(id: task.id) {
+        emitProgress(for: info, statusOverride: .queued, message: "Queued")
+      } else {
+        emitProgress(forEpisodeID: episode.id, fraction: 0, status: .queued, message: "Queued")
+      }
+    #endif
   }
 
   /// Configure auto-download for a podcast
@@ -125,26 +126,26 @@ public class DownloadCoordinator {
 
   private func setupDownloadProcessing() {
     #if canImport(Combine)
-    // Monitor queue changes and process pending downloads
-    queueManager.queuePublisher
-      .sink { [weak self] queue in
-        Task {
-          await self?.processPendingDownloads(queue)
+      // Monitor queue changes and process pending downloads
+      queueManager.queuePublisher
+        .sink { [weak self] queue in
+          Task {
+            await self?.processPendingDownloads(queue)
+          }
         }
-      }
-      .store(in: &cancellables)
+        .store(in: &cancellables)
     #endif
   }
 
   private func setupProgressTracking() async {
     #if canImport(Combine)
-    // Monitor download progress and update task states
-    let publisher = await fileManagerService.downloadProgressPublisher
-    publisher
-      .sink { [weak self] progress in
-        self?.updateTaskProgress(progress)
-      }
-      .store(in: &cancellables)
+      // Monitor download progress and update task states
+      let publisher = await fileManagerService.downloadProgressPublisher
+      publisher
+        .sink { [weak self] progress in
+          self?.updateTaskProgress(progress)
+        }
+        .store(in: &cancellables)
     #endif
   }
 
@@ -156,7 +157,7 @@ public class DownloadCoordinator {
         let updatedInfo = downloadInfo.withState(.downloading)
         queueManager.removeFromQueue(taskId: task.id)
         queueManager.addToQueue(updatedInfo.task)
-        
+
         // Start actual download
         do {
           try await fileManagerService.startDownload(updatedInfo.task)
@@ -209,7 +210,9 @@ public class DownloadCoordinator {
     if let info = queueManager.getTask(id: failedInfo.task.id) {
       emitProgress(for: info, statusOverride: .failed, message: error.localizedDescription)
     } else {
-      emitProgress(forEpisodeID: task.episodeId, fraction: 0, status: .failed, message: error.localizedDescription)
+      emitProgress(
+        forEpisodeID: task.episodeId, fraction: 0, status: .failed,
+        message: error.localizedDescription)
     }
   }
 
@@ -251,79 +254,85 @@ public class DownloadCoordinator {
   }
 
   #if canImport(Combine)
-  private func emitProgress(for info: DownloadInfo, statusOverride: EpisodeDownloadProgressStatus? = nil, message: String? = nil) {
-    let status = statusOverride ?? status(for: info.state)
-    emitProgress(
-      forEpisodeID: info.task.episodeId,
-      fraction: info.progress,
-      status: status,
-      message: message
-    )
-  }
-
-  private func emitProgress(forEpisodeID episodeID: String, fraction: Double, status: EpisodeDownloadProgressStatus, message: String? = nil) {
-    let clampedFraction = min(max(fraction, 0), 1)
-    let update = EpisodeDownloadProgressUpdate(
-      episodeID: episodeID,
-      fractionCompleted: clampedFraction,
-      status: status,
-      message: message
-    )
-    episodeProgressSubject.send(update)
-  }
-
-  private func status(for state: DownloadState) -> EpisodeDownloadProgressStatus {
-    switch state {
-    case .pending:
-      return .queued
-    case .downloading:
-      return .downloading
-    case .paused:
-      return .paused
-    case .completed:
-      return .completed
-    case .failed, .cancelled:
-      return .failed
+    private func emitProgress(
+      for info: DownloadInfo, statusOverride: EpisodeDownloadProgressStatus? = nil,
+      message: String? = nil
+    ) {
+      let status = statusOverride ?? status(for: info.state)
+      emitProgress(
+        forEpisodeID: info.task.episodeId,
+        fraction: info.progress,
+        status: status,
+        message: message
+      )
     }
-  }
+
+    private func emitProgress(
+      forEpisodeID episodeID: String, fraction: Double, status: EpisodeDownloadProgressStatus,
+      message: String? = nil
+    ) {
+      let clampedFraction = min(max(fraction, 0), 1)
+      let update = EpisodeDownloadProgressUpdate(
+        episodeID: episodeID,
+        fractionCompleted: clampedFraction,
+        status: status,
+        message: message
+      )
+      episodeProgressSubject.send(update)
+    }
+
+    private func status(for state: DownloadState) -> EpisodeDownloadProgressStatus {
+      switch state {
+      case .pending:
+        return .queued
+      case .downloading:
+        return .downloading
+      case .paused:
+        return .paused
+      case .completed:
+        return .completed
+      case .failed, .cancelled:
+        return .failed
+      }
+    }
   #endif
 }
 
 /// Dummy implementation for testing/fallback
 private struct DummyFileManagerService: FileManagerServicing {
   #if canImport(Combine)
-  var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
-    get async {
-      // Explicitly type Empty to satisfy protocol's publisher Output type
-      Empty<DownloadProgress, Never>().eraseToAnyPublisher()
+    var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
+      get async {
+        // Explicitly type Empty to satisfy protocol's publisher Output type
+        Empty<DownloadProgress, Never>().eraseToAnyPublisher()
+      }
     }
-  }
   #endif
-  
+
   func downloadPath(for task: DownloadTask) async -> String {
     return "/tmp/\(task.id)"
   }
-  
+
   func createDownloadDirectory(for task: DownloadTask) async throws {
     // No-op implementation
   }
-  
+
   func startDownload(_ task: DownloadTask) async throws {
     // No-op implementation
   }
-  
+
   func cancelDownload(taskId: String) async {
     // No-op implementation
   }
-  
+
   func deleteDownloadedFile(for task: DownloadTask) async throws {
     // No-op implementation
   }
-  
+
   func fileExists(for task: DownloadTask) async -> Bool {
     return false
   }
-  
+
   func getFileSize(for task: DownloadTask) async -> Int64? {
     return nil
   }
