@@ -244,45 +244,47 @@ select_destination() {
     fi
   fi
 
-  local have_candidate=0
-  if _xcode_simctl_select "$preferred_sim"; then
-    have_candidate=1
-  fi
-
-  local destinations_output
-  destinations_output="$(xcodebuild -workspace "$workspace" -scheme "$scheme" -showdestinations | cat || true)"
-  local sim_lines
+  local destinations_output=""
+  local destinations_exit=0
+  destinations_output="$(xcodebuild -workspace "$workspace" -scheme "$scheme" -showdestinations 2>&1)" || destinations_exit=$?
+  local sim_lines=""
   sim_lines="$(echo "$destinations_output" | grep "platform:iOS Simulator" || true)"
 
-  if (( have_candidate == 1 )); then
+  if (( destinations_exit != 0 )); then
+    log_warn "xcodebuild -showdestinations failed with status ${destinations_exit}; falling back to simctl discovery"
+  fi
+
+  if [[ -n "$sim_lines" ]]; then
+    if _choose_destination_from_showdestinations "$preferred_sim" "$sim_lines"; then
+      if (( DESTINATION_IS_GENERIC == 1 )); then
+        log_warn "No concrete simulators detected, using ${SELECTED_DESTINATION}"
+      else
+        log_info "Using simulator destination: ${SELECTED_DESTINATION}"
+      fi
+      return 0
+    fi
+  elif [[ -n "$destinations_output" ]]; then
+    log_warn "xcodebuild -showdestinations did not list any iOS Simulator destinations; falling back to simctl discovery"
+  else
+    log_warn "xcodebuild -showdestinations produced no output; falling back to simctl discovery"
+  fi
+
+  if _xcode_simctl_select "$preferred_sim"; then
     if [[ -z "$destinations_output" ]] || _destination_supported_for_scheme "$SELECTED_DESTINATION" "$destinations_output"; then
       log_info "Using simulator destination: ${SELECTED_DESTINATION}"
       return 0
     fi
-    log_warn "Selected simulator ${SELECTED_DESTINATION} not available for scheme ${scheme}; searching available destinations"
+    log_warn "Simulator ${SELECTED_DESTINATION} unavailable for scheme ${scheme}; ignoring simctl result"
   fi
 
-  if _choose_destination_from_showdestinations "$preferred_sim" "$sim_lines"; then
-    if (( DESTINATION_IS_GENERIC == 1 )); then
-      log_warn "No concrete simulators detected, using ${SELECTED_DESTINATION}"
-    else
-      log_info "Using simulator destination: ${SELECTED_DESTINATION}"
-    fi
-    return 0
-  fi
-
-  if echo "$sim_lines" | grep -q "Any iOS Simulator Device"; then
+  if [[ -n "$sim_lines" ]] && echo "$sim_lines" | grep -q "Any iOS Simulator Device"; then
     SELECTED_DESTINATION="generic/platform=iOS Simulator"
     DESTINATION_IS_GENERIC=1
     log_warn "No concrete simulators detected, using generic destination"
     return 0
   fi
 
-  if [[ -z "$destinations_output" ]]; then
-    log_warn "xcodebuild -showdestinations returned no output; falling back to generic destination"
-  else
-    log_warn "No simulators found; falling back to generic destination"
-  fi
+  log_warn "No simulators found; falling back to generic destination"
   SELECTED_DESTINATION="generic/platform=iOS Simulator"
   DESTINATION_IS_GENERIC=1
   return 0
