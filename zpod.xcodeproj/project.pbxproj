@@ -306,6 +306,8 @@
 				32049ED8E56C433DB7220A50 /* SearchDomain */,
 				885611E8E8644D078AC31FA4 /* DiscoverFeature */,
 				F2345678901BCD23456EFGHI /* PlaybackEngine */,
+				F1234567890ABC12345DEFGH /* LibraryFeature */,
+				C48BD14625D04700A5604586 /* PlayerFeature */,
 			);
 			productName = IntegrationTests;
 			productReference = 5B6F6F5F341A43FD81D7CB84 /* IntegrationTests.xctest */;
@@ -1062,6 +1064,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 78BF3E692E577C4A001DB480 /* XCLocalSwiftPackageReference "Packages/LibraryFeature" */;
 			productName = LibraryFeature;
+		};
+		C48BD14625D04700A5604586 /* PlayerFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78BF3E6A2E577C4F001DB480 /* XCLocalSwiftPackageReference "Packages/PlayerFeature" */;
+			productName = PlayerFeature;
 		};
 		F2345678901BCD23456EFGHI /* PlaybackEngine */ = {
 			isa = XCSwiftPackageProductDependency;
