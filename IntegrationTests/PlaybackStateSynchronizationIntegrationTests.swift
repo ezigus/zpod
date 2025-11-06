@@ -63,8 +63,10 @@
       ticker = TestTicker()
       settingsRepository = MockSettingsRepository()
 
-      // Capture episode locally to avoid data race with `self` in closure
+      // Capture values locally to avoid data race with `self` in closure
       let testEpisode = self.testEpisode!
+      let ticker = self.ticker!
+      let settingsRepository = self.settingsRepository!
 
       let (service, coord, miniVM, expandedVM) = await MainActor.run {
         let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
