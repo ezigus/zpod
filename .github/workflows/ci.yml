@@ -760,7 +760,9 @@ jobs:
           - name: UITests-ContentDiscovery
             tests: zpodUITests/ContentDiscoveryUITests
           - name: UITests-Playback
-            tests: zpodUITests/PlaybackUITests,zpodUITests/PlayerNavigationTests,zpodUITests/PlayerPlaybackInteractionTests,zpodUITests/PlayerOrientationSnapshotTests
+            tests: zpodUITests/PlayerNavigationTests,zpodUITests/PlayerPlaybackInteractionTests,zpodUITests/PlayerOrientationSnapshotTests
+          - name: UITests-CorePlayback
+            tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
           - name: UITests-SwipeConfiguration
