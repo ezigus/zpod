@@ -38,22 +38,19 @@
 
     // MARK: - Setup & Teardown
 
-    override func setUp() {
-      super.setUp()
+    override func setUp() async throws {
+      try await super.setUp()
       continueAfterFailure = false  // Create test episode
       testEpisode = Episode(
         id: "test-episode-sync",
-        title: "Synchronization Test Episode",
+        title: "Test Episode",
         podcastID: "test-podcast",
-        playbackPosition: 0,
-        isPlayed: false,
-        pubDate: Date(),
-        duration: 1800,
-        description: "Episode for testing state synchronization",
-        audioURL: URL(string: "https://example.com/test.mp3")
+        audioURL: URL(string: "https://example.com/test.mp3")!,
+        duration: 3600,
+        pubDate: Date()
       )
 
-      // Setup podcast manager
+      // Setup podcast manager with test podcast
       podcastManager = InMemoryPodcastManager()
       let podcast = Podcast(
         id: "test-podcast",
@@ -62,29 +59,32 @@
       )
       podcastManager.add(podcast)
 
-      // Setup playback infrastructure
+      // Setup playback infrastructure - need MainActor for @MainActor initializers
       ticker = TestTicker()
-      playbackService = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
       settingsRepository = MockSettingsRepository()
 
-      // Setup coordinator
-      coordinator = PlaybackStateCoordinator(
-        playbackService: playbackService,
-        settingsRepository: settingsRepository,
-        episodeLookup: { [weak self] episodeId in
-          return episodeId == self?.testEpisode.id ? self?.testEpisode : nil
-        }
-      )
+      await MainActor.run {
+        playbackService = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
 
-      // Setup view models
-      miniPlayerViewModel = MiniPlayerViewModel(
-        playbackService: playbackService,
-        queueIsEmpty: { true }
-      )
+        // Setup coordinator
+        coordinator = PlaybackStateCoordinator(
+          playbackService: playbackService,
+          settingsRepository: settingsRepository,
+          episodeLookup: { [weak self] episodeId in
+            return episodeId == self?.testEpisode.id ? self?.testEpisode : nil
+          }
+        )
 
-      expandedPlayerViewModel = ExpandedPlayerViewModel(
-        playbackService: playbackService
-      )
+        // Setup view models
+        miniPlayerViewModel = MiniPlayerViewModel(
+          playbackService: playbackService,
+          queueIsEmpty: { true }
+        )
+
+        expandedPlayerViewModel = ExpandedPlayerViewModel(
+          playbackService: playbackService
+        )
+      }
     }
 
     override func tearDown() {
