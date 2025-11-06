@@ -142,7 +142,8 @@ public enum CarPlayDependencyRegistry {
       }
     )
     
-    // Restore playback state on initialization
+    // Restore playback state on initialization (asynchronous, non-blocking)
+    // State restoration happens in background to avoid blocking app launch
     Task { @MainActor in
       await stateCoordinator.restorePlaybackIfNeeded()
     }
