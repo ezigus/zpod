@@ -45,9 +45,9 @@
         id: "test-episode-sync",
         title: "Test Episode",
         podcastID: "test-podcast",
-        audioURL: URL(string: "https://example.com/test.mp3")!,
+        pubDate: Date(),
         duration: 3600,
-        pubDate: Date()
+        audioURL: URL(string: "https://example.com/test.mp3")!
       )
 
       // Setup podcast manager with test podcast
@@ -63,28 +63,36 @@
       ticker = TestTicker()
       settingsRepository = MockSettingsRepository()
 
-      await MainActor.run {
-        playbackService = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
+      // Capture episode locally to avoid data race with `self` in closure
+      let testEpisode = self.testEpisode!
+
+      let (service, coord, miniVM, expandedVM) = await MainActor.run {
+        let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
 
         // Setup coordinator
-        coordinator = PlaybackStateCoordinator(
-          playbackService: playbackService,
+        let coord = PlaybackStateCoordinator(
+          playbackService: service,
           settingsRepository: settingsRepository,
-          episodeLookup: { [weak self] episodeId in
-            return episodeId == self?.testEpisode.id ? self?.testEpisode : nil
+          episodeLookup: { episodeId in
+            return episodeId == testEpisode.id ? testEpisode : nil
           }
-        )
-
-        // Setup view models
-        miniPlayerViewModel = MiniPlayerViewModel(
-          playbackService: playbackService,
+        )  // Setup view models
+        let miniVM = MiniPlayerViewModel(
+          playbackService: service,
           queueIsEmpty: { true }
         )
 
-        expandedPlayerViewModel = ExpandedPlayerViewModel(
-          playbackService: playbackService
+        let expandedVM = ExpandedPlayerViewModel(
+          playbackService: service
         )
+
+        return (service, coord, miniVM, expandedVM)
       }
+
+      playbackService = service
+      coordinator = coord
+      miniPlayerViewModel = miniVM
+      expandedPlayerViewModel = expandedVM
     }
 
     override func tearDown() {
