@@ -310,10 +310,10 @@ import SwiftUI
     @StateObject private var settingsManager: SettingsManager
 
     // Mini-player state
-#if canImport(PlayerFeature)
-    private let playbackDependencies: CarPlayDependencies
-    @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
-#endif
+    #if canImport(PlayerFeature)
+      private let playbackDependencies: CarPlayDependencies
+      @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
+    #endif
     @State private var showFullPlayer = false
 
     public init(podcastManager: PodcastManaging? = nil) {
@@ -325,17 +325,17 @@ import SwiftUI
       self.searchService = SearchService(indexSources: searchSources)
       let repository = UserDefaultsSettingsRepository()
       _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
-      
-    // Initialize mini-player with playback service from CarPlay dependencies
+
+      // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)
-      let dependencies = PlaybackEnvironment.dependencies
-      self.playbackDependencies = dependencies
-      _miniPlayerViewModel = StateObject(
-        wrappedValue: MiniPlayerViewModel(
-          playbackService: dependencies.playbackService,
-          queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+        let dependencies = PlaybackEnvironment.dependencies
+        self.playbackDependencies = dependencies
+        _miniPlayerViewModel = StateObject(
+          wrappedValue: MiniPlayerViewModel(
+            playbackService: dependencies.playbackService,
+            queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+          )
         )
-      )
       #endif
     }
 
@@ -384,27 +384,24 @@ import SwiftUI
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())
         #endif
-        
+
         // Mini-player overlay
         #if canImport(PlayerFeature)
-        VStack(spacing: 0) {
-          Spacer()
-          MiniPlayerView(viewModel: miniPlayerViewModel) {
-            showFullPlayer = true
-          }
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .sheet(isPresented: $showFullPlayer) {
-          if let episode = miniPlayerViewModel.currentEpisode {
-            NavigationStack {
-              EpisodeDetailView(
-                episode: episode,
-                playbackService: playbackDependencies.playbackService
-              )
+          VStack(spacing: 0) {
+            Spacer()
+            MiniPlayerView(viewModel: miniPlayerViewModel) {
+              showFullPlayer = true
             }
-            .accessibilityIdentifier("expanded-player-sheet")
           }
-        }
+          .ignoresSafeArea(edges: .bottom)
+          .sheet(isPresented: $showFullPlayer) {
+            ExpandedPlayerView(
+              viewModel: ExpandedPlayerViewModel(
+                playbackService: playbackDependencies.playbackService)
+            )
+            .presentationDragIndicator(.hidden)
+            .presentationBackground(.black)
+          }
         #endif
       }
     }
@@ -590,6 +587,7 @@ import SwiftUI
           id: "st-001",
           title: "Episode 1: Introduction",
           podcastID: id,
+          podcastTitle: title,
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -601,6 +599,7 @@ import SwiftUI
           id: "st-002",
           title: "Episode 2: Swift Basics",
           podcastID: id,
+          podcastTitle: title,
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
@@ -612,6 +611,7 @@ import SwiftUI
           id: "st-003",
           title: "Episode 3: Advanced Topics",
           podcastID: id,
+          podcastTitle: title,
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
@@ -623,6 +623,7 @@ import SwiftUI
           id: "st-004",
           title: "Episode 4: Performance",
           podcastID: id,
+          podcastTitle: title,
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Calendar.current.date(byAdding: .day, value: -28, to: Date()) ?? Date(),
@@ -634,6 +635,7 @@ import SwiftUI
           id: "st-005",
           title: "Episode 5: Testing",
           podcastID: id,
+          podcastTitle: title,
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Calendar.current.date(byAdding: .day, value: -35, to: Date()) ?? Date(),
@@ -704,6 +706,7 @@ import SwiftUI
           id: "sample-1",
           title: "Sample Episode",
           podcastID: "sample-podcast",
+          podcastTitle: "Sample Podcast",
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Date(),

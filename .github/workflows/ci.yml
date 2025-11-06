@@ -11,7 +11,7 @@ on:
     branches:
       - main
     tags-ignore:
-      - '*'
+      - "*"
   pull_request:
     branches:
       - main
@@ -25,7 +25,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: "16.4"
       - name: Self-check build script
         run: ./scripts/run-xcode-tests.sh --self-check
       - name: Show Xcode version
@@ -152,21 +152,21 @@ jobs:
         run: |
           set -euo pipefail
           HOST_DIR="$PWD/tmp_ci/DerivedData/HostPrebuild/Build/Products/Debug-iphonesimulator"
-          
+
           echo "Verifying host app bundle..."
           if [ ! -d "$HOST_DIR/zpod.app" ]; then
             echo "❌ Host app bundle missing at $HOST_DIR/zpod.app"
             ls -R "$HOST_DIR" || true
             exit 1
           fi
-          
+
           echo "Verifying main binary..."
           if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ ! -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
             echo "❌ Main binary missing (neither zpod nor zpod.debug.dylib found)"
             ls -la "$HOST_DIR/zpod.app/" || true
             exit 1
           fi
-          
+
           echo "Verifying test bundles..."
           for test_bundle in AppSmokeTests.xctest IntegrationTests.xctest zpodUITests.xctest; do
             if [ ! -d "$HOST_DIR/$test_bundle" ]; then
@@ -175,22 +175,22 @@ jobs:
               echo "✅ Found test bundle: $test_bundle"
             fi
           done
-          
+
           echo "✅ Build verification passed"
 
       - name: Package host app bundle
         run: |
           set -euo pipefail
           HOST_DIR="$PWD/tmp_ci/DerivedData/HostPrebuild/Build/Products/Debug-iphonesimulator"
-          
+
           # Ensure symlink exists before packaging
           if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
             ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
           fi
-          
+
           mkdir -p artifacts
           tar -czf artifacts/host-app.tar.gz -C "$HOST_DIR" .
-          
+
           # Generate checksum for integrity verification (use relative path in checksum file)
           cd artifacts
           shasum -a 256 host-app.tar.gz > host-app.tar.gz.sha256
@@ -236,7 +236,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: "16.4"
       - name: Self-check build script
         run: ./scripts/run-xcode-tests.sh --self-check
       - name: Show Xcode version
@@ -353,15 +353,14 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
           echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
-
       - name: Pre-warm simulator for unit tests
         if: steps.unit-sim.outputs.udid != ''
         run: |
           set -euo pipefail
           UDID="${{ steps.unit-sim.outputs.udid }}"
-          
+
           echo "Pre-warming simulator services for faster test execution..."
-          
+
           # Wait for SpringBoard to be fully ready
           echo "Waiting for SpringBoard to launch..."
           for j in {1..60}; do
@@ -370,11 +369,11 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Pre-warm accessibility services (critical for UI testing)
           echo "Initializing accessibility services..."
           xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
-          
+
           # Wait for accessibility server to be ready
           for j in {1..30}; do
             if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; then
@@ -382,10 +381,10 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Small delay to let services stabilize
           sleep 2
-          
+
           echo "✅ Simulator pre-warming complete"
 
       - name: Download host app artifact
@@ -397,7 +396,7 @@ jobs:
       - name: Verify and restore host app bundle
         run: |
           set -euo pipefail
-          
+
           # Verify artifact integrity with checksum
           echo "Verifying artifact integrity..."
           cd host-app
@@ -407,25 +406,25 @@ jobs:
           fi
           echo "✅ Artifact integrity verified"
           cd ..
-          
+
           # Extract to temporary directory first (atomic operation)
           TEMP_DIR=$(mktemp -d)
           echo "Extracting to temporary directory: $TEMP_DIR"
           tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-          
+
           # Verify extraction was complete
           if [ ! -d "$TEMP_DIR/zpod.app" ]; then
             echo "❌ Extraction failed or incomplete - zpod.app not found"
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Create symlink if needed
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
             echo "Creating symlink: zpod -> zpod.debug.dylib"
             ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
           fi
-          
+
           # Verify main binary exists
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
             echo "❌ Main binary missing after extraction"
@@ -433,12 +432,12 @@ jobs:
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Atomic move to final location
           HOST_DIR="${{ steps.unit-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
           mkdir -p "$(dirname "$HOST_DIR")"
           mv "$TEMP_DIR" "$HOST_DIR"
-          
+
           echo "✅ Host app bundle restored successfully to $HOST_DIR"
 
       - name: Run AppSmoke tests
@@ -496,7 +495,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: "16.4"
       - name: Self-check build script
         run: ./scripts/run-xcode-tests.sh --self-check
       - name: Show Xcode version
@@ -622,7 +621,7 @@ jobs:
       - name: Verify and restore host app bundle
         run: |
           set -euo pipefail
-          
+
           # Verify artifact integrity with checksum
           echo "Verifying artifact integrity..."
           cd host-app
@@ -632,25 +631,25 @@ jobs:
           fi
           echo "✅ Artifact integrity verified"
           cd ..
-          
+
           # Extract to temporary directory first (atomic operation)
           TEMP_DIR=$(mktemp -d)
           echo "Extracting to temporary directory: $TEMP_DIR"
           tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-          
+
           # Verify extraction was complete
           if [ ! -d "$TEMP_DIR/zpod.app" ]; then
             echo "❌ Extraction failed or incomplete - zpod.app not found"
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Create symlink if needed
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
             echo "Creating symlink: zpod -> zpod.debug.dylib"
             ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
           fi
-          
+
           # Verify main binary exists
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
             echo "❌ Main binary missing after extraction"
@@ -658,12 +657,12 @@ jobs:
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Atomic move to final location
           HOST_DIR="${{ steps.integration-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
           mkdir -p "$(dirname "$HOST_DIR")"
           mv "$TEMP_DIR" "$HOST_DIR"
-          
+
           echo "✅ Host app bundle restored successfully to $HOST_DIR"
 
       - name: Pre-warm simulator for integration tests
@@ -671,9 +670,9 @@ jobs:
         run: |
           set -euo pipefail
           UDID="${{ steps.integration-sim.outputs.udid }}"
-          
+
           echo "Pre-warming simulator services for faster test execution..."
-          
+
           # Wait for SpringBoard to be fully ready
           echo "Waiting for SpringBoard to launch..."
           for j in {1..60}; do
@@ -682,11 +681,11 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Pre-warm accessibility services (critical for UI testing)
           echo "Initializing accessibility services..."
           xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
-          
+
           # Wait for accessibility server to be ready
           for j in {1..30}; do
             if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; then
@@ -694,10 +693,10 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Small delay to let services stabilize
           sleep 2
-          
+
           echo "✅ Simulator pre-warming complete"
 
       - name: Run Integration Tests
@@ -761,6 +760,8 @@ jobs:
           - name: UITests-ContentDiscovery
             tests: zpodUITests/ContentDiscoveryUITests
           - name: UITests-Playback
+            tests: zpodUITests/PlayerNavigationTests,zpodUITests/PlayerPlaybackInteractionTests,zpodUITests/PlayerOrientationSnapshotTests
+          - name: UITests-CorePlayback
             tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
@@ -772,7 +773,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: "16.4"
       - name: Self-check build script
         run: ./scripts/run-xcode-tests.sh --self-check
       - name: Show Xcode version
@@ -900,7 +901,7 @@ jobs:
       - name: Verify and restore host app bundle
         run: |
           set -euo pipefail
-          
+
           # Verify artifact integrity with checksum
           echo "Verifying artifact integrity..."
           cd host-app
@@ -910,25 +911,25 @@ jobs:
           fi
           echo "✅ Artifact integrity verified"
           cd ..
-          
+
           # Extract to temporary directory first (atomic operation)
           TEMP_DIR=$(mktemp -d)
           echo "Extracting to temporary directory: $TEMP_DIR"
           tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-          
+
           # Verify extraction was complete
           if [ ! -d "$TEMP_DIR/zpod.app" ]; then
             echo "❌ Extraction failed or incomplete - zpod.app not found"
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Create symlink if needed
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
             echo "Creating symlink: zpod -> zpod.debug.dylib"
             ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
           fi
-          
+
           # Verify main binary exists
           if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
             echo "❌ Main binary missing after extraction"
@@ -936,12 +937,12 @@ jobs:
             rm -rf "$TEMP_DIR"
             exit 1
           fi
-          
+
           # Atomic move to final location
           HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
           mkdir -p "$(dirname "$HOST_DIR")"
           mv "$TEMP_DIR" "$HOST_DIR"
-          
+
           echo "✅ Host app bundle restored successfully to $HOST_DIR"
 
       - name: Pre-warm simulator for UI tests
@@ -949,9 +950,9 @@ jobs:
         run: |
           set -euo pipefail
           UDID="${{ steps.provision-sim.outputs.udid }}"
-          
+
           echo "Pre-warming simulator services for faster test execution..."
-          
+
           # Wait for SpringBoard to be fully ready
           echo "Waiting for SpringBoard to launch..."
           for j in {1..60}; do
@@ -960,11 +961,11 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Pre-warm accessibility services (critical for UI testing)
           echo "Initializing accessibility services..."
           xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
-          
+
           # Wait for accessibility server to be ready
           for j in {1..30}; do
             if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; then
@@ -972,14 +973,14 @@ jobs:
             fi
             sleep 0.5
           done
-          
+
           # Enable software keyboard (critical for keyboard tests)
           echo "Configuring keyboard settings..."
           xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
-          
+
           # Small delay to let services stabilize
           sleep 2
-          
+
           echo "✅ Simulator pre-warming complete"
 
       - name: Run ${{ matrix.name }} Tests
@@ -1033,16 +1034,29 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          [CoreModels, SharedUtilities, Persistence, FeedParsing, Networking, SettingsDomain,
-           SearchDomain, RecommendationDomain, PlaybackEngine, LibraryFeature, PlayerFeature,
-           DiscoverFeature, PlaylistFeature, TestSupport]
+          [
+            CoreModels,
+            SharedUtilities,
+            Persistence,
+            FeedParsing,
+            Networking,
+            SettingsDomain,
+            SearchDomain,
+            RecommendationDomain,
+            PlaybackEngine,
+            LibraryFeature,
+            PlayerFeature,
+            DiscoverFeature,
+            PlaylistFeature,
+            TestSupport,
+          ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: "16.4"
       - name: Self-check build script
         run: ./scripts/run-xcode-tests.sh --self-check
       - name: Show Xcode version

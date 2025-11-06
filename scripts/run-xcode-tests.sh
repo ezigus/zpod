@@ -877,7 +877,6 @@ build_app_target() {
   ensure_scheme_available
   init_result_paths "build" "$target_label"
   local resolved_scheme="$SCHEME"
-  local resolved_sdk="iphonesimulator"
   local resolved_destination=""
   if [[ "$target_label" == "IntegrationTests" ]]; then
     resolved_scheme="IntegrationTests"
@@ -891,7 +890,6 @@ build_app_target() {
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
-    -sdk "$resolved_sdk"
     -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
@@ -997,12 +995,11 @@ test_app_target() {
   fi
 
   local resolved_scheme="$SCHEME"
-  local resolved_sdk="iphonesimulator"
   local resolved_destination=""
   if [[ "$target" == "IntegrationTests" ]]; then
     resolved_scheme="IntegrationTests"
   fi
-  select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
   resolved_destination="$SELECTED_DESTINATION"
 
   if [[ "$target" == "zpod" ]]; then
@@ -1038,7 +1035,6 @@ test_app_target() {
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
-    -sdk "$resolved_sdk"
     -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )
@@ -1352,12 +1348,11 @@ run_filtered_xcode_tests() {
   done
 
   local resolved_scheme="$SCHEME"
-  local resolved_sdk="iphonesimulator"
   local resolved_destination=""
   if [[ $integration_run -eq 1 ]]; then
     resolved_scheme="IntegrationTests"
   fi
-  select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
   resolved_destination="$SELECTED_DESTINATION"
 
   if [[ $integration_run -eq 0 ]]; then
@@ -1377,7 +1372,6 @@ run_filtered_xcode_tests() {
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
-    -sdk "$resolved_sdk"
     -destination "$resolved_destination"
     -resultBundlePath "$RESULT_BUNDLE"
   )

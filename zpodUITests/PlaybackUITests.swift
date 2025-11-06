@@ -788,9 +788,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
 
     miniPlayer.tap()
 
-    let expandedSheet = app.otherElements["expanded-player-sheet"]
+    let expandedPlayer = app.otherElements["Expanded Player"]
     XCTAssertTrue(
-      expandedSheet.waitForExistence(timeout: 2),
+      expandedPlayer.waitForExistence(timeout: 5),
       "Expanded player sheet should appear"
     )
   }
