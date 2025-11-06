@@ -1,6 +1,7 @@
 import CoreModels
 import Foundation
 import PlaybackEngine
+import Persistence
 
 #if canImport(Combine)
   import CombineSupport
@@ -12,15 +13,18 @@ public struct CarPlayDependencies {
   public let podcastManager: any PodcastManaging
   public let playbackService: EpisodePlaybackService & EpisodeTransportControlling
   public let queueManager: CarPlayQueueManaging
+  public let playbackStateCoordinator: PlaybackStateCoordinator?
 
   public init(
     podcastManager: any PodcastManaging,
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
-    queueManager: CarPlayQueueManaging
+    queueManager: CarPlayQueueManaging,
+    playbackStateCoordinator: PlaybackStateCoordinator? = nil
   ) {
     self.podcastManager = podcastManager
     self.playbackService = playbackService
     self.queueManager = queueManager
+    self.playbackStateCoordinator = playbackStateCoordinator
   }
 }
 
@@ -118,12 +122,36 @@ public enum CarPlayDependencyRegistry {
   private static func defaultDependencies(podcastManagerOverride: (any PodcastManaging)? = nil)
     -> CarPlayDependencies
   {
+    let podcastManager = podcastManagerOverride ?? EmptyPodcastManager()
     let playback = EnhancedEpisodePlayer()
     let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
-    return CarPlayDependencies(
-      podcastManager: podcastManagerOverride ?? EmptyPodcastManager(),
+    
+    // Create settings repository and playback state coordinator
+    let settingsRepository = UserDefaultsSettingsRepository()
+    let stateCoordinator = PlaybackStateCoordinator(
       playbackService: playback,
-      queueManager: queueCoordinator
+      settingsRepository: settingsRepository,
+      episodeLookup: { episodeId in
+        // Look up episode across all podcasts
+        for podcast in podcastManager.all() {
+          if let episode = podcast.episodes.first(where: { $0.id == episodeId }) {
+            return episode
+          }
+        }
+        return nil
+      }
+    )
+    
+    // Restore playback state on initialization
+    Task { @MainActor in
+      await stateCoordinator.restorePlaybackIfNeeded()
+    }
+    
+    return CarPlayDependencies(
+      podcastManager: podcastManager,
+      playbackService: playback,
+      queueManager: queueCoordinator,
+      playbackStateCoordinator: stateCoordinator
     )
   }
 }
