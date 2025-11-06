@@ -29,15 +29,15 @@ public final class PlaybackStateCoordinator {
   private let settingsRepository: SettingsRepository
   private let episodeLookup: (String) async -> Episode?
 
-  private var stateCancellable: AnyCancellable?
+  nonisolated private var stateCancellable: AnyCancellable?
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
   private var currentDuration: TimeInterval = 0
   private var isPlaying: Bool = false
 
   #if canImport(UIKit)
-    private var didEnterBackgroundObserver: NSObjectProtocol?
-    private var willEnterForegroundObserver: NSObjectProtocol?
+    nonisolated private var didEnterBackgroundObserver: NSObjectProtocol?
+    nonisolated private var willEnterForegroundObserver: NSObjectProtocol?
   #endif
 
   // MARK: - Initialization
@@ -114,7 +114,7 @@ public final class PlaybackStateCoordinator {
 
   // MARK: - Private Methods
 
-  private func setupPlaybackObserver() {
+  nonisolated private func setupPlaybackObserver() {
     #if canImport(Combine)
       guard let playbackService = playbackService else { return }
 
@@ -128,7 +128,7 @@ public final class PlaybackStateCoordinator {
     #endif
   }
 
-  private func setupLifecycleObservers() {
+  nonisolated private func setupLifecycleObservers() {
     #if canImport(UIKit)
       // Save state when app goes to background
       didEnterBackgroundObserver = NotificationCenter.default.addObserver(
