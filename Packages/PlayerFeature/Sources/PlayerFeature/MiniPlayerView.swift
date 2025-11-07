@@ -25,50 +25,63 @@ public struct MiniPlayerView: View {
   public var body: some View {
     let state = viewModel.displayState
 
-    Group {
-      if state.isVisible, let episode = state.episode {
-        HStack(spacing: 12) {
-          artwork(for: episode)
+    ZStack(alignment: .top) {
+      Group {
+        if state.isVisible, let episode = state.episode {
+          HStack(spacing: 12) {
+            artwork(for: episode)
 
-          VStack(alignment: .leading, spacing: 4) {
-            Text(episode.title)
-              .font(.subheadline)
-              .fontWeight(.semibold)
-              .lineLimit(1)
-              .accessibilityIdentifier("Mini Player Episode Title")
-
-            if !episode.podcastTitle.isEmpty {
-              Text(episode.podcastTitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+              Text(episode.title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
                 .lineLimit(1)
-                .accessibilityIdentifier("Mini Player Podcast Title")
-            }
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("Mini Player Episode Title")
 
-          transportControls(state: state)
+              if !episode.podcastTitle.isEmpty {
+                Text(episode.podcastTitle)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .lineLimit(1)
+                  .accessibilityIdentifier("Mini Player Podcast Title")
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            transportControls(state: state)
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(.regularMaterial)
+          .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .shadow(radius: 4, y: 2)
+          .padding(.horizontal, 12)
+          .padding(.bottom, 4)
+          .contentShape(Rectangle())
+          .onTapGesture {
+            performHaptic()
+            onTapExpand()
+          }
+          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Mini Player")
+          .accessibilityLabel("Mini player showing \(episode.title)")
+          .accessibilityHint("Double-tap to open the full player")
+          .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+      }
+      .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
+
+      if let alert = viewModel.playbackAlert {
+        PlaybackAlertToastView(
+          alert: alert,
+          onPrimary: viewModel.performPrimaryAlertAction,
+          onSecondary: viewModel.performSecondaryAlertAction,
+          onDismiss: viewModel.dismissAlert
+        )
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(radius: 4, y: 2)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-          performHaptic()
-          onTapExpand()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Mini Player")
-        .accessibilityLabel("Mini player showing \(episode.title)")
-        .accessibilityHint("Double-tap to open the full player")
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .padding(.top, -8)
       }
     }
-    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
   }
 
   // MARK: - Subviews ---------------------------------------------------------
@@ -190,7 +203,10 @@ import PlaybackEngine
   )
 
   let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-  let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
+  let viewModel = MiniPlayerViewModel(
+    playbackService: stubPlayer,
+    alertPresenter: PlaybackAlertPresenter()
+  )
   stubPlayer.play(episode: episode, duration: episode.duration)
 
   return VStack {

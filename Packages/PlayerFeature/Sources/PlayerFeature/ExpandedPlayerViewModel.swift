@@ -9,6 +9,7 @@ import CombineSupport
 import CoreModels
 import Foundation
 import PlaybackEngine
+import SharedUtilities
 
 /// View model for the full-screen expanded player interface.
 @MainActor
@@ -20,6 +21,7 @@ public final class ExpandedPlayerViewModel: ObservableObject {
   @Published public private(set) var currentPosition: TimeInterval = 0
   @Published public private(set) var duration: TimeInterval = 0
   @Published public private(set) var isScrubbing: Bool = false
+  @Published public private(set) var playbackAlert: PlaybackAlertState?
 
   // MARK: - Computed Properties
 
@@ -39,13 +41,20 @@ public final class ExpandedPlayerViewModel: ObservableObject {
   // MARK: - Private Properties
 
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
+  private let alertPresenter: PlaybackAlertPresenter
   private var stateCancellable: AnyCancellable?
+  private var alertCancellable: AnyCancellable?
 
   // MARK: - Initialization
 
-  public init(playbackService: EpisodePlaybackService & EpisodeTransportControlling) {
+  public init(
+    playbackService: EpisodePlaybackService & EpisodeTransportControlling,
+    alertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter()
+  ) {
     self.playbackService = playbackService
+    self.alertPresenter = alertPresenter
     subscribeToPlaybackState()
+    subscribeToAlerts()
   }
 
   // MARK: - User Intents
@@ -86,6 +95,18 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     guard isScrubbing else { return }
     isScrubbing = false
     playbackService.seek(to: currentPosition)
+  }
+
+  public func dismissAlert() {
+    alertPresenter.dismissAlert()
+  }
+
+  public func performPrimaryAlertAction() {
+    alertPresenter.performPrimaryAction()
+  }
+
+  public func performSecondaryAlertAction() {
+    alertPresenter.performSecondaryAction()
   }
 
   // MARK: - Internal Helpers
@@ -140,5 +161,13 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     } else {
       return String(format: "%d:%02d", minutes, secs)
     }
+  }
+
+  private func subscribeToAlerts() {
+    alertCancellable = alertPresenter.$currentAlert
+      .receive(on: RunLoop.main)
+      .sink { [weak self] alert in
+        self?.playbackAlert = alert
+      }
   }
 }

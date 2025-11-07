@@ -23,7 +23,7 @@ public struct ExpandedPlayerView: View {
 
   public var body: some View {
     GeometryReader { geometry in
-      ZStack {
+      ZStack(alignment: .top) {
         // Background with gradient
         LinearGradient(
           colors: [
@@ -68,6 +68,17 @@ public struct ExpandedPlayerView: View {
         .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Expanded Player")
+
+        if let alert = viewModel.playbackAlert {
+          PlaybackAlertToastView(
+            alert: alert,
+            onPrimary: viewModel.performPrimaryAlertAction,
+            onSecondary: viewModel.performSecondaryAlertAction,
+            onDismiss: viewModel.dismissAlert
+          )
+          .padding(.horizontal, 24)
+          .padding(.top, geometry.safeAreaInsets.top + 16)
+        }
       }
     }
   }
@@ -344,7 +355,10 @@ public struct ExpandedPlayerView: View {
     )
 
     let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = ExpandedPlayerViewModel(playbackService: stubPlayer)
+    let viewModel = ExpandedPlayerViewModel(
+      playbackService: stubPlayer,
+      alertPresenter: PlaybackAlertPresenter()
+    )
     stubPlayer.play(episode: episode, duration: episode.duration)
 
     return ExpandedPlayerView(viewModel: viewModel)
@@ -367,7 +381,10 @@ public struct ExpandedPlayerView: View {
     )
 
     let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = ExpandedPlayerViewModel(playbackService: stubPlayer)
+    let viewModel = ExpandedPlayerViewModel(
+      playbackService: stubPlayer,
+      alertPresenter: PlaybackAlertPresenter()
+    )
     stubPlayer.play(episode: episode, duration: episode.duration)
     stubPlayer.pause()
 

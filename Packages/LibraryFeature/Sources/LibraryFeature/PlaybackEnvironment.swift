@@ -1,5 +1,6 @@
 import CoreModels
 import PlaybackEngine
+import SharedUtilities
 
 /// Provides a shared view of playback dependencies for iPhone, CarPlay, and Siri surfaces.
 @MainActor
@@ -36,5 +37,13 @@ public enum PlaybackEnvironment {
 
   public static var podcastManager: any PodcastManaging {
     dependencies.podcastManager
+  }
+
+  public static var playbackAlertPresenter: PlaybackAlertPresenter {
+    dependencies.playbackAlertPresenter
+  }
+
+  public static var playbackStateCoordinator: PlaybackStateCoordinator? {
+    dependencies.playbackStateCoordinator
   }
 }

@@ -9,6 +9,7 @@ import CombineSupport
 import CoreModels
 import Foundation
 import PlaybackEngine
+import SharedUtilities
 
 // MARK: - Display State ------------------------------------------------------
 
@@ -48,6 +49,7 @@ public final class MiniPlayerViewModel: ObservableObject {
   // MARK: - Published State
 
   @Published public private(set) var displayState: MiniPlayerDisplayState = .hidden
+  @Published public private(set) var playbackAlert: PlaybackAlertState?
 
   // MARK: - Convenience Accessors
 
@@ -61,17 +63,22 @@ public final class MiniPlayerViewModel: ObservableObject {
 
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
   private let queueIsEmpty: () -> Bool
+  private let alertPresenter: PlaybackAlertPresenter
   private var stateCancellable: AnyCancellable?
+  private var alertCancellable: AnyCancellable?
 
   // MARK: - Initialization
 
   public init(
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
-    queueIsEmpty: @escaping () -> Bool = { true }
+    queueIsEmpty: @escaping () -> Bool = { true },
+    alertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter()
   ) {
     self.playbackService = playbackService
     self.queueIsEmpty = queueIsEmpty
+    self.alertPresenter = alertPresenter
     subscribeToPlaybackState()
+    subscribeToAlerts()
   }
 
   // MARK: - User Intents
@@ -103,6 +110,18 @@ public final class MiniPlayerViewModel: ObservableObject {
 
   public func skipBackward(interval: TimeInterval? = nil) {
     playbackService.skipBackward(interval: interval)
+  }
+
+  public func dismissAlert() {
+    alertPresenter.dismissAlert()
+  }
+
+  public func performPrimaryAlertAction() {
+    alertPresenter.performPrimaryAction()
+  }
+
+  public func performSecondaryAlertAction() {
+    alertPresenter.performSecondaryAction()
   }
 
   // MARK: - Internal Helpers
@@ -151,5 +170,13 @@ public final class MiniPlayerViewModel: ObservableObject {
         )
       }
     }
+  }
+
+  private func subscribeToAlerts() {
+    alertCancellable = alertPresenter.$currentAlert
+      .receive(on: RunLoop.main)
+      .sink { [weak self] alert in
+        self?.playbackAlert = alert
+      }
   }
 }

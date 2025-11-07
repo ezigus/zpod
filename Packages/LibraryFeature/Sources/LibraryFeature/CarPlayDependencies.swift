@@ -2,6 +2,7 @@ import CoreModels
 import Foundation
 import PlaybackEngine
 import Persistence
+import SharedUtilities
 
 #if canImport(Combine)
   import CombineSupport
@@ -14,17 +15,20 @@ public struct CarPlayDependencies {
   public let playbackService: EpisodePlaybackService & EpisodeTransportControlling
   public let queueManager: CarPlayQueueManaging
   public let playbackStateCoordinator: PlaybackStateCoordinator?
+  public let playbackAlertPresenter: PlaybackAlertPresenter
 
   public init(
     podcastManager: any PodcastManaging,
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
     queueManager: CarPlayQueueManaging,
-    playbackStateCoordinator: PlaybackStateCoordinator? = nil
+    playbackStateCoordinator: PlaybackStateCoordinator? = nil,
+    playbackAlertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter()
   ) {
     self.podcastManager = podcastManager
     self.playbackService = playbackService
     self.queueManager = queueManager
     self.playbackStateCoordinator = playbackStateCoordinator
+    self.playbackAlertPresenter = playbackAlertPresenter
   }
 }
 
@@ -125,6 +129,7 @@ public enum CarPlayDependencyRegistry {
     let podcastManager = podcastManagerOverride ?? EmptyPodcastManager()
     let playback = EnhancedEpisodePlayer()
     let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
+    let alertPresenter = PlaybackAlertPresenter()
     
     // Create settings repository and playback state coordinator
     let settingsRepository = UserDefaultsSettingsRepository()
@@ -139,7 +144,8 @@ public enum CarPlayDependencyRegistry {
           }
         }
         return nil
-      }
+      },
+      alertPresenter: alertPresenter
     )
     
     // Restore playback state on initialization (asynchronous, non-blocking)
@@ -152,7 +158,8 @@ public enum CarPlayDependencyRegistry {
       podcastManager: podcastManager,
       playbackService: playback,
       queueManager: queueCoordinator,
-      playbackStateCoordinator: stateCoordinator
+      playbackStateCoordinator: stateCoordinator,
+      playbackAlertPresenter: alertPresenter
     )
   }
 }

@@ -13,6 +13,7 @@
   import CoreModels
   import PlaybackEngine
   import Persistence
+  import SharedUtilities
 
   final class PlaybackStateCoordinatorTests: XCTestCase {
 
@@ -21,6 +22,7 @@
     private var mockRepository: MockSettingsRepository!
     private var testEpisode: Episode!
     private var episodeLookupMap: [String: Episode] = [:]
+    private var alertPresenter: PlaybackAlertPresenter!
 
     @MainActor
     override func setUpWithError() throws {
@@ -38,13 +40,15 @@
       episodeLookupMap = [testEpisode.id: testEpisode]
       mockPlaybackService = MockEpisodePlaybackService()
       mockRepository = MockSettingsRepository()
+      alertPresenter = PlaybackAlertPresenter()
 
       coordinator = PlaybackStateCoordinator(
         playbackService: mockPlaybackService,
         settingsRepository: mockRepository,
         episodeLookup: { [weak self] id in
           return self?.episodeLookupMap[id]
-        }
+        },
+        alertPresenter: alertPresenter
       )
     }
 
@@ -56,6 +60,7 @@
       mockRepository = nil
       episodeLookupMap = [:]
       testEpisode = nil
+      alertPresenter = nil
     }
 
     // MARK: - Persistence Tests
@@ -200,6 +205,30 @@
       // Then: State should be cleared
       let savedState = await mockRepository.loadPlaybackResumeState()
       XCTAssertNil(savedState)
+    }
+
+    @MainActor
+    func testMissingEpisodeTriggersAlert() async throws {
+      let resumeState = PlaybackResumeState(
+        episodeId: "missing",
+        position: 100,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false
+      )
+      await mockRepository.savePlaybackResumeState(resumeState)
+
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 50_000_000)
+
+      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Episode Unavailable")
+    }
+
+    @MainActor
+    func testReportPlaybackErrorPublishesAlert() async throws {
+      coordinator.reportPlaybackError(.streamFailed)
+      try await Task.sleep(nanoseconds: 50_000_000)
+      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
     }
   }
 

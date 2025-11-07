@@ -15,6 +15,7 @@
   @testable import Persistence
   @testable import TestSupport
   import CombineSupport
+  import SharedUtilities
 
   /// Integration tests for playback state synchronization and persistence
   ///
@@ -35,6 +36,7 @@
     private var miniPlayerViewModel: MiniPlayerViewModel!
     private var expandedPlayerViewModel: ExpandedPlayerViewModel!
     private var testEpisode: Episode!
+    private var alertPresenter: PlaybackAlertPresenter!
 
     // MARK: - Setup & Teardown
 
@@ -68,8 +70,9 @@
       let ticker = self.ticker!
       let settingsRepository = self.settingsRepository!
 
-      let (service, coord, miniVM, expandedVM) = await MainActor.run {
+      let (service, coord, miniVM, expandedVM, presenter) = await MainActor.run {
         let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
+        let presenter = PlaybackAlertPresenter()
 
         // Setup coordinator
         let coord = PlaybackStateCoordinator(
@@ -77,24 +80,28 @@
           settingsRepository: settingsRepository,
           episodeLookup: { episodeId in
             return episodeId == testEpisode.id ? testEpisode : nil
-          }
+          },
+          alertPresenter: presenter
         )  // Setup view models
         let miniVM = MiniPlayerViewModel(
           playbackService: service,
-          queueIsEmpty: { true }
+          queueIsEmpty: { true },
+          alertPresenter: presenter
         )
 
         let expandedVM = ExpandedPlayerViewModel(
-          playbackService: service
+          playbackService: service,
+          alertPresenter: presenter
         )
 
-        return (service, coord, miniVM, expandedVM)
+        return (service, coord, miniVM, expandedVM, presenter)
       }
 
       playbackService = service
       coordinator = coord
       miniPlayerViewModel = miniVM
       expandedPlayerViewModel = expandedVM
+      alertPresenter = presenter
     }
 
     override func tearDown() {
@@ -107,6 +114,7 @@
       settingsRepository = nil
       podcastManager = nil
       testEpisode = nil
+      alertPresenter = nil
       super.tearDown()
     }
 
@@ -196,6 +204,27 @@
       XCTAssertEqual(expandedPlayerViewModel.episode?.id, testEpisode.id)
       XCTAssertEqual(expandedPlayerViewModel.currentPosition, 750, accuracy: 0.1)
       XCTAssertFalse(expandedPlayerViewModel.isPlaying)
+    }
+
+    @MainActor
+    func testMissingEpisodeShowsAlert() async throws {
+      let resumeState = PlaybackResumeState(
+        episodeId: "missing-episode",
+        position: 150,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false
+      )
+      await settingsRepository.savePlaybackResumeState(resumeState)
+
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      XCTAssertNotNil(miniPlayerViewModel.playbackAlert)
+      XCTAssertEqual(
+        miniPlayerViewModel.playbackAlert?.descriptor.title,
+        "Episode Unavailable"
+      )
     }
 
     @MainActor

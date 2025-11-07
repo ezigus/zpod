@@ -10,6 +10,7 @@ import CombineSupport
 import CoreModels
 import Foundation
 import PlaybackEngine
+import SharedUtilities
 
 // MARK: - Protocol
 
@@ -44,7 +45,16 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
   }
   
   public func quickPlayEpisode(_ episode: Episode) async {
-    guard let playbackService else { return }
+    guard let playbackService else {
+      PlaybackEnvironment.playbackStateCoordinator?.reportPlaybackError(
+        .streamFailed,
+        retryAction: { [weak self] in
+          guard let self else { return }
+          Task { await self.quickPlayEpisode(episode) }
+        }
+      )
+      return
+    }
     
     #if canImport(Combine)
       playbackStateCancellable?.cancel()

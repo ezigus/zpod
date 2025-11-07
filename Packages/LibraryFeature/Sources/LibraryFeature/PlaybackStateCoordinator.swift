@@ -10,6 +10,7 @@ import CoreModels
 import Foundation
 import Persistence
 import PlaybackEngine
+import SharedUtilities
 
 #if canImport(Combine)
   @preconcurrency import CombineSupport
@@ -28,6 +29,7 @@ public final class PlaybackStateCoordinator {
   private let playbackService: EpisodePlaybackService?
   private let settingsRepository: SettingsRepository
   private let episodeLookup: (String) async -> Episode?
+  private let alertPresenter: PlaybackAlertPresenter?
 
   nonisolated(unsafe) private var stateCancellable: AnyCancellable?
   private var currentEpisode: Episode?
@@ -45,11 +47,13 @@ public final class PlaybackStateCoordinator {
   public init(
     playbackService: EpisodePlaybackService?,
     settingsRepository: SettingsRepository,
-    episodeLookup: @escaping (String) async -> Episode?
+    episodeLookup: @escaping (String) async -> Episode?,
+    alertPresenter: PlaybackAlertPresenter? = nil
   ) {
     self.playbackService = playbackService
     self.settingsRepository = settingsRepository
     self.episodeLookup = episodeLookup
+    self.alertPresenter = alertPresenter
 
     setupPlaybackObserver()
     setupLifecycleObservers()
@@ -70,6 +74,7 @@ public final class PlaybackStateCoordinator {
     // Check if state is still valid (within 24 hours)
     guard resumeState.isValid else {
       await settingsRepository.clearPlaybackResumeState()
+      presentAlert(for: .resumeStateExpired)
       return
     }
 
@@ -77,6 +82,7 @@ public final class PlaybackStateCoordinator {
     guard let episode = await episodeLookup(resumeState.episodeId) else {
       // Episode no longer exists, clear state
       await settingsRepository.clearPlaybackResumeState()
+      presentAlert(for: .episodeUnavailable)
       return
     }
 
@@ -96,6 +102,14 @@ public final class PlaybackStateCoordinator {
     if let injector = playbackService as? EpisodePlaybackStateInjecting {
       injector.injectPlaybackState(restoredState)
     }
+  }
+
+  /// Report an explicit playback error that should be surfaced to the user.
+  public func reportPlaybackError(
+    _ error: PlaybackError,
+    retryAction: (() -> Void)? = nil
+  ) {
+    presentAlert(for: error, retryAction: retryAction)
   }
 
   /// Cleanup resources
@@ -210,5 +224,22 @@ public final class PlaybackStateCoordinator {
     )
 
     await settingsRepository.savePlaybackResumeState(resumeState)
+  }
+
+  private func presentAlert(
+    for error: PlaybackError,
+    retryAction: (() -> Void)? = nil
+  ) {
+    Task { @MainActor [weak self] in
+      guard let self else { return }
+      playbackService?.pause()
+      guard let presenter = alertPresenter else { return }
+      let descriptor = error.descriptor()
+      var action: PlaybackAlertAction?
+      if let retryAction {
+        action = PlaybackAlertAction(title: "Retry", handler: retryAction)
+      }
+      presenter.showAlert(descriptor, primaryAction: action)
+    }
   }
 }
