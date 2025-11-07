@@ -77,6 +77,7 @@
 
       // Capture values locally to avoid data race with `self` in closure
       let testEpisode = self.testEpisode!
+      let nextEpisode = self.nextEpisode!
       let ticker = self.ticker!
       let settingsRepository = self.settingsRepository!
 
