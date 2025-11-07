@@ -366,7 +366,7 @@
       queueAwareMini.$displayState
         .dropFirst()
         .sink { state in
-          if state.currentEpisode?.id == self.nextEpisode.id, state.isPlaying {
+          if state.episode?.id == self.nextEpisode.id, state.isPlaying {
             miniExpectation.fulfill()
           }
         }
@@ -428,7 +428,7 @@
       queueAwareMini.$displayState
         .dropFirst()
         .sink { state in
-          if state.currentEpisode?.id == self.testEpisode.id {
+          if state.episode?.id == self.testEpisode.id {
             secondTransition.fulfill()
           }
         }
