@@ -187,9 +187,15 @@
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 200_000_000)
 
-      // Then: State should be restored (but not auto-playing)
-      // Note: In the current implementation, we don't auto-play on restore
-      // The coordinator loads the state but doesn't automatically start playback
+      // Then: UI surfaces should reflect the restored episode
+      XCTAssertTrue(miniPlayerViewModel.isVisible)
+      XCTAssertEqual(miniPlayerViewModel.currentEpisode?.id, testEpisode.id)
+      XCTAssertEqual(miniPlayerViewModel.currentPosition, 750, accuracy: 0.1)
+      XCTAssertFalse(miniPlayerViewModel.isPlaying)
+
+      XCTAssertEqual(expandedPlayerViewModel.episode?.id, testEpisode.id)
+      XCTAssertEqual(expandedPlayerViewModel.currentPosition, 750, accuracy: 0.1)
+      XCTAssertFalse(expandedPlayerViewModel.isPlaying)
     }
 
     @MainActor

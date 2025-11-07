@@ -86,12 +86,15 @@ public final class PlaybackStateCoordinator {
     currentDuration = resumeState.duration
     isPlaying = false  // Don't auto-play on restore
 
-    // If we should resume playing, do so
-    if resumeState.isPlaying {
-      playbackService?.play(episode: episode, duration: resumeState.duration)
-      if let transportControl = playbackService as? EpisodeTransportControlling {
-        transportControl.seek(to: resumeState.position)
-      }
+    // Surface restored state to playback observers so UI reflects last session
+    let restoredState = EpisodePlaybackState.paused(
+      episode,
+      position: resumeState.position,
+      duration: resumeState.duration
+    )
+
+    if let injector = playbackService as? EpisodePlaybackStateInjecting {
+      injector.injectPlaybackState(restoredState)
     }
   }
 

@@ -149,7 +149,14 @@
       try await Task.sleep(nanoseconds: 100_000_000)
 
       // Then: Episode should be available for playback
-      // Note: We don't auto-play on restore, just load the state
+      let injectedState = mockPlaybackService.injectedStates.last
+      guard case .paused(let injectedEpisode, let position, let duration)? = injectedState else {
+        XCTFail("Expected injected paused state")
+        return
+      }
+      XCTAssertEqual(injectedEpisode.id, testEpisode.id)
+      XCTAssertEqual(position, 500, accuracy: 0.1)
+      XCTAssertEqual(duration, 1800, accuracy: 0.1)
     }
 
     @MainActor
@@ -304,10 +311,11 @@
 
   // MARK: - Mock Playback Service
 
-  private class MockEpisodePlaybackService: EpisodePlaybackService {
+  private class MockEpisodePlaybackService: EpisodePlaybackService, EpisodePlaybackStateInjecting {
     var playWasCalled = false
     var lastPlayedEpisode: Episode?
     var lastPlayedDuration: TimeInterval?
+    var injectedStates: [EpisodePlaybackState] = []
 
     private let stateSubject = PassthroughSubject<EpisodePlaybackState, Never>()
 
@@ -326,6 +334,11 @@
     }
 
     func sendState(_ state: EpisodePlaybackState) {
+      stateSubject.send(state)
+    }
+
+    func injectPlaybackState(_ state: EpisodePlaybackState) {
+      injectedStates.append(state)
       stateSubject.send(state)
     }
   }

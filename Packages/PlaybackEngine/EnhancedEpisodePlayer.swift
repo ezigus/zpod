@@ -303,3 +303,44 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     #endif
   }
 }
+
+extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {
+  public func injectPlaybackState(_ state: EpisodePlaybackState) {
+    switch state {
+    case .idle(let episode):
+      hydrateState(
+        with: episode,
+        position: 0,
+        duration: resolveDuration(for: episode, override: episode.duration),
+        isPlaying: false
+      )
+      emitState(.idle(episode))
+
+    case .playing(let episode, let position, let duration):
+      hydrateState(with: episode, position: position, duration: duration, isPlaying: true)
+      emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+
+    case .paused(let episode, let position, let duration):
+      hydrateState(with: episode, position: position, duration: duration, isPlaying: false)
+      emitState(.paused(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+
+    case .finished(let episode, let duration):
+      hydrateState(with: episode, position: duration, duration: duration, isPlaying: false)
+      emitState(.finished(episodeSnapshot(), duration: currentDuration))
+    }
+  }
+
+  private func hydrateState(
+    with episode: Episode,
+    position: TimeInterval,
+    duration: TimeInterval,
+    isPlaying: Bool
+  ) {
+    currentEpisode = episode
+    currentDuration = max(duration, 0)
+    currentPosition = clampPosition(position)
+    self.isPlaying = isPlaying
+    chapters = resolveChapters(for: episode, duration: currentDuration)
+    updateCurrentChapterIndex()
+  }
+}
