@@ -354,8 +354,9 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       playbackService.injectPlaybackState(.finished(testEpisode, duration: 1800))
-      try await Task.sleep(nanoseconds: 200_000_000)
-      try await Task.sleep(nanoseconds: 200_000_000)  // Allow queue to advance play state
+      try await waitForCondition(timeout: 2.0) {
+        queueAwareMini.currentEpisode?.id == nextEpisode.id
+      }
 
       XCTAssertEqual(queueAwareMini.currentEpisode?.id, nextEpisode.id)
       XCTAssertTrue(queueAwareMini.isPlaying)
@@ -384,10 +385,14 @@
       )
 
       queueCoordinator.playNow(nextEpisode)
-      try await Task.sleep(nanoseconds: 200_000_000)
+      try await waitForCondition {
+        expandedPlayerViewModel.episode?.id == nextEpisode.id
+      }
 
       queueCoordinator.playNow(testEpisode)
-      try await Task.sleep(nanoseconds: 200_000_000)
+      try await waitForCondition {
+        queueAwareMini.currentEpisode?.id == testEpisode.id
+      }
 
       XCTAssertEqual(queueAwareMini.currentEpisode?.id, testEpisode.id)
       XCTAssertTrue(queueAwareMini.isVisible)
@@ -405,7 +410,9 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       playbackService.failPlayback(error: .streamFailed)
-      try await Task.sleep(nanoseconds: 200_000_000)
+      try await waitForCondition {
+        miniPlayerViewModel.playbackAlert != nil
+      }
 
       XCTAssertEqual(miniPlayerViewModel.playbackAlert?.descriptor.title, "Playback Failed")
       XCTAssertFalse(miniPlayerViewModel.isPlaying)
@@ -534,6 +541,23 @@
     private func removeContinuation(id: UUID) {
       changeContinuations.removeValue(forKey: id)
     }
+  }
+
+  // MARK: - Helpers
+
+  @MainActor
+  private func waitForCondition(
+    timeout: TimeInterval = 1.0,
+    pollInterval: TimeInterval = 0.05,
+    condition: () -> Bool
+  ) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      if condition() { return }
+      try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+      await Task.yield()
+    }
+    XCTFail("Timed out waiting for condition")
   }
 
 #endif
