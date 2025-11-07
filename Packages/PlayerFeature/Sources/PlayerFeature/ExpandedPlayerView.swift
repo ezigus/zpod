@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import SharedUtilities
 import SwiftUI
 
 #if canImport(UIKit)
@@ -361,7 +362,7 @@ public struct ExpandedPlayerView: View {
     )
     stubPlayer.play(episode: episode, duration: episode.duration)
 
-    return ExpandedPlayerView(viewModel: viewModel)
+    ExpandedPlayerView(viewModel: viewModel)
       .preferredColorScheme(.dark)
   }
 
@@ -388,7 +389,7 @@ public struct ExpandedPlayerView: View {
     stubPlayer.play(episode: episode, duration: episode.duration)
     stubPlayer.pause()
 
-    return ExpandedPlayerView(viewModel: viewModel)
+    ExpandedPlayerView(viewModel: viewModel)
       .preferredColorScheme(.dark)
   }
 #endif

@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import SharedUtilities
 import SwiftUI
 
 #if canImport(UIKit)
@@ -209,7 +210,7 @@ import PlaybackEngine
   )
   stubPlayer.play(episode: episode, duration: episode.duration)
 
-  return VStack {
+  VStack {
     Spacer()
 
     MiniPlayerView(viewModel: viewModel) {
