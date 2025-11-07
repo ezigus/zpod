@@ -163,10 +163,11 @@ struct PlaybackResumePersistenceTests {
     let task = Task {
       for await change in stream {
         receivedChange = change
-        expectation.fulfill()
+        await expectation.fulfill()
         break
       }
     }
+    await Task.yield()
     
     // When: Saving a resume state
     let resumeState = PlaybackResumeState(
@@ -214,10 +215,11 @@ struct PlaybackResumePersistenceTests {
     let task = Task {
       for await change in stream {
         receivedChange = change
-        expectation.fulfill()
+        await expectation.fulfill()
         break
       }
     }
+    await Task.yield()
     
     // When: Clearing the state
     await repository.clearPlaybackResumeState()
