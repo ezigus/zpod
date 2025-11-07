@@ -36,6 +36,7 @@
     private var miniPlayerViewModel: MiniPlayerViewModel!
     private var expandedPlayerViewModel: ExpandedPlayerViewModel!
     private var testEpisode: Episode!
+    private var nextEpisode: Episode!
     private var alertPresenter: PlaybackAlertPresenter!
 
     // MARK: - Setup & Teardown
@@ -50,6 +51,15 @@
         pubDate: Date(),
         duration: 3600,
         audioURL: URL(string: "https://example.com/test.mp3")!
+      )
+
+      nextEpisode = Episode(
+        id: "test-episode-next",
+        title: "Next Episode",
+        podcastID: "test-podcast",
+        pubDate: Date(),
+        duration: 2400,
+        audioURL: URL(string: "https://example.com/next.mp3")!
       )
 
       // Setup podcast manager with test podcast
@@ -79,7 +89,9 @@
           playbackService: service,
           settingsRepository: settingsRepository,
           episodeLookup: { episodeId in
-            return episodeId == testEpisode.id ? testEpisode : nil
+            if episodeId == testEpisode.id { return testEpisode }
+            if episodeId == nextEpisode.id { return nextEpisode }
+            return nil
           },
           alertPresenter: presenter
         )  // Setup view models
@@ -114,6 +126,7 @@
       settingsRepository = nil
       podcastManager = nil
       testEpisode = nil
+      nextEpisode = nil
       alertPresenter = nil
       super.tearDown()
     }
@@ -316,6 +329,86 @@
       // Then: Resume state should be cleared
       resumeState = await settingsRepository.loadPlaybackResumeState()
       XCTAssertNil(resumeState)
+    }
+
+    // MARK: - Queue Synchronization Tests
+
+    @MainActor
+    func testQueueAdvanceKeepsPlayersInSync() async throws {
+      let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playbackService)
+      queueCoordinator.enqueue(nextEpisode)
+
+      let queueAwareMini = MiniPlayerViewModel(
+        playbackService: playbackService,
+        queueIsEmpty: { queueCoordinator.queuedEpisodes.isEmpty },
+        alertPresenter: alertPresenter
+      )
+
+      let queueAwareExpanded = ExpandedPlayerViewModel(
+        playbackService: playbackService,
+        alertPresenter: alertPresenter
+      )
+
+      playbackService.play(episode: testEpisode, duration: 1800)
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      playbackService.injectPlaybackState(.finished(testEpisode, duration: 1800))
+      try await Task.sleep(nanoseconds: 200_000_000)
+      try await Task.sleep(nanoseconds: 200_000_000)  // Allow queue to advance play state
+
+      XCTAssertEqual(queueAwareMini.currentEpisode?.id, nextEpisode.id)
+      XCTAssertTrue(queueAwareMini.isPlaying)
+      XCTAssertEqual(queueAwareExpanded.episode?.id, nextEpisode.id)
+      XCTAssertTrue(queueAwareExpanded.isPlaying)
+
+      _ = queueAwareMini
+      _ = queueAwareExpanded
+    }
+
+    @MainActor
+    func testQueuePlayNowTransitionsToPreviousEpisode() async throws {
+      let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playbackService)
+      queueCoordinator.enqueue(testEpisode)
+      queueCoordinator.enqueue(nextEpisode)
+
+      let queueAwareMini = MiniPlayerViewModel(
+        playbackService: playbackService,
+        queueIsEmpty: { queueCoordinator.queuedEpisodes.isEmpty },
+        alertPresenter: alertPresenter
+      )
+
+      let queueAwareExpanded = ExpandedPlayerViewModel(
+        playbackService: playbackService,
+        alertPresenter: alertPresenter
+      )
+
+      queueCoordinator.playNow(nextEpisode)
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      queueCoordinator.playNow(testEpisode)
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      XCTAssertEqual(queueAwareMini.currentEpisode?.id, testEpisode.id)
+      XCTAssertTrue(queueAwareMini.isVisible)
+      XCTAssertEqual(queueAwareExpanded.episode?.id, testEpisode.id)
+      XCTAssertTrue(queueAwareExpanded.isPlaying)
+    }
+
+    // MARK: - Failure Handling Tests
+
+    @MainActor
+    func testStreamFailureSurfacesAlertAndPausesPlayback() async throws {
+      playbackService.play(episode: testEpisode, duration: 2400)
+      try await Task.sleep(nanoseconds: 200_000_000)
+      playbackService.seek(to: 300)
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      playbackService.failPlayback(error: .streamFailed)
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      XCTAssertEqual(miniPlayerViewModel.playbackAlert?.descriptor.title, "Playback Failed")
+      XCTAssertFalse(miniPlayerViewModel.isPlaying)
+      XCTAssertFalse(expandedPlayerViewModel.isPlaying)
     }
   }
 

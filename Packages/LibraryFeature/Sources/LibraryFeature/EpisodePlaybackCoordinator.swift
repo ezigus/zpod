@@ -85,6 +85,8 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
       updateEpisodePlayback(for: episode, position: position, markPlayed: false)
     case .finished(let episode, let duration):
       updateEpisodePlayback(for: episode, position: duration, markPlayed: true)
+    case .failed(let episode, let position, duration: _, error: _):
+      updateEpisodePlayback(for: episode, position: position, markPlayed: false)
     }
   }
   

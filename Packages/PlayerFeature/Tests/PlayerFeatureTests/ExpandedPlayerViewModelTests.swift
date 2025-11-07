@@ -9,6 +9,7 @@ import Foundation
 import CombineSupport
 import CoreModels
 import PlaybackEngine
+import SharedUtilities
 import Testing
 @testable import PlayerFeature
 
@@ -61,6 +62,25 @@ struct ExpandedPlayerViewModelTests {
     #expect(viewModel.isPlaying == false)
     #expect(viewModel.episode?.id == "paused-1")
     #expect(viewModel.duration == 1200)
+  }
+
+  @Test("Expanded player reflects failure state with latest position")
+  func testFailureState() async throws {
+    let episode = sampleEpisode(id: "failed-1")
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    service.play(episode: episode, duration: 1500)
+    try await waitForStateUpdate()
+    service.seek(to: 300)
+    try await waitForStateUpdate()
+
+    service.fail()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.isPlaying == false)
+    #expect(viewModel.currentPosition == 300)
+    #expect(viewModel.duration == 1500)
   }
 
   @Test("Expanded player tracks position updates during playback")
@@ -317,6 +337,7 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
   private let subject: CurrentValueSubject<EpisodePlaybackState, Never>
   private(set) var currentEpisode: Episode?
   private var currentDuration: TimeInterval = 0
+  private var currentPosition: TimeInterval = 0
 
   var playCallCount = 0
   var pauseCallCount = 0
@@ -339,13 +360,14 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
     playCallCount += 1
     currentEpisode = episode
     currentDuration = maybeDuration ?? episode.duration ?? 300
-    subject.send(.playing(episode, position: 0, duration: currentDuration))
+    currentPosition = 0
+    subject.send(.playing(episode, position: currentPosition, duration: currentDuration))
   }
 
   func pause() {
     pauseCallCount += 1
     guard let episode = currentEpisode else { return }
-    subject.send(.paused(episode, position: 0, duration: currentDuration))
+    subject.send(.paused(episode, position: currentPosition, duration: currentDuration))
   }
 
   func skipForward(interval: TimeInterval?) {
@@ -360,7 +382,8 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
     seekCallCount += 1
     lastSeekPosition = position
     guard let episode = currentEpisode else { return }
-    subject.send(.playing(episode, position: position, duration: currentDuration))
+    currentPosition = position
+    subject.send(.playing(episode, position: currentPosition, duration: currentDuration))
   }
 
   func finish() {
@@ -370,5 +393,10 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
 
   func emit(_ state: EpisodePlaybackState) {
     subject.send(state)
+  }
+
+  func fail(error: PlaybackError = .streamFailed) {
+    let episode = currentEpisode ?? Episode(id: "failure", title: "Failure")
+    subject.send(.failed(episode, position: currentPosition, duration: currentDuration, error: error))
   }
 }

@@ -230,6 +230,19 @@
       try await Task.sleep(nanoseconds: 50_000_000)
       XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
     }
+
+    @MainActor
+    func testStreamFailureStatePersistsPositionAndShowsAlert() async throws {
+      let position: TimeInterval = 420
+      mockPlaybackService.sendState(
+        .failed(testEpisode, position: position, duration: 1800, error: .streamFailed)
+      )
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertEqual(savedState?.position, position)
+      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
+    }
   }
 
   // MARK: - Mock Settings Repository

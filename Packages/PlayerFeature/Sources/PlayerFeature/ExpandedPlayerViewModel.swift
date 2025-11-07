@@ -147,6 +147,11 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = false
       self.currentPosition = duration
       self.duration = duration
+    case .failed(let episode, let position, let duration, _):
+      self.episode = episode
+      self.isPlaying = false
+      self.currentPosition = position
+      self.duration = duration
     }
   }
 

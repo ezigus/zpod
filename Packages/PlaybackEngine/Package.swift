@@ -25,7 +25,8 @@ let package = Package(
       name: "PlaybackEngine",
       dependencies: [
         "CoreModels",
-        "CombineSupport"
+        "CombineSupport",
+        "SharedUtilities"
       ],
       path: ".",
       exclude: ["Package.swift", "Tests"]

@@ -201,6 +201,16 @@ public final class PlaybackStateCoordinator {
       isPlaying = false
       // Clear resume state when finished
       await settingsRepository.clearPlaybackResumeState()
+    case .failed(let episode, let position, let duration, let error):
+      currentEpisode = episode
+      currentPosition = position
+      currentDuration = duration
+      isPlaying = false
+      await persistCurrentState()
+      presentAlert(
+        for: error,
+        retryAction: makeRetryAction(for: episode, position: position, duration: duration)
+      )
     }
   }
 
@@ -240,6 +250,24 @@ public final class PlaybackStateCoordinator {
         action = PlaybackAlertAction(title: "Retry", handler: retryAction)
       }
       presenter.showAlert(descriptor, primaryAction: action)
+    }
+  }
+
+  private func makeRetryAction(
+    for episode: Episode,
+    position: TimeInterval,
+    duration: TimeInterval
+  ) -> (() -> Void)? {
+    guard playbackService != nil else { return nil }
+
+    return { [weak self] in
+      Task { @MainActor [weak self] in
+        guard let self, let playbackService else { return }
+        playbackService.play(episode: episode, duration: duration)
+        if position > 0, let transport = playbackService as? EpisodeTransportControlling {
+          transport.seek(to: position)
+        }
+      }
     }
   }
 }

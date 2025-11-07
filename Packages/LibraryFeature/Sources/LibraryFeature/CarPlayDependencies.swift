@@ -85,7 +85,7 @@ public final class CarPlayPlaybackCoordinator: CarPlayQueueManaging {
       case .idle:
         // If playback idles (e.g., user stopped), keep queue as-is.
         break
-      case .playing, .paused:
+      case .playing, .paused, .failed:
         break
       }
     }

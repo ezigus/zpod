@@ -169,6 +169,14 @@ public final class MiniPlayerViewModel: ObservableObject {
           duration: duration
         )
       }
+    case .failed(let episode, let position, let duration, _):
+      displayState = MiniPlayerDisplayState(
+        isVisible: true,
+        isPlaying: false,
+        episode: episode,
+        currentPosition: position,
+        duration: duration
+      )
     }
   }
 
