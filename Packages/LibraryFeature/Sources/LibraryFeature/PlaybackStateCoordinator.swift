@@ -258,14 +258,15 @@ public final class PlaybackStateCoordinator {
     position: TimeInterval,
     duration: TimeInterval
   ) -> (() -> Void)? {
-    guard playbackService != nil else { return nil }
+    guard let service = playbackService else { return nil }
+    let transport = service as? EpisodeTransportControlling
 
     return { [weak self] in
-      Task { @MainActor [weak self] in
-        guard let self, let playbackService else { return }
-        playbackService.play(episode: episode, duration: duration)
-        if position > 0, let transport = playbackService as? EpisodeTransportControlling {
-          transport.seek(to: position)
+      Task { @MainActor in
+        guard self != nil else { return }
+        service.play(episode: episode, duration: duration)
+        if position > 0 {
+          transport?.seek(to: position)
         }
       }
     }
