@@ -51,6 +51,16 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       "Discover screen should load after tapping tab")
   }
 
+  private func rssURLField(in app: XCUIApplication) -> XCUIElement {
+    let identifierField = app.textFields["rss-url-field"]
+    if identifierField.exists {
+      return identifierField
+    }
+
+    return app.textFields.matching(
+      NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
+  }
+
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
   // Given/When/Then: Basic Podcast Search and Discovery
 
@@ -327,9 +337,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       else { return }
 
       // And should contain URL input field
-      let urlField = app.textFields.matching(
-        NSPredicate(format: "placeholderValue CONTAINS 'https://'")
-      ).firstMatch
+      let urlField = rssURLField(in: app)
       XCTAssertTrue(
         waitForElement(
           urlField,
@@ -430,9 +438,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         )
       else { return }
 
-      let urlField = app.textFields.matching(
-        NSPredicate(format: "placeholderValue CONTAINS 'https://'")
-      ).firstMatch
+      let urlField = rssURLField(in: app)
       guard
         waitForElement(
           urlField,
