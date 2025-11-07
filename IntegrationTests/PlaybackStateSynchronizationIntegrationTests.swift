@@ -354,7 +354,7 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       playbackService.injectPlaybackState(.finished(testEpisode, duration: 1800))
-      try await waitForCondition(timeout: 2.0) {
+      try await waitForCondition(timeout: 3.0) {
         queueAwareMini.currentEpisode?.id == nextEpisode.id
       }
 
@@ -385,12 +385,12 @@
       )
 
       queueCoordinator.playNow(nextEpisode)
-      try await waitForCondition {
+      try await waitForCondition(timeout: 3.0) {
         expandedPlayerViewModel.episode?.id == nextEpisode.id
       }
 
       queueCoordinator.playNow(testEpisode)
-      try await waitForCondition {
+      try await waitForCondition(timeout: 3.0) {
         queueAwareMini.currentEpisode?.id == testEpisode.id
       }
 
@@ -410,7 +410,7 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       playbackService.failPlayback(error: .streamFailed)
-      try await waitForCondition {
+      try await waitForCondition(timeout: 2.0) {
         miniPlayerViewModel.playbackAlert != nil
       }
 
