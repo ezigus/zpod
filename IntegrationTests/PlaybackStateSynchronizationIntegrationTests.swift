@@ -356,6 +356,9 @@
       // When: Episode finishes and queue advances
       playbackService.injectPlaybackState(.finished(testEpisode, duration: 1800))
 
+      // Allow run loop to process state updates (Combine uses .receive(on: RunLoop.main))
+      try await Task.sleep(nanoseconds: 100_000_000)
+
       // Then: Wait for both players to advance to next episode
       try await waitForCondition(timeout: 3.0) {
         queueAwareMini.displayState.episode?.id == self.nextEpisode.id && queueAwareMini.isPlaying
@@ -394,6 +397,9 @@
       // When: Play next episode
       queueCoordinator.playNow(nextEpisode)
 
+      // Allow run loop to process state updates
+      try await Task.sleep(nanoseconds: 100_000_000)
+
       // Then: Both players transition to next episode
       try await waitForCondition(timeout: 3.0) {
         queueAwareExpanded.episode?.id == self.nextEpisode.id
@@ -403,6 +409,9 @@
 
       // When: Play test episode
       queueCoordinator.playNow(testEpisode)
+
+      // Allow run loop to process state updates
+      try await Task.sleep(nanoseconds: 100_000_000)
 
       // Then: Both players transition back to test episode
       try await waitForCondition(timeout: 3.0) {
@@ -445,14 +454,22 @@
       pollingInterval: TimeInterval = 0.05,
       condition: @escaping () -> Bool
     ) async throws {
-      let deadline = Date().addingTimeInterval(timeout)
+      // Apply timeout scaling for CI environments (slower simulators)
+      let timeoutScale =
+        ProcessInfo.processInfo.environment["UITEST_TIMEOUT_SCALE"]
+        .flatMap { Double($0) } ?? 1.0
+      let scaledTimeout = timeout * timeoutScale
+
+      let deadline = Date().addingTimeInterval(scaledTimeout)
       while Date() < deadline {
         if condition() {
           return
         }
         try await Task.sleep(nanoseconds: UInt64(pollingInterval * 1_000_000_000))
       }
-      XCTFail("Timeout waiting for condition after \(timeout) seconds")
+      XCTFail(
+        "Timeout waiting for condition after \(scaledTimeout) seconds (base: \(timeout)s, scale: \(timeoutScale)x)"
+      )
     }
   }
 
