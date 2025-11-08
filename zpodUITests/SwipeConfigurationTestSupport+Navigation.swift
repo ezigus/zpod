@@ -239,9 +239,9 @@ extension SwipeConfigurationTestCase {
       return preferredEpisode
     }
 
-    let fallbackEpisode = app.buttons
-      .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
-      .firstMatch
+    let fallbackEpisode = app.buttons.matching(
+      NSPredicate(format: "identifier CONTAINS 'Episode-'")
+    ).firstMatch
 
     guard fallbackEpisode.exists else {
       throw XCTSkip("No episode button available for swipe configuration testing")
