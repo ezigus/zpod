@@ -9,7 +9,32 @@ import Foundation
 import XCTest
 
 extension SwipeConfigurationTestCase {
+  // MARK: - Utilities
+
+  func element(withIdentifier identifier: String) -> XCUIElement {
+    app.descendants(matching: .any)[identifier]
+  }
+
   // MARK: - Action Management
+
+  @MainActor
+  func configurePlaybackLayoutManually() {
+    _ = removeAction("Mark Played", edgeIdentifier: "Leading")
+    _ = removeAction("Delete", edgeIdentifier: "Trailing")
+    _ = removeAction("Archive", edgeIdentifier: "Trailing")
+
+    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"), "Failed to add Play action")
+    XCTAssertTrue(
+      addAction("Add to Playlist", edgeIdentifier: "Leading"),
+      "Failed to add Add to Playlist action")
+
+    if !addAction("Download", edgeIdentifier: "Trailing") {
+      logger.warning("Failed to add Download trailing action")
+    }
+    if !addAction("Favorite", edgeIdentifier: "Trailing") {
+      logger.warning("Failed to add Favorite trailing action")
+    }
+  }
 
   @MainActor
   @discardableResult
@@ -236,6 +261,21 @@ extension SwipeConfigurationTestCase {
     }
 
     return byId
+  }
+
+  func ensureVisibleInSheet(identifier: String, container: XCUIElement) -> Bool {
+    let target = element(withIdentifier: identifier, within: container)
+    if target.exists { return true }
+
+    if container.exists {
+      container.swipeUp()
+      if target.exists { return true }
+      container.swipeDown()
+      if target.exists { return true }
+      container.swipeDown()
+    }
+
+    return target.exists
   }
 
   // MARK: - Toggle & Haptics Handling

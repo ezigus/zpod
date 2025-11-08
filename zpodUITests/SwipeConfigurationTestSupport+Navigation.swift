@@ -211,10 +211,41 @@ extension SwipeConfigurationTestCase {
     _ = waitForElementToDisappear(navBar, timeout: adaptiveTimeout)
   }
 
+  @MainActor
+  func saveAndDismissConfiguration() {
+    let saveButton = element(withIdentifier: "SwipeActions.Save")
+    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button")
+    else {
+      return
+    }
+    logDebugState("before save")
+    _ = waitForSaveButton(enabled: true)
+    saveButton.tap()
+    waitForSheetDismissal()
+    logDebugState("after save (sheet dismissed)")
+  }
+
   func dismissConfigurationSheetIfNeeded() {
     let cancelButton = app.buttons["SwipeActions.Cancel"]
     guard cancelButton.waitForExistence(timeout: adaptiveShortTimeout) else { return }
     tapElement(cancelButton, description: "SwipeActions.Cancel")
     _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
+  }
+
+  @MainActor
+  func requireEpisodeButton() throws -> XCUIElement {
+    let preferredEpisode = app.buttons["Episode-st-001"]
+    if preferredEpisode.exists {
+      return preferredEpisode
+    }
+
+    let fallbackEpisode = app.buttons
+      .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
+      .firstMatch
+
+    guard fallbackEpisode.exists else {
+      throw XCTSkip("No episode button available for swipe configuration testing")
+    }
+    return fallbackEpisode
   }
 }
