@@ -11,8 +11,12 @@ import XCTest
 extension SwipeConfigurationTestCase {
   // MARK: - Utilities
 
+  @MainActor
   func element(withIdentifier identifier: String) -> XCUIElement {
-    app.descendants(matching: .any)[identifier]
+    if let prioritized = prioritizedElement(in: app, identifier: identifier) {
+      return prioritized
+    }
+    return app.descendants(matching: .any)[identifier]
   }
 
   // MARK: - Action Management
@@ -263,6 +267,7 @@ extension SwipeConfigurationTestCase {
     return byId
   }
 
+  @MainActor
   func ensureVisibleInSheet(identifier: String, container: XCUIElement) -> Bool {
     let target = element(withIdentifier: identifier, within: container)
     if target.exists { return true }

@@ -214,6 +214,23 @@ extension SwipeConfigurationTestCase {
     attachment.lifetime = .keepAlways
     add(attachment)
   }
+
+  @MainActor
+  func reportAvailableSwipeIdentifiers(context: String, within container: XCUIElement) {
+    let descendants = container.descendants(matching: .any).allElementsBoundByAccessibilityElement
+    let filtered = descendants.filter { element in
+      let id = element.identifier
+      return !id.isEmpty && (id.hasPrefix("SwipeActions.") || id.hasPrefix("SwipeAction."))
+    }
+    guard !filtered.isEmpty else { return }
+
+    let identifiers = Set(filtered.map { $0.identifier }).sorted()
+    let summary = (["Context: \(context) [scoped]"] + identifiers).joined(separator: "\n")
+    let attachment = XCTAttachment(string: summary)
+    attachment.name = "Swipe Identifier Snapshot (Scoped)"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+  }
 }
 
 struct SwipeDebugState {
