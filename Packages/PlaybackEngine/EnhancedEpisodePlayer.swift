@@ -1,5 +1,6 @@
 import CoreModels
 @preconcurrency import Foundation
+import SharedUtilities
 
 #if canImport(Combine)
   @preconcurrency import CombineSupport
@@ -97,6 +98,22 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
           ? .playing(snapshot, position: currentPosition, duration: currentDuration)
           : .paused(snapshot, position: currentPosition, duration: currentDuration))
     }
+  }
+
+  // MARK: - Error Handling
+
+  public func failPlayback(error: PlaybackError = .streamFailed) {
+    guard currentEpisode != nil else { return }
+    isPlaying = false
+    let snapshot = persistPlaybackPosition()
+    emitState(
+      .failed(
+        snapshot,
+        position: currentPosition,
+        duration: currentDuration,
+        error: error
+      )
+    )
   }
 
   // MARK: - Advanced Controls
@@ -301,5 +318,56 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     #if canImport(Combine)
       stateSubject.send(state)
     #endif
+  }
+}
+
+extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {
+  public func injectPlaybackState(_ state: EpisodePlaybackState) {
+    switch state {
+    case .idle(let episode):
+      hydrateState(
+        with: episode,
+        position: 0,
+        duration: resolveDuration(for: episode, override: episode.duration),
+        isPlaying: false
+      )
+      emitState(.idle(episode))
+
+    case .playing(let episode, let position, let duration):
+      hydrateState(with: episode, position: position, duration: duration, isPlaying: true)
+      emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+
+    case .paused(let episode, let position, let duration):
+      hydrateState(with: episode, position: position, duration: duration, isPlaying: false)
+      emitState(.paused(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+
+    case .finished(let episode, let duration):
+      hydrateState(with: episode, position: duration, duration: duration, isPlaying: false)
+      emitState(.finished(episodeSnapshot(), duration: currentDuration))
+    case .failed(let episode, let position, let duration, let error):
+      hydrateState(with: episode, position: position, duration: duration, isPlaying: false)
+      emitState(
+        .failed(
+          episodeSnapshot(),
+          position: currentPosition,
+          duration: currentDuration,
+          error: error
+        )
+      )
+    }
+  }
+
+  private func hydrateState(
+    with episode: Episode,
+    position: TimeInterval,
+    duration: TimeInterval,
+    isPlaying: Bool
+  ) {
+    currentEpisode = episode
+    currentDuration = max(duration, 0)
+    currentPosition = clampPosition(position)
+    self.isPlaying = isPlaying
+    chapters = resolveChapters(for: episode, duration: currentDuration)
+    updateCurrentChapterIndex()
   }
 }

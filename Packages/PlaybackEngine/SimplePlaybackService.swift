@@ -3,6 +3,7 @@
 #endif
 import Foundation
 import CoreModels
+import SharedUtilities
 
 /// Represents playback lifecycle states for an episode.
 public enum EpisodePlaybackState: Equatable, Sendable {
@@ -10,6 +11,13 @@ public enum EpisodePlaybackState: Equatable, Sendable {
   case playing(Episode, position: TimeInterval, duration: TimeInterval)
   case paused(Episode, position: TimeInterval, duration: TimeInterval)
   case finished(Episode, duration: TimeInterval)
+  case failed(Episode, position: TimeInterval, duration: TimeInterval, error: PlaybackError)
+}
+
+/// Allows playback engines to accept externally injected states (e.g., restored sessions).
+@MainActor
+public protocol EpisodePlaybackStateInjecting: AnyObject {
+  func injectPlaybackState(_ state: EpisodePlaybackState)
 }
 
 /// Abstraction for time tick generation - allows deterministic tests.
@@ -74,6 +82,18 @@ public final class StubEpisodePlayer: EpisodePlaybackService {
     subject.send(.paused(currentEpisode, position: currentPosition, duration: currentDuration))
     #endif
   }
+
+  public func failPlayback(error: PlaybackError = .streamFailed) {
+    isPlaying = false
+    #if canImport(Combine)
+      subject.send(.failed(
+        currentEpisode,
+        position: currentPosition,
+        duration: currentDuration,
+        error: error
+      ))
+    #endif
+  }
 }
 
 extension StubEpisodePlayer: EpisodeTransportControlling {
@@ -102,6 +122,62 @@ extension StubEpisodePlayer: EpisodeTransportControlling {
         subject.send(.paused(currentEpisode, position: currentPosition, duration: currentDuration))
       }
     #endif
+  }
+}
+
+extension StubEpisodePlayer: EpisodePlaybackStateInjecting {
+  public func injectPlaybackState(_ state: EpisodePlaybackState) {
+    switch state {
+    case .idle(let episode):
+      currentEpisode = episode
+      currentDuration = episode.duration ?? currentDuration
+      currentPosition = 0
+      isPlaying = false
+      #if canImport(Combine)
+        subject.send(.idle(episode))
+      #endif
+
+    case .playing(let episode, let position, let duration):
+      currentEpisode = episode
+      currentDuration = max(duration, 0)
+      currentPosition = min(max(position, 0), currentDuration > 0 ? currentDuration : position)
+      isPlaying = true
+      emitTransportState()
+
+    case .paused(let episode, let position, let duration):
+      currentEpisode = episode
+      currentDuration = max(duration, 0)
+      currentPosition = min(max(position, 0), currentDuration > 0 ? currentDuration : position)
+      isPlaying = false
+      emitTransportState()
+
+    case .finished(let episode, let duration):
+      currentEpisode = episode
+      currentDuration = max(duration, 0)
+      currentPosition = currentDuration
+      isPlaying = false
+      #if canImport(Combine)
+        subject.send(.finished(episode, duration: currentDuration))
+      #endif
+    case .failed(let episode, let position, let duration, let error):
+      currentEpisode = episode
+      currentDuration = max(duration, 0)
+      currentPosition = min(
+        max(position, 0),
+        currentDuration > 0 ? currentDuration : position
+      )
+      isPlaying = false
+      #if canImport(Combine)
+        subject.send(
+          .failed(
+            episode,
+            position: currentPosition,
+            duration: currentDuration,
+            error: error
+          )
+        )
+      #endif
+    }
   }
 }
 

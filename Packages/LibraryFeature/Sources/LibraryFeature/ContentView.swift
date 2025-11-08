@@ -333,7 +333,8 @@ import SwiftUI
         _miniPlayerViewModel = StateObject(
           wrappedValue: MiniPlayerViewModel(
             playbackService: dependencies.playbackService,
-            queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty }
+            queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty },
+            alertPresenter: dependencies.playbackAlertPresenter
           )
         )
       #endif
@@ -397,7 +398,9 @@ import SwiftUI
           .sheet(isPresented: $showFullPlayer) {
             ExpandedPlayerView(
               viewModel: ExpandedPlayerViewModel(
-                playbackService: playbackDependencies.playbackService)
+                playbackService: playbackDependencies.playbackService,
+                alertPresenter: playbackDependencies.playbackAlertPresenter
+              )
             )
             .presentationDragIndicator(.hidden)
             .presentationBackground(.black)

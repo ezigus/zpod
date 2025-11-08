@@ -15,6 +15,7 @@ public enum SettingsChange: Equatable, Sendable {
   case globalPlaybackPresets(PlaybackPresetLibrary)
   case podcastDownload(String, PodcastDownloadSettings?)
   case podcastPlayback(String, PodcastPlaybackSettings?)
+  case playbackResume(PlaybackResumeState?)
 }
 
 /// Protocol for settings persistence and retrieval
@@ -49,6 +50,11 @@ public protocol SettingsRepository: Sendable {
   func loadPodcastPlaybackSettings(podcastId: String) async -> PodcastPlaybackSettings?
   func savePodcastPlaybackSettings(podcastId: String, _ settings: PodcastPlaybackSettings) async
   func removePodcastPlaybackSettings(podcastId: String) async
+
+  // Playback resume state
+  func loadPlaybackResumeState() async -> PlaybackResumeState?
+  func savePlaybackResumeState(_ state: PlaybackResumeState) async
+  func clearPlaybackResumeState() async
 
   // Change notifications
   nonisolated func settingsChangeStream() -> AsyncStream<SettingsChange>
@@ -89,6 +95,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     static let playbackPresetLibrary = "playback_preset_library"
     static let podcastDownloadPrefix = "podcast_download_"
     static let podcastPlaybackPrefix = "podcast_playback_"
+    static let playbackResumeState = "playback_resume_state"
   }
 
   private func broadcast(_ change: SettingsChange) {
@@ -448,6 +455,45 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
 
   }
 
+  // MARK: - Playback Resume State
+
+  public func loadPlaybackResumeState() async -> PlaybackResumeState? {
+    guard let data = userDefaults.data(forKey: Keys.playbackResumeState) else {
+      return nil
+    }
+
+    do {
+      return try JSONDecoder().decode(PlaybackResumeState.self, from: data)
+    } catch {
+      #if canImport(os)
+        os_log(
+          "Failed to decode playback resume state: %{public}@", log: logger, type: .error,
+          error.localizedDescription)
+      #endif
+      return nil
+    }
+  }
+
+  public func savePlaybackResumeState(_ state: PlaybackResumeState) async {
+    do {
+      let data = try JSONEncoder().encode(state)
+      userDefaults.set(data, forKey: Keys.playbackResumeState)
+      broadcast(.playbackResume(state))
+
+    } catch {
+      #if canImport(os)
+        os_log(
+          "Failed to encode playback resume state: %{public}@", log: logger, type: .error,
+          error.localizedDescription)
+      #endif
+    }
+  }
+
+  public func clearPlaybackResumeState() async {
+    userDefaults.removeObject(forKey: Keys.playbackResumeState)
+    broadcast(.playbackResume(nil))
+  }
+
   // MARK: - Test Utilities
 
   public func clearAll() {
@@ -458,6 +504,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     userDefaults.removeObject(forKey: Keys.globalAppearance)
     userDefaults.removeObject(forKey: Keys.globalSmartListAutomation)
     userDefaults.removeObject(forKey: Keys.playbackPresetLibrary)
+    userDefaults.removeObject(forKey: Keys.playbackResumeState)
 
     let allKeys = userDefaults.dictionaryRepresentation().keys
     for key in allKeys {

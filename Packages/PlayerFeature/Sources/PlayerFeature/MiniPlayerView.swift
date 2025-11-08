@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import SharedUtilities
 import SwiftUI
 
 #if canImport(UIKit)
@@ -25,50 +26,63 @@ public struct MiniPlayerView: View {
   public var body: some View {
     let state = viewModel.displayState
 
-    Group {
-      if state.isVisible, let episode = state.episode {
-        HStack(spacing: 12) {
-          artwork(for: episode)
+    ZStack(alignment: .top) {
+      Group {
+        if state.isVisible, let episode = state.episode {
+          HStack(spacing: 12) {
+            artwork(for: episode)
 
-          VStack(alignment: .leading, spacing: 4) {
-            Text(episode.title)
-              .font(.subheadline)
-              .fontWeight(.semibold)
-              .lineLimit(1)
-              .accessibilityIdentifier("Mini Player Episode Title")
-
-            if !episode.podcastTitle.isEmpty {
-              Text(episode.podcastTitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+              Text(episode.title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
                 .lineLimit(1)
-                .accessibilityIdentifier("Mini Player Podcast Title")
-            }
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("Mini Player Episode Title")
 
-          transportControls(state: state)
+              if !episode.podcastTitle.isEmpty {
+                Text(episode.podcastTitle)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .lineLimit(1)
+                  .accessibilityIdentifier("Mini Player Podcast Title")
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            transportControls(state: state)
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .background(.regularMaterial)
+          .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .shadow(radius: 4, y: 2)
+          .padding(.horizontal, 12)
+          .padding(.bottom, 4)
+          .contentShape(Rectangle())
+          .onTapGesture {
+            performHaptic()
+            onTapExpand()
+          }
+          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Mini Player")
+          .accessibilityLabel("Mini player showing \(episode.title)")
+          .accessibilityHint("Double-tap to open the full player")
+          .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+      }
+      .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
+
+      if let alert = viewModel.playbackAlert {
+        PlaybackAlertToastView(
+          alert: alert,
+          onPrimary: viewModel.performPrimaryAlertAction,
+          onSecondary: viewModel.performSecondaryAlertAction,
+          onDismiss: viewModel.dismissAlert
+        )
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(radius: 4, y: 2)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-          performHaptic()
-          onTapExpand()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Mini Player")
-        .accessibilityLabel("Mini player showing \(episode.title)")
-        .accessibilityHint("Double-tap to open the full player")
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .padding(.top, -8)
       }
     }
-    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
   }
 
   // MARK: - Subviews ---------------------------------------------------------
@@ -175,31 +189,48 @@ public struct MiniPlayerView: View {
 import PlaybackEngine
 
 #Preview {
-  let episode = Episode(
-    id: "preview-1",
-    title: "Understanding Swift Concurrency",
-    podcastID: "podcast-1",
-    podcastTitle: "Swift Talk",
-    playbackPosition: 0,
-    isPlayed: false,
-    pubDate: Date(),
-    duration: 3600,
-    description: "A deep dive into Swift concurrency",
-    audioURL: URL(string: "https://example.com/episode.mp3"),
-    artworkURL: URL(string: "https://picsum.photos/200")
-  )
+  MiniPlayerPreview()
+}
 
-  let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-  let viewModel = MiniPlayerViewModel(playbackService: stubPlayer)
-  stubPlayer.play(episode: episode, duration: episode.duration)
+private struct MiniPlayerPreview: View {
+  @StateObject private var viewModel: MiniPlayerViewModel
 
-  return VStack {
-    Spacer()
+  init() {
+    let episode = Episode(
+      id: "preview-1",
+      title: "Understanding Swift Concurrency",
+      podcastID: "podcast-1",
+      podcastTitle: "Swift Talk",
+      playbackPosition: 0,
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 3600,
+      description: "A deep dive into Swift concurrency",
+      audioURL: URL(string: "https://example.com/episode.mp3"),
+      artworkURL: URL(string: "https://picsum.photos/200")
+    )
 
-    MiniPlayerView(viewModel: viewModel) {
-      print("Expand tapped")
+    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
+    stubPlayer.play(episode: episode, duration: episode.duration)
+
+    let presenter = PlaybackAlertPresenter()
+    let miniViewModel = MiniPlayerViewModel(
+      playbackService: stubPlayer,
+      alertPresenter: presenter
+    )
+
+    _viewModel = StateObject(wrappedValue: miniViewModel)
+  }
+
+  var body: some View {
+    VStack {
+      Spacer()
+
+      MiniPlayerView(viewModel: viewModel) {
+        print("Expand tapped")
+      }
+      .padding(.bottom, 24)
     }
-    .padding(.bottom, 24)
   }
 }
 #endif

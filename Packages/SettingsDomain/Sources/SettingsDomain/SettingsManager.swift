@@ -437,6 +437,10 @@ public class SettingsManager {
       // Per-podcast changes don't update published global properties
       // They affect effective settings resolution only
       break
+    case .playbackResume:
+      // Playback resume state doesn't update published global properties
+      // It's accessed directly via repository when needed
+      break
     }
   }
 }

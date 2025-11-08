@@ -354,6 +354,7 @@ public struct DiscoverView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 #endif
+                        .accessibilityIdentifier("rss-url-field")
                     
                     Text("Enter the direct RSS feed URL of the podcast you want to add")
                         .font(.caption)

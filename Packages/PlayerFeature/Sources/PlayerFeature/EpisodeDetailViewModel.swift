@@ -394,6 +394,10 @@ public class EpisodeDetailViewModel: ObservableObject {
       isPlaying = false
       currentPosition = duration
       updateProgress(position: duration, duration: duration)
+    case .failed(_, let position, let duration, _):
+      isPlaying = false
+      currentPosition = position
+      updateProgress(position: position, duration: duration)
     }
 
     updateCurrentChapter()

@@ -1128,6 +1128,16 @@ test_app_target() {
 test_package_target() {
   local package="$1"
   init_result_paths "test_pkg" "$package"
+  
+  # Check if package has a Tests directory
+  local pkg_path="${REPO_ROOT}/Packages/${package}"
+  if [[ ! -d "${pkg_path}/Tests" ]]; then
+    log_warn "Skipping swift test for package '${package}' (no Tests directory)"
+    printf "⚠️ Package %s skipped: no Tests directory found.\n" "$package" | tee "$RESULT_LOG" >/dev/null
+    add_summary "test" "package ${package}" "warn" "$RESULT_LOG" "" "" "" "" "skipped (no tests)"
+    return 0
+  fi
+  
   if package_supports_host_build "$package"; then
     :
   else

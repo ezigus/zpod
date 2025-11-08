@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import SharedUtilities
 import SwiftUI
 
 #if canImport(UIKit)
@@ -23,7 +24,7 @@ public struct ExpandedPlayerView: View {
 
   public var body: some View {
     GeometryReader { geometry in
-      ZStack {
+      ZStack(alignment: .top) {
         // Background with gradient
         LinearGradient(
           colors: [
@@ -68,6 +69,17 @@ public struct ExpandedPlayerView: View {
         .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Expanded Player")
+
+        if let alert = viewModel.playbackAlert {
+          PlaybackAlertToastView(
+            alert: alert,
+            onPrimary: viewModel.performPrimaryAlertAction,
+            onSecondary: viewModel.performSecondaryAlertAction,
+            onDismiss: viewModel.dismissAlert
+          )
+          .padding(.horizontal, 24)
+          .padding(.top, geometry.safeAreaInsets.top + 16)
+        }
       }
     }
   }
@@ -328,8 +340,40 @@ public struct ExpandedPlayerView: View {
 #if DEBUG
   import PlaybackEngine
 
-  #Preview("Playing") {
-    let episode = Episode(
+#Preview("Playing") {
+  ExpandedPlayerPreview(isPaused: false)
+}
+
+#Preview("Paused") {
+  ExpandedPlayerPreview(isPaused: true)
+}
+
+private struct ExpandedPlayerPreview: View {
+  @StateObject private var viewModel: ExpandedPlayerViewModel
+
+  init(isPaused: Bool) {
+    let episode = isPaused ? ExpandedPlayerPreview.pausedEpisode : ExpandedPlayerPreview.playingEpisode
+    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
+    stubPlayer.play(episode: episode, duration: episode.duration)
+    if isPaused {
+      stubPlayer.pause()
+    }
+
+    let presenter = PlaybackAlertPresenter()
+    let vm = ExpandedPlayerViewModel(
+      playbackService: stubPlayer,
+      alertPresenter: presenter
+    )
+    _viewModel = StateObject(wrappedValue: vm)
+  }
+
+  var body: some View {
+    ExpandedPlayerView(viewModel: viewModel)
+      .preferredColorScheme(.dark)
+  }
+
+  private static var playingEpisode: Episode {
+    Episode(
       id: "preview-1",
       title: "Understanding Swift Concurrency and Modern Async Patterns",
       podcastID: "podcast-1",
@@ -342,17 +386,10 @@ public struct ExpandedPlayerView: View {
       audioURL: URL(string: "https://example.com/episode.mp3"),
       artworkURL: URL(string: "https://picsum.photos/400")
     )
-
-    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = ExpandedPlayerViewModel(playbackService: stubPlayer)
-    stubPlayer.play(episode: episode, duration: episode.duration)
-
-    return ExpandedPlayerView(viewModel: viewModel)
-      .preferredColorScheme(.dark)
   }
 
-  #Preview("Paused") {
-    let episode = Episode(
+  private static var pausedEpisode: Episode {
+    Episode(
       id: "preview-2",
       title: "SwiftUI Animation Techniques",
       podcastID: "podcast-2",
@@ -365,13 +402,6 @@ public struct ExpandedPlayerView: View {
       audioURL: URL(string: "https://example.com/episode2.mp3"),
       artworkURL: nil
     )
-
-    let stubPlayer = StubEpisodePlayer(initialEpisode: episode, ticker: TimerTicker())
-    let viewModel = ExpandedPlayerViewModel(playbackService: stubPlayer)
-    stubPlayer.play(episode: episode, duration: episode.duration)
-    stubPlayer.pause()
-
-    return ExpandedPlayerView(viewModel: viewModel)
-      .preferredColorScheme(.dark)
   }
+}
 #endif
