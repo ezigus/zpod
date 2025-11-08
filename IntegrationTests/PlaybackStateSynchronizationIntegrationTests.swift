@@ -336,10 +336,9 @@
 
     @MainActor
     func testQueueAdvanceKeepsPlayersInSync() async throws {
-      var queuedEpisodes = [nextEpisode]
       let queueAwareMini = MiniPlayerViewModel(
         playbackService: playbackService,
-        queueIsEmpty: { queuedEpisodes.isEmpty },
+        queueIsEmpty: { false },
         alertPresenter: alertPresenter
       )
 
@@ -352,7 +351,6 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       // When: Episode finishes and queue advances immediately
-      queuedEpisodes.removeAll()
       playbackService.play(episode: nextEpisode, duration: nextEpisode.duration ?? 2400)
       try await Task.sleep(nanoseconds: 200_000_000)
 
@@ -367,11 +365,9 @@
 
     @MainActor
     func testQueuePlayNowTransitionsToPreviousEpisode() async throws {
-      var queuedEpisodes = [testEpisode, nextEpisode]
-
       let queueAwareMini = MiniPlayerViewModel(
         playbackService: playbackService,
-        queueIsEmpty: { queuedEpisodes.isEmpty },
+        queueIsEmpty: { false },
         alertPresenter: alertPresenter
       )
 
@@ -381,7 +377,6 @@
       )
 
       // When: Play next episode
-      queuedEpisodes.removeAll(where: { $0.id == nextEpisode.id })
       playbackService.play(episode: nextEpisode, duration: nextEpisode.duration ?? 2400)
       try await Task.sleep(nanoseconds: 200_000_000)
 
