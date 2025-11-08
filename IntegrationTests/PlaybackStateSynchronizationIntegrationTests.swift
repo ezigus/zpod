@@ -362,11 +362,14 @@
 
       let miniExpectation = expectation(description: "Mini player advanced to next episode")
       let expandedExpectation = expectation(description: "Expanded player advanced to next episode")
+      var observedMiniEpisodeID: String?
+      var observedExpandedEpisodeID: String?
 
       queueAwareMini.$displayState
         .dropFirst()
         .sink { state in
           if state.episode?.id == self.nextEpisode.id, state.isPlaying {
+            observedMiniEpisodeID = state.episode?.id
             miniExpectation.fulfill()
           }
         }
@@ -376,6 +379,7 @@
         .dropFirst()
         .sink { episode in
           if episode?.id == self.nextEpisode.id {
+            observedExpandedEpisodeID = episode?.id
             expandedExpectation.fulfill()
           }
         }
@@ -385,9 +389,9 @@
 
       await fulfillment(of: [miniExpectation, expandedExpectation], timeout: 3.0)
 
-      XCTAssertEqual(queueAwareMini.currentEpisode?.id, nextEpisode.id)
+      XCTAssertEqual(observedMiniEpisodeID, nextEpisode.id)
       XCTAssertTrue(queueAwareMini.isPlaying)
-      XCTAssertEqual(queueAwareExpanded.episode?.id, nextEpisode.id)
+      XCTAssertEqual(observedExpandedEpisodeID, nextEpisode.id)
       XCTAssertTrue(queueAwareExpanded.isPlaying)
 
       _ = queueAwareMini
@@ -412,10 +416,13 @@
       )
 
       let firstTransition = expectation(description: "Expanded moves to next episode")
+      var observedExpandedEpisodeID: String?
+      var observedMiniReturnEpisodeID: String?
       expandedPlayerViewModel.$episode
         .dropFirst()
         .sink { episode in
           if episode?.id == self.nextEpisode.id {
+            observedExpandedEpisodeID = episode?.id
             firstTransition.fulfill()
           }
         }
@@ -429,6 +436,7 @@
         .dropFirst()
         .sink { state in
           if state.episode?.id == self.testEpisode.id {
+            observedMiniReturnEpisodeID = state.episode?.id
             secondTransition.fulfill()
           }
         }
@@ -437,9 +445,9 @@
       queueCoordinator.playNow(testEpisode)
       await fulfillment(of: [secondTransition], timeout: 3.0)
 
-      XCTAssertEqual(queueAwareMini.currentEpisode?.id, testEpisode.id)
+      XCTAssertEqual(observedMiniReturnEpisodeID, testEpisode.id)
       XCTAssertTrue(queueAwareMini.isVisible)
-      XCTAssertEqual(queueAwareExpanded.episode?.id, testEpisode.id)
+      XCTAssertEqual(observedExpandedEpisodeID, testEpisode.id)
       XCTAssertTrue(queueAwareExpanded.isPlaying)
     }
 
@@ -453,10 +461,12 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       let alertExpectation = expectation(description: "Playback alert presented")
+      var observedAlertTitle: String?
       miniPlayerViewModel.$playbackAlert
         .dropFirst()
         .sink { alert in
           if alert?.descriptor.title == "Playback Failed" {
+            observedAlertTitle = alert?.descriptor.title
             alertExpectation.fulfill()
           }
         }
@@ -465,7 +475,7 @@
       playbackService.failPlayback(error: .streamFailed)
       await fulfillment(of: [alertExpectation], timeout: 2.0)
 
-      XCTAssertEqual(miniPlayerViewModel.playbackAlert?.descriptor.title, "Playback Failed")
+      XCTAssertEqual(observedAlertTitle, "Playback Failed")
       XCTAssertFalse(miniPlayerViewModel.isPlaying)
       XCTAssertFalse(expandedPlayerViewModel.isPlaying)
     }
