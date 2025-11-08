@@ -386,6 +386,7 @@
       try await Task.sleep(nanoseconds: 200_000_000)
 
       // Then: Both players transition to next episode
+      XCTAssertEqual(queueAwareMini.displayState.episode?.id, nextEpisode.id)
       XCTAssertEqual(queueAwareExpanded.episode?.id, nextEpisode.id)
 
       // When: Play test episode
