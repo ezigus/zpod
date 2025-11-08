@@ -8,7 +8,6 @@
 
 #if os(iOS)
   import XCTest
-  import Combine
   @testable import CoreModels
   @testable import LibraryFeature
   @testable import PlayerFeature
@@ -39,9 +38,6 @@
     private var testEpisode: Episode!
     private var nextEpisode: Episode!
     private var alertPresenter: PlaybackAlertPresenter!
-    #if canImport(Combine)
-      private var cancellables: Set<AnyCancellable> = []
-    #endif
 
     // MARK: - Setup & Teardown
 
@@ -122,9 +118,6 @@
     }
 
     override func tearDown() {
-      #if canImport(Combine)
-        cancellables.removeAll()
-      #endif
       coordinator.cleanup()
       coordinator = nil
       miniPlayerViewModel = nil
@@ -360,38 +353,21 @@
       playbackService.play(episode: testEpisode, duration: 1800)
       try await Task.sleep(nanoseconds: 200_000_000)
 
-      let miniExpectation = expectation(description: "Mini player advanced to next episode")
-      let expandedExpectation = expectation(description: "Expanded player advanced to next episode")
-      var observedMiniEpisodeID: String?
-      var observedExpandedEpisodeID: String?
-
-      queueAwareMini.$displayState
-        .dropFirst()
-        .sink { state in
-          if state.episode?.id == self.nextEpisode.id, state.isPlaying {
-            observedMiniEpisodeID = state.episode?.id
-            miniExpectation.fulfill()
-          }
-        }
-        .store(in: &cancellables)
-
-      expandedPlayerViewModel.$episode
-        .dropFirst()
-        .sink { episode in
-          if episode?.id == self.nextEpisode.id {
-            observedExpandedEpisodeID = episode?.id
-            expandedExpectation.fulfill()
-          }
-        }
-        .store(in: &cancellables)
-
+      // When: Episode finishes and queue advances
       playbackService.injectPlaybackState(.finished(testEpisode, duration: 1800))
 
-      await fulfillment(of: [miniExpectation, expandedExpectation], timeout: 3.0)
+      // Then: Wait for both players to advance to next episode
+      try await waitForCondition(timeout: 3.0) {
+        queueAwareMini.displayState.episode?.id == self.nextEpisode.id && queueAwareMini.isPlaying
+      }
 
-      XCTAssertEqual(observedMiniEpisodeID, nextEpisode.id)
+      try await waitForCondition(timeout: 3.0) {
+        queueAwareExpanded.episode?.id == self.nextEpisode.id && queueAwareExpanded.isPlaying
+      }
+
+      XCTAssertEqual(queueAwareMini.displayState.episode?.id, nextEpisode.id)
       XCTAssertTrue(queueAwareMini.isPlaying)
-      XCTAssertEqual(observedExpandedEpisodeID, nextEpisode.id)
+      XCTAssertEqual(queueAwareExpanded.episode?.id, nextEpisode.id)
       XCTAssertTrue(queueAwareExpanded.isPlaying)
 
       _ = queueAwareMini
@@ -415,39 +391,27 @@
         alertPresenter: alertPresenter
       )
 
-      let firstTransition = expectation(description: "Expanded moves to next episode")
-      var observedExpandedEpisodeID: String?
-      var observedMiniReturnEpisodeID: String?
-      expandedPlayerViewModel.$episode
-        .dropFirst()
-        .sink { episode in
-          if episode?.id == self.nextEpisode.id {
-            observedExpandedEpisodeID = episode?.id
-            firstTransition.fulfill()
-          }
-        }
-        .store(in: &cancellables)
-
+      // When: Play next episode
       queueCoordinator.playNow(nextEpisode)
-      await fulfillment(of: [firstTransition], timeout: 3.0)
 
-      let secondTransition = expectation(description: "Mini returns to test episode")
-      queueAwareMini.$displayState
-        .dropFirst()
-        .sink { state in
-          if state.episode?.id == self.testEpisode.id {
-            observedMiniReturnEpisodeID = state.episode?.id
-            secondTransition.fulfill()
-          }
-        }
-        .store(in: &cancellables)
+      // Then: Both players transition to next episode
+      try await waitForCondition(timeout: 3.0) {
+        queueAwareExpanded.episode?.id == self.nextEpisode.id
+      }
 
+      XCTAssertEqual(queueAwareExpanded.episode?.id, nextEpisode.id)
+
+      // When: Play test episode
       queueCoordinator.playNow(testEpisode)
-      await fulfillment(of: [secondTransition], timeout: 3.0)
 
-      XCTAssertEqual(observedMiniReturnEpisodeID, testEpisode.id)
+      // Then: Both players transition back to test episode
+      try await waitForCondition(timeout: 3.0) {
+        queueAwareMini.displayState.episode?.id == self.testEpisode.id
+      }
+
+      XCTAssertEqual(queueAwareMini.displayState.episode?.id, testEpisode.id)
       XCTAssertTrue(queueAwareMini.isVisible)
-      XCTAssertEqual(observedExpandedEpisodeID, testEpisode.id)
+      XCTAssertEqual(queueAwareExpanded.episode?.id, testEpisode.id)
       XCTAssertTrue(queueAwareExpanded.isPlaying)
     }
 
@@ -460,24 +424,35 @@
       playbackService.seek(to: 300)
       try await Task.sleep(nanoseconds: 200_000_000)
 
-      let alertExpectation = expectation(description: "Playback alert presented")
-      var observedAlertTitle: String?
-      miniPlayerViewModel.$playbackAlert
-        .dropFirst()
-        .sink { alert in
-          if alert?.descriptor.title == "Playback Failed" {
-            observedAlertTitle = alert?.descriptor.title
-            alertExpectation.fulfill()
-          }
-        }
-        .store(in: &cancellables)
-
+      // When: Stream fails
       playbackService.failPlayback(error: .streamFailed)
-      await fulfillment(of: [alertExpectation], timeout: 2.0)
 
-      XCTAssertEqual(observedAlertTitle, "Playback Failed")
+      // Then: Alert appears and playback pauses
+      try await waitForCondition(timeout: 2.0) {
+        self.miniPlayerViewModel.playbackAlert?.descriptor.title == "Playback Failed"
+      }
+
+      XCTAssertEqual(miniPlayerViewModel.playbackAlert?.descriptor.title, "Playback Failed")
       XCTAssertFalse(miniPlayerViewModel.isPlaying)
       XCTAssertFalse(expandedPlayerViewModel.isPlaying)
+    }
+
+    // MARK: - Test Helpers
+
+    @MainActor
+    private func waitForCondition(
+      timeout: TimeInterval,
+      pollingInterval: TimeInterval = 0.05,
+      condition: @escaping () -> Bool
+    ) async throws {
+      let deadline = Date().addingTimeInterval(timeout)
+      while Date() < deadline {
+        if condition() {
+          return
+        }
+        try await Task.sleep(nanoseconds: UInt64(pollingInterval * 1_000_000_000))
+      }
+      XCTFail("Timeout waiting for condition after \(timeout) seconds")
     }
   }
 
