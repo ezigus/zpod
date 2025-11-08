@@ -603,4 +603,3 @@ extension SwipeConfigurationTestCase {
     add(attachment)
   }
 }
-}
