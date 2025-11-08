@@ -71,6 +71,7 @@
         episodes: [testEpisode, nextEpisode]
       )
       podcastManager.add(podcast)
+      let manager = podcastManager  // capture for concurrency-safe use
 
       // Setup playback infrastructure - need MainActor for @MainActor initializers
       ticker = TestTicker()
@@ -90,13 +91,11 @@
         let coord = PlaybackStateCoordinator(
           playbackService: service,
           settingsRepository: settingsRepository,
-          episodeLookup: { [weak podcastManager] episodeId in
-            await MainActor.run {
-              podcastManager?
-                .all()
-                .flatMap { $0.episodes }
-                .first(where: { $0.id == episodeId })
-            }
+          episodeLookup: { episodeId in
+            manager?
+              .all()
+              .flatMap { $0.episodes }
+              .first(where: { $0.id == episodeId })
           },
           alertPresenter: presenter
         )  // Setup view models
