@@ -41,55 +41,28 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
   }
   
   @MainActor
-  func testHapticSettingPersists() throws {
+  func testHapticTogglePersistsAfterManualChange() throws {
     try beginWithFreshConfigurationSheet()
-    
-    // Disable haptics and select Soft style
     setHaptics(enabled: false, styleLabel: "Medium")
     assertHapticsEnabled(false)
-    
-    // Save and dismiss
     saveAndDismissConfiguration()
-    
-    // Seed configuration for relaunch (avoiding UserDefaults cross-launch issues)
-    seedSwipeConfiguration(
-      leading: ["markPlayed"],
-      trailing: ["delete", "archive"],
-      allowFullSwipeLeading: true,
-      allowFullSwipeTrailing: false,
-      hapticsEnabled: false,
-      hapticStyle: "medium"
-    )
-    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    
+    relaunchApp(resetDefaults: false)
     try openConfigurationSheetFromEpisodeList()
-    
-    // Verify haptics remain disabled
     assertHapticsEnabled(false)
-    
-    // Now enable haptics with Soft style
+    restoreDefaultConfiguration()
+  }
+
+  @MainActor
+  func testHapticStylePersistsAfterManualChange() throws {
+    try beginWithFreshConfigurationSheet()
     setHaptics(enabled: true, styleLabel: "Soft")
     assertHapticsEnabled(true, styleLabel: "Soft")
-    
-    // Save and dismiss
     saveAndDismissConfiguration()
-    
-    // Seed configuration with haptics enabled for second relaunch
-    seedSwipeConfiguration(
-      leading: ["markPlayed"],
-      trailing: ["delete", "archive"],
-      allowFullSwipeLeading: true,
-      allowFullSwipeTrailing: false,
-      hapticsEnabled: true,
-      hapticStyle: "soft"
-    )
-    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    
+
+    relaunchApp(resetDefaults: false)
     try openConfigurationSheetFromEpisodeList()
-    
-    // Verify haptics enabled with Soft style persisted
     assertHapticsEnabled(true, styleLabel: "Soft")
-    
+
     restoreDefaultConfiguration()
   }
   
