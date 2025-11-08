@@ -66,7 +66,7 @@ This document outlines the UI testing approach for the main zpod application.
 - Filter and sort controls
 - Content recommendation displays
 
-### Swipe Configuration UI Tests (`SwipeConfigurationUITests.swift`)
+### Swipe Configuration UI Tests
 
 **Purpose**: Validate the configurable swipe gesture workflow and ensure presets, haptics, and episode list actions remain stable.
 
@@ -74,6 +74,42 @@ This document outlines the UI testing approach for the main zpod application.
 
 - `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
 - `spec/ui.md` — Customizing Swipe Gestures section
+
+**Test Files** (decomposed from monolithic 1,765-line file per Issue #12.8.1):
+
+1. **`SwipeConfigurationUIDisplayTests.swift`** - UI display verification
+   - Tests that configuration sheet opens and displays correctly
+   - Verifies default actions, haptic controls visibility
+   - 3 focused tests
+
+2. **`SwipeActionManagementTests.swift`** - Action add/remove/limit enforcement
+   - Tests adding/removing actions to leading/trailing edges
+   - Verifies action cap enforcement (3 actions per edge)
+   - 4 focused tests
+
+3. **`SwipePresetSelectionTests.swift`** - Preset application
+   - Tests that presets (Playback, Organization, Download) apply correct configurations
+   - Verifies save button enablement and debug summary state
+   - 3 focused tests
+
+4. **`SwipeToggleInteractionTests.swift`** - Toggle interactions
+   - Tests haptic toggle enable/disable
+   - Tests haptic style picker changes
+   - Tests full swipe toggle for leading/trailing
+   - 3 focused tests
+
+5. **`SwipeConfigurationPersistenceTests.swift`** - Persistence across relaunches
+   - Tests manual configuration persistence
+   - Tests haptic settings persistence
+   - Tests full swipe settings persistence
+   - 3 focused tests (uses seeding to avoid UserDefaults issues)
+
+6. **`SwipeActionExecutionTests.swift`** - Swipe execution in episode list
+   - Tests leading swipe actions execute correctly
+   - Tests trailing swipe actions execute correctly
+   - 2 focused tests
+
+**Shared Support**: `SwipeConfigurationTestSupport.swift` contains the base class `SwipeConfigurationTestCase` with all helper methods (~1,400 lines).
 
 **Test Areas**:
 
@@ -84,6 +120,8 @@ This document outlines the UI testing approach for the main zpod application.
 - Exercising configured swipe buttons within `EpisodeListView`, including playlist selection flows
 - Accessibility identifier coverage for configuration controls and rendered swipe buttons
 - Validates that preset buttons respond directly under automation (no manual fallback) and enforces the three-action cap via the add-action picker sheet
+
+**CI Parallelization**: Tests split into 6 independent jobs for faster execution and granular failure visibility.
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 

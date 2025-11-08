@@ -765,8 +765,18 @@ jobs:
             tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
-          - name: UITests-SwipeConfiguration
-            tests: zpodUITests/SwipeConfigurationPersistenceUITests,zpodUITests/SwipeConfigurationExecutionUITests,zpodUITests/SwipeConfigurationPresetCyclingUITests,zpodUITests/SwipeConfigurationActionManagementUITests
+          - name: UITests-SwipeUIDisplay
+            tests: zpodUITests/SwipeConfigurationUIDisplayTests
+          - name: UITests-SwipeActionManagement
+            tests: zpodUITests/SwipeActionManagementTests
+          - name: UITests-SwipePresetSelection
+            tests: zpodUITests/SwipePresetSelectionTests
+          - name: UITests-SwipeToggleInteraction
+            tests: zpodUITests/SwipeToggleInteractionTests
+          - name: UITests-SwipePersistence
+            tests: zpodUITests/SwipeConfigurationPersistenceTests
+          - name: UITests-SwipeExecution
+            tests: zpodUITests/SwipeActionExecutionTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
