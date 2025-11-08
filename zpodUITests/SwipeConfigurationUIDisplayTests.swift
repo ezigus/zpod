@@ -2,7 +2,7 @@
 //  SwipeConfigurationUIDisplayTests.swift
 //  zpodUITests
 //
-//  Created for Issue 12.8.1: SwipeConfiguration UI Test Decomposition
+//  Created for Issue 02.6.3: SwipeConfiguration UI Test Decomposition
 //  Tests that verify the swipe configuration UI displays correctly
 //
 

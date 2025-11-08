@@ -75,7 +75,7 @@ This document outlines the UI testing approach for the main zpod application.
 - `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
 - `spec/ui.md` — Customizing Swipe Gestures section
 
-**Test Files** (decomposed from monolithic 1,765-line file per Issue #12.8.1):
+**Test Files** (decomposed from monolithic 1,765-line file per Issue #02.6.3):
 
 1. **`SwipeConfigurationUIDisplayTests.swift`** - UI display verification
    - Tests that configuration sheet opens and displays correctly
