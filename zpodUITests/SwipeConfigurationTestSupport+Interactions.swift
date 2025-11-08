@@ -19,6 +19,33 @@ extension SwipeConfigurationTestCase {
     return app.descendants(matching: .any)[identifier]
   }
 
+  @MainActor
+  func tapElement(_ element: XCUIElement, description: String) {
+    if element.isHittable {
+      element.tap()
+      return
+    }
+
+    let coordinate = element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    coordinate.tap()
+    logger.debug(
+      "[SwipeUITestDebug] forced coordinate tap for \(description, privacy: .public)"
+    )
+  }
+
+  @MainActor
+  func revealLeadingSwipeActions(for element: XCUIElement) {
+    element.swipeRight()
+
+    if app.buttons["SwipeAction.addToPlaylist"].exists {
+      return
+    }
+
+    let start = element.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+    let end = element.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+    start.press(forDuration: 0.05, thenDragTo: end)
+  }
+
   // MARK: - Action Management
 
   @MainActor
@@ -559,7 +586,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  fileprivate func resolveToggleSwitch(identifier: String) -> XCUIElement? {
+  func resolveToggleSwitch(identifier: String) -> XCUIElement? {
     if let container = swipeActionsSheetListContainer() {
       let scoped = container.switches.matching(identifier: identifier).firstMatch
       if scoped.exists { return scoped }

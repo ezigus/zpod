@@ -198,7 +198,7 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func reportAvailableSwipeIdentifiers(context: String, scoped: Bool = false) {
-    let root = scoped ? swipeActionsSheetListContainer() ?? app : app
+    let root: XCUIElement = scoped ? (swipeActionsSheetListContainer() ?? app) : app
     let descendants = root.descendants(matching: .any).allElementsBoundByAccessibilityElement
     let filtered = descendants.filter { element in
       let id = element.identifier
@@ -211,12 +211,13 @@ extension SwipeConfigurationTestCase {
       separator: "\n")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot\(scoped ? " (Scoped)" : "")"
-    attachment.lifetime = .keepAlways
+    attachment.lifetime = XCTAttachment.Lifetime.keepAlways
     add(attachment)
   }
 
   @MainActor
-  func reportAvailableSwipeIdentifiers(context: String, within container: XCUIElement) {
+  func reportAvailableSwipeIdentifiers(context: String, within container: XCUIElement?) {
+    guard let container else { return }
     let descendants = container.descendants(matching: .any).allElementsBoundByAccessibilityElement
     let filtered = descendants.filter { element in
       let id = element.identifier
