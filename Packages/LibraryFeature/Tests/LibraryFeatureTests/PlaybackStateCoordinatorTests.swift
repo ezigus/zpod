@@ -82,6 +82,7 @@
       XCTAssertEqual(savedState?.position, 300)
       XCTAssertEqual(savedState?.duration, 1800)
       XCTAssertFalse(savedState?.isPlaying ?? true)
+      XCTAssertEqual(savedState?.episode?.id, testEpisode.id)
     }
 
     @MainActor
@@ -140,13 +141,14 @@
     @MainActor
     func testRestoresValidState() async throws {
       // Given: Valid resume state exists
-      let resumeState = PlaybackResumeState(
-        episodeId: testEpisode.id,
-        position: 500,
-        duration: 1800,
-        timestamp: Date(),
-        isPlaying: false
-      )
+    let resumeState = PlaybackResumeState(
+      episodeId: testEpisode.id,
+      position: 500,
+      duration: 1800,
+      timestamp: Date(),
+      isPlaying: false,
+      episode: testEpisode
+    )
       await mockRepository.savePlaybackResumeState(resumeState)
 
       // When: Restore is requested
@@ -168,22 +170,24 @@
     func testClearsExpiredState() async throws {
       // Given: Expired resume state (older than 24 hours)
       let expiredDate = Date().addingTimeInterval(-25 * 60 * 60)  // 25 hours ago
-      let resumeState = PlaybackResumeState(
-        episodeId: testEpisode.id,
-        position: 500,
-        duration: 1800,
-        timestamp: expiredDate,
-        isPlaying: false
-      )
+    let resumeState = PlaybackResumeState(
+      episodeId: testEpisode.id,
+      position: 500,
+      duration: 1800,
+      timestamp: expiredDate,
+      isPlaying: false,
+      episode: testEpisode
+    )
       await mockRepository.savePlaybackResumeState(resumeState)
 
       // When: Restore is requested
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 100_000_000)
 
-      // Then: State should be cleared
+      // Then: State should be cleared and alert shown
       let savedState = await mockRepository.loadPlaybackResumeState()
       XCTAssertNil(savedState)
+      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Session Expired")
     }
 
     @MainActor
@@ -194,7 +198,8 @@
         position: 500,
         duration: 1800,
         timestamp: Date(),
-        isPlaying: false
+        isPlaying: false,
+        episode: nil
       )
       await mockRepository.savePlaybackResumeState(resumeState)
 
@@ -208,13 +213,44 @@
     }
 
     @MainActor
+    func testRestoresUsingSnapshotWhenLookupFails() async throws {
+      // Given: Episode lookup cannot find the episode but snapshot exists
+      episodeLookupMap = [:]
+      let resumeState = PlaybackResumeState(
+        episodeId: testEpisode.id,
+        position: 250,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false,
+        episode: testEpisode
+      )
+      await mockRepository.savePlaybackResumeState(resumeState)
+
+      // When: Restore is requested
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 100_000_000)
+
+      // Then: Coordinator should inject the snapshot into playback service
+      guard case .paused(let episode, let position, let duration)? =
+        mockPlaybackService.injectedStates.last
+      else {
+        XCTFail("Expected injected paused state")
+        return
+      }
+      XCTAssertEqual(episode.id, testEpisode.id)
+      XCTAssertEqual(position, 250, accuracy: 0.1)
+      XCTAssertEqual(duration, 1800, accuracy: 0.1)
+    }
+
+    @MainActor
     func testMissingEpisodeTriggersAlert() async throws {
       let resumeState = PlaybackResumeState(
         episodeId: "missing",
         position: 100,
         duration: 1800,
         timestamp: Date(),
-        isPlaying: false
+        isPlaying: false,
+        episode: nil
       )
       await mockRepository.savePlaybackResumeState(resumeState)
 

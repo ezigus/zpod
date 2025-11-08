@@ -7,19 +7,22 @@ public struct PlaybackResumeState: Codable, Equatable, Sendable {
   public var duration: TimeInterval
   public var timestamp: Date
   public var isPlaying: Bool
+  public var episode: Episode?
   
   public init(
     episodeId: String,
     position: TimeInterval,
     duration: TimeInterval,
     timestamp: Date = Date(),
-    isPlaying: Bool = false
+    isPlaying: Bool = false,
+    episode: Episode? = nil
   ) {
     self.episodeId = episodeId
     self.position = position
     self.duration = duration
     self.timestamp = timestamp
     self.isPlaying = isPlaying
+    self.episode = episode
   }
   
   /// Check if this resume state is still valid (within 24 hours)

@@ -67,7 +67,8 @@
       let podcast = Podcast(
         id: "test-podcast",
         title: "Test Podcast",
-        feedURL: URL(string: "https://example.com/feed.xml")!
+        feedURL: URL(string: "https://example.com/feed.xml")!,
+        episodes: [testEpisode, nextEpisode]
       )
       podcastManager.add(podcast)
 
@@ -89,10 +90,13 @@
         let coord = PlaybackStateCoordinator(
           playbackService: service,
           settingsRepository: settingsRepository,
-          episodeLookup: { episodeId in
-            if episodeId == testEpisode.id { return testEpisode }
-            if episodeId == nextEpisode.id { return nextEpisode }
-            return nil
+          episodeLookup: { [weak podcastManager] episodeId in
+            await MainActor.run {
+              podcastManager?
+                .all()
+                .flatMap { $0.episodes }
+                .first(where: { $0.id == episodeId })
+            }
           },
           alertPresenter: presenter
         )  // Setup view models
@@ -201,7 +205,8 @@
         position: 750,
         duration: 1800,
         timestamp: Date(),
-        isPlaying: false
+        isPlaying: false,
+        episode: testEpisode
       )
       await settingsRepository.savePlaybackResumeState(resumeState)
 
@@ -217,6 +222,35 @@
 
       XCTAssertEqual(expandedPlayerViewModel.episode?.id, testEpisode.id)
       XCTAssertEqual(expandedPlayerViewModel.currentPosition, 750, accuracy: 0.1)
+      XCTAssertFalse(expandedPlayerViewModel.isPlaying)
+    }
+
+    @MainActor
+    func testStateRestoresFromSnapshotWhenLibraryIsEmpty() async throws {
+      // Given: Library has not loaded yet but resume state has a snapshot
+      podcastManager.remove(id: "test-podcast")
+      let resumeState = PlaybackResumeState(
+        episodeId: testEpisode.id,
+        position: 400,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false,
+        episode: testEpisode
+      )
+      await settingsRepository.savePlaybackResumeState(resumeState)
+
+      // When: Restore is triggered
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      // Then: UI reflects restored episode even though catalog is empty
+      XCTAssertTrue(miniPlayerViewModel.isVisible)
+      XCTAssertEqual(miniPlayerViewModel.currentEpisode?.id, testEpisode.id)
+      XCTAssertEqual(miniPlayerViewModel.currentPosition, 400, accuracy: 0.1)
+      XCTAssertFalse(miniPlayerViewModel.isPlaying)
+
+      XCTAssertEqual(expandedPlayerViewModel.episode?.id, testEpisode.id)
+      XCTAssertEqual(expandedPlayerViewModel.currentPosition, 400, accuracy: 0.1)
       XCTAssertFalse(expandedPlayerViewModel.isPlaying)
     }
 

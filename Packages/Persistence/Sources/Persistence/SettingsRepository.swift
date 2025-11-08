@@ -463,9 +463,7 @@ public actor UserDefaultsSettingsRepository: @preconcurrency SettingsRepository 
     }
 
     do {
-      let state = try JSONDecoder().decode(PlaybackResumeState.self, from: data)
-      // Only return valid state (within 24 hours)
-      return state.isValid ? state : nil
+      return try JSONDecoder().decode(PlaybackResumeState.self, from: data)
     } catch {
       #if canImport(os)
         os_log(

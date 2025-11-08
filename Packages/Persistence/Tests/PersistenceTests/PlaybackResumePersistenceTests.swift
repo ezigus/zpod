@@ -44,6 +44,44 @@ struct PlaybackResumePersistenceTests {
     // Cleanup
     await repository.clearPlaybackResumeState()
   }
+
+  @Test("Episode snapshot is persisted and restored")
+  func testEpisodeSnapshotSerialization() async throws {
+    let suiteName = "test.playback.snapshot.\(UUID().uuidString)"
+    let repository = UserDefaultsSettingsRepository(suiteName: suiteName)
+
+    let episode = Episode(
+      id: "episode-snapshot",
+      title: "Snapshot Episode",
+      podcastID: "podcast-1",
+      podcastTitle: "Snapshot Podcast",
+      playbackPosition: 120,
+      isPlayed: false,
+      pubDate: Date(),
+      duration: 1800,
+      description: "Testing snapshot persistence",
+      audioURL: URL(string: "https://example.com/audio.mp3"),
+      artworkURL: URL(string: "https://example.com/artwork.jpg")
+    )
+
+    let resumeState = PlaybackResumeState(
+      episodeId: episode.id,
+      position: 120,
+      duration: 1800,
+      timestamp: Date(),
+      isPlaying: false,
+      episode: episode
+    )
+
+    await repository.savePlaybackResumeState(resumeState)
+
+    let loaded = await repository.loadPlaybackResumeState()
+    #expect(loaded?.episode != nil)
+    #expect(loaded?.episode?.title == episode.title)
+    #expect(loaded?.episode?.podcastTitle == episode.podcastTitle)
+
+    await repository.clearPlaybackResumeState()
+  }
   
   @Test("Clear playback resume state")
   func testClearResumeState() async throws {
@@ -84,8 +122,8 @@ struct PlaybackResumePersistenceTests {
     #expect(loaded == nil)
   }
   
-  @Test("Expired state is filtered out")
-  func testExpiredStateIsFiltered() async throws {
+  @Test("Expired state still loads for coordinator validation")
+  func testExpiredStateLoadsForCoordinator() async throws {
     // Given: A repository with manually created expired state
     let suiteName = "test.playback.expired.\(UUID().uuidString)"
     let repository = UserDefaultsSettingsRepository(suiteName: suiteName)
@@ -111,8 +149,9 @@ struct PlaybackResumePersistenceTests {
     // When: Loading the state
     let loaded = await repository.loadPlaybackResumeState()
     
-    // Then: Should return nil because it's expired
-    #expect(loaded == nil)
+    // Then: Repository should return the saved state so the coordinator can decide
+    #expect(loaded != nil)
+    #expect(loaded?.isValid == false)
     
     // Cleanup
     await repository.clearPlaybackResumeState()

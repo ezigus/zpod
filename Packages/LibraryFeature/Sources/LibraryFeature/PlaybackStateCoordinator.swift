@@ -78,23 +78,23 @@ public final class PlaybackStateCoordinator {
       return
     }
 
-    // Look up the episode
-    guard let episode = await episodeLookup(resumeState.episodeId) else {
-      // Episode no longer exists, clear state
+    // Look up the episode or fall back to stored snapshot
+    let episode = await episodeLookup(resumeState.episodeId) ?? resumeState.episode
+    guard let resolvedEpisode = episode else {
       await settingsRepository.clearPlaybackResumeState()
       presentAlert(for: .episodeUnavailable)
       return
     }
 
     // Restore the playback position
-    currentEpisode = episode
+    currentEpisode = resolvedEpisode
     currentPosition = resumeState.position
     currentDuration = resumeState.duration
     isPlaying = false  // Don't auto-play on restore
 
     // Surface restored state to playback observers so UI reflects last session
     let restoredState = EpisodePlaybackState.paused(
-      episode,
+      resolvedEpisode,
       position: resumeState.position,
       duration: resumeState.duration
     )
@@ -230,7 +230,8 @@ public final class PlaybackStateCoordinator {
       position: currentPosition,
       duration: currentDuration,
       timestamp: Date(),
-      isPlaying: isPlaying
+      isPlaying: isPlaying,
+      episode: episode
     )
 
     await settingsRepository.savePlaybackResumeState(resumeState)
