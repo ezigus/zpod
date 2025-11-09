@@ -741,7 +741,6 @@ jobs:
 
   ui-tests:
     if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all'
-    if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs:
       - unit-tests
       - package-tests
