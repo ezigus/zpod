@@ -16,70 +16,64 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
   // MARK: - Persistence Tests
   
   @MainActor
-  func testManualConfigurationPersists() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Configure custom layout manually
-    configureMinimalCustomLayout()
-    setHaptics(enabled: true, styleLabel: "Rigid")
-    
-    // Save and dismiss
-    saveAndDismissConfiguration()
-    
-    // Relaunch app without resetting defaults
-    relaunchApp(resetDefaults: false)
+  func testSeededCustomConfigurationPersists() throws {
+    launchAppWithSeed(
+      leading: ["play", "addToPlaylist"],
+      trailing: ["download", "favorite"],
+      allowFullSwipeLeading: true,
+      allowFullSwipeTrailing: false,
+      hapticsEnabled: true,
+      hapticStyle: "rigid"
+    )
     try openConfigurationSheetFromEpisodeList()
-    
-    // Verify configuration persisted
     assertActionList(
-      leadingIdentifiers: ["SwipeActions.Leading.Mark Played", "SwipeActions.Leading.Play"],
-      trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
+      leadingIdentifiers: [
+        "SwipeActions.Leading.Play",
+        "SwipeActions.Leading.Add to Playlist",
+      ],
+      trailingIdentifiers: [
+        "SwipeActions.Trailing.Download",
+        "SwipeActions.Trailing.Favorite",
+      ]
     )
     assertHapticsEnabled(true, styleLabel: "Rigid")
-    
     restoreDefaultConfiguration()
   }
   
   @MainActor
-  func testHapticTogglePersistsAfterManualChange() throws {
-    try beginWithFreshConfigurationSheet()
-    setHaptics(enabled: false, styleLabel: "Medium")
-    assertHapticsEnabled(false)
-    saveAndDismissConfiguration()
-    relaunchApp(resetDefaults: false)
+  func testHapticTogglePersistsFromSeed() throws {
+    launchAppWithSeed(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      hapticsEnabled: false,
+      hapticStyle: "medium"
+    )
     try openConfigurationSheetFromEpisodeList()
     assertHapticsEnabled(false)
     restoreDefaultConfiguration()
   }
 
   @MainActor
-  func testHapticStylePersistsAfterManualChange() throws {
-    try beginWithFreshConfigurationSheet()
-    setHaptics(enabled: true, styleLabel: "Soft")
-    assertHapticsEnabled(true, styleLabel: "Soft")
-    saveAndDismissConfiguration()
-
-    relaunchApp(resetDefaults: false)
+  func testHapticStylePersistsFromSeed() throws {
+    launchAppWithSeed(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      hapticsEnabled: true,
+      hapticStyle: "soft"
+    )
     try openConfigurationSheetFromEpisodeList()
     assertHapticsEnabled(true, styleLabel: "Soft")
-
     restoreDefaultConfiguration()
   }
   
   @MainActor
   func testFullSwipeSettingPersists() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify default full swipe state
-    assertFullSwipeState(leading: true, trailing: false)
-    
-    // Change full swipe toggles
-    setFullSwipeToggle(identifier: "SwipeActions.Leading.FullSwipe", enabled: false)
-    setFullSwipeToggle(identifier: "SwipeActions.Trailing.FullSwipe", enabled: true)
-    assertFullSwipeState(leading: false, trailing: true)
-    
-    saveAndDismissConfiguration()
-    relaunchApp(resetDefaults: false)
+    launchAppWithSeed(
+      leading: ["markPlayed"],
+      trailing: ["delete", "archive"],
+      allowFullSwipeLeading: false,
+      allowFullSwipeTrailing: true
+    )
     try openConfigurationSheetFromEpisodeList()
     assertFullSwipeState(leading: false, trailing: true)
     restoreDefaultConfiguration()

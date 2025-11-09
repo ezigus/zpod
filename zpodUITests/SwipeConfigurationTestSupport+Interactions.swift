@@ -49,41 +49,6 @@ extension SwipeConfigurationTestCase {
   // MARK: - Action Management
 
   @MainActor
-  func configurePlaybackLayoutManually() {
-    _ = removeAction("Mark Played", edgeIdentifier: "Leading")
-    _ = removeAction("Delete", edgeIdentifier: "Trailing")
-    _ = removeAction("Archive", edgeIdentifier: "Trailing")
-
-    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"), "Failed to add Play action")
-    XCTAssertTrue(
-      addAction("Add to Playlist", edgeIdentifier: "Leading"),
-      "Failed to add Add to Playlist action")
-
-    if !addAction("Download", edgeIdentifier: "Trailing") {
-      logger.warning("Failed to add Download trailing action")
-    }
-    if !addAction("Favorite", edgeIdentifier: "Trailing") {
-      logger.warning("Failed to add Favorite trailing action")
-    }
-  }
-
-  @MainActor
-  func configureMinimalCustomLayout() {
-    XCTAssertTrue(
-      addAction("Play", edgeIdentifier: "Leading"),
-      "Failed to add Play action"
-    )
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed", "play"],
-        trailing: ["delete", "archive"],
-        unsaved: true
-      ),
-      "Expected minimal custom layout debug summary"
-    )
-  }
-
-  @MainActor
   @discardableResult
   func removeAction(_ displayName: String, edgeIdentifier: String) -> Bool {
     guard let container = swipeActionsSheetListContainer() else { return false }

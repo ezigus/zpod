@@ -97,6 +97,26 @@ extension SwipeConfigurationTestCase {
     resetSwipeSettingsToDefault()
     relaunchApp(resetDefaults: true)
   }
+
+  @MainActor
+  func launchAppWithSeed(
+    leading: [String],
+    trailing: [String],
+    allowFullSwipeLeading: Bool = true,
+    allowFullSwipeTrailing: Bool = false,
+    hapticsEnabled: Bool = true,
+    hapticStyle: String = "medium"
+  ) {
+    seedSwipeConfiguration(
+      leading: leading,
+      trailing: trailing,
+      allowFullSwipeLeading: allowFullSwipeLeading,
+      allowFullSwipeTrailing: allowFullSwipeTrailing,
+      hapticsEnabled: hapticsEnabled,
+      hapticStyle: hapticStyle
+    )
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
+  }
 }
 
 struct SeedExpectation {
