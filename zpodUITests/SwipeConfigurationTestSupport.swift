@@ -20,7 +20,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   internal var pendingSeedExpectation: SeedExpectation?
   @MainActor internal static var reportedToggleValueSignatures = Set<String>()
   nonisolated(unsafe) private var testStartTime: CFAbsoluteTime?
-  internal var lastSwipeExecutionTimestamp: TimeInterval = 0
+  nonisolated(unsafe) internal var lastSwipeExecutionTimestamp: TimeInterval = 0
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
 
   // MARK: - Environment Configuration
