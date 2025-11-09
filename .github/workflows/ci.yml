@@ -7,6 +7,12 @@ on:
         description: "Choose which matrix to run (all, packages, ui, linux)"
         required: false
         default: "all"
+  workflow_call:
+    inputs:
+      matrix:
+        required: false
+        type: string
+        default: "all"
   push:
     branches:
       - main
@@ -15,6 +21,9 @@ on:
   pull_request:
     branches:
       - main
+
+env:
+  MATRIX_SELECTOR: ${{ inputs.matrix || github.event.inputs.matrix || 'all' }}
 
 jobs:
   preflight:
@@ -227,7 +236,7 @@ jobs:
 
   unit-tests:
     runs-on: macos-15
-    if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs:
       - preflight
     steps:
@@ -485,7 +494,7 @@ jobs:
 
   integration-tests:
     runs-on: macos-15
-    if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs:
       - unit-tests
       - package-tests
@@ -745,14 +754,14 @@ jobs:
           fi
 
   ui-tests:
-    if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
+    if: env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs:
       - unit-tests
       - package-tests
     runs-on: macos-15
     strategy:
       fail-fast: false
-      max-parallel: 5
       matrix:
         include:
           - name: UITests-Navigation
@@ -1038,7 +1047,7 @@ jobs:
 
   package-tests:
     runs-on: macos-15
-    if: github.event.inputs.matrix == 'packages' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    if: env.MATRIX_SELECTOR == 'packages' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs: preflight
     strategy:
       fail-fast: false
@@ -1096,7 +1105,7 @@ jobs:
 
   syntax-linux:
     runs-on: ubuntu-latest
-    if: github.event.inputs.matrix == 'linux' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
+    if: env.MATRIX_SELECTOR == 'linux' || env.MATRIX_SELECTOR == 'all' || (github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call')
     needs: preflight
     steps:
       - name: Checkout
