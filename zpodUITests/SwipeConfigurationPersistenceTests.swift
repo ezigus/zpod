@@ -20,7 +20,7 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     try beginWithFreshConfigurationSheet()
     
     // Configure custom layout manually
-    configurePlaybackLayoutManually()
+    configureMinimalCustomLayout()
     setHaptics(enabled: true, styleLabel: "Rigid")
     
     // Save and dismiss
@@ -32,8 +32,8 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     
     // Verify configuration persisted
     assertActionList(
-      leadingIdentifiers: ["SwipeActions.Leading.Play", "SwipeActions.Leading.Add to Playlist"],
-      trailingIdentifiers: ["SwipeActions.Trailing.Download", "SwipeActions.Trailing.Favorite"]
+      leadingIdentifiers: ["SwipeActions.Leading.Mark Played", "SwipeActions.Leading.Play"],
+      trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
     )
     assertHapticsEnabled(true, styleLabel: "Rigid")
     
@@ -78,25 +78,10 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     setFullSwipeToggle(identifier: "SwipeActions.Trailing.FullSwipe", enabled: true)
     assertFullSwipeState(leading: false, trailing: true)
     
-    // Save and dismiss
     saveAndDismissConfiguration()
-    
-    // Seed configuration for relaunch
-    seedSwipeConfiguration(
-      leading: ["markPlayed"],
-      trailing: ["delete", "archive"],
-      allowFullSwipeLeading: false,
-      allowFullSwipeTrailing: true,
-      hapticsEnabled: true,
-      hapticStyle: "medium"
-    )
-    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    
+    relaunchApp(resetDefaults: false)
     try openConfigurationSheetFromEpisodeList()
-    
-    // Verify full swipe settings persisted
     assertFullSwipeState(leading: false, trailing: true)
-    
     restoreDefaultConfiguration()
   }
 }

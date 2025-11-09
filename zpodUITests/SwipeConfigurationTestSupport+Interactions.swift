@@ -68,6 +68,22 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
+  func configureMinimalCustomLayout() {
+    XCTAssertTrue(
+      addAction("Play", edgeIdentifier: "Leading"),
+      "Failed to add Play action"
+    )
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["markPlayed", "play"],
+        trailing: ["delete", "archive"],
+        unsaved: true
+      ),
+      "Expected minimal custom layout debug summary"
+    )
+  }
+
+  @MainActor
   @discardableResult
   func removeAction(_ displayName: String, edgeIdentifier: String) -> Bool {
     guard let container = swipeActionsSheetListContainer() else { return false }

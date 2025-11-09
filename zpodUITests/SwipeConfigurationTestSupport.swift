@@ -19,6 +19,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   internal var seededConfigurationPayload: String?
   internal var pendingSeedExpectation: SeedExpectation?
   @MainActor internal static var reportedToggleValueSignatures = Set<String>()
+  nonisolated(unsafe) private var testStartTime: CFAbsoluteTime?
+  private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
 
   // MARK: - Environment Configuration
 
@@ -45,9 +47,22 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     try super.setUpWithError()
     continueAfterFailure = false
     disableWaitingForIdleIfNeeded()
+    testStartTime = CFAbsoluteTimeGetCurrent()
   }
 
   override func tearDownWithError() throws {
+    if let start = testStartTime {
+      let elapsed = CFAbsoluteTimeGetCurrent() - start
+      if elapsed > maxTestDuration {
+        XCTFail(
+          String(
+            format: "Swipe test exceeded %0.1f seconds (actual %0.1f)",
+            maxTestDuration,
+            elapsed
+          )
+        )
+      }
+    }
     app = nil
     try super.tearDownWithError()
   }
