@@ -18,7 +18,7 @@ on:
 
 jobs:
   preflight:
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -226,7 +226,7 @@ jobs:
           if-no-files-found: warn
 
   unit-tests:
-    runs-on: macos-15
+    runs-on: macos-latest
     if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs:
       - preflight
@@ -484,7 +484,7 @@ jobs:
           fi
 
   integration-tests:
-    runs-on: macos-15
+    runs-on: macos-latest
     if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs:
       - unit-tests
@@ -749,7 +749,7 @@ jobs:
     needs:
       - unit-tests
       - package-tests
-    runs-on: macos-15
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       max-parallel: 5
@@ -1171,6 +1171,52 @@ jobs:
           xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
           sleep 2
           echo "✅ Simulator pre-warming complete"
+
+      - name: Download host app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
+
+      - name: Verify and restore host app bundle
+        run: |
+          set -euo pipefail
+
+          echo "Verifying host app artifact integrity..."
+          cd host-app
+          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
+            echo "❌ Artifact checksum verification failed"
+            exit 1
+          fi
+          echo "✅ Artifact integrity verified"
+          cd ..
+
+          TEMP_DIR=$(mktemp -d)
+          echo "Extracting host app to temporary directory: $TEMP_DIR"
+          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
+
+          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
+            echo "❌ Extraction failed or incomplete - zpod.app not found"
+            rm -rf "$TEMP_DIR"
+            exit 1
+          fi
+
+          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
+          fi
+
+          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
+            echo "❌ Main binary missing after extraction"
+            ls -la "$TEMP_DIR/zpod.app/" || true
+            rm -rf "$TEMP_DIR"
+            exit 1
+          fi
+
+          HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
+          mkdir -p "$(dirname "$HOST_DIR")"
+          mv "$TEMP_DIR" "$HOST_DIR"
+
+          echo "✅ Host app bundle restored successfully to $HOST_DIR"
 
       - name: Run ${{ matrix.name }} Tests
         run: |
