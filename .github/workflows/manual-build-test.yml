@@ -16,6 +16,6 @@ on:
 
 jobs:
   run-shared-ci:
-    uses: ./.github/workflows/ci.yml
+    uses: ./.github/workflows/ci-shared.yml
     with:
       matrix: ${{ github.event.inputs.matrix }}
