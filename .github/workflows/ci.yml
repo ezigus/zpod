@@ -18,7 +18,7 @@ on:
 
 jobs:
   preflight:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -226,7 +226,7 @@ jobs:
           if-no-files-found: warn
 
   unit-tests:
-    runs-on: macos-latest
+    runs-on: macos-15
     if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs:
       - preflight
@@ -484,7 +484,7 @@ jobs:
           fi
 
   integration-tests:
-    runs-on: macos-latest
+    runs-on: macos-15
     if: github.event.inputs.matrix == 'ui' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs:
       - unit-tests
@@ -749,7 +749,7 @@ jobs:
     needs:
       - unit-tests
       - package-tests
-    runs-on: macos-latest
+    runs-on: macos-15
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -1037,7 +1037,7 @@ jobs:
           fi
 
   package-tests:
-    runs-on: macos-latest
+    runs-on: macos-15
     if: github.event.inputs.matrix == 'packages' || github.event.inputs.matrix == 'all' || github.event_name != 'workflow_dispatch'
     needs: preflight
     strategy:
