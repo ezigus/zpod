@@ -19,3 +19,4 @@ jobs:
     uses: ./.github/workflows/ci-shared.yml
     with:
       matrix: ${{ github.event.inputs.matrix }}
+    secrets: inherit
