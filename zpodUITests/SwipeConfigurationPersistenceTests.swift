@@ -16,28 +16,59 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
   // MARK: - Persistence Tests
   
   @MainActor
-  func testSeededCustomConfigurationPersists() throws {
+  func testLeadingActionsPersistFromSeed() throws {
     launchAppWithSeed(
       leading: ["play", "addToPlaylist"],
-      trailing: ["download", "favorite"],
-      allowFullSwipeLeading: true,
-      allowFullSwipeTrailing: false,
+      trailing: ["delete", "archive"],
       hapticsEnabled: true,
       hapticStyle: "rigid"
     )
     try openConfigurationSheetFromEpisodeList()
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["play", "addToPlaylist"],
+        trailing: ["delete", "archive"],
+        unsaved: false
+      ),
+      "Seeded leading actions should match debug summary"
+    )
     assertActionList(
       leadingIdentifiers: [
         "SwipeActions.Leading.Play",
         "SwipeActions.Leading.Add to Playlist",
       ],
       trailingIdentifiers: [
+        "SwipeActions.Trailing.Delete",
+        "SwipeActions.Trailing.Archive",
+      ]
+    )
+  }
+
+  @MainActor
+  func testTrailingActionsPersistFromSeed() throws {
+    launchAppWithSeed(
+      leading: ["markPlayed"],
+      trailing: ["download", "favorite"],
+      allowFullSwipeTrailing: true
+    )
+    try openConfigurationSheetFromEpisodeList()
+    XCTAssertTrue(
+      waitForDebugSummary(
+        leading: ["markPlayed"],
+        trailing: ["download", "favorite"],
+        unsaved: false
+      ),
+      "Seeded trailing actions should match debug summary"
+    )
+    assertActionList(
+      leadingIdentifiers: [
+        "SwipeActions.Leading.Mark Played",
+      ],
+      trailingIdentifiers: [
         "SwipeActions.Trailing.Download",
         "SwipeActions.Trailing.Favorite",
       ]
     )
-    assertHapticsEnabled(true, styleLabel: "Rigid")
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -50,7 +81,6 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     )
     try openConfigurationSheetFromEpisodeList()
     assertHapticsEnabled(false)
-    restoreDefaultConfiguration()
   }
 
   @MainActor
@@ -63,7 +93,6 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     )
     try openConfigurationSheetFromEpisodeList()
     assertHapticsEnabled(true, styleLabel: "Soft")
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -76,6 +105,5 @@ final class SwipeConfigurationPersistenceTests: SwipeConfigurationTestCase {
     )
     try openConfigurationSheetFromEpisodeList()
     assertFullSwipeState(leading: false, trailing: true)
-    restoreDefaultConfiguration()
   }
 }

@@ -50,8 +50,6 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
       "Save button should enable after adding action"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -89,8 +87,6 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
       "Save button should enable after adding action"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -127,8 +123,6 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       ),
       "Mark Played action should be removed from leading edge"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -183,7 +177,5 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       ),
       "Trailing add action button should remain visible when under the limit"
     )
-    
-    restoreDefaultConfiguration()
   }
 }

@@ -515,6 +515,21 @@ public struct EpisodeListView: View {
       }
       .platformInsetGroupedListStyle()
       .accessibilityIdentifier("Episode Cards Container")
+      #if DEBUG
+        .overlay(alignment: .topLeading) {
+          if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1",
+            !viewModel.swipeExecutionDebugSummary.isEmpty
+          {
+            Text(viewModel.swipeExecutionDebugSummary)
+              .font(.caption2)
+              .opacity(0.001)
+              .accessibilityHidden(false)
+              .accessibilityIdentifier("SwipeActions.Debug.LastExecution")
+              .accessibilityLabel("SwipeActions.Debug.LastExecution")
+              .accessibilityValue(viewModel.swipeExecutionDebugSummary)
+          }
+        }
+      #endif
     #else
       // watchOS and CarPlay use simple list layout
       List(viewModel.filteredEpisodes, id: \.id) { episode in

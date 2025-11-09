@@ -52,8 +52,6 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
       ),
       "Haptic state should toggle back to \(initialHaptics)"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -111,8 +109,6 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
       // Wait for change to register
       _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     }
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -139,7 +135,5 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     
     // Verify state changed
     assertFullSwipeState(leading: true, trailing: true)
-    
-    restoreDefaultConfiguration()
   }
 }

@@ -18,8 +18,6 @@ extension SwipeConfigurationTestCase {
     hapticsEnabled: Bool = true,
     hapticStyle: String = "medium"
   ) {
-    resetSwipeSettingsToDefault()
-
     let payload: [String: Any] = [
       "swipeActions": [
         "leadingActions": leading,

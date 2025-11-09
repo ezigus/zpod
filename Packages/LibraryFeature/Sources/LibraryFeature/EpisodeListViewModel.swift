@@ -21,6 +21,7 @@ public final class EpisodeListViewModel: ObservableObject {
   @Published public var showingSwipeConfiguration = false
   @Published public private(set) var swipeConfiguration: SwipeConfiguration
   @Published public private(set) var noteCounts: [String: Int] = [:]
+  @Published public private(set) var swipeExecutionDebugSummary: String = ""
 
   public var leadingSwipeActions: [SwipeActionType] {
     swipeConfiguration.swipeActions.leadingActions
@@ -63,6 +64,7 @@ public final class EpisodeListViewModel: ObservableObject {
   }
 
   public func performSwipeAction(_ action: SwipeActionType, for episode: Episode) {
+    recordSwipeExecutionDebugSummary(action: action, episode: episode)
     swipeActionHandler.triggerHapticIfNeeded(configuration: swipeConfiguration)
     
     let callbacks = SwipeActionCallbacks(
@@ -411,8 +413,22 @@ public final class EpisodeListViewModel: ObservableObject {
   }
 
   private func preparePlaylistSelection(for episode: Episode) {
+    #if DEBUG
+      if ProcessInfo.processInfo.environment["UITEST_STUB_PLAYLIST_SHEET"] == "1" {
+        return
+      }
+    #endif
     pendingPlaylistEpisode = episode
     showingPlaylistSelectionSheet = true
+  }
+
+  private func recordSwipeExecutionDebugSummary(action: SwipeActionType, episode: Episode) {
+    #if DEBUG
+      guard ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" else { return }
+      let timestamp = Date().timeIntervalSince1970
+      swipeExecutionDebugSummary =
+        "action=\(action.rawValue);episode=\(episode.id);timestamp=\(timestamp)"
+    #endif
   }
 
   private func prepareShare(for episode: Episode) {

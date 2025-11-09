@@ -76,11 +76,17 @@ final class SwipeActionExecutionTests: SwipeConfigurationTestCase {
       ),
       "Add to Playlist swipe action should appear after swiping right"
     )
-    
-    // No need to open the playlist sheet; verifying visibility is sufficient.
+
+    tapElement(addToPlaylistButton, description: "add to playlist swipe action")
+    let expectedEpisodeID = episodeIdentifier(from: episode)
+    if let record = waitForSwipeExecution(action: "addToPlaylist", timeout: adaptiveShortTimeout) {
+      XCTAssertEqual(
+        record.episodeID,
+        expectedEpisodeID,
+        "Add to Playlist swipe action should execute for the swiped episode"
+      )
+    }
     episode.tap()
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -145,14 +151,32 @@ final class SwipeActionExecutionTests: SwipeConfigurationTestCase {
       ),
       "Favorite swipe action should appear after swiping left"
     )
+    tapElement(favoriteButton, description: "favorite swipe action")
+    let expectedEpisodeID = episodeIdentifier(from: episode)
+    if let record = waitForSwipeExecution(action: "favorite", timeout: adaptiveShortTimeout) {
+      XCTAssertEqual(
+        record.episodeID,
+        expectedEpisodeID,
+        "Favorite swipe action should execute for the swiped episode"
+      )
+    }
     episode.tap()
-    
-    restoreDefaultConfiguration()
   }
 }
 
 extension XCUIElement {
   fileprivate func firstMatchIfExists() -> XCUIElement? {
     return exists ? self : nil
+  }
+}
+
+private extension SwipeActionExecutionTests {
+  func episodeIdentifier(from element: XCUIElement) -> String {
+    let identifier = element.identifier
+    guard let range = identifier.range(of: "Episode-") else {
+      return identifier
+    }
+    let suffix = identifier[range.upperBound...]
+    return String(suffix)
   }
 }

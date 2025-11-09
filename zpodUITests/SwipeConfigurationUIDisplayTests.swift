@@ -49,8 +49,6 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       openedSheet,
       "Configuration sheet should open with navigation bar or action buttons visible"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -78,8 +76,6 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       leadingIdentifiers: ["SwipeActions.Leading.Mark Played"],
       trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -113,7 +109,5 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     let stylePicker = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
     // Note: Style picker may not exist if haptics are disabled, so we just check the element is queryable
     _ = stylePicker.exists
-    
-    restoreDefaultConfiguration()
   }
 }

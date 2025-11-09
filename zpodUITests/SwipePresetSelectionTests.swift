@@ -47,8 +47,6 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
       ),
       "Playback preset should configure play+addToPlaylist leading, download+favorite trailing"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -83,8 +81,6 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
       ),
       "Organization preset should configure markPlayed+favorite leading, archive+delete trailing"
     )
-    
-    restoreDefaultConfiguration()
   }
   
   @MainActor
@@ -119,7 +115,5 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
       ),
       "Download preset should configure download+markPlayed leading, archive+delete trailing"
     )
-    
-    restoreDefaultConfiguration()
   }
 }
