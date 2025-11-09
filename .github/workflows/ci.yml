@@ -27,9 +27,6 @@ on:
     branches:
       - main
 
-env:
-  MATRIX_SELECTOR: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.matrix) || 'all' }}
-
 jobs:
   preflight:
     runs-on: macos-latest
@@ -241,7 +238,12 @@ jobs:
 
   unit-tests:
     runs-on: macos-latest
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'unit-tests' || env.MATRIX_SELECTOR == 'integration-tests' || env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'ui-swipe'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'unit-tests'
+      || github.event.inputs.matrix == 'integration-tests'
+      || github.event.inputs.matrix == 'ui'
+      || github.event.inputs.matrix == 'ui-swipe'
     needs:
       - preflight
     steps:
@@ -499,7 +501,9 @@ jobs:
 
   integration-tests:
     runs-on: macos-15
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'integration-tests'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'integration-tests'
     needs:
       - unit-tests
       - package-tests
@@ -759,7 +763,9 @@ jobs:
           fi
 
   ui-tests:
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'ui'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'ui'
     needs:
       - unit-tests
       - package-tests
@@ -1039,7 +1045,9 @@ jobs:
           fi
 
   ui-tests-swipe:
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'ui-swipe'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'ui-swipe'
     needs:
       - unit-tests
       - package-tests
@@ -1277,7 +1285,12 @@ jobs:
 
   package-tests:
     runs-on: macos-15
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'packages' || env.MATRIX_SELECTOR == 'integration-tests' || env.MATRIX_SELECTOR == 'ui' || env.MATRIX_SELECTOR == 'ui-swipe'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'packages'
+      || github.event.inputs.matrix == 'integration-tests'
+      || github.event.inputs.matrix == 'ui'
+      || github.event.inputs.matrix == 'ui-swipe'
     needs: preflight
     strategy:
       fail-fast: false
@@ -1335,7 +1348,9 @@ jobs:
 
   syntax-linux:
     runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch' || env.MATRIX_SELECTOR == 'all' || env.MATRIX_SELECTOR == 'linux'
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'linux'
     needs: preflight
     steps:
       - name: Checkout
