@@ -50,19 +50,23 @@ extension SwipeConfigurationTestCase {
     }
 
     let pickerNavBar = app.navigationBars[pickerTitle]
-    guard
-      waitForElement(
-        pickerNavBar,
-        timeout: adaptiveShortTimeout,
-        description: "Add action picker navigation bar"
-      )
-    else {
-      return false
-    }
+    let fallbackPickerNavBar = app.navigationBars["Add Action"]
 
     let optionIdentifier = addIdentifier + "." + displayName
-
     let primaryOption = element(withIdentifier: optionIdentifier, within: container)
+    let buttonOption = container.buttons[displayName]
+
+    _ = waitForAnyElement(
+      [
+        pickerNavBar,
+        fallbackPickerNavBar,
+        primaryOption,
+        buttonOption,
+      ],
+      timeout: adaptiveTimeout,
+      description: "Add action picker components"
+    )
+
     if primaryOption.exists {
       tapElement(primaryOption, description: "Add action option \(displayName)")
       if pickerNavBar.exists {
@@ -71,7 +75,6 @@ extension SwipeConfigurationTestCase {
       return true
     }
 
-    let buttonOption = container.buttons[displayName]
     if buttonOption.exists {
       tapElement(buttonOption, description: "Add action option \(displayName)")
       if pickerNavBar.exists {
