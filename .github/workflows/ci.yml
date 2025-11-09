@@ -409,52 +409,8 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
-        run: |
-          set -euo pipefail
-
-          # Verify artifact integrity with checksum
-          echo "Verifying artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
-
-          # Extract to temporary directory first (atomic operation)
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-
-          # Verify extraction was complete
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Create symlink if needed
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            echo "Creating symlink: zpod -> zpod.debug.dylib"
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
-
-          # Verify main binary exists
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Atomic move to final location
-          HOST_DIR="${{ steps.unit-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
-
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+      - name: Restore host app bundle
+        run: scripts/ci/restore-host-app.sh "${{ steps.unit-sim.outputs.derived_path }}" host-app
 
       - name: Run AppSmoke tests
         run: |
@@ -468,16 +424,7 @@ jobs:
 
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/AppSmoke
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/AppSmoke/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/AppSmoke/
-          fi
+        run: scripts/ci/archive-test-results.sh AppSmoke
       - name: Upload Unit Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -488,16 +435,7 @@ jobs:
 
       - name: Cleanup unit-test simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.unit-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.unit-sim.outputs.sim_name }} (${{ steps.unit-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.unit-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.unit-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.unit-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.unit-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.unit-sim.outputs.udid }}" "${{ steps.unit-sim.outputs.derived_path }}"
 
   integration-tests:
     runs-on: macos-15
@@ -730,16 +668,7 @@ jobs:
 
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/Integration
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/Integration/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/Integration/
-          fi
+        run: scripts/ci/archive-test-results.sh Integration
 
       - name: Upload Integration Artifacts (always)
         if: always()
@@ -751,16 +680,7 @@ jobs:
 
       - name: Cleanup integration simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.integration-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.integration-sim.outputs.sim_name }} (${{ steps.integration-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.integration-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.integration-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.integration-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.integration-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.integration-sim.outputs.udid }}" "${{ steps.integration-sim.outputs.derived_path }}"
 
   ui-tests:
     if: github.event_name != 'workflow_dispatch'
@@ -1013,16 +933,7 @@ jobs:
           ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.name }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -1033,16 +944,7 @@ jobs:
 
       - name: Cleanup dedicated simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.provision-sim.outputs.udid }}" "${{ steps.provision-sim.outputs.derived_path }}"
 
   ui-tests-swipe:
     if: github.event_name != 'workflow_dispatch'
@@ -1252,16 +1154,7 @@ jobs:
           ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.name }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -1272,16 +1165,7 @@ jobs:
 
       - name: Cleanup dedicated simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.provision-sim.outputs.udid }}" "${{ steps.provision-sim.outputs.derived_path }}"
 
   package-tests:
     runs-on: macos-15
@@ -1331,13 +1215,7 @@ jobs:
           NSUnbufferedIO: "YES"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.package }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.package }}/ \;
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.package }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
