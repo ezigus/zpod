@@ -23,7 +23,7 @@ on:
       - main
 
 env:
-  MATRIX_SELECTOR: ${{ (github.event_name == 'workflow_call' && inputs.matrix) || (github.event_name == 'workflow_dispatch' && github.event.inputs.matrix) || 'all' }}
+  MATRIX_SELECTOR: ${{ github.event.inputs.matrix || 'all' }}
 
 jobs:
   preflight:
