@@ -134,7 +134,7 @@
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
       }
-      .background(Color(uiColor: .systemGroupedBackground))
+      .background(Color(UIColor.systemGroupedBackground))
     }
 
     @ViewBuilder
@@ -155,7 +155,7 @@
         .padding(.horizontal, 16)
         .background(
           RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            .fill(Color(UIColor.secondarySystemGroupedBackground))
         )
       }
     }
