@@ -7,7 +7,10 @@
 //
 
 import Foundation
+import OSLog
 import XCTest
+
+private let launchLogger = Logger(subsystem: "us.zig.zpod", category: "UITestHelpers")
 
 // MARK: - UI Test Automation Fix for "Waiting for App to Idle" Hanging
 
@@ -449,28 +452,39 @@ extension SmartUITesting where Self: XCTestCase {
   @MainActor
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
+    logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
     forceTerminateAppIfRunning()
+    logLaunchEvent("Termination check complete")
 
     let application =
       environmentOverrides.isEmpty
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
     application.launch()
+    logLaunchEvent("Launch request issued")
 
-    // Check if app is actually running
     guard application.state == .runningForeground || application.state == .runningBackground else {
       XCTFail("App failed to launch. State: \(application.state.rawValue)")
       return application
     }
 
     let mainTabBar = application.tabBars["Main Tab Bar"]
-    if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
-      XCTFail("Main tab bar did not appear after launch. App state: \(application.state.rawValue)")
-    }
+    let tabBarAppeared = mainTabBar.waitForExistence(timeout: adaptiveTimeout)
+    logLaunchEvent("Main tab bar existence=\(tabBarAppeared)")
+    XCTAssertTrue(
+      tabBarAppeared,
+      "Main tab bar did not appear after launch. App state: \(application.state.rawValue)"
+    )
 
-    _ = waitForBatchOverlayDismissalIfNeeded(in: application)
+    let overlayResult = waitForBatchOverlayDismissalIfNeeded(in: application)
+    logLaunchEvent("Batch overlay result=\(overlayResult)")
 
     return application
+  }
+
+  private func logLaunchEvent(_ message: String) {
+    launchLogger.debug("[SwipeUITestDebug] \(message, privacy: .public)")
+    print("[SwipeUITestDebug] \(message)")
   }
 
   @MainActor
