@@ -110,10 +110,32 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String) {
-    let presetButton = element(withIdentifier: identifier)
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+    guard let container = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
+      return
     }
+
+    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 16)
+    var presetButton = app.buttons[identifier]
+    if !presetButton.exists {
+      presetButton = element(withIdentifier: identifier, within: container)
+    }
+    var scrollAttempts = 0
+    while !presetButton.exists && scrollAttempts < 12 {
+      if container.isHittable {
+        container.swipeUp()
+      } else {
+        app.swipeUp()
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+      scrollAttempts += 1
+      var refreshed = app.buttons[identifier]
+      if !refreshed.exists {
+        refreshed = element(withIdentifier: identifier, within: container)
+      }
+      presetButton = refreshed
+    }
+
     XCTAssertTrue(
       waitForElement(
         presetButton, timeout: adaptiveTimeout, description: "preset button \(identifier)"),
@@ -241,6 +263,16 @@ extension SwipeConfigurationTestCase {
     }
 
     func scroll(_ direction: ScrollDirection) {
+      if container.isHittable {
+        switch direction {
+        case .towardsBottom:
+          container.swipeUp()
+        case .towardsTop:
+          container.swipeDown()
+        }
+        return
+      }
+
       let startVector: CGVector
       let endVector: CGVector
       switch direction {
@@ -254,6 +286,13 @@ extension SwipeConfigurationTestCase {
       let startCoord = container.coordinate(withNormalizedOffset: startVector)
       let endCoord = container.coordinate(withNormalizedOffset: endVector)
       startCoord.press(forDuration: 0.01, thenDragTo: endCoord)
+
+      switch direction {
+      case .towardsBottom:
+        app.swipeUp()
+      case .towardsTop:
+        app.swipeDown()
+      }
     }
 
     // Nudge to the top first so we have a deterministic starting point.

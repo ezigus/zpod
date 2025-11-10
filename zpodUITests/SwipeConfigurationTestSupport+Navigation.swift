@@ -191,11 +191,31 @@ extension SwipeConfigurationTestCase {
       app.buttons["SwipeActions.Cancel"],
     ]
 
-    _ = waitForAnyElement(
+    var sheetPresented = waitForAnyElement(
       refreshedIndicators,
       timeout: adaptiveTimeout,
       description: "Swipe Actions configuration sheet"
     )
+
+    if sheetPresented == nil {
+      logger.warning("[SwipeUITestDebug] Swipe Actions sheet did not appear after first tap, retrying")
+      _ = waitForElementToBeHittable(
+        configureButton,
+        timeout: adaptiveShortTimeout,
+        description: "configure swipe actions button (retry)"
+      )
+      tapElement(configureButton, description: "configure swipe actions button (retry)")
+      sheetPresented = waitForAnyElement(
+        refreshedIndicators,
+        timeout: adaptiveTimeout,
+        description: "Swipe Actions configuration sheet (retry)"
+      )
+    }
+
+    guard sheetPresented != nil else {
+      XCTFail("Swipe configuration sheet failed to present")
+      return
+    }
 
     _ = waitForBaselineLoaded()
     logDebugState("baseline after open")

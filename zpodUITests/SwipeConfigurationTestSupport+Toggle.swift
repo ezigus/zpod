@@ -257,6 +257,18 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func resolveToggleSwitch(identifier: String) -> XCUIElement? {
     if let container = swipeActionsSheetListContainer() {
+      let directElement = element(withIdentifier: identifier, within: container)
+      if directElement.exists {
+        return directElement
+      }
+
+      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 16)
+
+      let refreshed = element(withIdentifier: identifier, within: container)
+      if refreshed.exists {
+        return refreshed
+      }
+
       let scoped = container.switches.matching(identifier: identifier).firstMatch
       if scoped.exists { return scoped }
 
