@@ -1,9 +1,10 @@
-#if os(iOS) || os(macOS)
+#if os(iOS)
   import CoreModels
   import Foundation
   import OSLog
   import SettingsDomain
   import SharedUtilities
+  import UIKit
   import SwiftUI
 
   public struct SwipeActionConfigurationView: View {
