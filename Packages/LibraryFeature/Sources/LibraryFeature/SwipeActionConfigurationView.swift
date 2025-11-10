@@ -17,12 +17,15 @@
       ProcessInfo.processInfo.environment["UITEST_AUTO_SCROLL_PRESETS"] == "1"
     private static let logger = Logger(
       subsystem: "us.zig.zpod", category: "SwipeActionConfigurationView")
+    private let shouldForceMaterialization =
+      ProcessInfo.processInfo.environment["UITEST_SWIPE_PRELOAD_SECTIONS"] == "1"
     @State private var leadingFullSwipe: Bool
     @State private var trailingFullSwipe: Bool
     @State private var hapticsEnabledState: Bool
     @State private var hapticStyleState: SwipeHapticStyle
     @State private var baselineLoaded = false
     @State private var pendingAddEdge: SwipeConfigurationController.SwipeEdge?
+    @State private var didMaterializeSections = false
 
     public init(
       controller: SwipeConfigurationController,
@@ -40,20 +43,17 @@
 
     public var body: some View {
       NavigationStack {
-        List {
-          if baselineLoaded && shouldAutoScrollPresets {
-            presetsSection
-          }
-
-          leadingSection
-          trailingSection
-          hapticsSection
-
-          if baselineLoaded && !shouldAutoScrollPresets {
-            presetsSection
-          }
+        ScrollViewReader { proxy in
+          listContent
+            .onChange(of: baselineLoaded) { loaded in
+              materializeSectionsIfNeeded(proxy: proxy, loaded: loaded)
+            }
+            .task {
+              await controller.loadBaseline()
+              baselineLoaded = true
+              materializeSectionsIfNeeded(proxy: proxy, loaded: true)
+            }
         }
-        .platformInsetGroupedListStyle()
         #if DEBUG
           .overlay(alignment: .topLeading) {
             if debugEnabled {
@@ -78,10 +78,6 @@
               pendingAddEdge = nil
             }
           }
-        }
-        .task {
-          await controller.loadBaseline()
-          baselineLoaded = true
         }
         .onReceive(controller.$draft) { draft in
           leadingFullSwipe = draft.swipeActions.allowFullSwipeLeading
@@ -112,6 +108,23 @@
           }
         }
       }
+    }
+
+    private var listContent: some View {
+      List {
+        if baselineLoaded && shouldAutoScrollPresets {
+          presetsSection.id("swipe-presets-top")
+        }
+
+        leadingSection.id("swipe-leading")
+        trailingSection.id("swipe-trailing")
+        hapticsSection.id("swipe-haptics")
+
+        if baselineLoaded && !shouldAutoScrollPresets {
+          presetsSection.id("swipe-presets-bottom")
+        }
+      }
+      .platformInsetGroupedListStyle()
     }
 
     private var leadingSection: some View {
@@ -239,6 +252,26 @@
         return "Leading"
       case .trailing:
         return "Trailing"
+      }
+    }
+
+    private func materializeSectionsIfNeeded(
+      proxy: ScrollViewProxy,
+      loaded: Bool
+    ) {
+      guard loaded, shouldForceMaterialization, !didMaterializeSections else { return }
+      didMaterializeSections = true
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        proxy.scrollTo("swipe-trailing", anchor: .bottom)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+          proxy.scrollTo("swipe-haptics", anchor: .bottom)
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            proxy.scrollTo(
+              baselineLoaded && shouldAutoScrollPresets ? "swipe-presets-top" : "swipe-leading",
+              anchor: .top
+            )
+          }
+        }
       }
     }
 

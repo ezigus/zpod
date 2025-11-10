@@ -31,6 +31,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       "UITEST_USER_DEFAULTS_SUITE": swipeDefaultsSuite,
       "UITEST_STUB_PLAYLIST_SHEET": "1",
       "UITEST_AUTO_SCROLL_PRESETS": "1",
+      "UITEST_SWIPE_PRELOAD_SECTIONS": "1",
     ]
   }
 

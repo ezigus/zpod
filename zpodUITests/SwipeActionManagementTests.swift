@@ -168,6 +168,13 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
     )
     
     // Verify trailing add button still exists (not at limit)
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(
+        identifier: "SwipeActions.Add.Trailing",
+        container: container,
+        scrollAttempts: 16
+      )
+    }
     let trailingAddButton = element(withIdentifier: "SwipeActions.Add.Trailing")
     XCTAssertTrue(
       waitForElement(
