@@ -40,7 +40,20 @@
 
     public var body: some View {
       NavigationStack {
-        sheetContent
+        List {
+          if baselineLoaded && shouldAutoScrollPresets {
+            presetsSection
+          }
+
+          leadingSection
+          trailingSection
+          hapticsSection
+
+          if baselineLoaded && !shouldAutoScrollPresets {
+            presetsSection
+          }
+        }
+        .platformInsetGroupedListStyle()
         #if DEBUG
           .overlay(alignment: .topLeading) {
             if debugEnabled {
@@ -101,210 +114,108 @@
       }
     }
 
-    @ViewBuilder
-    private var sheetContent: some View {
-      if shouldAutoScrollPresets {
-        groupedSheetContent
-      } else {
-        listSheetContent
-      }
-    }
-
-    private var listSheetContent: some View {
-      List {
-        leadingSection
-        trailingSection
-        hapticsSection
-        if baselineLoaded {
-          presetsSection
-        }
-      }
-      .platformInsetGroupedListStyle()
-    }
-
-    private var groupedSheetContent: some View {
-      ScrollView {
-        VStack(spacing: 24) {
-          if baselineLoaded {
-            groupedPresetsSection
-          }
-          groupedLeadingSection
-          groupedTrailingSection
-          groupedHapticsSection
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-      }
-      .background(Color(UIColor.systemGroupedBackground))
-    }
-
-    @ViewBuilder
-    private func groupedSection(
-      titleKey: LocalizedStringKey,
-      @ViewBuilder content: () -> some View
-    ) -> some View {
-      VStack(alignment: .leading, spacing: 8) {
-        Text(titleKey)
-          .font(.headline)
-          .foregroundStyle(Color.secondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        VStack(alignment: .leading, spacing: 12) {
-          content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-          RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color(UIColor.secondarySystemGroupedBackground))
-        )
-      }
-    }
-
     private var leadingSection: some View {
       Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
-        leadingSectionRows()
-      }
-    }
+        ForEach(controller.leadingActions, id: \.self) { action in
+          actionRow(for: action, edge: .leading)
+        }
 
-    private var groupedLeadingSection: some View {
-      groupedSection(titleKey: "Leading Actions") {
-        leadingSectionRows()
-      }
-    }
+        if controller.canAddMoreActions(to: .leading) {
+          addActionTrigger(for: .leading)
+        }
 
-    @ViewBuilder
-    private func leadingSectionRows() -> some View {
-      ForEach(controller.leadingActions, id: \.self) { action in
-        actionRow(for: action, edge: .leading)
-      }
-
-      if controller.canAddMoreActions(to: .leading) {
-        addActionTrigger(for: .leading)
-      }
-
-      SettingsToggleRow(
-        "Allow Full Swipe",
-        isOn: $leadingFullSwipe,
-        accessibilityIdentifier: "SwipeActions.Leading.FullSwipe"
-      ) { newValue in
-        controller.setFullSwipe(newValue, edge: .leading)
-        debugLog("UI toggled leading full swipe -> \(newValue)")
+        SettingsToggleRow(
+          "Allow Full Swipe",
+          isOn: $leadingFullSwipe,
+          accessibilityIdentifier: "SwipeActions.Leading.FullSwipe"
+        ) { newValue in
+          controller.setFullSwipe(newValue, edge: .leading)
+          debugLog("UI toggled leading full swipe -> \(newValue)")
+        }
       }
     }
 
     private var trailingSection: some View {
       Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
-        trailingSectionRows()
-      }
-    }
+        ForEach(controller.trailingActions, id: \.self) { action in
+          actionRow(for: action, edge: .trailing)
+        }
 
-    private var groupedTrailingSection: some View {
-      groupedSection(titleKey: "Trailing Actions") {
-        trailingSectionRows()
-      }
-    }
+        if controller.canAddMoreActions(to: .trailing) {
+          addActionTrigger(for: .trailing)
+        }
 
-    @ViewBuilder
-    private func trailingSectionRows() -> some View {
-      ForEach(controller.trailingActions, id: \.self) { action in
-        actionRow(for: action, edge: .trailing)
-      }
+        SettingsToggleRow(
+          "Allow Full Swipe",
+          isOn: $trailingFullSwipe,
+          accessibilityIdentifier: "SwipeActions.Trailing.FullSwipe"
+        ) { newValue in
+          controller.setFullSwipe(newValue, edge: .trailing)
+          debugLog("UI toggled trailing full swipe -> \(newValue)")
+        }
 
-      if controller.canAddMoreActions(to: .trailing) {
-        addActionTrigger(for: .trailing)
-      }
-
-      SettingsToggleRow(
-        "Allow Full Swipe",
-        isOn: $trailingFullSwipe,
-        accessibilityIdentifier: "SwipeActions.Trailing.FullSwipe"
-      ) { newValue in
-        controller.setFullSwipe(newValue, edge: .trailing)
-        debugLog("UI toggled trailing full swipe -> \(newValue)")
       }
     }
 
     private var hapticsSection: some View {
       Section(header: Text(String(localized: "Haptics", bundle: .main))) {
-        hapticsSectionRows()
-      }
-    }
+        SettingsToggleRow(
+          "Enable Haptic Feedback",
+          isOn: $hapticsEnabledState,
+          accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
+        ) { newValue in
+          controller.setHapticsEnabled(newValue)
+          guard newValue else { return }
+          hapticsService.selectionChanged()
+        }
 
-    private var groupedHapticsSection: some View {
-      groupedSection(titleKey: "Haptics") {
-        hapticsSectionRows()
-      }
-    }
-
-    @ViewBuilder
-    private func hapticsSectionRows() -> some View {
-      SettingsToggleRow(
-        "Enable Haptic Feedback",
-        isOn: $hapticsEnabledState,
-        accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
-      ) { newValue in
-        controller.setHapticsEnabled(newValue)
-        guard newValue else { return }
-        hapticsService.selectionChanged()
-      }
-
-      SettingsSegmentedPickerRow(
-        "Intensity",
-        selection: $hapticStyleState,
-        options: SwipeHapticStyle.allCases,
-        accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
-      ) { style in
-        Text(style.description).tag(style)
-      }
-      .disabled(!hapticsEnabledState)
-      .onChange(of: hapticStyleState) { newStyle in
-        controller.setHapticStyle(newStyle)
-        hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
+        SettingsSegmentedPickerRow(
+          "Intensity",
+          selection: $hapticStyleState,
+          options: SwipeHapticStyle.allCases,
+          accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
+        ) { style in
+          Text(style.description).tag(style)
+        }
+        .disabled(!hapticsEnabledState)
+        .onChange(of: hapticStyleState) { newStyle in
+          controller.setHapticStyle(newStyle)
+          hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
+        }
       }
     }
 
     private var presetsSection: some View {
       Section(header: Text(String(localized: "Presets", bundle: .main))) {
-        presetsRows()
+        presetRow(
+          title: String(localized: "Restore Default", bundle: .main),
+          identifier: "SwipeActions.Preset.Default",
+          preset: .default
+        )
+        .id("SwipeActions.Preset.Default")
+
+        presetRow(
+          title: String(localized: "Playback Focused", bundle: .main),
+          identifier: "SwipeActions.Preset.Playback",
+          preset: .playbackFocused
+        )
+        .id("SwipeActions.Preset.Playback")
+
+        presetRow(
+          title: String(localized: "Organization Focused", bundle: .main),
+          identifier: "SwipeActions.Preset.Organization",
+          preset: .organizationFocused
+        )
+        .id("SwipeActions.Preset.Organization")
+
+        presetRow(
+          title: String(localized: "Download Focused", bundle: .main),
+          identifier: "SwipeActions.Preset.Download",
+          preset: .downloadFocused
+        )
+        .id("SwipeActions.Preset.Download")
+
       }
-    }
-
-    private var groupedPresetsSection: some View {
-      groupedSection(titleKey: "Presets") {
-        presetsRows()
-      }
-    }
-
-    @ViewBuilder
-    private func presetsRows() -> some View {
-      presetRow(
-        title: String(localized: "Restore Default", bundle: .main),
-        identifier: "SwipeActions.Preset.Default",
-        preset: .default
-      )
-      .id("SwipeActions.Preset.Default")
-
-      presetRow(
-        title: String(localized: "Playback Focused", bundle: .main),
-        identifier: "SwipeActions.Preset.Playback",
-        preset: .playbackFocused
-      )
-      .id("SwipeActions.Preset.Playback")
-
-      presetRow(
-        title: String(localized: "Organization Focused", bundle: .main),
-        identifier: "SwipeActions.Preset.Organization",
-        preset: .organizationFocused
-      )
-      .id("SwipeActions.Preset.Organization")
-
-      presetRow(
-        title: String(localized: "Download Focused", bundle: .main),
-        identifier: "SwipeActions.Preset.Download",
-        preset: .downloadFocused
-      )
-      .id("SwipeActions.Preset.Download")
     }
 
     private func addActionTrigger(for edge: SwipeConfigurationController.SwipeEdge) -> some View {
