@@ -116,7 +116,7 @@ extension SwipeConfigurationTestCase {
     }
     XCTAssertTrue(
       waitForElement(
-        presetButton, timeout: adaptiveShortTimeout, description: "preset button \(identifier)"),
+        presetButton, timeout: adaptiveTimeout, description: "preset button \(identifier)"),
       "Preset button \(identifier) should exist"
     )
     logger.debug(
@@ -213,16 +213,79 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  func ensureVisibleInSheet(identifier: String, container: XCUIElement) -> Bool {
+  func ensureVisibleInSheet(
+    identifier: String,
+    container: XCUIElement,
+    scrollAttempts: Int = 8
+  ) -> Bool {
+    if !container.exists {
+      logger.debug("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier, privacy: .public)")
+      print("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier)")
+    }
     let target = element(withIdentifier: identifier, within: container)
     if target.exists { return true }
 
-    if container.exists {
-      container.swipeUp()
+    guard container.exists else { return target.exists }
+
+    logger.debug("[SwipeUITestDebug] ensureVisibleInSheet container: \(container.debugDescription, privacy: .public)")
+    print("[SwipeUITestDebug] ensureVisibleInSheet container debug: \(container.debugDescription)")
+
+    let attempts = max(scrollAttempts, 2)
+    func settle() {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+
+    enum ScrollDirection {
+      case towardsBottom
+      case towardsTop
+    }
+
+    func scroll(_ direction: ScrollDirection) {
+      let startVector: CGVector
+      let endVector: CGVector
+      switch direction {
+      case .towardsBottom:
+        startVector = CGVector(dx: 0.5, dy: 0.8)
+        endVector = CGVector(dx: 0.5, dy: 0.2)
+      case .towardsTop:
+        startVector = CGVector(dx: 0.5, dy: 0.2)
+        endVector = CGVector(dx: 0.5, dy: 0.8)
+      }
+      let startCoord = container.coordinate(withNormalizedOffset: startVector)
+      let endCoord = container.coordinate(withNormalizedOffset: endVector)
+      startCoord.press(forDuration: 0.01, thenDragTo: endCoord)
+    }
+
+    // Nudge to the top first so we have a deterministic starting point.
+    for _ in 0..<2 {
+      scroll(.towardsTop)
+      settle()
       if target.exists { return true }
-      container.swipeDown()
+    }
+
+    // Scan downward through the sheet (swipe up) to materialize lazy rows.
+    for _ in 0..<attempts {
+      scroll(.towardsBottom)
+      settle()
       if target.exists { return true }
-      container.swipeDown()
+    }
+
+    // Walk back upward in case the element lives near the top and the first sweep missed it.
+    for _ in 0..<attempts {
+      scroll(.towardsTop)
+      settle()
+      if target.exists { return true }
+    }
+
+    if !target.exists {
+      reportAvailableSwipeIdentifiers(
+        context: "ensureVisibleInSheet missing \(identifier)",
+        scoped: true
+      )
+      logger.debug(
+        "[SwipeUITestDebug] unable to surface \(identifier, privacy: .public) after \(attempts) attempts"
+      )
+      print("[SwipeUITestDebug] unable to surface \(identifier) after \(attempts) attempts")
     }
 
     return target.exists

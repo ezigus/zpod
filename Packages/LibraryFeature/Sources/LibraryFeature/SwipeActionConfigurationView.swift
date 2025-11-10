@@ -12,6 +12,8 @@
     private let hapticsService: HapticFeedbackServicing
     private let onSave: ((SwipeConfiguration) -> Void)?
     private let debugEnabled = ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1"
+    private let shouldAutoScrollPresets =
+      ProcessInfo.processInfo.environment["UITEST_AUTO_SCROLL_PRESETS"] == "1"
     private static let logger = Logger(
       subsystem: "us.zig.zpod", category: "SwipeActionConfigurationView")
     @State private var leadingFullSwipe: Bool
@@ -38,12 +40,15 @@
     public var body: some View {
       NavigationStack {
         List {
+          if baselineLoaded && shouldAutoScrollPresets {
+            presetsSection
+          }
+
           leadingSection
           trailingSection
           hapticsSection
-          // Only show presets after baseline is loaded to avoid stale state comparison
-          // in isPresetActive() - prevents test pollution in regression runs
-          if baselineLoaded {
+
+          if baselineLoaded && !shouldAutoScrollPresets {
             presetsSection
           }
         }
@@ -186,24 +191,28 @@
           identifier: "SwipeActions.Preset.Default",
           preset: .default
         )
+        .id("SwipeActions.Preset.Default")
 
         presetRow(
           title: String(localized: "Playback Focused", bundle: .main),
           identifier: "SwipeActions.Preset.Playback",
           preset: .playbackFocused
         )
+        .id("SwipeActions.Preset.Playback")
 
         presetRow(
           title: String(localized: "Organization Focused", bundle: .main),
           identifier: "SwipeActions.Preset.Organization",
           preset: .organizationFocused
         )
+        .id("SwipeActions.Preset.Organization")
 
         presetRow(
           title: String(localized: "Download Focused", bundle: .main),
           identifier: "SwipeActions.Preset.Download",
           preset: .downloadFocused
         )
+        .id("SwipeActions.Preset.Download")
 
       }
     }
@@ -231,6 +240,7 @@
         return "Trailing"
       }
     }
+
 
     @ViewBuilder
     private func actionRow(
