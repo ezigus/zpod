@@ -791,52 +791,8 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
-        run: |
-          set -euo pipefail
-
-          # Verify artifact integrity with checksum
-          echo "Verifying artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
-
-          # Extract to temporary directory first (atomic operation)
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-
-          # Verify extraction was complete
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Create symlink if needed
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            echo "Creating symlink: zpod -> zpod.debug.dylib"
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
-
-          # Verify main binary exists
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Atomic move to final location
-          HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
-
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+      - name: Restore host derived data
+        run: scripts/ci/restore-host-app.sh "${{ steps.provision-sim.outputs.derived_path }}" host-app
 
       - name: Pre-warm simulator for UI tests
         if: steps.provision-sim.outputs.udid != ''
