@@ -93,20 +93,3 @@ final class SwipeActionExecutionTests: SwipeConfigurationTestCase {
     return String(suffix)
   }
 }
-
-extension XCUIElement {
-  fileprivate func firstMatchIfExists() -> XCUIElement? {
-    return exists ? self : nil
-  }
-}
-
-private extension SwipeActionExecutionTests {
-  func episodeIdentifier(from element: XCUIElement) -> String {
-    let identifier = element.identifier
-    guard let range = identifier.range(of: "Episode-") else {
-      return identifier
-    }
-    let suffix = identifier[range.upperBound...]
-    return String(suffix)
-  }
-}
