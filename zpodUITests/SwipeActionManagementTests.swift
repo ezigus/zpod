@@ -12,162 +12,66 @@ import XCTest
 
 /// Tests that verify swipe action management (add, remove, limits)
 final class SwipeActionManagementTests: SwipeConfigurationTestCase {
-  
-  // MARK: - Action Management Tests
-  
   @MainActor
-  func testAddingSingleLeadingAction() throws {
+  func testManagingActionsEndToEnd() throws {
     try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline
+    assertDefaultConfiguration()
+
+    // Add leading actions up to the limit
+    XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
+    XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
     XCTAssertTrue(
       waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Should start with default configuration"
-    )
-    
-    // Add Play action to leading
-    XCTAssertTrue(
-      addAction("Play", edgeIdentifier: "Leading"),
-      "Should be able to add Play action to leading edge"
-    )
-    
-    // Verify action was added
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed", "play"],
+        leading: ["markPlayed", "play", "addToPlaylist"],
         trailing: ["delete", "archive"],
         unsaved: true
-      ),
-      "Play action should be added to leading edge"
+      )
     )
-    
-    // Verify save button enabled
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
+
+    // Verify add button disappears when cap reached and trailing add remains visible
+    let leadingAdd = element(withIdentifier: "SwipeActions.Add.Leading")
     XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
-      "Save button should enable after adding action"
+      waitForElementToDisappear(leadingAdd, timeout: adaptiveShortTimeout),
+      "Leading add button should disappear at cap"
     )
-  }
-  
-  @MainActor
-  func testAddingSingleTrailingAction() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline
+    assertTrailingAddVisible()
+
+    // Remove leading action and verify state updates
+    XCTAssertTrue(removeAction("Mark Played", edgeIdentifier: "Leading"))
     XCTAssertTrue(
       waitForDebugSummary(
-        leading: ["markPlayed"],
+        leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Should start with default configuration"
+        unsaved: true
+      )
     )
-    
-    // Add Download action to trailing
-    XCTAssertTrue(
-      addAction("Download", edgeIdentifier: "Trailing"),
-      "Should be able to add Download action to trailing edge"
-    )
-    
-    // Verify action was added
+    assertTrailingAddVisible()
+
+    // Add trailing action and verify save enabled
+    XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
     XCTAssertTrue(
       waitForDebugSummary(
-        leading: ["markPlayed"],
+        leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive", "download"],
         unsaved: true
-      ),
-      "Download action should be added to trailing edge"
-    )
-    
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
-      "Save button should enable after adding action"
-    )
-  }
-  
-  @MainActor
-  func testRemovingLeadingAction() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // First add an action so we have multiple to remove from
-    _ = addAction("Play", edgeIdentifier: "Leading")
-    
-    // Wait for it to be added
-    guard
-      waitForDebugSummary(
-        leading: ["markPlayed", "play"],
-        trailing: ["delete", "archive"],
-        unsaved: true
       )
-    else {
-      XCTFail("Failed to add Play action as setup step")
-      return
-    }
-    
-    // Now remove Mark Played action
-    XCTAssertTrue(
-      removeAction("Mark Played", edgeIdentifier: "Leading"),
-      "Should be able to remove Mark Played action from leading edge"
     )
-    
-    // Verify action was removed
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
+  }
+
+  private func assertDefaultConfiguration() {
     XCTAssertTrue(
       waitForDebugSummary(
-        leading: ["play"],
+        leading: ["markPlayed"],
         trailing: ["delete", "archive"],
-        unsaved: true
+        unsaved: false
       ),
-      "Mark Played action should be removed from leading edge"
+      "Should start with default configuration"
     )
   }
-  
-  @MainActor
-  func testActionLimitEnforcementLeading() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Default has 1 leading action ["markPlayed"]
-    // Add 2 more to reach the cap of 3
-    let actionsToAdd: [(displayName: String, rawValue: String)] = [
-      ("Play", "play"),
-      ("Add to Playlist", "addToPlaylist"),
-    ]
-    
-    var expectedLeading = ["markPlayed"]
-    
-    for action in actionsToAdd {
-      XCTAssertTrue(
-        addAction(action.displayName, edgeIdentifier: "Leading"),
-        "Should be able to add action \(action.displayName)"
-      )
-      expectedLeading.append(action.rawValue)
-      
-      guard
-        waitForDebugSummary(
-          leading: expectedLeading,
-          trailing: ["delete", "archive"],
-          unsaved: true
-        )
-      else {
-        XCTFail("Failed to add \(action.displayName) action")
-        return
-      }
-    }
-    
-    // Verify we're at the cap (3 actions)
-    XCTAssertEqual(expectedLeading.count, 3, "Should have 3 leading actions at cap")
-    
-    // Verify add button disappears when limit reached
-    let addButton = element(withIdentifier: "SwipeActions.Add.Leading")
-    XCTAssertTrue(
-      waitForElementToDisappear(addButton, timeout: adaptiveShortTimeout),
-      "Add Action button should disappear once leading action limit (3) is reached"
-    )
-    
-    // Verify trailing add button still exists (not at limit)
+
+  private func assertTrailingAddVisible() {
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(
         identifier: "SwipeActions.Add.Trailing",
