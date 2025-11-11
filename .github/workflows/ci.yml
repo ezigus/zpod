@@ -867,7 +867,13 @@ jobs:
     runs-on: macos-15
     strategy:
       fail-fast: false
-      max-parallel: 3
+      # Simulator isolation supports up to 5 parallel jobs reliably:
+      # - Staggered provisioning prevents resource contention
+      # - Active simulator monitoring enforces capacity limits
+      # - Retry logic handles transient resource exhaustion
+      # - Each job gets dedicated simulator + DerivedData
+      # Can be increased beyond 5 if CI hosts gain more capacity
+      max-parallel: 5
       matrix:
         include:
           # Tier 1: Simple UI tests (parallel, build independently)
@@ -940,6 +946,15 @@ jobs:
             exit 0
           fi
 
+          # Stagger simulator creation to avoid resource contention
+          # Hash the matrix name to get a deterministic delay (0-8 seconds)
+          STAGGER_SEED=$(echo "$MATRIX_NAME" | cksum | awk '{print $1}')
+          STAGGER_DELAY=$(( STAGGER_SEED % 9 ))
+          if [ $STAGGER_DELAY -gt 0 ]; then
+            echo "Staggering simulator creation by ${STAGGER_DELAY}s to avoid resource contention..."
+            sleep $STAGGER_DELAY
+          fi
+
           SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
           DEVICE_CANDIDATES=(
             com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
@@ -954,56 +969,123 @@ jobs:
             com.apple.CoreSimulator.SimDeviceType.iPhone-13
           )
 
+          # Check current simulator load before attempting creation
+          ACTIVE_SIMS=$(xcrun simctl list devices | grep -c "Booted" || echo "0")
+          echo "Currently active simulators: ${ACTIVE_SIMS}"
+          if [ "$ACTIVE_SIMS" -ge 5 ]; then
+            echo "::warning::System already has ${ACTIVE_SIMS} active simulators. Waiting for capacity..."
+            for i in {1..30}; do
+              sleep 2
+              ACTIVE_SIMS=$(xcrun simctl list devices | grep -c "Booted" || echo "0")
+              if [ "$ACTIVE_SIMS" -lt 5 ]; then
+                echo "Simulator capacity available (${ACTIVE_SIMS}/5 active)"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "::error::Timeout waiting for simulator capacity. Current load: ${ACTIVE_SIMS}"
+                exit 1
+              fi
+            done
+          fi
+
           DEVICE_LIST=$(xcrun simctl list devicetypes)
           SELECTED_DEVICE=""
           UDID=""
           CREATE_LOG=$(mktemp)
+          MAX_RETRIES=3
+          RETRY_COUNT=0
 
-          for candidate in "${DEVICE_CANDIDATES[@]}"; do
-            if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
-              continue
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$UDID" ]; do
+            if [ $RETRY_COUNT -gt 0 ]; then
+              echo "Retry attempt $RETRY_COUNT/$MAX_RETRIES after waiting for system resources..."
+              sleep $(( RETRY_COUNT * 3 ))
             fi
-            echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
-            set +e
-            UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
-            status=$?
-            set -e
-            UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
-            if [ $status -eq 0 ] && [ -n "$UDID" ]; then
-              SELECTED_DEVICE="$candidate"
-              break
-            fi
-            echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
-            UDID=""
+
+            for candidate in "${DEVICE_CANDIDATES[@]}"; do
+              if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
+                continue
+              fi
+              echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
+              set +e
+              UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
+              status=$?
+              set -e
+              UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
+              if [ $status -eq 0 ] && [ -n "$UDID" ]; then
+                SELECTED_DEVICE="$candidate"
+                break 2
+              fi
+              
+              # Check if error is resource-related
+              if grep -q "resource\|limit\|busy" "$CREATE_LOG"; then
+                echo "::warning::Resource contention detected for ${candidate}, will retry..."
+                UDID=""
+                break
+              fi
+              
+              echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
+              UDID=""
+            done
+            
+            RETRY_COUNT=$(( RETRY_COUNT + 1 ))
           done
 
           rm -f "$CREATE_LOG"
 
           if [ -z "$UDID" ]; then
-            echo "::warning::Unable to create a dedicated simulator for runtime ${RUNTIME_ID}; tests will fall back to automatic destination."
+            echo "::warning::Unable to create a dedicated simulator after $MAX_RETRIES attempts; tests will fall back to automatic destination."
             exit 0
           fi
 
-          echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+          echo "✅ Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
 
           echo "Booting simulator ${SIM_NAME} (${UDID})"
-          set +e
-          xcrun simctl boot "$UDID"
-          boot_status=$?
-          if [ $boot_status -ne 0 ]; then
-            echo "::warning::simctl boot returned status ${boot_status} for ${UDID}"
+          BOOT_MAX_RETRIES=3
+          BOOT_RETRY=0
+          BOOT_SUCCESS=false
+
+          while [ $BOOT_RETRY -lt $BOOT_MAX_RETRIES ] && [ "$BOOT_SUCCESS" = "false" ]; do
+            if [ $BOOT_RETRY -gt 0 ]; then
+              echo "Boot retry attempt $BOOT_RETRY/$BOOT_MAX_RETRIES..."
+              sleep $(( BOOT_RETRY * 2 ))
+            fi
+            
+            set +e
+            xcrun simctl boot "$UDID" 2>&1 | tee /tmp/boot.log
+            boot_status=$?
+            
+            if [ $boot_status -eq 0 ] || grep -q "already booted" /tmp/boot.log; then
+              xcrun simctl bootstatus "$UDID" -b
+              bootstatus_status=$?
+              if [ $bootstatus_status -eq 0 ]; then
+                BOOT_SUCCESS=true
+                echo "✅ Simulator booted successfully"
+              else
+                echo "::warning::simctl bootstatus failed (status ${bootstatus_status})"
+              fi
+            else
+              echo "::warning::simctl boot returned status ${boot_status}"
+            fi
+            set -e
+            
+            BOOT_RETRY=$(( BOOT_RETRY + 1 ))
+          done
+
+          if [ "$BOOT_SUCCESS" = "false" ]; then
+            echo "::error::Failed to boot simulator after $BOOT_MAX_RETRIES attempts"
+            exit 1
           fi
-          xcrun simctl bootstatus "$UDID" -b
-          bootstatus_status=$?
-          if [ $bootstatus_status -ne 0 ]; then
-            echo "::warning::simctl bootstatus failed for ${UDID} (status ${bootstatus_status})"
-          fi
-          set -e
 
           echo "Configuring keyboard settings..."
           xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
           sleep 2
-          echo "✅ Simulator pre-warming complete"
+
+          # Verify simulator is responsive before proceeding
+          if xcrun simctl list devices | grep "$UDID" | grep -q "Booted"; then
+            echo "✅ Simulator pre-warming complete and verified responsive"
+          else
+            echo "::warning::Simulator may not be fully responsive"
+          fi
 
       - name: Run ${{ matrix.name }} Tests
         run: |

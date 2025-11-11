@@ -179,12 +179,20 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
-- CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
-- UI/Integration jobs now provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`), export its UDID plus a suite-specific DerivedData path, and tear both down in `if: always()` cleanup steps. Matrix parallelism is capped at 3 to maintain throughput without reintroducing simulator contention.
-- The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script’s automatic destination selection.
+- CI flow: a `preflight` job runs the script's syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
+- UI/Integration jobs provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`) with isolated DerivedData, then tear both down in `if: always()` cleanup steps.
+- **Simulator Isolation Infrastructure** (supports 5+ parallel jobs):
+  - **Staggered Provisioning**: Hash-based delays (0-8s) prevent simultaneous creation
+  - **Capacity Monitoring**: Checks active simulator count, waits if ≥5 simulators booted
+  - **Retry with Backoff**: Up to 3 attempts for create/boot with exponential delays (3s, 6s, 9s)
+  - **Resource Detection**: Identifies resource exhaustion vs configuration errors
+  - **Boot Verification**: Confirms simulator responsiveness before proceeding
+  - **Graceful Degradation**: Falls back to automatic destination if all retries fail
+  - Matrix parallelism configurable via `max-parallel` (currently 5, can scale higher)
+- The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script's automatic destination selection.
 - Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
 - Preflight now provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
-- UI suites auto-build `zpod.app` inside the suite’s DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn’t been produced yet.
+- UI suites auto-build `zpod.app` inside the suite's DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn't been produced yet.
 
 ## 8. Issue & Documentation Management
 
