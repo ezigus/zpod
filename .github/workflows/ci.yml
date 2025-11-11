@@ -867,21 +867,19 @@ jobs:
     runs-on: macos-15
     strategy:
       fail-fast: false
-      max-parallel: 5
+      max-parallel: 3
       matrix:
         include:
+          # Tier 1: Simple UI tests (parallel, build independently)
           - name: UITests-SwipeUIDisplay
             tests: zpodUITests/SwipeConfigurationUIDisplayTests
-          - name: UITests-SwipeActionManagement
-            tests: zpodUITests/SwipeActionManagementTests
           - name: UITests-SwipePresetSelection
             tests: zpodUITests/SwipePresetSelectionTests
           - name: UITests-SwipeToggleInteraction
             tests: zpodUITests/SwipeToggleInteractionTests
-          - name: UITests-SwipePersistence
-            tests: zpodUITests/SwipeConfigurationPersistenceTests
-          - name: UITests-SwipeExecution
-            tests: zpodUITests/SwipeActionExecutionTests
+          # Tier 2: Complex integration tests (combined suite)
+          - name: UITests-SwipeComplexIntegration
+            tests: zpodUITests/SwipeComplexIntegrationTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -1007,15 +1005,6 @@ jobs:
           sleep 2
           echo "✅ Simulator pre-warming complete"
 
-      - name: Download host app artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: host-app
-          path: host-app
-
-      - name: Restore host derived data
-        run: scripts/ci/restore-host-app.sh "${{ steps.provision-sim.outputs.derived_path }}" host-app
-
       - name: Run ${{ matrix.name }} Tests
         run: |
           set -euo pipefail
@@ -1025,7 +1014,6 @@ jobs:
           UITEST_TIMEOUT_SCALE: "1.5"
           ZPOD_SIMULATOR_UDID: ${{ steps.provision-sim.outputs.udid }}
           ZPOD_DERIVED_DATA_PATH: ${{ steps.provision-sim.outputs.derived_path }}
-          ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
         run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"

@@ -75,41 +75,39 @@ This document outlines the UI testing approach for the main zpod application.
 - `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
 - `spec/ui.md` — Customizing Swipe Gestures section
 
-**Test Files** (decomposed from monolithic 1,765-line file per Issue #02.6.3):
+**Test Structure** (Hybrid Tier Architecture per Issue #02.6.3):
+
+Tests are organized into two tiers for optimal CI performance:
+
+**Tier 1: Simple UI Tests** (run in parallel, each builds independently)
 
 1. **`SwipeConfigurationUIDisplayTests.swift`** - UI display verification
    - Tests that configuration sheet opens and displays correctly
    - Verifies default actions, haptic controls visibility
-   - 3 focused tests
+   - Single test: `testConfigurationSheetDisplaysDefaultUI`
 
-2. **`SwipeActionManagementTests.swift`** - Action add/remove/limit enforcement
-   - Tests adding/removing actions to leading/trailing edges
-   - Verifies action cap enforcement (3 actions per edge)
-   - 4 focused tests
-
-3. **`SwipePresetSelectionTests.swift`** - Preset application
+2. **`SwipePresetSelectionTests.swift`** - Preset application
    - Tests that presets (Playback, Organization, Download) apply correct configurations
    - Verifies save button enablement and debug summary state
-   - 3 focused tests
+   - 3 tests (one per preset)
 
-4. **`SwipeToggleInteractionTests.swift`** - Toggle interactions
+3. **`SwipeToggleInteractionTests.swift`** - Toggle interactions
    - Tests haptic toggle enable/disable
    - Tests haptic style picker changes
    - Tests full swipe toggle for leading/trailing
-   - 3 focused tests
+   - 3 tests
 
-5. **`SwipeConfigurationPersistenceTests.swift`** - Persistence across relaunches
-   - Tests manual configuration persistence
-   - Tests haptic settings persistence
-   - Tests full swipe settings persistence
-   - 3 focused tests (uses seeding to avoid UserDefaults issues)
+**Tier 2: Complex Integration Tests** (combined suite)
 
-6. **`SwipeActionExecutionTests.swift`** - Swipe execution in episode list
-   - Tests leading swipe actions execute correctly
-   - Tests trailing swipe actions execute correctly
-   - 2 focused tests
+**`SwipeComplexIntegrationTests.swift`** - Action management, persistence, execution
 
-**Shared Support**: `SwipeConfigurationTestSupport.swift` contains the base class `SwipeConfigurationTestCase` with all helper methods (~1,400 lines).
+- Combines tests that require app relaunches, seeding, and multi-step workflows
+- Tests action add/remove/limit enforcement (end-to-end workflow)
+- Tests persistence across app relaunches with seeded configurations
+- Tests swipe action execution in episode list with instrumentation probes
+- 3 tests (testManagingActionsEndToEnd, testSeededConfigurationPersistsAcrossControls, testLeadingAndTrailingSwipesExecute)
+
+**Shared Support**: `SwipeConfigurationTestSupport.swift` contains the base class `SwipeConfigurationTestCase` with all helper methods (~1,400 lines), plus modular extensions for navigation, assertions, debug, toggle, action management, seeding, and utilities.
 
 **Test Areas**:
 
@@ -121,7 +119,12 @@ This document outlines the UI testing approach for the main zpod application.
 - Accessibility identifier coverage for configuration controls and rendered swipe buttons
 - Validates that preset buttons respond directly under automation (no manual fallback) and enforces the three-action cap via the add-action picker sheet
 
-**CI Parallelization**: Tests split into 6 independent jobs for faster execution and granular failure visibility.
+**CI Strategy**:
+
+- **Tier 1 jobs (3)**: Run in parallel, each independently builds zpod.app (~2-3 min per job)
+- **Tier 2 job (1)**: Runs sequentially with single build for all 3 complex tests (~4-5 min total)
+- **Total CI time**: ~5-7 minutes (vs 20-30 min with hangs in previous approach)
+- **Reliability**: No derived data sharing, no test-without-building race conditions, each job owns its build
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 
