@@ -198,7 +198,8 @@ extension SwipeConfigurationTestCase {
     )
 
     if sheetPresented == nil {
-      logger.warning("[SwipeUITestDebug] Swipe Actions sheet did not appear after first tap, retrying")
+      logger.warning(
+        "[SwipeUITestDebug] Swipe Actions sheet did not appear after first tap, retrying")
       _ = waitForElementToBeHittable(
         configureButton,
         timeout: adaptiveShortTimeout,
@@ -218,6 +219,7 @@ extension SwipeConfigurationTestCase {
     }
 
     _ = waitForBaselineLoaded()
+    waitForSectionMaterialization()
     logDebugState("baseline after open")
     reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
     completeSeedIfNeeded()

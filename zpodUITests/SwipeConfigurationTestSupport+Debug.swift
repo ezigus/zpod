@@ -52,6 +52,23 @@ extension SwipeConfigurationTestCase {
     return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
   }
 
+  /// Wait for SwiftUI List lazy materialization to complete.
+  /// The view uses `materializeSectionsIfNeeded()` which scrolls to sections with 0.2s delays.
+  /// Total materialization time is ~0.6s (3 sequential delays).
+  @MainActor
+  @discardableResult
+  func waitForSectionMaterialization(timeout: TimeInterval = 2.0) -> Bool {
+    // Wait for the haptics toggle to appear in the accessibility tree
+    // This indicates the materialization scroll sequence has completed
+    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+
+    return waitForElement(
+      hapticsToggle,
+      timeout: timeout,
+      description: "Haptics section materialization"
+    )
+  }
+
   @MainActor
   @discardableResult
   func waitForDebugState(
