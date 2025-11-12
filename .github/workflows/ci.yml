@@ -1038,54 +1038,12 @@ jobs:
           fi
 
           echo "✅ Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+          echo "Simulator will be booted on-demand by xcodebuild during test execution"
 
-          echo "Booting simulator ${SIM_NAME} (${UDID})"
-          BOOT_MAX_RETRIES=3
-          BOOT_RETRY=0
-          BOOT_SUCCESS=false
-
-          while [ $BOOT_RETRY -lt $BOOT_MAX_RETRIES ] && [ "$BOOT_SUCCESS" = "false" ]; do
-            if [ $BOOT_RETRY -gt 0 ]; then
-              echo "Boot retry attempt $BOOT_RETRY/$BOOT_MAX_RETRIES..."
-              sleep $(( BOOT_RETRY * 2 ))
-            fi
-            
-            set +e
-            xcrun simctl boot "$UDID" 2>&1 | tee /tmp/boot.log
-            boot_status=$?
-            
-            if [ $boot_status -eq 0 ] || grep -q "already booted" /tmp/boot.log; then
-              xcrun simctl bootstatus "$UDID" -b
-              bootstatus_status=$?
-              if [ $bootstatus_status -eq 0 ]; then
-                BOOT_SUCCESS=true
-                echo "✅ Simulator booted successfully"
-              else
-                echo "::warning::simctl bootstatus failed (status ${bootstatus_status})"
-              fi
-            else
-              echo "::warning::simctl boot returned status ${boot_status}"
-            fi
-            set -e
-            
-            BOOT_RETRY=$(( BOOT_RETRY + 1 ))
-          done
-
-          if [ "$BOOT_SUCCESS" = "false" ]; then
-            echo "::error::Failed to boot simulator after $BOOT_MAX_RETRIES attempts"
-            exit 1
-          fi
-
-          echo "Configuring keyboard settings..."
-          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
-          sleep 2
-
-          # Verify simulator is responsive before proceeding
-          if xcrun simctl list devices | grep "$UDID" | grep -q "Booted"; then
-            echo "✅ Simulator pre-warming complete and verified responsive"
-          else
-            echo "::warning::Simulator may not be fully responsive"
-          fi
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Run ${{ matrix.name }} Tests
         run: |

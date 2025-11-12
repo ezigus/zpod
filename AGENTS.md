@@ -183,15 +183,14 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 - UI/Integration jobs provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`) with isolated DerivedData, then tear both down in `if: always()` cleanup steps.
 - **Simulator Isolation Infrastructure** (supports 5+ parallel jobs):
   - **Staggered Provisioning**: Hash-based delays (0-8s) prevent simultaneous creation
-  - **Capacity Monitoring**: Checks active simulator count, waits if ≥5 simulators booted
-  - **Retry with Backoff**: Up to 3 attempts for create/boot with exponential delays (3s, 6s, 9s)
-  - **Resource Detection**: Identifies resource exhaustion vs configuration errors
-  - **Boot Verification**: Confirms simulator responsiveness before proceeding
+  - **Capacity Monitoring**: Checks active simulator count, waits if ≥5 simulators exist
+  - **Retry with Backoff**: Up to 3 attempts for creation with exponential delays (3s, 6s, 9s)
+  - **Resource Detection**: Identifies resource exhaustion vs configuration errors  
+  - **On-Demand Boot**: Simulators are created but NOT booted in CI; xcodebuild boots them on-demand to avoid concurrent boot contention (5 simulators booting simultaneously causes Data Migration hangs)
   - **Graceful Degradation**: Falls back to automatic destination if all retries fail
   - Matrix parallelism configurable via `max-parallel` (currently 5, can scale higher)
 - The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script's automatic destination selection.
-- Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
-- Preflight now provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
+- Preflight provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
 - UI suites auto-build `zpod.app` inside the suite's DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn't been produced yet.
 
 ## 8. Issue & Documentation Management
