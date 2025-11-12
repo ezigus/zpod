@@ -219,7 +219,12 @@ extension SwipeConfigurationTestCase {
     }
 
     _ = waitForBaselineLoaded()
-    waitForSectionMaterialization()
+
+    guard waitForSectionMaterialization() else {
+      XCTFail("Haptics section failed to materialize after baseline loaded")
+      return
+    }
+
     logDebugState("baseline after open")
     reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
     completeSeedIfNeeded()

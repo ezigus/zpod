@@ -114,7 +114,8 @@ extension SwipeConfigurationTestCase {
       } else {
         message = "Toggle \(identifier) state mismatch (debug summary unavailable)"
       }
-      attachToggleDiagnostics(identifier: identifier, context: "assertToggleState mismatch", element: toggle)
+      attachToggleDiagnostics(
+        identifier: identifier, context: "assertToggleState mismatch", element: toggle)
       XCTFail(message)
       return
     }
@@ -231,7 +232,8 @@ extension SwipeConfigurationTestCase {
     guard !candidate.isEmpty else { return nil }
 
     while candidate.hasPrefix("Optional(") && candidate.hasSuffix(")") {
-      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     }
 
     let lowered = candidate.lowercased()
@@ -262,7 +264,9 @@ extension SwipeConfigurationTestCase {
         return directElement
       }
 
-      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 16)
+      // Materialization should have already happened in openSwipeConfigurationSheet()
+      // Only do 2 quick scroll attempts as a safety fallback
+      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
 
       let refreshed = element(withIdentifier: identifier, within: container)
       if refreshed.exists {
@@ -272,7 +276,8 @@ extension SwipeConfigurationTestCase {
       let scoped = container.switches.matching(identifier: identifier).firstMatch
       if scoped.exists { return scoped }
 
-      let descendant = container.descendants(matching: .switch).matching(identifier: identifier).firstMatch
+      let descendant = container.descendants(matching: .switch).matching(identifier: identifier)
+        .firstMatch
       if descendant.exists { return descendant }
     }
 
@@ -311,7 +316,8 @@ extension SwipeConfigurationTestCase {
     }
 
     let offsetX: CGFloat = targetOn ? 0.8 : 0.2
-    let coordinate = interactiveToggle.coordinate(withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
+    let coordinate = interactiveToggle.coordinate(
+      withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
     coordinate.tap()
 
     if toggleIsInDesiredState(toggle, targetOn: targetOn) {
