@@ -115,13 +115,16 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 16)
+    // Presets are at bottom - materialization scrolls there then back to top
+    // So we may need 1-2 swipes to reach them, but not 16
+    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
     var presetButton = app.buttons[identifier]
     if !presetButton.exists {
       presetButton = element(withIdentifier: identifier, within: container)
     }
     var scrollAttempts = 0
-    while !presetButton.exists && scrollAttempts < 12 {
+    // Only 2 attempts - presets were already materialized, just need to scroll down
+    while !presetButton.exists && scrollAttempts < 2 {
       if container.isHittable {
         container.swipeUp()
       } else {
@@ -238,10 +241,12 @@ extension SwipeConfigurationTestCase {
   func ensureVisibleInSheet(
     identifier: String,
     container: XCUIElement,
-    scrollAttempts: Int = 8
+    scrollAttempts: Int = 1  // Reduced: materialization happens upfront, minimal scroll needed
   ) -> Bool {
     if !container.exists {
-      logger.debug("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier, privacy: .public)")
+      logger.debug(
+        "[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier, privacy: .public)"
+      )
       print("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier)")
     }
     let target = element(withIdentifier: identifier, within: container)
@@ -249,10 +254,12 @@ extension SwipeConfigurationTestCase {
 
     guard container.exists else { return target.exists }
 
-    logger.debug("[SwipeUITestDebug] ensureVisibleInSheet container: \(container.debugDescription, privacy: .public)")
+    logger.debug(
+      "[SwipeUITestDebug] ensureVisibleInSheet container: \(container.debugDescription, privacy: .public)"
+    )
     print("[SwipeUITestDebug] ensureVisibleInSheet container debug: \(container.debugDescription)")
 
-    let attempts = max(scrollAttempts, 2)
+    let attempts = max(scrollAttempts, 1)  // At least 1, but default is now 1
     func settle() {
       RunLoop.current.run(until: Date().addingTimeInterval(0.05))
     }

@@ -264,9 +264,9 @@ extension SwipeConfigurationTestCase {
         return directElement
       }
 
-      // Materialization should have already happened in openSwipeConfigurationSheet()
-      // Only do 2 quick scroll attempts as a safety fallback
-      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
+      // Materialization already happened - element should be visible
+      // Try 1 scroll as absolute last resort fallback
+      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 1)
 
       let refreshed = element(withIdentifier: identifier, within: container)
       if refreshed.exists {

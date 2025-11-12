@@ -158,10 +158,11 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
 
   private func assertTrailingAddVisible() {
     if let container = swipeActionsSheetListContainer() {
+      // Reduced from 16: trailing section is materialized upfront
       _ = ensureVisibleInSheet(
         identifier: "SwipeActions.Add.Trailing",
         container: container,
-        scrollAttempts: 16
+        scrollAttempts: 1
       )
     }
     let trailingAddButton = element(withIdentifier: "SwipeActions.Add.Trailing")
