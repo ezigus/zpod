@@ -31,23 +31,7 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   private func prioritizedElement(in root: XCUIElement, identifier: String) -> XCUIElement? {
-    let queries: [XCUIElement] = [
-      root.switches.matching(identifier: identifier).firstMatch,
-      root.buttons[identifier],
-      root.segmentedControls[identifier],
-      root.cells[identifier],
-      root.sliders[identifier],
-      root.textFields[identifier],
-      root.secureTextFields[identifier],
-      root.images[identifier],
-      root.staticTexts[identifier],
-      root.otherElements[identifier],
-    ]
-
-    for candidate in queries where candidate.exists {
-      return candidate
-    }
-
+    // Use descendants(matching: .any) with identifier - much faster than checking 10 element types
     let descendant = root.descendants(matching: .any)[identifier]
     return descendant.exists ? descendant : nil
   }

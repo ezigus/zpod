@@ -340,8 +340,9 @@ extension SwipeConfigurationTestCase {
     element: XCUIElement? = nil
   ) {
     var lines: [String] = ["Context: \(context)", "Identifier: \(identifier)"]
-    let element = element ?? resolveToggleSwitch(identifier: identifier)
 
+    // Don't call resolveToggleSwitch again - it triggers expensive fallback searches
+    // If element is nil, just report that fact
     if let element {
       lines.append("exists: \(element.exists)")
       lines.append("isHittable: \(element.isHittable)")
@@ -353,7 +354,7 @@ extension SwipeConfigurationTestCase {
       lines.append("frame: \(NSCoder.string(for: element.frame))")
       lines.append("debugDescription: \(element.debugDescription)")
     } else {
-      lines.append("element: nil")
+      lines.append("element: nil - not found in view hierarchy")
     }
 
     let attachment = XCTAttachment(string: lines.joined(separator: "\n"))
