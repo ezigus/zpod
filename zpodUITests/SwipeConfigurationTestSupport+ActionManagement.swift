@@ -222,19 +222,9 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func elementForAction(identifier: String, within container: XCUIElement) -> XCUIElement {
-    let byId = element(withIdentifier: identifier, within: container)
-    if byId.exists { return byId }
-
-    if let label = identifier.split(separator: ".").last.map(String.init) {
-      let staticText = container.staticTexts[label]
-      if staticText.exists { return staticText }
-      let any = container.descendants(matching: .any).matching(
-        NSPredicate(format: "label == %@", label)
-      ).firstMatch
-      if any.exists { return any }
-    }
-
-    return byId
+    // element(withIdentifier:within:) already uses descendants(matching: .any)
+    // No need for additional fallback queries
+    return element(withIdentifier: identifier, within: container)
   }
 
   @MainActor

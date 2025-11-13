@@ -272,27 +272,10 @@ extension SwipeConfigurationTestCase {
       if refreshed.exists {
         return refreshed
       }
-
-      let scoped = container.switches.matching(identifier: identifier).firstMatch
-      if scoped.exists { return scoped }
-
-      let descendant = container.descendants(matching: .switch).matching(identifier: identifier)
-        .firstMatch
-      if descendant.exists { return descendant }
     }
 
-    let global = app.switches.matching(identifier: identifier).firstMatch
-    if global.exists { return global }
-
+    // Last resort: try global app query
     let fallback = element(withIdentifier: identifier)
-    if fallback.elementType == .switch { return fallback }
-
-    let nested = fallback.switches.matching(identifier: identifier).firstMatch
-    if nested.exists { return nested }
-
-    let anySwitch = fallback.descendants(matching: .switch).firstMatch
-    if anySwitch.exists { return anySwitch }
-
     return fallback.exists ? fallback : nil
   }
 
