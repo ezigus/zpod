@@ -243,37 +243,45 @@ public struct EpisodeListView: View {
 
         // Selection controls
         HStack(spacing: 16) {
-          Button("All") {
+          Button {
             viewModel.selectAllEpisodes()
+          } label: {
+            Text("All")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("All")
+              .accessibilityLabel("Select All")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("All")
-          .accessibilityLabel("Select All")
 
-          Button("None") {
+          Button {
             viewModel.selectNone()
+          } label: {
+            Text("None")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("None")
+              .accessibilityLabel("Select None")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("None")
-          .accessibilityLabel("Select None")
 
-          Button("Invert") {
+          Button {
             viewModel.invertSelection()
+          } label: {
+            Text("Invert")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("Invert")
+              .accessibilityLabel("Invert Selection")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("Invert")
-          .accessibilityLabel("Invert Selection")
 
-          Button("Criteria") {
+          Button {
             viewModel.showingSelectionCriteriaSheet = true
+          } label: {
+            Text("Criteria")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("Criteria")
+              .accessibilityLabel("Select by Criteria")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("Criteria")
-          .accessibilityLabel("Select by Criteria")
         }
       }
       .padding(.horizontal)
@@ -312,17 +320,19 @@ public struct EpisodeListView: View {
                 .accessibilityLabel(operationType.displayName)
               }
 
-              Button("More") {
+              Button {
                 viewModel.showingBatchOperationSheet = true
+              } label: {
+                Text("More")
+                  .font(.caption)
+                  .foregroundStyle(.white)
+                  .padding(.horizontal, 12)
+                  .padding(.vertical, 6)
+                  .background(Color.gray)
+                  .cornerRadius(8)
+                  .accessibilityIdentifier("More")
+                  .accessibilityLabel("More batch operations")
               }
-              .font(.caption)
-              .foregroundStyle(.white)
-              .padding(.horizontal, 12)
-              .padding(.vertical, 6)
-              .background(Color.gray)
-              .cornerRadius(8)
-              .accessibilityIdentifier("More")
-              .accessibilityLabel("More batch operations")
             }
             .padding(.horizontal)
           }
@@ -394,13 +404,15 @@ public struct EpisodeListView: View {
 
         HStack(spacing: 12) {
           if viewModel.hasActiveFilters {
-            Button("Clear") {
+            Button {
               viewModel.clearFilter()
               viewModel.updateSearchText("")
+            } label: {
+              Text("Clear")
+                .font(.caption)
+                .foregroundStyle(.blue)
+                .accessibilityIdentifier("Clear All Filters")
             }
-            .font(.caption)
-            .foregroundStyle(.blue)
-            .accessibilityIdentifier("Clear All Filters")
           }
 
           EpisodeFilterButton(
@@ -650,12 +662,14 @@ public struct EpisodeListView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
 
-      Button("Clear Filters") {
+      Button {
         viewModel.clearFilter()
         viewModel.updateSearchText("")
+      } label: {
+        Text("Clear Filters")
+          .foregroundStyle(.blue)
+          .accessibilityIdentifier("Clear Filters Button")
       }
-      .foregroundStyle(.blue)
-      .accessibilityIdentifier("Clear Filters Button")
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)

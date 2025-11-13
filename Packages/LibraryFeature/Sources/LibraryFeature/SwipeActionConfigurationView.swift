@@ -88,11 +88,15 @@
         .navigationTitle("Swipe Actions")
         .toolbar {
           ToolbarItem(placement: .cancellationAction) {
-            Button("Cancel") { dismiss() }
-              .accessibilityIdentifier("SwipeActions.Cancel")
+            Button {
+              dismiss()
+            } label: {
+              Text("Cancel")
+                .accessibilityIdentifier("SwipeActions.Cancel")
+            }
           }
           ToolbarItem(placement: .confirmationAction) {
-            Button("Save") {
+            Button {
               Task {
                 do {
                   try await controller.commitChanges()
@@ -102,9 +106,11 @@
                   // TODO: surface error state when service throws
                 }
               }
+            } label: {
+              Text("Save")
+                .disabled(!controller.hasUnsavedChanges || controller.isSaving)
+                .accessibilityIdentifier("SwipeActions.Save")
             }
-            .disabled(!controller.hasUnsavedChanges || controller.isSaving)
-            .accessibilityIdentifier("SwipeActions.Save")
           }
         }
       }
