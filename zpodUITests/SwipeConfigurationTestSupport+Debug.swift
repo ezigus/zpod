@@ -54,7 +54,9 @@ extension SwipeConfigurationTestCase {
 
   /// Wait for SwiftUI List lazy materialization to complete.
   /// The view uses `materializeSectionsIfNeeded()` which scrolls to sections with 0.2s delays.
-  /// Total materialization time is ~0.6s (3 sequential delays).
+  /// Total materialization time is ~0.4s (2 sequential delays to trailing then haptics).
+  /// IMPORTANT: Materialization leaves the list scrolled to haptics section to prevent
+  /// SwiftUI from de-materializing it when scrolling back to top.
   @MainActor
   @discardableResult
   func waitForSectionMaterialization(timeout: TimeInterval = 2.0) -> Bool {

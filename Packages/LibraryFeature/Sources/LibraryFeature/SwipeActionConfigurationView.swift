@@ -265,16 +265,11 @@
         proxy.scrollTo("swipe-trailing", anchor: .bottom)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
           proxy.scrollTo("swipe-haptics", anchor: .bottom)
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            proxy.scrollTo(
-              baselineLoaded && shouldAutoScrollPresets ? "swipe-presets-top" : "swipe-leading",
-              anchor: .top
-            )
-          }
+          // Don't scroll back to top - keep sections visible for tests
+          // SwiftUI's lazy List will de-materialize off-screen content
         }
       }
     }
-
 
     @ViewBuilder
     private func actionRow(
