@@ -1,13 +1,14 @@
-Accessibility Testing Best Practices for zPod
+# Accessibility Testing Best Practices for zPod
 
-Summary
+## Summary
 
-This document captures the accessibility / UI testing best practices I recommended for making SwiftUI List rows reliably discoverable by XCUITest. Prefer SwiftUI-level accessibility modifiers first and use a small, safe UIKit fallback only when necessary. The guidance focuses on stability across SDKs and minimal runtime impact.
+This document captures the accessibility / UI testing best practices for making SwiftUI elements reliably discoverable by XCUITest. Prefer SwiftUI-level accessibility modifiers first and use a small, safe UIKit fallback only when necessary. The guidance focuses on stability across SDKs and minimal runtime impact.
 
-1) High-level principles
+## 1) High-level principles
 
-- Prefer SwiftUI modifiers first: set .accessibilityIdentifier, .accessibilityLabel, and traits on visible SwiftUI elements (Text, Button, Label, NavigationLink label).
-- Keep identifiers stable and human-readable: e.g. Podcast-<id>-row or Library.Podcast.<id>.Row.
+- Prefer SwiftUI modifiers first: set `.accessibilityIdentifier`, `.accessibilityLabel`, and traits on visible SwiftUI elements (Text, Button, Label, NavigationLink label).
+- **CRITICAL**: For Buttons, set identifiers on the **content inside the label closure**, not on the Button itself (see section 6).
+- Keep identifiers stable and human-readable: e.g. `Podcast-<id>-row` or `Library.Podcast.<id>.Row`.
 - Provide semantic labels and hints for assistive tech; tests are more robust if they can use labels as well as identifiers.
 - Avoid brittle tests that rely on specific view-hierarchy internals. Query elements by semantic role or contained text when possible.
 - Make tests wait for explicit loading indicators (ProgressView with accessibilityIdentifier) instead of using sleeps.
@@ -61,7 +62,42 @@ Key implementation details (non-intrusive):
 - Relying on internal SwiftUI implementation details — treat this as a fallback, not a replacement for proper accessibility.
 - Shipping large test-only code paths — accessibility identifiers are fine to ship. Avoid adding significant behavior gated only for tests.
 
-6) SDK compatibility
+## 6) SwiftUI Button Accessibility Identifiers (CRITICAL)
+
+**Problem**: SwiftUI automatically creates wrapper elements that **inherit** accessibility identifiers from Buttons, creating duplicate identifiers in the UI hierarchy. XCUITest's subscript syntax `app.buttons["ID"]` expects exactly one match and fails with "Multiple matching elements found" when duplicates exist.
+
+**❌ NEVER do this** (creates wrapper with duplicate identifier):
+
+```swift
+Button("Text") { action() }
+  .accessibilityIdentifier("MyButton")
+// Creates hierarchy:
+// Other, identifier: 'MyButton' ← SwiftUI wrapper
+//   └─ Button, identifier: 'MyButton' ← Actual button (DUPLICATE!)
+```
+
+**✅ ALWAYS do this** (unique identifier):
+
+```swift
+Button { action() } label: {
+  Text("Text")
+    .accessibilityIdentifier("MyButton")
+}
+// Creates hierarchy:
+// Other (no identifier)
+//   └─ Button
+//       └─ Text, identifier: 'MyButton' ← Only one element with identifier
+
+// For Buttons with Images:
+Button { action() } label: {
+  Image(systemName: "star")
+    .accessibilityIdentifier("MyButton")
+}
+```
+
+**Rule**: Always set `.accessibilityIdentifier()` on the **content inside the Button's label closure**, never on the Button itself. This applies to all Buttons, whether text-based (`Button("Text")`) or with custom labels.
+
+## 7) SDK compatibility
 
 - Newer SwiftUI/List implementations may use UICollectionView under the hood; check both UITableViewCell and UICollectionViewCell.
 - Tests should be written to be resilient across minor runtime layout changes.

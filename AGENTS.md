@@ -131,6 +131,38 @@
 - Document complex logic with `///` comments and include usage notes when helpful.
 - In SwiftUI, keep state minimal (`@State`, `@StateObject`, `@ObservedObject`, `@EnvironmentObject` as appropriate) and ensure accessibility compliance.
 
+### SwiftUI Accessibility Identifier Best Practices
+
+**CRITICAL: SwiftUI creates wrapper elements that inherit accessibility identifiers from Buttons, causing duplicate identifiers and UI test failures.**
+
+**❌ NEVER do this** (creates wrapper with duplicate identifier):
+
+```swift
+Button("Text") { action() }
+  .accessibilityIdentifier("MyButton")
+// Creates: Other[identifier="MyButton"] → Button[identifier="MyButton"] (DUPLICATE!)
+```
+
+**✅ ALWAYS do this** (unique identifier):
+
+```swift
+Button { action() } label: {
+  Text("Text")
+    .accessibilityIdentifier("MyButton")
+}
+// Creates: Other → Button → Text[identifier="MyButton"] (UNIQUE!)
+
+// For Buttons with Images:
+Button { action() } label: {
+  Image(systemName: "star")
+    .accessibilityIdentifier("MyButton")
+}
+```
+
+**Why**: XCUITest's subscript syntax `app.buttons["ID"]` expects exactly one match. SwiftUI automatically creates wrapper `Other` elements around Buttons that inherit the Button's accessibility identifier, causing "Multiple matching elements found" errors.
+
+**Rule**: Set `.accessibilityIdentifier()` on the **content inside the label closure**, never on the Button itself.
+
 ## 6. Architecture & Modularization
 
 - Preferred presentation pattern: MVVM (MVC permitted only for small components).
