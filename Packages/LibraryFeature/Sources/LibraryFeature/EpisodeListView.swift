@@ -99,9 +99,9 @@ public struct EpisodeListView: View {
             viewModel.showingSwipeConfiguration = true
           } label: {
             Image(systemName: "slider.horizontal.3")
+              .accessibilityIdentifier("ConfigureSwipeActions")
+              .accessibilityLabel("Configure Swipe Actions")
           }
-          .accessibilityIdentifier("ConfigureSwipeActions")
-          .accessibilityLabel("Configure Swipe Actions")
         }
       }
     }
@@ -521,12 +521,12 @@ public struct EpisodeListView: View {
             !viewModel.swipeExecutionDebugSummary.isEmpty
           {
             Text(viewModel.swipeExecutionDebugSummary)
-              .font(.caption2)
-              .opacity(0.001)
-              .accessibilityHidden(false)
-              .accessibilityIdentifier("SwipeActions.Debug.LastExecution")
-              .accessibilityLabel("SwipeActions.Debug.LastExecution")
-              .accessibilityValue(viewModel.swipeExecutionDebugSummary)
+            .font(.caption2)
+            .opacity(0.001)
+            .accessibilityHidden(false)
+            .accessibilityIdentifier("SwipeActions.Debug.LastExecution")
+            .accessibilityLabel("SwipeActions.Debug.LastExecution")
+            .accessibilityValue(viewModel.swipeExecutionDebugSummary)
           }
         }
       #endif
