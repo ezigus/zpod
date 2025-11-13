@@ -13,7 +13,7 @@ extension SwipeConfigurationTestCase {
   @discardableResult
   func waitForSaveButton(enabled: Bool, timeout: TimeInterval? = nil) -> Bool {
     let effectiveTimeout = timeout ?? adaptiveTimeout
-    let saveButton = app.buttons["SwipeActions.Save"]
+    let saveButton = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
     let predicate = NSPredicate { [weak saveButton] _, _ in
       guard let button = saveButton else { return false }
       return button.exists && button.isEnabled == enabled

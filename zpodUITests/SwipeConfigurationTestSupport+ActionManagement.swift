@@ -49,12 +49,12 @@ extension SwipeConfigurationTestCase {
       pickerTitle = "Add Action"
     }
 
-    let pickerNavBar = app.navigationBars[pickerTitle]
-    let fallbackPickerNavBar = app.navigationBars["Add Action"]
+    let pickerNavBar = app.navigationBars.matching(identifier: pickerTitle).firstMatch
+    let fallbackPickerNavBar = app.navigationBars.matching(identifier: "Add Action").firstMatch
 
     let optionIdentifier = addIdentifier + "." + displayName
     let primaryOption = element(withIdentifier: optionIdentifier, within: container)
-    let buttonOption = container.buttons[displayName]
+    let buttonOption = container.buttons.matching(identifier: displayName).firstMatch
 
     _ = waitForAnyElement(
       [
@@ -118,7 +118,7 @@ extension SwipeConfigurationTestCase {
     // Presets are at bottom - materialization scrolls there then back to top
     // So we may need 1-2 swipes to reach them, but not 16
     _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
-    var presetButton = app.buttons[identifier]
+    var presetButton = app.buttons.matching(identifier: identifier).firstMatch
     if !presetButton.exists {
       presetButton = element(withIdentifier: identifier, within: container)
     }
@@ -132,7 +132,7 @@ extension SwipeConfigurationTestCase {
       }
       RunLoop.current.run(until: Date().addingTimeInterval(0.05))
       scrollAttempts += 1
-      var refreshed = app.buttons[identifier]
+      var refreshed = app.buttons.matching(identifier: identifier).firstMatch
       if !refreshed.exists {
         refreshed = element(withIdentifier: identifier, within: container)
       }
@@ -156,9 +156,12 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func swipeActionsSheetListContainer() -> XCUIElement? {
-    let save = app.buttons["SwipeActions.Save"]
-    let cancel = app.buttons["SwipeActions.Cancel"]
-    guard save.exists || cancel.exists || app.staticTexts["Swipe Actions"].exists else {
+    let save = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
+    let cancel = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
+    guard
+      save.exists || cancel.exists
+        || app.staticTexts.matching(identifier: "Swipe Actions").firstMatch.exists
+    else {
       return nil
     }
 
@@ -215,7 +218,7 @@ extension SwipeConfigurationTestCase {
     if let found = searchContainer(in: app) { return found }
     if save.exists { return save }
     if cancel.exists { return cancel }
-    let hapticsToggle = app.switches["SwipeActions.Haptics.Toggle"]
+    let hapticsToggle = app.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch
     if hapticsToggle.exists { return hapticsToggle }
     return nil
   }
