@@ -99,8 +99,10 @@ public struct EpisodeListView: View {
             viewModel.showingSwipeConfiguration = true
           } label: {
             Image(systemName: "slider.horizontal.3")
+          }
+          .accessibilityRepresentation {
+            Button("Configure Swipe Actions") {}
               .accessibilityIdentifier("ConfigureSwipeActions")
-              .accessibilityLabel("Configure Swipe Actions")
           }
         }
       }

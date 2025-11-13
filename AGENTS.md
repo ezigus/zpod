@@ -14,7 +14,35 @@
 3. **Automation over manual edits** – use scripts, generators, and formatters whenever possible.
 4. **Version control hygiene** – commit only after tests pass, include matching dev-log updates, then confirm whether to push.
    - PR titles linked to issues must include the issue identifier (e.g. `[#02.5] Testing cleanup fixes`) so GitHub references stay traceable.
-   - When working on a PR, use the PR’s branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
+   - When working on a PR, use the PR's branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
+
+### Terminal Command Guidelines
+
+**CRITICAL: Follow these rules when executing terminal commands:**
+
+- **NEVER** use `2>&1` redirection - it causes output buffering and user prompts
+- **NEVER** run commands with `isBackground: true` - always run synchronously
+- **NEVER** use `timeout`, `sleep`, or other blocking commands that prompt user interaction
+- **DO** run commands directly and let them complete naturally
+- **DO** use simple, clean command invocations without complex shell redirections
+- **DO** trust that output will appear when the command completes
+
+Examples:
+
+```bash
+# ✅ CORRECT - simple, direct command
+./scripts/run-xcode-tests.sh -t zpodUITests/SomeTest
+
+# ❌ WRONG - background execution
+./scripts/run-xcode-tests.sh -t Test &
+
+# ❌ WRONG - output redirection
+./scripts/run-xcode-tests.sh 2>&1 | grep something
+
+# ❌ WRONG - timeout/sleep
+timeout 60 ./scripts/run-xcode-tests.sh
+sleep 30 && ./scripts/run-xcode-tests.sh
+```
 
 ## 3. Concurrency & Swift Patterns
 

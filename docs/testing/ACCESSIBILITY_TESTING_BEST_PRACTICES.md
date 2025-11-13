@@ -7,7 +7,7 @@ This document captures the accessibility / UI testing best practices for making 
 ## 1) High-level principles
 
 - Prefer SwiftUI modifiers first: set `.accessibilityIdentifier`, `.accessibilityLabel`, and traits on visible SwiftUI elements (Text, Button, Label, NavigationLink label).
-- **CRITICAL**: For Buttons, set identifiers on the **content inside the label closure**, not on the Button itself (see section 6).
+- **CRITICAL**: SwiftUI creates wrapper elements that inherit accessibility identifiers, causing duplicates. Always use `.matching(identifier:).firstMatch` in test queries instead of subscript syntax (see section 6).
 - Keep identifiers stable and human-readable: e.g. `Podcast-<id>-row` or `Library.Podcast.<id>.Row`.
 - Provide semantic labels and hints for assistive tech; tests are more robust if they can use labels as well as identifiers.
 - Avoid brittle tests that rely on specific view-hierarchy internals. Query elements by semantic role or contained text when possible.
@@ -62,40 +62,58 @@ Key implementation details (non-intrusive):
 - Relying on internal SwiftUI implementation details — treat this as a fallback, not a replacement for proper accessibility.
 - Shipping large test-only code paths — accessibility identifiers are fine to ship. Avoid adding significant behavior gated only for tests.
 
-## 6) SwiftUI Button Accessibility Identifiers (CRITICAL)
+## 6) SwiftUI Accessibility Identifier Duplication (CRITICAL)
 
-**Problem**: SwiftUI automatically creates wrapper elements that **inherit** accessibility identifiers from Buttons, creating duplicate identifiers in the UI hierarchy. XCUITest's subscript syntax `app.buttons["ID"]` expects exactly one match and fails with "Multiple matching elements found" when duplicates exist.
+**Problem**: SwiftUI automatically creates wrapper elements (typically `Other`) that **inherit** accessibility identifiers from their children, creating duplicate identifiers in the UI hierarchy. This happens **regardless of where you place the identifier** - on the Button, on content inside the label closure, or using accessibility representation modifiers.
 
-**❌ NEVER do this** (creates wrapper with duplicate identifier):
+**Empirically proven fact**: ALL app-side solutions fail to prevent wrapper duplication. The following patterns were tested and ALL create duplicate identifiers:
 
-```swift
-Button("Text") { action() }
-  .accessibilityIdentifier("MyButton")
-// Creates hierarchy:
-// Other, identifier: 'MyButton' ← SwiftUI wrapper
-//   └─ Button, identifier: 'MyButton' ← Actual button (DUPLICATE!)
-```
+- Setting identifier on Button itself
+- Setting identifier on content inside label closure (Text, Image)
+- Using `.accessibilityElement(children: .combine)`
+- Using `.accessibilityRepresentation { }`
 
-**✅ ALWAYS do this** (unique identifier):
+**Example of actual hierarchy** (regardless of identifier placement):
 
 ```swift
-Button { action() } label: {
-  Text("Text")
-    .accessibilityIdentifier("MyButton")
-}
-// Creates hierarchy:
-// Other (no identifier)
-//   └─ Button
-//       └─ Text, identifier: 'MyButton' ← Only one element with identifier
+// ANY of these patterns:
+Button { } label: { Text("Text").accessibilityIdentifier("MyButton") }
+// OR
+Button("Text") { }.accessibilityIdentifier("MyButton")
+// OR any other variant
 
-// For Buttons with Images:
-Button { action() } label: {
-  Image(systemName: "star")
-    .accessibilityIdentifier("MyButton")
-}
+// ALL create this hierarchy:
+// Other, identifier: 'MyButton' ← SwiftUI wrapper (duplicate)
+//   └─ Button, identifier: 'MyButton' ← Actual button (duplicate)
 ```
 
-**Rule**: Always set `.accessibilityIdentifier()` on the **content inside the Button's label closure**, never on the Button itself. This applies to all Buttons, whether text-based (`Button("Text")`) or with custom labels.
+**✅ ONLY WORKING SOLUTION: Use `.firstMatch` in test code**
+
+XCUITest's subscript syntax `app.buttons["ID"]` expects exactly one match and fails with "Multiple matching elements found" when duplicates exist. The solution is to use `.matching(identifier:).firstMatch` instead:
+
+```swift
+// ❌ WRONG - fails with "Multiple matching elements found"
+let button = app.buttons["ConfigureSwipeActions"]
+
+// ✅ CORRECT - handles multiple matches gracefully
+let button = app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch
+```
+
+**When `.firstMatch` doesn't find the element**:
+
+If `.firstMatch` returns an element that doesn't exist (`element.exists == false`), this indicates a real problem - the identifier truly isn't in the hierarchy. Handle this case properly:
+
+```swift
+let button = app.buttons.matching(identifier: "MyButton").firstMatch
+
+// Always verify existence before interacting
+XCTAssertTrue(button.waitForExistence(timeout: 5), "Button with identifier 'MyButton' not found in hierarchy")
+
+// OR use exists check with helpful failure message
+XCTAssertTrue(button.exists, "Expected button 'MyButton' to exist but it was not found. Check that the button is visible and the identifier is set correctly.")
+```
+
+**Rule**: Always use `.matching(identifier:).firstMatch` when querying elements by accessibility identifier in tests. Do NOT try to prevent duplication at the app level - it cannot be prevented. Set identifiers wherever is most convenient in your SwiftUI views and handle the duplicates in test queries.
 
 ## 7) SDK compatibility
 

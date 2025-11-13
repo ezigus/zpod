@@ -16,7 +16,7 @@ extension SwipeConfigurationTestCase {
     if let prioritized = prioritizedElement(in: app, identifier: identifier) {
       return prioritized
     }
-    return app.descendants(matching: .any)[identifier]
+    return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
   }
 
   @MainActor
@@ -32,7 +32,7 @@ extension SwipeConfigurationTestCase {
   @MainActor
   private func prioritizedElement(in root: XCUIElement, identifier: String) -> XCUIElement? {
     // Use descendants(matching: .any) with identifier - much faster than checking 10 element types
-    let descendant = root.descendants(matching: .any)[identifier]
+    let descendant = root.descendants(matching: .any).matching(identifier: identifier).firstMatch
     return descendant.exists ? descendant : nil
   }
 

@@ -120,7 +120,7 @@ extension SwipeConfigurationTestCase {
     let episodeNavSucceeded = navigateAndWaitForResult(
       triggerAction: { podcastButton.tap() },
       expectedElements: [
-        app.buttons["ConfigureSwipeActions"],
+        app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch,
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Episodes'")).firstMatch,
       ],
       timeout: adaptiveTimeout,
@@ -135,7 +135,7 @@ extension SwipeConfigurationTestCase {
       containerIdentifier: "Episode Cards Container",
       timeout: adaptiveTimeout
     ) {
-      let configureButton = app.buttons["ConfigureSwipeActions"]
+      let configureButton = app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch
       guard
         waitForElement(
           configureButton,
