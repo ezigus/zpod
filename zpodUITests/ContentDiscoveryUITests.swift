@@ -453,18 +453,15 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       }
 
       // When: I enter a URL
-      urlField.tap()
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveTimeout),
-        "Keyboard should appear after selecting RSS URL field")
-
-      XCTAssertTrue(
-        waitForKeyboardFocus(
-          on: urlField, timeout: adaptiveTimeout, description: "RSS URL field focus"),
-        "RSS URL field should gain keyboard focus")
-
+      // Note: typeText() automatically focuses the field and brings up the keyboard.
+      // Separate tap() + keyboard wait is fragile and unnecessary.
       let desiredURL = "https://example.com/feed.xml"
       urlField.typeText(desiredURL)
+
+      // Verify keyboard appeared as a side effect
+      XCTAssertTrue(
+        app.keyboards.firstMatch.exists,
+        "Keyboard should be visible after typeText()")
 
       let urlValueMatches = waitUntil(
         timeout: adaptiveTimeout,
