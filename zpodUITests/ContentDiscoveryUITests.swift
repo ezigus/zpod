@@ -99,11 +99,11 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(searchField.exists, "Search field should exist")
 
     // When: I type in the search field
+    searchField.tap()
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
 
     // Then: Search results should appear
-    // If the field clears after search submission, that's fine - just check for results
     let swiftTalkResult = app.staticTexts[desiredQuery]
     XCTAssertTrue(
       swiftTalkResult.waitForExistence(timeout: adaptiveTimeout),
@@ -120,6 +120,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     let searchField = app.textFields.matching(
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
+    searchField.tap()
     searchField.typeText("test")
 
     // When: I tap the clear button (if it exists)
@@ -409,6 +410,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
       // When: I enter a URL
       let desiredURL = "https://example.com/feed.xml"
+      urlField.tap()
       urlField.typeText(desiredURL)
 
       // Then: Verify the URL was entered (field may show ellipsis or full URL)
@@ -435,7 +437,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     if searchField.exists {
-      // Note: typeText() automatically focuses field and shows keyboard atomically.
+      // Note: tap() to focus, then typeText() to enter text.
+      searchField.tap()
       searchField.typeText("test")
 
       // Then: Filter options should be available when searching
@@ -589,6 +592,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     if searchField.exists {
       // When: I interact with the search field
+      searchField.tap()
       searchField.typeText("test")
 
       // Then: Verify the text was entered
