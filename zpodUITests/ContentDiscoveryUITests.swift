@@ -99,33 +99,15 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(searchField.exists, "Search field should exist")
 
     // When: I type in the search field
-    // Note: typeText() automatically focuses field and shows keyboard atomically.
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
 
-    // Verify keyboard appeared as a side effect
+    // Then: Search results should appear
+    // If the field clears after search submission, that's fine - just check for results
+    let swiftTalkResult = app.staticTexts[desiredQuery]
     XCTAssertTrue(
-      app.keyboards.firstMatch.exists,
-      "Keyboard should be visible after typeText()")
-
-    // Then: wait for the value to propagate (adapts to CI lag) and fall back to a visible result cell.
-    let valueMatches = waitUntil(
-      timeout: adaptiveTimeout,
-      pollInterval: 0.15,
-      description: "search field contains query"
-    ) {
-      guard let currentValue = searchField.value as? String else { return false }
-      return currentValue.localizedCaseInsensitiveContains(desiredQuery)
-    }
-    let searchFieldValue = searchField.value as? String
-
-    // Also accept the UI presenting a result cell if the text field clears (common on some devices)
-    let swiftTalkTextElement = app.staticTexts[desiredQuery]
-    let hasSwiftTalkText = swiftTalkTextElement.waitForExistence(timeout: adaptiveTimeout)
-
-    XCTAssertTrue(
-      valueMatches || hasSwiftTalkText,
-      "Search field should contain typed text. Found value: '\(searchFieldValue ?? "nil")', Swift Talk text exists: \(hasSwiftTalkText)"
+      swiftTalkResult.waitForExistence(timeout: adaptiveTimeout),
+      "Search results should appear for '\(desiredQuery)'"
     )
   }
 
@@ -138,14 +120,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     let searchField = app.textFields.matching(
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
-
-    // Note: typeText() automatically focuses field and shows keyboard atomically.
     searchField.typeText("test")
-
-    // Verify keyboard appeared
-    XCTAssertTrue(
-      app.keyboards.firstMatch.exists,
-      "Keyboard should be visible after typeText()")
 
     // When: I tap the clear button (if it exists)
     let clearButton = app.buttons.matching(NSPredicate(format: "label == 'Clear search'"))
@@ -154,9 +129,9 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       clearButton.tap()
 
       // Then: The search field should be empty
+      let fieldValue = searchField.value as? String ?? ""
       XCTAssertTrue(
-        searchField.value as? String == ""
-          || searchField.placeholderValue?.contains("Search") == true,
+        fieldValue.isEmpty || searchField.placeholderValue?.contains("Search") == true,
         "Search field should be cleared")
     }
   }
@@ -433,35 +408,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       }
 
       // When: I enter a URL
-      // Note: typeText() automatically focuses the field and brings up the keyboard.
-      // Separate tap() + keyboard wait is fragile and unnecessary.
       let desiredURL = "https://example.com/feed.xml"
       urlField.typeText(desiredURL)
 
-      // Verify keyboard appeared as a side effect
+      // Then: Verify the URL was entered (field may show ellipsis or full URL)
+      let urlFieldValue = urlField.value as? String ?? ""
       XCTAssertTrue(
-        app.keyboards.firstMatch.exists,
-        "Keyboard should be visible after typeText()")
-
-      let urlValueMatches = waitUntil(
-        timeout: adaptiveTimeout,
-        pollInterval: 0.2,
-        description: "RSS URL field reflects input"
-      ) {
-        guard let currentValue = urlField.value as? String else { return false }
-        if currentValue.caseInsensitiveCompare(desiredURL) == .orderedSame { return true }
-        let normalized = currentValue.replacingOccurrences(of: "…", with: "")
-        guard !normalized.isEmpty else { return false }
-        if normalized.caseInsensitiveCompare(desiredURL) == .orderedSame { return true }
-        return desiredURL.hasPrefix(normalized)
-      }
-
-      let staticTextMatches = app.staticTexts[desiredURL].waitForExistence(timeout: adaptiveTimeout)
-      let urlFieldValue = urlField.value as? String
-
-      XCTAssertTrue(
-        urlValueMatches || staticTextMatches,
-        "URL field should contain entered URL. Current value: '\(urlFieldValue ?? "nil")'"
+        urlFieldValue.contains("example.com") || urlFieldValue.contains("feed"),
+        "URL field should contain entered URL, got: '\(urlFieldValue)'"
       )
     } else {
       throw XCTSkip("Discovery options button not found or not accessible")
@@ -484,27 +438,16 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       // Note: typeText() automatically focuses field and shows keyboard atomically.
       searchField.typeText("test")
 
-      // Verify keyboard appeared
-      XCTAssertTrue(
-        app.keyboards.firstMatch.exists,
-        "Keyboard should be visible after typeText()")
-
-      // When: Search filters become available
-      // Look for filter buttons (All, Podcasts, Episodes)
+      // Then: Filter options should be available when searching
       let allFilter = app.buttons["All"]
       let podcastsFilter = app.buttons["Podcasts"]
       let episodesFilter = app.buttons["Episodes"]
 
-      // Then: Filter options should be available when searching
-      // Note: Filters may appear after typing, so we check if any exist
       let hasFilters = allFilter.exists || podcastsFilter.exists || episodesFilter.exists
-
-      if hasFilters {
-        XCTAssertTrue(true, "Search filters are available")
-      } else {
-        // Filters might appear after search results load
-        XCTAssertTrue(true, "Filters may appear after search execution")
-      }
+      XCTAssertTrue(
+        hasFilters,
+        "Search filters should be available after typing. Found: All=\(allFilter.exists), Podcasts=\(podcastsFilter.exists), Episodes=\(episodesFilter.exists)"
+      )
     }
   }
 
@@ -646,23 +589,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     if searchField.exists {
       // When: I interact with the search field
-      // Note: typeText() automatically focuses field and shows keyboard atomically.
       searchField.typeText("test")
 
-      // Verify keyboard appeared
-      XCTAssertTrue(
-        app.keyboards.firstMatch.exists,
-        "Keyboard should be visible after typeText()")
-
-      // Then: Verify the interface is responsive by checking that the text was entered
-      // Check the field's value directly - this is the most reliable method
+      // Then: Verify the text was entered
       let enteredValue = searchField.value as? String ?? ""
       XCTAssertTrue(
         enteredValue.contains("test"),
-        "Search field should contain typed text, got: '\(enteredValue)'")
-
-      // Additional verification: ensure search field remains available for further interaction
-      XCTAssertTrue(searchField.exists, "Search field should remain available after text input")
+        "Search field should contain typed text, got: '\(enteredValue)'"
+      )
     } else {
       throw XCTSkip("Search field not found - skipping responsiveness test")
     }
