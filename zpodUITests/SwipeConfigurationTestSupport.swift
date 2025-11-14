@@ -73,7 +73,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   }
 
   func latestSwipeExecutionRecord() -> SwipeExecutionRecord? {
-    let executionProbe = app.staticTexts["SwipeActions.Debug.LastExecution"]
+    let executionProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.LastExecution")
+      .firstMatch
     guard executionProbe.exists else { return nil }
     guard let rawValue = executionProbe.value as? String, !rawValue.isEmpty else {
       return nil

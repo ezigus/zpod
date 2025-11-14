@@ -58,7 +58,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     }
 
     return app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
+      NSPredicate(format: "placeholderValue CONTAINS 'https://'")
+    ).firstMatch
   }
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
@@ -107,7 +108,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // Make sure the field actually has focus before typing to avoid dropping input on slower sims.
     XCTAssertTrue(
-      waitForKeyboardFocus(on: searchField, timeout: adaptiveShortTimeout, description: "search field focus"),
+      waitForKeyboardFocus(
+        on: searchField, timeout: adaptiveShortTimeout, description: "search field focus"),
       "Search field should gain keyboard focus after tap")
 
     let desiredQuery = "Swift Talk"
@@ -453,11 +455,12 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       // When: I enter a URL
       urlField.tap()
       XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveTimeout),
         "Keyboard should appear after selecting RSS URL field")
 
       XCTAssertTrue(
-        waitForKeyboardFocus(on: urlField, timeout: adaptiveShortTimeout, description: "RSS URL field focus"),
+        waitForKeyboardFocus(
+          on: urlField, timeout: adaptiveTimeout, description: "RSS URL field focus"),
         "RSS URL field should gain keyboard focus")
 
       let desiredURL = "https://example.com/feed.xml"

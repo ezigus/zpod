@@ -108,9 +108,9 @@
               }
             } label: {
               Text("Save")
-                .disabled(!controller.hasUnsavedChanges || controller.isSaving)
                 .accessibilityIdentifier("SwipeActions.Save")
             }
+            .disabled(!controller.hasUnsavedChanges || controller.isSaving)
           }
         }
       }

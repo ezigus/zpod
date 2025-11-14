@@ -12,7 +12,7 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
     _ = waitForElement(
-      app.navigationBars["Swipe Actions"],
+      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
       timeout: adaptiveShortTimeout,
       description: "Swipe Actions navigation bar"
     )
