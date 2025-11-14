@@ -99,21 +99,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(searchField.exists, "Search field should exist")
 
     // When: I type in the search field
-    searchField.tap()
-
-    // Wait for keyboard to appear - this is the real indicator of readiness
-    XCTAssertTrue(
-      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-      "Keyboard should appear after tapping search field")
-
-    // Make sure the field actually has focus before typing to avoid dropping input on slower sims.
-    XCTAssertTrue(
-      waitForKeyboardFocus(
-        on: searchField, timeout: adaptiveShortTimeout, description: "search field focus"),
-      "Search field should gain keyboard focus after tap")
-
+    // Note: typeText() automatically focuses field and shows keyboard atomically.
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
+
+    // Verify keyboard appeared as a side effect
+    XCTAssertTrue(
+      app.keyboards.firstMatch.exists,
+      "Keyboard should be visible after typeText()")
 
     // Then: wait for the value to propagate (adapts to CI lag) and fall back to a visible result cell.
     let valueMatches = waitUntil(
@@ -145,27 +138,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     let searchField = app.textFields.matching(
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
-    searchField.tap()
 
-    // Wait for keyboard to appear - this is the real indicator of readiness
-    XCTAssertTrue(
-      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-      "Keyboard should appear after tapping search field")
-
-    // Verify the field is ready for input by checking it has focus
-    let hasKeyboardFocus2 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-    XCTAssertTrue(
-      hasKeyboardFocus2,
-      "Search field should have keyboard focus after tap")
-
-    // Wait for focus to be fully established before typing using proper async pattern
-    let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-      focusExpectation.fulfill()
-    }
-    _ = XCTWaiter.wait(for: [focusExpectation], timeout: 1.0)
-
+    // Note: typeText() automatically focuses field and shows keyboard atomically.
     searchField.typeText("test")
+
+    // Verify keyboard appeared
+    XCTAssertTrue(
+      app.keyboards.firstMatch.exists,
+      "Keyboard should be visible after typeText()")
 
     // When: I tap the clear button (if it exists)
     let clearButton = app.buttons.matching(NSPredicate(format: "label == 'Clear search'"))
@@ -501,27 +481,13 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     if searchField.exists {
-      searchField.tap()
-
-      // Wait for keyboard to appear - this is the real indicator of readiness
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-        "Keyboard should appear after tapping search field")
-
-      // Verify the field is ready for input by checking it has focus
-      let hasKeyboardFocus3 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-      XCTAssertTrue(
-        hasKeyboardFocus3,
-        "Search field should have keyboard focus after tap")
-
-      // Wait for focus to be fully established before typing using proper async pattern
-      let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        focusExpectation.fulfill()
-      }
-      _ = XCTWaiter.wait(for: [focusExpectation], timeout: 0.5)
-
+      // Note: typeText() automatically focuses field and shows keyboard atomically.
       searchField.typeText("test")
+
+      // Verify keyboard appeared
+      XCTAssertTrue(
+        app.keyboards.firstMatch.exists,
+        "Keyboard should be visible after typeText()")
 
       // When: Search filters become available
       // Look for filter buttons (All, Podcasts, Episodes)
@@ -680,15 +646,13 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     if searchField.exists {
       // When: I interact with the search field
-      searchField.tap()
-
-      // Wait for keyboard to appear - this is the real indicator of readiness
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-        "Keyboard should appear after tapping search field")
-
-      // Type text into the search field (typeText is synchronous, no additional wait needed)
+      // Note: typeText() automatically focuses field and shows keyboard atomically.
       searchField.typeText("test")
+
+      // Verify keyboard appeared
+      XCTAssertTrue(
+        app.keyboards.firstMatch.exists,
+        "Keyboard should be visible after typeText()")
 
       // Then: Verify the interface is responsive by checking that the text was entered
       // Check the field's value directly - this is the most reliable method
