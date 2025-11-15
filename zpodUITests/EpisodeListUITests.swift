@@ -30,9 +30,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: The app is launched and we navigate to Library tab
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
-      let libraryTab = tabBar.buttons["Library"]
+      let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
       if libraryTab.exists {
         libraryTab.tap()
 
@@ -47,7 +47,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
 
           // When: I tap on a podcast using direct element access
-          let podcastButton = app.buttons["Podcast-swift-talk"]
+          let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
           if podcastButton.exists {
             podcastButton.tap()
 
@@ -119,7 +119,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
       episodeContainer.exists, "Episode cards container should exist before checking episodes")
 
     // Then: I should see episodes displayed using direct element access
-    let firstEpisode = app.buttons["Episode-st-001"]
+    let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
     if firstEpisode.exists {
       XCTAssertTrue(firstEpisode.exists, "Episode button should be visible")
     } else {
@@ -174,20 +174,20 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     navigateToPodcastEpisodes("swift-talk")
 
     // When: I tap on an episode using direct element access
-    let firstEpisode = app.buttons["Episode-st-001"]
+    let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
     if firstEpisode.exists {
       firstEpisode.tap()
 
       // Then: I should navigate to some form of detail view
       // Check for multiple possible detail view indicators
       let detailIndicators = [
-        app.otherElements["Episode Detail View"],
-        app.navigationBars["Episode Detail"],
+        app.otherElements.matching(identifier: "Episode Detail View").firstMatch,
+        app.navigationBars.matching(identifier: "Episode Detail").firstMatch,
         app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS 'Episode'"))
           .firstMatch,
         app.otherElements.matching(NSPredicate(format: "identifier CONTAINS 'detail'")).firstMatch,
-        app.buttons["Play"],
-        app.buttons["Pause"],
+        app.buttons.matching(identifier: "Play").firstMatch,
+        app.buttons.matching(identifier: "Pause").firstMatch,
       ]
 
       var foundDetailView = false
@@ -233,7 +233,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     // Wait for an episode row to become visible
     let firstEpisode = waitForAnyElement(
       [
-        app.buttons["Episode-st-001"],
+        app.buttons.matching(identifier: "Episode-st-001").firstMatch,
         app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "Episode-")).firstMatch,
       ], timeout: adaptiveTimeout, description: "episode button", failOnTimeout: false)
 
@@ -270,9 +270,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: App is launched and we navigate to episode list
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
-      let libraryTab = tabBar.buttons["Library"]
+      let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
       if libraryTab.exists {
         libraryTab.tap()
 
@@ -287,7 +287,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
 
           // Look for a podcast to tap
-          let podcastButton = app.buttons["Podcast-swift-talk"]
+          let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
           if podcastButton.exists {
             podcastButton.tap()
 
@@ -357,7 +357,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
 
     if foundContainer {
       // Then: Key elements should be accessible
-      let firstEpisode = app.buttons["Episode-st-001"]
+      let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
       if firstEpisode.exists && firstEpisode.isHittable {
         // Test specific episode accessibility
         XCTAssertFalse(firstEpisode.label.isEmpty, "Episode should have accessible label")
@@ -388,9 +388,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
   @MainActor
   private func navigateToPodcastEpisodes(_ podcastId: String) {
     // Navigate to Library tab using simple approach
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
-      let libraryTab = tabBar.buttons["Library"]
+      let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
       if libraryTab.exists {
         libraryTab.tap()
 
@@ -405,7 +405,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
 
           // Navigate to podcast using direct element access
-          let podcastButton = app.buttons["Podcast-\(podcastId)"]
+          let podcastButton = app.buttons.matching(identifier: "Podcast-\(podcastId)").firstMatch
           if podcastButton.exists {
             podcastButton.tap()
 

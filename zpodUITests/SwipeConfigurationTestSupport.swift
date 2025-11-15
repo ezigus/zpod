@@ -21,6 +21,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   @MainActor internal static var reportedToggleValueSignatures = Set<String>()
   nonisolated(unsafe) private var testStartTime: CFAbsoluteTime?
   nonisolated(unsafe) internal var lastSwipeExecutionTimestamp: TimeInterval = 0
+  nonisolated(unsafe) internal var cachedSwipeContainer: XCUIElement?
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
 
   // MARK: - Environment Configuration
@@ -69,6 +70,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       }
     }
     app = nil
+    cachedSwipeContainer = nil
     try super.tearDownWithError()
   }
 
@@ -151,5 +153,80 @@ extension SwipeConfigurationTestCase {
 
     guard let action, let episodeID, let timestamp else { return nil }
     return SwipeExecutionRecord(action: action, episodeID: episodeID, timestamp: timestamp)
+  }
+
+  // MARK: - Persistence Inspection
+
+  private struct PersistedSwipeSettings: Decodable {
+    struct SwipeActions: Decodable {
+      let leadingActions: [String]
+      let trailingActions: [String]
+    }
+
+    let swipeActions: SwipeActions
+  }
+
+  private func decodedGlobalUISettings() -> PersistedSwipeSettings? {
+    guard
+      let defaults = UserDefaults(suiteName: swipeDefaultsSuite),
+      let data = defaults.data(forKey: "global_ui_settings")
+    else {
+      return nil
+    }
+
+    do {
+      return try JSONDecoder().decode(PersistedSwipeSettings.self, from: data)
+    } catch {
+      logger.error("Failed to decode persisted UI settings: \(error.localizedDescription, privacy: .public)")
+      return nil
+    }
+  }
+
+  func assertPersistedSwipeConfiguration(
+    leading displayNames: [String],
+    trailing trailingDisplayNames: [String]
+  ) {
+    guard let settings = decodedGlobalUISettings()?.swipeActions else {
+      XCTFail("Unable to decode persisted swipe configuration from test suite defaults")
+      return
+    }
+
+    let expectedLeading = displayNames.compactMap { Self.rawActionIdentifier(forDisplayName: $0) }
+    if expectedLeading.count != displayNames.count {
+      XCTFail("One or more leading display names could not be mapped to swipe action types")
+      return
+    }
+
+    let expectedTrailing = trailingDisplayNames.compactMap { Self.rawActionIdentifier(forDisplayName: $0) }
+    if expectedTrailing.count != trailingDisplayNames.count {
+      XCTFail("One or more trailing display names could not be mapped to swipe action types")
+      return
+    }
+
+    XCTAssertEqual(
+      settings.leadingActions,
+      expectedLeading,
+      "Persisted leading actions did not match expectation"
+    )
+    XCTAssertEqual(
+      settings.trailingActions,
+      expectedTrailing,
+      "Persisted trailing actions did not match expectation"
+    )
+  }
+
+  private static func rawActionIdentifier(forDisplayName name: String) -> String? {
+    switch name {
+    case "Play": return "play"
+    case "Download": return "download"
+    case "Mark Played": return "markPlayed"
+    case "Mark Unplayed": return "markUnplayed"
+    case "Add to Playlist": return "addToPlaylist"
+    case "Favorite": return "favorite"
+    case "Archive": return "archive"
+    case "Delete": return "delete"
+    case "Share": return "share"
+    default: return nil
+    }
   }
 }

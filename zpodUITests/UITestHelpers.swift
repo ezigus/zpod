@@ -51,6 +51,16 @@ extension XCUIApplication {
   }
 }
 
+// MARK: - Element Query Helpers
+
+extension XCUIElementQuery {
+  /// Returns the first match for the provided accessibility identifier, avoiding duplicate
+  /// element crashes by always funneling through `.matching(identifier:)`.
+  func element(matchingIdentifier identifier: String) -> XCUIElement {
+    matching(identifier: identifier).firstMatch
+  }
+}
+
 // MARK: - Core Testing Protocols
 
 /// Foundation protocol for event-based UI testing
@@ -249,13 +259,18 @@ extension XCTestCase {
 
     // Try identifier first
     if let identifier = identifier {
-      let element = app.descendants(matching: elementType)[identifier]
+      let element = app.descendants(matching: elementType)
+        .matching(identifier: identifier)
+        .firstMatch
       if element.exists { return element }
     }
 
     // Try label
     if let label = label {
-      let element = app.descendants(matching: elementType)[label]
+      let labelPredicate = NSPredicate(format: "label == %@", label)
+      let element = app.descendants(matching: elementType)
+        .matching(labelPredicate)
+        .firstMatch
       if element.exists { return element }
     }
 
@@ -273,6 +288,20 @@ extension XCTestCase {
     }
 
     return nil
+  }
+
+  /// Waits for an element to appear and throws `XCTSkip` when it never becomes available.
+  @MainActor
+  @discardableResult
+  func waitForElementOrSkip(
+    _ element: XCUIElement,
+    timeout: TimeInterval,
+    description: String
+  ) throws -> XCUIElement {
+    guard element.waitForExistence(timeout: timeout) else {
+      throw XCTSkip("\(description) not available; verify test data and launch arguments.")
+    }
+    return element
   }
 
   /// Resolve a container element by accessibility identifier independent of backing UIKit type.
@@ -293,13 +322,15 @@ extension XCTestCase {
     ]
 
     for query in orderedQueries {
-      let element = query[identifier]
+      let element = query.matching(identifier: identifier).firstMatch
       if element.exists {
         return element
       }
     }
 
-    let anyMatch = app.descendants(matching: .any)[identifier]
+    let anyMatch = app.descendants(matching: .any)
+      .matching(identifier: identifier)
+      .firstMatch
     return anyMatch.exists ? anyMatch : nil
   }
 
@@ -322,7 +353,7 @@ extension XCTestCase {
       guard let self else { return false }
 
       // Presence of the batch operations overlay indicates the view finished loading
-      if app.otherElements["Batch Operation Progress"].exists {
+      if app.otherElements.matching(identifier: "Batch Operation Progress").firstMatch.exists {
         return true
       }
 
@@ -336,9 +367,9 @@ extension XCTestCase {
       }
 
       // Fallback: check if main navigation elements are present
-      let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+      let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
       let navigationBar = app.navigationBars.firstMatch
-      let swiftPodcast = app.buttons["Podcast-swift-talk"]
+      let swiftPodcast = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
 
       if (libraryTab.exists && libraryTab.isHittable)
         || (navigationBar.exists && navigationBar.isHittable)
@@ -371,21 +402,21 @@ private struct BatchOverlayObservation {
   private let auxiliaryElements: [XCUIElement]
 
   init(app: XCUIApplication) {
-    primaryElement = app.otherElements["Batch Operation Progress"]
+    primaryElement = app.otherElements.matching(identifier: "Batch Operation Progress").firstMatch
     auxiliaryElements = [
-      app.scrollViews.otherElements["Batch Operation Progress"],
-      app.tables.otherElements["Batch Operation Progress"],
-      app.cells["Batch Operation Progress"],
-      app.tables.cells["Batch Operation Progress"],
-      app.staticTexts["Batch Operation Progress"],
-      app.staticTexts["Processing..."],
-      app.staticTexts["Processing"],
-      app.staticTexts["Complete"],
-      app.staticTexts["Completed"],
-      app.staticTexts["Batch Operation"],
-      app.buttons["Pause"],
-      app.buttons["Resume"],
-      app.buttons["Cancel"],
+      app.scrollViews.otherElements.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.tables.otherElements.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.cells.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.tables.cells.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.staticTexts.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.staticTexts.matching(identifier: "Processing...").firstMatch,
+      app.staticTexts.matching(identifier: "Processing").firstMatch,
+      app.staticTexts.matching(identifier: "Complete").firstMatch,
+      app.staticTexts.matching(identifier: "Completed").firstMatch,
+      app.staticTexts.matching(identifier: "Batch Operation").firstMatch,
+      app.buttons.matching(identifier: "Pause").firstMatch,
+      app.buttons.matching(identifier: "Resume").firstMatch,
+      app.buttons.matching(identifier: "Cancel").firstMatch,
     ]
   }
 
@@ -468,7 +499,7 @@ extension SmartUITesting where Self: XCTestCase {
       return application
     }
 
-    let mainTabBar = application.tabBars["Main Tab Bar"]
+    let mainTabBar = application.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let tabBarAppeared = mainTabBar.waitForExistence(timeout: adaptiveTimeout)
     logLaunchEvent("Main tab bar existence=\(tabBarAppeared)")
     XCTAssertTrue(
@@ -492,15 +523,20 @@ extension SmartUITesting where Self: XCTestCase {
     let existingApp = XCUIApplication(bundleIdentifier: bundleIdentifier)
     guard existingApp.state != .notRunning else { return }
 
+    if existingApp.state == .runningBackground {
+      existingApp.activate()
+    }
     existingApp.terminate()
 
-    let deadline = Date().addingTimeInterval(5.0)
+    let deadline = Date().addingTimeInterval(12.0)
     while existingApp.state != .notRunning && Date() < deadline {
       RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
     }
 
     if existingApp.state != .notRunning {
-      XCTFail("Unable to terminate application before relaunch. Current state: \(existingApp.state.rawValue)")
+      XCTFail(
+        "Unable to terminate application before relaunch. Current state: \(existingApp.state.rawValue)"
+      )
     }
   }
 
@@ -688,7 +724,9 @@ extension SmartUITesting where Self: XCTestCase {
 
       if !itemIdentifiers.isEmpty {
         for identifier in itemIdentifiers {
-          let matchedElement = app.descendants(matching: .any)[identifier]
+          let matchedElement = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
           if matchedElement.exists {
             return true
           }

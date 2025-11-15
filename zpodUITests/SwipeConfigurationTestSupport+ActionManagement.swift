@@ -17,8 +17,10 @@ extension SwipeConfigurationTestCase {
     guard let container = swipeActionsSheetListContainer() else { return false }
     let rowIdentifier = "SwipeActions." + edgeIdentifier + "." + displayName
     _ = ensureVisibleInSheet(identifier: rowIdentifier, container: container)
-    let scopedButton = container.buttons["Remove " + displayName]
-    let removeButton = scopedButton.exists ? scopedButton : app.buttons["Remove " + displayName]
+    let scopedButton = container.buttons.matching(identifier: "Remove " + displayName).firstMatch
+    let removeButton = scopedButton.exists
+      ? scopedButton
+      : app.buttons.matching(identifier: "Remove " + displayName).firstMatch
     guard removeButton.waitForExistence(timeout: adaptiveShortTimeout) else {
       return false
     }
@@ -96,7 +98,7 @@ extension SwipeConfigurationTestCase {
       return true
     }
 
-    let buttonAfterScroll = container.buttons[displayName]
+    let buttonAfterScroll = container.buttons.matching(identifier: displayName).firstMatch
     if buttonAfterScroll.exists {
       tapElement(buttonAfterScroll, description: "Add action option \(displayName) after scroll")
       if pickerNavBar.exists {
@@ -110,21 +112,38 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String) {
+    if tapDebugOverlayButton(for: identifier) {
+      logDebugState("Applied \(identifier) via overlay buttons")
+      return
+    }
+
+    if tapDebugToolbarButton(for: identifier) {
+      logDebugState("Applied \(identifier) via debug toolbar buttons")
+      return
+    }
+
+    if tapDebugPresetSectionButton(for: identifier) {
+      logDebugState("Applied \(identifier) via debug section buttons")
+      return
+    }
+
+    if tapDebugPresetFromMenu(for: identifier) {
+      logDebugState("Applied \(identifier) via debug menu")
+      return
+    }
+
     guard let container = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
       return
     }
 
-    // Presets are at bottom - materialization scrolls there then back to top
-    // So we may need 1-2 swipes to reach them, but not 16
-    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
+    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 6)
     var presetButton = app.buttons.matching(identifier: identifier).firstMatch
     if !presetButton.exists {
       presetButton = element(withIdentifier: identifier, within: container)
     }
     var scrollAttempts = 0
-    // Only 2 attempts - presets were already materialized, just need to scroll down
-    while !presetButton.exists && scrollAttempts < 2 {
+    while !presetButton.exists && scrollAttempts < 6 {
       if container.isHittable {
         container.swipeUp()
       } else {
@@ -141,7 +160,10 @@ extension SwipeConfigurationTestCase {
 
     XCTAssertTrue(
       waitForElement(
-        presetButton, timeout: adaptiveTimeout, description: "preset button \(identifier)"),
+        presetButton,
+        timeout: adaptiveTimeout,
+        description: "preset button \(identifier)"
+      ),
       "Preset button \(identifier) should exist"
     )
     logger.debug(
@@ -156,6 +178,9 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func swipeActionsSheetListContainer() -> XCUIElement? {
+    if let cached = cachedSwipeContainer, cached.exists {
+      return cached
+    }
     let save = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
     let cancel = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
     guard
@@ -166,6 +191,11 @@ extension SwipeConfigurationTestCase {
     }
 
     let swipePredicate = NSPredicate(format: "identifier BEGINSWITH 'SwipeActions.'")
+    let explicitList =
+      app.descendants(matching: .any).matching(identifier: "SwipeActions.List").firstMatch
+    if explicitList.exists {
+      return explicitList
+    }
 
     let windows = app.windows.matching(NSPredicate(value: true))
     var candidateWindows: [XCUIElement] = []
@@ -211,16 +241,45 @@ extension SwipeConfigurationTestCase {
       return nil
     }
 
-    for win in candidateWindows.reversed() {
-      if let found = searchContainer(in: win) { return found }
+    func locateContainer() -> XCUIElement? {
+      for win in candidateWindows.reversed() {
+        if let found = searchContainer(in: win) { return found }
+      }
+
+      if let found = searchContainer(in: app) { return found }
+      if save.exists { return save }
+      if cancel.exists { return cancel }
+      let hapticsToggle = app.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch
+      if hapticsToggle.exists { return hapticsToggle }
+      return nil
     }
 
-    if let found = searchContainer(in: app) { return found }
-    if save.exists { return save }
-    if cancel.exists { return cancel }
-    let hapticsToggle = app.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch
-    if hapticsToggle.exists { return hapticsToggle }
-    return nil
+    let deadline = Date().addingTimeInterval(5.0)
+    while Date() < deadline {
+      if let container = locateContainer() {
+        cachedSwipeContainer = container
+        return container
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+
+    logger.warning("[SwipeUITestDebug] swipeActionsSheetListContainer timed out")
+    reportAvailableSwipeIdentifiers(context: "swipeActionsSheetListContainer timeout")
+    let fallbackCollection = app.collectionViews.firstMatch
+    if fallbackCollection.exists {
+      logger.warning("[SwipeUITestDebug] Falling back to first collection view for swipe sheet")
+      cachedSwipeContainer = fallbackCollection
+      return fallbackCollection
+    }
+    let fallbackTable = app.tables.firstMatch
+    if fallbackTable.exists {
+      logger.warning("[SwipeUITestDebug] Falling back to first table view for swipe sheet")
+      cachedSwipeContainer = fallbackTable
+      return fallbackTable
+    }
+    let container = locateContainer()
+    cachedSwipeContainer = container
+    return container
   }
 
   @MainActor
@@ -328,5 +387,99 @@ extension SwipeConfigurationTestCase {
     }
 
     return target.exists
+  }
+
+  @MainActor
+  private func tapDebugPresetFromMenu(for identifier: String) -> Bool {
+    guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
+    let menuButton = app.buttons.matching(identifier: "SwipeActions.Debug.Menu").firstMatch
+    guard menuButton.waitForExistence(timeout: adaptiveShortTimeout) else { return false }
+    tapElement(menuButton, description: "SwipeActions.Debug.Menu")
+    guard let menuIdentifier = menuIdentifier(from: identifier) else { return false }
+    let debugButton = app.buttons.matching(identifier: menuIdentifier).firstMatch
+    guard waitForElement(
+      debugButton,
+      timeout: adaptiveShortTimeout,
+      description: "debug preset \(debugIdentifier)"
+    ) else {
+      app.tap()  // dismiss menu to avoid blocking subsequent interactions
+      return false
+    }
+    tapElement(debugButton, description: debugIdentifier)
+    return true
+  }
+
+  @MainActor
+  private func tapDebugPresetSectionButton(for identifier: String) -> Bool {
+    guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
+    let container = swipeActionsSheetListContainer()
+    if let container {
+      _ = ensureVisibleInSheet(identifier: debugIdentifier, container: container, scrollAttempts: 2)
+    } else {
+      app.swipeDown()
+    }
+    let scopedButton = container?
+      .buttons
+      .matching(identifier: debugIdentifier)
+      .firstMatch
+    let debugButton = scopedButton ?? app.buttons.matching(identifier: debugIdentifier).firstMatch
+    guard debugButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      attachDebugDescription(for: debugButton, label: "Missing debug section button \(debugIdentifier)")
+      return false
+    }
+    tapElement(debugButton, description: debugIdentifier)
+    return true
+  }
+
+  @MainActor
+  private func tapDebugToolbarButton(for identifier: String) -> Bool {
+    guard let toolbarIdentifier = toolbarIdentifier(from: identifier) else { return false }
+    let toolbarButton = app.buttons.matching(identifier: toolbarIdentifier).firstMatch
+    guard toolbarButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return false
+    }
+    tapElement(toolbarButton, description: toolbarIdentifier)
+    return true
+  }
+
+  @MainActor
+  private func tapDebugOverlayButton(for identifier: String) -> Bool {
+    guard let overlayIdentifier = overlayIdentifier(from: identifier) else { return false }
+    let overlayButton = app.buttons.matching(identifier: overlayIdentifier).firstMatch
+    guard overlayButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return false
+    }
+    tapElement(overlayButton, description: overlayIdentifier)
+    return true
+  }
+
+  private func debugIdentifier(from presetIdentifier: String) -> String? {
+    guard let range = presetIdentifier.range(of: "SwipeActions.Preset.") else { return nil }
+    let suffix = presetIdentifier[range.upperBound...]
+    return "SwipeActions.Debug.ApplyPreset." + suffix
+  }
+
+  private func menuIdentifier(from presetIdentifier: String) -> String? {
+    guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
+    return base + ".Menu"
+  }
+
+  private func toolbarIdentifier(from presetIdentifier: String) -> String? {
+    guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
+    return base + ".Toolbar"
+  }
+
+  private func overlayIdentifier(from presetIdentifier: String) -> String? {
+    guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
+    return base + ".Overlay"
+  }
+
+  @MainActor
+  private func attachDebugDescription(for element: XCUIElement, label: String) {
+    let description = element.debugDescription
+    let attachment = XCTAttachment(string: description)
+    attachment.name = label
+    attachment.lifetime = .keepAlways
+    add(attachment)
   }
 }

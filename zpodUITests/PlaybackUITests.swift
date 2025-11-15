@@ -37,8 +37,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
 
     // Navigate to player interface for testing
-    let tabBar = app.tabBars["Main Tab Bar"]
-    let playerTab = tabBar.buttons["Player"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
     if playerTab.exists {
       playerTab.tap()
     }
@@ -57,6 +57,16 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     return app.descendants(matching: .any).matching(q).firstMatch.exists
   }
 
+  @MainActor
+  @discardableResult
+  private func requirePlayerInterface() throws -> XCUIElement {
+    try waitForElementOrSkip(
+      app.otherElements.matching(identifier: "Player Interface").firstMatch,
+      timeout: adaptiveTimeout,
+      description: "Player interface"
+    )
+  }
+
   // MARK: - Now Playing Interface Tests
   // Covers: Player interface controls from ui spec
 
@@ -66,31 +76,38 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: Now playing interface is visible
-    let playerInterface = app.otherElements["Player Interface"]
+    try requirePlayerInterface()
 
-    if playerInterface.exists {
-      // When: Checking for essential playback controls
-      let playButton = app.buttons["Play"]
-      let pauseButton = app.buttons["Pause"]
-      let skipForwardButton = app.buttons["Skip Forward"]
-      let skipBackwardButton = app.buttons["Skip Backward"]
+    // When: Checking for essential playback controls
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+    let skipForwardButton = app.buttons.matching(identifier: "Skip Forward").firstMatch
+    let skipBackwardButton = app.buttons.matching(identifier: "Skip Backward").firstMatch
 
-      // Then: Controls should be present and accessible
-      XCTAssertTrue(
-        playButton.exists || pauseButton.exists,
-        "Play/Pause button should be available")
-
-      // Verify skip controls existence and properties
-      if skipForwardButton.exists {
-        XCTAssertTrue(skipForwardButton.isEnabled, "Skip forward should be enabled")
-        XCTAssertTrue(hasNonEmptyLabel(skipForwardButton), "Skip forward should have label")
-      }
-
-      if skipBackwardButton.exists {
-        XCTAssertTrue(skipBackwardButton.isEnabled, "Skip backward should be enabled")
-        XCTAssertTrue(hasNonEmptyLabel(skipBackwardButton), "Skip backward should have label")
-      }
+    // Then: Controls should be present and accessible
+    guard
+      let playOrPause = waitForAnyElement(
+        [playButton, pauseButton],
+        timeout: adaptiveShortTimeout,
+        description: "Play/Pause button",
+        failOnTimeout: false
+      )
+    else {
+      throw XCTSkip("Play/Pause controls unavailable in current playback state.")
     }
+    XCTAssertTrue(playOrPause.exists, "Play/Pause control should exist")
+
+    guard skipForwardButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Skip forward control unavailable for the seeded content.")
+    }
+    XCTAssertTrue(skipForwardButton.isEnabled, "Skip forward should be enabled")
+    XCTAssertTrue(hasNonEmptyLabel(skipForwardButton), "Skip forward should have label")
+
+    guard skipBackwardButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Skip backward control unavailable for the seeded content.")
+    }
+    XCTAssertTrue(skipBackwardButton.isEnabled, "Skip backward should be enabled")
+    XCTAssertTrue(hasNonEmptyLabel(skipBackwardButton), "Skip backward should have label")
   }
 
   @MainActor
@@ -98,31 +115,35 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Initialize the app
     initializeApp()
 
+    try requirePlayerInterface()
+
     // Given: Player interface with speed controls
     let speedButton = app.buttons.matching(
       NSPredicate(format: "label CONTAINS 'Speed' OR label CONTAINS 'x'")
     ).firstMatch
 
-    if speedButton.exists {
-      // When: Interacting with speed controls
-      speedButton.tap()
-
-      // Then: Speed options should be available
-      let speedOptions = app.buttons.matching(
-        NSPredicate(
-          format: "label CONTAINS '1.0x' OR label CONTAINS '1.5x' OR label CONTAINS '2.0x'"))
-
-      if speedOptions.count > 0 {
-        XCTAssertGreaterThan(speedOptions.count, 0, "Speed options should be available")
-
-        // Test selecting a speed option
-        let fastSpeed = speedOptions.element(boundBy: min(1, speedOptions.count - 1))
-        if fastSpeed.exists {
-          fastSpeed.tap()
-          // Speed should change (verified by UI state)
-        }
-      }
+    guard speedButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Speed control trigger unavailable for seeded playback item.")
     }
+
+    // When: Interacting with speed controls
+    speedButton.tap()
+
+    // Then: Speed options should be available
+    let speedOptions = app.buttons.matching(
+      NSPredicate(
+        format: "label CONTAINS '1.0x' OR label CONTAINS '1.5x' OR label CONTAINS '2.0x'"))
+
+    guard speedOptions.count > 0 else {
+      throw XCTSkip("Speed options failed to render; verify playback UI configuration.")
+    }
+
+    // Test selecting a speed option
+    let fastSpeed = speedOptions.element(boundBy: min(1, speedOptions.count - 1))
+    guard fastSpeed.waitForExistence(timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Speed option did not appear when expected.")
+    }
+    fastSpeed.tap()
   }
 
   @MainActor
@@ -130,19 +151,23 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Initialize the app
     initializeApp()
 
+    try requirePlayerInterface()
+
     // Given: Player interface with progress controls
-    let progressSlider = app.sliders["Progress Slider"]
+    let progressSlider = app.sliders.matching(identifier: "Progress Slider").firstMatch
 
-    if progressSlider.exists {
-      // When: Interacting with progress slider
-      // Then: Slider should be interactive
-      XCTAssertTrue(progressSlider.isEnabled, "Progress slider should be interactive")
-
-      // Test slider accessibility
-      XCTAssertNotNil(progressSlider.value, "Progress slider should have current value")
-      XCTAssertTrue(
-        hasNonEmptyLabel(progressSlider), "Progress slider should have descriptive label")
+    guard progressSlider.waitForExistence(timeout: adaptiveShortTimeout) else {
+      throw XCTSkip("Progress slider unavailable for seeded playback item.")
     }
+
+    // When: Interacting with progress slider
+    // Then: Slider should be interactive
+    XCTAssertTrue(progressSlider.isEnabled, "Progress slider should be interactive")
+
+    // Test slider accessibility
+    XCTAssertNotNil(progressSlider.value, "Progress slider should have current value")
+    XCTAssertTrue(
+      hasNonEmptyLabel(progressSlider), "Progress slider should have descriptive label")
   }
 
   @MainActor
@@ -150,25 +175,30 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Initialize the app
     initializeApp()
 
+    try requirePlayerInterface()
+
     // Given: Episode is playing
-    let episodeTitle = app.staticTexts["Episode Title"]
-    let podcastTitle = app.staticTexts["Podcast Title"]
-    let episodeArtwork = app.images["Episode Artwork"]
+    let episodeTitle = try waitForElementOrSkip(
+      app.staticTexts.matching(identifier: "Episode Title").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Episode title"
+    )
+    let podcastTitle = try waitForElementOrSkip(
+      app.staticTexts.matching(identifier: "Podcast Title").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Podcast title"
+    )
+    let episodeArtwork = try waitForElementOrSkip(
+      app.images.matching(identifier: "Episode Artwork").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Episode artwork"
+    )
 
     // When: Checking episode information display
     // Then: Episode information should be visible
-    if episodeTitle.exists {
-      XCTAssertTrue(hasNonEmptyLabel(episodeTitle), "Episode title should be displayed")
-    }
-
-    if podcastTitle.exists {
-      XCTAssertTrue(hasNonEmptyLabel(podcastTitle), "Podcast title should be displayed")
-    }
-
-    if episodeArtwork.exists {
-      // XCUI doesn't expose isAccessibilityElement reliably; existence suffices here
-      XCTAssertTrue(episodeArtwork.exists, "Artwork should be accessible")
-    }
+    XCTAssertTrue(hasNonEmptyLabel(episodeTitle), "Episode title should be displayed")
+    XCTAssertTrue(hasNonEmptyLabel(podcastTitle), "Podcast title should be displayed")
+    XCTAssertTrue(episodeArtwork.exists, "Artwork should be accessible")
   }
 
   // MARK: - Advanced Controls Tests
@@ -260,8 +290,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Note: Control center testing requires background audio capability
 
     // Verify that media controls are properly configured
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
 
     if playButton.exists || pauseButton.exists {
       // Then: Media controls should be accessible for system integration
@@ -271,7 +301,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
 
     // Test that episode information is available for system display
-    let episodeTitle = app.staticTexts["Episode Title"]
+    let episodeTitle = app.staticTexts.matching(identifier: "Episode Title").firstMatch
     if episodeTitle.exists {
       XCTAssertTrue(
         hasNonEmptyLabel(episodeTitle),
@@ -291,9 +321,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // When: Checking media information availability
 
     // Verify that required media information is present
-    let episodeTitle = app.staticTexts["Episode Title"]
-    let podcastTitle = app.staticTexts["Podcast Title"]
-    let episodeArtwork = app.images["Episode Artwork"]
+    let episodeTitle = app.staticTexts.matching(identifier: "Episode Title").firstMatch
+    let podcastTitle = app.staticTexts.matching(identifier: "Podcast Title").firstMatch
+    let episodeArtwork = app.images.matching(identifier: "Episode Artwork").firstMatch
 
     // Then: Media info should be suitable for lock screen display
     if episodeTitle.exists {
@@ -327,10 +357,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // When: Checking for CarPlay-suitable controls
 
     // CarPlay requires large, easily accessible controls
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
-    let skipForwardButton = app.buttons["Skip Forward"]
-    let skipBackwardButton = app.buttons["Skip Backward"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+    let skipForwardButton = app.buttons.matching(identifier: "Skip Forward").firstMatch
+    let skipBackwardButton = app.buttons.matching(identifier: "Skip Backward").firstMatch
 
     // Then: Controls should be suitable for CarPlay
     if playButton.exists {
@@ -360,7 +390,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
 
     // Test that text is readable for CarPlay
-    let episodeTitle = app.staticTexts["Episode Title"]
+    let episodeTitle = app.staticTexts.matching(identifier: "Episode Title").firstMatch
     if episodeTitle.exists {
       XCTAssertTrue(
         episodeTitle.label.count <= 50,
@@ -380,8 +410,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // When: Checking for Watch-suitable interface elements
 
     // Watch interface requires essential controls only
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
 
     // Then: Essential controls should be available
     if playButton.exists || pauseButton.exists {
@@ -391,7 +421,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
 
     // Test simplified information display suitable for Watch
-    let episodeTitle = app.staticTexts["Episode Title"]
+    let episodeTitle = app.staticTexts.matching(identifier: "Episode Title").firstMatch
     if episodeTitle.exists && episodeTitle.label.count > 30 {
       // Title should be truncatable for Watch display
       XCTAssertTrue(true, "Long titles should be handled appropriately for Watch")
@@ -409,8 +439,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Given: Playback interface is accessible
     // When: Checking accessibility features
 
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
 
     // Then: Playback controls should have proper accessibility
     if playButton.exists {
@@ -429,7 +459,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
 
     // Test progress slider accessibility
-    let progressSlider = app.sliders["Progress Slider"]
+    let progressSlider = app.sliders.matching(identifier: "Progress Slider").firstMatch
     if progressSlider.exists {
       XCTAssertTrue(
         progressSlider.waitForExistence(timeout: adaptiveShortTimeout),
@@ -447,10 +477,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // When: Checking VoiceOver navigation order
 
     let playbackControls = [
-      app.buttons["Skip Backward"],
-      app.buttons["Play"],
-      app.buttons["Pause"],
-      app.buttons["Skip Forward"],
+      app.buttons.matching(identifier: "Skip Backward").firstMatch,
+      app.buttons.matching(identifier: "Play").firstMatch,
+      app.buttons.matching(identifier: "Pause").firstMatch,
+      app.buttons.matching(identifier: "Skip Forward").firstMatch,
     ].filter { $0.exists }
 
     // Then: Controls should be in logical order for VoiceOver
@@ -475,8 +505,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
 
     // Given: Playback interface is loaded
     // When: Interacting with playback controls
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
 
     if playButton.exists || pauseButton.exists {
       // Test UI responsiveness by verifying controls are interactive
@@ -524,18 +554,18 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Wait for player interface to be ready using robust patterns
     let playerReady = waitForAnyElement(
       [
-        app.otherElements["Player Interface"],
-        app.buttons["Play"],
-        app.buttons["Pause"],
-        app.sliders["Progress Slider"],
+        app.otherElements.matching(identifier: "Player Interface").firstMatch,
+        app.buttons.matching(identifier: "Play").firstMatch,
+        app.buttons.matching(identifier: "Pause").firstMatch,
+        app.sliders.matching(identifier: "Progress Slider").firstMatch,
       ], timeout: adaptiveTimeout, description: "player interface")
 
     if playerReady != nil {
       // When: User interacts with all major playback controls using responsive patterns
 
       // Test play/pause functionality with state awareness
-      let playButton = app.buttons["Play"]
-      let pauseButton = app.buttons["Pause"]
+      let playButton = app.buttons.matching(identifier: "Play").firstMatch
+      let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
 
       if let button = [playButton, pauseButton].first(where: { $0.exists }) {
         button.tap()
@@ -546,8 +576,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
 
         // Poll for responsive control using run loop scheduling instead of Thread.sleep
         func checkForResponsiveControl() {
-          if (app.buttons["Play"].exists && app.buttons["Play"].isHittable)
-            || (app.buttons["Pause"].exists && app.buttons["Pause"].isHittable)
+          if (app.buttons.matching(identifier: "Play").firstMatch.exists && app.buttons.matching(identifier: "Play").firstMatch.isHittable)
+            || (app.buttons.matching(identifier: "Pause").firstMatch.exists && app.buttons.matching(identifier: "Pause").firstMatch.isHittable)
           {
             responsiveExpectation.fulfill()
           } else {
@@ -566,8 +596,8 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
 
       // Test skip controls with responsive validation
       let skipControls = [
-        app.buttons["Skip Forward"],
-        app.buttons["Skip Backward"],
+        app.buttons.matching(identifier: "Skip Forward").firstMatch,
+        app.buttons.matching(identifier: "Skip Backward").firstMatch,
       ].filter { $0.exists }
 
       for control in skipControls {
@@ -614,17 +644,17 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Essential media information present (by id or label)
     if existsByIdOrLabel("Episode Title") { integrationElements += 1 }
     if existsByIdOrLabel("Podcast Title") { integrationElements += 1 }
-    if existsByIdOrLabel("Episode Artwork") || app.images["Episode Artwork"].exists {
+    if existsByIdOrLabel("Episode Artwork") || app.images.matching(identifier: "Episode Artwork").firstMatch.exists {
       integrationElements += 1
     }
 
     // Core playback interface elements
-    if app.otherElements["Player Interface"].exists { integrationElements += 1 }
-    if app.sliders["Progress Slider"].exists { integrationElements += 1 }
+    if app.otherElements.matching(identifier: "Player Interface").firstMatch.exists { integrationElements += 1 }
+    if app.sliders.matching(identifier: "Progress Slider").firstMatch.exists { integrationElements += 1 }
 
     // Essential controls present
-    let playButton = app.buttons["Play"]
-    let pauseButton = app.buttons["Pause"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
     if playButton.exists || pauseButton.exists { integrationElements += 1 }
 
     // Then: App should have sufficient elements for platform integration
@@ -644,30 +674,30 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     // Wait for the player interface to load with multiple fallback strategies
     let playerElements = waitForAnyElement(
       [
-        app.otherElements["Player Interface"],
+        app.otherElements.matching(identifier: "Player Interface").firstMatch,
         app.buttons.matching(
           NSPredicate(format: "label CONTAINS 'Play' OR identifier CONTAINS 'Play'")
         ).firstMatch,
         app.buttons.matching(
           NSPredicate(format: "label CONTAINS 'Pause' OR identifier CONTAINS 'Pause'")
         ).firstMatch,
-        app.sliders["Progress Slider"],
+        app.sliders.matching(identifier: "Progress Slider").firstMatch,
       ], timeout: adaptiveTimeout, description: "playback interface elements")
 
     if playerElements != nil {
       // Test accessibility of key playback elements using direct element access
       let accessibleElements: [(String, XCUIElement?)] = [
-        ("Play button", app.buttons["Play"].exists ? app.buttons["Play"] : nil),
-        ("Pause button", app.buttons["Pause"].exists ? app.buttons["Pause"] : nil),
-        ("Skip Forward", app.buttons["Skip Forward"].exists ? app.buttons["Skip Forward"] : nil),
-        ("Skip Backward", app.buttons["Skip Backward"].exists ? app.buttons["Skip Backward"] : nil),
+        ("Play button", app.buttons.matching(identifier: "Play").firstMatch.exists ? app.buttons.matching(identifier: "Play").firstMatch : nil),
+        ("Pause button", app.buttons.matching(identifier: "Pause").firstMatch.exists ? app.buttons.matching(identifier: "Pause").firstMatch : nil),
+        ("Skip Forward", app.buttons.matching(identifier: "Skip Forward").firstMatch.exists ? app.buttons.matching(identifier: "Skip Forward").firstMatch : nil),
+        ("Skip Backward", app.buttons.matching(identifier: "Skip Backward").firstMatch.exists ? app.buttons.matching(identifier: "Skip Backward").firstMatch : nil),
         (
           "Progress Slider",
-          app.sliders["Progress Slider"].exists ? app.sliders["Progress Slider"] : nil
+          app.sliders.matching(identifier: "Progress Slider").firstMatch.exists ? app.sliders.matching(identifier: "Progress Slider").firstMatch : nil
         ),
         (
           "Episode Title",
-          app.staticTexts["Episode Title"].exists ? app.staticTexts["Episode Title"] : nil
+          app.staticTexts.matching(identifier: "Episode Title").firstMatch.exists ? app.staticTexts.matching(identifier: "Episode Title").firstMatch : nil
         ),
       ]
 
@@ -744,17 +774,17 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
   func testMiniPlayerVisibilityAndExpansion() throws {
     initializeApp()
 
-    let openFullPlayer = app.buttons["open-full-player"]
+    let openFullPlayer = app.buttons.matching(identifier: "open-full-player").firstMatch
     if openFullPlayer.waitForExistence(timeout: 2) {
       openFullPlayer.tap()
     }
 
-    let playButton = app.buttons["Play"]
+    let playButton = app.buttons.matching(identifier: "Play").firstMatch
     if playButton.waitForExistence(timeout: 3) {
       playButton.tap()
     }
 
-    let pauseButton = app.buttons["Pause"]
+    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
     XCTAssertTrue(pauseButton.waitForExistence(timeout: 3))
 
     let backButton = app.navigationBars.buttons.element(boundBy: 0)
@@ -762,33 +792,33 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       backButton.tap()
     }
 
-    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
     if libraryTab.waitForExistence(timeout: 2) {
       libraryTab.tap()
     }
 
-    let miniPlayer = app.otherElements["Mini Player"]
+    let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: 5),
       "Mini player should appear after playback starts"
     )
 
-    let miniPlayerPauseButton = app.buttons["Mini Player Pause"]
+    let miniPlayerPauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
     XCTAssertTrue(miniPlayerPauseButton.waitForExistence(timeout: 1))
 
     miniPlayerPauseButton.tap()
-    let playToggle = app.buttons["Mini Player Play"]
+    let playToggle = app.buttons.matching(identifier: "Mini Player Play").firstMatch
     XCTAssertTrue(playToggle.waitForExistence(timeout: 1))
 
     playToggle.tap()
     XCTAssertTrue(
-      app.buttons["Mini Player Pause"].waitForExistence(timeout: 1),
+      app.buttons.matching(identifier: "Mini Player Pause").firstMatch.waitForExistence(timeout: 1),
       "Mini player should toggle back to pause state"
     )
 
     miniPlayer.tap()
 
-    let expandedPlayer = app.otherElements["Expanded Player"]
+    let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
     XCTAssertTrue(
       expandedPlayer.waitForExistence(timeout: 5),
       "Expanded player sheet should appear"

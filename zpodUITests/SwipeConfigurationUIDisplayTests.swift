@@ -31,9 +31,9 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
     // Verify sheet opened with multiple indicators
     let sheetIndicators: [XCUIElement] = [
-      app.navigationBars["Swipe Actions"],
-      app.buttons["SwipeActions.Save"],
-      app.buttons["SwipeActions.Cancel"],
+      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
     ]
 
     let openedSheet = waitForAnyElement(
@@ -92,7 +92,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       )
     }
 
-    let stylePicker = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
+    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker").firstMatch
     XCTAssertTrue(
       waitForElement(stylePicker, timeout: adaptiveShortTimeout, description: "haptic style picker"),
       "Haptic style picker should exist"

@@ -11,30 +11,44 @@ import XCTest
 extension SwipeConfigurationTestCase {
   @MainActor
   func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
-    _ = waitForElement(
-      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
-      timeout: adaptiveShortTimeout,
-      description: "Swipe Actions navigation bar"
-    )
-    _ = waitForBaselineLoaded()
+    guard waitForBaselineLoaded(timeout: adaptiveTimeout) else {
+      XCTFail("Swipe configuration baseline never loaded; cannot assert action list.")
+      return
+    }
+    _ = waitForSectionMaterialization(timeout: adaptiveTimeout)
 
-    guard let container = swipeActionsSheetListContainer() else {
-      XCTFail("Expected swipe actions list container to exist")
+    if let container = swipeActionsSheetListContainer() {
+      reportAvailableSwipeIdentifiers(context: "assertActionList (container snapshot)", within: container)
+      for identifier in leadingIdentifiers + trailingIdentifiers {
+        _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 4)
+      }
+      let leading = leadingIdentifiers.map { elementForAction(identifier: $0, within: container) }
+      let trailing = trailingIdentifiers.map { elementForAction(identifier: $0, within: container) }
+      for element in leading + trailing {
+        XCTAssertTrue(
+          waitForElement(
+            element,
+            timeout: adaptiveShortTimeout,
+            description: "Swipe action row \(element.identifier)"
+          ),
+          "Expected \(element.identifier) to be visible in configuration sheet"
+        )
+      }
       return
     }
 
-    let leading = leadingIdentifiers.map { elementForAction(identifier: $0, within: container) }
-    let trailing = trailingIdentifiers.map { elementForAction(identifier: $0, within: container) }
-
-    for element in leading + trailing {
+    // Fallback: look for the identifiers globally if the sheet container isn't discoverable yet.
+    for identifier in leadingIdentifiers + trailingIdentifiers {
+      // Scroll a bit to force materialization in case we're stuck mid-sheet.
+      app.swipeDown()
+      app.swipeUp()
+      let fallbackElement = element(withIdentifier: identifier)
       XCTAssertTrue(
-        waitForElement(
-          element,
-          timeout: adaptiveShortTimeout,
-          description: "Swipe action row \(element.identifier)"
-        ),
-        "Expected \(element.identifier) to be visible in configuration sheet"
+        fallbackElement.waitForExistence(timeout: adaptiveShortTimeout),
+        "Expected \(identifier) to exist in configuration sheet"
       )
     }
+    reportAvailableSwipeIdentifiers(context: "assertActionList (fallback identifiers)")
+    XCTFail("Swipe configuration sheet container never materialized; captured fallback identifiers for inspection.")
   }
 }

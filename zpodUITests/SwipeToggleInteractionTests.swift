@@ -73,7 +73,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     }
     
     // Verify style picker is visible
-    let stylePicker = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
+    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker").firstMatch
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.StylePicker", container: container)
     }
@@ -88,7 +88,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     )
     
     // Change to Rigid style
-    let rigidButton = stylePicker.buttons["Rigid"]
+    let rigidButton = stylePicker.buttons.matching(identifier: "Rigid").firstMatch
     if rigidButton.exists {
       rigidButton.tap()
       
@@ -97,7 +97,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     }
     
     // Verify we can change to Medium style
-    let mediumButton = stylePicker.buttons["Medium"]
+    let mediumButton = stylePicker.buttons.matching(identifier: "Medium").firstMatch
     XCTAssertTrue(
       mediumButton.exists,
       "Medium style button should exist in picker"

@@ -161,35 +161,26 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 
 ### SwiftUI Accessibility Identifier Best Practices
 
-**CRITICAL: SwiftUI creates wrapper elements that inherit accessibility identifiers from Buttons, causing duplicate identifiers and UI test failures.**
+**CRITICAL**: SwiftUI automatically adds wrapper views (usually `Other`) that inherit the same accessibility identifier as their children. Duplicates are unavoidable regardless of where the identifier is attached, so the test suite—not the app code—must de-duplicate.
 
-**❌ NEVER do this** (creates wrapper with duplicate identifier):
-
-```swift
-Button("Text") { action() }
-  .accessibilityIdentifier("MyButton")
-// Creates: Other[identifier="MyButton"] → Button[identifier="MyButton"] (DUPLICATE!)
-```
-
-**✅ ALWAYS do this** (unique identifier):
+- Keep identifiers on the element that best conveys semantics (Text, Label, NavigationLink label, etc.) and use the lightweight UIViewRepresentable fallback in `docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md` when SwiftUI hides modifiers.
+- **Always** locate elements via `.matching(identifier:).firstMatch` and verify with `waitForExistence(timeout:)`. Do **not** rely on `app.buttons["ID"]`.
+- Provide a descriptive identifier per element (`"Library.Tab"`, `"SwipeActions.Save"`); avoid dynamic timestamp-based names.
 
 ```swift
 Button { action() } label: {
-  Text("Text")
-    .accessibilityIdentifier("MyButton")
+  Label("Play", systemImage: "play.fill")
+    .accessibilityIdentifier("Player.PlayButton")
 }
-// Creates: Other → Button → Text[identifier="MyButton"] (UNIQUE!)
 
-// For Buttons with Images:
-Button { action() } label: {
-  Image(systemName: "star")
-    .accessibilityIdentifier("MyButton")
-}
+let playButton = app.buttons
+  .matching(identifier: "Player.PlayButton")
+  .firstMatch
+XCTAssertTrue(playButton.waitForExistence(timeout: 5))
+playButton.tap()
 ```
 
-**Why**: XCUITest's subscript syntax `app.buttons["ID"]` expects exactly one match. SwiftUI automatically creates wrapper `Other` elements around Buttons that inherit the Button's accessibility identifier, causing "Multiple matching elements found" errors.
-
-**Rule**: Set `.accessibilityIdentifier()` on the **content inside the label closure**, never on the Button itself.
+**Rule**: Developer code focuses on setting accurate identifiers; UI tests absorb the duplication by always using `.firstMatch`.
 
 ## 6. Architecture & Modularization
 

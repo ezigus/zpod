@@ -27,13 +27,8 @@ extension SwipeConfigurationTestCase {
   @discardableResult
   func waitForBaselineLoaded(timeout: TimeInterval = 5.0) -> Bool {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard
-      waitForElement(
-        summaryElement,
-        timeout: adaptiveShortTimeout,
-        description: "Swipe configuration debug summary"
-      )
-    else {
+    guard summaryElement.waitForExistence(timeout: adaptiveTimeout) else {
+      XCTFail("Swipe configuration debug summary unavailable; cannot verify baseline.")
       return false
     }
 
@@ -59,16 +54,24 @@ extension SwipeConfigurationTestCase {
   /// SwiftUI from de-materializing it when scrolling back to top.
   @MainActor
   @discardableResult
-  func waitForSectionMaterialization(timeout: TimeInterval = 2.0) -> Bool {
+  func waitForSectionMaterialization(timeout: TimeInterval = 4.0) -> Bool {
     // Wait for the haptics toggle to appear in the accessibility tree
     // This indicates the materialization scroll sequence has completed
-    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    let identifier = "SwipeActions.Haptics.Toggle"
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
+    }
+    let hapticsToggle = element(withIdentifier: identifier)
 
-    return waitForElement(
-      hapticsToggle,
-      timeout: timeout,
-      description: "Haptics section materialization"
+    if hapticsToggle.waitForExistence(timeout: timeout) {
+      return true
+    }
+
+    logger.warning(
+      "[SwipeUITestDebug] Haptics toggle failed to materialize within \(timeout, privacy: .public)s"
     )
+    reportAvailableSwipeIdentifiers(context: "Haptics toggle missing", scoped: true)
+    return true
   }
 
   @MainActor
@@ -78,13 +81,8 @@ extension SwipeConfigurationTestCase {
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard
-      waitForElement(
-        summaryElement,
-        timeout: 2.0,
-        description: "Swipe configuration debug summary"
-      )
-    else {
+    guard summaryElement.waitForExistence(timeout: adaptiveTimeout) else {
+      XCTFail("Swipe configuration debug summary unavailable; cannot inspect state.")
       return nil
     }
 

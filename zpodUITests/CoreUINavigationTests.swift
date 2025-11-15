@@ -41,57 +41,77 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Given: App is launched and main interface is visible
     // When: User taps different tab bar items
-    let tabBar = app.tabBars["Main Tab Bar"]
-    XCTAssertTrue(tabBar.exists, "Main tab bar should be visible")
+    let tabBar = try waitForElementOrSkip(
+      app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
+      timeout: adaptiveTimeout,
+      description: "Main tab bar"
+    )
 
     // Test Library tab using robust navigation pattern
-    let libraryTab = tabBar.buttons["Library"]
-    if libraryTab.exists {
-      let libraryNavigation = navigateAndWaitForResult(
-        triggerAction: { libraryTab.tap() },
-        expectedElements: [app.navigationBars["Library"]],
-        timeout: adaptiveTimeout,
-        description: "navigation to Library tab"
-      )
+    let libraryTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Library").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Library tab"
+    )
 
-      if libraryNavigation {
-        // Wait for any loading to complete
-        let _ = waitForLoadingToComplete(in: app, timeout: adaptiveTimeout)
-        XCTAssertTrue(app.navigationBars["Library"].exists, "Library screen should be displayed")
-      }
+    let libraryNavigation = navigateAndWaitForResult(
+      triggerAction: { libraryTab.tap() },
+      expectedElements: [app.navigationBars.matching(identifier: "Library").firstMatch],
+      timeout: adaptiveTimeout,
+      description: "navigation to Library tab"
+    )
+
+    if libraryNavigation {
+      // Wait for any loading to complete
+      _ = waitForLoadingToComplete(in: app, timeout: adaptiveTimeout)
+      XCTAssertTrue(
+        app.navigationBars.matching(identifier: "Library").firstMatch.exists,
+        "Library screen should be displayed")
+    } else {
+      XCTFail("Library navigation did not reach expected destination")
     }
 
     // Test Discover tab
-    let discoverTab = tabBar.buttons["Discover"]
-    if discoverTab.exists {
-      let discoverNavigation = navigateAndWaitForResult(
-        triggerAction: { discoverTab.tap() },
-        expectedElements: [app.navigationBars["Discover"]],
-        timeout: adaptiveTimeout,
-        description: "navigation to Discover tab"
-      )
+    let discoverTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Discover").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Discover tab"
+    )
 
-      if discoverNavigation {
-        XCTAssertTrue(app.navigationBars["Discover"].exists, "Discover screen should be displayed")
-      }
+    let discoverNavigation = navigateAndWaitForResult(
+      triggerAction: { discoverTab.tap() },
+      expectedElements: [app.navigationBars.matching(identifier: "Discover").firstMatch],
+      timeout: adaptiveTimeout,
+      description: "navigation to Discover tab"
+    )
+
+    if discoverNavigation {
+      XCTAssertTrue(
+        app.navigationBars.matching(identifier: "Discover").firstMatch.exists,
+        "Discover screen should be displayed")
+    } else {
+      XCTFail("Discover navigation did not reach expected destination")
     }
 
     // Test Player tab with flexible interface detection
-    let playerTab = tabBar.buttons["Player"]
-    if playerTab.exists {
-      let playerNavigation = navigateAndWaitForResult(
-        triggerAction: { playerTab.tap() },
-        expectedElements: [
-          app.otherElements["Player Interface"],
-          app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'"))
-            .firstMatch,
-        ],
-        timeout: adaptiveTimeout,
-        description: "navigation to Player tab"
-      )
+    let playerTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Player").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Player tab"
+    )
 
-      XCTAssertTrue(playerNavigation, "Player interface should be accessible")
-    }
+    let playerNavigation = navigateAndWaitForResult(
+      triggerAction: { playerTab.tap() },
+      expectedElements: [
+        app.otherElements.matching(identifier: "Player Interface").firstMatch,
+        app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'"))
+          .firstMatch,
+      ],
+      timeout: adaptiveTimeout,
+      description: "navigation to Player tab"
+    )
+
+    XCTAssertTrue(playerNavigation, "Player interface should be accessible")
 
     // Then: Navigation should work correctly
     XCTAssertTrue(tabBar.exists, "Tab bar should remain visible during navigation")
@@ -103,27 +123,51 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: User is on a detail screen
-    let tabBar = app.tabBars["Main Tab Bar"]
-    let libraryTab = tabBar.buttons["Library"]
+    let tabBar = try waitForElementOrSkip(
+      app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
+      timeout: adaptiveTimeout,
+      description: "Main tab bar"
+    )
+    let libraryTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Library").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Library tab"
+    )
 
-    if libraryTab.exists {
-      libraryTab.tap()
+    libraryTab.tap()
 
-      // Navigate to a podcast detail if available
-      let firstPodcast = app.tables.cells.firstMatch
-      if firstPodcast.exists {
-        firstPodcast.tap()
+    XCTAssertTrue(
+      waitForLoadingToComplete(in: app, timeout: adaptiveTimeout),
+      "Library content should load before drilling deeper")
 
-        // When: User uses back navigation
-        let backButton = app.navigationBars.buttons.element(boundBy: 0)
-        if backButton.exists {
-          backButton.tap()
-
-          // Then: Should return to previous screen
-          XCTAssertTrue(app.navigationBars["Library"].exists, "Should return to Library screen")
-        }
-      }
+    // Navigate to a podcast detail if available
+    let candidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
+      app.tables.cells.firstMatch,
+    ]
+    guard
+      let firstPodcast = waitForAnyElement(
+        candidates,
+        timeout: adaptiveTimeout,
+        description: "podcast cell",
+        failOnTimeout: false
+      )
+    else {
+      throw XCTSkip("Podcast cell not rendered; verify seed data.")
     }
+    firstPodcast.tap()
+
+    // When: User uses back navigation
+    let backButton = app.navigationBars.buttons.element(boundBy: 0)
+    XCTAssertTrue(
+      backButton.waitForExistence(timeout: adaptiveShortTimeout),
+      "Back button should be available to unwind navigation")
+    backButton.tap()
+
+    // Then: Should return to previous screen
+    XCTAssertTrue(
+      app.navigationBars.matching(identifier: "Library").firstMatch.exists,
+      "Should return to Library screen")
   }
 
   // MARK: - Accessibility Tests
@@ -136,25 +180,43 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Given: App interface is loaded
     // When: Checking accessibility labels
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = try waitForElementOrSkip(
+      app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
+      timeout: adaptiveTimeout,
+      description: "Main tab bar"
+    )
 
     // Then: Tab bar buttons should have proper accessibility labels
-    let libraryTab = tabBar.buttons["Library"]
-    if libraryTab.exists {
-      XCTAssertFalse(libraryTab.label.isEmpty, "Library tab label should not be empty")
-    }
+    let libraryTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Library").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Library tab"
+    )
+    XCTAssertFalse(libraryTab.label.isEmpty, "Library tab label should not be empty")
 
-    let discoverTab = tabBar.buttons["Discover"]
-    if discoverTab.exists {
-      XCTAssertFalse(discoverTab.label.isEmpty, "Discover tab label should not be empty")
-    }
+    let discoverTab = try waitForElementOrSkip(
+      tabBar.buttons.matching(identifier: "Discover").firstMatch,
+      timeout: adaptiveShortTimeout,
+      description: "Discover tab"
+    )
+    XCTAssertFalse(discoverTab.label.isEmpty, "Discover tab label should not be empty")
 
     // Test main content areas have accessible labels or are interactable
-    let mainContent = app.otherElements["Main Content"]
+    let mainContent = app.otherElements.matching(identifier: "Main Content").firstMatch
     if mainContent.exists {
       XCTAssertTrue(
         !mainContent.label.isEmpty || mainContent.isHittable,
         "Main content should be accessible")
+    } else if
+      let fallback = ["Content Container", "Episode Cards Container", "Library Content"]
+        .compactMap({ findContainerElement(in: app, identifier: $0) })
+        .first
+    {
+      XCTAssertTrue(
+        !fallback.label.isEmpty || fallback.isHittable,
+        "Fallback content container should be accessible")
+    } else {
+      throw XCTSkip("Main content container missing; verify test fixtures.")
     }
   }
 
@@ -165,10 +227,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Given: Interactive elements are visible
     // When: Checking accessibility hints
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
 
     // Then: Interactive elements should have helpful hints
-    let libraryTab = tabBar.buttons["Library"]
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     if libraryTab.exists, let hint = libraryTab.accessibilityHint {
       XCTAssertFalse(hint.isEmpty, "Library tab hint should provide guidance")
     }
@@ -193,7 +255,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     // When: Using keyboard navigation (simulated through accessibility)
 
     // Test specific known interactive elements instead of using indexed access
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
       // Test tab bar buttons - these are primary keyboard navigation targets
       let tabButtons = ["Library", "Discover", "Player", "Settings"]
@@ -252,7 +314,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
   func testSettingsTabPresentsSwipeActions() throws {
     initializeApp()
 
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
       waitForElement(
         tabBar,
@@ -262,7 +324,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       "Main tab bar should be present"
     )
 
-    let settingsTab = tabBar.buttons["Settings"]
+    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsTab,
@@ -274,7 +336,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     settingsTab.tap()
 
-    let settingsNavigationBar = app.navigationBars["Settings"]
+    let settingsNavigationBar = app.navigationBars.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsNavigationBar,
@@ -285,10 +347,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     )
 
     let candidates: [XCUIElement] = [
-      app.cells["Settings.Feature.swipeActions"],
-      app.buttons["Swipe Actions"],
-      app.staticTexts["Settings.Feature.Label.swipeActions"],
-      app.staticTexts["Swipe Actions"],
+      app.cells.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
+      app.buttons.matching(identifier: "Swipe Actions").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
+      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
     ]
 
     guard
@@ -304,7 +366,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     swipeActionsElement.tap()
 
-    let swipeNavigationBar = app.navigationBars["Swipe Actions"]
+    let swipeNavigationBar = app.navigationBars.matching(identifier: "Swipe Actions").firstMatch
     XCTAssertTrue(
       waitForElement(
         swipeNavigationBar,
@@ -319,7 +381,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
   func testSettingsTabPresentsPlaybackPreferences() throws {
     initializeApp()
 
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
       waitForElement(
         tabBar,
@@ -329,7 +391,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       "Main tab bar should be present"
     )
 
-    let settingsTab = tabBar.buttons["Settings"]
+    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsTab,
@@ -341,7 +403,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     settingsTab.tap()
 
-    let settingsNavigationBar = app.navigationBars["Settings"]
+    let settingsNavigationBar = app.navigationBars.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsNavigationBar,
@@ -352,10 +414,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     )
 
     let candidates: [XCUIElement] = [
-      app.cells["Settings.Feature.playbackPreferences"],
-      app.staticTexts["Settings.Feature.Label.playbackPreferences"],
-      app.staticTexts["Playback Preferences"],
-      app.buttons["Playback Preferences"],
+      app.cells.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
+      app.staticTexts.matching(identifier: "Playback Preferences").firstMatch,
+      app.buttons.matching(identifier: "Playback Preferences").firstMatch,
     ]
 
     guard
@@ -371,7 +433,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     playbackRow.tap()
 
-    let playbackNavBar = app.navigationBars["Playback"]
+    let playbackNavBar = app.navigationBars.matching(identifier: "Playback").firstMatch
     XCTAssertTrue(
       waitForElement(
         playbackNavBar,
@@ -386,7 +448,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
   func testSettingsTabPresentsDownloadPolicies() throws {
     initializeApp()
 
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
       waitForElement(
         tabBar,
@@ -396,7 +458,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       "Main tab bar should be present"
     )
 
-    let settingsTab = tabBar.buttons["Settings"]
+    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsTab,
@@ -408,7 +470,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     settingsTab.tap()
 
-    let settingsNavigationBar = app.navigationBars["Settings"]
+    let settingsNavigationBar = app.navigationBars.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsNavigationBar,
@@ -419,10 +481,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     )
 
     let candidates: [XCUIElement] = [
-      app.cells["Settings.Feature.downloadPolicies"],
-      app.staticTexts["Settings.Feature.Label.downloadPolicies"],
-      app.staticTexts["Download Policies"],
-      app.buttons["Download Policies"],
+      app.cells.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
+      app.staticTexts.matching(identifier: "Download Policies").firstMatch,
+      app.buttons.matching(identifier: "Download Policies").firstMatch,
     ]
 
     guard
@@ -438,7 +500,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     downloadsRow.tap()
 
-    let downloadsNavBar = app.navigationBars["Downloads"]
+    let downloadsNavBar = app.navigationBars.matching(identifier: "Downloads").firstMatch
     XCTAssertTrue(
       waitForElement(
         downloadsNavBar,
@@ -466,7 +528,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     XCTAssertTrue(app.state == .runningForeground, "App should launch successfully")
 
     // Verify key screens are accessible for shortcuts
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(tabBar.exists, "Main navigation should be available for shortcuts")
 
     // Test that search is quickly accessible (common shortcut target)
@@ -491,7 +553,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Then: App should adapt to system appearance
     // Verify that content is visible in current appearance mode
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
       XCTAssertTrue(tabBar.isHittable, "Tab bar should be visible in current appearance")
     }
@@ -500,9 +562,9 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     let textElements = app.staticTexts
     let sampleTexts = [
       textElements.firstMatch,
-      app.staticTexts["Library"],
-      app.staticTexts["Discover"],
-      app.staticTexts["Player"],
+      app.staticTexts.matching(identifier: "Library").firstMatch,
+      app.staticTexts.matching(identifier: "Discover").firstMatch,
+      app.staticTexts.matching(identifier: "Player").firstMatch,
     ]
 
     for textElement in sampleTexts {
@@ -526,7 +588,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     // When: Checking for error handling in navigation
 
     // Test that app doesn't crash on invalid navigation
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
       // Test specific known tabs instead of generic indexed access
       let knownTabs = ["Library", "Discover", "Player", "Settings"]
@@ -555,9 +617,9 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Given: App is loaded
     // When: Performing navigation actions
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
-      let libraryTab = tabBar.buttons["Library"]
+      let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
       if libraryTab.exists {
         libraryTab.tap()
         // Verify navigation responsiveness by checking tab state
@@ -584,7 +646,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: User wants to navigate through main app features
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(tabBar.exists, "Main tab bar should be available")
 
     // When: User explores each main section
@@ -622,7 +684,7 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     // When: Checking accessibility compliance
 
     // Verify main interface elements have accessibility labels
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     if tabBar.exists {
       let knownTabNames = ["Library", "Discover", "Player", "Settings"]
 
@@ -661,8 +723,8 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
 
     // Final fallback: known heading identifiers in this app
     if headingCount == 0 {
-      if app.staticTexts["Heading Library"].exists || app.staticTexts["Categories"].exists
-        || app.staticTexts["Featured"].exists
+      if app.staticTexts.matching(identifier: "Heading Library").firstMatch.exists || app.staticTexts.matching(identifier: "Categories").firstMatch.exists
+        || app.staticTexts.matching(identifier: "Featured").firstMatch.exists
       {
         headingCount = 1
       }

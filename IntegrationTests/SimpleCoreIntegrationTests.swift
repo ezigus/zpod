@@ -3,7 +3,11 @@ import XCTest
 import TestSupport
 @testable import SearchDomain
 
-/// Simplified integration tests demonstrating cross-package functionality
+/// Simplified integration tests demonstrating cross-package functionality.
+///
+/// **Specifications Covered**
+/// - `Issues/02.2.1-core-workflow-integration-test-decomposition.md` — Validate minimal
+///   cross-package workflows continue to execute after modular refactors.
 final class SimpleCoreIntegrationTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Properties  
@@ -23,7 +27,7 @@ final class SimpleCoreIntegrationTests: XCTestCase, @unchecked Sendable {
     
     // MARK: - Cross-Package Integration Tests
     
-    func testBasicPodcastAndFolderIntegration() throws {
+  func testBasicPodcastAndFolderIntegration() throws {
         // Given: Podcast and folder management integration
         let testFolder = Folder(
             id: "test-folder",

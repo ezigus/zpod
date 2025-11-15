@@ -32,7 +32,7 @@ final class PlayerNavigationTests: XCTestCase, SmartUITesting {
   /// Navigate to Library tab
   @MainActor
   private func navigateToLibraryTab() {
-    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
     XCTAssertTrue(libraryTab.waitForExistence(timeout: adaptiveTimeout), "Library tab should exist")
     libraryTab.tap()
   }

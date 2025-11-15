@@ -29,7 +29,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
   func testLaunchConfiguredApp_WithForcedOverlayDoesNotWait() throws {
     app = launchConfiguredApp(environmentOverrides: ["UITEST_FORCE_BATCH_OVERLAY": "1"])
 
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(tabBar.exists, "Main tab bar should be available after launch")
     let overlayResult = waitForBatchOverlayDismissalIfNeeded(
       in: app,
@@ -51,7 +51,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
       return
     }
 
-    let processingBanner = app.staticTexts["Processing..."]
+    let processingBanner = app.staticTexts.matching(identifier: "Processing...").firstMatch
     XCTAssertTrue(
       processingBanner.waitForExistence(timeout: adaptiveShortTimeout),
       "Processing banner should persist until the specialised test dismisses it"
@@ -66,7 +66,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // When: I navigate to Library and then to an episode list
-    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
     XCTAssertTrue(libraryTab.exists, "Library tab should exist")
     libraryTab.tap()
 
@@ -78,7 +78,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Look for any podcast button using native element waiting
     let foundPodcast = waitForAnyElement(
       [
-        app.buttons["Podcast-swift-talk"],
+        app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
         app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Podcast'")).firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Swift'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "podcast button")
@@ -118,13 +118,13 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func navigateToEpisodeList() {
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     guard tabBar.exists else {
       XCTFail("Main tab bar should exist for navigation")
       return
     }
 
-    let libraryTab = tabBar.buttons["Library"]
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     guard waitForElement(libraryTab, timeout: adaptiveShortTimeout, description: "Library tab")
     else {
       XCTFail("Library tab should become hittable before navigation")
@@ -141,7 +141,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     guard
       let podcast = waitForAnyElement(
         [
-          app.buttons["Podcast-swift-talk"],
+          app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
           app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Podcast'")).firstMatch,
           app.buttons.matching(NSPredicate(format: "label CONTAINS 'Swift'")).firstMatch,
         ], timeout: adaptiveShortTimeout, description: "podcast button")
@@ -170,9 +170,9 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     ).firstMatch
 
     return [
-      app.otherElements["Episode List View"],
-      app.otherElements["Episode Cards Container"],
-      app.buttons["Episode-st-001"],
+      app.otherElements.matching(identifier: "Episode List View").firstMatch,
+      app.otherElements.matching(identifier: "Episode Cards Container").firstMatch,
+      app.buttons.matching(identifier: "Episode-st-001").firstMatch,
       app.tables.firstMatch,
       app.scrollViews.firstMatch,
       app.collectionViews.firstMatch,
@@ -191,7 +191,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // When: I try to enter multi-select mode
     guard
       let selectButton = waitForAnyElement(
-        [app.navigationBars.buttons["Select"]],
+        [app.navigationBars.buttons.matching(identifier: "Select").firstMatch],
         timeout: adaptiveShortTimeout,
         description: "Select button",
         failOnTimeout: false
@@ -204,7 +204,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       waitForAnyElement(
-        [app.navigationBars.buttons["Done"]],
+        [app.navigationBars.buttons.matching(identifier: "Done").firstMatch],
         timeout: adaptiveTimeout,
         description: "multi-select Done button",
         failOnTimeout: false
@@ -225,7 +225,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // When: I try to enter multi-select mode - check availability using helper waits
     guard
       let selectButton = waitForAnyElement(
-        [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+        [app.buttons.matching(identifier: "Select").firstMatch, app.navigationBars.buttons.matching(identifier: "Select").firstMatch],
         timeout: adaptiveShortTimeout,
         description: "Select button",
         failOnTimeout: false
@@ -238,7 +238,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       waitForAnyElement(
-        [app.navigationBars.buttons["Done"]],
+        [app.navigationBars.buttons.matching(identifier: "Done").firstMatch],
         timeout: adaptiveTimeout,
         description: "multi-select Done button",
         failOnTimeout: false
@@ -250,7 +250,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Select first episode using native element waiting
     let firstEpisode = waitForAnyElement(
       [
-        app.buttons["Episode-st-001"],
+        app.buttons.matching(identifier: "Episode-st-001").firstMatch,
         app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "first episode", failOnTimeout: false)
 
@@ -263,7 +263,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     let selectionIndicator = waitForAnyElement(
       [
-        app.staticTexts["1 selected"],
+        app.staticTexts.matching(identifier: "1 selected").firstMatch,
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'selected'")).firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Deselect episode'"))
           .firstMatch,
@@ -276,8 +276,8 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Look for mark as played button with native waiting
     let markPlayedButton = waitForAnyElement(
       [
-        app.buttons["Mark as Played"],
-        app.buttons["Played"],
+        app.buttons.matching(identifier: "Mark as Played").firstMatch,
+        app.buttons.matching(identifier: "Played").firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Played'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "mark as played button", failOnTimeout: false)
 
@@ -288,8 +288,8 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
       // Verify operation started with native detection
       let processingIndicator = waitForAnyElement(
         [
-          app.staticTexts["Processing..."],
-          app.staticTexts["Complete"],
+          app.staticTexts.matching(identifier: "Processing...").firstMatch,
+          app.staticTexts.matching(identifier: "Complete").firstMatch,
           app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Complete'")).firstMatch,
         ], timeout: adaptiveTimeout, description: "operation completion", failOnTimeout: false)
 
@@ -316,7 +316,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       let selectButton = waitForAnyElement(
-        [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+        [app.buttons.matching(identifier: "Select").firstMatch, app.navigationBars.buttons.matching(identifier: "Select").firstMatch],
         timeout: adaptiveShortTimeout,
         description: "Select button",
         failOnTimeout: false
@@ -329,7 +329,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       waitForAnyElement(
-        [app.navigationBars.buttons["Done"]],
+        [app.navigationBars.buttons.matching(identifier: "Done").firstMatch],
         timeout: adaptiveTimeout,
         description: "multi-select Done button",
         failOnTimeout: false
@@ -340,8 +340,8 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     // Select episodes for download using native element waiting
     let episodes = [
-      app.buttons["Episode-st-001"],
-      app.buttons["Episode-st-002"],
+      app.buttons.matching(identifier: "Episode-st-001").firstMatch,
+      app.buttons.matching(identifier: "Episode-st-002").firstMatch,
     ]
 
     for episode in episodes {
@@ -353,7 +353,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Look for download button with native waiting
     let downloadButton = waitForAnyElement(
       [
-        app.buttons["Download"],
+        app.buttons.matching(identifier: "Download").firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Download'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "download button")
 
@@ -364,9 +364,9 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
       // Wait for download operation indicators using native detection
       let downloadIndicator = waitForAnyElement(
         [
-          app.staticTexts["Downloading..."],
+          app.staticTexts.matching(identifier: "Downloading...").firstMatch,
           app.progressIndicators.firstMatch,
-          app.staticTexts["Processing..."],
+          app.staticTexts.matching(identifier: "Processing...").firstMatch,
         ], timeout: adaptiveTimeout, description: "download operation indicators")
 
       if downloadIndicator != nil {
@@ -392,7 +392,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       let selectButton = waitForAnyElement(
-        [app.buttons["Select"], app.navigationBars.buttons["Select"]],
+        [app.buttons.matching(identifier: "Select").firstMatch, app.navigationBars.buttons.matching(identifier: "Select").firstMatch],
         timeout: adaptiveShortTimeout,
         description: "Select button",
         failOnTimeout: false
@@ -405,7 +405,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
     guard
       waitForAnyElement(
-        [app.navigationBars.buttons["Done"]],
+        [app.navigationBars.buttons.matching(identifier: "Done").firstMatch],
         timeout: adaptiveTimeout,
         description: "multi-select Done button",
         failOnTimeout: false
@@ -417,8 +417,8 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Look for criteria selection options using native waiting
     let criteriaButton = waitForAnyElement(
       [
-        app.buttons["Select by Criteria"],
-        app.buttons["Criteria"],
+        app.buttons.matching(identifier: "Select by Criteria").firstMatch,
+        app.buttons.matching(identifier: "Criteria").firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Criteria'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "criteria button")
 
@@ -459,7 +459,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     // Look for any cancel-related UI elements using native waiting
     let cancelButton = waitForAnyElement(
       [
-        app.buttons["Cancel"],
+        app.buttons.matching(identifier: "Cancel").firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Cancel'")).firstMatch,
         app.buttons.matching(NSPredicate(format: "label CONTAINS 'Stop'")).firstMatch,
       ], timeout: adaptiveShortTimeout, description: "cancel button", failOnTimeout: false)
