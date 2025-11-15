@@ -27,11 +27,9 @@ struct ZpodApp: App {
     configureSiriSnapshots()
     configureCarPlayDependencies()
 
-    #if canImport(LibraryFeature)
-      // Post notification that app is initializing
-      // Debug overlay will listen for this in test mode
-      NotificationCenter.default.post(name: .appDidInitialize, object: nil)
-    #endif
+    // Always post initialization notification - debug tools can listen if needed
+    // This is harmless when nothing is listening (zero cost, loose coupling)
+    NotificationCenter.default.post(name: .appDidInitialize, object: nil)
   }
 
   #if canImport(LibraryFeature)
