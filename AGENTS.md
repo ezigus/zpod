@@ -89,9 +89,9 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 #### Element Discovery
 
 - **Use accessibility identifiers** for reliable element targeting: `view.accessibilityIdentifier = "uniqueID"`
-- **Prefer specific queries**: `app.buttons["Login"]` over `app.buttons.element(boundBy: 0)`
+- **Always use `.matching(identifier:).firstMatch`** pattern: `app.buttons.matching(identifier: "Login").firstMatch` avoids duplicate identifier crashes from SwiftUI wrapper views
+- **Never use subscript syntax** (`app.buttons["ID"]`) – it fails when SwiftUI generates duplicate identifiers
 - **Use `children(matching:)` for direct subviews**, `descendants(matching:)` for nested elements
-- **Leverage `firstMatch`** when only one element is needed (faster than `element`)
 - **Query hierarchy efficiently**: More specific queries = better performance
 
 #### Test Reliability
@@ -106,7 +106,8 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 
 - SwiftUI updates UI asynchronously on the main thread
 - XCUITest queries execute immediately after interactions
-- May need strategic delays after state-changing taps (1-2s) until better waiters are available
+- **SwiftUI List lazy-loading**: Both sections AND rows within sections materialize only when positioned early (~812pt viewport) – scrolling cannot materialize non-existent sections
+- **Fix: structural reordering, not scrolling** – when tests can't find elements, reposition them early in the List hierarchy, don't add scrolling workarounds
 - Ensure SwiftUI views have proper accessibility modifiers
 
 #### Key Resources (re-read when updating UI tests)
