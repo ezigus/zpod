@@ -18,45 +18,51 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   @MainActor
   func testHapticToggleEnablesDisables() throws {
     try beginWithFreshConfigurationSheet()
-    
-    // Get current haptic state from debug summary
-    guard let initialState = currentDebugState() else {
+
+    guard let toggle = requireToggleSwitch(
+      identifier: "SwipeActions.Haptics.Toggle",
+      context: "initial toggle load"
+    ) else { return }
+
+    let initialToggleState = currentStateIsOn(for: toggle)
+    guard let initialSummary = currentDebugState() else {
       XCTFail("Failed to read initial debug state")
       return
     }
-    
-    let initialHaptics = initialState.hapticsEnabled
-    
+
     // Toggle haptics to opposite state
-    setHaptics(enabled: !initialHaptics, styleLabel: "Medium")
-    
-    // Verify state changed in debug summary
-    guard
-      waitForDebugState(
-        timeout: adaptiveShortTimeout,
-        validator: { $0.hapticsEnabled == !initialHaptics }
-      ) != nil
-    else {
-      XCTFail("Haptic state should toggle to \(!initialHaptics)")
-      return
-    }
-    
-    // Toggle back to original state
-    setHaptics(enabled: initialHaptics, styleLabel: "Medium")
-    
-    // Verify state changed back
+    let target = !(initialToggleState ?? initialSummary.hapticsEnabled)
+    setHaptics(enabled: target, styleLabel: "Medium")
+
+    assertHapticsToggleState(expected: target)
     XCTAssertNotNil(
       waitForDebugState(
         timeout: adaptiveShortTimeout,
-        validator: { $0.hapticsEnabled == initialHaptics }
+        validator: { $0.hapticsEnabled == target }
       ),
-      "Haptic state should toggle back to \(initialHaptics)"
+      "Haptic state should toggle to \(target)"
+    )
+
+    // Toggle back to original state
+    setHaptics(enabled: initialSummary.hapticsEnabled, styleLabel: "Medium")
+    assertHapticsToggleState(expected: initialSummary.hapticsEnabled)
+    XCTAssertNotNil(
+      waitForDebugState(
+        timeout: adaptiveShortTimeout,
+        validator: { $0.hapticsEnabled == initialSummary.hapticsEnabled }
+      ),
+      "Haptic state should toggle back to \(initialSummary.hapticsEnabled)"
     )
   }
   
   @MainActor
   func testHapticStylePickerChangesValue() throws {
     try beginWithFreshConfigurationSheet()
+
+    _ = requireToggleSwitch(
+      identifier: "SwipeActions.Haptics.Toggle",
+      context: "style picker precondition"
+    )
     
     // Enable haptics first (style picker only visible when haptics enabled)
     setHaptics(enabled: true, styleLabel: "Soft")

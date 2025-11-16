@@ -13,7 +13,7 @@ extension SwipeConfigurationTestCase {
   @discardableResult
   func waitForSaveButton(enabled: Bool, timeout: TimeInterval? = nil) -> Bool {
     let effectiveTimeout = timeout ?? adaptiveTimeout
-    let saveButton = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
+    let saveButton = app.buttons["SwipeActions.Save"]
     let predicate = NSPredicate { [weak saveButton] _, _ in
       guard let button = saveButton else { return false }
       return button.exists && button.isEnabled == enabled
@@ -27,8 +27,13 @@ extension SwipeConfigurationTestCase {
   @discardableResult
   func waitForBaselineLoaded(timeout: TimeInterval = 5.0) -> Bool {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard summaryElement.waitForExistence(timeout: adaptiveTimeout) else {
-      XCTFail("Swipe configuration debug summary unavailable; cannot verify baseline.")
+    guard
+      waitForElement(
+        summaryElement,
+        timeout: adaptiveShortTimeout,
+        description: "Swipe configuration debug summary"
+      )
+    else {
       return false
     }
 
@@ -47,30 +52,40 @@ extension SwipeConfigurationTestCase {
     return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
   }
 
-  /// Wait for SwiftUI List lazy materialization to complete.
-  /// The view uses `materializeSectionsIfNeeded()` which scrolls to sections with 0.2s delays.
-  /// Total materialization time is ~0.4s (2 sequential delays to trailing then haptics).
-  /// IMPORTANT: Materialization leaves the list scrolled to haptics section to prevent
-  /// SwiftUI from de-materializing it when scrolling back to top.
   @MainActor
   @discardableResult
-  func waitForSectionMaterialization(timeout: TimeInterval = 4.0) -> Bool {
-    // Wait for the haptics toggle to appear in the accessibility tree
-    // This indicates the materialization scroll sequence has completed
-    let identifier = "SwipeActions.Haptics.Toggle"
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 2)
-    }
-    let hapticsToggle = element(withIdentifier: identifier)
-
-    if hapticsToggle.waitForExistence(timeout: timeout) {
+  func waitForSectionMaterialization(timeout: TimeInterval = 1.0) -> Bool {
+    let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
+      .firstMatch
+    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    if hapticsToggle.exists { return true }
+    if materializationProbe.exists, let value = materializationProbe.value as? String,
+      value.contains("Materialized=1")
+    {
       return true
     }
 
-    logger.warning(
-      "[SwipeUITestDebug] Haptics toggle failed to materialize within \(timeout, privacy: .public)s"
-    )
-    reportAvailableSwipeIdentifiers(context: "Haptics toggle missing", scoped: true)
+    let predicate = NSPredicate { _, _ in
+      if hapticsToggle.exists { return true }
+      if materializationProbe.exists, let value = materializationProbe.value as? String {
+        return value.contains("Materialized=1")
+      }
+      return false
+    }
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for swipe sections to materialize"
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+
+    guard result == .completed else {
+      reportAvailableSwipeIdentifiers(context: "Section materialization timeout", scoped: true)
+      let scopedRoot = swipeActionsSheetListContainer() ?? app
+      let attachment = XCTAttachment(string: scopedRoot.debugDescription)
+      attachment.name = "Materialization Scoped Tree"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+      XCTFail("Swipe sections failed to materialize within \(timeout) seconds")
+      return false
+    }
     return true
   }
 
@@ -81,8 +96,13 @@ extension SwipeConfigurationTestCase {
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    guard summaryElement.waitForExistence(timeout: adaptiveTimeout) else {
-      XCTFail("Swipe configuration debug summary unavailable; cannot inspect state.")
+    guard
+      waitForElement(
+        summaryElement,
+        timeout: 2.0,
+        description: "Swipe configuration debug summary"
+      )
+    else {
       return nil
     }
 
@@ -224,14 +244,24 @@ extension SwipeConfigurationTestCase {
     guard !filtered.isEmpty else { return }
 
     let identifiers = Set(filtered.map { $0.identifier }).sorted()
-    let summary = (["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers).joined(
-      separator: "\n")
+    let summary = (
+      ["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers
+    ).joined(separator: "\n")
     logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
     print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot\(scoped ? " (Scoped)" : "")"
     attachment.lifetime = XCTAttachment.Lifetime.keepAlways
     add(attachment)
+
+    // Optional: dump scoped tree for visual inspection when debugging
+    if scoped {
+      let elements = descendants.map { element -> String in
+        let type = element.elementType.rawValue
+        return "[type=\(type)] id='\(element.identifier)' label='\(element.label)'"
+      }.joined(separator: "\n")
+      print("[SwipeUITestDebug] Scoped elements (\(context)):\n\(elements)")
+    }
   }
 
   @MainActor

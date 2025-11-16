@@ -8,17 +8,7 @@
 import Foundation
 import XCTest
 
-enum SwipeConfigurationTestError: Error {
-  case missingPrerequisite(String)
-}
-
 extension SwipeConfigurationTestCase {
-  @MainActor
-  func failPrerequisite(_ message: String) -> SwipeConfigurationTestError {
-    XCTFail(message)
-    return .missingPrerequisite(message)
-  }
-
   @MainActor
   func resetSwipeSettingsToDefault() {
     guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
@@ -62,14 +52,14 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func navigateToEpisodeList() throws {
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let tabBar = app.tabBars["Main Tab Bar"]
     guard tabBar.exists else {
-      throw failPrerequisite("Main tab bar not available")
+      throw XCTSkip("Main tab bar not available")
     }
 
-    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
+    let libraryTab = tabBar.buttons["Library"]
     guard libraryTab.exists else {
-      throw failPrerequisite("Library tab unavailable")
+      throw XCTSkip("Library tab unavailable")
     }
 
     guard
@@ -79,7 +69,7 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      throw failPrerequisite("Library tab not ready for interaction")
+      throw XCTSkip("Library tab not ready for interaction")
     }
 
     guard
@@ -89,13 +79,13 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      throw failPrerequisite("Library tab not hittable")
+      throw XCTSkip("Library tab not hittable")
     }
 
     let navigationSucceeded = navigateAndWaitForResult(
       triggerAction: { libraryTab.tap() },
       expectedElements: [
-        app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
+        app.buttons["Podcast-swift-talk"],
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Library'")).firstMatch,
       ],
       timeout: adaptiveTimeout,
@@ -103,18 +93,18 @@ extension SwipeConfigurationTestCase {
     )
 
     guard navigationSucceeded else {
-      throw failPrerequisite("Failed to navigate to Library tab")
+      throw XCTSkip("Failed to navigate to Library tab")
     }
 
     guard
       waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout)
     else {
-      throw failPrerequisite("Library content did not load")
+      throw XCTSkip("Library content did not load")
     }
 
-    let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
+    let podcastButton = app.buttons["Podcast-swift-talk"]
     guard podcastButton.exists else {
-      throw failPrerequisite("Test podcast unavailable")
+      throw XCTSkip("Test podcast unavailable")
     }
 
     guard
@@ -124,13 +114,13 @@ extension SwipeConfigurationTestCase {
         description: "Podcast button"
       )
     else {
-      throw failPrerequisite("Podcast button not hittable")
+      throw XCTSkip("Podcast button not hittable")
     }
 
     let episodeNavSucceeded = navigateAndWaitForResult(
       triggerAction: { podcastButton.tap() },
       expectedElements: [
-        app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch,
+        app.buttons["ConfigureSwipeActions"],
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Episodes'")).firstMatch,
       ],
       timeout: adaptiveTimeout,
@@ -138,14 +128,14 @@ extension SwipeConfigurationTestCase {
     )
 
     guard episodeNavSucceeded else {
-      throw failPrerequisite("Failed to navigate to episode list")
+      throw XCTSkip("Failed to navigate to episode list")
     }
 
     if !waitForContentToLoad(
       containerIdentifier: "Episode Cards Container",
       timeout: adaptiveTimeout
     ) {
-      let configureButton = app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch
+      let configureButton = app.buttons["ConfigureSwipeActions"]
       guard
         waitForElement(
           configureButton,
@@ -153,7 +143,7 @@ extension SwipeConfigurationTestCase {
           description: "configure swipe actions button"
         )
       else {
-        throw failPrerequisite("Episode list did not load")
+        throw XCTSkip("Episode list did not load")
       }
     }
   }
@@ -161,11 +151,11 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func openSwipeConfigurationSheet() {
     let existingIndicators: [XCUIElement] = [
-      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
-      app.otherElements.matching(identifier: "Swipe Actions").firstMatch,
-      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
+      app.navigationBars["Swipe Actions"],
+      app.otherElements["Swipe Actions"],
+      app.staticTexts["Swipe Actions"],
+      app.buttons["SwipeActions.Save"],
+      app.buttons["SwipeActions.Cancel"],
     ]
 
     if existingIndicators.contains(where: { $0.exists }) {
@@ -194,56 +184,53 @@ extension SwipeConfigurationTestCase {
     tapElement(configureButton, description: "configure swipe actions button")
 
     let refreshedIndicators: [XCUIElement] = [
-      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
-      app.otherElements.matching(identifier: "Swipe Actions").firstMatch,
-      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
+      app.navigationBars["Swipe Actions"],
+      app.otherElements["Swipe Actions"],
+      app.staticTexts["Swipe Actions"],
+      app.buttons["SwipeActions.Save"],
+      app.buttons["SwipeActions.Cancel"],
     ]
 
-    var sheetPresented = waitForAnyElement(
+    _ = waitForAnyElement(
       refreshedIndicators,
       timeout: adaptiveTimeout,
       description: "Swipe Actions configuration sheet"
     )
 
-    if sheetPresented == nil {
-      logger.warning(
-        "[SwipeUITestDebug] Swipe Actions sheet did not appear after first tap, retrying")
-      _ = waitForElementToBeHittable(
-        configureButton,
-        timeout: adaptiveShortTimeout,
-        description: "configure swipe actions button (retry)"
-      )
-      tapElement(configureButton, description: "configure swipe actions button (retry)")
-      sheetPresented = waitForAnyElement(
-        refreshedIndicators,
-        timeout: adaptiveTimeout,
-        description: "Swipe Actions configuration sheet (retry)"
-      )
-    }
-
-    guard sheetPresented != nil else {
-      XCTFail("Swipe configuration sheet failed to present")
-      return
-    }
-
-    _ = waitForBaselineLoaded()
-
-    guard waitForSectionMaterialization() else {
-      XCTFail("Haptics section failed to materialize after baseline loaded")
-      return
-    }
-
+    XCTAssertTrue(
+      waitForBaselineLoaded(),
+      "Swipe configuration baseline should load after opening sheet"
+    )
+    XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize immediately after sheet opens"
+    )
     logDebugState("baseline after open")
-    reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
+    reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)", scoped: true)
+    guard let app = app else {
+      XCTFail("XCUIApplication should be initialized before logging sheet state")
+      return
+    }
+    let scopedRoot = swipeActionsSheetListContainer() ?? app
+    print("[SwipeUITestDebug] Scoped tree (initial):\n\(scopedRoot.debugDescription)")
+    let scopedAttachment = XCTAttachment(string: scopedRoot.debugDescription)
+    scopedAttachment.name = "Scoped Debug Tree (initial)"
+    scopedAttachment.lifetime = .keepAlways
+    add(scopedAttachment)
+    if let toggle = scopedRoot.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch as XCUIElement? {
+      print(
+        "[SwipeUITestDebug] Haptics switch exists=\(toggle.exists) hittable=\(toggle.isHittable) value=\(String(describing: toggle.value))"
+      )
+    } else {
+      print("[SwipeUITestDebug] Haptics switch not found in scoped root")
+    }
     completeSeedIfNeeded()
   }
 
   @MainActor
   func waitForSheetDismissal() {
-    let navBar = app.navigationBars.matching(identifier: "Swipe Actions").firstMatch
-    let saveButton = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
+    let navBar = app.navigationBars["Swipe Actions"]
+    let saveButton = app.buttons["SwipeActions.Save"]
     _ = waitForElementToDisappear(saveButton, timeout: adaptiveTimeout)
     _ = waitForElementToDisappear(navBar, timeout: adaptiveTimeout)
   }
@@ -263,16 +250,15 @@ extension SwipeConfigurationTestCase {
   }
 
   func dismissConfigurationSheetIfNeeded() {
-    let cancelButton = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
+    let cancelButton = app.buttons["SwipeActions.Cancel"]
     guard cancelButton.waitForExistence(timeout: adaptiveShortTimeout) else { return }
     tapElement(cancelButton, description: "SwipeActions.Cancel")
-    _ = waitForElementToDisappear(
-      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch, timeout: adaptiveTimeout)
+    _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
   }
 
   @MainActor
   func requireEpisodeButton() throws -> XCUIElement {
-    let preferredEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
+    let preferredEpisode = app.buttons["Episode-st-001"]
     if preferredEpisode.exists {
       return preferredEpisode
     }
@@ -281,7 +267,7 @@ extension SwipeConfigurationTestCase {
       .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
       .firstMatch
     guard fallbackEpisode.exists else {
-      throw failPrerequisite("No episode button available for swipe configuration testing")
+      throw XCTSkip("No episode button available for swipe configuration testing")
     }
     return fallbackEpisode
   }

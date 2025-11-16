@@ -90,35 +90,46 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     action expectedAction: String,
     timeout: TimeInterval = 5.0
   ) -> SwipeExecutionRecord? {
-    let deadline = CFAbsoluteTimeGetCurrent() + timeout
-    var lastObservedRecord: SwipeExecutionRecord?
+    let executionProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.LastExecution")
+      .firstMatch
+    let startingTimestamp = lastSwipeExecutionTimestamp
+    var observed: SwipeExecutionRecord?
 
-    while CFAbsoluteTimeGetCurrent() < deadline {
-      if let record = latestSwipeExecutionRecord() {
-        lastObservedRecord = record
-        if record.action == expectedAction, record.timestamp > lastSwipeExecutionTimestamp {
-          lastSwipeExecutionTimestamp = record.timestamp
-          return record
-        }
+    let predicate = NSPredicate { [weak self, weak executionProbe] _, _ in
+      guard
+        let probe = executionProbe,
+        probe.exists,
+        let rawValue = probe.value as? String,
+        !rawValue.isEmpty,
+        let record = self?.parseSwipeExecutionRecord(from: rawValue)
+      else { return false }
+      observed = record
+      return record.action == expectedAction && record.timestamp > startingTimestamp
+    }
+
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for swipe execution \(expectedAction)"
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+
+    guard result == .completed, let resolved = observed else {
+      if let record = observed {
+        let attachment = XCTAttachment(
+          string:
+            "Last recorded swipe action: \(record.action) for episode \(record.episodeID) at \(record.timestamp)"
+        )
+        attachment.lifetime = .keepAlways
+        add(attachment)
+      } else {
+        let attachment = XCTAttachment(string: "No swipe execution was recorded")
+        attachment.lifetime = .keepAlways
+        add(attachment)
       }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+      XCTFail("Expected swipe action \(expectedAction) to execute within \(timeout) seconds")
+      return nil
     }
 
-    if let record = lastObservedRecord {
-      let attachment = XCTAttachment(
-        string:
-          "Last recorded swipe action: \(record.action) for episode \(record.episodeID) at \(record.timestamp)"
-      )
-      attachment.lifetime = .keepAlways
-      add(attachment)
-    } else {
-      let attachment = XCTAttachment(string: "No swipe execution was recorded")
-      attachment.lifetime = .keepAlways
-      add(attachment)
-    }
-
-    XCTFail("Expected swipe action \(expectedAction) to execute within \(timeout) seconds")
-    return nil
+    lastSwipeExecutionTimestamp = resolved.timestamp
+    return resolved
   }
 }
 

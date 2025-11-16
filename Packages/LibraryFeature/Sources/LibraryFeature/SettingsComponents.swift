@@ -29,15 +29,12 @@ struct SettingsToggleRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Toggle(title, isOn: Binding(
-                get: { isOn },
-                set: { newValue in
-                    isOn = newValue
-                    onToggle?(newValue)
-                }
-            ))
+            Toggle(title, isOn: $isOn)
             .toggleStyle(.switch)
             .applyAccessibilityIdentifier(accessibilityIdentifier)
+            .onChange(of: isOn) { newValue in
+                onToggle?(newValue)
+            }
 
             if let subtitle {
                 Text(subtitle)
@@ -86,17 +83,14 @@ struct SettingsSegmentedPickerRow<Selection: Hashable, Content: View>: View {
     }
 
     var body: some View {
-        Picker(title, selection: Binding(
-            get: { selection },
-            set: { newValue in
-                selection = newValue
-                onSelectionChange?(newValue)
-            }
-        )) {
+        Picker(title, selection: $selection) {
             ForEach(options, id: \.self, content: optionLabel)
         }
         .pickerStyle(.segmented)
         .applyAccessibilityIdentifier(accessibilityIdentifier)
+        .onChange(of: selection) { newValue in
+            onSelectionChange?(newValue)
+        }
 
         if let footer {
             Text(footer)

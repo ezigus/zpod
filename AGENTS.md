@@ -151,6 +151,73 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 2. Confirm isolation annotations (`@MainActor`, `Sendable`).
 3. Compile early; fix similar mismatches across the codebase, not just the first failure.
 
+### Debug & Test Infrastructure Patterns
+
+**When Standard UI Testing Isn't Sufficient:**
+
+For complex UI flows where direct interaction is unreliable or tests need to bypass multi-step navigation, use the **debug overlay pattern** with environment-gated hooks:
+
+**Pattern: Notification-Based Debug Hooks**
+
+```swift
+// 1. App code: Always-present hook (zero cost when unlistened)
+extension Notification.Name {
+  static let appDidInitialize = Notification.Name("AppFeature.DidInitialize")
+}
+
+// In app initialization
+NotificationCenter.default.post(name: .appDidInitialize, object: nil)
+
+// 2. Test infrastructure: Conditional listener
+@MainActor
+public final class DebugOverlayManager {
+  private var observer: NSObjectProtocol?
+  
+  init() {
+    if ProcessInfo.processInfo.environment["UITEST_DEBUG_MODE"] == "1" {
+      observer = NotificationCenter.default.addObserver(
+        forName: .appDidInitialize,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        Task { @MainActor in
+          self?.showDebugControls()
+        }
+      }
+    }
+  }
+}
+
+// 3. UIWindow-based overlay for XCUITest accessibility
+let window = UIWindow(windowScene: scene)
+window.windowLevel = .alert + 100  // Above sheets/modals
+window.frame = scene.screen.bounds
+window.backgroundColor = .clear
+window.makeKeyAndVisible()
+// Immediately resign key so main window stays interactive
+```
+
+**Key Principles:**
+
+- Hook **always present** in app code (loose coupling, zero cost when unlistened)
+- Listener **conditionally attached** via runtime check (e.g., `UITEST_DEBUG_MODE=1`)
+- Use `UIWindow` at high level (`.alert + 100`) for accessibility above sheets/modals
+- **Never** use `#if canImport()` guards for hooks—causes CI/local parity issues
+- Set environment flag in test `launchEnvironment`, not compile flags
+- Properly remove observers in `deinit` to avoid leaks
+
+**Example Use Cases:**
+
+- Applying test presets to bypass multi-screen configuration flows
+- Exposing internal state for verification without production debug UI
+- Triggering specific app states for screenshot/accessibility testing
+- Providing quick access to test configurations during UI test execution
+
+**Related Documentation:**
+
+- See `dev-log/02.6.3-swipe-configuration-test-decomposition.md` (section "2025-11-15 — Debug Overlay Accessibility") for full implementation case study
+- See `Packages/LibraryFeature/Sources/LibraryFeature/SwipeDebugOverlayManager.swift` for reference implementation
+
 ## 5. Coding Standards
 
 - Follow Swift API Design Guidelines; choose descriptive names and avoid force unwraps.

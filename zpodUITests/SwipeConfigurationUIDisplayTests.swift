@@ -14,20 +14,7 @@ import XCTest
 final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
   @MainActor
   func testConfigurationSheetDisplaysDefaultUI() throws {
-    initializeApp()
-    try navigateToEpisodeList()
-
-    let configureButton = element(withIdentifier: "ConfigureSwipeActions")
-    XCTAssertTrue(
-      waitForElement(
-        configureButton,
-        timeout: adaptiveTimeout,
-        description: "configure swipe actions button"
-      ),
-      "Configure swipe actions button should be visible on episode list"
-    )
-
-    tapElement(configureButton, description: "configure swipe actions button")
+    try beginWithFreshConfigurationSheet()
 
     // Verify sheet opened with multiple indicators
     let sheetIndicators: [XCUIElement] = [
@@ -48,11 +35,28 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     )
 
     XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe sections should materialize after sheet opens"
+    )
+
+    XCTAssertTrue(
       waitForBaselineLoaded(timeout: adaptiveTimeout),
       "Configuration baseline should load"
     )
 
+    let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     XCTAssertTrue(
+      waitForElement(summaryElement, timeout: adaptiveShortTimeout, description: "debug summary"),
+      "Debug summary should exist"
+    )
+    if let raw = summaryElement.value as? String {
+      XCTAssertTrue(
+        raw.contains("Controller="),
+        "Debug summary should include controller identifier for fast-fail navigation checks"
+      )
+    }
+
+    XCTAssertNotNil(
       waitForDebugSummary(
         leading: ["markPlayed"],
         trailing: ["delete", "archive"],
@@ -61,25 +65,29 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       "Default configuration should show markPlayed leading, delete+archive trailing"
     )
 
+    guard let container = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet container should be discoverable")
+      reportAvailableSwipeIdentifiers(context: "Missing sheet container", scoped: true)
+      return
+    }
+
     assertActionList(
       leadingIdentifiers: ["SwipeActions.Leading.Mark Played"],
       trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
     )
 
-    verifyHapticControlsVisible()
+    verifyHapticControlsVisible(container: container)
   }
 
   @MainActor
-  private func verifyHapticControlsVisible() {
+  private func verifyHapticControlsVisible(container: XCUIElement) {
     let hapticToggle = resolveToggleSwitch(identifier: "SwipeActions.Haptics.Toggle")
     XCTAssertNotNil(
       hapticToggle,
       "Haptic feedback toggle should be present in configuration sheet"
     )
 
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
-    }
+    _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
 
     if let toggle = hapticToggle {
       XCTAssertTrue(

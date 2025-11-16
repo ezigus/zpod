@@ -31,9 +31,7 @@ extension SwipeConfigurationTestCase {
     }
 
     if enabled {
-      let segmentedControl = app.segmentedControls.matching(
-        identifier: "SwipeActions.Haptics.StylePicker"
-      ).firstMatch
+      let segmentedControl = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
       if segmentedControl.exists {
         let button = segmentedControl.buttons[styleLabel]
         if button.exists {
@@ -109,17 +107,14 @@ extension SwipeConfigurationTestCase {
 
     let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
     guard result == .completed else {
-      let debugSummary =
-        app.staticTexts.matching(identifier: "SwipeActions.Debug.StateSummary").firstMatch.value
-        as? String
+      let debugSummary = app.staticTexts["SwipeActions.Debug.StateSummary"].value as? String
       let message: String
       if let debugSummary {
         message = "Toggle \(identifier) state mismatch. Debug: \(debugSummary)"
       } else {
         message = "Toggle \(identifier) state mismatch (debug summary unavailable)"
       }
-      attachToggleDiagnostics(
-        identifier: identifier, context: "assertToggleState mismatch", element: toggle)
+      attachToggleDiagnostics(identifier: identifier, context: "assertToggleState mismatch", element: toggle)
       XCTFail(message)
       return
     }
@@ -170,13 +165,43 @@ extension SwipeConfigurationTestCase {
   // MARK: - Toggle Plumbing
 
   @MainActor
-  fileprivate func shouldToggleElement(_ element: XCUIElement, targetStateOn: Bool) -> Bool? {
+  func requireToggleSwitch(identifier: String, context: String) -> XCUIElement? {
+    if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+    }
+
+    guard let toggle = resolveToggleSwitch(identifier: identifier) else {
+      reportAvailableSwipeIdentifiers(context: "Missing \(identifier) - \(context)", scoped: true)
+      attachToggleDiagnostics(identifier: identifier, context: "requireToggleSwitch missing toggle")
+      XCTFail("Toggle \(identifier) should exist (\(context))")
+      return nil
+    }
+
+    XCTAssertTrue(
+      waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
+      "Toggle \(identifier) should exist (\(context))"
+    )
+    return toggle
+  }
+
+  @MainActor
+  func assertHapticsToggleState(expected: Bool) {
+    guard let toggle = requireToggleSwitch(
+      identifier: "SwipeActions.Haptics.Toggle",
+      context: "assertHapticsToggleState"
+    ) else { return }
+    let state = currentStateIsOn(for: toggle)
+    XCTAssertEqual(state, expected, "Haptics toggle should be \(expected)")
+  }
+
+  @MainActor
+  func shouldToggleElement(_ element: XCUIElement, targetStateOn: Bool) -> Bool? {
     guard let currentState = currentStateIsOn(for: element) else { return nil }
     return currentState != targetStateOn
   }
 
   @MainActor
-  fileprivate func currentStateIsOn(for element: XCUIElement) -> Bool? {
+  func currentStateIsOn(for element: XCUIElement) -> Bool? {
     if let directResult = interpretToggleValue(element.value) {
       return directResult
     }
@@ -236,8 +261,7 @@ extension SwipeConfigurationTestCase {
     guard !candidate.isEmpty else { return nil }
 
     while candidate.hasPrefix("Optional(") && candidate.hasSuffix(")") {
-      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(
-        in: .whitespacesAndNewlines)
+      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     let lowered = candidate.lowercased()
@@ -263,23 +287,28 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func resolveToggleSwitch(identifier: String) -> XCUIElement? {
     if let container = swipeActionsSheetListContainer() {
-      let directElement = element(withIdentifier: identifier, within: container)
-      if directElement.exists {
-        return directElement
-      }
+      let directSwitch = container.switches.matching(identifier: identifier).firstMatch
+      if directSwitch.exists { return directSwitch }
 
-      // Materialization already happened - element should be visible
-      // Try 1 scroll as absolute last resort fallback
-      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 1)
+      let scoped = container.switches.matching(identifier: identifier).firstMatch
+      if scoped.exists { return scoped }
 
-      let refreshed = element(withIdentifier: identifier, within: container)
-      if refreshed.exists {
-        return refreshed
-      }
+      let descendant = container.descendants(matching: .switch).matching(identifier: identifier).firstMatch
+      if descendant.exists { return descendant }
     }
 
-    // Last resort: try global app query
+    let global = app.switches.matching(identifier: identifier).firstMatch
+    if global.exists { return global }
+
     let fallback = element(withIdentifier: identifier)
+    if fallback.elementType == .switch { return fallback }
+
+    let nested = fallback.switches.matching(identifier: identifier).firstMatch
+    if nested.exists { return nested }
+
+    let anySwitch = fallback.descendants(matching: .switch).firstMatch
+    if anySwitch.exists { return anySwitch }
+
     return fallback.exists ? fallback : nil
   }
 
@@ -303,8 +332,7 @@ extension SwipeConfigurationTestCase {
     }
 
     let offsetX: CGFloat = targetOn ? 0.8 : 0.2
-    let coordinate = interactiveToggle.coordinate(
-      withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
+    let coordinate = interactiveToggle.coordinate(withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
     coordinate.tap()
 
     if toggleIsInDesiredState(toggle, targetOn: targetOn) {
@@ -327,9 +355,8 @@ extension SwipeConfigurationTestCase {
     element: XCUIElement? = nil
   ) {
     var lines: [String] = ["Context: \(context)", "Identifier: \(identifier)"]
+    let element = element ?? resolveToggleSwitch(identifier: identifier)
 
-    // Don't call resolveToggleSwitch again - it triggers expensive fallback searches
-    // If element is nil, just report that fact
     if let element {
       lines.append("exists: \(element.exists)")
       lines.append("isHittable: \(element.isHittable)")
@@ -341,7 +368,7 @@ extension SwipeConfigurationTestCase {
       lines.append("frame: \(NSCoder.string(for: element.frame))")
       lines.append("debugDescription: \(element.debugDescription)")
     } else {
-      lines.append("element: nil - not found in view hierarchy")
+      lines.append("element: nil")
     }
 
     let attachment = XCTAttachment(string: lines.joined(separator: "\n"))

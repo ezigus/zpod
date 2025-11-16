@@ -1,10 +1,9 @@
-#if os(iOS)
+#if os(iOS) || os(macOS)
   import CoreModels
   import Foundation
   import OSLog
   import SettingsDomain
   import SharedUtilities
-  import UIKit
   import SwiftUI
 
   public struct SwipeActionConfigurationView: View {
@@ -15,17 +14,15 @@
     private let debugEnabled = ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1"
     private let shouldAutoScrollPresets =
       ProcessInfo.processInfo.environment["UITEST_AUTO_SCROLL_PRESETS"] == "1"
-    private static let logger = Logger(
-      subsystem: "us.zig.zpod", category: "SwipeActionConfigurationView")
     private let shouldForceMaterialization =
       ProcessInfo.processInfo.environment["UITEST_SWIPE_PRELOAD_SECTIONS"] == "1"
-    @State private var leadingFullSwipe: Bool
-    @State private var trailingFullSwipe: Bool
-    @State private var hapticsEnabledState: Bool
-    @State private var hapticStyleState: SwipeHapticStyle
+    private static let logger = Logger(
+      subsystem: "us.zig.zpod", category: "SwipeActionConfigurationView")
+    @State private var hapticsToggleProbe: UUID = .init()
     @State private var baselineLoaded = false
     @State private var pendingAddEdge: SwipeConfigurationController.SwipeEdge?
-    @State private var didMaterializeSections = false
+    @State private var materializationTriggered = false
+    @State private var materializationComplete = false
 
     public init(
       controller: SwipeConfigurationController,
@@ -35,125 +32,127 @@
       self._controller = ObservedObject(initialValue: controller)
       self.hapticsService = hapticsService
       self.onSave = onSave
-      self._leadingFullSwipe = State(initialValue: controller.allowFullSwipeLeading)
-      self._trailingFullSwipe = State(initialValue: controller.allowFullSwipeTrailing)
-      self._hapticsEnabledState = State(initialValue: controller.hapticsEnabled)
-      self._hapticStyleState = State(initialValue: controller.hapticStyle)
     }
 
     public var body: some View {
       NavigationStack {
         ScrollViewReader { proxy in
-          listContent
-            .onChange(of: baselineLoaded) { loaded in
-              materializeSectionsIfNeeded(proxy: proxy, loaded: loaded)
+          List {
+            Color.clear
+              .frame(height: 0)
+              .accessibilityHidden(true)
+              .id("swipe-top")
+            
+            // WORKAROUND: haptics section MUST come before leadingSection/trailingSection
+            // Placing it after trailingSection causes SwiftUI to skip rendering completely
+            hapticsSection
+              .id("swipe-haptics")
+
+            if baselineLoaded && shouldAutoScrollPresets {
+              presetsSection
             }
-            .task {
-              await controller.loadBaseline()
-              baselineLoaded = true
-              materializeSectionsIfNeeded(proxy: proxy, loaded: true)
+
+            leadingSection
+              .id("swipe-leading")
+            trailingSection
+              .id("swipe-trailing")
+
+            if baselineLoaded && !shouldAutoScrollPresets {
+              presetsSection
             }
-        }
-        .overlay(alignment: .topLeading) {
-          if debugEnabled {
-            debugStateProbe
-              .allowsHitTesting(false)
           }
-        }
-        .toolbar {
-          ToolbarItem(placement: .cancellationAction) {
-            Button {
-              dismiss()
-            } label: {
-              Text("Cancel")
+          .platformInsetGroupedListStyle()
+          #if DEBUG
+            .overlay(alignment: .topLeading) {
+              if debugEnabled {
+                debugStateProbe
+                .allowsHitTesting(false)
+              }
+            }
+            .overlay(alignment: .topTrailing) {
+              if debugEnabled {
+                materializationProbe
+                .allowsHitTesting(false)
+              }
+            }
+          #endif
+          .sheet(
+            isPresented: Binding(
+              get: { pendingAddEdge != nil },
+              set: { if !$0 { pendingAddEdge = nil } }
+            )
+          ) {
+            if let edge = pendingAddEdge {
+              AddActionPicker(
+                edge: edge,
+                edgeIdentifier: edgeIdentifier(edge),
+                actions: controller.availableActions(for: edge)
+              ) { action in
+                controller.addAction(action, edge: edge)
+                pendingAddEdge = nil
+              }
+            }
+          }
+          .task {
+            await controller.loadBaseline()
+            baselineLoaded = true
+          }
+          .onChange(of: baselineLoaded) { loaded in
+            guard loaded, shouldForceMaterialization, !materializationTriggered else { return }
+            materializationTriggered = true
+            materializationComplete = false
+            Task { @MainActor in
+              // Give the list a brief moment to lay out before forcing scrolls
+              try? await Task.sleep(nanoseconds: 150_000_000)
+              await materializeSections(proxy: proxy)
+            }
+          }
+          .navigationTitle("Swipe Actions")
+          .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+              Button("Cancel") { dismiss() }
                 .accessibilityIdentifier("SwipeActions.Cancel")
             }
-          }
-          ToolbarItem(placement: .confirmationAction) {
-            Button {
-              Task {
-                do {
-                  try await controller.commitChanges()
-                  onSave?(controller.currentConfiguration)
-                  dismiss()
-                } catch {
-                  // TODO: surface error state when service throws
+            ToolbarItem(placement: .confirmationAction) {
+              Button("Save") {
+                Task {
+                  do {
+                    try await controller.commitChanges()
+                    onSave?(controller.currentConfiguration)
+                    dismiss()
+                  } catch {
+                    // TODO: surface error state when service throws
+                  }
                 }
               }
-            } label: {
-              Text("Save")
-                .accessibilityIdentifier("SwipeActions.Save")
-            }
-            .disabled(!controller.hasUnsavedChanges || controller.isSaving)
-          }
-          if debugEnabled {
-            ToolbarItem(placement: .navigationBarTrailing) {
-              debugAutomationMenu
-            }
-            ToolbarItemGroup(placement: .bottomBar) {
-              ForEach(debugPresetEntries, id: \.identifier) { entry in
-                DebugToolbarButton(
-                  title: entry.shortTitle,
-                  identifier: entry.identifier + ".Toolbar"
-                ) {
-                  controller.applyPreset(entry.preset)
-                }
-              }
+              .disabled(!controller.hasUnsavedChanges || controller.isSaving)
+              .accessibilityIdentifier("SwipeActions.Save")
             }
           }
         }
-        .sheet(
-          isPresented: Binding(
-            get: { pendingAddEdge != nil },
-            set: { if !$0 { pendingAddEdge = nil } }
-          )
-        ) {
-          if let edge = pendingAddEdge {
-            AddActionPicker(
-              edge: edge,
-              edgeIdentifier: edgeIdentifier(edge),
-              actions: controller.availableActions(for: edge)
-            ) { action in
-              controller.addAction(action, edge: edge)
-              pendingAddEdge = nil
-            }
-          }
-        }
-        .onReceive(controller.$draft) { draft in
-          leadingFullSwipe = draft.swipeActions.allowFullSwipeLeading
-          trailingFullSwipe = draft.swipeActions.allowFullSwipeTrailing
-          hapticsEnabledState = draft.swipeActions.hapticFeedbackEnabled
-          hapticStyleState = draft.hapticStyle
-        }
-        .navigationTitle("Swipe Actions")
       }
     }
 
-    private var listContent: some View {
-      List {
-        if debugEnabled {
-          debugAutomationSection
-            .id("swipe-debug-section")
-        }
-
-        if baselineLoaded && shouldAutoScrollPresets {
-          presetsSection.id("swipe-presets-top")
-        }
-
-        leadingSection.id("swipe-leading")
-        trailingSection.id("swipe-trailing")
-        hapticsSection.id("swipe-haptics")
-
-        if baselineLoaded && !shouldAutoScrollPresets {
-          presetsSection.id("swipe-presets-bottom")
-        }
+    @MainActor
+    private func materializeSections(proxy: ScrollViewProxy) async {
+      let transaction = Transaction(animation: .default)
+      withTransaction(transaction) {
+        proxy.scrollTo("swipe-trailing", anchor: .top)
       }
-      .platformInsetGroupedListStyle()
-      .background(AccessibilityContainerHost(identifier: "SwipeActions.List"))
+      try? await Task.sleep(nanoseconds: 50_000_000)
+      withTransaction(transaction) {
+        proxy.scrollTo("swipe-haptics", anchor: .top)
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+      withTransaction(transaction) {
+        proxy.scrollTo("swipe-top", anchor: .top)
+      }
+      materializationComplete = true
     }
 
     private var leadingSection: some View {
-      Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
+      print("[SwipeConfigView] ⚠️ leadingSection computed property accessed")
+      return Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
         ForEach(controller.leadingActions, id: \.self) { action in
           actionRow(for: action, edge: .leading)
         }
@@ -164,22 +163,20 @@
 
         SettingsToggleRow(
           "Allow Full Swipe",
-          isOn: $leadingFullSwipe,
+          isOn: Binding(
+            get: { controller.allowFullSwipeLeading },
+            set: { controller.setFullSwipe($0, edge: .leading) }
+          ),
           accessibilityIdentifier: "SwipeActions.Leading.FullSwipe"
         ) { newValue in
-          controller.setFullSwipe(newValue, edge: .leading)
           debugLog("UI toggled leading full swipe -> \(newValue)")
-        }
-      }
-      .onDisappear {
-        if debugEnabled {
-          SwipeDebugOverlayManager.shared.hide()
         }
       }
     }
 
     private var trailingSection: some View {
-      Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
+      print("[SwipeConfigView] ⚠️ trailingSection computed property accessed")
+      return Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
         ForEach(controller.trailingActions, id: \.self) { action in
           actionRow(for: action, edge: .trailing)
         }
@@ -190,43 +187,61 @@
 
         SettingsToggleRow(
           "Allow Full Swipe",
-          isOn: $trailingFullSwipe,
+          isOn: Binding(
+            get: { controller.allowFullSwipeTrailing },
+            set: { controller.setFullSwipe($0, edge: .trailing) }
+          ),
           accessibilityIdentifier: "SwipeActions.Trailing.FullSwipe"
         ) { newValue in
-          controller.setFullSwipe(newValue, edge: .trailing)
           debugLog("UI toggled trailing full swipe -> \(newValue)")
         }
 
       }
     }
 
-    private var hapticsSection: some View {
-      Section(header: Text(String(localized: "Haptics", bundle: .main))) {
-        SettingsToggleRow(
-          "Enable Haptic Feedback",
-          isOn: $hapticsEnabledState,
-          accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
-        ) { newValue in
-          controller.setHapticsEnabled(newValue)
-          guard newValue else { return }
-          hapticsService.selectionChanged()
-        }
+  private var hapticsSection: some View {
+    Section(header: Text(String(localized: "Haptics", bundle: .main))) {
+      SettingsToggleRow(
+        "Enable Haptic Feedback",
+        isOn: Binding(
+          get: { controller.hapticsEnabled },
+          set: { controller.setHapticsEnabled($0) }
+        ),
+        accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
+      ) { newValue in
+        guard newValue else { return }
+        hapticsService.selectionChanged()
+      }
 
-        SettingsSegmentedPickerRow(
-          "Intensity",
-          selection: $hapticStyleState,
-          options: SwipeHapticStyle.allCases,
-          accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
-        ) { style in
-          Text(style.description).tag(style)
-        }
-        .disabled(!hapticsEnabledState)
-        .onChange(of: hapticStyleState) { newStyle in
-          controller.setHapticStyle(newStyle)
-          hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
-        }
+      SettingsSegmentedPickerRow(
+        "Intensity",
+        selection: Binding(
+          get: { controller.hapticStyle },
+          set: { controller.setHapticStyle($0) }
+        ),
+        options: SwipeHapticStyle.allCases,
+        accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
+      ) { style in
+        Text(style.description).tag(style)
+      }
+      .disabled(!controller.hapticsEnabled)
+      .onChange(of: controller.hapticStyle) { newStyle in
+        hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
       }
     }
+  }
+  
+  #if DEBUG
+  private var materializationProbe: some View {
+        Text("Materialized=\(materializationComplete ? "1" : "0")")
+          .font(.caption2)
+          .opacity(0.001)
+          .accessibilityHidden(false)
+          .accessibilityIdentifier("SwipeActions.Debug.Materialized")
+          .accessibilityLabel("SwipeActions.Debug.Materialized")
+          .accessibilityValue("Materialized=\(materializationComplete ? "1" : "0")")
+      }
+    #endif
 
     private var presetsSection: some View {
       Section(header: Text(String(localized: "Presets", bundle: .main))) {
@@ -261,29 +276,6 @@
       }
     }
 
-    private var debugAutomationSection: some View {
-      Section(header: Text("Debug Automation")) {
-        ForEach(debugPresetEntries, id: \.identifier) { entry in
-          DebugPresetButtonRow(
-            title: entry.title,
-            identifier: entry.identifier,
-            isActive: isPresetActive(entry.preset)
-          ) {
-            controller.applyPreset(entry.preset)
-          }
-          .id(entry.identifier)
-        }
-
-        Button("Reload Baseline") {
-          Task {
-            await controller.loadBaseline()
-            await MainActor.run { baselineLoaded = true }
-          }
-        }
-        .accessibilityIdentifier("SwipeActions.Debug.ReloadBaseline")
-      }
-    }
-
     private func addActionTrigger(for edge: SwipeConfigurationController.SwipeEdge) -> some View {
       Button {
         pendingAddEdge = edge
@@ -305,150 +297,6 @@
         return "Leading"
       case .trailing:
         return "Trailing"
-      }
-    }
-
-    private func materializeSectionsIfNeeded(
-      proxy: ScrollViewProxy,
-      loaded: Bool
-    ) {
-      guard loaded, shouldForceMaterialization, !didMaterializeSections else { return }
-      didMaterializeSections = true
-      // Scroll to individual preset buttons to force them all to render
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-        proxy.scrollTo("SwipeActions.Preset.Download", anchor: .bottom)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-          proxy.scrollTo("swipe-trailing", anchor: .bottom)
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            proxy.scrollTo("swipe-haptics", anchor: .bottom)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-              proxy.scrollTo("swipe-presets-top", anchor: .top)
-              if debugEnabled {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                  proxy.scrollTo("swipe-debug-section", anchor: .top)
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    private struct AccessibilityContainerHost: UIViewRepresentable {
-      let identifier: String
-
-      func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
-        view.isHidden = true
-        view.isAccessibilityElement = false
-        return view
-      }
-
-      func updateUIView(_ uiView: UIView, context: Context) {
-        DispatchQueue.main.async {
-          var parent = uiView.superview
-          while let candidate = parent {
-            if let tableView = candidate as? UITableView {
-              tableView.isAccessibilityElement = true
-              tableView.accessibilityIdentifier = identifier
-              break
-            } else if let collectionView = candidate as? UICollectionView {
-              collectionView.isAccessibilityElement = true
-              collectionView.accessibilityIdentifier = identifier
-              break
-            }
-            parent = candidate.superview
-          }
-        }
-      }
-    }
-
-    private struct DebugToolbarButton: UIViewRepresentable {
-      let title: String
-      let identifier: String
-      let action: () -> Void
-
-      func makeCoordinator() -> Coordinator {
-        Coordinator(action: action)
-      }
-
-      func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.accessibilityIdentifier = identifier
-        button.addAction(UIAction { _ in context.coordinator.perform() }, for: .touchUpInside)
-        return button
-      }
-
-      func updateUIView(_ uiView: UIButton, context: Context) {
-        context.coordinator.action = action
-        uiView.setTitle(title, for: .normal)
-      }
-
-      final class Coordinator {
-        var action: () -> Void
-
-        init(action: @escaping () -> Void) {
-          self.action = action
-        }
-
-        func perform() {
-          action()
-        }
-      }
-    }
-
-    private struct DebugPresetButtonRow: UIViewRepresentable {
-      let title: String
-      let identifier: String
-      let isActive: Bool
-      let action: () -> Void
-
-      func makeCoordinator() -> Coordinator {
-        Coordinator(action: action)
-      }
-
-      func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .system)
-        button.configuration = configuration(isActive: isActive)
-        button.accessibilityIdentifier = identifier
-        button.contentHorizontalAlignment = .leading
-        button.layer.cornerRadius = 12
-        button.layer.masksToBounds = true
-        button.addAction(
-          UIAction { _ in context.coordinator.perform() },
-          for: .touchUpInside
-        )
-        return button
-      }
-
-      func updateUIView(_ uiView: UIButton, context: Context) {
-        context.coordinator.action = action
-        uiView.configuration = configuration(isActive: isActive)
-      }
-
-      private func configuration(isActive: Bool) -> UIButton.Configuration {
-        var config = UIButton.Configuration.filled()
-        config.cornerStyle = .large
-        config.title = title
-        config.baseBackgroundColor =
-          isActive ? UIColor.systemBlue : UIColor.secondarySystemBackground
-        config.baseForegroundColor = isActive ? UIColor.white : UIColor.label
-        config.contentInsets = NSDirectionalEdgeInsets(
-          top: 12, leading: 16, bottom: 12, trailing: 16)
-        return config
-      }
-
-      final class Coordinator {
-        var action: () -> Void
-
-        init(action: @escaping () -> Void) {
-          self.action = action
-        }
-
-        func perform() {
-          action()
-        }
       }
     }
 
@@ -513,77 +361,31 @@
         && controller.hapticsEnabled == preset.hapticFeedbackEnabled
     }
 
-    private var debugPresetEntries: [SwipeDebugPresetEntry] {
-      [
-        SwipeDebugPresetEntry(
-          title: "Preset · Playback",
-          shortTitle: "Playback",
-          identifier: "SwipeActions.Debug.ApplyPreset.Playback",
-          preset: .playbackFocused
-        ),
-        SwipeDebugPresetEntry(
-          title: "Preset · Organization",
-          shortTitle: "Org",
-          identifier: "SwipeActions.Debug.ApplyPreset.Organization",
-          preset: .organizationFocused
-        ),
-        SwipeDebugPresetEntry(
-          title: "Preset · Download",
-          shortTitle: "Download",
-          identifier: "SwipeActions.Debug.ApplyPreset.Download",
-          preset: .downloadFocused
-        ),
-        SwipeDebugPresetEntry(
-          title: "Preset · Default",
-          shortTitle: "Default",
-          identifier: "SwipeActions.Debug.ApplyPreset.Default",
-          preset: .default
-        ),
-      ]
-    }
-
-    private var debugAutomationMenu: some View {
-      Menu {
-        ForEach(debugPresetEntries, id: \.identifier) { entry in
-          Button(entry.title) {
-            controller.applyPreset(entry.preset)
-          }
-          .accessibilityIdentifier(entry.identifier + ".Menu")
-        }
-        Button("Reload Baseline") {
-          Task {
-            await controller.loadBaseline()
-            await MainActor.run { baselineLoaded = true }
-          }
-        }
-        .accessibilityIdentifier("SwipeActions.Debug.ReloadBaseline.Menu")
-      } label: {
-        Label("Debug Automation", systemImage: "bolt.circle")
+    #if DEBUG
+      private var debugStateProbe: some View {
+        Text(debugStateSummary)
+          .font(.caption2)
+          .opacity(0.001)
+          .accessibilityHidden(false)
+          .accessibilityIdentifier("SwipeActions.Debug.StateSummary")
+          .accessibilityLabel("SwipeActions.Debug.StateSummary")
+          .accessibilityValue(debugStateSummary)
       }
-      .accessibilityIdentifier("SwipeActions.Debug.Menu")
-    }
 
-    private var debugStateProbe: some View {
-      Text(debugStateSummary)
-        .font(.caption2)
-        .opacity(0.001)
-        .accessibilityHidden(false)
-        .accessibilityIdentifier("SwipeActions.Debug.StateSummary")
-        .accessibilityLabel("SwipeActions.Debug.StateSummary")
-        .accessibilityValue(debugStateSummary)
-    }
-
-    private var debugStateSummary: String {
-      let leading = controller.leadingActions.map(\.rawValue).joined(separator: ",")
-      let trailing = controller.trailingActions.map(\.rawValue).joined(separator: ",")
-      let fullLeading = controller.allowFullSwipeLeading ? "1" : "0"
-      let fullTrailing = controller.allowFullSwipeTrailing ? "1" : "0"
-      let haptics = controller.hapticsEnabled ? "1" : "0"
-      let unsaved = controller.hasUnsavedChanges ? "1" : "0"
-      let baseline = baselineLoaded ? "1" : "0"
-      return
-        "Leading=\(leading);Trailing=\(trailing);Full=\(fullLeading)/\(fullTrailing);Haptics=\(haptics);Unsaved=\(unsaved);Baseline=\(baseline)"
-    }
+      private var debugStateSummary: String {
+        let leading = controller.leadingActions.map(\.rawValue).joined(separator: ",")
+        let trailing = controller.trailingActions.map(\.rawValue).joined(separator: ",")
+        let fullLeading = controller.allowFullSwipeLeading ? "1" : "0"
+        let fullTrailing = controller.allowFullSwipeTrailing ? "1" : "0"
+        let haptics = controller.hapticsEnabled ? "1" : "0"
+        let unsaved = controller.hasUnsavedChanges ? "1" : "0"
+        let baseline = baselineLoaded ? "1" : "0"
+        let probe = hapticsToggleProbe.uuidString
+        let controllerID = controller.debugIdentifier
+        return
+          "Leading=\(leading);Trailing=\(trailing);Full=\(fullLeading)/\(fullTrailing);Haptics=\(haptics);Unsaved=\(unsaved);Baseline=\(baseline);Probe=\(probe);Controller=\(controllerID)"
+      }
+    #endif
 
     private func debugLog(_ message: String) {
       guard debugEnabled else { return }
@@ -665,7 +467,6 @@ private struct AddActionPicker: View {
         }
       }
     }
-
     .presentationDetents([.medium, .large])
   }
 
