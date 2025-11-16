@@ -51,6 +51,8 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func setFullSwipeToggle(identifier: String, enabled: Bool) {
+    // Both toggles are now positioned before their respective "Add Action" buttons
+    // and both sections are visible without scrolling
     guard let toggle = resolveToggleSwitch(identifier: identifier) else {
       attachToggleDiagnostics(identifier: identifier, context: "setFullSwipeToggle missing toggle")
       XCTFail("Toggle \(identifier) not found")
@@ -60,9 +62,7 @@ extension SwipeConfigurationTestCase {
     if shouldToggleElement(toggle, targetStateOn: enabled) == true {
       tapToggle(toggle, identifier: identifier, targetOn: enabled)
     }
-  }
-
-  // MARK: - Assertions
+  }  // MARK: - Assertions
 
   @MainActor
   func assertFullSwipeState(leading: Bool, trailing: Bool) {
@@ -114,7 +114,8 @@ extension SwipeConfigurationTestCase {
       } else {
         message = "Toggle \(identifier) state mismatch (debug summary unavailable)"
       }
-      attachToggleDiagnostics(identifier: identifier, context: "assertToggleState mismatch", element: toggle)
+      attachToggleDiagnostics(
+        identifier: identifier, context: "assertToggleState mismatch", element: toggle)
       XCTFail(message)
       return
     }
@@ -186,10 +187,12 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func assertHapticsToggleState(expected: Bool) {
-    guard let toggle = requireToggleSwitch(
-      identifier: "SwipeActions.Haptics.Toggle",
-      context: "assertHapticsToggleState"
-    ) else { return }
+    guard
+      let toggle = requireToggleSwitch(
+        identifier: "SwipeActions.Haptics.Toggle",
+        context: "assertHapticsToggleState"
+      )
+    else { return }
     let state = currentStateIsOn(for: toggle)
     XCTAssertEqual(state, expected, "Haptics toggle should be \(expected)")
   }
@@ -261,7 +264,8 @@ extension SwipeConfigurationTestCase {
     guard !candidate.isEmpty else { return nil }
 
     while candidate.hasPrefix("Optional(") && candidate.hasSuffix(")") {
-      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+      candidate = String(candidate.dropFirst("Optional(".count).dropLast()).trimmingCharacters(
+        in: .whitespacesAndNewlines)
     }
 
     let lowered = candidate.lowercased()
@@ -293,7 +297,8 @@ extension SwipeConfigurationTestCase {
       let scoped = container.switches.matching(identifier: identifier).firstMatch
       if scoped.exists { return scoped }
 
-      let descendant = container.descendants(matching: .switch).matching(identifier: identifier).firstMatch
+      let descendant = container.descendants(matching: .switch).matching(identifier: identifier)
+        .firstMatch
       if descendant.exists { return descendant }
     }
 
@@ -332,7 +337,8 @@ extension SwipeConfigurationTestCase {
     }
 
     let offsetX: CGFloat = targetOn ? 0.8 : 0.2
-    let coordinate = interactiveToggle.coordinate(withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
+    let coordinate = interactiveToggle.coordinate(
+      withNormalizedOffset: CGVector(dx: offsetX, dy: 0.5))
     coordinate.tap()
 
     if toggleIsInDesiredState(toggle, targetOn: targetOn) {

@@ -42,24 +42,20 @@
               .frame(height: 0)
               .accessibilityHidden(true)
               .id("swipe-top")
-            
+
             // WORKAROUND: haptics section MUST come before leadingSection/trailingSection
             // Placing it after trailingSection causes SwiftUI to skip rendering completely
             hapticsSection
               .id("swipe-haptics")
-
-            if baselineLoaded && shouldAutoScrollPresets {
-              presetsSection
-            }
 
             leadingSection
               .id("swipe-leading")
             trailingSection
               .id("swipe-trailing")
 
-            if baselineLoaded && !shouldAutoScrollPresets {
-              presetsSection
-            }
+            // Presets moved to bottom so both action toggles are visible without scrolling
+            presetsSection
+
           }
           .platformInsetGroupedListStyle()
           #if DEBUG
@@ -157,10 +153,6 @@
           actionRow(for: action, edge: .leading)
         }
 
-        if controller.canAddMoreActions(to: .leading) {
-          addActionTrigger(for: .leading)
-        }
-
         SettingsToggleRow(
           "Allow Full Swipe",
           isOn: Binding(
@@ -171,6 +163,10 @@
         ) { newValue in
           debugLog("UI toggled leading full swipe -> \(newValue)")
         }
+
+        if controller.canAddMoreActions(to: .leading) {
+          addActionTrigger(for: .leading)
+        }
       }
     }
 
@@ -179,10 +175,6 @@
       return Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
         ForEach(controller.trailingActions, id: \.self) { action in
           actionRow(for: action, edge: .trailing)
-        }
-
-        if controller.canAddMoreActions(to: .trailing) {
-          addActionTrigger(for: .trailing)
         }
 
         SettingsToggleRow(
@@ -196,43 +188,47 @@
           debugLog("UI toggled trailing full swipe -> \(newValue)")
         }
 
+        if controller.canAddMoreActions(to: .trailing) {
+          addActionTrigger(for: .trailing)
+        }
+
       }
     }
 
-  private var hapticsSection: some View {
-    Section(header: Text(String(localized: "Haptics", bundle: .main))) {
-      SettingsToggleRow(
-        "Enable Haptic Feedback",
-        isOn: Binding(
-          get: { controller.hapticsEnabled },
-          set: { controller.setHapticsEnabled($0) }
-        ),
-        accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
-      ) { newValue in
-        guard newValue else { return }
-        hapticsService.selectionChanged()
-      }
+    private var hapticsSection: some View {
+      Section(header: Text(String(localized: "Haptics", bundle: .main))) {
+        SettingsToggleRow(
+          "Enable Haptic Feedback",
+          isOn: Binding(
+            get: { controller.hapticsEnabled },
+            set: { controller.setHapticsEnabled($0) }
+          ),
+          accessibilityIdentifier: "SwipeActions.Haptics.Toggle"
+        ) { newValue in
+          guard newValue else { return }
+          hapticsService.selectionChanged()
+        }
 
-      SettingsSegmentedPickerRow(
-        "Intensity",
-        selection: Binding(
-          get: { controller.hapticStyle },
-          set: { controller.setHapticStyle($0) }
-        ),
-        options: SwipeHapticStyle.allCases,
-        accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
-      ) { style in
-        Text(style.description).tag(style)
-      }
-      .disabled(!controller.hapticsEnabled)
-      .onChange(of: controller.hapticStyle) { newStyle in
-        hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
+        SettingsSegmentedPickerRow(
+          "Intensity",
+          selection: Binding(
+            get: { controller.hapticStyle },
+            set: { controller.setHapticStyle($0) }
+          ),
+          options: SwipeHapticStyle.allCases,
+          accessibilityIdentifier: "SwipeActions.Haptics.StylePicker"
+        ) { style in
+          Text(style.description).tag(style)
+        }
+        .disabled(!controller.hapticsEnabled)
+        .onChange(of: controller.hapticStyle) { newStyle in
+          hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
+        }
       }
     }
-  }
-  
-  #if DEBUG
-  private var materializationProbe: some View {
+
+    #if DEBUG
+      private var materializationProbe: some View {
         Text("Materialized=\(materializationComplete ? "1" : "0")")
           .font(.caption2)
           .opacity(0.001)
