@@ -68,6 +68,14 @@ status_symbol() {
   esac
 }
 
+format_elapsed_time() {
+  local elapsed="$1"
+  local hours=$((elapsed / 3600))
+  local minutes=$(((elapsed % 3600) / 60))
+  local seconds=$((elapsed % 60))
+  printf '%02d:%02d:%02d' "$hours" "$minutes" "$seconds"
+}
+
 begin_phase() {
   CURRENT_PHASE="$1"
   CURRENT_PHASE_CATEGORY="$2"
@@ -596,6 +604,16 @@ print_summary() {
   fi
 
   printf '  Exit Status: %s\n' "$EXIT_STATUS"
+
+  # Display elapsed time
+  if [[ -n "${START_TIME:-}" ]]; then
+    local end_time
+    end_time=$(date +%s)
+    local elapsed=$((end_time - START_TIME))
+    local formatted_time
+    formatted_time=$(format_elapsed_time "$elapsed")
+    printf '  Elapsed Time: %s\n' "$formatted_time"
+  fi
 }
 
 ensure_swift_format_tool() {
@@ -1615,6 +1633,9 @@ partial_build_and_test() {
   run_build_target "$module" || return $?
   run_test_target "$module" || return $?
 }
+
+# Start timer for entire script execution
+START_TIME=$(date +%s)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
