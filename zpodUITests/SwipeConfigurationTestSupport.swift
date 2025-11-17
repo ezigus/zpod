@@ -26,7 +26,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
   // MARK: - Environment Configuration
 
-  private var baseLaunchEnvironment: [String: String] {
+  var baseLaunchEnvironment: [String: String] {
     [
       "UITEST_SWIPE_DEBUG": "1",
       "UITEST_USER_DEFAULTS_SUITE": swipeDefaultsSuite,

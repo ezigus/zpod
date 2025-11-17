@@ -30,6 +30,16 @@ struct ZpodApp: App {
     // Always post initialization notification - debug tools can listen if needed
     // This is harmless when nothing is listening (zero cost, loose coupling)
     NotificationCenter.default.post(name: .appDidInitialize, object: nil)
+
+    // Force creation of debug overlay manager AFTER notification is posted
+    // This allows it to show overlays immediately upon initialization
+    #if canImport(LibraryFeature) && DEBUG
+      if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
+        Task { @MainActor in
+          _ = SwipeDebugOverlayManager.shared
+        }
+      }
+    #endif
   }
 
   #if canImport(LibraryFeature)

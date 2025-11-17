@@ -197,13 +197,16 @@ extension SwipeConfigurationTestCase {
       description: "Swipe Actions configuration sheet"
     )
 
+    // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
+    if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
+      XCTAssertTrue(
+        waitForBaselineLoaded(),
+        "Swipe configuration baseline should load after opening sheet"
+      )
+    }
     XCTAssertTrue(
-      waitForBaselineLoaded(),
-      "Swipe configuration baseline should load after opening sheet"
-    )
-    XCTAssertTrue(
-      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
-      "Swipe configuration sections should materialize immediately after sheet opens"
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize within timeout"
     )
     logDebugState("baseline after open")
     reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)", scoped: true)
@@ -217,7 +220,9 @@ extension SwipeConfigurationTestCase {
     scopedAttachment.name = "Scoped Debug Tree (initial)"
     scopedAttachment.lifetime = .keepAlways
     add(scopedAttachment)
-    if let toggle = scopedRoot.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch as XCUIElement? {
+    if let toggle = scopedRoot.switches.matching(identifier: "SwipeActions.Haptics.Toggle")
+      .firstMatch as XCUIElement?
+    {
       print(
         "[SwipeUITestDebug] Haptics switch exists=\(toggle.exists) hittable=\(toggle.isHittable) value=\(String(describing: toggle.value))"
       )
@@ -225,6 +230,51 @@ extension SwipeConfigurationTestCase {
       print("[SwipeUITestDebug] Haptics switch not found in scoped root")
     }
     completeSeedIfNeeded()
+  }
+
+  /// Waits for SwiftUI List sections to materialize in accessibility tree.
+  /// Uses .matching(identifier:).firstMatch pattern per ACCESSIBILITY_TESTING_BEST_PRACTICES.
+  /// Returns true if materialization completes, false on timeout.
+  @MainActor
+  @discardableResult
+  func waitForSectionMaterialization(timeout: TimeInterval = 2.0) -> Bool {
+    print("[SwipeUITestDebug] Waiting for section materialization (timeout: \(timeout)s)...")
+
+    // Primary indicator: Haptics toggle must exist (per Step 1 plan)
+    let hapticsToggle = app.switches
+      .matching(identifier: "SwipeActions.Haptics.Toggle")
+      .firstMatch
+
+    guard hapticsToggle.waitForExistence(timeout: timeout) else {
+      print(
+        "[SwipeUITestDebug] ❌ Section materialization failed: Haptics toggle not found within \(timeout)s"
+      )
+      print("[SwipeUITestDebug] Tree dump:\n\(app.debugDescription)")
+      return false
+    }
+
+    print("[SwipeUITestDebug] ✅ Haptics toggle found, checking materialization probe...")
+
+    // Optional: Check materialization probe if present (per Step 4 plan)
+    let probe = app.staticTexts
+      .matching(identifier: "SwipeActions.Debug.Materialized")
+      .firstMatch
+
+    if probe.exists, let value = probe.value as? String {
+      let materialized = value.contains("Materialized=1")
+      print(
+        "[SwipeUITestDebug] Materialization probe value: \(value) (materialized: \(materialized))")
+
+      if !materialized {
+        print("[SwipeUITestDebug] ⚠️ Probe exists but Materialized=0 (still completing)")
+      }
+
+      return materialized
+    }
+
+    // Toggle exists, probe either not present or no value - sufficient for materialization
+    print("[SwipeUITestDebug] ✅ Section materialization complete (toggle exists)")
+    return true
   }
 
   @MainActor

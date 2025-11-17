@@ -22,16 +22,12 @@
     nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     private init() {
-      // In test mode, listen for the app initialization hook
+      // If in debug mode, show overlay immediately when accessed
       if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
-        observer = NotificationCenter.default.addObserver(
-          forName: .appDidInitialize,
-          object: nil,
-          queue: .main
-        ) { [weak self] _ in
-          Task { @MainActor in
-            self?.showDefaultPresetsIfNeeded()
-          }
+        Task { @MainActor in
+          // Wait for scene to be ready
+          try? await Task.sleep(for: .milliseconds(1000))
+          self.showDefaultPresetsIfNeeded()
         }
       }
     }
@@ -78,46 +74,47 @@
         return
       }
 
-      // Find the active window scene
+      // Find the main window (key window or first visible window)
       guard
-        let scene = UIApplication.shared.connectedScenes
+        let mainWindow = UIApplication.shared.connectedScenes
           .compactMap({ $0 as? UIWindowScene })
-          .first(where: { $0.activationState == .foregroundActive })
+          .first(where: { $0.activationState == .foregroundActive })?
+          .windows
+          .first(where: { $0.isKeyWindow || !$0.isHidden })
       else {
         return
       }
 
-      // Create a dedicated overlay window that floats above everything
-      let window = UIWindow(windowScene: scene)
-      window.windowLevel = .alert + 100  // Very high level to ensure visibility
-      window.backgroundColor = .clear
-      window.frame = scene.screen.bounds
-
+      // Create hosting controller with overlay view
       let hostingController = UIHostingController(
         rootView: DebugOverlayView(entries: entries, handler: handler)
       )
       hostingController.view.backgroundColor = .clear
-      hostingController.view.frame = window.bounds
+      hostingController.view.isAccessibilityElement = false
+      hostingController.view.accessibilityElementsHidden = false
 
-      window.rootViewController = hostingController
+      // Add overlay view directly to the main window's root view controller
+      // This ensures it's in the same window hierarchy that XCUITest can see
+      if let rootVC = mainWindow.rootViewController {
+        rootVC.addChild(hostingController)
+        mainWindow.addSubview(hostingController.view)
 
-      // Make window visible but don't steal key status from the main window
-      window.makeKeyAndVisible()
-
-      // Immediately resign key status so the main window stays interactive
-      if let mainWindow = scene.windows.first(where: { $0.isKeyWindow == false }) {
-        mainWindow.makeKey()
+        // Position overlay above everything in the main window
+        hostingController.view.frame = mainWindow.bounds
+        hostingController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        hostingController.didMove(toParent: rootVC)
       }
 
       self.hostingController = hostingController
-      self.overlayWindow = window
+      self.overlayWindow = mainWindow  // Store reference to main window, not a new window
     }
 
     /// Hides the debug overlay and releases resources
     func hide() {
-      overlayWindow?.isHidden = true
-      overlayWindow = nil
+      hostingController?.view.removeFromSuperview()
+      hostingController?.removeFromParent()
       hostingController = nil
+      overlayWindow = nil
       currentEntries = []
       currentHandler = nil
     }

@@ -11,9 +11,12 @@ import XCTest
 extension SwipeConfigurationTestCase {
   @MainActor
   func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
-    guard waitForBaselineLoaded(timeout: adaptiveTimeout) else {
-      XCTFail("Swipe configuration baseline never loaded; cannot assert action list.")
-      return
+    // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
+    if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
+      guard waitForBaselineLoaded(timeout: adaptiveTimeout) else {
+        XCTFail("Swipe configuration baseline never loaded; cannot assert action list.")
+        return
+      }
     }
     _ = waitForSectionIfNeeded(timeout: adaptiveShortTimeout)
 
