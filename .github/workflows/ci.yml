@@ -883,9 +883,13 @@ jobs:
             tests: zpodUITests/SwipePresetSelectionTests
           - name: UITests-SwipeToggleInteraction
             tests: zpodUITests/SwipeToggleInteractionTests
-          # Tier 2: Complex integration tests (combined suite)
-          - name: UITests-SwipeComplexIntegration
-            tests: zpodUITests/SwipeComplexIntegrationTests
+          # Tier 2: Complex suites (now split for parallelization)
+          - name: UITests-SwipeActionManagement
+            tests: zpodUITests/SwipeActionManagementTests
+          - name: UITests-SwipePersistence
+            tests: zpodUITests/SwipePersistenceTests
+          - name: UITests-SwipeExecution
+            tests: zpodUITests/SwipeExecutionTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
