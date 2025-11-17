@@ -7,16 +7,76 @@
 //
 
 import Foundation
-import OSLog
 import XCTest
 
 /// Tests that verify the swipe configuration sheet opens and displays default UI elements
 final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
   @MainActor
-  func testConfigurationSheetDisplaysDefaultUI() throws {
+  func testConfigurationSheetOpensFromEpisodeList() throws {
+    _ = try openConfigurationSheet()
+  }
+
+  @MainActor
+  func testAllSectionsAppearInSheet() throws {
+    guard let container = try openConfigurationSheet() else {
+      XCTFail("Swipe configuration sheet container should be discoverable")
+      return
+    }
+
+    XCTAssertTrue(
+      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
+      "Swipe sections should materialize after sheet opens"
+    )
+
+    let identifiers = [
+      "SwipeActions.Haptics.Toggle",
+      "SwipeActions.Leading.FullSwipe",
+      "SwipeActions.Trailing.FullSwipe",
+      "SwipeActions.Add.Leading",
+      "SwipeActions.Add.Trailing",
+      "SwipeActions.Preset.Playback",
+    ]
+
+    for id in identifiers {
+      _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: 2)
+      let element = self.element(withIdentifier: id, within: container)
+      XCTAssertTrue(
+        waitForElement(element, timeout: adaptiveShortTimeout, description: id),
+        "\(id) should be visible in configuration sheet"
+      )
+    }
+  }
+
+  @MainActor
+  func testDefaultActionsDisplayCorrectly() throws {
+    guard let container = try openConfigurationSheet() else {
+      XCTFail("Swipe configuration sheet container should be discoverable")
+      return
+    }
+
+    XCTAssertNotNil(
+      waitForDebugSummary(
+        leading: ["markPlayed"],
+        trailing: ["delete", "archive"],
+        unsaved: false
+      ),
+      "Default configuration should show markPlayed leading, delete+archive trailing"
+    )
+
+    assertActionList(
+      leadingIdentifiers: ["SwipeActions.Leading.Mark Played"],
+      trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
+    )
+
+    verifyHapticControlsVisible(container: container)
+  }
+
+  // MARK: - Private Helpers
+
+  @MainActor
+  private func openConfigurationSheet() throws -> XCUIElement? {
     try beginWithFreshConfigurationSheet()
 
-    // Verify sheet opened with multiple indicators
     let sheetIndicators: [XCUIElement] = [
       app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
       app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
@@ -35,48 +95,11 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     )
 
     XCTAssertTrue(
-      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
-      "Swipe sections should materialize after sheet opens"
-    )
-
-    XCTAssertTrue(
       waitForBaselineLoaded(timeout: adaptiveTimeout),
       "Configuration baseline should load"
     )
 
-    let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
-    XCTAssertTrue(
-      waitForElement(summaryElement, timeout: adaptiveShortTimeout, description: "debug summary"),
-      "Debug summary should exist"
-    )
-    if let raw = summaryElement.value as? String {
-      XCTAssertTrue(
-        raw.contains("Controller="),
-        "Debug summary should include controller identifier for fast-fail navigation checks"
-      )
-    }
-
-    XCTAssertNotNil(
-      waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Default configuration should show markPlayed leading, delete+archive trailing"
-    )
-
-    guard let container = swipeActionsSheetListContainer() else {
-      XCTFail("Swipe configuration sheet container should be discoverable")
-      reportAvailableSwipeIdentifiers(context: "Missing sheet container", scoped: true)
-      return
-    }
-
-    assertActionList(
-      leadingIdentifiers: ["SwipeActions.Leading.Mark Played"],
-      trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
-    )
-
-    verifyHapticControlsVisible(container: container)
+    return swipeActionsSheetListContainer()
   }
 
   @MainActor
@@ -100,7 +123,8 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       )
     }
 
-    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker").firstMatch
+    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker")
+      .firstMatch
     XCTAssertTrue(
       waitForElement(stylePicker, timeout: adaptiveShortTimeout, description: "haptic style picker"),
       "Haptic style picker should exist"

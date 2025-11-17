@@ -11,6 +11,9 @@
 		5D9EE8EF1E6A4AC6B0F1A163 /* SettingsDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 4E987F4AAB5F41C79FF51FBC /* SettingsDomain */; };
 		715B23139D6B42E897254126 /* SearchDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 32049ED8E56C433DB7220A50 /* SearchDomain */; };
 		78294E072E52A4160022CF1B /* run-xcode-tests.sh in Resources */ = {isa = PBXBuildFile; fileRef = 78294E062E52A4160022CF1B /* run-xcode-tests.sh */; };
+		783109B52EC7479300A24B51 /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = F1234567890ABC12345DEFGH /* LibraryFeature */; };
+		783109B62EC7479300A24B51 /* PlayerFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C48BD14625D04700A5604586 /* PlayerFeature */; };
+		783109B72EC7479300A24B51 /* SharedUtilities in Frameworks */ = {isa = PBXBuildFile; productRef = 9ABCDEF0123456789ABCDEFA /* SharedUtilities */; };
 		786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
 		78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E102E575000001DB480 /* dev-log.issue06.log */; };
 		78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0C2E575000001DB480 /* dev-log.issue02.log */; };
@@ -54,6 +57,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		5B6F6F60341A43FD81D7CB85 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 786FD1012E22E615008CEE55 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 786FD1082E22E615008CEE55;
+			remoteInfo = zpod;
+		};
 		786FD11E2E22E617008CEE55 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 786FD1012E22E615008CEE55 /* Project object */;
@@ -62,13 +72,6 @@
 			remoteInfo = zpod;
 		};
 		786FD1282E22E617008CEE55 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 786FD1012E22E615008CEE55 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 786FD1082E22E615008CEE55;
-			remoteInfo = zpod;
-		};
-		5B6F6F60341A43FD81D7CB85 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 786FD1012E22E615008CEE55 /* Project object */;
 			proxyType = 1;
@@ -150,13 +153,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				783109B62EC7479300A24B51 /* PlayerFeature in Frameworks */,
 				78C0C21C2EBC2F6D000CB820 /* (null) in Frameworks */,
+				783109B72EC7479300A24B51 /* SharedUtilities in Frameworks */,
 				78C0C21D2EBC2F6D000CB820 /* (null) in Frameworks */,
 				78C0C21E2EBC2F6D000CB820 /* (null) in Frameworks */,
 				78C0C21F2EBC2F6D000CB820 /* (null) in Frameworks */,
 				78C0C2202EBC2F6D000CB820 /* (null) in Frameworks */,
 				AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */,
 				78C0C2232EBC2F6D000CB820 /* Persistence in Frameworks */,
+				783109B52EC7479300A24B51 /* LibraryFeature in Frameworks */,
 				78C0C2272EBC2F6D000CB820 /* PlaybackEngine in Frameworks */,
 				78C0C2212EBC2F6D000CB820 /* (null) in Frameworks */,
 				78C0C2222EBC2F6D000CB820 /* CoreModels in Frameworks */,
@@ -548,6 +554,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		5B6F6F61341A43FD81D7CB86 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 786FD1082E22E615008CEE55 /* zpod */;
+			targetProxy = 5B6F6F60341A43FD81D7CB85 /* PBXContainerItemProxy */;
+		};
 		786FD11F2E22E617008CEE55 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 786FD1082E22E615008CEE55 /* zpod */;
@@ -557,11 +568,6 @@
 			isa = PBXTargetDependency;
 			target = 786FD1082E22E615008CEE55 /* zpod */;
 			targetProxy = 786FD1282E22E617008CEE55 /* PBXContainerItemProxy */;
-		};
-		5B6F6F61341A43FD81D7CB86 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 786FD1082E22E615008CEE55 /* zpod */;
-			targetProxy = 5B6F6F60341A43FD81D7CB85 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1074,15 +1080,15 @@
 			package = 786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */;
 			productName = SharedUtilities;
 		};
-		F1234567890ABC12345DEFGH /* LibraryFeature */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 78BF3E692E577C4A001DB480 /* XCLocalSwiftPackageReference "Packages/LibraryFeature" */;
-			productName = LibraryFeature;
-		};
 		C48BD14625D04700A5604586 /* PlayerFeature */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 78BF3E6A2E577C4F001DB480 /* XCLocalSwiftPackageReference "Packages/PlayerFeature" */;
 			productName = PlayerFeature;
+		};
+		F1234567890ABC12345DEFGH /* LibraryFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78BF3E692E577C4A001DB480 /* XCLocalSwiftPackageReference "Packages/LibraryFeature" */;
+			productName = LibraryFeature;
 		};
 		F2345678901BCD23456EFGHI /* PlaybackEngine */ = {
 			isa = XCSwiftPackageProductDependency;
