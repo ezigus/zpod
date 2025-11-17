@@ -35,7 +35,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     )
 
     XCTAssertTrue(
-      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
       "Swipe sections should materialize after sheet opens"
     )
 

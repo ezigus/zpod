@@ -58,8 +58,12 @@ extension SwipeConfigurationTestCase {
     let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
       .firstMatch
     let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
-    if hapticsToggle.exists { return true }
-    if materializationProbe.exists, let value = materializationProbe.value as? String,
+    if hapticsToggle.exists {
+      return true
+    }
+    if
+      materializationProbe.exists,
+      let value = materializationProbe.value as? String,
       value.contains("Materialized=1")
     {
       return true
@@ -91,10 +95,31 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   @discardableResult
+  func waitForSectionIfNeeded(timeout: TimeInterval? = nil) -> Bool {
+    let effectiveTimeout = timeout ?? adaptiveShortTimeout
+    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    if hapticsToggle.exists {
+      return true
+    }
+    let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
+      .firstMatch
+    if
+      materializationProbe.exists,
+      let value = materializationProbe.value as? String,
+      value.contains("Materialized=1")
+    {
+      return true
+    }
+    return waitForSectionMaterialization(timeout: effectiveTimeout)
+  }
+
+  @MainActor
+  @discardableResult
   func waitForDebugState(
     timeout: TimeInterval? = nil,
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
+    let effectiveTimeout = timeout ?? adaptiveShortTimeout
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     guard
       waitForElement(
@@ -107,7 +132,6 @@ extension SwipeConfigurationTestCase {
     }
 
     var lastObservedState: SwipeDebugState?
-    let effectiveTimeout = timeout ?? 3.0
     let predicate = NSPredicate { [weak self, weak summaryElement] _, _ in
       guard
         let element = summaryElement,
@@ -165,6 +189,31 @@ extension SwipeConfigurationTestCase {
       return true
     }
     return state != nil
+  }
+
+  @MainActor
+  @discardableResult
+  func expectDebugState(
+    leading expectedLeading: [String],
+    trailing expectedTrailing: [String],
+    unsaved expectedUnsaved: Bool? = nil,
+    timeout: TimeInterval? = nil
+  ) -> SwipeDebugState? {
+    guard let state = waitForDebugState(timeout: timeout) else {
+      let effectiveTimeout = timeout ?? adaptiveShortTimeout
+      XCTFail("Debug state unavailable after \(effectiveTimeout) seconds")
+      return nil
+    }
+    XCTAssertEqual(state.leading, expectedLeading, "Leading actions should match expected state")
+    XCTAssertEqual(state.trailing, expectedTrailing, "Trailing actions should match expected state")
+    if let expectedUnsaved {
+      XCTAssertEqual(
+        state.unsaved,
+        expectedUnsaved,
+        "Unsaved marker should match expected state"
+      )
+    }
+    return state
   }
 
   @MainActor

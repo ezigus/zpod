@@ -15,7 +15,7 @@ extension SwipeConfigurationTestCase {
       XCTFail("Swipe configuration baseline never loaded; cannot assert action list.")
       return
     }
-    _ = waitForSectionMaterialization(timeout: adaptiveTimeout)
+    _ = waitForSectionIfNeeded(timeout: adaptiveShortTimeout)
 
     if let container = swipeActionsSheetListContainer() {
       reportAvailableSwipeIdentifiers(context: "assertActionList (container snapshot)", within: container)

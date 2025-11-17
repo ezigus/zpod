@@ -25,13 +25,13 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
     // Add leading actions up to the limit
     XCTAssertTrue(addAction("Play", edgeIdentifier: "Leading"))
     XCTAssertTrue(addAction("Add to Playlist", edgeIdentifier: "Leading"))
-    XCTAssertTrue(
-      waitForDebugSummary(
+    guard
+      expectDebugState(
         leading: ["markPlayed", "play", "addToPlaylist"],
         trailing: ["delete", "archive"],
         unsaved: true
-      )
-    )
+      ) != nil
+    else { return }
     XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
 
     // Verify add button disappears when cap reached and trailing add remains visible
@@ -44,50 +44,50 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
 
     // Remove leading action and verify state updates
     XCTAssertTrue(removeAction("Mark Played", edgeIdentifier: "Leading"))
-    XCTAssertTrue(
-      waitForDebugSummary(
+    guard
+      expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive"],
         unsaved: true
-      )
-    )
+      ) != nil
+    else { return }
     assertTrailingAddVisible()
 
     // Add trailing action and verify save enabled
     XCTAssertTrue(addAction("Download", edgeIdentifier: "Trailing"))
-    XCTAssertTrue(
-      waitForDebugSummary(
+    guard
+      expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive", "download"],
         unsaved: true
-      )
-    )
+      ) != nil
+    else { return }
     XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
   }
 
-  // MARK: - Persistence Tests
+  // MARK: - Persistence + Execution
 
   @MainActor
-  func testSeededConfigurationPersistsAcrossControls() throws {
-    launchAppWithSeed(
+  func testSeededConfigurationPersistsAndExecutes() throws {
+    seedSwipeConfiguration(
       leading: ["play", "addToPlaylist"],
-      trailing: ["delete", "archive"],
+      trailing: ["delete", "favorite"],
       allowFullSwipeLeading: false,
       allowFullSwipeTrailing: true,
       hapticsEnabled: true,
-      hapticStyle: "soft"
+      hapticStyle: "rigid"
     )
 
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
     try openConfigurationSheetFromEpisodeList()
 
-    XCTAssertTrue(
-      waitForDebugSummary(
+    guard
+      expectDebugState(
         leading: ["play", "addToPlaylist"],
-        trailing: ["delete", "archive"],
+        trailing: ["delete", "favorite"],
         unsaved: false
-      ),
-      "Seeded configuration should match debug summary"
-    )
+      ) != nil
+    else { return }
 
     assertActionList(
       leadingIdentifiers: [
@@ -96,36 +96,12 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
       ],
       trailingIdentifiers: [
         "SwipeActions.Trailing.Delete",
-        "SwipeActions.Trailing.Archive",
+        "SwipeActions.Trailing.Favorite",
       ]
     )
 
-    assertHapticsEnabled(true, styleLabel: "Soft")
+    assertHapticsEnabled(true, styleLabel: "Rigid")
     assertFullSwipeState(leading: false, trailing: true)
-  }
-
-  // MARK: - Execution Tests
-
-  @MainActor
-  func testLeadingAndTrailingSwipesExecute() throws {
-    seedSwipeConfiguration(
-      leading: ["play", "addToPlaylist"],
-      trailing: ["download", "favorite"],
-      hapticsEnabled: true,
-      hapticStyle: "rigid"
-    )
-
-    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    try openConfigurationSheetFromEpisodeList()
-
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["play", "addToPlaylist"],
-        trailing: ["download", "favorite"],
-        unsaved: false
-      )
-    )
-
     dismissConfigurationSheetIfNeeded()
     waitForEpisodeListReady()
 
@@ -139,21 +115,20 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
     )
 
     exerciseLeadingSwipe(on: episode)
-    exerciseTrailingSwipe(on: episode)
+    exerciseTrailingSwipe(on: episode, expectedIdentifier: "favorite")
     episode.tap()
   }
 
   // MARK: - Private Helpers
 
   private func assertDefaultConfiguration() {
-    XCTAssertTrue(
-      waitForDebugSummary(
+    guard
+      expectDebugState(
         leading: ["markPlayed"],
         trailing: ["delete", "archive"],
         unsaved: false
-      ),
-      "Should start with default configuration"
-    )
+      ) != nil
+    else { return }
   }
 
   private func assertTrailingAddVisible() {
@@ -200,15 +175,18 @@ final class SwipeComplexIntegrationTests: SwipeConfigurationTestCase {
     }
   }
 
-  private func exerciseTrailingSwipe(on episode: XCUIElement) {
+  private func exerciseTrailingSwipe(on episode: XCUIElement, expectedIdentifier: String) {
     episode.swipeLeft()
-    let favoriteButton = element(withIdentifier: "SwipeAction.favorite")
+    let actionButton = element(withIdentifier: "SwipeAction.\(expectedIdentifier)")
     XCTAssertTrue(
       waitForElement(
-        favoriteButton, timeout: adaptiveShortTimeout, description: "favorite swipe action")
+        actionButton,
+        timeout: adaptiveShortTimeout,
+        description: "\(expectedIdentifier) swipe action"
+      )
     )
-    tapElement(favoriteButton, description: "favorite swipe action")
-    if let record = waitForSwipeExecution(action: "favorite", timeout: adaptiveShortTimeout) {
+    tapElement(actionButton, description: "\(expectedIdentifier) swipe action")
+    if let record = waitForSwipeExecution(action: expectedIdentifier, timeout: adaptiveShortTimeout) {
       XCTAssertEqual(record.episodeID, episodeIdentifier(from: episode))
     }
   }

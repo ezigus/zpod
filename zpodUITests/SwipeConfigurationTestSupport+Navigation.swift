@@ -202,7 +202,7 @@ extension SwipeConfigurationTestCase {
       "Swipe configuration baseline should load after opening sheet"
     )
     XCTAssertTrue(
-      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
       "Swipe configuration sections should materialize immediately after sheet opens"
     )
     logDebugState("baseline after open")
