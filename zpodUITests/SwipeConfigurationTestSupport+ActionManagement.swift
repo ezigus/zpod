@@ -132,6 +132,9 @@ extension SwipeConfigurationTestCase {
       return
     }
 
+    _ = waitForSectionIfNeeded(timeout: adaptiveTimeout, failOnTimeout: false)
+    cachedSwipeContainer = nil  // Re-discover the sheet container with materialized sections
+
     guard let container = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
       return

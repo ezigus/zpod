@@ -54,7 +54,10 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   @discardableResult
-  func waitForSectionMaterialization(timeout: TimeInterval = 1.0) -> Bool {
+  func waitForSectionMaterialization(
+    timeout: TimeInterval = 1.0,
+    failOnTimeout: Bool = true
+  ) -> Bool {
     let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
       .firstMatch
     let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
@@ -87,7 +90,9 @@ extension SwipeConfigurationTestCase {
       attachment.name = "Materialization Scoped Tree"
       attachment.lifetime = .keepAlways
       add(attachment)
-      XCTFail("Swipe sections failed to materialize within \(timeout) seconds")
+      if failOnTimeout {
+        XCTFail("Swipe sections failed to materialize within \(timeout) seconds")
+      }
       return false
     }
     return true
@@ -95,7 +100,7 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   @discardableResult
-  func waitForSectionIfNeeded(timeout: TimeInterval? = nil) -> Bool {
+  func waitForSectionIfNeeded(timeout: TimeInterval? = nil, failOnTimeout: Bool = true) -> Bool {
     let effectiveTimeout = timeout ?? adaptiveShortTimeout
     let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
     if hapticsToggle.exists {
@@ -110,7 +115,7 @@ extension SwipeConfigurationTestCase {
     {
       return true
     }
-    return waitForSectionMaterialization(timeout: effectiveTimeout)
+    return waitForSectionMaterialization(timeout: effectiveTimeout, failOnTimeout: failOnTimeout)
   }
 
   @MainActor
