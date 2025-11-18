@@ -188,7 +188,8 @@ extension SwipeConfigurationTestCase {
     do {
       return try JSONDecoder().decode(PersistedSwipeSettings.self, from: data)
     } catch {
-      logger.error("Failed to decode persisted UI settings: \(error.localizedDescription, privacy: .public)")
+      logger.error(
+        "Failed to decode persisted UI settings: \(error.localizedDescription, privacy: .public)")
       return nil
     }
   }
@@ -208,7 +209,9 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    let expectedTrailing = trailingDisplayNames.compactMap { Self.rawActionIdentifier(forDisplayName: $0) }
+    let expectedTrailing = trailingDisplayNames.compactMap {
+      Self.rawActionIdentifier(forDisplayName: $0)
+    }
     if expectedTrailing.count != trailingDisplayNames.count {
       XCTFail("One or more trailing display names could not be mapped to swipe action types")
       return

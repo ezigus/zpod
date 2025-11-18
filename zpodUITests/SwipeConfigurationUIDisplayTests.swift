@@ -11,14 +11,14 @@ import XCTest
 
 /// Tests that verify the swipe configuration sheet opens and displays default UI elements
 final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
-  
+
   // Override to disable debug overlay for basic display tests
   override var baseLaunchEnvironment: [String: String] {
     var env = super.baseLaunchEnvironment
     env["UITEST_SWIPE_DEBUG"] = "0"  // Display tests don't need debug overlay
     return env
   }
-  
+
   @MainActor
   func testConfigurationSheetOpensFromEpisodeList() throws {
     _ = try openConfigurationSheet()
@@ -129,7 +129,8 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker")
       .firstMatch
     XCTAssertTrue(
-      waitForElement(stylePicker, timeout: adaptiveShortTimeout, description: "haptic style picker"),
+      waitForElement(
+        stylePicker, timeout: adaptiveShortTimeout, description: "haptic style picker"),
       "Haptic style picker should exist"
     )
   }

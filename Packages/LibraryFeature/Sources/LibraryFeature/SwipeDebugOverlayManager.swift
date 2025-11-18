@@ -22,12 +22,15 @@
     nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     private init() {
-      // If in debug mode, show overlay immediately when accessed
+      // If in debug mode, listen for app initialization notification
       if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
-        Task { @MainActor in
-          // Wait for scene to be ready
-          try? await Task.sleep(for: .milliseconds(1000))
-          self.showDefaultPresetsIfNeeded()
+        observer = NotificationCenter.default.addObserver(
+          forName: .appDidInitialize,
+          object: nil,
+          queue: .main
+        ) { [weak self] _ in
+          // Handler already runs on main queue, call directly
+          self?.showDefaultPresetsIfNeeded()
         }
       }
     }

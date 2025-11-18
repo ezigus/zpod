@@ -21,7 +21,8 @@ extension SwipeConfigurationTestCase {
     _ = waitForSectionIfNeeded(timeout: adaptiveShortTimeout)
 
     if let container = swipeActionsSheetListContainer() {
-      reportAvailableSwipeIdentifiers(context: "assertActionList (container snapshot)", within: container)
+      reportAvailableSwipeIdentifiers(
+        context: "assertActionList (container snapshot)", within: container)
       for identifier in leadingIdentifiers + trailingIdentifiers {
         _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 4)
       }
@@ -52,6 +53,8 @@ extension SwipeConfigurationTestCase {
       )
     }
     reportAvailableSwipeIdentifiers(context: "assertActionList (fallback identifiers)")
-    XCTFail("Swipe configuration sheet container never materialized; captured fallback identifiers for inspection.")
+    XCTFail(
+      "Swipe configuration sheet container never materialized; captured fallback identifiers for inspection."
+    )
   }
 }
