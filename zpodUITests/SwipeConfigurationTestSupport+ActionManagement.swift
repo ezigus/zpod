@@ -18,7 +18,8 @@ extension SwipeConfigurationTestCase {
     let rowIdentifier = "SwipeActions." + edgeIdentifier + "." + displayName
     _ = ensureVisibleInSheet(identifier: rowIdentifier, container: container)
     let scopedButton = container.buttons.matching(identifier: "Remove " + displayName).firstMatch
-    let removeButton = scopedButton.exists
+    let removeButton =
+      scopedButton.exists
       ? scopedButton
       : app.buttons.matching(identifier: "Remove " + displayName).firstMatch
     guard removeButton.waitForExistence(timeout: adaptiveShortTimeout) else {
@@ -252,7 +253,8 @@ extension SwipeConfigurationTestCase {
       if let found = searchContainer(in: app) { return found }
       if save.exists { return save }
       if cancel.exists { return cancel }
-      let hapticsToggle = app.switches.matching(identifier: "SwipeActions.Haptics.Toggle").firstMatch
+      let hapticsToggle = app.switches.matching(identifier: "SwipeActions.Haptics.Toggle")
+        .firstMatch
       if hapticsToggle.exists { return hapticsToggle }
       return nil
     }
@@ -400,11 +402,13 @@ extension SwipeConfigurationTestCase {
     tapElement(menuButton, description: "SwipeActions.Debug.Menu")
     guard let menuIdentifier = menuIdentifier(from: identifier) else { return false }
     let debugButton = app.buttons.matching(identifier: menuIdentifier).firstMatch
-    guard waitForElement(
-      debugButton,
-      timeout: adaptiveShortTimeout,
-      description: "debug preset \(debugIdentifier)"
-    ) else {
+    guard
+      waitForElement(
+        debugButton,
+        timeout: adaptiveShortTimeout,
+        description: "debug preset \(debugIdentifier)"
+      )
+    else {
       app.tap()  // dismiss menu to avoid blocking subsequent interactions
       return false
     }
@@ -427,7 +431,8 @@ extension SwipeConfigurationTestCase {
       .firstMatch
     let debugButton = scopedButton ?? app.buttons.matching(identifier: debugIdentifier).firstMatch
     guard debugButton.waitForExistence(timeout: adaptiveShortTimeout) else {
-      attachDebugDescription(for: debugButton, label: "Missing debug section button \(debugIdentifier)")
+      attachDebugDescription(
+        for: debugButton, label: "Missing debug section button \(debugIdentifier)")
       return false
     }
     tapElement(debugButton, description: debugIdentifier)
@@ -449,9 +454,7 @@ extension SwipeConfigurationTestCase {
   private func tapDebugOverlayButton(for identifier: String) -> Bool {
     guard let overlayIdentifier = overlayIdentifier(from: identifier) else { return false }
     let overlayButton = app.buttons.matching(identifier: overlayIdentifier).firstMatch
-    // Use longer timeout for overlay buttons since overlay window created after 500ms app init delay
-    let overlayTimeout = adaptiveShortTimeout + 1.0  // Add 1s buffer for overlay window creation
-    guard overlayButton.waitForExistence(timeout: overlayTimeout) else {
+    guard overlayButton.waitForExistence(timeout: adaptiveShortTimeout) else {
       return false
     }
     tapElement(overlayButton, description: overlayIdentifier)

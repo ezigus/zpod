@@ -19,28 +19,32 @@
     private var overlayWindow: UIWindow?
     private var currentEntries: [SwipeDebugPresetEntry] = []
     private var currentHandler: ((SwipeActionSettings) -> Void)?
-    nonisolated(unsafe) private var observer: NSObjectProtocol?
+    nonisolated(unsafe) private var appInitObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var sceneActivationObserver: NSObjectProtocol?
 
     private init() {
-      // If in debug mode, listen for app initialization notification
+      // If in debug mode, listen for window scene activation
       if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
-        observer = NotificationCenter.default.addObserver(
-          forName: .appDidInitialize,
+        // Listen for scene activation - this fires when window scene becomes active
+        sceneActivationObserver = NotificationCenter.default.addObserver(
+          forName: UIScene.didActivateNotification,
           object: nil,
           queue: .main
-        ) { [weak self] _ in
-          // Delay briefly to allow window scene to activate
-          // Use a single 500ms delay instead of polling to avoid crashes
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self?.showDefaultPresetsIfNeeded()
-          }
+        ) { [weak self] notification in
+          guard let scene = notification.object as? UIWindowScene,
+                scene.activationState == .foregroundActive else { return }
+          // Scene is active, show overlay immediately
+          self?.showDefaultPresetsIfNeeded()
         }
       }
     }
 
     deinit {
-      if let observer = observer {
-        NotificationCenter.default.removeObserver(observer)
+      if let appInitObserver {
+        NotificationCenter.default.removeObserver(appInitObserver)
+      }
+      if let sceneActivationObserver {
+        NotificationCenter.default.removeObserver(sceneActivationObserver)
       }
     }
 
