@@ -41,6 +41,15 @@ extension SwipeConfigurationTestCase {
     } else {
       relaunchApp(resetDefaults: false)
     }
+    
+    // Wait for debug overlay to materialize if in debug mode (500ms delay + buffer)
+    if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
+      let overlayButton = app.buttons.matching(identifier: "SwipeActions.Debug.ApplyPreset.Default.Overlay").firstMatch
+      // Give overlay up to 2 seconds to appear (500ms delay + window creation + margin)
+      _ = overlayButton.waitForExistence(timeout: 2.0)
+      // Don't fail if overlay doesn't appear - tests will fall back to other preset methods
+    }
+    
     try openConfigurationSheetFromEpisodeList()
   }
 
