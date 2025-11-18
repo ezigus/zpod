@@ -449,7 +449,9 @@ extension SwipeConfigurationTestCase {
   private func tapDebugOverlayButton(for identifier: String) -> Bool {
     guard let overlayIdentifier = overlayIdentifier(from: identifier) else { return false }
     let overlayButton = app.buttons.matching(identifier: overlayIdentifier).firstMatch
-    guard overlayButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    // Use longer timeout for overlay buttons since overlay window created after 500ms app init delay
+    let overlayTimeout = adaptiveShortTimeout + 1.0  // Add 1s buffer for overlay window creation
+    guard overlayButton.waitForExistence(timeout: overlayTimeout) else {
       return false
     }
     tapElement(overlayButton, description: overlayIdentifier)
