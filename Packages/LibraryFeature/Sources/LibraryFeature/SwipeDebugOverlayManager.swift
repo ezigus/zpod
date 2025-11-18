@@ -30,8 +30,8 @@
           queue: .main
         ) { [weak self] _ in
           // Delay briefly to allow window scene to activate
-          // Use a single 200ms delay instead of polling to avoid crashes
-          DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+          // Use a single 500ms delay instead of polling to avoid crashes
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self?.showDefaultPresetsIfNeeded()
           }
         }
