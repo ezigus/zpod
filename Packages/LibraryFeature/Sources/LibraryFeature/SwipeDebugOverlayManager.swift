@@ -20,6 +20,8 @@
     private var currentEntries: [SwipeDebugPresetEntry] = []
     private var currentHandler: ((SwipeActionSettings) -> Void)?
     nonisolated(unsafe) private var observer: NSObjectProtocol?
+    private var windowCheckRetries = 0
+    private static let maxWindowCheckRetries = 30  // 3 seconds max (30 * 0.1s)
 
     private init() {
       // If in debug mode, listen for app initialization notification
@@ -52,11 +54,19 @@
 
       // Check if window is available; if not, retry after short delay
       if !isWindowAvailable() {
+        windowCheckRetries += 1
+        guard windowCheckRetries < Self.maxWindowCheckRetries else {
+          print("[SwipeDebugOverlay] Window availability check exceeded max retries (\(Self.maxWindowCheckRetries))")
+          return
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
           self?.showDefaultPresetsIfNeeded()
         }
         return
       }
+
+      // Reset retry counter on success
+      windowCheckRetries = 0
 
       let presets: [SwipeDebugPresetEntry] = [
         .playback,
