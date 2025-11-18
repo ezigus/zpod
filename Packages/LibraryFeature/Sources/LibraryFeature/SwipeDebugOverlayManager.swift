@@ -29,8 +29,7 @@
           object: nil,
           queue: .main
         ) { [weak self] _ in
-          // Flush RunLoop to ensure SwiftUI hierarchy is stable before creating overlay
-          RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+          // Show overlay immediately after app initialization
           self?.showDefaultPresetsIfNeeded()
         }
       }
