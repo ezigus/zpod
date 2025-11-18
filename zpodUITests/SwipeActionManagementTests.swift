@@ -72,6 +72,10 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
   }
 
   private func assertTrailingAddVisible() {
+    // After adding leading actions, the Trailing section may be outside the SwiftUI materialization zone.
+    // Wait for section materialization before attempting to access trailing elements.
+    waitForSectionMaterialization(timeout: adaptiveShortTimeout)
+
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(
         identifier: "SwipeActions.Add.Trailing",
