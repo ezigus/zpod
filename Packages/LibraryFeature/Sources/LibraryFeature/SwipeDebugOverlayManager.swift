@@ -20,8 +20,6 @@
     private var currentEntries: [SwipeDebugPresetEntry] = []
     private var currentHandler: ((SwipeActionSettings) -> Void)?
     nonisolated(unsafe) private var observer: NSObjectProtocol?
-    private var windowCheckRetries = 0
-    private static let maxWindowCheckRetries = 30  // 3 seconds max (30 * 0.1s)
 
     private init() {
       // If in debug mode, listen for app initialization notification
@@ -31,9 +29,11 @@
           object: nil,
           queue: .main
         ) { [weak self] _ in
-          // Handler already runs on main queue, call directly
-          // showDefaultPresetsIfNeeded will poll for window availability
-          self?.showDefaultPresetsIfNeeded()
+          // Delay briefly to allow window scene to activate
+          // Use a single 200ms delay instead of polling to avoid crashes
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self?.showDefaultPresetsIfNeeded()
+          }
         }
       }
     }
@@ -52,22 +52,6 @@
         return
       }
 
-      // Check if window is available; if not, retry after short delay
-      if !isWindowAvailable() {
-        windowCheckRetries += 1
-        guard windowCheckRetries < Self.maxWindowCheckRetries else {
-          print("[SwipeDebugOverlay] Window availability check exceeded max retries (\(Self.maxWindowCheckRetries))")
-          return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-          self?.showDefaultPresetsIfNeeded()
-        }
-        return
-      }
-
-      // Reset retry counter on success
-      windowCheckRetries = 0
-
       let presets: [SwipeDebugPresetEntry] = [
         .playback,
         .organization,
@@ -77,14 +61,6 @@
       show(entries: presets) { _ in
         // Handler will be set up when configuration view appears
       }
-    }
-
-    private func isWindowAvailable() -> Bool {
-      return UIApplication.shared.connectedScenes
-        .compactMap({ $0 as? UIWindowScene })
-        .first(where: { $0.activationState == .foregroundActive })?
-        .windows
-        .first(where: { $0.isKeyWindow || !$0.isHidden }) != nil
     }
 
     /// Shows the debug overlay with the given preset entries and handler.
