@@ -30,6 +30,7 @@
           queue: .main
         ) { [weak self] _ in
           // Handler already runs on main queue, call directly
+          // showDefaultPresetsIfNeeded will poll for window availability
           self?.showDefaultPresetsIfNeeded()
         }
       }
@@ -49,6 +50,14 @@
         return
       }
 
+      // Check if window is available; if not, retry after short delay
+      if !isWindowAvailable() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+          self?.showDefaultPresetsIfNeeded()
+        }
+        return
+      }
+
       let presets: [SwipeDebugPresetEntry] = [
         .playback,
         .organization,
@@ -58,6 +67,14 @@
       show(entries: presets) { _ in
         // Handler will be set up when configuration view appears
       }
+    }
+
+    private func isWindowAvailable() -> Bool {
+      return UIApplication.shared.connectedScenes
+        .compactMap({ $0 as? UIWindowScene })
+        .first(where: { $0.activationState == .foregroundActive })?
+        .windows
+        .first(where: { $0.isKeyWindow || !$0.isHidden }) != nil
     }
 
     /// Shows the debug overlay with the given preset entries and handler.
