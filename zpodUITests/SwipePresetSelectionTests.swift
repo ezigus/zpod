@@ -17,7 +17,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testPlaybackPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
     // Apply Playback preset starting from a known clean state
     applyPreset(identifier: "SwipeActions.Preset.Playback")
 
@@ -36,7 +36,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testOrganizationPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
     // Apply Organization preset
     applyPreset(identifier: "SwipeActions.Preset.Organization")
 
@@ -55,7 +55,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testDownloadPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
     // Apply Download preset
     applyPreset(identifier: "SwipeActions.Preset.Download")
 

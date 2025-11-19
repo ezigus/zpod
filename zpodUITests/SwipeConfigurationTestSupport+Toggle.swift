@@ -85,10 +85,12 @@ extension SwipeConfigurationTestCase {
     assertToggleState(identifier: trailingToggle, expected: trailing)
 
     guard
-      waitForDebugState(
-        timeout: adaptiveShortTimeout,
-        validator: { $0.fullLeading == leading && $0.fullTrailing == trailing }
-      ) != nil
+      expectDebugState(
+        leading: [String](),  // ignore action lists here; only assert full swipe flags
+        trailing: [String](),
+        unsaved: nil,
+        timeout: adaptiveShortTimeout
+      )?.matchesFullSwipe(leading: leading, trailing: trailing) == true
     else {
       XCTFail("Full swipe debug state mismatch. Expected leading=\(leading) trailing=\(trailing)")
       return

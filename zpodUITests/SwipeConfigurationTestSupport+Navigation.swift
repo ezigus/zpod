@@ -41,17 +41,41 @@ extension SwipeConfigurationTestCase {
     } else {
       relaunchApp(resetDefaults: false)
     }
-    
+
     // In interactive mode, wait for debug overlay to materialize before opening sheet
     if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
-      // Overlay buttons appear shortly after app initialization
-      let overlayButton = app.buttons.matching(
-        identifier: "SwipeActions.Debug.ApplyPreset.Default.Overlay"
-      ).firstMatch
+      let overlayButton = app.buttons
+        .matching(identifier: "SwipeActions.Debug.ApplyPreset.Default.Overlay")
+        .firstMatch
       _ = overlayButton.waitForExistence(timeout: adaptiveShortTimeout)
     }
-    
+
     try openConfigurationSheetFromEpisodeList()
+  }
+
+  /// Opens the configuration sheet, verifies baseline + section materialization once, and caches
+  /// the sheet container for this test instance. Use this to avoid repeated waits within a test.
+  @MainActor
+  @discardableResult
+  func openConfigurationSheetReady(resetDefaults: Bool = true) throws -> XCUIElement? {
+    try beginWithFreshConfigurationSheet(resetDefaults: resetDefaults)
+
+    // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
+    if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
+      XCTAssertTrue(
+        waitForBaselineLoaded(),
+        "Swipe configuration baseline should load after opening sheet"
+      )
+    }
+    XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize within timeout"
+    )
+
+    // Cache the container for the remainder of the test
+    cachedSwipeContainer = swipeActionsSheetListContainer()
+    XCTAssertNotNil(cachedSwipeContainer, "Swipe configuration sheet container should be discoverable")
+    return cachedSwipeContainer
   }
 
   @MainActor
@@ -147,14 +171,14 @@ extension SwipeConfigurationTestCase {
     ) {
       let configureButton = app.buttons["ConfigureSwipeActions"]
       guard
-        waitForElement(
-          configureButton,
-          timeout: adaptiveTimeout,
-          description: "configure swipe actions button"
-        )
-      else {
-        throw XCTSkip("Episode list did not load")
-      }
+      waitForElement(
+        configureButton,
+        timeout: adaptiveShortTimeout,
+        description: "configure swipe actions button"
+      )
+    else {
+      throw XCTSkip("Episode list did not load")
+    }
     }
   }
 
@@ -177,7 +201,7 @@ extension SwipeConfigurationTestCase {
     guard
       waitForElement(
         configureButton,
-        timeout: adaptiveTimeout,
+        timeout: adaptiveShortTimeout,
         description: "configure swipe actions button"
       )
     else {

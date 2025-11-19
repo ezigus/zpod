@@ -21,12 +21,12 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testConfigurationSheetOpensFromEpisodeList() throws {
-    _ = try openConfigurationSheet()
+    _ = try openConfigurationSheetReady()
   }
 
   @MainActor
   func testAllSectionsAppearInSheet() throws {
-    guard let container = try openConfigurationSheet() else {
+    guard let container = try openConfigurationSheetReady() else {
       XCTFail("Swipe configuration sheet container should be discoverable")
       return
     }
@@ -57,7 +57,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testDefaultActionsDisplayCorrectly() throws {
-    guard let container = try openConfigurationSheet() else {
+    guard let container = try openConfigurationSheetReady() else {
       XCTFail("Swipe configuration sheet container should be discoverable")
       return
     }
@@ -74,36 +74,6 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
   }
 
   // MARK: - Private Helpers
-
-  @MainActor
-  private func openConfigurationSheet() throws -> XCUIElement? {
-    try beginWithFreshConfigurationSheet()
-
-    let sheetIndicators: [XCUIElement] = [
-      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
-      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
-    ]
-
-    let openedSheet = waitForAnyElement(
-      sheetIndicators,
-      timeout: adaptiveTimeout,
-      description: "Swipe Actions configuration sheet"
-    )
-
-    XCTAssertNotNil(
-      openedSheet,
-      "Configuration sheet should open with navigation bar or action buttons visible"
-    )
-
-    // Display tests don't use debug overlay, so just verify sheet container is present
-    XCTAssertNotNil(
-      swipeActionsSheetListContainer(),
-      "Configuration sheet container should be present"
-    )
-
-    return swipeActionsSheetListContainer()
-  }
 
   @MainActor
   private func verifyHapticControlsVisible(container: XCUIElement) {

@@ -133,48 +133,23 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    _ = waitForSectionIfNeeded(timeout: adaptiveTimeout, failOnTimeout: false)
-    cachedSwipeContainer = nil  // Re-discover the sheet container with materialized sections
-
     guard let container = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
       return
     }
 
     _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 6)
-    var presetButton = app.buttons.matching(identifier: identifier).firstMatch
-    if !presetButton.exists {
-      presetButton = element(withIdentifier: identifier, within: container)
-    }
-    var scrollAttempts = 0
-    while !presetButton.exists && scrollAttempts < 6 {
-      if container.isHittable {
-        container.swipeUp()
-      } else {
-        app.swipeUp()
-      }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-      scrollAttempts += 1
-      var refreshed = app.buttons.matching(identifier: identifier).firstMatch
-      if !refreshed.exists {
-        refreshed = element(withIdentifier: identifier, within: container)
-      }
-      presetButton = refreshed
-    }
+    let presetButton = element(withIdentifier: identifier, within: container)
 
     XCTAssertTrue(
       waitForElement(
         presetButton,
-        timeout: adaptiveTimeout,
+        timeout: adaptiveShortTimeout,
         description: "preset button \(identifier)"
       ),
       "Preset button \(identifier) should exist"
     )
-    logger.debug(
-      "[SwipeUITestDebug] preset button description: \(presetButton.debugDescription, privacy: .public)"
-    )
     tapElement(presetButton, description: identifier)
-    _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     logDebugState("after applyPreset \(identifier)")
   }
 
