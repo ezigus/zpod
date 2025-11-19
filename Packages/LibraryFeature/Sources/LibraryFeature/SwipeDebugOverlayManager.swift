@@ -29,8 +29,10 @@
           object: nil,
           queue: .main
         ) { [weak self] _ in
-          // Show overlay immediately after app initialization
-          self?.showDefaultPresetsIfNeeded()
+          // Show overlay immediately after app initialization on the main actor
+          Task { @MainActor in
+            self?.showDefaultPresetsIfNeeded()
+          }
         }
       }
     }
