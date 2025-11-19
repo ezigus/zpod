@@ -227,7 +227,7 @@ extension SwipeConfigurationTestCase {
 
     _ = waitForAnyElement(
       refreshedIndicators,
-      timeout: adaptiveTimeout,
+      timeout: adaptiveShortTimeout,
       description: "Swipe Actions configuration sheet"
     )
 
@@ -243,26 +243,6 @@ extension SwipeConfigurationTestCase {
       "Swipe configuration sections should materialize within timeout"
     )
     logDebugState("baseline after open")
-    reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)", scoped: true)
-    guard let app = app else {
-      XCTFail("XCUIApplication should be initialized before logging sheet state")
-      return
-    }
-    let scopedRoot = swipeActionsSheetListContainer() ?? app
-    print("[SwipeUITestDebug] Scoped tree (initial):\n\(scopedRoot.debugDescription)")
-    let scopedAttachment = XCTAttachment(string: scopedRoot.debugDescription)
-    scopedAttachment.name = "Scoped Debug Tree (initial)"
-    scopedAttachment.lifetime = .keepAlways
-    add(scopedAttachment)
-    if let toggle = scopedRoot.switches.matching(identifier: "SwipeActions.Haptics.Toggle")
-      .firstMatch as XCUIElement?
-    {
-      print(
-        "[SwipeUITestDebug] Haptics switch exists=\(toggle.exists) hittable=\(toggle.isHittable) value=\(String(describing: toggle.value))"
-      )
-    } else {
-      print("[SwipeUITestDebug] Haptics switch not found in scoped root")
-    }
     completeSeedIfNeeded()
   }
 
