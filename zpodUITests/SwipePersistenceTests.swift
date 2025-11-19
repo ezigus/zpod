@@ -22,8 +22,8 @@ final class SwipePersistenceTests: SwipeConfigurationTestCase {
       hapticStyle: "rigid"
     )
 
-    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: false))
-    try openConfigurationSheetFromEpisodeList()
+    launchSeededApp(resetDefaults: false)
+    try reuseOrOpenConfigurationSheet(resetDefaults: false)
 
     guard
       expectDebugState(

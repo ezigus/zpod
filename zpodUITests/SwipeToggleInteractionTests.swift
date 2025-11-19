@@ -17,7 +17,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testHapticToggleEnablesDisables() throws {
-    try openConfigurationSheetReady()
+    try reuseOrOpenConfigurationSheet()
 
     guard let toggle = requireToggleSwitch(
       identifier: "SwipeActions.Haptics.Toggle",
@@ -57,7 +57,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testHapticStylePickerChangesValue() throws {
-    try openConfigurationSheetReady()
+    try reuseOrOpenConfigurationSheet()
 
     _ = requireToggleSwitch(
       identifier: "SwipeActions.Haptics.Toggle",
@@ -113,7 +113,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testFullSwipeToggleLeadingTrailing() throws {
-    try openConfigurationSheetReady()
+    try reuseOrOpenConfigurationSheet()
     
     // Verify default full swipe state
     assertFullSwipeState(leading: true, trailing: false)

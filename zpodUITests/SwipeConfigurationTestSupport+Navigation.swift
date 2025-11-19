@@ -78,6 +78,16 @@ extension SwipeConfigurationTestCase {
     return cachedSwipeContainer
   }
 
+  /// Returns the cached sheet container if available; otherwise opens it.
+  @MainActor
+  @discardableResult
+  func reuseOrOpenConfigurationSheet(resetDefaults: Bool = false) throws -> XCUIElement? {
+    if let cached = cachedSwipeContainer, cached.exists {
+      return cached
+    }
+    return try openConfigurationSheetReady(resetDefaults: resetDefaults)
+  }
+
   @MainActor
   func openConfigurationSheetFromEpisodeList() throws {
     try navigateToEpisodeList()

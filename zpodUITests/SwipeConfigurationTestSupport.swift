@@ -23,6 +23,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   nonisolated(unsafe) internal var lastSwipeExecutionTimestamp: TimeInterval = 0
   nonisolated(unsafe) internal var cachedSwipeContainer: XCUIElement?
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
+  nonisolated(unsafe) private var hasLaunchedForCurrentSeed = false
 
   // MARK: - Environment Configuration
 
@@ -54,6 +55,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     disableWaitingForIdleIfNeeded()
     lastSwipeExecutionTimestamp = 0
     testStartTime = CFAbsoluteTimeGetCurrent()
+    hasLaunchedForCurrentSeed = false
   }
 
   override func tearDownWithError() throws {
@@ -242,5 +244,16 @@ extension SwipeConfigurationTestCase {
     case "Share": return "share"
     default: return nil
     }
+  }
+
+  @MainActor
+  func launchSeededApp(resetDefaults: Bool) {
+    if seededConfigurationPayload != nil {
+      if hasLaunchedForCurrentSeed {
+        XCTFail("App relaunched with the same seeded configuration; reset or change seed first")
+      }
+      hasLaunchedForCurrentSeed = true
+    }
+    app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
   }
 }

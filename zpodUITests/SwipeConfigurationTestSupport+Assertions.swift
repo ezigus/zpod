@@ -21,8 +21,6 @@ extension SwipeConfigurationTestCase {
     _ = waitForSectionIfNeeded(timeout: adaptiveShortTimeout)
 
     if let container = swipeActionsSheetListContainer() {
-      reportAvailableSwipeIdentifiers(
-        context: "assertActionList (container snapshot)", within: container)
       for identifier in leadingIdentifiers + trailingIdentifiers {
         _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 4)
       }
