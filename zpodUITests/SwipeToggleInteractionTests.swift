@@ -17,7 +17,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testHapticToggleEnablesDisables() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
 
     guard let toggle = requireToggleSwitch(
       identifier: "SwipeActions.Haptics.Toggle",
@@ -57,7 +57,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testHapticStylePickerChangesValue() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
 
     _ = requireToggleSwitch(
       identifier: "SwipeActions.Haptics.Toggle",
@@ -83,7 +83,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.StylePicker", container: container)
     }
-    
+
     XCTAssertTrue(
       waitForElement(
         stylePicker,
@@ -97,9 +97,6 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     let rigidButton = stylePicker.buttons.matching(identifier: "Rigid").firstMatch
     if rigidButton.exists {
       rigidButton.tap()
-      
-      // Wait a moment for the change to register
-      _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     }
     
     // Verify we can change to Medium style
@@ -111,9 +108,6 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     
     if mediumButton.exists {
       mediumButton.tap()
-      
-      // Wait for change to register
-      _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     }
   }
   
