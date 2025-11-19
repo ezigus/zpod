@@ -398,3 +398,9 @@ extension SwipeConfigurationTestCase {
     add(attachment)
   }
 }
+
+extension SwipeDebugState {
+  func matchesFullSwipe(leading: Bool, trailing: Bool) -> Bool {
+    return fullLeading == leading && fullTrailing == trailing
+  }
+}
