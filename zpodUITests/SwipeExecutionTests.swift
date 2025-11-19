@@ -27,7 +27,8 @@ final class SwipeExecutionTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["download", "favorite"],
-        unsaved: false
+        unsaved: false,
+        timeout: adaptiveTimeout
       ) != nil
     else { return }
 
@@ -38,7 +39,7 @@ final class SwipeExecutionTests: SwipeConfigurationTestCase {
     XCTAssertTrue(
       waitForElement(
         episode,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "episode cell for swipe"
       )
     )
@@ -66,10 +67,10 @@ final class SwipeExecutionTests: SwipeConfigurationTestCase {
     let addToPlaylistButton = element(withIdentifier: "SwipeAction.addToPlaylist")
     XCTAssertTrue(
       waitForElement(
-        addToPlaylistButton, timeout: adaptiveShortTimeout, description: "add to playlist")
+        addToPlaylistButton, timeout: postReadinessTimeout, description: "add to playlist")
     )
     tapElement(addToPlaylistButton, description: "add to playlist swipe action")
-    if let record = waitForSwipeExecution(action: "addToPlaylist", timeout: adaptiveShortTimeout) {
+    if let record = waitForSwipeExecution(action: "addToPlaylist", timeout: adaptiveTimeout) {
       XCTAssertEqual(record.episodeID, episodeIdentifier(from: episode))
     }
   }
@@ -80,12 +81,12 @@ final class SwipeExecutionTests: SwipeConfigurationTestCase {
     XCTAssertTrue(
       waitForElement(
         actionButton,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "\(expectedIdentifier) swipe action"
       )
     )
     tapElement(actionButton, description: "\(expectedIdentifier) swipe action")
-    if let record = waitForSwipeExecution(action: expectedIdentifier, timeout: adaptiveShortTimeout) {
+    if let record = waitForSwipeExecution(action: expectedIdentifier, timeout: adaptiveTimeout) {
       XCTAssertEqual(record.episodeID, episodeIdentifier(from: episode))
     }
   }

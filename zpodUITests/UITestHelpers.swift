@@ -67,6 +67,7 @@ extension XCUIElementQuery {
 protocol UITestFoundation {
   var adaptiveTimeout: TimeInterval { get }
   var adaptiveShortTimeout: TimeInterval { get }
+  var postReadinessTimeout: TimeInterval { get }
 }
 
 /// Protocol for element waiting capabilities using XCTestExpectation patterns
@@ -110,6 +111,11 @@ extension UITestFoundation {
 
   var adaptiveShortTimeout: TimeInterval {
     let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 6.0 : 4.0
+    return baseTimeout * timeoutScale
+  }
+
+  var postReadinessTimeout: TimeInterval {
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
     return baseTimeout * timeoutScale
   }
 }

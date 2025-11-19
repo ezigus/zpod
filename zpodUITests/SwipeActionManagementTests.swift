@@ -23,15 +23,16 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["markPlayed", "play", "addToPlaylist"],
         trailing: ["delete", "archive"],
-        unsaved: true
+        unsaved: true,
+        timeout: postReadinessTimeout
       ) != nil
     else { return }
-    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: postReadinessTimeout))
 
     // Verify add button disappears when cap reached and trailing add remains visible
     let leadingAdd = element(withIdentifier: "SwipeActions.Add.Leading")
     XCTAssertTrue(
-      waitForElementToDisappear(leadingAdd, timeout: adaptiveShortTimeout),
+      waitForElementToDisappear(leadingAdd, timeout: postReadinessTimeout),
       "Leading add button should disappear at cap"
     )
     assertTrailingAddVisible()
@@ -42,7 +43,8 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive"],
-        unsaved: true
+        unsaved: true,
+        timeout: postReadinessTimeout
       ) != nil
     else { return }
     assertTrailingAddVisible()
@@ -53,10 +55,11 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive", "download"],
-        unsaved: true
+        unsaved: true,
+        timeout: postReadinessTimeout
       ) != nil
     else { return }
-    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout))
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: postReadinessTimeout))
   }
 
   // MARK: - Private Helpers
@@ -66,7 +69,8 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["markPlayed"],
         trailing: ["delete", "archive"],
-        unsaved: false
+        unsaved: false,
+        timeout: postReadinessTimeout
       ) != nil
     else { return }
   }
@@ -74,7 +78,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
   private func assertTrailingAddVisible() {
     // After adding leading actions, the Trailing section may be outside the SwiftUI materialization zone.
     // Wait for section materialization before attempting to access trailing elements.
-    waitForSectionMaterialization(timeout: adaptiveShortTimeout)
+    waitForSectionMaterialization(timeout: postReadinessTimeout)
 
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(
@@ -87,7 +91,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
     XCTAssertTrue(
       waitForElement(
         trailingAddButton,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "Trailing add action button"
       ),
       "Trailing add action button should remain visible when under the limit"

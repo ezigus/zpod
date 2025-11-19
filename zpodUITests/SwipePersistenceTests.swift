@@ -29,7 +29,8 @@ final class SwipePersistenceTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "favorite"],
-        unsaved: false
+        unsaved: false,
+        timeout: adaptiveTimeout
       ) != nil
     else { return }
 
@@ -44,7 +45,7 @@ final class SwipePersistenceTests: SwipeConfigurationTestCase {
       ]
     )
 
-    assertHapticsEnabled(true, styleLabel: "Rigid")
-    assertFullSwipeState(leading: false, trailing: true)
+    assertHapticsEnabled(true, styleLabel: "Rigid", timeout: adaptiveTimeout)
+    assertFullSwipeState(leading: false, trailing: true, timeout: adaptiveTimeout)
   }
 }

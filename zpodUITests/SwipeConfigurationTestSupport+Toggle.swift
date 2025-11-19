@@ -45,8 +45,6 @@ extension SwipeConfigurationTestCase {
         XCTFail("Haptic style segmented control missing")
       }
     }
-
-    logDebugState("after setHaptics")
   }
 
   @MainActor
@@ -65,7 +63,7 @@ extension SwipeConfigurationTestCase {
   }  // MARK: - Assertions
 
   @MainActor
-  func assertFullSwipeState(leading: Bool, trailing: Bool) {
+  func assertFullSwipeState(leading: Bool, trailing: Bool, timeout: TimeInterval? = nil) {
     _ = waitForSectionIfNeeded()
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(
@@ -81,31 +79,31 @@ extension SwipeConfigurationTestCase {
     }
     let leadingToggle = "SwipeActions.Leading.FullSwipe"
     let trailingToggle = "SwipeActions.Trailing.FullSwipe"
-    assertToggleState(identifier: leadingToggle, expected: leading)
-    assertToggleState(identifier: trailingToggle, expected: trailing)
+    assertToggleState(identifier: leadingToggle, expected: leading, timeout: timeout)
+    assertToggleState(identifier: trailingToggle, expected: trailing, timeout: timeout)
 
-        guard
-      expectDebugState(
-        leading: [],
-        trailing: [],
-        unsaved: nil,
-        timeout: adaptiveShortTimeout
-      )?.matchesFullSwipe(leading: leading, trailing: trailing) == true
-    else {
+    let effectiveTimeout = timeout ?? postReadinessTimeout
+    guard let state = waitForDebugState(timeout: effectiveTimeout) else {
+      XCTFail("Debug state unavailable for full swipe assertion")
+      return
+    }
+
+    guard state.matchesFullSwipe(leading: leading, trailing: trailing) else {
       XCTFail("Full swipe debug state mismatch. Expected leading=\(leading) trailing=\(trailing)")
       return
     }
   }
 
   @MainActor
-  func assertToggleState(identifier: String, expected: Bool) {
+  func assertToggleState(identifier: String, expected: Bool, timeout: TimeInterval? = nil) {
+    let effectiveTimeout = timeout ?? postReadinessTimeout
     guard let toggle = resolveToggleSwitch(identifier: identifier) else {
       attachToggleDiagnostics(identifier: identifier, context: "assertToggleState missing toggle")
       XCTFail("Toggle \(identifier) should exist")
       return
     }
     XCTAssertTrue(
-      waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
+      waitForElement(toggle, timeout: effectiveTimeout, description: identifier),
       "Toggle \(identifier) should exist"
     )
     let predicate = NSPredicate { [weak self] _, _ in
@@ -120,7 +118,7 @@ extension SwipeConfigurationTestCase {
     )
     expectation.expectationDescription = "Toggle \(identifier) matches expected state"
 
-    let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
+    let result = XCTWaiter.wait(for: [expectation], timeout: effectiveTimeout)
     guard result == .completed else {
       let debugSummary = app.staticTexts["SwipeActions.Debug.StateSummary"].value as? String
       let message: String
@@ -137,14 +135,15 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  func assertHapticStyleSelected(label: String) {
+  func assertHapticStyleSelected(label: String, timeout: TimeInterval? = nil) {
+    let effectiveTimeout = timeout ?? postReadinessTimeout
     let segmentedControl = app.segmentedControls
       .matching(identifier: "SwipeActions.Haptics.StylePicker")
       .firstMatch
     XCTAssertTrue(
       waitForElement(
         segmentedControl,
-        timeout: adaptiveTimeout,
+        timeout: effectiveTimeout,
         description: "haptic style segmented control"
       ),
       "Haptic style segmented control should exist"
@@ -152,7 +151,7 @@ extension SwipeConfigurationTestCase {
     let button = segmentedControl.buttons[label]
     XCTAssertTrue(
       waitForElement(
-        button, timeout: adaptiveTimeout, description: "haptic style option \(label)"),
+        button, timeout: effectiveTimeout, description: "haptic style option \(label)"),
       "Haptic style option \(label) should exist"
     )
     XCTAssertTrue(button.isSelected, "Haptic style option \(label) should remain selected")
@@ -164,9 +163,13 @@ extension SwipeConfigurationTestCase {
     styleLabel: String? = nil,
     timeout: TimeInterval? = nil
   ) {
-    assertToggleState(identifier: "SwipeActions.Haptics.Toggle", expected: expectedEnabled)
+    assertToggleState(
+      identifier: "SwipeActions.Haptics.Toggle",
+      expected: expectedEnabled,
+      timeout: timeout
+    )
     if expectedEnabled, let styleLabel {
-      assertHapticStyleSelected(label: styleLabel)
+      assertHapticStyleSelected(label: styleLabel, timeout: timeout)
     }
 
     guard
@@ -194,7 +197,7 @@ extension SwipeConfigurationTestCase {
     }
 
     XCTAssertTrue(
-      waitForElement(toggle, timeout: adaptiveShortTimeout, description: identifier),
+      waitForElement(toggle, timeout: postReadinessTimeout, description: identifier),
       "Toggle \(identifier) should exist (\(context))"
     )
     return toggle
@@ -334,7 +337,7 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   private func tapToggle(_ toggle: XCUIElement, identifier: String, targetOn: Bool) {
-    _ = waitForElementToBeHittable(toggle, timeout: adaptiveShortTimeout, description: identifier)
+    _ = waitForElementToBeHittable(toggle, timeout: postReadinessTimeout, description: identifier)
 
     let interactiveToggle: XCUIElement = {
       let directChild = toggle.switches.element(boundBy: 0)

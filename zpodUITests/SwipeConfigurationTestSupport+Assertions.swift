@@ -13,12 +13,12 @@ extension SwipeConfigurationTestCase {
   func assertActionList(leadingIdentifiers: [String], trailingIdentifiers: [String]) {
     // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
     if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
-      guard waitForBaselineLoaded(timeout: adaptiveTimeout) else {
+      guard waitForBaselineLoaded(timeout: adaptiveShortTimeout) else {
         XCTFail("Swipe configuration baseline never loaded; cannot assert action list.")
         return
       }
     }
-    _ = waitForSectionIfNeeded(timeout: adaptiveShortTimeout)
+    _ = waitForSectionIfNeeded(timeout: postReadinessTimeout)
 
     if let container = swipeActionsSheetListContainer() {
       for identifier in leadingIdentifiers + trailingIdentifiers {
@@ -30,7 +30,7 @@ extension SwipeConfigurationTestCase {
         XCTAssertTrue(
           waitForElement(
             element,
-            timeout: adaptiveShortTimeout,
+            timeout: postReadinessTimeout,
             description: "Swipe action row \(element.identifier)"
           ),
           "Expected \(element.identifier) to be visible in configuration sheet"
@@ -46,7 +46,7 @@ extension SwipeConfigurationTestCase {
       app.swipeUp()
       let fallbackElement = element(withIdentifier: identifier)
       XCTAssertTrue(
-        fallbackElement.waitForExistence(timeout: adaptiveShortTimeout),
+        fallbackElement.waitForExistence(timeout: postReadinessTimeout),
         "Expected \(identifier) to exist in configuration sheet"
       )
     }

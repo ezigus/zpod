@@ -124,7 +124,7 @@ extension SwipeConfigurationTestCase {
     timeout: TimeInterval? = nil,
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
-    let effectiveTimeout = timeout ?? adaptiveShortTimeout
+    let effectiveTimeout = timeout ?? postReadinessTimeout
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     guard
       waitForElement(
@@ -209,8 +209,16 @@ extension SwipeConfigurationTestCase {
       XCTFail("Debug state unavailable after \(effectiveTimeout) seconds")
       return nil
     }
-    XCTAssertEqual(state.leading, expectedLeading, "Leading actions should match expected state")
-    XCTAssertEqual(state.trailing, expectedTrailing, "Trailing actions should match expected state")
+    if state.leading != expectedLeading {
+      XCTFail(
+        "Leading actions mismatch. Expected: \(expectedLeading) Actual: \(state.leading)"
+      )
+    }
+    if state.trailing != expectedTrailing {
+      XCTFail(
+        "Trailing actions mismatch. Expected: \(expectedTrailing) Actual: \(state.trailing)"
+      )
+    }
     if let expectedUnsaved {
       XCTAssertEqual(
         state.unsaved,

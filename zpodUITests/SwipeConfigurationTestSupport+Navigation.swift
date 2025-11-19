@@ -252,53 +252,7 @@ extension SwipeConfigurationTestCase {
       waitForSectionMaterialization(timeout: adaptiveShortTimeout),
       "Swipe configuration sections should materialize within timeout"
     )
-    logDebugState("baseline after open")
     completeSeedIfNeeded()
-  }
-
-  /// Waits for SwiftUI List sections to materialize in accessibility tree.
-  /// Uses .matching(identifier:).firstMatch pattern per ACCESSIBILITY_TESTING_BEST_PRACTICES.
-  /// Returns true if materialization completes, false on timeout.
-  @MainActor
-  @discardableResult
-  func waitForSectionMaterialization(timeout: TimeInterval = 2.0) -> Bool {
-    print("[SwipeUITestDebug] Waiting for section materialization (timeout: \(timeout)s)...")
-
-    // Primary indicator: Haptics toggle must exist (per Step 1 plan)
-    let hapticsToggle = app.switches
-      .matching(identifier: "SwipeActions.Haptics.Toggle")
-      .firstMatch
-
-    guard hapticsToggle.waitForExistence(timeout: timeout) else {
-      print(
-        "[SwipeUITestDebug] ❌ Section materialization failed: Haptics toggle not found within \(timeout)s"
-      )
-      print("[SwipeUITestDebug] Tree dump:\n\(app.debugDescription)")
-      return false
-    }
-
-    print("[SwipeUITestDebug] ✅ Haptics toggle found, checking materialization probe...")
-
-    // Optional: Check materialization probe if present (per Step 4 plan)
-    let probe = app.staticTexts
-      .matching(identifier: "SwipeActions.Debug.Materialized")
-      .firstMatch
-
-    if probe.exists, let value = probe.value as? String {
-      let materialized = value.contains("Materialized=1")
-      print(
-        "[SwipeUITestDebug] Materialization probe value: \(value) (materialized: \(materialized))")
-
-      if !materialized {
-        print("[SwipeUITestDebug] ⚠️ Probe exists but Materialized=0 (still completing)")
-      }
-
-      return materialized
-    }
-
-    // Toggle exists, probe either not present or no value - sufficient for materialization
-    print("[SwipeUITestDebug] ✅ Section materialization complete (toggle exists)")
-    return true
   }
 
   @MainActor
@@ -312,20 +266,18 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func saveAndDismissConfiguration() {
     let saveButton = element(withIdentifier: "SwipeActions.Save")
-    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button")
+    guard waitForElement(saveButton, timeout: postReadinessTimeout, description: "save button")
     else {
       return
     }
-    logDebugState("before save")
     _ = waitForSaveButton(enabled: true)
     saveButton.tap()
     waitForSheetDismissal()
-    logDebugState("after save (sheet dismissed)")
   }
 
   func dismissConfigurationSheetIfNeeded() {
     let cancelButton = app.buttons["SwipeActions.Cancel"]
-    guard cancelButton.waitForExistence(timeout: adaptiveShortTimeout) else { return }
+    guard cancelButton.exists else { return }
     tapElement(cancelButton, description: "SwipeActions.Cancel")
     _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
   }

@@ -23,7 +23,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
     // Verify save button enabled
     XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
+      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
       "Save button did not enable after applying Playback preset."
     )
 
@@ -42,7 +42,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
     // Verify save button enabled
     XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
+      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
       "Save button did not enable after applying Organization preset."
     )
 
@@ -61,7 +61,7 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
     // Verify save button enabled
     XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
+      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
       "Save button did not enable after applying Download preset."
     )
 

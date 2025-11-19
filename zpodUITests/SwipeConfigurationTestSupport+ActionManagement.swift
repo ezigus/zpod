@@ -22,7 +22,7 @@ extension SwipeConfigurationTestCase {
       scopedButton.exists
       ? scopedButton
       : app.buttons.matching(identifier: "Remove " + displayName).firstMatch
-    guard removeButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    guard removeButton.waitForExistence(timeout: postReadinessTimeout) else {
       return false
     }
     removeButton.tap()
@@ -73,7 +73,7 @@ extension SwipeConfigurationTestCase {
     if primaryOption.exists {
       tapElement(primaryOption, description: "Add action option \(displayName)")
       if pickerNavBar.exists {
-        _ = waitForElementToDisappear(pickerNavBar, timeout: adaptiveShortTimeout)
+        _ = waitForElementToDisappear(pickerNavBar, timeout: postReadinessTimeout)
       }
       return true
     }
@@ -81,7 +81,7 @@ extension SwipeConfigurationTestCase {
     if buttonOption.exists {
       tapElement(buttonOption, description: "Add action option \(displayName)")
       if pickerNavBar.exists {
-        _ = waitForElementToDisappear(pickerNavBar, timeout: adaptiveShortTimeout)
+        _ = waitForElementToDisappear(pickerNavBar, timeout: postReadinessTimeout)
       }
       return true
     }
@@ -89,12 +89,12 @@ extension SwipeConfigurationTestCase {
     app.swipeUp()
     let optionAfterScroll = element(withIdentifier: optionIdentifier, within: container)
     _ = waitForElement(
-      optionAfterScroll, timeout: adaptiveShortTimeout, description: "option after scroll")
+      optionAfterScroll, timeout: postReadinessTimeout, description: "option after scroll")
 
     if optionAfterScroll.exists {
       tapElement(optionAfterScroll, description: "Add action option \(displayName) after scroll")
       if pickerNavBar.exists {
-        _ = waitForElementToDisappear(pickerNavBar, timeout: adaptiveShortTimeout)
+        _ = waitForElementToDisappear(pickerNavBar, timeout: postReadinessTimeout)
       }
       return true
     }
@@ -103,7 +103,7 @@ extension SwipeConfigurationTestCase {
     if buttonAfterScroll.exists {
       tapElement(buttonAfterScroll, description: "Add action option \(displayName) after scroll")
       if pickerNavBar.exists {
-        _ = waitForElementToDisappear(pickerNavBar, timeout: adaptiveShortTimeout)
+        _ = waitForElementToDisappear(pickerNavBar, timeout: postReadinessTimeout)
       }
       return true
     }
@@ -113,25 +113,13 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String) {
-    if tapDebugOverlayButton(for: identifier) {
-      logDebugState("Applied \(identifier) via overlay buttons")
-      return
-    }
+    if tapDebugOverlayButton(for: identifier) { return }
 
-    if tapDebugToolbarButton(for: identifier) {
-      logDebugState("Applied \(identifier) via debug toolbar buttons")
-      return
-    }
+    if tapDebugToolbarButton(for: identifier) { return }
 
-    if tapDebugPresetSectionButton(for: identifier) {
-      logDebugState("Applied \(identifier) via debug section buttons")
-      return
-    }
+    if tapDebugPresetSectionButton(for: identifier) { return }
 
-    if tapDebugPresetFromMenu(for: identifier) {
-      logDebugState("Applied \(identifier) via debug menu")
-      return
-    }
+    if tapDebugPresetFromMenu(for: identifier) { return }
 
     guard let container = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
@@ -144,13 +132,12 @@ extension SwipeConfigurationTestCase {
     XCTAssertTrue(
       waitForElement(
         presetButton,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "preset button \(identifier)"
       ),
       "Preset button \(identifier) should exist"
     )
     tapElement(presetButton, description: identifier)
-    logDebugState("after applyPreset \(identifier)")
   }
 
   // MARK: - Sheet Utilities
@@ -286,11 +273,6 @@ extension SwipeConfigurationTestCase {
 
     guard container.exists else { return target.exists }
 
-    logger.debug(
-      "[SwipeUITestDebug] ensureVisibleInSheet container: \(container.debugDescription, privacy: .public)"
-    )
-    print("[SwipeUITestDebug] ensureVisibleInSheet container debug: \(container.debugDescription)")
-
     let attempts = max(scrollAttempts, 1)  // At least 1, but default is now 1
     func settle() {
       RunLoop.current.run(until: Date().addingTimeInterval(0.05))
@@ -373,14 +355,14 @@ extension SwipeConfigurationTestCase {
   private func tapDebugPresetFromMenu(for identifier: String) -> Bool {
     guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
     let menuButton = app.buttons.matching(identifier: "SwipeActions.Debug.Menu").firstMatch
-    guard menuButton.waitForExistence(timeout: adaptiveShortTimeout) else { return false }
+    guard menuButton.waitForExistence(timeout: postReadinessTimeout) else { return false }
     tapElement(menuButton, description: "SwipeActions.Debug.Menu")
     guard let menuIdentifier = menuIdentifier(from: identifier) else { return false }
     let debugButton = app.buttons.matching(identifier: menuIdentifier).firstMatch
     guard
       waitForElement(
         debugButton,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "debug preset \(debugIdentifier)"
       )
     else {
@@ -405,7 +387,7 @@ extension SwipeConfigurationTestCase {
       .matching(identifier: debugIdentifier)
       .firstMatch
     let debugButton = scopedButton ?? app.buttons.matching(identifier: debugIdentifier).firstMatch
-    guard debugButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    guard debugButton.waitForExistence(timeout: postReadinessTimeout) else {
       attachDebugDescription(
         for: debugButton, label: "Missing debug section button \(debugIdentifier)")
       return false
@@ -418,7 +400,7 @@ extension SwipeConfigurationTestCase {
   private func tapDebugToolbarButton(for identifier: String) -> Bool {
     guard let toolbarIdentifier = toolbarIdentifier(from: identifier) else { return false }
     let toolbarButton = app.buttons.matching(identifier: toolbarIdentifier).firstMatch
-    guard toolbarButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    guard toolbarButton.waitForExistence(timeout: postReadinessTimeout) else {
       return false
     }
     tapElement(toolbarButton, description: toolbarIdentifier)
@@ -429,7 +411,7 @@ extension SwipeConfigurationTestCase {
   private func tapDebugOverlayButton(for identifier: String) -> Bool {
     guard let overlayIdentifier = overlayIdentifier(from: identifier) else { return false }
     let overlayButton = app.buttons.matching(identifier: overlayIdentifier).firstMatch
-    guard overlayButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    guard overlayButton.waitForExistence(timeout: postReadinessTimeout) else {
       return false
     }
     tapElement(overlayButton, description: overlayIdentifier)

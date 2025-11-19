@@ -32,7 +32,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     }
 
     XCTAssertTrue(
-      waitForSectionIfNeeded(timeout: adaptiveShortTimeout),
+      waitForSectionIfNeeded(timeout: postReadinessTimeout),
       "Swipe sections should materialize after sheet opens"
     )
 
@@ -49,7 +49,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: 2)
       let element = self.element(withIdentifier: id, within: container)
       XCTAssertTrue(
-        waitForElement(element, timeout: adaptiveShortTimeout, description: id),
+        waitForElement(element, timeout: postReadinessTimeout, description: id),
         "\(id) should be visible in configuration sheet"
       )
     }
@@ -89,7 +89,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       XCTAssertTrue(
         waitForElement(
           toggle,
-          timeout: adaptiveShortTimeout,
+          timeout: postReadinessTimeout,
           description: "haptic toggle"
         ),
         "Haptic toggle should be visible"
@@ -100,7 +100,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       .firstMatch
     XCTAssertTrue(
       waitForElement(
-        stylePicker, timeout: adaptiveShortTimeout, description: "haptic style picker"),
+        stylePicker, timeout: postReadinessTimeout, description: "haptic style picker"),
       "Haptic style picker should exist"
     )
   }
