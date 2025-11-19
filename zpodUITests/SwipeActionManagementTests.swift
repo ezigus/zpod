@@ -13,7 +13,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testManagingActionsEndToEnd() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
     assertDefaultConfiguration()
 
     // Add leading actions up to the limit

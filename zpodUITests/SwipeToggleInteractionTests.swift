@@ -113,7 +113,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testFullSwipeToggleLeadingTrailing() throws {
-    try beginWithFreshConfigurationSheet()
+    try openConfigurationSheetReady()
     
     // Verify default full swipe state
     assertFullSwipeState(leading: true, trailing: false)
