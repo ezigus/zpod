@@ -84,10 +84,10 @@ extension SwipeConfigurationTestCase {
     assertToggleState(identifier: leadingToggle, expected: leading)
     assertToggleState(identifier: trailingToggle, expected: trailing)
 
-    guard
+        guard
       expectDebugState(
-        leading: [String](),  // ignore action lists here; only assert full swipe flags
-        trailing: [String](),
+        leading: [],
+        trailing: [],
         unsaved: nil,
         timeout: adaptiveShortTimeout
       )?.matchesFullSwipe(leading: leading, trailing: trailing) == true
