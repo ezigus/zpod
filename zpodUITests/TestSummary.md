@@ -68,46 +68,25 @@ This document outlines the UI testing approach for the main zpod application.
 
 ### Swipe Configuration UI Tests
 
-**Purpose**: Validate the configurable swipe gesture workflow and ensure presets, haptics, and episode list actions remain stable.
+**Purpose**: Validate the configurable swipe gesture workflow, ensure presets/haptics remain correct, and verify seeded swipe execution in the episode list.
 
 **Specifications Covered**:
 
 - `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
 - `spec/ui.md` — Customizing Swipe Gestures section
 
-**Test Structure** (Hybrid Tier Architecture per Issue #02.6.3):
+**Suite Layout (12 tests across 6 files)**:
 
-Tests are organized into two tiers for optimal CI performance:
+| File | Tests | Focus |
+| --- | --- | --- |
+| `SwipeConfigurationUIDisplayTests.swift` | 3 | Opens sheet from the gear button, verifies all sections render, validates default leading/trailing actions + haptic controls. |
+| `SwipePresetSelectionTests.swift` | 3 | Applies Playback/Organization/Download presets, confirms save button enables, asserts rendered rows match preset expectations. |
+| `SwipeToggleInteractionTests.swift` | 3 | Exercises haptic toggle, style picker, and full-swipe toggles (leading + trailing) using cached sheet containers. |
+| `SwipeActionManagementTests.swift` | 1 | End-to-end workflow: add/remove/limit enforcement for leading/trailing actions without relaunching. |
+| `SwipePersistenceTests.swift` | 1 | Seeds configuration via encoded payload, reopens sheet after relaunch, and verifies persisted actions + haptic state. |
+| `SwipeExecutionTests.swift` | 1 | Seeds swipe actions, dismisses the sheet, and verifies leading/trailing swipe execution with instrumentation probes in the episode list. |
 
-**Tier 1: Simple UI Tests** (run in parallel, each builds independently)
-
-1. **`SwipeConfigurationUIDisplayTests.swift`** - UI display verification
-   - Tests that configuration sheet opens and displays correctly
-   - Verifies default actions, haptic controls visibility
-   - Single test: `testConfigurationSheetDisplaysDefaultUI`
-
-2. **`SwipePresetSelectionTests.swift`** - Preset application
-   - Tests that presets (Playback, Organization, Download) apply correct configurations
-   - Verifies save button enablement and debug summary state
-   - 3 tests (one per preset)
-
-3. **`SwipeToggleInteractionTests.swift`** - Toggle interactions
-   - Tests haptic toggle enable/disable
-   - Tests haptic style picker changes
-   - Tests full swipe toggle for leading/trailing
-   - 3 tests
-
-**Tier 2: Complex Integration Tests** (combined suite)
-
-**`SwipeComplexIntegrationTests.swift`** - Action management, persistence, execution
-
-- Combines tests that require app relaunches, seeding, and multi-step workflows
-- Tests action add/remove/limit enforcement (end-to-end workflow)
-- Tests persistence across app relaunches with seeded configurations
-- Tests swipe action execution in episode list with instrumentation probes
-- 3 tests (testManagingActionsEndToEnd, testSeededConfigurationPersistsAcrossControls, testLeadingAndTrailingSwipesExecute)
-
-**Shared Support**: `SwipeConfigurationTestSupport.swift` contains the base class `SwipeConfigurationTestCase` with all helper methods (~1,400 lines), plus modular extensions for navigation, assertions, debug, toggle, action management, seeding, and utilities.
+**Shared Support**: `SwipeConfigurationTestSupport.swift` provides the base class plus modular extensions (Navigation, ActionManagement, Toggle, Debug, etc.). `reuseOrOpenConfigurationSheet(resetDefaults:)` caches the SwiftUI sheet container after a single readiness gate so later assertions run without redundant navigation. `launchSeededApp(resetDefaults:)` enforces a single launch per seed payload.
 
 **Test Areas**:
 
@@ -119,12 +98,12 @@ Tests are organized into two tiers for optimal CI performance:
 - Accessibility identifier coverage for configuration controls and rendered swipe buttons
 - Validates that preset buttons respond directly under automation (no manual fallback) and enforces the three-action cap via the add-action picker sheet
 
-**CI Strategy**:
+**CI Strategy (Hybrid Tier Architecture per Issue #02.6.3)**:
 
-- **Tier 1 jobs (3)**: Run in parallel, each independently builds zpod.app (~2-3 min per job)
-- **Tier 2 job (1)**: Runs sequentially with single build for all 3 complex tests (~4-5 min total)
-- **Total CI time**: ~5-7 minutes (vs 20-30 min with hangs in previous approach)
-- **Reliability**: No derived data sharing, no test-without-building race conditions, each job owns its build
+- The preflight job builds zpod.app + test bundles once and uploads the derived data artifact.
+- Six swipe jobs (`UITests-SwipeUIDisplay`, `…-SwipePresetSelection`, `…-SwipeToggleInteraction`, `…-SwipeActionManagement`, `…-SwipePersistence`, `…-SwipeExecution`) download the preflight artifact, reuse the host app, and run in parallel.
+- Each job provisions its own simulator/derived data sandbox, so no derived data sharing or “test-without-building” hazards.
+- Target total swipe time: ≤6 minutes in parallel (vs ≥20 minutes before the decomposition).
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 
