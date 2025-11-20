@@ -27,6 +27,14 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func relaunchApp(resetDefaults: Bool = false) {
+    if app == nil {
+      if resetDefaults {
+        resetSwipeSettingsToDefault()
+      }
+      app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
+      return
+    }
+
     app.terminate()
     if resetDefaults {
       resetSwipeSettingsToDefault()
