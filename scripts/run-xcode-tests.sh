@@ -39,6 +39,7 @@ TESTPLAN_LAST_WORKSPACE=0
 TESTPLAN_LAST_MISSING_NAMES=""
 
 declare -a SUMMARY_ITEMS=()
+declare -a RESULT_LOG_PATHS=()
 
 EXIT_STATUS=0
 INTERRUPTED=0
@@ -46,6 +47,21 @@ CURRENT_PHASE=""
 CURRENT_PHASE_CATEGORY=""
 SUMMARY_PRINTED=0
 CURRENT_PHASE_RECORDED=0
+declare -a PHASE_DURATION_ENTRIES=()
+
+register_result_log() {
+  local path="$1"
+  [[ -n "$path" ]] || return
+  if (( ${#RESULT_LOG_PATHS[@]} > 0 )); then
+    local existing
+    for existing in "${RESULT_LOG_PATHS[@]}"; do
+      if [[ "$existing" == "$path" ]]; then
+        return
+      fi
+    done
+  fi
+  RESULT_LOG_PATHS+=("$path")
+}
 
 update_exit_status() {
   local code="$1"
@@ -93,23 +109,46 @@ execute_phase() {
   local -a command=("$@")
 
   begin_phase "$label" "$category"
+  local phase_start
+  phase_start=$(date +%s)
+  log_info "▶️  ${label} started"
   set +e
   "${command[@]}"
   local status=$?
   set -e
+  local phase_end
+  phase_end=$(date +%s)
+  local phase_elapsed=$((phase_end - phase_start))
+  local formatted_elapsed
+  formatted_elapsed=$(format_elapsed_time "$phase_elapsed")
 
+  local phase_status="success"
   if (( status != 0 )); then
     if (( CURRENT_PHASE_RECORDED == 0 )); then
       add_summary "$category" "$label" "error" "" "" "" "" "" "failed"
     fi
+    log_warn "${label} failed after ${formatted_elapsed}"
     update_exit_status "$status"
+    phase_status="error"
+  else
+    log_info "⏱️  ${label} completed in ${formatted_elapsed}"
   fi
+
+  record_phase_timing "$category" "$label" "$phase_elapsed" "$phase_status"
 
   CURRENT_PHASE=""
   CURRENT_PHASE_CATEGORY=""
   CURRENT_PHASE_RECORDED=0
 
   return "$status"
+}
+
+record_phase_timing() {
+  local category="$1"
+  local name="$2"
+  local elapsed="$3"
+  local status="$4"
+  PHASE_DURATION_ENTRIES+=("${category}|${name}|${elapsed}|${status}")
 }
 
 category_in() {
@@ -573,6 +612,8 @@ print_summary() {
   print_section_header "Test Execution Summary"
   print_test_execution_summary
 
+  print_phase_timing_summary
+
   local test_totals
   test_totals=$(sum_test_case_counts)
   IFS='|' read -r test_total_count test_passed_count test_failed_count test_skipped_count <<< "$test_totals"
@@ -614,6 +655,48 @@ print_summary() {
     formatted_time=$(format_elapsed_time "$elapsed")
     printf '  Elapsed Time: %s\n' "$formatted_time"
   fi
+}
+
+print_phase_timing_summary() {
+  print_section_header "Phase Timing"
+  local -a phase_lines=()
+  if [[ ${#PHASE_DURATION_ENTRIES[@]} -eq 0 ]]; then
+    phase_lines+=("  (none)")
+  else
+    local entry
+    for entry in "${PHASE_DURATION_ENTRIES[@]}"; do
+      IFS='|' read -r category name elapsed status <<< "$entry"
+      local formatted_elapsed
+      formatted_elapsed=$(format_elapsed_time "$elapsed")
+      local symbol
+      symbol=$(status_symbol "$status")
+      local scope="${category:-phase}"
+      phase_lines+=("  ${symbol} ${name} – ${formatted_elapsed} (${scope})")
+    done
+  fi
+
+  local line
+  for line in "${phase_lines[@]}"; do
+    printf '%s\n' "$line"
+  done
+
+  append_phase_timing_to_logs "${phase_lines[@]}"
+}
+
+append_phase_timing_to_logs() {
+  [[ ${#RESULT_LOG_PATHS[@]} -gt 0 ]] || return
+  local -a lines=("$@")
+  local log_path
+  for log_path in "${RESULT_LOG_PATHS[@]}"; do
+    [[ -n "$log_path" && -f "$log_path" ]] || continue
+    {
+      printf '\n================================\nPhase Timing\n================================\n'
+      local line
+      for line in "${lines[@]}"; do
+        printf '%s\n' "$line"
+      done
+    } >> "$log_path"
+  done
 }
 
 ensure_swift_format_tool() {
@@ -864,6 +947,7 @@ dev_build_enhanced_syntax() {
 
 run_syntax_check() {
   init_result_paths "syntax" "swift"
+  register_result_log "$RESULT_LOG"
   log_section "Syntax check"
   set +e
   (
@@ -894,6 +978,7 @@ build_app_target() {
   require_workspace
   ensure_scheme_available
   init_result_paths "build" "$target_label"
+  register_result_log "$RESULT_LOG"
   local resolved_scheme="$SCHEME"
   local resolved_destination=""
   if [[ "$target_label" == "IntegrationTests" ]]; then
@@ -951,6 +1036,7 @@ build_package_target() {
     return 0
   fi
   init_result_paths "build_pkg" "$package"
+  register_result_log "$RESULT_LOG"
   log_section "swift build (${package})"
   set +e
   build_swift_package "$package" "$REQUESTED_CLEAN"
@@ -1008,6 +1094,7 @@ test_app_target() {
   if ! command_exists xcodebuild; then
     log_warn "xcodebuild unavailable, running package fallback"
     init_result_paths "test_fallback" "$target"
+    register_result_log "$RESULT_LOG"
     run_swift_package_tests
     return 0
   fi
@@ -1034,6 +1121,7 @@ test_app_target() {
   fi
 
   init_result_paths "test" "$target"
+  register_result_log "$RESULT_LOG"
   if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
     if [[ "$target" == "AppSmokeTests" || "$target" == "zpodUITests" || "$target" == "IntegrationTests" ]]; then
       log_error "No concrete iOS Simulator runtime is available; cannot execute ${target}"
@@ -1146,6 +1234,7 @@ test_app_target() {
 test_package_target() {
   local package="$1"
   init_result_paths "test_pkg" "$package"
+  register_result_log "$RESULT_LOG"
   
   # Check if package has a Tests directory
   local pkg_path="${REPO_ROOT}/Packages/${package}"
@@ -1184,6 +1273,7 @@ test_package_target() {
 
 run_swift_lint() {
   init_result_paths "lint" "swift"
+  register_result_log "$RESULT_LOG"
   log_section "Swift lint"
 
   if command_exists swiftlint; then
@@ -1334,6 +1424,7 @@ run_testplan_check() {
   local suite="$1"
   local label="${suite:-default}"
   init_result_paths "testplan" "$label"
+  register_result_log "$RESULT_LOG"
   if verify_testplan_coverage "$suite" > >(tee "$RESULT_LOG") 2>&1; then
     local note
     note=$(summarize_testplan_note)
@@ -1388,6 +1479,7 @@ run_filtered_xcode_tests() {
   fi
 
   init_result_paths "test" "$label"
+  register_result_log "$RESULT_LOG"
 
   if [[ $DESTINATION_IS_GENERIC -eq 1 ]]; then
     log_error "No concrete iOS Simulator runtime is available; cannot execute ${label}"

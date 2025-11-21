@@ -221,7 +221,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func tapDebugPresetFromMenu(for identifier: String) -> Bool {
+  func tapDebugPresetFromMenu(for identifier: String) -> Bool {
     guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
     let menuButton = app.buttons.matching(identifier: "SwipeActions.Debug.Menu").firstMatch
     guard menuButton.waitForExistence(timeout: postReadinessTimeout) else { return false }
@@ -243,7 +243,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func tapDebugPresetSectionButton(for identifier: String) -> Bool {
+  func tapDebugPresetSectionButton(for identifier: String) -> Bool {
     guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
     let container = swipeActionsSheetListContainer()
     if let container {
@@ -266,7 +266,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func tapDebugToolbarButton(for identifier: String) -> Bool {
+  func tapDebugToolbarButton(for identifier: String) -> Bool {
     guard let toolbarIdentifier = toolbarIdentifier(from: identifier) else { return false }
     let toolbarButton = app.buttons.matching(identifier: toolbarIdentifier).firstMatch
     guard toolbarButton.waitForExistence(timeout: postReadinessTimeout) else {
@@ -277,7 +277,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func tapDebugOverlayButton(for identifier: String) -> Bool {
+  func tapDebugOverlayButton(for identifier: String) -> Bool {
     guard let overlayIdentifier = overlayIdentifier(from: identifier) else { return false }
     let overlayButton = app.buttons.matching(identifier: overlayIdentifier).firstMatch
     guard overlayButton.waitForExistence(timeout: postReadinessTimeout) else {
@@ -287,29 +287,29 @@ extension SwipeConfigurationTestCase {
     return true
   }
 
-  private func debugIdentifier(from presetIdentifier: String) -> String? {
+  func debugIdentifier(from presetIdentifier: String) -> String? {
     guard let range = presetIdentifier.range(of: "SwipeActions.Preset.") else { return nil }
     let suffix = presetIdentifier[range.upperBound...]
     return "SwipeActions.Debug.ApplyPreset." + suffix
   }
 
-  private func menuIdentifier(from presetIdentifier: String) -> String? {
+  func menuIdentifier(from presetIdentifier: String) -> String? {
     guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
     return base + ".Menu"
   }
 
-  private func toolbarIdentifier(from presetIdentifier: String) -> String? {
+  func toolbarIdentifier(from presetIdentifier: String) -> String? {
     guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
     return base + ".Toolbar"
   }
 
-  private func overlayIdentifier(from presetIdentifier: String) -> String? {
+  func overlayIdentifier(from presetIdentifier: String) -> String? {
     guard let base = debugIdentifier(from: presetIdentifier) else { return nil }
     return base + ".Overlay"
   }
 
   @MainActor
-  private func attachDebugDescription(for element: XCUIElement, label: String) {
+  func attachDebugDescription(for element: XCUIElement, label: String) {
     let description = element.debugDescription
     let attachment = XCTAttachment(string: description)
     attachment.name = label

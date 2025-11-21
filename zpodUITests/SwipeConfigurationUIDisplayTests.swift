@@ -26,7 +26,7 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testAllSectionsAppearInSheet() throws {
-    guard let container = try reuseOrOpenConfigurationSheet() else {
+    guard let container = try reuseOrOpenConfigurationSheet(resetDefaults: true) else {
       XCTFail("Swipe configuration sheet container should be discoverable")
       return
     }

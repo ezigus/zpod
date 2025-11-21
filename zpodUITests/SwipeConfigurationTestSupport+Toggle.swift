@@ -67,18 +67,6 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func assertFullSwipeState(leading: Bool, trailing: Bool, timeout: TimeInterval? = nil) {
     _ = waitForSectionIfNeeded()
-    if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(
-        identifier: "SwipeActions.Leading.FullSwipe",
-        container: container,
-        scrollAttempts: 1
-      )
-      _ = ensureVisibleInSheet(
-        identifier: "SwipeActions.Trailing.FullSwipe",
-        container: container,
-        scrollAttempts: 1
-      )
-    }
     let leadingToggle = "SwipeActions.Leading.FullSwipe"
     let trailingToggle = "SwipeActions.Trailing.FullSwipe"
     assertToggleState(identifier: leadingToggle, expected: leading, timeout: timeout)

@@ -164,7 +164,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func tapToggle(_ toggle: XCUIElement, identifier: String, targetOn: Bool) {
+  func tapToggle(_ toggle: XCUIElement, identifier: String, targetOn: Bool) {
     _ = waitForElementToBeHittable(toggle, timeout: postReadinessTimeout, description: identifier)
 
     let interactiveToggle: XCUIElement = {
@@ -201,7 +201,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  private func attachToggleDiagnostics(
+  func attachToggleDiagnostics(
     identifier: String,
     context: String,
     element: XCUIElement? = nil

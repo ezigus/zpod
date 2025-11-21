@@ -86,6 +86,19 @@ This document outlines the UI testing approach for the main zpod application.
 | `SwipePersistenceTests.swift` | 1 | Seeds configuration via encoded payload, reopens sheet after relaunch, and verifies persisted actions + haptic state. |
 | `SwipeExecutionTests.swift` | 1 | Seeds swipe actions, dismisses the sheet, and verifies leading/trailing swipe execution with instrumentation probes in the episode list. |
 
+**Latest targeted runtimes (2025‑11‑19 runs via `./scripts/run-xcode-tests.sh -t …`)**:
+
+| Suite | Tests | Phase Runtime | Result Log |
+| --- | --- | --- | --- |
+| SwipeConfigurationUIDisplayTests | 3 | ~7s test phase (`00:00:07` inside `TestResults/TestResults_20251119_080416_test_zpodUITests-SwipeConfigurationUIDisplayTests.log`) | `TestResults/TestResults_20251119_080416_test_zpodUITests-SwipeConfigurationUIDisplayTests.log` |
+| SwipePresetSelectionTests | 3 | ~6s test phase | `TestResults/TestResults_20251119_080603_test_zpodUITests-SwipePresetSelectionTests.log` |
+| SwipeToggleInteractionTests | 3 | ~7s test phase | `TestResults/TestResults_20251119_080727_test_zpodUITests-SwipeToggleInteractionTests.log` |
+| SwipeActionManagementTests | 1 | ~4s test phase | `TestResults/TestResults_20251119_080850_test_zpodUITests-SwipeActionManagementTests.log` |
+| SwipePersistenceTests | 1 | ~69s test phase (includes seeded relaunch) | `TestResults/TestResults_20251119_083334_test_zpodUITests-SwipePersistenceTests.log` |
+| SwipeExecutionTests | 1 | ~63s test phase (includes seeded relaunch + swipe probes) | `TestResults/TestResults_20251119_084032_test_zpodUITests-SwipeExecutionTests.log` |
+
+Each test phase time excludes the initial build (handled once by preflight). The persistence/execution suites are intentionally longer because they seed defaults, relaunch once, and wait for debug-state streams before verifying the episode list instrumentation.
+
 **Shared Support**: `SwipeConfigurationTestSupport.swift` provides the base class plus modular extensions (Navigation, ActionManagement, Toggle, Debug, etc.). `reuseOrOpenConfigurationSheet(resetDefaults:)` caches the SwiftUI sheet container after a single readiness gate so later assertions run without redundant navigation. `launchSeededApp(resetDefaults:)` enforces a single launch per seed payload.
 
 **Test Areas**:
@@ -103,7 +116,8 @@ This document outlines the UI testing approach for the main zpod application.
 - The preflight job builds zpod.app + test bundles once and uploads the derived data artifact.
 - Six swipe jobs (`UITests-SwipeUIDisplay`, `…-SwipePresetSelection`, `…-SwipeToggleInteraction`, `…-SwipeActionManagement`, `…-SwipePersistence`, `…-SwipeExecution`) download the preflight artifact, reuse the host app, and run in parallel.
 - Each job provisions its own simulator/derived data sandbox, so no derived data sharing or “test-without-building” hazards.
-- Target total swipe time: ≤6 minutes in parallel (vs ≥20 minutes before the decomposition).
+- Target total swipe time: ≤6 minutes in parallel (vs ≥20 minutes before the decomposition). Latest Actions runs 
+  (recorded 2025‑11‑19) keep individual swipe jobs under 70s after the preflight artifact is restored.
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 

@@ -17,17 +17,9 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testPlaybackPresetAppliesCorrectly() throws {
-    try reuseOrOpenConfigurationSheet()
-    // Apply Playback preset starting from a known clean state
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Playback")
-
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
-      "Save button did not enable after applying Playback preset."
-    )
-
-    // Verify preset configuration via rendered rows
+    assertSaveEnabledAfterPreset()
     assertConfiguration(
       leadingActions: ["Play", "Add to Playlist"],
       trailingActions: ["Download", "Favorite"]
@@ -36,17 +28,9 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testOrganizationPresetAppliesCorrectly() throws {
-    try reuseOrOpenConfigurationSheet()
-    // Apply Organization preset
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Organization")
-
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
-      "Save button did not enable after applying Organization preset."
-    )
-
-    // Verify preset configuration via rendered rows
+    assertSaveEnabledAfterPreset()
     assertConfiguration(
       leadingActions: ["Mark Played", "Favorite"],
       trailingActions: ["Archive", "Delete"]
@@ -55,17 +39,9 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testDownloadPresetAppliesCorrectly() throws {
-    try reuseOrOpenConfigurationSheet()
-    // Apply Download preset
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Download")
-
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: postReadinessTimeout),
-      "Save button did not enable after applying Download preset."
-    )
-
-    // Verify preset configuration via rendered rows
+    assertSaveEnabledAfterPreset()
     assertConfiguration(
       leadingActions: ["Download", "Mark Played"],
       trailingActions: ["Archive", "Delete"]
@@ -84,5 +60,13 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
     )
     // Note: Persistence validation happens in SwipeConfigurationPersistenceTests
     // after Save button is tapped. These preset tests only verify draft state.
+  }
+
+  @MainActor
+  private func assertSaveEnabledAfterPreset() {
+    XCTAssertTrue(
+      waitForSaveButton(enabled: true, timeout: adaptiveTimeout),
+      "Save button did not enable after applying preset."
+    )
   }
 }

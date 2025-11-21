@@ -55,6 +55,10 @@
 
             // Presets moved to bottom so both action toggles are visible without scrolling
             presetsSection
+            Color.clear
+              .frame(height: 0)
+              .accessibilityHidden(true)
+              .id("swipe-presets-bottom")
 
           }
           .platformInsetGroupedListStyle()
@@ -134,6 +138,10 @@
       let transaction = Transaction(animation: .default)
       withTransaction(transaction) {
         proxy.scrollTo("swipe-trailing", anchor: .top)
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+      withTransaction(transaction) {
+        proxy.scrollTo("swipe-presets-bottom", anchor: .bottom)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
       withTransaction(transaction) {
