@@ -844,6 +844,7 @@ import SwiftUI
         Coordinator(value: $value)
       }
 
+      @MainActor
       final class Coordinator: NSObject {
         private var value: Binding<Double>
 
