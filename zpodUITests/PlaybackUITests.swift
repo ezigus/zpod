@@ -93,18 +93,18 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Play/Pause controls unavailable in current playback state.")
+      XCTFail("Play/Pause controls unavailable in current playback state."); return
     }
     XCTAssertTrue(playOrPause.exists, "Play/Pause control should exist")
 
     guard skipForwardButton.waitForExistence(timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Skip forward control unavailable for the seeded content.")
+      XCTFail("Skip forward control unavailable for the seeded content."); return
     }
     XCTAssertTrue(skipForwardButton.isEnabled, "Skip forward should be enabled")
     XCTAssertTrue(hasNonEmptyLabel(skipForwardButton), "Skip forward should have label")
 
     guard skipBackwardButton.waitForExistence(timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Skip backward control unavailable for the seeded content.")
+      XCTFail("Skip backward control unavailable for the seeded content."); return
     }
     XCTAssertTrue(skipBackwardButton.isEnabled, "Skip backward should be enabled")
     XCTAssertTrue(hasNonEmptyLabel(skipBackwardButton), "Skip backward should have label")
@@ -123,7 +123,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     ).firstMatch
 
     guard speedButton.waitForExistence(timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Speed control trigger unavailable for seeded playback item.")
+      XCTFail("Speed control trigger unavailable for seeded playback item."); return
     }
 
     // When: Interacting with speed controls
@@ -135,13 +135,13 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         format: "label CONTAINS '1.0x' OR label CONTAINS '1.5x' OR label CONTAINS '2.0x'"))
 
     guard speedOptions.count > 0 else {
-      throw XCTSkip("Speed options failed to render; verify playback UI configuration.")
+      XCTFail("Speed options failed to render; verify playback UI configuration."); return
     }
 
     // Test selecting a speed option
     let fastSpeed = speedOptions.element(boundBy: min(1, speedOptions.count - 1))
     guard fastSpeed.waitForExistence(timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Speed option did not appear when expected.")
+      XCTFail("Speed option did not appear when expected."); return
     }
     fastSpeed.tap()
   }
@@ -157,7 +157,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     let progressSlider = app.sliders.matching(identifier: "Progress Slider").firstMatch
 
     guard progressSlider.waitForExistence(timeout: adaptiveShortTimeout) else {
-      throw XCTSkip("Progress slider unavailable for seeded playback item.")
+      XCTFail("Progress slider unavailable for seeded playback item."); return
     }
 
     // When: Interacting with progress slider
@@ -538,7 +538,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       XCTAssertTrue(
         app.state == .runningForeground, "App should remain responsive during playback control")
     } else {
-      throw XCTSkip("No playback controls available - skipping performance test")
+      XCTFail("No playback controls available - skipping performance test"); return
     }
   }
 
@@ -627,7 +627,7 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         app.state == XCUIApplication.State.runningForeground,
         "App should remain stable during playback control")
     } else {
-      throw XCTSkip("No playback interface or controls available - skipping workflow test")
+      XCTFail("No playback interface or controls available - skipping workflow test"); return
     }
   }
 
@@ -757,9 +757,9 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         XCTAssertGreaterThan(
           anyPlaybackElements.count, 0, "Found \(anyPlaybackElements.count) playback elements")
       } else {
-        throw XCTSkip(
-          "No playback interface elements found - may need to navigate to player or start playback first"
-        )
+        XCTFail(
+          "No playback interface elements found - may need to navigate to player or start playback first")
+        return
       }
     }
   }

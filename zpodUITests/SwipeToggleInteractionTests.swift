@@ -37,7 +37,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     assertHapticsToggleState(expected: target)
     XCTAssertNotNil(
       waitForDebugState(
-        timeout: postReadinessTimeout,
+        timeout: debugStateTimeout,
         validator: { $0.hapticsEnabled == target }
       ),
       "Haptic state should toggle to \(target)"
@@ -48,7 +48,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     assertHapticsToggleState(expected: initialSummary.hapticsEnabled)
     XCTAssertNotNil(
       waitForDebugState(
-        timeout: postReadinessTimeout,
+        timeout: debugStateTimeout,
         validator: { $0.hapticsEnabled == initialSummary.hapticsEnabled }
       ),
       "Haptic state should toggle back to \(initialSummary.hapticsEnabled)"
@@ -70,7 +70,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     // Verify haptics enabled
     guard
       waitForDebugState(
-        timeout: postReadinessTimeout,
+        timeout: debugStateTimeout,
         validator: { $0.hapticsEnabled == true }
       ) != nil
     else {

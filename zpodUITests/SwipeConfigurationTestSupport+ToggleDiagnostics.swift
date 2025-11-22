@@ -13,8 +13,14 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func requireToggleSwitch(identifier: String, context: String) -> XCUIElement? {
+    _ = waitForSectionIfNeeded()
+    let scrollAttempts = identifier.contains(".FullSwipe") ? 2 : 1
     if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(identifier: identifier, container: container)
+      _ = ensureVisibleInSheet(
+        identifier: identifier,
+        container: container,
+        scrollAttempts: scrollAttempts
+      )
     }
 
     guard let toggle = resolveToggleSwitch(identifier: identifier) else {
@@ -137,6 +143,7 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func resolveToggleSwitch(identifier: String) -> XCUIElement? {
     if let container = swipeActionsSheetListContainer() {
+      _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 8)
       let directSwitch = container.switches.matching(identifier: identifier).firstMatch
       if directSwitch.exists { return directSwitch }
 

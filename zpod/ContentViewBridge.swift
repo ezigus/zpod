@@ -4,34 +4,286 @@
 // If LibraryFeature is available, we re-export its ContentView; otherwise,
 // we supply a minimal placeholder to keep the app buildable.
 
-#if canImport(LibraryFeature)
-import LibraryFeature
-public typealias ContentView = LibraryFeature.ContentView
-#elseif canImport(SwiftUI)
+import Foundation
 import SwiftUI
 import CoreModels
 import SearchDomain
 import DiscoverFeature
+#if canImport(UIKit)
+import UIKit
+#endif
 
+#if canImport(LibraryFeature)
+import LibraryFeature
+public typealias ContentView = LibraryFeature.ContentView
+#else
 public struct ContentView: View {
+    public init() {}
+
+    public var body: some View {
+        UITestLibraryPlaceholderView()
+    }
+}
+
+#endif
+
+// MARK: - Lightweight Podcast Manager (Placeholder)
+
+/// Minimal manager used by the placeholder UI so SwiftPM builds of zpodLib
+/// do not rely on the app target's controllers.
+private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Sendable {
+    private var storage: [String: Podcast]
+
+    init(initial: [Podcast] = PlaceholderPodcastData.samplePodcasts) {
+        storage = Dictionary(uniqueKeysWithValues: initial.map { ($0.id, $0) })
+    }
+
+    func all() -> [Podcast] { Array(storage.values) }
+
+    func find(id: String) -> Podcast? { storage[id] }
+
+    func add(_ podcast: Podcast) { storage[podcast.id] = podcast }
+
+    func update(_ podcast: Podcast) { storage[podcast.id] = podcast }
+
+    func remove(id: String) { storage.removeValue(forKey: id) }
+
+    func findByFolder(folderId: String) -> [Podcast] {
+        storage.values.filter { $0.folderId == folderId }
+    }
+
+    func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] {
+        var podcasts = findByFolder(folderId: folderId)
+        let descendants = folderManager.getDescendants(of: folderId)
+        for folder in descendants {
+            podcasts.append(contentsOf: findByFolder(folderId: folder.id))
+        }
+        return podcasts
+    }
+
+    func findByTag(tagId: String) -> [Podcast] {
+        storage.values.filter { $0.tagIds.contains(tagId) }
+    }
+
+    func findUnorganized() -> [Podcast] {
+        storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
+    }
+}
+
+private enum PlaceholderPodcastData {
+    static let sampleEpisodes: [Episode] = [
+        Episode(
+            id: "sample-episode-swift-1",
+            title: "Understanding Swift Concurrency",
+            podcastID: "swift-talk",
+            podcastTitle: "Swift Talk",
+            duration: 1_800,
+            description: "Quick overview of actors and structured concurrency."
+        ),
+        Episode(
+            id: "sample-episode-swiftui-1",
+            title: "SwiftUI Layout Techniques",
+            podcastID: "swift-over-coffee",
+            podcastTitle: "Swift Over Coffee",
+            duration: 1_500,
+            description: "Discussing the latest layout APIs."
+        )
+    ]
+
+    static let samplePodcasts: [Podcast] = [
+        Podcast(
+            id: "swift-talk",
+            title: "Swift Talk",
+            author: "objc.io",
+            description: "Deep dives into advanced Swift topics.",
+            artworkURL: URL(string: "https://example.com/swift-talk.png"),
+            feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+            categories: ["Development"],
+            episodes: sampleEpisodes,
+            isSubscribed: true
+        ),
+        Podcast(
+            id: "swift-over-coffee",
+            title: "Swift Over Coffee",
+            author: "Swift Community",
+            description: "News and discussion from the Swift world.",
+            artworkURL: URL(string: "https://example.com/swift-over-coffee.png"),
+            feedURL: URL(string: "https://example.com/swift-over-coffee.rss")!,
+            categories: ["Development", "News"],
+            episodes: sampleEpisodes.map { episode in
+                var copy = episode
+                copy.id = "coffee-\(episode.id)"
+                copy.podcastID = "swift-over-coffee"
+                copy.podcastTitle = "Swift Over Coffee"
+                return copy
+            },
+            isSubscribed: false
+        ),
+        Podcast(
+            id: "accidental-tech-podcast",
+            title: "Accidental Tech Podcast",
+            author: "Casey, Marco, John",
+            description: "Apple, technology, and programming news commentary.",
+            artworkURL: URL(string: "https://example.com/atp.png"),
+            feedURL: URL(string: "https://example.com/atp.rss")!,
+            categories: ["Technology"],
+            episodes: [],
+            isSubscribed: true
+        )
+    ]
+}
+
+#if canImport(UIKit)
+private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
+    private let maxAttempts = 40
+    private let retryInterval: TimeInterval = 0.1
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        let controller = UIViewController()
+        scheduleIdentifierUpdate(from: controller, attempt: 0)
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
+    }
+
+    private func scheduleIdentifierUpdate(from uiViewController: UIViewController, attempt: Int) {
+        let delay = attempt == 0 ? 0 : retryInterval
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard
+                let tabBar = self.locateTabBar(startingFrom: uiViewController)
+                    ?? self.locateTabBarAcrossScenes()
+            else {
+                self.retryIfNeeded(from: uiViewController, attempt: attempt)
+                return
+            }
+            self.configure(tabBar: tabBar)
+        }
+    }
+
+    private func retryIfNeeded(from uiViewController: UIViewController, attempt: Int) {
+        guard attempt < maxAttempts else { return }
+        scheduleIdentifierUpdate(from: uiViewController, attempt: attempt + 1)
+    }
+
+    @MainActor
+    private func locateTabBar(startingFrom uiViewController: UIViewController) -> UITabBar? {
+        if let tabBarController = findTabBarController(from: uiViewController) {
+            return tabBarController.tabBar
+        }
+
+        if let parent = uiViewController.parent,
+           let tabBarController = findTabBarController(from: parent)
+        {
+            return tabBarController.tabBar
+        }
+
+        if let window = uiViewController.view.window,
+           let rootController = window.rootViewController,
+           let tabBarController = findTabBarController(from: rootController)
+        {
+            return tabBarController.tabBar
+        }
+
+        return nil
+    }
+
+    @MainActor
+    private func locateTabBarAcrossScenes() -> UITabBar? {
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter {
+                $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
+            }
+
+        for scene in scenes {
+            for window in scene.windows where !window.isHidden {
+                if let controller = findTabBarController(from: window.rootViewController) {
+                    return controller.tabBar
+                }
+            }
+        }
+
+        return nil
+    }
+
+    @MainActor
+    private func configure(tabBar: UITabBar) {
+        if tabBar.accessibilityIdentifier != "Main Tab Bar" {
+            tabBar.accessibilityIdentifier = "Main Tab Bar"
+            tabBar.accessibilityLabel = "Main Tab Bar"
+        }
+
+        guard let items = tabBar.items, !items.isEmpty else { return }
+
+        let fallbackTitles = ["Library", "Discover", "Playlists", "Player", "Settings"]
+
+        for (index, item) in items.enumerated() {
+            let resolvedTitle: String = {
+                if let existingTitle = item.title, !existingTitle.isEmpty {
+                    return existingTitle
+                }
+                if index < fallbackTitles.count {
+                    return fallbackTitles[index]
+                }
+                return "Tab \(index + 1)"
+            }()
+
+            if (item.title ?? "").isEmpty {
+                item.title = resolvedTitle
+            }
+
+            if (item.accessibilityLabel ?? "").isEmpty {
+                item.accessibilityLabel = resolvedTitle
+            }
+
+            if (item.accessibilityHint ?? "").isEmpty {
+                item.accessibilityHint = "Opens \(resolvedTitle)"
+            }
+
+            if !item.accessibilityTraits.contains(.button) {
+                item.accessibilityTraits.insert(.button)
+            }
+        }
+    }
+
+    private func findTabBarController(from vc: UIViewController?) -> UITabBarController? {
+        guard let vc else { return nil }
+
+        if let tabBarController = vc as? UITabBarController {
+            return tabBarController
+        }
+
+        for child in vc.children {
+            if let controller = findTabBarController(from: child) {
+                return controller
+            }
+        }
+
+        if let presented = vc.presentedViewController {
+            return findTabBarController(from: presented)
+        }
+
+        return nil
+    }
+}
+#endif
+
+public struct UITestLibraryPlaceholderView: View {
     @State private var searchText: String = ""
-    
-    // Service instances
+
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
-    
+
     public init() {
-        // Initialize services
-        self.podcastManager = InMemoryPodcastManager()
-        
-        // Create search index sources (empty for now, will be populated as content is added)
+        self.podcastManager = PlaceholderPodcastManager()
         let searchSources: [SearchIndexSource] = []
         self.searchService = SearchService(indexSources: searchSources)
     }
-    
+
     public var body: some View {
         TabView {
-            // Library Tab
             NavigationStack {
                 LibraryPlaceholderView()
                     .navigationTitle("Library")
@@ -39,7 +291,6 @@ public struct ContentView: View {
             .tabItem { Label("Library", systemImage: "books.vertical") }
             .tag(0)
 
-            // Discover Tab - Now uses real DiscoverView
             DiscoverView(
                 searchService: searchService,
                 podcastManager: podcastManager
@@ -47,7 +298,6 @@ public struct ContentView: View {
             .tabItem { Label("Discover", systemImage: "sparkles") }
             .tag(1)
 
-            // Player Tab
             NavigationStack {
                 PlayerPlaceholderView()
                     .navigationTitle("Player")
@@ -55,8 +305,10 @@ public struct ContentView: View {
             .tabItem { Label("Player", systemImage: "play.circle") }
             .tag(2)
         }
-        // Expose an identifier for UI tests expecting a specific tab bar ID
         .accessibilityIdentifier("Main Tab Bar")
+        #if canImport(UIKit)
+        .background(UITestTabBarIdentifierSetter())
+        #endif
     }
 }
 
@@ -89,6 +341,11 @@ private struct LibraryPlaceholderView: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityIdentifier("Main Content")
                     .accessibilityLabel("Main Content")
+                Color.clear
+                    .frame(height: 1)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityIdentifier("Content Container")
+                    .accessibilityLabel("Content Container")
             }
 
             List {
@@ -112,6 +369,8 @@ private struct LibraryPlaceholderView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .accessibilityIdentifier("Podcast Cards Container")
+            .accessibilityLabel("Podcast Cards Container")
         }
         .padding()
         // Enable navigation to use the new value-based NavigationStack in the placeholder
@@ -156,6 +415,7 @@ private struct EpisodeListPlaceholderView: View {
                     .padding(.vertical, 8)
                 }
                 .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("Episode-\(episode.id)")
                 .onTapGesture {
                     // Present episode detail via a sheet to make it discoverable by UI tests
                     // Use NotificationCenter or environment navigation in a real app; keep simple here
@@ -173,7 +433,8 @@ private struct EpisodeListPlaceholderView: View {
         }
         .navigationTitle("Episodes")
         // Make the list discoverable by UI tests
-        .accessibilityIdentifier("Episode List")
+        .accessibilityIdentifier("Episode Cards Container")
+        .accessibilityLabel("Episode Cards Container")
     }
 }
 
@@ -202,6 +463,8 @@ private struct EpisodeDetailPlaceholderView: View {
 // MARK: - Discover Placeholder
 private struct DiscoverPlaceholderView: View {
     @Binding var searchText: String
+    private let featuredItems = Array(1...5)
+    private let categories = ["Technology", "Entertainment", "News"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -211,53 +474,52 @@ private struct DiscoverPlaceholderView: View {
                 .accessibilityIdentifier("Featured")
                 .accessibilityAddTraits(.isHeader)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(0..<5) { idx in
-                        Button(action: {}) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.blue.opacity(0.2))
-                                .frame(width: 160, height: 100)
-                                .overlay(Text("Feature \(idx+1)"))
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityLabel("Featured Item \(idx+1)")
-                        .accessibilityHint("Opens featured content details")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(featuredItems, id: \.self) { idx in
+                    Button(action: {}) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.blue.opacity(0.2))
+                            .frame(width: 160, height: 100)
+                            .overlay(Text("Feature \(idx)"))
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel("Featured Item \(idx)")
+                    .accessibilityHint("Opens featured content details")
                 }
-                .padding(.horizontal, 4)
             }
+            .padding(.horizontal, 4)
+        }
             .accessibilityIdentifier("Featured Carousel")
 
             Text("Categories")
                 .font(.headline)
                 .accessibilityIdentifier("Categories")
-                .accessibilityAddTraits(.isHeader)
+            .accessibilityAddTraits(.isHeader)
 
-            // Category buttons
-            HStack(spacing: 12) {
-                ForEach(["Technology", "Entertainment", "News"], id: \.self) { cat in
-                    Button(cat) {}
-                        .buttonStyle(.bordered)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilitySortPriority(100)
-                        .accessibilityIdentifier("Category_\(cat)")
-                        .accessibilityLabel(cat)
-                        .accessibilityHint("Browse \(cat) podcasts")
-                }
+        // Category buttons
+        HStack(spacing: 12) {
+            ForEach(categories, id: \.self) { cat in
+                Button(cat) {}
+                    .buttonStyle(.bordered)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilitySortPriority(100)
+                    .accessibilityIdentifier("Category_\(cat)")
+                    .accessibilityLabel(cat)
+                    .accessibilityHint("Browse \(cat) podcasts")
             }
+        }
 
             // Search results list placeholder
             List {
-                ForEach(filteredResults, id: \.__self) { item in
+                ForEach(filteredResults, id: \.self) { item in
                     HStack {
                         Text(item)
                         Spacer()
                     }
                     .accessibilityElement(children: .combine)
-                    .accessibilityAddTraits(.staticText)
                     .accessibilitySortPriority(80)
                     .accessibilityIdentifier("SearchResult_\(item)")
                     .accessibilityLabel(item)
@@ -365,6 +627,3 @@ private struct PlayerPlaceholderView: View {
         .padding()
     }
 }
-#else
-public struct ContentView { public init() {} }
-#endif

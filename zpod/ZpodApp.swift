@@ -82,10 +82,14 @@ struct ZpodApp: App {
   var body: some Scene {
     WindowGroup {
       #if canImport(LibraryFeature)
-        ContentView(podcastManager: Self.sharedPodcastManager)
-          .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
-            handlePlayEpisodeActivity(userActivity)
-          }
+        if ProcessInfo.processInfo.environment["UITEST_USE_LIBRARY_PLACEHOLDER"] == "1" {
+          UITestLibraryPlaceholderView()
+        } else {
+          ContentView(podcastManager: Self.sharedPodcastManager)
+            .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
+              handlePlayEpisodeActivity(userActivity)
+            }
+        }
       #else
         ContentView()
       #endif

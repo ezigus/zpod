@@ -13,7 +13,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testManagingActionsEndToEnd() throws {
-    try reuseOrOpenConfigurationSheet()
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     assertDefaultConfiguration()
 
     // Add leading actions up to the limit
@@ -23,11 +23,10 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["markPlayed", "play", "addToPlaylist"],
         trailing: ["delete", "archive"],
-        unsaved: true,
-        timeout: postReadinessTimeout
+        unsaved: true
       ) != nil
     else { return }
-    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: postReadinessTimeout))
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveTimeout))
 
     // Verify add button disappears when cap reached and trailing add remains visible
     let leadingAdd = element(withIdentifier: "SwipeActions.Add.Leading")
@@ -43,8 +42,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive"],
-        unsaved: true,
-        timeout: postReadinessTimeout
+        unsaved: true
       ) != nil
     else { return }
     assertTrailingAddVisible()
@@ -55,11 +53,10 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["play", "addToPlaylist"],
         trailing: ["delete", "archive", "download"],
-        unsaved: true,
-        timeout: postReadinessTimeout
+        unsaved: true
       ) != nil
     else { return }
-    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: postReadinessTimeout))
+    XCTAssertTrue(waitForSaveButton(enabled: true, timeout: adaptiveTimeout))
   }
 
   // MARK: - Private Helpers
@@ -69,8 +66,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       expectDebugState(
         leading: ["markPlayed"],
         trailing: ["delete", "archive"],
-        unsaved: false,
-        timeout: postReadinessTimeout
+        unsaved: false
       ) != nil
     else { return }
   }
@@ -84,7 +80,7 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
       _ = ensureVisibleInSheet(
         identifier: "SwipeActions.Add.Trailing",
         container: container,
-        scrollAttempts: 1
+        scrollAttempts: 4
       )
     }
     let trailingAddButton = element(withIdentifier: "SwipeActions.Add.Trailing")

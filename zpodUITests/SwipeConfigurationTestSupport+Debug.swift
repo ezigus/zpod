@@ -124,7 +124,7 @@ extension SwipeConfigurationTestCase {
     timeout: TimeInterval? = nil,
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
-    let effectiveTimeout = timeout ?? postReadinessTimeout
+    let effectiveTimeout = timeout ?? debugStateTimeout
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     guard
       waitForElement(
@@ -205,7 +205,7 @@ extension SwipeConfigurationTestCase {
     timeout: TimeInterval? = nil
   ) -> SwipeDebugState? {
     guard let state = waitForDebugState(timeout: timeout) else {
-      let effectiveTimeout = timeout ?? adaptiveShortTimeout
+      let effectiveTimeout = timeout ?? debugStateTimeout
       XCTFail("Debug state unavailable after \(effectiveTimeout) seconds")
       return nil
     }

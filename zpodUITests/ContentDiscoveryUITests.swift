@@ -188,10 +188,10 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           || app.buttons.matching(identifier: "discovery-options-menu.search-history").firstMatch.exists
         XCTAssertTrue(hasMenuOptions, "Discovery options menu should contain expected items")
       } else {
-        throw XCTSkip("Menu options did not appear - may need UI adjustments")
+        XCTFail("Menu options did not appear - may need UI adjustments"); return
       }
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -304,7 +304,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         "URL input field should be present"
       )
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -419,7 +419,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         "URL field should contain entered URL, got: '\(urlFieldValue)'"
       )
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -512,10 +512,10 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           historySheet.waitForExistence(timeout: 3.0),
           "Search history sheet should appear")
       } else {
-        throw XCTSkip("Search History option not found in menu")
+        XCTFail("Search History option not found in menu"); return
       }
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -601,7 +601,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         "Search field should contain typed text, got: '\(enteredValue)'"
       )
     } else {
-      throw XCTSkip("Search field not found - skipping responsiveness test")
+      XCTFail("Search field not found - skipping responsiveness test"); return
     }
   }
 }

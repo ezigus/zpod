@@ -225,7 +225,11 @@ finalize_and_exit() {
   local code="$1"
   trap - ERR INT
   if (( SUMMARY_PRINTED == 0 )); then
-    print_summary
+    if [[ -n "${RESULT_LOG:-}" ]]; then
+      print_summary | tee -a "$RESULT_LOG"
+    else
+      print_summary
+    fi
   fi
   SUMMARY_PRINTED=1
   exit "$code"

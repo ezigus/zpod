@@ -68,6 +68,7 @@ protocol UITestFoundation {
   var adaptiveTimeout: TimeInterval { get }
   var adaptiveShortTimeout: TimeInterval { get }
   var postReadinessTimeout: TimeInterval { get }
+  var debugStateTimeout: TimeInterval { get }
 }
 
 /// Protocol for element waiting capabilities using XCTestExpectation patterns
@@ -116,6 +117,11 @@ extension UITestFoundation {
 
   var postReadinessTimeout: TimeInterval {
     let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
+    return baseTimeout * timeoutScale
+  }
+
+  var debugStateTimeout: TimeInterval {
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 4.0 : 2.5
     return baseTimeout * timeoutScale
   }
 }
@@ -296,7 +302,7 @@ extension XCTestCase {
     return nil
   }
 
-  /// Waits for an element to appear and throws `XCTSkip` when it never becomes available.
+  /// Waits for an element to appear and fails the test immediately when it never becomes available.
   @MainActor
   @discardableResult
   func waitForElementOrSkip(
@@ -305,7 +311,8 @@ extension XCTestCase {
     description: String
   ) throws -> XCUIElement {
     guard element.waitForExistence(timeout: timeout) else {
-      throw XCTSkip("\(description) not available; verify test data and launch arguments.")
+      XCTFail("\(description) not available; verify test data and launch arguments.")
+      return element
     }
     return element
   }

@@ -153,7 +153,8 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Podcast cell not rendered; verify seed data.")
+      XCTFail("Podcast cell not rendered; verify seed data.")
+      return
     }
     firstPodcast.tap()
 
@@ -208,7 +209,12 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         !mainContent.label.isEmpty || mainContent.isHittable,
         "Main content should be accessible")
     } else if
-      let fallback = ["Content Container", "Episode Cards Container", "Library Content"]
+      let fallback = [
+        "Content Container",
+        "Episode Cards Container",
+        "Library Content",
+        "Podcast Cards Container",
+      ]
         .compactMap({ findContainerElement(in: app, identifier: $0) })
         .first
     {
@@ -216,7 +222,8 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
         !fallback.label.isEmpty || fallback.isHittable,
         "Fallback content container should be accessible")
     } else {
-      throw XCTSkip("Main content container missing; verify test fixtures.")
+      XCTFail("Main content container missing; verify test fixtures.")
+      return
     }
   }
 
@@ -630,10 +637,12 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
           app.state == .runningForeground,
           "App should remain responsive during navigation")
       } else {
-        throw XCTSkip("Library tab not found - skipping performance test")
+        XCTFail("Library tab not found - performance test requires fixtures")
+        return
       }
     } else {
-      throw XCTSkip("Tab bar not found - skipping performance test")
+      XCTFail("Tab bar not found - performance test requires fixtures")
+      return
     }
   }
 

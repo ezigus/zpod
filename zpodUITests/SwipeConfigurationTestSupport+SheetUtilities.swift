@@ -45,6 +45,10 @@ extension SwipeConfigurationTestCase {
     }
 
     func searchContainer(in root: XCUIElement) -> XCUIElement? {
+      let explicitList = root.descendants(matching: .any).matching(identifier: "SwipeActions.List")
+        .firstMatch
+      if explicitList.exists { return explicitList }
+
       let tables = root.tables.matching(NSPredicate(value: true))
       for i in 0..<tables.count {
         let table = tables.element(boundBy: i)
@@ -101,18 +105,6 @@ extension SwipeConfigurationTestCase {
 
     logger.warning("[SwipeUITestDebug] swipeActionsSheetListContainer timed out")
     reportAvailableSwipeIdentifiers(context: "swipeActionsSheetListContainer timeout")
-    let fallbackCollection = app.collectionViews.firstMatch
-    if fallbackCollection.exists {
-      logger.warning("[SwipeUITestDebug] Falling back to first collection view for swipe sheet")
-      cachedSwipeContainer = fallbackCollection
-      return fallbackCollection
-    }
-    let fallbackTable = app.tables.firstMatch
-    if fallbackTable.exists {
-      logger.warning("[SwipeUITestDebug] Falling back to first table view for swipe sheet")
-      cachedSwipeContainer = fallbackTable
-      return fallbackTable
-    }
     let container = locateContainer()
     cachedSwipeContainer = container
     return container

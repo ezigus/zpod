@@ -525,15 +525,16 @@ public struct EpisodeListView: View {
             viewModel.enterMultiSelectMode()
             viewModel.toggleEpisodeSelection(episode)
           }
-        }
       }
-      .platformInsetGroupedListStyle()
-      .accessibilityIdentifier("Episode Cards Container")
-      #if DEBUG
-        .overlay(alignment: .topLeading) {
-          if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1",
-            !viewModel.swipeExecutionDebugSummary.isEmpty
-          {
+    }
+    .platformInsetGroupedListStyle()
+    .accessibilityIdentifier("Episode Cards Container")
+    .background(EpisodeListIdentifierSetter())
+    #if DEBUG
+      .overlay(alignment: .topLeading) {
+        if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1",
+          !viewModel.swipeExecutionDebugSummary.isEmpty
+        {
             Text(viewModel.swipeExecutionDebugSummary)
             .font(.caption2)
             .opacity(0.001)
@@ -736,6 +737,64 @@ public struct EpisodeListView: View {
       _ uiViewController: UIActivityViewController,
       context: Context
     ) {}
+  }
+
+  private struct EpisodeListIdentifierSetter: UIViewControllerRepresentable {
+    private let maxAttempts = 30
+    private let retryInterval: TimeInterval = 0.1
+
+    func makeUIViewController(context: Context) -> UIViewController {
+      let controller = UIViewController()
+      scheduleIdentifierUpdate(from: controller, attempt: 0)
+      return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+      scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
+    }
+
+    private func scheduleIdentifierUpdate(from controller: UIViewController, attempt: Int) {
+      let delay = attempt == 0 ? 0 : retryInterval
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        guard let tableView = self.locateTableView(startingFrom: controller) else {
+          self.retryIfNeeded(from: controller, attempt: attempt)
+          return
+        }
+        if tableView.accessibilityIdentifier != "Episode Cards Container" {
+          tableView.accessibilityIdentifier = "Episode Cards Container"
+          tableView.accessibilityLabel = "Episode Cards Container"
+        }
+      }
+    }
+
+    private func retryIfNeeded(from controller: UIViewController, attempt: Int) {
+      guard attempt < maxAttempts else { return }
+      scheduleIdentifierUpdate(from: controller, attempt: attempt + 1)
+    }
+
+    private func locateTableView(startingFrom controller: UIViewController) -> UITableView? {
+      if let table = findTableView(in: controller.view) {
+        return table
+      }
+      if let parent = controller.parent, let table = findTableView(in: parent.view) {
+        return table
+      }
+      if let window = controller.view.window, let table = findTableView(in: window) {
+        return table
+      }
+      return nil
+    }
+
+    private func findTableView(in view: UIView?) -> UITableView? {
+      guard let view else { return nil }
+      if let table = view as? UITableView { return table }
+      for subview in view.subviews {
+        if let table = findTableView(in: subview) {
+          return table
+        }
+      }
+      return nil
+    }
   }
 #else
   private struct ShareSheet: View {

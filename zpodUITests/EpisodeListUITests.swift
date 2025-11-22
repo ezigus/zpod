@@ -44,7 +44,13 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
           return
         }
 
-        if libraryContent.waitForExistence(timeout: adaptiveTimeout) {
+        XCTAssertTrue(
+          libraryContent.waitForExistence(timeout: adaptiveTimeout)
+            || waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout),
+          "Library content not available - verify test data"
+        )
+
+        if libraryContent.exists {
 
           // When: I tap on a podcast using direct element access
           let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
@@ -60,11 +66,13 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
             ]
 
             for identifier in candidateIdentifiers {
-              if let container = findContainerElement(in: app, identifier: identifier),
-                container.waitForExistence(timeout: adaptiveShortTimeout)
-              {
-                foundContainer = true
-                break
+              if let container = findContainerElement(in: app, identifier: identifier) {
+                if container.waitForExistence(timeout: adaptiveShortTimeout)
+                  || waitForContentToLoad(containerIdentifier: identifier, timeout: adaptiveShortTimeout)
+                {
+                  foundContainer = true
+                  break
+                }
               }
             }
 
@@ -87,16 +95,20 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
 
             XCTAssertTrue(foundContainer, "Should navigate to some form of episode list content")
           } else {
-            throw XCTSkip("Test podcast not available - skipping navigation test")
+            XCTFail("Test podcast not available - navigation test requires fixtures")
+            return
           }
         } else {
-          throw XCTSkip("Library content not available - skipping navigation test")
+          XCTFail("Library content not available - navigation test requires fixtures")
+          return
         }
       } else {
-        throw XCTSkip("Library tab not available - skipping navigation test")
+        XCTFail("Library tab not available - navigation test requires fixtures")
+        return
       }
     } else {
-      throw XCTSkip("Main tab bar not available - skipping navigation test")
+      XCTFail("Main tab bar not available - navigation test requires fixtures")
+      return
     }
   }
 
@@ -109,10 +121,22 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     navigateToPodcastEpisodes("swift-talk")
 
     // When: The episode list loads, check for episode container
+    XCTAssertTrue(
+      waitForContentToLoad(
+        containerIdentifier: "Episode Cards Container",
+        itemIdentifiers: ["Episode List"],
+        timeout: adaptiveTimeout
+      ),
+      "Episode container should load for episode display test"
+    )
+
     guard
-      let episodeContainer = findContainerElement(in: app, identifier: "Episode Cards Container")
+      let episodeContainer =
+        findContainerElement(in: app, identifier: "Episode Cards Container")
+        ?? findContainerElement(in: app, identifier: "Episode List")
     else {
-      throw XCTSkip("Episode container not available - skipping episode display test")
+      XCTFail("Episode container not available - episode display test requires fixtures")
+      return
     }
 
     XCTAssertTrue(
@@ -144,6 +168,9 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     if let episodeCards = findContainerElement(in: app, identifier: "Episode Cards Container") {
       candidateContainers.append(episodeCards)
     }
+    if let episodeList = findContainerElement(in: app, identifier: "Episode List") {
+      candidateContainers.append(episodeList)
+    }
     if let contentContainer = findContainerElement(in: app, identifier: "Content Container") {
       candidateContainers.append(contentContainer)
     }
@@ -161,7 +188,8 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
       // Then: The container should still exist after scrolling
       XCTAssertTrue(container.exists, "Scroll container should still exist after scrolling")
     } else {
-      throw XCTSkip("No container available - skipping scrolling test")
+      XCTFail("No scrollable container available for episode list")
+      return
     }
   }
 
@@ -201,6 +229,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
       // Also check that we've navigated away from the list
       let navigatedAway =
         findContainerElement(in: app, identifier: "Episode Cards Container") == nil
+        && findContainerElement(in: app, identifier: "Episode List") == nil
 
       XCTAssertTrue(
         foundDetailView || navigatedAway, "Should navigate to episode detail or away from list")
@@ -215,9 +244,11 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
         // Simple check: verify we're no longer in the episode list
         let navigatedAway =
           findContainerElement(in: app, identifier: "Episode Cards Container") == nil
+          && findContainerElement(in: app, identifier: "Episode List") == nil
         XCTAssertTrue(navigatedAway, "Should navigate away from episode list")
       } else {
-        throw XCTSkip("No episode buttons available - skipping detail navigation test")
+        XCTFail("No episode buttons available - detail navigation test requires fixtures")
+        return
       }
     }
   }
@@ -292,41 +323,44 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
             podcastButton.tap()
 
             // Wait for episode list container to appear
-            if waitForContentToLoad(
-              containerIdentifier: "Episode Cards Container", timeout: adaptiveTimeout)
-            {
-              guard
-                let episodeCardsContainer = findContainerElement(
-                  in: app, identifier: "Episode Cards Container")
-              else {
-                throw XCTSkip(
-                  "Episode Cards Container not available - skipping pull to refresh test")
-              }
+            XCTAssertTrue(
+              waitForContentToLoad(
+                containerIdentifier: "Episode Cards Container",
+                itemIdentifiers: ["Episode List"],
+                timeout: adaptiveTimeout),
+              "Episode Cards Container not available - pull to refresh requires fixtures"
+            )
 
-              // When: I pull down to refresh
-              let startCoordinate = episodeCardsContainer.coordinate(
-                withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
-              let endCoordinate = startCoordinate.withOffset(CGVector(dx: 0, dy: 200))
-              startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
-
-              // Then: The container should still exist after refresh
-              XCTAssertTrue(
-                episodeCardsContainer.exists,
-                "Episode cards container should still exist after refresh")
-            } else {
-              throw XCTSkip("Episode Cards Container not available - skipping pull to refresh test")
+            guard
+              let episodeCardsContainer =
+                findContainerElement(in: app, identifier: "Episode Cards Container")
+                ?? findContainerElement(in: app, identifier: "Episode List")
+            else {
+              XCTFail("Episode Cards Container not available - pull to refresh requires fixtures")
+              return
             }
+
+            // When: I pull down to refresh
+            let startCoordinate = episodeCardsContainer.coordinate(
+              withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            let endCoordinate = startCoordinate.withOffset(CGVector(dx: 0, dy: 200))
+            startCoordinate.press(forDuration: 0, thenDragTo: endCoordinate)
+
+            // Then: The container should still exist after refresh
+            XCTAssertTrue(
+              episodeCardsContainer.exists,
+              "Episode cards container should still exist after refresh")
           } else {
-            throw XCTSkip("Test podcast not available - skipping pull to refresh test")
+            XCTFail("Test podcast not available - pull to refresh requires fixtures")
           }
         } else {
-          throw XCTSkip("Library content not available - skipping pull to refresh test")
+          XCTFail("Library content not available - pull to refresh requires fixtures")
         }
       } else {
-        throw XCTSkip("Library tab not available - skipping pull to refresh test")
+        XCTFail("Library tab not available - pull to refresh requires fixtures")
       }
     } else {
-      throw XCTSkip("Main tab bar not available - skipping pull to refresh test")
+      XCTFail("Main tab bar not available - pull to refresh requires fixtures")
     }
   }
 
@@ -341,40 +375,56 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
     navigateToPodcastEpisodes("swift-talk")
 
     // When: I check accessibility elements
-    // Look for any available content container
-    var foundContainer = false
-    if let episodeCards = findContainerElement(in: app, identifier: "Episode Cards Container") {
-      foundContainer = episodeCards.exists
-    } else if let contentContainer = findContainerElement(in: app, identifier: "Content Container")
-    {
-      foundContainer = contentContainer.exists
-    } else {
-      let tableView = app.tables.firstMatch
-      let collectionView = app.collectionViews.firstMatch
-      let scrollView = app.scrollViews.firstMatch
-      foundContainer = tableView.exists || collectionView.exists || scrollView.exists
+    XCTAssertTrue(
+      waitForContentToLoad(
+        containerIdentifier: "Episode Cards Container",
+        itemIdentifiers: ["Episode List"],
+        timeout: adaptiveTimeout
+      ) || waitForContentToLoad(
+        containerIdentifier: "Content Container",
+        itemIdentifiers: ["Episode List"],
+        timeout: adaptiveTimeout
+      ),
+      "No content container available for accessibility testing"
+    )
+
+    var resolvedContainer =
+      findContainerElement(in: app, identifier: "Episode Cards Container")
+        ?? findContainerElement(in: app, identifier: "Episode List")
+        ?? findContainerElement(in: app, identifier: "Content Container")
+
+    if resolvedContainer == nil {
+      let fallbacks = [
+        app.tables.firstMatch,
+        app.collectionViews.firstMatch,
+        app.scrollViews.firstMatch,
+      ]
+      resolvedContainer = fallbacks.first(where: { $0.exists })
     }
 
-    if foundContainer {
-      // Then: Key elements should be accessible
-      let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
-      if firstEpisode.exists && firstEpisode.isHittable {
-        // Test specific episode accessibility
-        XCTAssertFalse(firstEpisode.label.isEmpty, "Episode should have accessible label")
-        XCTAssertTrue(firstEpisode.isHittable, "Episode should be accessible")
-      } else {
-        // Fallback: check for any accessible episode buttons
-        let episodeButtons = app.buttons.matching(
-          NSPredicate(format: "identifier CONTAINS 'Episode-'"))
-        if episodeButtons.count > 0 {
-          let anyEpisode = episodeButtons.firstMatch
-          XCTAssertTrue(anyEpisode.exists, "Should have accessible episode buttons")
-        } else {
-          throw XCTSkip("No episode buttons available for accessibility testing")
-        }
-      }
+    guard let container = resolvedContainer else {
+      XCTFail("No content container available for accessibility testing")
+      return
+    }
+
+    // Then: Key elements should be accessible
+    let firstEpisode = app.buttons.matching(identifier: "Episode-st-001").firstMatch
+    if firstEpisode.exists && firstEpisode.isHittable {
+      // Test specific episode accessibility
+      XCTAssertFalse(firstEpisode.label.isEmpty, "Episode should have accessible label")
+      XCTAssertTrue(firstEpisode.isHittable, "Episode should be accessible")
     } else {
-      throw XCTSkip("No content container available for accessibility testing")
+      // Fallback: check for any accessible episode buttons
+      let episodeButtons = app.buttons.matching(
+        NSPredicate(format: "identifier CONTAINS 'Episode-'")
+      )
+      if episodeButtons.count > 0 {
+        let anyEpisode = episodeButtons.firstMatch
+        XCTAssertTrue(anyEpisode.exists, "Should have accessible episode buttons")
+      } else {
+        XCTFail("No episode buttons available for accessibility testing")
+        return
+      }
     }
   }
 
@@ -382,7 +432,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func initializeApp() {
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
   }
 
   @MainActor
@@ -414,6 +464,7 @@ final class EpisodeListUITests: XCTestCase, SmartUITesting {
             var foundContainer = false
             let candidateIdentifiers = [
               "Episode Cards Container",
+              "Episode List",
               "Content Container",
             ]
 

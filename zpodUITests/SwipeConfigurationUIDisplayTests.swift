@@ -46,7 +46,8 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     ]
 
     for id in identifiers {
-      _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: 2)
+      let attempts = id.contains("Add.") || id.contains("Preset.") ? 4 : 2
+      _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: attempts)
       let element = self.element(withIdentifier: id, within: container)
       XCTAssertTrue(
         waitForElement(element, timeout: postReadinessTimeout, description: id),

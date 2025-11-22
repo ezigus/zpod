@@ -197,7 +197,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Select button not available - multi-select feature not implemented yet")
+      XCTFail("Select button not available - multi-select feature not implemented yet"); return
     }
 
     selectButton.tap()
@@ -210,7 +210,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       ) != nil
     else {
-      throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
+      XCTFail("Multi-select mode not activated - feature may not be fully implemented"); return
     }
   }
 
@@ -231,7 +231,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Select button not available - multi-select feature not implemented yet")
+      XCTFail("Select button not available - multi-select feature not implemented yet"); return
     }
 
     selectButton.tap()
@@ -244,7 +244,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       ) != nil
     else {
-      throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
+      XCTFail("Multi-select mode not activated - feature may not be fully implemented"); return
     }
 
     // Select first episode using native element waiting
@@ -255,7 +255,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
       ], timeout: adaptiveShortTimeout, description: "first episode", failOnTimeout: false)
 
     guard let episode = firstEpisode else {
-      throw XCTSkip("No episodes available for selection")
+      XCTFail("No episodes available for selection"); return
     }
 
     // Select the episode and wait for confirmation using event-driven helper
@@ -270,7 +270,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
       ], timeout: adaptiveTimeout, description: "selection confirmation", failOnTimeout: false)
 
     guard selectionIndicator != nil else {
-      throw XCTSkip("Episode selection not working - feature may not be fully implemented")
+      XCTFail("Episode selection not working - feature may not be fully implemented"); return
     }
 
     // Look for mark as played button with native waiting
@@ -300,7 +300,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         print("ℹ️ Mark as played triggered but feedback not detected - may still work")
       }
     } else {
-      throw XCTSkip("Mark as Played button not found - feature not implemented yet")
+      XCTFail("Mark as Played button not found - feature not implemented yet"); return
     }
   }
 
@@ -322,7 +322,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Select button not available - multi-select feature not implemented yet")
+      XCTFail("Select button not available - multi-select feature not implemented yet"); return
     }
 
     selectButton.tap()
@@ -335,7 +335,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       ) != nil
     else {
-      throw XCTSkip("Multi-select mode not activated - feature may not be fully implemented")
+      XCTFail("Multi-select mode not activated - feature may not be fully implemented"); return
     }
 
     // Select episodes for download using native element waiting
@@ -376,7 +376,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
           "ℹ️ Download operation triggered but progress indicators not detected - may still work")
       }
     } else {
-      throw XCTSkip("Download button not found - batch download feature not implemented yet")
+      XCTFail("Download button not found - batch download feature not implemented yet"); return
     }
   }
 
@@ -398,7 +398,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       )
     else {
-      throw XCTSkip("Select button not available - multi-select feature not implemented yet")
+      XCTFail("Select button not available - multi-select feature not implemented yet"); return
     }
 
     selectButton.tap()
@@ -411,7 +411,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         failOnTimeout: false
       ) != nil
     else {
-      throw XCTSkip("Multi-select mode not activated")
+      XCTFail("Multi-select mode not activated"); return
     }
 
     // Look for criteria selection options using native waiting
@@ -439,7 +439,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
         print("ℹ️ Criteria selection triggered but results not detected - may still work")
       }
     } else {
-      throw XCTSkip("Criteria selection button not found - feature not implemented yet")
+      XCTFail("Criteria selection button not found - feature not implemented yet"); return
     }
   }
 

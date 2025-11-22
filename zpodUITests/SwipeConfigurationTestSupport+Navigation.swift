@@ -8,6 +8,10 @@
 import Foundation
 import XCTest
 
+enum SwipeConfigurationNavigationError: Error {
+  case missingEpisodeButton
+}
+
 extension SwipeConfigurationTestCase {
   @MainActor
   func resetSwipeSettingsToDefault() {
@@ -90,6 +94,9 @@ extension SwipeConfigurationTestCase {
   @MainActor
   @discardableResult
   func reuseOrOpenConfigurationSheet(resetDefaults: Bool = false) throws -> XCUIElement? {
+    if resetDefaults {
+      cachedSwipeContainer = nil
+    }
     if let cached = cachedSwipeContainer, cached.exists {
       return cached
     }
@@ -106,12 +113,12 @@ extension SwipeConfigurationTestCase {
   func navigateToEpisodeList() throws {
     let tabBar = app.tabBars["Main Tab Bar"]
     guard tabBar.exists else {
-      throw XCTSkip("Main tab bar not available")
+      XCTFail("Main tab bar not available"); return
     }
 
     let libraryTab = tabBar.buttons["Library"]
     guard libraryTab.exists else {
-      throw XCTSkip("Library tab unavailable")
+      XCTFail("Library tab unavailable"); return
     }
 
     guard
@@ -121,7 +128,7 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      throw XCTSkip("Library tab not ready for interaction")
+      XCTFail("Library tab not ready for interaction"); return
     }
 
     guard
@@ -131,7 +138,7 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      throw XCTSkip("Library tab not hittable")
+      XCTFail("Library tab not hittable"); return
     }
 
     let navigationSucceeded = navigateAndWaitForResult(
@@ -145,18 +152,18 @@ extension SwipeConfigurationTestCase {
     )
 
     guard navigationSucceeded else {
-      throw XCTSkip("Failed to navigate to Library tab")
+      XCTFail("Failed to navigate to Library tab"); return
     }
 
     guard
       waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout)
     else {
-      throw XCTSkip("Library content did not load")
+      XCTFail("Library content did not load"); return
     }
 
     let podcastButton = app.buttons["Podcast-swift-talk"]
     guard podcastButton.exists else {
-      throw XCTSkip("Test podcast unavailable")
+      XCTFail("Test podcast unavailable"); return
     }
 
     guard
@@ -166,7 +173,7 @@ extension SwipeConfigurationTestCase {
         description: "Podcast button"
       )
     else {
-      throw XCTSkip("Podcast button not hittable")
+      XCTFail("Podcast button not hittable"); return
     }
 
     let episodeNavSucceeded = navigateAndWaitForResult(
@@ -180,7 +187,7 @@ extension SwipeConfigurationTestCase {
     )
 
     guard episodeNavSucceeded else {
-      throw XCTSkip("Failed to navigate to episode list")
+      XCTFail("Failed to navigate to episode list"); return
     }
 
     if !waitForContentToLoad(
@@ -195,7 +202,7 @@ extension SwipeConfigurationTestCase {
         description: "configure swipe actions button"
       )
     else {
-      throw XCTSkip("Episode list did not load")
+      XCTFail("Episode list did not load"); return
     }
     }
   }
@@ -301,7 +308,8 @@ extension SwipeConfigurationTestCase {
       .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
       .firstMatch
     guard fallbackEpisode.exists else {
-      throw XCTSkip("No episode button available for swipe configuration testing")
+      XCTFail("No episode button available for swipe configuration testing")
+      throw SwipeConfigurationNavigationError.missingEpisodeButton
     }
     return fallbackEpisode
   }

@@ -61,6 +61,7 @@
               .id("swipe-presets-bottom")
 
           }
+          .accessibilityIdentifier("SwipeActions.List")
           .platformInsetGroupedListStyle()
           #if DEBUG
             .overlay(alignment: .topLeading) {
