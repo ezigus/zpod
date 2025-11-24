@@ -13,6 +13,10 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func swipeActionsSheetListContainer() -> XCUIElement? {
+    guard let app, app.state != .notRunning, app.state != .unknown else {
+      return nil
+    }
+
     // Always re-discover instead of trusting cache - SwiftUI may recreate the sheet
     let save = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
     let cancel = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
@@ -95,7 +99,6 @@ extension SwipeConfigurationTestCase {
     let deadline = Date().addingTimeInterval(5.0)
     while Date() < deadline {
       if let container = locateContainer() {
-        cachedSwipeContainer = container
         return container
       }
       RunLoop.current.run(until: Date().addingTimeInterval(0.05))
@@ -103,9 +106,7 @@ extension SwipeConfigurationTestCase {
 
     logger.warning("[SwipeUITestDebug] swipeActionsSheetListContainer timed out")
     reportAvailableSwipeIdentifiers(context: "swipeActionsSheetListContainer timeout")
-    let container = locateContainer()
-    cachedSwipeContainer = container
-    return container
+    return locateContainer()
   }
 
   @MainActor
@@ -119,7 +120,7 @@ extension SwipeConfigurationTestCase {
   func ensureVisibleInSheet(
     identifier: String,
     container: XCUIElement,
-    scrollAttempts: Int = 1  // Reduced: materialization happens upfront, minimal scroll needed
+    scrollAttempts: Int = 1  // Caller controls extra downward sweeps; defaults stay minimal
   ) -> Bool {
     var scrollContainer = container
     if !scrollContainer.exists {
@@ -132,7 +133,7 @@ extension SwipeConfigurationTestCase {
     var target = element(withIdentifier: identifier, within: scrollContainer)
     if target.exists { return true }
 
-    func refreshContainer() -> Bool {
+    func refreshContainerIfNeeded() -> Bool {
       if scrollContainer.exists, scrollContainer.frame.isEmpty == false {
         return true
       }
@@ -142,13 +143,12 @@ extension SwipeConfigurationTestCase {
       return true
     }
 
-    guard refreshContainer() else { return target.exists }
+    guard refreshContainerIfNeeded() else { return target.exists }
     if target.exists { return true }
 
-    let attempts = max(scrollAttempts, 1)  // At least 1, but default is now 1
-    func settle() {
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-    }
+    // Cap sweeps to deterministic passes: one top reset, two downward sweeps, one upward sweep.
+    let downwardSweeps = max(scrollAttempts, 2)
+    let upwardSweeps = 1
 
     enum ScrollDirection {
       case towardsBottom
@@ -156,7 +156,8 @@ extension SwipeConfigurationTestCase {
     }
 
     func scroll(_ direction: ScrollDirection) {
-      guard refreshContainer() else { return }
+      // Refresh only when the container is missing or empty.
+      guard refreshContainerIfNeeded() else { return }
 
       if scrollContainer.isHittable {
         switch direction {
@@ -190,8 +191,12 @@ extension SwipeConfigurationTestCase {
       }
     }
 
+    func settle() {
+      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+
     // Nudge to the top first so we have a deterministic starting point.
-    for _ in 0..<2 {
+    for _ in 0..<1 {
       scroll(.towardsTop)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
@@ -199,7 +204,7 @@ extension SwipeConfigurationTestCase {
     }
 
     // Scan downward through the sheet (swipe up) to materialize lazy rows.
-    for _ in 0..<attempts {
+    for _ in 0..<downwardSweeps {
       scroll(.towardsBottom)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
@@ -207,7 +212,7 @@ extension SwipeConfigurationTestCase {
     }
 
     // Walk back upward in case the element lives near the top and the first sweep missed it.
-    for _ in 0..<attempts {
+    for _ in 0..<upwardSweeps {
       scroll(.towardsTop)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
@@ -220,9 +225,9 @@ extension SwipeConfigurationTestCase {
         scoped: true
       )
       logger.debug(
-        "[SwipeUITestDebug] unable to surface \(identifier, privacy: .public) after \(attempts) attempts"
+        "[SwipeUITestDebug] unable to surface \(identifier, privacy: .public) after \(downwardSweeps) downward sweeps"
       )
-      print("[SwipeUITestDebug] unable to surface \(identifier) after \(attempts) attempts")
+      print("[SwipeUITestDebug] unable to surface \(identifier) after \(downwardSweeps) downward sweeps")
     }
 
     return target.exists

@@ -21,10 +21,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   @MainActor internal static var reportedToggleValueSignatures = Set<String>()
   nonisolated(unsafe) private var testStartTime: CFAbsoluteTime?
   nonisolated(unsafe) internal var lastSwipeExecutionTimestamp: TimeInterval = 0
-  nonisolated(unsafe) internal var cachedSwipeContainer: XCUIElement?
-  nonisolated(unsafe) internal var sectionsMaterialized: Bool = false
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
-  nonisolated(unsafe) private var hasLaunchedForCurrentSeed = false
+  nonisolated(unsafe) internal var hasLaunchedForCurrentSeed = false
 
   // MARK: - Environment Configuration
 
@@ -73,8 +71,8 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       }
     }
     app = nil
-    cachedSwipeContainer = nil
     try super.tearDownWithError()
+    hasLaunchedForCurrentSeed = false
   }
 
   func latestSwipeExecutionRecord() -> SwipeExecutionRecord? {

@@ -62,7 +62,19 @@ extension SwipeConfigurationTestCase {
   @MainActor
   @discardableResult
   func openConfigurationSheetReady(resetDefaults: Bool = true) throws -> XCUIElement? {
-    try beginWithFreshConfigurationSheet(resetDefaults: resetDefaults)
+    // Always relaunch once per test unless already launched for this seed.
+    if !hasLaunchedForCurrentSeed {
+      if resetDefaults {
+        initializeApp()
+      } else {
+        relaunchApp(resetDefaults: false)
+      }
+      hasLaunchedForCurrentSeed = true
+    } else if resetDefaults {
+      relaunchApp(resetDefaults: true)
+    }
+
+    try openConfigurationSheetFromEpisodeList()
 
     // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
     if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
@@ -72,20 +84,16 @@ extension SwipeConfigurationTestCase {
       )
     }
 
-    // Check section materialization once per test
-    if !sectionsMaterialized {
-      XCTAssertTrue(
-        waitForSectionMaterialization(timeout: adaptiveShortTimeout),
-        "Swipe configuration sections should materialize within timeout"
-      )
-      sectionsMaterialized = true
-    }
+    XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize within timeout"
+    )
 
-    // Cache the container for the remainder of the test
-    cachedSwipeContainer = swipeActionsSheetListContainer()
-    XCTAssertNotNil(
-      cachedSwipeContainer, "Swipe configuration sheet container should be discoverable")
-    return cachedSwipeContainer
+    guard let container = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet container should be discoverable after opening")
+      return nil
+    }
+    return container
   }
 
   /// Returns the sheet container if discoverable; otherwise opens it.
@@ -93,17 +101,22 @@ extension SwipeConfigurationTestCase {
   @MainActor
   @discardableResult
   func reuseOrOpenConfigurationSheet(resetDefaults: Bool = false) throws -> XCUIElement? {
-    if resetDefaults {
-      cachedSwipeContainer = nil
-      sectionsMaterialized = false  // Reset materialization flag with container cache
-      return try openConfigurationSheetReady(resetDefaults: resetDefaults)
+    // If the app is not yet launched or was terminated, open the sheet from scratch.
+    if app == nil || app.state == .notRunning || app.state == .unknown {
+      return try openConfigurationSheetReady(resetDefaults: true)
     }
-    // Try to discover existing sheet first
-    if let container = swipeActionsSheetListContainer() {
+
+    if resetDefaults {
+      return try openConfigurationSheetReady(resetDefaults: true)
+    }
+
+    // Try to reuse an existing sheet only when the app is running.
+    if let container = swipeActionsSheetListContainer(), container.exists {
       return container
     }
-    // Sheet not found, open it
-    return try openConfigurationSheetReady(resetDefaults: resetDefaults)
+
+    // Sheet not found, open it fresh.
+    return try openConfigurationSheetReady(resetDefaults: false)
   }
 
   @MainActor

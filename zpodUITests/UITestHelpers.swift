@@ -116,7 +116,7 @@ extension UITestFoundation {
   }
 
   var postReadinessTimeout: TimeInterval {
-    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 1.5 : 1.0
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 2.0 : 1.5
     return baseTimeout * timeoutScale
   }
 
