@@ -153,14 +153,27 @@ record_phase_timing() {
 }
 
 category_in() {
+  # Safely check membership; tolerate empty inputs. Disable errtrace locally so non-zero returns
+  # here don't trigger the global ERR trap (callers handle the boolean explicitly).
+  local had_errtrace=0
+  case $- in
+    *E*) had_errtrace=1;;
+  esac
+  set +E
+  if (( $# == 0 )); then
+    [[ $had_errtrace -eq 1 ]] && set -E
+    return 1
+  fi
   local value="$1"
   shift
   local candidate
   for candidate in "$@"; do
     if [[ "$value" == "$candidate" ]]; then
+      [[ $had_errtrace -eq 1 ]] && set -E
       return 0
     fi
   done
+  [[ $had_errtrace -eq 1 ]] && set -E
   return 1
 }
 
@@ -208,6 +221,10 @@ categorize_test_entry() {
 
 print_entries_for_categories() {
   local -a categories=("$@")
+  if (( ${#categories[@]} == 0 )); then
+    printf '  (none)\n'
+    return
+  fi
   local found=0
   local entry
   for entry in "${SUMMARY_ITEMS[@]}"; do
