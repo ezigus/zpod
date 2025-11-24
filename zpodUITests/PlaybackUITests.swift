@@ -1,5 +1,4 @@
 import XCTest
-
 /// UI tests for playback interface controls and platform integrations
 ///
 /// **Specifications Covered**: `spec/ui.md` - Playback interface sections

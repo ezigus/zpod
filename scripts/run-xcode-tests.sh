@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_ROOT}/.." && pwd)"
@@ -48,6 +48,7 @@ CURRENT_PHASE_CATEGORY=""
 SUMMARY_PRINTED=0
 CURRENT_PHASE_RECORDED=0
 declare -a PHASE_DURATION_ENTRIES=()
+declare -a TEST_SUITE_TIMING_ENTRIES=()
 
 register_result_log() {
   local path="$1"
@@ -223,7 +224,8 @@ print_entries_for_categories() {
 
 finalize_and_exit() {
   local code="$1"
-  trap - ERR INT
+  update_exit_status "$code"
+  trap - ERR INT EXIT
   if (( SUMMARY_PRINTED == 0 )); then
     if [[ -n "${RESULT_LOG:-}" ]]; then
       print_summary | tee -a "$RESULT_LOG"
@@ -233,6 +235,12 @@ finalize_and_exit() {
   fi
   SUMMARY_PRINTED=1
   exit "$code"
+}
+
+exit_with_summary() {
+  local code="${1:-1}"
+  update_exit_status "$code"
+  finalize_and_exit "$EXIT_STATUS"
 }
 
 handle_interrupt() {
@@ -249,7 +257,7 @@ handle_unexpected_error() {
   local line=$2
   if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
     add_summary "${CURRENT_PHASE_CATEGORY:-script}" "$CURRENT_PHASE" "error" "" "" "" "" "" "script error at line ${line}"
-  else
+  elif (( ${#SUMMARY_ITEMS[@]} == 0 )); then
     add_summary "script" "runtime" "error" "" "" "" "" "" "script error at line ${line}"
   fi
   update_exit_status "$status"
@@ -258,6 +266,14 @@ handle_unexpected_error() {
 
 trap 'handle_interrupt' INT
 trap 'handle_unexpected_error $? $LINENO' ERR
+handle_exit() {
+  local status=$?
+  if (( EXIT_STATUS != 0 )); then
+    status=$EXIT_STATUS
+  fi
+  finalize_and_exit "$status"
+}
+trap 'handle_exit' EXIT
 
 add_summary() {
   local category="$1"
@@ -555,6 +571,45 @@ sum_test_case_counts() {
   printf '%s|%s|%s|%s' "$total" "$passed" "$failed" "$skipped"
 }
 
+print_suite_breakdown() {
+  local target="$1"
+  local found=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    [[ "$suite_target" == "$target" ]] || continue
+    local symbol
+    symbol=$(status_symbol "$status")
+    printf '    %s %s – %s (%s tests, failed %s, skipped %s)\n' \
+      "$symbol" "$suite" "$(format_elapsed_time "${duration:-0}")" "${total:-0}" "${failed:-0}" "${skipped:-0}"
+    found=1
+  done
+  (( found == 0 )) && return
+}
+
+aggregate_suite_counts() {
+  local target="$1"
+  local total=0 failed=0 skipped=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped <<< "$entry"
+    [[ "$suite_target" == "$target" ]] || continue
+    (( total += suite_total ))
+    (( failed += suite_failed ))
+    (( skipped += suite_skipped ))
+  done
+  local passed=$(( total - failed - skipped ))
+  printf '%s|%s|%s|%s' "$total" "$passed" "$failed" "$skipped"
+}
+
+print_timing_sections() {
+  print_section_header "Timing"
+  printf "Phase Timing:\n"
+  print_phase_timing
+  printf "\nTest Suite Timing:\n"
+  print_test_suite_timing
+}
+
 print_test_execution_summary() {
   local -a groups=("Unit Tests" "Integration Tests" "UI Tests" "Package Tests" "Other Tests")
   local group
@@ -575,6 +630,7 @@ print_test_execution_summary() {
           group_found=1
         fi
         format_summary_line "$category" "$name" "$status" "$log_path" "$total" "$passed" "$failed" "$skipped" "$note"
+        print_suite_breakdown "$name"
       fi
     done
     if (( group_found == 0 )); then
@@ -605,6 +661,8 @@ print_summary() {
   lint_counts=$(tally_counts lint)
   IFS='|' read -r lint_total lint_success lint_warn lint_error lint_interrupted <<< "$lint_counts"
 
+  print_timing_sections
+
   print_section_header "Build Summary"
   print_entries_for_categories syntax build testplan script
 
@@ -615,8 +673,7 @@ print_summary() {
 
   print_section_header "Test Execution Summary"
   print_test_execution_summary
-
-  print_phase_timing_summary
+  print_timing_sections
 
   local test_totals
   test_totals=$(sum_test_case_counts)
@@ -661,8 +718,7 @@ print_summary() {
   fi
 }
 
-print_phase_timing_summary() {
-  print_section_header "Phase Timing"
+print_phase_timing() {
   local -a phase_lines=()
   if [[ ${#PHASE_DURATION_ENTRIES[@]} -eq 0 ]]; then
     phase_lines+=("  (none)")
@@ -678,12 +734,10 @@ print_phase_timing_summary() {
       phase_lines+=("  ${symbol} ${name} – ${formatted_elapsed} (${scope})")
     done
   fi
-
   local line
   for line in "${phase_lines[@]}"; do
     printf '%s\n' "$line"
   done
-
   append_phase_timing_to_logs "${phase_lines[@]}"
 }
 
@@ -701,6 +755,178 @@ append_phase_timing_to_logs() {
       done
     } >> "$log_path"
   done
+}
+
+print_test_suite_timing() {
+  if [[ ${#TEST_SUITE_TIMING_ENTRIES[@]:-0} -eq 0 ]]; then
+    printf '  (none)\n'
+    return
+  fi
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
+    local symbol
+    symbol=$(status_symbol "$status")
+    printf '  %s %s › %s – %s (%s tests, failed %s, skipped %s)\n' \
+      "$symbol" "$target" "$suite" "$(format_elapsed_time "${duration:-0}")" \
+      "${total:-0}" "${failed:-0}" "${skipped:-0}"
+  done
+  append_suite_timing_to_logs "${TEST_SUITE_TIMING_ENTRIES[@]-}"
+}
+
+append_suite_timing_to_logs() {
+  [[ ${#RESULT_LOG_PATHS[@]} -gt 0 ]] || return
+  local -a entries=("$@")
+  local log_path
+  for log_path in "${RESULT_LOG_PATHS[@]}"; do
+    [[ -n "$log_path" && -f "$log_path" ]] || continue
+    {
+      printf '\nTest Suite Timing\n--------------------------------\n'
+      local entry
+      for entry in "${entries[@]}"; do
+        IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
+        local symbol
+        symbol=$(status_symbol "$status")
+        printf '  %s %s › %s – %s (%s tests, failed %s, skipped %s)\n' \
+          "$symbol" "$target" "$suite" "$(format_elapsed_time "${duration:-0}")" \
+          "${total:-0}" "${failed:-0}" "${skipped:-0}"
+      done
+    } >> "$log_path"
+  done
+}
+
+record_test_suite_timings() {
+  local bundle="$1"
+  local target_label="$2"
+  local log_path="${3:-}"
+  [[ -d "$bundle" ]] || return
+  if ! command_exists python3 || ! command_exists xcrun; then
+    return
+  fi
+  local output
+  if ! output=$(python3 - "$bundle" "$target_label" <<'PY'
+import json
+import subprocess
+import sys
+
+bundle = sys.argv[1]
+target_label = sys.argv[2]
+
+def run_xcresult(identifier=None):
+  args = ['xcrun', 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', bundle]
+  if identifier:
+    args.extend(['--id', identifier])
+  result = subprocess.run(args, capture_output=True, text=True)
+  if result.returncode != 0:
+    raise RuntimeError("xcresulttool failed")
+  return json.loads(result.stdout or "{}")
+
+def walk_tests(node, prefix, results):
+  name = node.get("name", {}).get("_value", "")
+  status = node.get("testStatus", {}).get("_value", "").lower() or "unknown"
+  duration = node.get("duration", {}).get("_value", 0) or 0
+  subtests = node.get("subtests", {}).get("_values", [])
+  if subtests:
+    for child in subtests:
+      walk_tests(child, prefix + [name], results)
+  else:
+    suite = "::".join(prefix) if prefix else name
+    results.append((suite, status, duration))
+
+try:
+  root = run_xcresult()
+except Exception:
+  sys.exit(0)
+
+actions = root.get("actions", {}).get("_values", [])
+if not actions:
+  sys.exit(0)
+
+results = []
+for action in actions:
+  tests_ref = action.get("actionResult", {}).get("testsRef")
+  if not tests_ref:
+    continue
+  identifier = tests_ref.get("id", {}).get("_value")
+  if not identifier:
+    continue
+  data = run_xcresult(identifier)
+  for summary in data.get("summaries", {}).get("_values", []):
+    for testable in summary.get("testableSummaries", {}).get("_values", []):
+      testable_name = testable.get("targetName", {}).get("_value", target_label)
+      for test in testable.get("tests", {}).get("_values", []):
+        walk_tests(test, [testable_name], results)
+
+if not results:
+  sys.exit(0)
+
+from collections import defaultdict
+aggregated = defaultdict(lambda: {"duration":0.0, "total":0, "failed":0, "skipped":0})
+for suite, status, duration in results:
+  info = aggregated[suite]
+  info["duration"] += float(duration or 0)
+  info["total"] += 1
+  if status == "skipped":
+    info["skipped"] += 1
+  elif status == "failure":
+    info["failed"] += 1
+
+for suite, info in aggregated.items():
+  status = "success"
+  if info["failed"] > 0:
+    status = "error"
+  elif info["skipped"] > 0 and info["failed"] == 0:
+    status = "warn"
+  duration_int = int(round(info["duration"]))
+  print(f"{suite}|{duration_int}|{status}|{info['total']}|{info['failed']}|{info['skipped']}")
+PY
+); then
+    output=""
+  fi
+  if [[ -n "$output" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      IFS='|' read -r suite duration status total failed skipped <<< "$line"
+      TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}")
+    done <<< "$output"
+    return
+  fi
+
+  # Fallback: parse xcodebuild log for suite timing when xcresulttool is unavailable
+  if [[ -n "$log_path" && -f "$log_path" ]]; then
+    local log_output
+    if log_output=$(python3 - "$log_path" "$target_label" <<'PY'
+import re, sys
+
+log_path = sys.argv[1]
+target_label = sys.argv[2]
+pattern = re.compile(r"Test Suite '([^']+)' (passed|failed) at .*Executed ([0-9]+) tests?, with ([0-9]+) failures .* in ([0-9.]+) ")
+entries = []
+with open(log_path, 'r', errors='ignore') as f:
+  for line in f:
+    match = pattern.search(line)
+    if match:
+      suite = match.group(1)
+      status_text = match.group(2)
+      total = int(match.group(3))
+      failed = int(match.group(4))
+      duration = float(match.group(5))
+      skipped = 0
+      status = "success"
+      if failed > 0 or status_text == "failed":
+        status = "error"
+      entries.append((suite, int(round(duration)), status, total, failed, skipped))
+if entries:
+  for e in entries:
+    print(f"{target_label}|{e[0]}|{e[1]}|{e[2]}|{e[3]}|{e[4]}|{e[5]}")
+PY
+    ); then
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        TEST_SUITE_TIMING_ENTRIES+=("$line")
+      done <<< "$log_output"
+    fi
+  fi
 }
 
 ensure_swift_format_tool() {
@@ -753,7 +979,8 @@ ensure_scheme_available() {
   set -e
   if [[ $list_status -ne 0 || -z "$list_output" ]]; then
     log_error "Unable to list schemes for workspace '$WORKSPACE'"
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   fi
 
   local available_list
@@ -763,12 +990,14 @@ ensure_scheme_available() {
     capture { sub(/^ +/,""); print }
   ') || {
     log_error "Failed to parse schemes for workspace '$WORKSPACE'"
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   }
 
   if [[ -z "$available_list" ]]; then
     log_error "No schemes found in workspace '$WORKSPACE'"
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   fi
 
   local candidate
@@ -796,7 +1025,8 @@ ensure_scheme_available() {
   fi
 
   log_error "Unable to locate a usable scheme in workspace '$WORKSPACE'"
-  exit 1
+  update_exit_status 1
+  finalize_and_exit 1
 }
 
 
@@ -863,13 +1093,15 @@ require_workspace() {
   if [[ -d "$WORKSPACE" ]]; then
     if [[ ! -f "$WORKSPACE/contents.xcworkspacedata" ]]; then
       log_error "Workspace directory ${WORKSPACE} is missing contents.xcworkspacedata"
-      exit 1
+      update_exit_status 1
+      finalize_and_exit 1
     fi
   elif [[ -f "$WORKSPACE" ]]; then
     return
   else
     log_error "Workspace not found at ${WORKSPACE}"
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   fi
 }
 
@@ -1085,7 +1317,8 @@ run_build_target() {
         build_package_target "$target" || return $?
       else
         log_error "Unknown build target: $target"
-        exit 1
+        update_exit_status 1
+        finalize_and_exit 1
       fi
       ;;
   esac
@@ -1198,24 +1431,56 @@ test_app_target() {
   local xc_status=${PIPESTATUS[0]}
   set -e
 
+  # Parse test results from log file as fallback
+  local log_total=0 log_passed=0 log_failed=0
+  if [[ -f "$RESULT_LOG" ]]; then
+    # Extract: "Executed X tests, with Y failures"
+    if grep -q "Executed.*tests.*with.*failures" "$RESULT_LOG"; then
+      log_total=$(grep -o "Executed [0-9]* test" "$RESULT_LOG" | tail -1 | grep -o "[0-9]*" || echo "0")
+      log_failed=$(grep -o "with [0-9]* failure" "$RESULT_LOG" | tail -1 | grep -o "[0-9]*" || echo "0")
+      log_passed=$((log_total - log_failed))
+    fi
+  fi
+
   if [[ $xc_status -ne 0 ]]; then
+    record_test_suite_timings "$RESULT_BUNDLE" "$target" "$RESULT_LOG"
     xcresult_has_failures "$RESULT_BUNDLE"
     local inspect_status=$?
     case $inspect_status in
       0)
+        # xcresult confirmed failures
         log_error "Tests failed (status $xc_status) -> $RESULT_LOG"
         add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "failed"
         update_exit_status "$xc_status"
         return "$xc_status"
         ;;
       1)
+        # xcresult says no failures, check log
+        if (( log_failed > 0 )); then
+          log_error "Tests failed (status $xc_status) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "failed"
+          update_exit_status "$xc_status"
+          return "$xc_status"
+        fi
         log_warn "xcodebuild exited with status $xc_status but no test failures detected; treating as success"
         ;;
       *)
-        log_error "xcodebuild exited with status $xc_status and result bundle could not be inspected"
-        add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "result bundle inspection failed"
-        update_exit_status "$xc_status"
-        return "$xc_status"
+        # xcresult inspection failed, rely on log parsing
+        log_warn "xcodebuild exited with status $xc_status and result bundle could not be inspected; checking log"
+        if (( log_failed > 0 )); then
+          log_error "Tests failed (from log) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "failed (from log)"
+          update_exit_status "$xc_status"
+          return "$xc_status"
+        elif (( log_total > 0 && log_passed > 0 )); then
+          log_success "Tests passed (from log) despite exit code $xc_status -> $RESULT_LOG"
+          # Continue to add success summary below
+        else
+          log_error "Could not determine test results (status $xc_status) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "result inspection failed"
+          update_exit_status "$xc_status"
+          return "$xc_status"
+        fi
         ;;
     esac
   fi
@@ -1230,6 +1495,19 @@ test_app_target() {
     else
       note="$summary_text"
     fi
+  elif (( log_total > 0 )); then
+    # Fallback to log-based counts if xcresult unavailable
+    total=$log_total
+    passed=$log_passed
+    failed=$log_failed
+    skipped=0
+    note="from log"
+  fi
+  record_test_suite_timings "$RESULT_BUNDLE" "$target" "$RESULT_LOG"
+  if [[ -z "$total" || "$total" -eq 0 ]]; then
+    local suite_counts
+    suite_counts=$(aggregate_suite_counts "$target")
+    IFS='|' read -r total passed failed skipped <<< "$suite_counts"
   fi
   add_summary "test" "${target}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
   return 0
@@ -1534,6 +1812,7 @@ run_filtered_xcode_tests() {
   set -e
 
   if [[ $xc_status -ne 0 ]]; then
+    record_test_suite_timings "$RESULT_BUNDLE" "$label" "$RESULT_LOG"
     xcresult_has_failures "$RESULT_BUNDLE"
     local inspect_status=$?
     case $inspect_status in
@@ -1566,13 +1845,19 @@ run_filtered_xcode_tests() {
       note="$summary_text"
     fi
   fi
+  record_test_suite_timings "$RESULT_BUNDLE" "$label" "$RESULT_LOG"
+  if [[ -z "$total" || "$total" -eq 0 ]]; then
+    local suite_counts
+    suite_counts=$(aggregate_suite_counts "$label")
+    IFS='|' read -r total passed failed skipped <<< "$suite_counts"
+  fi
   add_summary "test" "${label}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
   return 0
 }
 
 run_test_target() {
   local target
-  target=$(resolve_test_identifier "$1") || exit 1
+  target=$(resolve_test_identifier "$1") || exit_with_summary 1
   case "$target" in
     all|zpod|AppSmokeTests|zpodTests|zpodUITests|IntegrationTests|*/*)
       test_app_target "$target" || return $?;;
@@ -1582,7 +1867,8 @@ run_test_target() {
         test_package_target "$target" || return $?
       else
         log_error "Unknown test target: $target"
-        exit 1
+        update_exit_status 1
+        finalize_and_exit 1
       fi
       ;;
   esac
@@ -1592,7 +1878,7 @@ infer_target_for_class() {
   local class_name="$1"
   local search_dirs=("${REPO_ROOT}/zpodUITests" "${REPO_ROOT}/AppSmokeTests" "${REPO_ROOT}/IntegrationTests")
   local matches=()
-  ensure_command rg "ripgrep is required to resolve test names" || exit 1
+  ensure_command rg "ripgrep is required to resolve test names" || exit_with_summary 1
 
   for dir in "${search_dirs[@]}"; do
     [[ -d "$dir" ]] || continue
@@ -1609,7 +1895,8 @@ infer_target_for_class() {
     for match in "${matches[@]}"; do
       log_error "  -> $match"
     done
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   fi
 
   local match_path="${matches[0]}"
@@ -1771,27 +2058,28 @@ while [[ $# -gt 0 ]]; do
     --self-check)
       SELF_CHECK=1; shift;;
     --help|-h)
-      show_help; exit 0;;
+      show_help; finalize_and_exit 0;;
     full_clean_build|full_build_no_test|full_build_and_test|partial_clean_build|partial_build_and_test)
       log_error "Deprecated action '$1'. Use -b/-t/-c/-s flags instead."
-      exit 1;;
+      exit_with_summary 1;;
     *)
       log_error "Unknown argument: $1"
       show_help
-      exit 1;;
+      exit_with_summary 1;;
   esac
 done
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
   if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 ]]; then
     log_error "-s (syntax) cannot be combined with other build or test flags"
-    exit 1
+    update_exit_status 1
+    finalize_and_exit 1
   fi
 fi
 
 if [[ $SELF_CHECK -eq 1 ]]; then
   self_check
-  exit $?
+  finalize_and_exit $?
 fi
 
 echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' REQUEST_TESTPLAN=$REQUEST_TESTPLAN REQUEST_TESTPLAN_SUITE='$REQUEST_TESTPLAN_SUITE' REQUESTED_LINT=$REQUESTED_LINT"

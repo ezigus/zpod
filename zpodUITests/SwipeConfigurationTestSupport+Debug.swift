@@ -58,14 +58,15 @@ extension SwipeConfigurationTestCase {
     timeout: TimeInterval = 1.0,
     failOnTimeout: Bool = true
   ) -> Bool {
-    let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
-      .firstMatch
+    let materializationProbe = app.staticTexts.matching(
+      identifier: "SwipeActions.Debug.Materialized"
+    )
+    .firstMatch
     let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
     if hapticsToggle.exists {
       return true
     }
-    if
-      materializationProbe.exists,
+    if materializationProbe.exists,
       let value = materializationProbe.value as? String,
       value.contains("Materialized=1")
     {
@@ -106,10 +107,11 @@ extension SwipeConfigurationTestCase {
     if hapticsToggle.exists {
       return true
     }
-    let materializationProbe = app.staticTexts.matching(identifier: "SwipeActions.Debug.Materialized")
-      .firstMatch
-    if
-      materializationProbe.exists,
+    let materializationProbe = app.staticTexts.matching(
+      identifier: "SwipeActions.Debug.Materialized"
+    )
+    .firstMatch
+    if materializationProbe.exists,
       let value = materializationProbe.value as? String,
       value.contains("Materialized=1")
     {
@@ -124,7 +126,13 @@ extension SwipeConfigurationTestCase {
     timeout: TimeInterval? = nil,
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
-    let effectiveTimeout = timeout ?? debugStateTimeout
+    let effectiveTimeout = timeout ?? 2.0  // Standardized 2s timeout for debug probes
+
+    // Early exit: if state already satisfies validator, return immediately
+    if let validator, let current = currentDebugState(), validator(current) {
+      return current
+    }
+
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     guard
       waitForElement(
@@ -232,9 +240,9 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func logDebugState(_ label: String) {
     if let state = currentDebugState() {
-      logger.debug(
-        "[SwipeUITestDebug] \(label, privacy: .public): leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)"
-      )
+      let summary =
+        "[SwipeUITestDebug] \(label): leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)"
+      logger.debug("\(summary, privacy: .public)")
     } else {
       logger.debug("[SwipeUITestDebug] \(label, privacy: .public): state unavailable")
     }
@@ -306,9 +314,8 @@ extension SwipeConfigurationTestCase {
     guard !filtered.isEmpty else { return }
 
     let identifiers = Set(filtered.map { $0.identifier }).sorted()
-    let summary = (
-      ["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers
-    ).joined(separator: "\n")
+    let summary = (["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers).joined(
+      separator: "\n")
     logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
     print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)

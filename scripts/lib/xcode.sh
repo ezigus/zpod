@@ -293,5 +293,57 @@ select_destination() {
 xcodebuild_wrapper() {
   local -a args=("$@")
   log_info "xcodebuild ${args[*]}"
-  xcodebuild "${args[@]}"
+  
+  # UI tests can hang indefinitely waiting for app to idle or during diagnostic collection.
+  # Set a 30-minute timeout (1800s) - generous enough for legitimate test runs, protective against hangs.
+  # If timeout is reached, kill xcodebuild and all child processes (including simctl diagnose).
+  local timeout_seconds=1800
+  local xcodebuild_pid
+  
+  # Set up trap to forward INT signal to xcodebuild process
+  local cleanup_done=0
+  cleanup_xcodebuild() {
+    if (( cleanup_done == 0 )); then
+      cleanup_done=1
+      if [[ -n "${xcodebuild_pid:-}" ]] && kill -0 "$xcodebuild_pid" 2>/dev/null; then
+        log_warn "Interrupt received - terminating xcodebuild and child processes..."
+        pkill -TERM -P "$xcodebuild_pid" 2>/dev/null || true
+        sleep 1
+        pkill -KILL -P "$xcodebuild_pid" 2>/dev/null || true
+        kill -TERM "$xcodebuild_pid" 2>/dev/null || true
+        sleep 1
+        kill -KILL "$xcodebuild_pid" 2>/dev/null || true
+      fi
+    fi
+  }
+  trap cleanup_xcodebuild INT
+  
+  # Run xcodebuild in background to enable timeout monitoring and signal forwarding
+  xcodebuild "${args[@]}" &
+  xcodebuild_pid=$!
+  
+  # Monitor with timeout
+  local elapsed=0
+  local check_interval=5
+  
+  while (( elapsed < timeout_seconds )); do
+    # Check if xcodebuild is still running
+    if ! kill -0 "$xcodebuild_pid" 2>/dev/null; then
+      # Process finished naturally
+      trap - INT  # Remove trap
+      wait "$xcodebuild_pid"
+      local exit_code=$?
+      return $exit_code
+    fi
+    
+    sleep "$check_interval"
+    elapsed=$((elapsed + check_interval))
+  done
+  
+  # Timeout reached - kill xcodebuild and all children
+  log_error "xcodebuild timed out after ${timeout_seconds}s - killing process tree"
+  cleanup_xcodebuild
+  trap - INT  # Remove trap
+  
+  return 124  # Standard timeout exit code
 }

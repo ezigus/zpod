@@ -85,7 +85,8 @@ extension SwipeConfigurationTestCase {
     }
 
     let toggleTimeout = timeout ?? postReadinessTimeout
-    assertToggleState(identifier: leadingToggle, expected: state.fullLeading, timeout: toggleTimeout)
+    assertToggleState(
+      identifier: leadingToggle, expected: state.fullLeading, timeout: toggleTimeout)
     assertToggleState(
       identifier: trailingToggle,
       expected: state.fullTrailing,
@@ -96,7 +97,8 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func assertToggleState(identifier: String, expected: Bool, timeout: TimeInterval? = nil) {
     let effectiveTimeout = timeout ?? postReadinessTimeout
-    guard let toggle = requireToggleSwitch(identifier: identifier, context: "assertToggleState") else {
+    guard let toggle = requireToggleSwitch(identifier: identifier, context: "assertToggleState")
+    else {
       return
     }
     let predicate = NSPredicate { [weak self] _, _ in
@@ -150,15 +152,9 @@ extension SwipeConfigurationTestCase {
       return true
     }
 
-    // Retry a few quick reads without inflating the global timeout.
-    for _ in 0..<3 {
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-      if let current = currentStateIsOn(for: toggle), current == expected {
-        return true
-      }
-      if debugStateMatchesToggle(identifier: identifier, expected: expected, timeout: 0.5) {
-        return true
-      }
+    // Final check: read current state immediately
+    if let current = currentStateIsOn(for: toggle), current == expected {
+      return true
     }
     return false
   }

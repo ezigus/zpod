@@ -3,7 +3,6 @@ import SwiftUI
 import CoreModels
 import PlaybackEngine
 import SharedUtilities
-
 /// Episode Detail view showing episode information and playback controls
 public struct EpisodeDetailView: View {
   @StateObject private var viewModel: EpisodeDetailViewModel

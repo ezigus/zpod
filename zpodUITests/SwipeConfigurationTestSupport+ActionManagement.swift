@@ -121,8 +121,10 @@ extension SwipeConfigurationTestCase {
 
     if tapDebugPresetFromMenu(for: identifier) { return }
 
+    // Re-discover container to handle sheet state changes
     guard let container = swipeActionsSheetListContainer() else {
-      XCTFail("Swipe configuration sheet container unavailable while applying preset \(identifier)")
+      XCTFail(
+        "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened.")
       return
     }
 

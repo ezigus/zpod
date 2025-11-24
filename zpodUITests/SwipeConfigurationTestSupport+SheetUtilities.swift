@@ -13,9 +13,7 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func swipeActionsSheetListContainer() -> XCUIElement? {
-    if let cached = cachedSwipeContainer, cached.exists {
-      return cached
-    }
+    // Always re-discover instead of trusting cache - SwiftUI may recreate the sheet
     let save = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
     let cancel = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
     guard
@@ -123,16 +121,29 @@ extension SwipeConfigurationTestCase {
     container: XCUIElement,
     scrollAttempts: Int = 1  // Reduced: materialization happens upfront, minimal scroll needed
   ) -> Bool {
-    if !container.exists {
+    var scrollContainer = container
+    if !scrollContainer.exists {
       logger.debug(
         "[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier, privacy: .public)"
       )
       print("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier)")
     }
-    let target = element(withIdentifier: identifier, within: container)
+
+    var target = element(withIdentifier: identifier, within: scrollContainer)
     if target.exists { return true }
 
-    guard container.exists else { return target.exists }
+    func refreshContainer() -> Bool {
+      if scrollContainer.exists, scrollContainer.frame.isEmpty == false {
+        return true
+      }
+      guard let refreshed = swipeActionsSheetListContainer() else { return false }
+      scrollContainer = refreshed
+      target = element(withIdentifier: identifier, within: scrollContainer)
+      return true
+    }
+
+    guard refreshContainer() else { return target.exists }
+    if target.exists { return true }
 
     let attempts = max(scrollAttempts, 1)  // At least 1, but default is now 1
     func settle() {
@@ -145,12 +156,14 @@ extension SwipeConfigurationTestCase {
     }
 
     func scroll(_ direction: ScrollDirection) {
-      if container.isHittable {
+      guard refreshContainer() else { return }
+
+      if scrollContainer.isHittable {
         switch direction {
         case .towardsBottom:
-          container.swipeUp()
+          scrollContainer.swipeUp()
         case .towardsTop:
-          container.swipeDown()
+          scrollContainer.swipeDown()
         }
         return
       }
@@ -165,8 +178,8 @@ extension SwipeConfigurationTestCase {
         startVector = CGVector(dx: 0.5, dy: 0.2)
         endVector = CGVector(dx: 0.5, dy: 0.8)
       }
-      let startCoord = container.coordinate(withNormalizedOffset: startVector)
-      let endCoord = container.coordinate(withNormalizedOffset: endVector)
+      let startCoord = scrollContainer.coordinate(withNormalizedOffset: startVector)
+      let endCoord = scrollContainer.coordinate(withNormalizedOffset: endVector)
       startCoord.press(forDuration: 0.01, thenDragTo: endCoord)
 
       switch direction {
@@ -181,6 +194,7 @@ extension SwipeConfigurationTestCase {
     for _ in 0..<2 {
       scroll(.towardsTop)
       settle()
+      target = element(withIdentifier: identifier, within: scrollContainer)
       if target.exists { return true }
     }
 
@@ -188,6 +202,7 @@ extension SwipeConfigurationTestCase {
     for _ in 0..<attempts {
       scroll(.towardsBottom)
       settle()
+      target = element(withIdentifier: identifier, within: scrollContainer)
       if target.exists { return true }
     }
 
@@ -195,6 +210,7 @@ extension SwipeConfigurationTestCase {
     for _ in 0..<attempts {
       scroll(.towardsTop)
       settle()
+      target = element(withIdentifier: identifier, within: scrollContainer)
       if target.exists { return true }
     }
 

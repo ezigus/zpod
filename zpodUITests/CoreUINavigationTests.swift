@@ -1,6 +1,5 @@
 import UIKit
 import XCTest
-
 /// Core UI navigation and accessibility tests for the main application interface
 ///
 /// **Specifications Covered**: `spec/ui.md` - Navigation sections

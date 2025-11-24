@@ -439,8 +439,7 @@ private struct BatchOverlayObservation {
   }
 
   func debugSummary() -> String {
-    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap {
-      index, element -> String? in
+    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap { index, element -> String? in
       guard element.exists else { return nil }
       let identifier = element.identifier.isEmpty ? "∅" : element.identifier
       let label = element.label.isEmpty ? "∅" : element.label

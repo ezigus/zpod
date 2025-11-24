@@ -54,14 +54,6 @@ extension SwipeConfigurationTestCase {
       relaunchApp(resetDefaults: false)
     }
 
-    // In interactive mode, wait for debug overlay to materialize before opening sheet
-    if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
-      let overlayButton = app.buttons
-        .matching(identifier: "SwipeActions.Debug.ApplyPreset.Default.Overlay")
-        .firstMatch
-      _ = overlayButton.waitForExistence(timeout: adaptiveShortTimeout)
-    }
-
     try openConfigurationSheetFromEpisodeList()
   }
 
@@ -79,27 +71,38 @@ extension SwipeConfigurationTestCase {
         "Swipe configuration baseline should load after opening sheet"
       )
     }
-    XCTAssertTrue(
-      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
-      "Swipe configuration sections should materialize within timeout"
-    )
+
+    // Check section materialization once per test
+    if !sectionsMaterialized {
+      XCTAssertTrue(
+        waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+        "Swipe configuration sections should materialize within timeout"
+      )
+      sectionsMaterialized = true
+    }
 
     // Cache the container for the remainder of the test
     cachedSwipeContainer = swipeActionsSheetListContainer()
-    XCTAssertNotNil(cachedSwipeContainer, "Swipe configuration sheet container should be discoverable")
+    XCTAssertNotNil(
+      cachedSwipeContainer, "Swipe configuration sheet container should be discoverable")
     return cachedSwipeContainer
   }
 
-  /// Returns the cached sheet container if available; otherwise opens it.
+  /// Returns the sheet container if discoverable; otherwise opens it.
+  /// Note: Always re-discovers instead of caching to handle SwiftUI sheet lifecycle.
   @MainActor
   @discardableResult
   func reuseOrOpenConfigurationSheet(resetDefaults: Bool = false) throws -> XCUIElement? {
     if resetDefaults {
       cachedSwipeContainer = nil
+      sectionsMaterialized = false  // Reset materialization flag with container cache
+      return try openConfigurationSheetReady(resetDefaults: resetDefaults)
     }
-    if let cached = cachedSwipeContainer, cached.exists {
-      return cached
+    // Try to discover existing sheet first
+    if let container = swipeActionsSheetListContainer() {
+      return container
     }
+    // Sheet not found, open it
     return try openConfigurationSheetReady(resetDefaults: resetDefaults)
   }
 
@@ -113,12 +116,14 @@ extension SwipeConfigurationTestCase {
   func navigateToEpisodeList() throws {
     let tabBar = app.tabBars["Main Tab Bar"]
     guard tabBar.exists else {
-      XCTFail("Main tab bar not available"); return
+      XCTFail("Main tab bar not available")
+      return
     }
 
     let libraryTab = tabBar.buttons["Library"]
     guard libraryTab.exists else {
-      XCTFail("Library tab unavailable"); return
+      XCTFail("Library tab unavailable")
+      return
     }
 
     guard
@@ -128,17 +133,13 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      XCTFail("Library tab not ready for interaction"); return
+      XCTFail("Library tab not ready for interaction")
+      return
     }
 
-    guard
-      waitForElementToBeHittable(
-        libraryTab,
-        timeout: adaptiveShortTimeout,
-        description: "Library tab button"
-      )
-    else {
-      XCTFail("Library tab not hittable"); return
+    guard libraryTab.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Library tab did not appear within \(adaptiveShortTimeout) seconds")
+      return
     }
 
     let navigationSucceeded = navigateAndWaitForResult(
@@ -152,28 +153,26 @@ extension SwipeConfigurationTestCase {
     )
 
     guard navigationSucceeded else {
-      XCTFail("Failed to navigate to Library tab"); return
+      XCTFail("Failed to navigate to Library tab")
+      return
     }
 
     guard
       waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout)
     else {
-      XCTFail("Library content did not load"); return
+      XCTFail("Library content did not load")
+      return
     }
 
     let podcastButton = app.buttons["Podcast-swift-talk"]
     guard podcastButton.exists else {
-      XCTFail("Test podcast unavailable"); return
+      XCTFail("Test podcast unavailable")
+      return
     }
 
-    guard
-      waitForElementToBeHittable(
-        podcastButton,
-        timeout: adaptiveShortTimeout,
-        description: "Podcast button"
-      )
-    else {
-      XCTFail("Podcast button not hittable"); return
+    guard podcastButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Podcast button did not appear within \(adaptiveShortTimeout) seconds")
+      return
     }
 
     let episodeNavSucceeded = navigateAndWaitForResult(
@@ -187,7 +186,8 @@ extension SwipeConfigurationTestCase {
     )
 
     guard episodeNavSucceeded else {
-      XCTFail("Failed to navigate to episode list"); return
+      XCTFail("Failed to navigate to episode list")
+      return
     }
 
     if !waitForContentToLoad(
@@ -196,14 +196,15 @@ extension SwipeConfigurationTestCase {
     ) {
       let configureButton = app.buttons["ConfigureSwipeActions"]
       guard
-      waitForElement(
-        configureButton,
-        timeout: adaptiveShortTimeout,
-        description: "configure swipe actions button"
-      )
-    else {
-      XCTFail("Episode list did not load"); return
-    }
+        waitForElement(
+          configureButton,
+          timeout: adaptiveShortTimeout,
+          description: "configure swipe actions button"
+        )
+      else {
+        XCTFail("Episode list did not load")
+        return
+      }
     }
   }
 
@@ -234,11 +235,11 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    _ = waitForElementToBeHittable(
-      configureButton,
-      timeout: adaptiveShortTimeout,
-      description: "configure swipe actions button"
-    )
+    guard configureButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail(
+        "Configure swipe actions button did not appear within \(adaptiveShortTimeout) seconds")
+      return
+    }
 
     tapElement(configureButton, description: "configure swipe actions button")
 

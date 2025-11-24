@@ -22,6 +22,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   nonisolated(unsafe) private var testStartTime: CFAbsoluteTime?
   nonisolated(unsafe) internal var lastSwipeExecutionTimestamp: TimeInterval = 0
   nonisolated(unsafe) internal var cachedSwipeContainer: XCUIElement?
+  nonisolated(unsafe) internal var sectionsMaterialized: Bool = false
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
   nonisolated(unsafe) private var hasLaunchedForCurrentSeed = false
 
