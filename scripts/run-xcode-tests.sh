@@ -1009,8 +1009,8 @@ package_test_timing_breakdown() {
         break
       fi
     done
-    printf "    %s – %s (passed %s, failed %s, skipped %s)" \
-      "$name" "$(format_elapsed_time "$duration_sec")" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+    printf "    %s – %s" \
+      "$name" "$(format_elapsed_time "$duration_sec")"
     if [[ -n "$log_path" ]]; then
       printf " – log: %s" "$log_path"
     fi
@@ -1028,9 +1028,8 @@ ui_suite_timing_breakdown() {
       printf "  UI suite detail:\n"
     fi
     any=1
-    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
-    printf "    %s – %s (passed %s, failed %s, skipped %s)\n" \
-      "$suite" "$(format_elapsed_time "${duration:-0}")" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+    printf "    %s – %s\n" \
+      "$suite" "$(format_elapsed_time "${duration:-0}")"
   done
 }
 
