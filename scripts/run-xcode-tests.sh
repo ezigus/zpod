@@ -64,6 +64,57 @@ register_result_log() {
   RESULT_LOG_PATHS+=("$path")
 }
 
+print_grouped_test_summary() {
+  print_section_header "Summary Tests"
+  local count=${#PRIMARY_ORDER[@]}
+  local -a totals passed failed skipped details
+  local i
+  for (( i=0; i<count; i++ )); do
+    totals[i]=0; passed[i]=0; failed[i]=0; skipped[i]=0; details[i]=""
+  done
+
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status log_path total passed_count failed_count skipped_count note <<< "$entry"
+    # Only count entries that actually represent tests or have totals
+    if [[ "$category" != "test" && -z "${total:-}" && -z "${passed_count:-}" && -z "${failed_count:-}" && -z "${skipped_count:-}" ]]; then
+      continue
+    fi
+    local group
+    group=$(test_group_for "$category" "$name")
+    [[ -z "$group" ]] && continue
+    local idx
+    idx=$(index_for_primary "$group")
+    [[ -z "$idx" ]] && continue
+    totals[idx]=$(( ${totals[idx]} + ${total:-0} ))
+    passed[idx]=$(( ${passed[idx]} + ${passed_count:-0} ))
+    failed[idx]=$(( ${failed[idx]} + ${failed_count:-0} ))
+    skipped[idx]=$(( ${skipped[idx]} + ${skipped_count:-0} ))
+    local symbol
+    symbol=$(status_symbol "$status")
+    details[idx]+=$(printf '  %s %s – %s total (failed %s, skipped %s)%s\n' \
+      "$symbol" "$name" "${total:-0}" "${failed_count:-0}" "${skipped_count:-0}" \
+      $([[ -n "$log_path" ]] && printf ' – log: %s' "$log_path"))
+  done
+
+  for i in "${!PRIMARY_ORDER[@]}"; do
+    local t=${totals[i]}
+    local p=${passed[i]}
+    local f=${failed[i]}
+    local s=${skipped[i]}
+    # Only show groups that ran
+    if (( t == 0 && p == 0 && f == 0 && s == 0 )) && [[ -z "${details[i]}" ]]; then
+      continue
+    fi
+    printf "%s: %s total (passed %s, failed %s, skipped %s)\n" "${PRIMARY_ORDER[i]}" "$t" "$p" "$f" "$s"
+    if [[ -n "${details[i]}" ]]; then
+      printf "%s" "${details[i]}"
+    else
+      printf "  (none)\n"
+    fi
+  done
+}
+
 update_exit_status() {
   local code="$1"
   [[ -z "$code" ]] && return
@@ -175,6 +226,256 @@ category_in() {
   done
   [[ $had_errtrace -eq 1 ]] && set -E
   return 1
+}
+
+# Primary ordering for grouped summaries
+PRIMARY_ORDER=("Build" "Syntax" "AppSmoke" "Package Build" "Package Tests" "Integration" "UI Tests" "Lint")
+
+index_for_primary() {
+  local group="$1"
+  local idx
+  for idx in "${!PRIMARY_ORDER[@]}"; do
+    [[ "${PRIMARY_ORDER[idx]}" == "$group" ]] && { echo "$idx"; return; }
+  done
+  echo ""
+}
+
+phase_group_for() {
+  local category="$1"
+  local name="$2"
+  if [[ "$category" == "syntax" || "$name" == "Swift syntax" ]]; then
+    echo "Syntax"; return
+  fi
+  if [[ "$name" == "App smoke tests" ]]; then
+    echo "AppSmoke"; return
+  fi
+  if [[ "$name" == Integration* ]]; then
+    echo "Integration"; return
+  fi
+  if [[ "$name" == "UI tests" || "$name" == zpodUITests* || "$name" == *UITests* ]]; then
+    echo "UI Tests"; return
+  fi
+  if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
+    echo "Lint"; return
+  fi
+  if [[ "$name" == Build\ package* ]]; then
+    echo "Package Build"; return
+  fi
+  if [[ "$name" == Package\ tests* ]]; then
+    echo "Package Tests"; return
+  fi
+  if [[ "$category" == "build" || "$name" == Build* ]]; then
+    echo "Build"; return
+  fi
+}
+
+test_group_for() {
+  local category="$1"
+  local name="$2"
+  if [[ "$category" == "syntax" ]]; then
+    echo "Syntax"; return
+  fi
+  if [[ "$category" == "build" ]]; then
+    if [[ "$name" == package\ * || "$name" == Build\ package* ]]; then
+      echo "Package Build"; return
+    fi
+    echo "Build"; return
+  fi
+  if [[ "$name" == AppSmokeTests* || "$name" == *AppSmoke* ]]; then
+    echo "AppSmoke"; return
+  fi
+  if [[ "$name" == IntegrationTests* || "$name" == *Integration* ]]; then
+    echo "Integration"; return
+  fi
+  if [[ "$name" == zpodUITests* || "$name" == *UITests* ]]; then
+    echo "UI Tests"; return
+  fi
+  if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
+    echo "Lint"; return
+  fi
+  if [[ "$name" == package* ]]; then
+    echo "Package Tests"; return
+  fi
+}
+
+is_sim_boot_failure_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+  if grep -qi "Unable to boot the Simulator" "$log_path"; then
+    return 0
+  fi
+  if grep -qi "Failed to prepare device" "$log_path"; then
+    return 0
+  fi
+  return 1
+}
+
+reset_core_simulator_service() {
+  command_exists xcrun || return
+  set +e
+  xcrun simctl shutdown all >/dev/null 2>&1
+  killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1
+  set -e
+}
+
+latest_ios_runtime_id() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local runtime_id=""
+  set +e
+  runtime_id=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
+import json, sys
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+runtimes = [
+  r for r in data.get("runtimes", [])
+  if r.get("platform") == "iOS" and r.get("isAvailable", True)
+]
+if not runtimes:
+  sys.exit(1)
+def version_key(rt):
+  ver = rt.get("version") or ""
+  parts = []
+  for part in str(ver).replace("-", ".").split("."):
+    try:
+      parts.append(int(part))
+    except Exception:
+      parts.append(-1)
+  return parts
+runtimes = sorted(runtimes, key=version_key, reverse=True)
+print(runtimes[0].get("identifier", ""))
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  [[ -n "$runtime_id" ]] || return 1
+  printf "%s" "$runtime_id"
+}
+
+list_ios_runtime_ids() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local output
+  set +e
+  output=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
+import json, sys
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+runtimes = [
+  r for r in data.get("runtimes", [])
+  if r.get("platform") == "iOS" and r.get("isAvailable", True)
+]
+if not runtimes:
+  sys.exit(1)
+def version_key(rt):
+  ver = rt.get("version") or ""
+  parts = []
+  for part in str(ver).replace("-", ".").split("."):
+    try:
+      parts.append(int(part))
+    except Exception:
+      parts.append(-1)
+  return parts
+runtimes = sorted(runtimes, key=version_key, reverse=True)
+for rt in runtimes:
+  ident = rt.get("identifier")
+  if ident:
+    print(ident)
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  printf "%s" "$output"
+}
+
+pick_device_type_identifier() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local -a preferred_names=(
+    "iPhone 17 Pro"
+    "iPhone 17"
+    "iPhone 16 Pro"
+    "iPhone 16"
+    "iPhone 15 Pro"
+    "iPhone 15"
+    "iPhone 14"
+    "iPhone SE (3rd generation)"
+  )
+
+  local encoded_names
+  encoded_names=$(printf "%s|" "${preferred_names[@]}")
+  encoded_names="${encoded_names%|}"
+
+  local identifier=""
+  set +e
+  identifier=$(xcrun simctl list devicetypes -j 2>/dev/null | python3 - "$encoded_names" <<'PY'
+import json, sys
+
+preferred = sys.argv[1].split("|")
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+
+types = data.get("devicetypes", [])
+lookup = {t.get("name"): t.get("identifier") for t in types}
+for name in preferred:
+  ident = lookup.get(name)
+  if ident:
+    print(ident)
+    sys.exit(0)
+sys.exit(1)
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  [[ -n "$identifier" ]] || return 1
+  printf "%s" "$identifier"
+}
+
+create_ephemeral_simulator() {
+  local device_type
+  device_type=$(pick_device_type_identifier) || return 1
+
+  local runtime_list
+  runtime_list=$(list_ios_runtime_ids) || return 1
+
+  local runtime_id
+  while IFS= read -r runtime_id; do
+    [[ -z "$runtime_id" ]] && continue
+    local name="zpod-temp-$(date +%s)"
+    local udid=""
+    set +e
+    udid=$(xcrun simctl create "$name" "$device_type" "$runtime_id" 2>&1)
+    local status=$?
+    set -e
+    if (( status == 0 )) && [[ -n "$udid" ]]; then
+      printf "%s" "$udid"
+      return 0
+    fi
+    log_warn "simctl create failed for runtime ${runtime_id} with status ${status}: ${udid}"
+  done <<< "$runtime_list"
+
+  return 1
+}
+
+cleanup_ephemeral_simulator() {
+  local udid="$1"
+  [[ -n "$udid" ]] || return
+  set +e
+  xcrun simctl shutdown "$udid" >/dev/null 2>&1
+  xcrun simctl delete "$udid" >/dev/null 2>&1
+  set -e
 }
 
 print_section_header() {
@@ -604,6 +905,218 @@ print_suite_breakdown() {
   (( found == 0 )) && return
 }
 
+group_for_entry() {
+  local category="$1"
+  local name="$2"
+  if [[ "$category" == "test" ]]; then
+    test_group_for "$category" "$name"
+  else
+    phase_group_for "$category" "$name"
+  fi
+}
+
+group_elapsed_seconds() {
+  local target_group="$1"
+  local total=0
+  local entry
+  for entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
+    IFS='|' read -r category name elapsed status <<< "$entry"
+    local group
+    group=$(phase_group_for "$category" "$name")
+    [[ "$group" == "$target_group" ]] || continue
+    total=$(( total + ${elapsed:-0} ))
+  done
+  printf "%s" "$total"
+}
+
+first_log_for_group() {
+  local target_group="$1"
+  local first=""
+  local more=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status log_path _ <<< "$entry"
+    [[ -n "$log_path" ]] || continue
+    local group
+    group=$(group_for_entry "$category" "$name")
+    [[ "$group" == "$target_group" ]] || continue
+    if [[ -z "$first" ]]; then
+      first="$log_path"
+    else
+      more=1
+      break
+    fi
+  done
+  if [[ -n "$first" ]]; then
+    if (( more == 1 )); then
+      printf "%s (+more)" "$first"
+    else
+      printf "%s" "$first"
+    fi
+  fi
+}
+
+print_group_timing_block() {
+  local title="$1"
+  shift
+  local -a groups=("$@")
+  local any=0
+  print_section_header "$title"
+  local total_all=0
+  local group
+  for group in "${groups[@]}"; do
+    local seconds
+    seconds=$(group_elapsed_seconds "$group")
+    (( seconds == 0 )) && continue
+    any=1
+    local log_path
+    log_path=$(first_log_for_group "$group")
+    printf "  %s: %s" "$group" "$(format_elapsed_time "$seconds")"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
+    total_all=$(( total_all + seconds ))
+  done
+  if (( any == 0 )); then
+    printf "  (none)\n"
+  fi
+  printf "  Total: %s\n" "$(format_elapsed_time "$total_all")"
+  printf "\n"
+}
+
+status_counts_for_groups() {
+  local target_group="$1"
+  local total=0 success=0 warn=0 error=0 skipped=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status _ <<< "$entry"
+    local group
+    group=$(group_for_entry "$category" "$name")
+    [[ "$group" == "$target_group" ]] || continue
+    (( total++ ))
+    case "$status" in
+      success) ((success++));;
+      warn) ((warn++));;
+      error|fail|failed) ((error++));;
+      interrupted) ((skipped++));;
+    esac
+  done
+  printf "%s|%s|%s|%s|%s" "$total" "$success" "$error" "$skipped" "$warn"
+}
+
+test_counts_for_group() {
+  local target_group="$1"
+  local total=0 passed=0 failed=0 skipped=0 warn=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status _ t p f s _ <<< "$entry"
+    [[ "$category" == "test" ]] || continue
+    local group
+    group=$(test_group_for "$category" "$name")
+    [[ "$group" == "$target_group" ]] || continue
+    total=$(( total + ${t:-0} ))
+    passed=$(( passed + ${p:-0} ))
+    failed=$(( failed + ${f:-0} ))
+    skipped=$(( skipped + ${s:-0} ))
+    [[ "$status" == "warn" ]] && (( warn++ ))
+  done
+  printf "%s|%s|%s|%s|%s" "$total" "$passed" "$failed" "$skipped" "$warn"
+}
+
+print_build_results_block() {
+  local -a groups=("Build" "Package Build")
+  print_section_header "Build Results"
+  local any=0
+  local group
+  for group in "${groups[@]}"; do
+    local counts
+    counts=$(status_counts_for_groups "$group")
+    IFS='|' read -r total success failed skipped warn <<< "$counts"
+    if (( total == 0 )); then
+      continue
+    fi
+    any=1
+    printf "  %s: total %s (passed %s, failed %s, skipped %s, warnings %s)\n" \
+      "$group" "$total" "$success" "$failed" "$skipped" "$warn"
+  done
+  if (( any == 0 )); then
+    printf "  (none)\n"
+  fi
+  printf "\n"
+}
+
+print_test_results_block() {
+  local -a groups=("Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint")
+  print_section_header "Test Results"
+  local any=0
+  local group
+  for group in "${groups[@]}"; do
+    if [[ "$group" == "Lint" ]]; then
+      local lcounts
+      lcounts=$(status_counts_for_groups "Lint")
+      IFS='|' read -r ltotal lsuccess lfailed lskipped lwarn <<< "$lcounts"
+      if (( ltotal == 0 && lwarn == 0 )); then
+        continue
+      fi
+      any=1
+      printf "  %s: total %s (passed %s, failed %s, skipped %s, warnings %s)\n" \
+        "$group" "$ltotal" "$lsuccess" "$lfailed" "$lskipped" "$lwarn"
+    else
+      local counts
+      counts=$(test_counts_for_group "$group")
+      IFS='|' read -r total passed failed skipped warn <<< "$counts"
+      if (( total == 0 && warn == 0 )); then
+        continue
+      fi
+      any=1
+      printf "  %s: total %s (passed %s, failed %s, skipped %s, warnings %s)\n" \
+        "$group" "$total" "$passed" "$failed" "$skipped" "$warn"
+    fi
+  done
+  if (( any == 0 )); then
+    printf "  (none)\n"
+  fi
+  print_package_test_breakdown
+  print_ui_suite_breakdown
+  printf "\n"
+}
+
+print_package_test_breakdown() {
+  local printed_header=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
+    [[ "$category" == "test" ]] || continue
+    [[ "$name" == package\ * ]] || continue
+    if (( printed_header == 0 )); then
+      printf "  Package breakdown:\n"
+      printed_header=1
+    fi
+    printf "    %s – total %s (passed %s, failed %s, skipped %s)%s\n" \
+      "$name" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" \
+      $([[ -n "$log_path" ]] && printf " – log: %s" "$log_path")
+  done
+}
+
+print_ui_suite_breakdown() {
+  local printed_header=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    [[ "$suite_target" == *UITests* ]] || continue
+    if (( printed_header == 0 )); then
+      printf "  UI suites:\n"
+      printed_header=1
+    fi
+    local symbol
+    symbol=$(status_symbol "$status")
+    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
+    printf "    %s %s – total %s (passed %s, failed %s, skipped %s)\n" \
+      "$symbol" "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+  done
+}
+
 aggregate_suite_counts() {
   local target="$1"
   local total=0 failed=0 skipped=0
@@ -625,6 +1138,63 @@ print_timing_sections() {
   print_phase_timing
   printf "\nTest Suite Timing:\n"
   print_test_suite_timing
+}
+
+print_grouped_timing_summary() {
+  print_section_header "Summary Timing"
+  local count=${#PRIMARY_ORDER[@]}
+  local -a totals
+  local -a details
+  local overall=0
+  local i
+  for (( i=0; i<count; i++ )); do
+    totals[i]=0
+    details[i]=""
+  done
+
+  local entry
+  for entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
+    IFS='|' read -r category name elapsed status <<< "$entry"
+    local group
+    group=$(phase_group_for "$category" "$name")
+    [[ -z "$group" ]] && continue
+    local idx
+    idx=$(index_for_primary "$group")
+    [[ -z "$idx" ]] && continue
+    local seconds=${elapsed:-0}
+    totals[idx]=$(( ${totals[idx]} + seconds ))
+    overall=$((overall + seconds))
+    local symbol
+    symbol=$(status_symbol "$status")
+    details[idx]+=$(printf '  %s %s – %s\n' "$symbol" "$name" "$(format_elapsed_time "$seconds")")
+  done
+
+  printf "Overall elapsed (phases sum): %s\n" "$(format_elapsed_time "$overall")"
+
+  for i in "${!PRIMARY_ORDER[@]}"; do
+    local total=${totals[i]}
+    # Only show groups that ran
+    if (( total == 0 )) && [[ -z "${details[i]}" ]]; then
+      continue
+    fi
+    printf "%s: %s\n" "${PRIMARY_ORDER[i]}" "$(format_elapsed_time "$total")"
+    # Suppress per-item timing details for aggregate-heavy or single-item groups to keep the summary concise.
+    local suppress_details=0
+    case "${PRIMARY_ORDER[i]}" in
+      Build|Syntax|AppSmoke)
+        suppress_details=1
+        ;;
+    esac
+    if [[ -n "${details[i]}" ]] && (( suppress_details == 0 )); then
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        printf "%s\n" "$line"
+      done <<< "${details[i]}"
+    else
+      printf "  (none)\n"
+    fi
+    printf "\n"
+  done
 }
 
 print_test_execution_summary() {
@@ -660,6 +1230,83 @@ print_test_execution_summary() {
   fi
 }
 
+print_grouped_test_summary() {
+  print_section_header "Summary Tests"
+  local count=${#PRIMARY_ORDER[@]}
+  local -a totals passed failed skipped details
+  local i
+  for (( i=0; i<count; i++ )); do
+    totals[i]=0; passed[i]=0; failed[i]=0; skipped[i]=0; details[i]=""
+  done
+
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status log_path total passed_count failed_count skipped_count note <<< "$entry"
+    # Only count entries that represent tests or report totals
+    if [[ "$category" != "test" && -z "${total:-}" && -z "${passed_count:-}" && -z "${failed_count:-}" && -z "${skipped_count:-}" ]]; then
+      continue
+    fi
+    local group
+    group=$(test_group_for "$category" "$name")
+    [[ -z "$group" ]] && continue
+    local idx
+    idx=$(index_for_primary "$group")
+    [[ -z "$idx" ]] && continue
+    totals[idx]=$(( ${totals[idx]} + ${total:-0} ))
+    passed[idx]=$(( ${passed[idx]} + ${passed_count:-0} ))
+    failed[idx]=$(( ${failed[idx]} + ${failed_count:-0} ))
+    skipped[idx]=$(( ${skipped[idx]} + ${skipped_count:-0} ))
+    local symbol
+    symbol=$(status_symbol "$status")
+    local suffix=""
+    if [[ -n "$log_path" ]]; then
+      suffix=" – log: $log_path"
+    fi
+    # Only append details when there is a non-zero total or failures/skips recorded.
+    if [[ -n "$total" && "$total" != "0" ]] || [[ -n "$failed_count" && "$failed_count" != "0" ]] || [[ -n "$skipped_count" && "$skipped_count" != "0" ]]; then
+      details[idx]+=$(printf '  %s %s – %s total (failed %s, skipped %s)%s\n' \
+        "$symbol" "$name" "${total:-0}" "${failed_count:-0}" "${skipped_count:-0}" "$suffix")
+    fi
+  done
+
+  local any=0
+  for i in "${!PRIMARY_ORDER[@]}"; do
+    local t=${totals[i]}
+    local p=${passed[i]}
+    local f=${failed[i]}
+    local s=${skipped[i]}
+    if (( t == 0 && p == 0 && f == 0 && s == 0 )) && [[ -z "${details[i]}" ]]; then
+      continue
+    fi
+    any=1
+    printf "%s: %s total (passed %s, failed %s, skipped %s)\n" "${PRIMARY_ORDER[i]}" "$t" "$p" "$f" "$s"
+    if [[ -n "${details[i]}" ]]; then
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        printf "%s\n" "$line"
+      done <<< "${details[i]}"
+    else
+      printf "  (none)\n"
+    fi
+    printf "\n"
+  done
+
+  if (( any == 0 )); then
+    printf "  (none)\n"
+    return
+  fi
+
+  local overall_total=0 overall_passed=0 overall_failed=0 overall_skipped=0
+  for i in "${!PRIMARY_ORDER[@]}"; do
+    overall_total=$((overall_total + totals[i]))
+    overall_passed=$((overall_passed + passed[i]))
+    overall_failed=$((overall_failed + failed[i]))
+    overall_skipped=$((overall_skipped + skipped[i]))
+  done
+  printf "Overall: %s total (passed %s, failed %s, skipped %s)\n" \
+    "$overall_total" "$overall_passed" "$overall_failed" "$overall_skipped"
+}
+
 print_summary() {
   (( SUMMARY_PRINTED == 0 )) || return
   SUMMARY_PRINTED=1
@@ -678,60 +1325,18 @@ print_summary() {
   lint_counts=$(tally_counts lint)
   IFS='|' read -r lint_total lint_success lint_warn lint_error lint_interrupted <<< "$lint_counts"
 
-  print_timing_sections
-
-  print_section_header "Build Summary"
-  print_entries_for_categories syntax build testplan script
-
-  if (( lint_total > 0 )); then
-    print_section_header "Lint Summary"
-    print_entries_for_categories lint
-  fi
-
-  print_section_header "Test Execution Summary"
-  print_test_execution_summary
-  print_timing_sections
-
-  local test_totals
-  test_totals=$(sum_test_case_counts)
-  IFS='|' read -r test_total_count test_passed_count test_failed_count test_skipped_count <<< "$test_totals"
-
-  local test_counts
-  test_counts=$(tally_counts test)
-  IFS='|' read -r tests_total tests_success tests_warn tests_error tests_interrupted <<< "$test_counts"
+  print_group_timing_block "Build Timing" "Build" "Package Build"
+  print_group_timing_block "Test Timing" "Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint"
+  print_build_results_block
+  print_test_results_block
 
   print_section_header "Overall Status"
-
-  local overall_message
-  if (( INTERRUPTED == 1 || tests_interrupted > 0 || build_interrupted > 0 || lint_interrupted > 0 )); then
-    overall_message="⏸️  Regression interrupted"
-  elif (( build_error > 0 || tests_error > 0 || lint_error > 0 )); then
-    overall_message="⚠️  Regression completed with failures"
-  elif (( build_warn > 0 || tests_warn > 0 || lint_warn > 0 )); then
-    overall_message="⚠️  Regression completed with warnings"
-  else
-    overall_message="✅ Regression completed successfully"
-  fi
-  printf '%s\n' "$overall_message"
-
-  printf '  Builds: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$build_success" "$build_warn" "$build_error" "$build_interrupted"
-  printf '  Tests: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$tests_success" "$tests_warn" "$tests_error" "$tests_interrupted"
-  printf '  Lint: %s succeeded, %s warnings, %s failed, %s interrupted\n' "$lint_success" "$lint_warn" "$lint_error" "$lint_interrupted"
-
-  if [[ -n "$test_total_count" && "$test_total_count" -ne 0 ]]; then
-    printf '  Test Cases: %s passed, %s failed, %s skipped (total %s)\n' "$test_passed_count" "$test_failed_count" "$test_skipped_count" "$test_total_count"
-  fi
-
   printf '  Exit Status: %s\n' "$EXIT_STATUS"
-
-  # Display elapsed time
   if [[ -n "${START_TIME:-}" ]]; then
     local end_time
     end_time=$(date +%s)
     local elapsed=$((end_time - START_TIME))
-    local formatted_time
-    formatted_time=$(format_elapsed_time "$elapsed")
-    printf '  Elapsed Time: %s\n' "$formatted_time"
+    printf '  Elapsed Time: %s\n' "$(format_elapsed_time "$elapsed")"
   fi
 }
 
@@ -784,9 +1389,9 @@ print_test_suite_timing() {
     IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
     local symbol
     symbol=$(status_symbol "$status")
-    printf '  %s %s › %s – %s (%s tests, failed %s, skipped %s)\n' \
+    printf '  %s %s › %s – %s (%s tests)\n' \
       "$symbol" "$target" "$suite" "$(format_elapsed_time "${duration:-0}")" \
-      "${total:-0}" "${failed:-0}" "${skipped:-0}"
+      "${total:-0}"
   done
   append_suite_timing_to_logs "${TEST_SUITE_TIMING_ENTRIES[@]-}"
 }
@@ -804,9 +1409,9 @@ append_suite_timing_to_logs() {
         IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
         local symbol
         symbol=$(status_symbol "$status")
-        printf '  %s %s › %s – %s (%s tests, failed %s, skipped %s)\n' \
+        printf '  %s %s › %s – %s (%s tests)\n' \
           "$symbol" "$target" "$suite" "$(format_elapsed_time "${duration:-0}")" \
-          "${total:-0}" "${failed:-0}" "${skipped:-0}"
+          "${total:-0}"
       done
     } >> "$log_path"
   done
@@ -1442,11 +2047,61 @@ test_app_target() {
   esac
 
   log_section "xcodebuild tests (${target})"
-  set +e
-  set +e
-  xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
-  local xc_status=${PIPESTATUS[0]}
-  set -e
+  local -a original_args=("${args[@]}")
+  run_tests_once() {
+    set +e
+    xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    local status=${PIPESTATUS[0]}
+    set -e
+    return "$status"
+  }
+
+  run_tests_once
+  local xc_status=$?
+
+  # Retry once on simulator boot failure by reselecting destination and rerunning.
+  local temp_sim_udid=""
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
+    log_warn "Simulator boot failure detected; reselecting destination and retrying once..."
+    select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
+    resolved_destination="$SELECTED_DESTINATION"
+    args=("${original_args[@]}")
+    local idx
+    for idx in "${!args[@]}"; do
+      if [[ "${args[$idx]}" == "-destination" ]]; then
+        args[$((idx + 1))]="$resolved_destination"
+        break
+      fi
+    done
+    run_tests_once
+    xc_status=$?
+  fi
+
+  # If the retry still failed due to boot issues, reset CoreSimulator and create a fresh simulator once.
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
+    log_warn "Simulator boot failure persists; resetting CoreSimulator service..."
+    reset_core_simulator_service
+    log_warn "Retrying ${target} with a freshly created simulator..."
+    local new_udid=""
+    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
+      temp_sim_udid="$new_udid"
+      log_info "Retrying ${target} with simulator id=${temp_sim_udid}"
+      args=("${original_args[@]}")
+      local idx
+      for idx in "${!args[@]}"; do
+        if [[ "${args[$idx]}" == "-destination" ]]; then
+          args[$((idx + 1))]="id=${temp_sim_udid}"
+          break
+        fi
+      done
+      run_tests_once
+      xc_status=$?
+    else
+      log_warn "Failed to provision a fresh simulator; keeping previous failure"
+    fi
+  fi
+
+  cleanup_ephemeral_simulator "$temp_sim_udid"
 
   # Parse test results from log file as fallback
   local log_total=0 log_passed=0 log_failed=0
@@ -1566,7 +2221,18 @@ test_package_target() {
   fi
 
   log_success "Package tests finished -> $RESULT_LOG"
-  add_summary "test" "package ${package}" "success" "$RESULT_LOG"
+  local pt_total="" pt_passed="" pt_failed="" pt_skipped=""
+  if grep -q "Executed [0-9]* tests" "$RESULT_LOG"; then
+    local counts_line
+    counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1)
+    if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+      pt_total="${BASH_REMATCH[1]}"
+      pt_failed="${BASH_REMATCH[2]}"
+      pt_passed=$(( pt_total - pt_failed ))
+      pt_skipped=0
+    fi
+  fi
+  add_summary "test" "package ${package}" "success" "$RESULT_LOG" "$pt_total" "$pt_passed" "$pt_failed" "$pt_skipped"
   return 0
 }
 
@@ -1823,10 +2489,41 @@ run_filtered_xcode_tests() {
   fi
 
   log_section "xcodebuild tests (${label})"
-  set +e
-  xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
-  local xc_status=${PIPESTATUS[0]}
-  set -e
+  local temp_sim_udid=""
+  run_tests_once() {
+    set +e
+    xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    local status=${PIPESTATUS[0]}
+    set -e
+    return "$status"
+  }
+
+  run_tests_once
+  local xc_status=$?
+
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
+    log_warn "Simulator boot failure detected for ${label}; resetting CoreSimulator service..."
+    reset_core_simulator_service
+    log_warn "Creating a fresh simulator and retrying once..."
+    local new_udid=""
+    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
+      temp_sim_udid="$new_udid"
+      log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
+      local idx
+      for idx in "${!args[@]}"; do
+        if [[ "${args[$idx]}" == "-destination" ]]; then
+          args[$((idx + 1))]="id=${temp_sim_udid}"
+          break
+        fi
+      done
+      run_tests_once
+      xc_status=$?
+    else
+      log_warn "Failed to provision a fresh simulator; skipping retry"
+    fi
+  fi
+
+  cleanup_ephemeral_simulator "$temp_sim_udid"
 
   if [[ $xc_status -ne 0 ]]; then
     record_test_suite_timings "$RESULT_BUNDLE" "$label" "$RESULT_LOG"
