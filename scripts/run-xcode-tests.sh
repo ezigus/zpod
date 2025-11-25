@@ -261,6 +261,9 @@ phase_group_for() {
   if [[ "$name" == Build\ package* ]]; then
     echo "Package Build"; return
   fi
+  if [[ "$name" == package\ * ]]; then
+    echo "Package Build"; return
+  fi
   if [[ "$name" == Package\ tests* ]]; then
     echo "Package Tests"; return
   fi
@@ -985,6 +988,52 @@ print_group_timing_block() {
   printf "\n"
 }
 
+package_test_timing_breakdown() {
+  local any=0
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name status log_path total passed failed skipped _ <<< "$entry"
+    [[ "$category" == "test" ]] || continue
+    [[ "$name" == package\ * ]] || continue
+    if (( any == 0 )); then
+      printf "  Package Tests detail:\n"
+    fi
+    any=1
+    local pkg_phase="Package tests ${name#package }"
+    local duration_sec=0
+    local ph_entry
+    for ph_entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
+      IFS='|' read -r ph_cat ph_name ph_elapsed _ <<< "$ph_entry"
+      if [[ "$ph_name" == "$pkg_phase" ]]; then
+        duration_sec=${ph_elapsed:-0}
+        break
+      fi
+    done
+    printf "    %s – %s (passed %s, failed %s, skipped %s)" \
+      "$name" "$(format_elapsed_time "$duration_sec")" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
+  done
+}
+
+ui_suite_timing_breakdown() {
+  local any=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    [[ "$suite_target" == *UITests* ]] || continue
+    if (( any == 0 )); then
+      printf "  UI suite detail:\n"
+    fi
+    any=1
+    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
+    printf "    %s – %s (passed %s, failed %s, skipped %s)\n" \
+      "$suite" "$(format_elapsed_time "${duration:-0}")" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+  done
+}
+
 status_counts_for_groups() {
   local target_group="$1"
   local total=0 success=0 warn=0 error=0 skipped=0
@@ -1327,6 +1376,8 @@ print_summary() {
 
   print_group_timing_block "Build Timing" "Build" "Package Build"
   print_group_timing_block "Test Timing" "Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint"
+  package_test_timing_breakdown
+  ui_suite_timing_breakdown
   print_build_results_block
   print_test_results_block
 
