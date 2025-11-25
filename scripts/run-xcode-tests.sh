@@ -1109,7 +1109,7 @@ print_test_results_block() {
         continue
       fi
       any=1
-      printf "  %s: total %s (passed %s, failed %s, skipped %s, warnings %s)\n" \
+      printf "  %s: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
         "$group" "$ltotal" "$lsuccess" "$lfailed" "$lskipped" "$lwarn"
     else
       local counts
@@ -1119,7 +1119,7 @@ print_test_results_block() {
         continue
       fi
       any=1
-      printf "  %s: total %s (passed %s, failed %s, skipped %s, warnings %s)\n" \
+      printf "  %s: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
         "$group" "$total" "$passed" "$failed" "$skipped" "$warn"
     fi
   done
@@ -1142,9 +1142,14 @@ print_package_test_breakdown() {
       printf "  Package breakdown:\n"
       printed_header=1
     fi
-    printf "    %s – total %s (passed %s, failed %s, skipped %s)%s\n" \
-      "$name" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" \
-      $([[ -n "$log_path" ]] && printf " – log: %s" "$log_path")
+    local warn=0
+    [[ "$status" == "warn" ]] && warn=1
+    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
+      "$name" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" "$warn"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
   done
 }
 
@@ -1161,7 +1166,7 @@ print_ui_suite_breakdown() {
     local symbol
     symbol=$(status_symbol "$status")
     local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
-    printf "    %s %s – total %s (passed %s, failed %s, skipped %s)\n" \
+    printf "    %s %s – total %s (✅ %s, ❌ %s, ⏭️ %s)\n" \
       "$symbol" "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
   done
 }
