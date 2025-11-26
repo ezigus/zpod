@@ -93,6 +93,15 @@ extension SwipeConfigurationTestCase {
       XCTFail("Swipe configuration sheet container should be discoverable after opening")
       return nil
     }
+
+    // Cache readiness state to avoid redundant waits on subsequent reuse
+    cachedReadiness = ReadinessContext(
+      baselineLoaded: true,
+      sectionsMaterialized: true,
+      seedApplied: hasLaunchedForCurrentSeed,
+      sheetContainer: container
+    )
+
     return container
   }
 
@@ -107,7 +116,15 @@ extension SwipeConfigurationTestCase {
     }
 
     if resetDefaults {
+      cachedReadiness = nil  // Clear cache when resetting defaults
       return try openConfigurationSheetReady(resetDefaults: true)
+    }
+
+    // OPTIMIZATION: If we have cached readiness and container still exists, return immediately
+    // This skips waitForBaselineLoaded + waitForSectionMaterialization (1-2s per call)
+    if let cached = cachedReadiness,
+       cached.sheetContainer?.exists == true {
+      return cached.sheetContainer
     }
 
     // Try to reuse an existing sheet only when the app is running.

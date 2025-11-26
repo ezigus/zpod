@@ -24,6 +24,18 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   private let maxTestDuration: TimeInterval = 300  // 5 minutes per acceptance criteria
   nonisolated(unsafe) internal var hasLaunchedForCurrentSeed = false
 
+  // MARK: - Readiness Context Caching
+
+  /// Caches readiness state to avoid redundant waits when sheet is reused within same test
+  private struct ReadinessContext {
+    let baselineLoaded: Bool
+    let sectionsMaterialized: Bool
+    let seedApplied: Bool
+    let sheetContainer: XCUIElement?
+  }
+
+  nonisolated(unsafe) private var cachedReadiness: ReadinessContext?
+
   // MARK: - Environment Configuration
 
   var baseLaunchEnvironment: [String: String] {
@@ -71,6 +83,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
       }
     }
     app = nil
+    cachedReadiness = nil  // Clear readiness cache after each test
     try super.tearDownWithError()
     hasLaunchedForCurrentSeed = false
   }

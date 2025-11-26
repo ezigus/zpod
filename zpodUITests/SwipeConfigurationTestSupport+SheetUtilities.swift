@@ -28,9 +28,12 @@ extension SwipeConfigurationTestCase {
     }
 
     let swipePredicate = NSPredicate(format: "identifier BEGINSWITH 'SwipeActions.'")
+
+    // OPTIMIZATION: SwipeActionConfigurationView.swift:64 sets accessibilityIdentifier("SwipeActions.List")
+    // Wait for it directly instead of polling windows for 5s
     let explicitList =
       app.descendants(matching: .any).matching(identifier: "SwipeActions.List").firstMatch
-    if explicitList.exists {
+    if explicitList.waitForExistence(timeout: 2.0) {
       return explicitList
     }
 
@@ -96,12 +99,21 @@ extension SwipeConfigurationTestCase {
       return nil
     }
 
-    let deadline = Date().addingTimeInterval(5.0)
-    while Date() < deadline {
+    // If explicit list didn't appear, try fallback container discovery
+    // Use XCTWaiter instead of RunLoop blocking for better test reliability
+    let maxAttempts = 10
+    for attempt in 1...maxAttempts {
       if let container = locateContainer() {
         return container
       }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+      if attempt < maxAttempts {
+        // Brief wait between attempts (50ms * 10 = 500ms max vs previous 5s)
+        let expectation = XCTestExpectation(description: "Container discovery wait")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+          expectation.fulfill()
+        }
+        _ = XCTWaiter.wait(for: [expectation], timeout: 0.1)
+      }
     }
 
     logger.warning("[SwipeUITestDebug] swipeActionsSheetListContainer timed out")
