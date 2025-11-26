@@ -109,7 +109,7 @@ extension SwipeConfigurationTestCase {
 
   /// Verifies that seeded configuration was persisted to UserDefaults
   /// Returns true if configuration in defaults matches expected seed values
-  private func verifySeedPersistedToDefaults(expected: SwipeSeedExpectation) -> Bool {
+  private func verifySeedPersistedToDefaults(expected: SeedExpectation) -> Bool {
     guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
       return false
     }
