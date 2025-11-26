@@ -99,7 +99,23 @@
             baselineLoaded = true
           }
           .onChange(of: baselineLoaded) { loaded in
-            guard loaded, shouldForceMaterialization, !materializationTriggered else { return }
+            guard loaded else { return }
+
+            // UITEST DEBUG HOOK: Direct scroll to target identifier
+            // Replaces multi-pass scroll sweeps with deterministic jump
+            #if DEBUG
+            if let targetID = ProcessInfo.processInfo.environment["UITEST_SWIPE_SCROLL_TO"] {
+              Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms for list layout
+                withAnimation {
+                  proxy.scrollTo(targetID, anchor: .center)
+                }
+              }
+            }
+            #endif
+
+            // Standard materialization for non-debug test runs
+            guard shouldForceMaterialization, !materializationTriggered else { return }
             materializationTriggered = true
             materializationComplete = false
             Task { @MainActor in

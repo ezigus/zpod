@@ -158,9 +158,10 @@ extension SwipeConfigurationTestCase {
     guard refreshContainerIfNeeded() else { return target.exists }
     if target.exists { return true }
 
-    // Cap sweeps to deterministic passes: one top reset, two downward sweeps, one upward sweep.
-    let downwardSweeps = max(scrollAttempts, 2)
-    let upwardSweeps = 1
+    // OPTIMIZATION: With SwipeActionConfigurationView's UITEST_SWIPE_PRELOAD_SECTIONS,
+    // sections are pre-materialized. Reduce from (1↑ + 2↓ + 1↑) to (1↑ + 1↓)
+    let downwardSweeps = max(scrollAttempts, 1)  // Reduced from 2 to 1
+    let upwardSweeps = 0  // Skip upward sweep - rarely needed with pre-materialization
 
     enum ScrollDirection {
       case towardsBottom
@@ -204,7 +205,12 @@ extension SwipeConfigurationTestCase {
     }
 
     func settle() {
-      RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+      // OPTIMIZATION: Replace RunLoop blocking with brief XCTWaiter
+      let expectation = XCTestExpectation(description: "UI settle after scroll")
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        expectation.fulfill()
+      }
+      _ = XCTWaiter.wait(for: [expectation], timeout: 0.1)
     }
 
     // Nudge to the top first so we have a deterministic starting point.
