@@ -1028,8 +1028,9 @@ ui_suite_timing_breakdown() {
       printf "  UI suite detail:\n"
     fi
     any=1
-    printf "    %s – %s\n" \
-      "$suite" "$(format_elapsed_time "${duration:-0}")"
+    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
+    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s)\n" \
+      "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
   done
 }
 
