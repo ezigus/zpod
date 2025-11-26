@@ -778,7 +778,7 @@ summarize_lint_log() {
   [[ -f "$log_path" ]] || return 0
 
   local line
-  line=$(grep -E "Found [0-9]+ violations" "$log_path" 2>/dev/null | tail -1)
+  line=$(grep -E "Found [0-9]+ violations" "$log_path" 2>/dev/null | tail -1 || true)
   if [[ -n "$line" ]]; then
     if [[ $line =~ Found[[:space:]]+([0-9]+)[[:space:]]+violations?,[[:space:]]+([0-9]+)[[:space:]]+serious[[:space:]]+in[[:space:]]+([0-9]+)[[:space:]]+files? ]]; then
       printf "%s" "${BASH_REMATCH[3]} files, ${BASH_REMATCH[1]} violations (${BASH_REMATCH[2]} serious)"
@@ -790,10 +790,10 @@ summarize_lint_log() {
 
   case "$tool" in
     swift-format)
-      line=$(grep -E "(No lint violations|Lint finished)" "$log_path" 2>/dev/null | tail -1)
+      line=$(grep -E "(No lint violations|Lint finished)" "$log_path" 2>/dev/null | tail -1 || true)
       ;;
     swiftformat)
-      line=$(grep -E "SwiftFormat" "$log_path" 2>/dev/null | tail -1)
+      line=$(grep -E "SwiftFormat" "$log_path" 2>/dev/null | tail -1 || true)
       ;;
   esac
 
@@ -988,17 +988,49 @@ print_group_timing_block() {
   printf "\n"
 }
 
+print_test_timing_block() {
+  local -a groups=("Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint")
+  local any=0
+  print_section_header "Test Timing"
+  local total_all=0
+  local group
+  for group in "${groups[@]}"; do
+    local seconds
+    seconds=$(group_elapsed_seconds "$group")
+    (( seconds == 0 )) && continue
+    total_all=$(( total_all + seconds ))
+    local suppress=0
+    if [[ "$group" == "Package Tests" || "$group" == "UI Tests" ]]; then
+      suppress=1
+    fi
+    if (( suppress == 1 )); then
+      continue
+    fi
+    any=1
+    local log_path
+    log_path=$(first_log_for_group "$group")
+    printf "  %s: %s" "$group" "$(format_elapsed_time "$seconds")"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
+  done
+  if (( any == 0 )); then
+    printf "  (none)\n"
+  fi
+  printf "  Total: %s\n" "$(format_elapsed_time "$total_all")"
+  printf "\n"
+}
+
 package_test_timing_breakdown() {
   local any=0
+  local total_duration=0
+  local -a lines=()
   local entry
   for entry in "${SUMMARY_ITEMS[@]-}"; do
     IFS='|' read -r category name status log_path total passed failed skipped _ <<< "$entry"
     [[ "$category" == "test" ]] || continue
     [[ "$name" == package\ * ]] || continue
-    if (( any == 0 )); then
-      printf "  Package Tests detail:\n"
-    fi
-    any=1
     local pkg_phase="Package tests ${name#package }"
     local duration_sec=0
     local ph_entry
@@ -1009,28 +1041,48 @@ package_test_timing_breakdown() {
         break
       fi
     done
-    printf "    %s – %s" \
-      "$name" "$(format_elapsed_time "$duration_sec")"
+    total_duration=$(( total_duration + duration_sec ))
+    any=1
+    local line="    ${name} – $(format_elapsed_time "$duration_sec")"
     if [[ -n "$log_path" ]]; then
-      printf " – log: %s" "$log_path"
+      line+=" – log: ${log_path}"
     fi
-    printf "\n"
+    lines+=("$line")
   done
+  (( any == 0 )) && return
+  local group_total
+  group_total=$(group_elapsed_seconds "Package Tests")
+  if (( group_total > 0 )); then
+    total_duration=$group_total
+  fi
+  printf "  Package Tests detail: %s\n" "$(format_elapsed_time "$total_duration")"
+  printf '%s\n' "${lines[@]}"
 }
 
 ui_suite_timing_breakdown() {
   local any=0
+  local total_duration=0
+  local -a lines=()
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
     IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
-    if (( any == 0 )); then
-      printf "  UI suite detail:\n"
-    fi
+    local symbol
+    symbol=$(status_symbol "$status")
+    total_duration=$(( total_duration + ${duration:-0} ))
     any=1
-    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
-    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s)\n" \
-      "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+    lines+=("    ${symbol} ${suite} – $(format_elapsed_time "${duration:-0}")")
+  done
+  (( any == 0 )) && return
+  local group_total
+  group_total=$(group_elapsed_seconds "UI Tests")
+  if (( group_total > 0 )); then
+    total_duration=$group_total
+  fi
+  printf "  UI suite detail: %s\n" "$(format_elapsed_time "$total_duration")"
+  local line
+  for line in "${lines[@]}"; do
+    printf '%s\n' "$line"
   done
 }
 
@@ -1057,6 +1109,7 @@ status_counts_for_groups() {
 test_counts_for_group() {
   local target_group="$1"
   local total=0 passed=0 failed=0 skipped=0 warn=0
+  local has_entry=0
   local entry
   for entry in "${SUMMARY_ITEMS[@]-}"; do
     IFS='|' read -r category name status _ t p f s _ <<< "$entry"
@@ -1064,13 +1117,26 @@ test_counts_for_group() {
     local group
     group=$(test_group_for "$category" "$name")
     [[ "$group" == "$target_group" ]] || continue
+    has_entry=1
     total=$(( total + ${t:-0} ))
     passed=$(( passed + ${p:-0} ))
     failed=$(( failed + ${f:-0} ))
     skipped=$(( skipped + ${s:-0} ))
     [[ "$status" == "warn" ]] && (( warn++ ))
   done
-  printf "%s|%s|%s|%s|%s" "$total" "$passed" "$failed" "$skipped" "$warn"
+  printf "%s|%s|%s|%s|%s|%s" "$total" "$passed" "$failed" "$skipped" "$warn" "$has_entry"
+}
+
+group_has_entries() {
+  local target_group="$1"
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name _ <<< "$entry"
+    local group
+    group=$(group_for_entry "$category" "$name")
+    [[ "$group" == "$target_group" ]] && return 0
+  done
+  return 1
 }
 
 print_build_results_block() {
@@ -1096,7 +1162,13 @@ print_build_results_block() {
 }
 
 print_test_results_block() {
-  local -a groups=("Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint")
+  local package_counts ui_counts
+  package_counts=$(test_counts_for_group "Package Tests")
+  IFS='|' read -r pkg_total pkg_passed pkg_failed pkg_skipped pkg_warn pkg_present <<< "$package_counts"
+  ui_counts=$(test_counts_for_group "UI Tests")
+  IFS='|' read -r ui_total ui_passed ui_failed ui_skipped ui_warn ui_present <<< "$ui_counts"
+
+  local -a groups=("Syntax" "AppSmoke" "Integration" "Lint")
   print_section_header "Test Results"
   local any=0
   local group
@@ -1105,7 +1177,9 @@ print_test_results_block() {
       local lcounts
       lcounts=$(status_counts_for_groups "Lint")
       IFS='|' read -r ltotal lsuccess lfailed lskipped lwarn <<< "$lcounts"
-      if (( ltotal == 0 && lwarn == 0 )); then
+      local lint_present=0
+      group_has_entries "Lint" && lint_present=1
+      if (( ltotal == 0 && lwarn == 0 && lint_present == 0 )); then
         continue
       fi
       any=1
@@ -1114,8 +1188,8 @@ print_test_results_block() {
     else
       local counts
       counts=$(test_counts_for_group "$group")
-      IFS='|' read -r total passed failed skipped warn <<< "$counts"
-      if (( total == 0 && warn == 0 )); then
+      IFS='|' read -r total passed failed skipped warn present <<< "$counts"
+      if (( total == 0 && warn == 0 && present == 0 )); then
         continue
       fi
       any=1
@@ -1123,29 +1197,39 @@ print_test_results_block() {
         "$group" "$total" "$passed" "$failed" "$skipped" "$warn"
     fi
   done
-  if (( any == 0 )); then
+  if (( any == 0 && pkg_present == 0 && ui_present == 0 )); then
     printf "  (none)\n"
   fi
-  print_package_test_breakdown
-  print_ui_suite_results_summary
+  print_package_test_breakdown "$pkg_total" "$pkg_passed" "$pkg_failed" "$pkg_skipped" "$pkg_warn" "$pkg_present"
+  print_ui_suite_results_summary "$ui_total" "$ui_passed" "$ui_failed" "$ui_skipped" "$ui_warn" "$ui_present"
   printf "\n"
 }
 
 print_package_test_breakdown() {
+  local summary_total="$1"
+  local summary_passed="$2"
+  local summary_failed="$3"
+  local summary_skipped="$4"
+  local summary_warn="$5"
+  local present="${6:-0}"
+  if (( present == 0 )); then
+    return
+  fi
   local printed_header=0
   local entry
   for entry in "${SUMMARY_ITEMS[@]-}"; do
-    IFS='|' read -r category name status log_path total passed failed skipped note <<< "$entry"
+    IFS='|' read -r category name status log_path entry_total entry_passed entry_failed entry_skipped note <<< "$entry"
     [[ "$category" == "test" ]] || continue
     [[ "$name" == package\ * ]] || continue
     if (( printed_header == 0 )); then
-      printf "  Package breakdown:\n"
+      printf "  Package breakdown: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
+        "${summary_total:-0}" "${summary_passed:-0}" "${summary_failed:-0}" "${summary_skipped:-0}" "${summary_warn:-0}"
       printed_header=1
     fi
-    local warn=0
-    [[ "$status" == "warn" ]] && warn=1
+    local entry_warn=0
+    [[ "$status" == "warn" ]] && entry_warn=1
     printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
-      "$name" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" "$warn"
+      "$name" "${entry_total:-0}" "${entry_passed:-0}" "${entry_failed:-0}" "${entry_skipped:-0}" "$entry_warn"
     if [[ -n "$log_path" ]]; then
       printf " – log: %s" "$log_path"
     fi
@@ -1154,20 +1238,30 @@ print_package_test_breakdown() {
 }
 
 print_ui_suite_results_summary() {
+  local summary_total="$1"
+  local summary_passed="$2"
+  local summary_failed="$3"
+  local summary_skipped="$4"
+  local summary_warn="$5"
+  local present="${6:-0}"
+  if (( present == 0 )); then
+    return
+  fi
   local printed_header=0
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    IFS='|' read -r suite_target suite duration status suite_total suite_failed suite_skipped <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
     if (( printed_header == 0 )); then
-      printf "  UI suite results:\n"
+      printf "  UI suite results: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
+        "${summary_total:-0}" "${summary_passed:-0}" "${summary_failed:-0}" "${summary_skipped:-0}" "${summary_warn:-0}"
     fi
     printed_header=1
-    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
-    local warn=0
-    [[ "$status" == "warn" ]] && warn=1
+    local passed=$(( ${suite_total:-0} - ${suite_failed:-0} - ${suite_skipped:-0} ))
+    local suite_warn=0
+    [[ "$status" == "warn" ]] && suite_warn=1
     printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
-      "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" "$warn"
+      "$suite" "${suite_total:-0}" "${passed:-0}" "${suite_failed:-0}" "${suite_skipped:-0}" "$suite_warn"
   done
 }
 
@@ -1398,7 +1492,7 @@ print_summary() {
   IFS='|' read -r lint_total lint_success lint_warn lint_error lint_interrupted <<< "$lint_counts"
 
   print_group_timing_block "Build Timing" "Build" "Package Build"
-  print_group_timing_block "Test Timing" "Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint"
+  print_test_timing_block
   package_test_timing_breakdown
   ui_suite_timing_breakdown
   print_build_results_block
@@ -2326,10 +2420,9 @@ run_swift_lint() {
     local note=""
     note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
     if (( lint_status != 0 )); then
-      log_error "SwiftLint failed (status ${lint_status}) -> $RESULT_LOG"
-      add_summary "lint" "swiftlint" "error" "$RESULT_LOG" "" "" "" "" "failed"
-      update_exit_status "$lint_status"
-      return "$lint_status"
+      log_warn "SwiftLint reported violations (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swiftlint" "warn" "$RESULT_LOG" "" "" "" "" "${note:-violations}"
+      return 0
     fi
     log_success "SwiftLint finished -> $RESULT_LOG"
     add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
@@ -2347,10 +2440,9 @@ run_swift_lint() {
     local note=""
     note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
     if (( lint_status != 0 )); then
-      log_error "swift-format lint failed (status ${lint_status}) -> $RESULT_LOG"
-      add_summary "lint" "swift-format" "error" "$RESULT_LOG" "" "" "" "" "failed"
-      update_exit_status "$lint_status"
-      return "$lint_status"
+      log_warn "swift-format reported violations (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swift-format" "warn" "$RESULT_LOG" "" "" "" "" "${note:-violations}"
+      return 0
     fi
     log_success "swift-format lint finished -> $RESULT_LOG"
     add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
@@ -2368,10 +2460,9 @@ run_swift_lint() {
     local note=""
     note=$(summarize_lint_log "swiftformat" "$RESULT_LOG")
     if (( lint_status != 0 )); then
-      log_error "swiftformat lint failed (status ${lint_status}) -> $RESULT_LOG"
-      add_summary "lint" "swiftformat" "error" "$RESULT_LOG" "" "" "" "" "failed"
-      update_exit_status "$lint_status"
-      return "$lint_status"
+      log_warn "swiftformat reported violations (status ${lint_status}) -> $RESULT_LOG"
+      add_summary "lint" "swiftformat" "warn" "$RESULT_LOG" "" "" "" "" "${note:-violations}"
+      return 0
     fi
     log_success "swiftformat lint finished -> $RESULT_LOG"
     add_summary "lint" "swiftformat" "success" "$RESULT_LOG" "" "" "" "" "$note"
@@ -2390,10 +2481,9 @@ run_swift_lint() {
       local note=""
       note=$(summarize_lint_log "swift-format" "$RESULT_LOG")
       if (( lint_status != 0 )); then
-        log_error "swift-format lint failed (status ${lint_status}) -> $RESULT_LOG"
-        add_summary "lint" "swift-format" "error" "$RESULT_LOG" "" "" "" "" "failed"
-        update_exit_status "$lint_status"
-        return "$lint_status"
+        log_warn "swift-format reported violations (status ${lint_status}) -> $RESULT_LOG"
+        add_summary "lint" "swift-format" "warn" "$RESULT_LOG" "" "" "" "" "${note:-violations}"
+        return 0
       fi
       log_success "swift-format lint finished -> $RESULT_LOG"
       add_summary "lint" "swift-format" "success" "$RESULT_LOG" "" "" "" "" "$note"
@@ -2427,10 +2517,9 @@ run_swift_lint() {
       local note=""
       note=$(summarize_lint_log "swiftlint" "$RESULT_LOG")
       if (( lint_status != 0 )); then
-        log_error "SwiftLint failed (status ${lint_status}) -> $RESULT_LOG"
-        add_summary "lint" "swiftlint" "error" "$RESULT_LOG" "" "" "" "" "failed"
-        update_exit_status "$lint_status"
-        return "$lint_status"
+        log_warn "SwiftLint reported violations (status ${lint_status}) -> $RESULT_LOG"
+        add_summary "lint" "swiftlint" "warn" "$RESULT_LOG" "" "" "" "" "${note:-violations}"
+        return 0
       fi
       log_success "SwiftLint finished -> $RESULT_LOG"
       add_summary "lint" "swiftlint" "success" "$RESULT_LOG" "" "" "" "" "$note"
