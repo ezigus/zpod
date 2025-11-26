@@ -1128,6 +1128,7 @@ print_test_results_block() {
   fi
   print_package_test_breakdown
   print_ui_suite_breakdown
+  print_ui_suite_results_summary
   printf "\n"
 }
 
@@ -1150,6 +1151,24 @@ print_package_test_breakdown() {
       printf " – log: %s" "$log_path"
     fi
     printf "\n"
+  done
+}
+
+print_ui_suite_results_summary() {
+  local printed_header=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    [[ "$suite_target" == *UITests* ]] || continue
+    if (( printed_header == 0 )); then
+      printf "  UI suite results:\n"
+    fi
+    printed_header=1
+    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
+    local warn=0
+    [[ "$status" == "warn" ]] && warn=1
+    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
+      "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}" "$warn"
   done
 }
 
