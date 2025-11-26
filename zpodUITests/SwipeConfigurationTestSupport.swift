@@ -27,14 +27,14 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   // MARK: - Readiness Context Caching
 
   /// Caches readiness state to avoid redundant waits when sheet is reused within same test
-  struct ReadinessContext {
+  internal struct ReadinessContext {
     let baselineLoaded: Bool
     let sectionsMaterialized: Bool
     let seedApplied: Bool
     let sheetContainer: XCUIElement?
   }
 
-  nonisolated(unsafe) var cachedReadiness: ReadinessContext?
+  nonisolated(unsafe) internal var cachedReadiness: ReadinessContext?
 
   // MARK: - Environment Configuration
 
