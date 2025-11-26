@@ -1127,7 +1127,6 @@ print_test_results_block() {
     printf "  (none)\n"
   fi
   print_package_test_breakdown
-  print_ui_suite_breakdown
   print_ui_suite_results_summary
   printf "\n"
 }
