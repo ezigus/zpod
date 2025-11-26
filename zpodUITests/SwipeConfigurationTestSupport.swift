@@ -27,14 +27,14 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
   // MARK: - Readiness Context Caching
 
   /// Caches readiness state to avoid redundant waits when sheet is reused within same test
-  private struct ReadinessContext {
+  struct ReadinessContext {
     let baselineLoaded: Bool
     let sectionsMaterialized: Bool
     let seedApplied: Bool
     let sheetContainer: XCUIElement?
   }
 
-  nonisolated(unsafe) private var cachedReadiness: ReadinessContext?
+  nonisolated(unsafe) var cachedReadiness: ReadinessContext?
 
   // MARK: - Environment Configuration
 
@@ -67,6 +67,7 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     lastSwipeExecutionTimestamp = 0
     testStartTime = CFAbsoluteTimeGetCurrent()
     hasLaunchedForCurrentSeed = false
+    cachedReadiness = nil
   }
 
   override func tearDownWithError() throws {
