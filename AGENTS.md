@@ -14,7 +14,35 @@
 3. **Automation over manual edits** – use scripts, generators, and formatters whenever possible.
 4. **Version control hygiene** – commit only after tests pass, include matching dev-log updates, then confirm whether to push.
    - PR titles linked to issues must include the issue identifier (e.g. `[#02.5] Testing cleanup fixes`) so GitHub references stay traceable.
-   - When working on a PR, use the PR’s branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
+   - When working on a PR, use the PR's branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
+
+### Terminal Command Guidelines
+
+**CRITICAL: Follow these rules when executing terminal commands:**
+
+- **NEVER** use `2>&1` redirection - it causes output buffering and user prompts
+- **NEVER** run commands with `isBackground: true` - always run synchronously
+- **NEVER** use `timeout`, `sleep`, or other blocking commands that prompt user interaction
+- **DO** run commands directly and let them complete naturally
+- **DO** use simple, clean command invocations without complex shell redirections
+- **DO** trust that output will appear when the command completes
+
+Examples:
+
+```bash
+# ✅ CORRECT - simple, direct command
+./scripts/run-xcode-tests.sh -t zpodUITests/SomeTest
+
+# ❌ WRONG - background execution
+./scripts/run-xcode-tests.sh -t Test &
+
+# ❌ WRONG - output redirection
+./scripts/run-xcode-tests.sh 2>&1 | grep something
+
+# ❌ WRONG - timeout/sleep
+timeout 60 ./scripts/run-xcode-tests.sh
+sleep 30 && ./scripts/run-xcode-tests.sh
+```
 
 ## 3. Concurrency & Swift Patterns
 
@@ -61,9 +89,9 @@
 #### Element Discovery
 
 - **Use accessibility identifiers** for reliable element targeting: `view.accessibilityIdentifier = "uniqueID"`
-- **Prefer specific queries**: `app.buttons["Login"]` over `app.buttons.element(boundBy: 0)`
+- **Always use `.matching(identifier:).firstMatch`** pattern: `app.buttons.matching(identifier: "Login").firstMatch` avoids duplicate identifier crashes from SwiftUI wrapper views
+- **Never use subscript syntax** (`app.buttons["ID"]`) – it fails when SwiftUI generates duplicate identifiers
 - **Use `children(matching:)` for direct subviews**, `descendants(matching:)` for nested elements
-- **Leverage `firstMatch`** when only one element is needed (faster than `element`)
 - **Query hierarchy efficiently**: More specific queries = better performance
 
 #### Test Reliability
@@ -78,7 +106,8 @@
 
 - SwiftUI updates UI asynchronously on the main thread
 - XCUITest queries execute immediately after interactions
-- May need strategic delays after state-changing taps (1-2s) until better waiters are available
+- **SwiftUI List lazy-loading**: Both sections AND rows within sections materialize only when positioned early (~812pt viewport) – scrolling cannot materialize non-existent sections
+- **Fix: structural reordering, not scrolling** – when tests can't find elements, reposition them early in the List hierarchy, don't add scrolling workarounds
 - Ensure SwiftUI views have proper accessibility modifiers
 
 #### Key Resources (re-read when updating UI tests)
@@ -123,6 +152,73 @@
 2. Confirm isolation annotations (`@MainActor`, `Sendable`).
 3. Compile early; fix similar mismatches across the codebase, not just the first failure.
 
+### Debug & Test Infrastructure Patterns
+
+**When Standard UI Testing Isn't Sufficient:**
+
+For complex UI flows where direct interaction is unreliable or tests need to bypass multi-step navigation, use the **debug overlay pattern** with environment-gated hooks:
+
+**Pattern: Notification-Based Debug Hooks**
+
+```swift
+// 1. App code: Always-present hook (zero cost when unlistened)
+extension Notification.Name {
+  static let appDidInitialize = Notification.Name("AppFeature.DidInitialize")
+}
+
+// In app initialization
+NotificationCenter.default.post(name: .appDidInitialize, object: nil)
+
+// 2. Test infrastructure: Conditional listener
+@MainActor
+public final class DebugOverlayManager {
+  private var observer: NSObjectProtocol?
+  
+  init() {
+    if ProcessInfo.processInfo.environment["UITEST_DEBUG_MODE"] == "1" {
+      observer = NotificationCenter.default.addObserver(
+        forName: .appDidInitialize,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        Task { @MainActor in
+          self?.showDebugControls()
+        }
+      }
+    }
+  }
+}
+
+// 3. UIWindow-based overlay for XCUITest accessibility
+let window = UIWindow(windowScene: scene)
+window.windowLevel = .alert + 100  // Above sheets/modals
+window.frame = scene.screen.bounds
+window.backgroundColor = .clear
+window.makeKeyAndVisible()
+// Immediately resign key so main window stays interactive
+```
+
+**Key Principles:**
+
+- Hook **always present** in app code (loose coupling, zero cost when unlistened)
+- Listener **conditionally attached** via runtime check (e.g., `UITEST_DEBUG_MODE=1`)
+- Use `UIWindow` at high level (`.alert + 100`) for accessibility above sheets/modals
+- **Never** use `#if canImport()` guards for hooks—causes CI/local parity issues
+- Set environment flag in test `launchEnvironment`, not compile flags
+- Properly remove observers in `deinit` to avoid leaks
+
+**Example Use Cases:**
+
+- Applying test presets to bypass multi-screen configuration flows
+- Exposing internal state for verification without production debug UI
+- Triggering specific app states for screenshot/accessibility testing
+- Providing quick access to test configurations during UI test execution
+
+**Related Documentation:**
+
+- See `dev-log/02.6.3-swipe-configuration-test-decomposition.md` (section "2025-11-15 — Debug Overlay Accessibility") for full implementation case study
+- See `Packages/LibraryFeature/Sources/LibraryFeature/SwipeDebugOverlayManager.swift` for reference implementation
+
 ## 5. Coding Standards
 
 - Follow Swift API Design Guidelines; choose descriptive names and avoid force unwraps.
@@ -130,6 +226,29 @@
 - Apply access control intentionally (default to `internal`).
 - Document complex logic with `///` comments and include usage notes when helpful.
 - In SwiftUI, keep state minimal (`@State`, `@StateObject`, `@ObservedObject`, `@EnvironmentObject` as appropriate) and ensure accessibility compliance.
+
+### SwiftUI Accessibility Identifier Best Practices
+
+**CRITICAL**: SwiftUI automatically adds wrapper views (usually `Other`) that inherit the same accessibility identifier as their children. Duplicates are unavoidable regardless of where the identifier is attached, so the test suite—not the app code—must de-duplicate.
+
+- Keep identifiers on the element that best conveys semantics (Text, Label, NavigationLink label, etc.) and use the lightweight UIViewRepresentable fallback in `docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md` when SwiftUI hides modifiers.
+- **Always** locate elements via `.matching(identifier:).firstMatch` and verify with `waitForExistence(timeout:)`. Do **not** rely on `app.buttons["ID"]`.
+- Provide a descriptive identifier per element (`"Library.Tab"`, `"SwipeActions.Save"`); avoid dynamic timestamp-based names.
+
+```swift
+Button { action() } label: {
+  Label("Play", systemImage: "play.fill")
+    .accessibilityIdentifier("Player.PlayButton")
+}
+
+let playButton = app.buttons
+  .matching(identifier: "Player.PlayButton")
+  .firstMatch
+XCTAssertTrue(playButton.waitForExistence(timeout: 5))
+playButton.tap()
+```
+
+**Rule**: Developer code focuses on setting accurate identifiers; UI tests absorb the duplication by always using `.firstMatch`.
 
 ## 6. Architecture & Modularization
 
@@ -179,12 +298,19 @@ Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations f
 
 as you build code, be aware that you need to be able to run in a CI pipeline in github. this means that the tests do not persist between tests and data will not be saved, so tests need to be self supporting when they are run, which means if tests are to persist something, they need to do the setup first and then test that it is still there.
 
-- CI flow: a `preflight` job runs the script’s syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
-- UI/Integration jobs now provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`), export its UDID plus a suite-specific DerivedData path, and tear both down in `if: always()` cleanup steps. Matrix parallelism is capped at 3 to maintain throughput without reintroducing simulator contention.
-- The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script’s automatic destination selection.
-- Once a simulator is created, the workflow boots it (`simctl boot` + `simctl bootstatus -b`) before invoking `xcodebuild` to avoid accessibility-server initialization failures on cold devices.
-- Preflight now provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
-- UI suites auto-build `zpod.app` inside the suite’s DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn’t been produced yet.
+- CI flow: a `preflight` job runs the script's syntax gate, clean workspace build, and AppSmokeTests before the matrix fan-out. Once that passes, each package runs `swift test` in its own job, the UI suite is split into focused groups (Navigation, Content Discovery, Playback, Batch Operations, Swipe Configuration), and `IntegrationTests` runs independently.
+- UI/Integration jobs provision a dedicated simulator per suite (`zpod-<run_id>-<suite>`) with isolated DerivedData, then tear both down in `if: always()` cleanup steps.
+- **Simulator Isolation Infrastructure** (supports 5+ parallel jobs):
+  - **Staggered Provisioning**: Hash-based delays (0-8s) prevent simultaneous creation
+  - **Capacity Monitoring**: Checks active simulator count, waits if ≥5 simulators exist
+  - **Retry with Backoff**: Up to 3 attempts for creation with exponential delays (3s, 6s, 9s)
+  - **Resource Detection**: Identifies resource exhaustion vs configuration errors  
+  - **On-Demand Boot**: Simulators are created but NOT booted in CI; xcodebuild boots them on-demand to avoid concurrent boot contention (5 simulators booting simultaneously causes Data Migration hangs)
+  - **Graceful Degradation**: Falls back to automatic destination if all retries fail
+  - Matrix parallelism configurable via `max-parallel` (currently 5, can scale higher)
+- The provisioning logic retries several device types (iPhone 16 → 13) so hosts missing the newest runtimes still get a compatible simulator; when none succeed the job falls back to the script's automatic destination selection.
+- Preflight provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
+- UI suites auto-build `zpod.app` inside the suite's DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn't been produced yet.
 
 ## 8. Issue & Documentation Management
 

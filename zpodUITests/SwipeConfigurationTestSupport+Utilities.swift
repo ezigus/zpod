@@ -16,7 +16,7 @@ extension SwipeConfigurationTestCase {
     if let prioritized = prioritizedElement(in: app, identifier: identifier) {
       return prioritized
     }
-    return app.descendants(matching: .any)[identifier]
+    return app.descendants(matching: .any).matching(identifier: identifier).firstMatch
   }
 
   @MainActor
@@ -31,24 +31,8 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   private func prioritizedElement(in root: XCUIElement, identifier: String) -> XCUIElement? {
-    let queries: [XCUIElement] = [
-      root.switches.matching(identifier: identifier).firstMatch,
-      root.buttons[identifier],
-      root.segmentedControls[identifier],
-      root.cells[identifier],
-      root.sliders[identifier],
-      root.textFields[identifier],
-      root.secureTextFields[identifier],
-      root.images[identifier],
-      root.staticTexts[identifier],
-      root.otherElements[identifier],
-    ]
-
-    for candidate in queries where candidate.exists {
-      return candidate
-    }
-
-    let descendant = root.descendants(matching: .any)[identifier]
+    // Use descendants(matching: .any) with identifier - much faster than checking 10 element types
+    let descendant = root.descendants(matching: .any).matching(identifier: identifier).firstMatch
     return descendant.exists ? descendant : nil
   }
 
@@ -72,7 +56,7 @@ extension SwipeConfigurationTestCase {
   func revealLeadingSwipeActions(for element: XCUIElement) {
     element.swipeRight()
 
-    if app.buttons["SwipeAction.addToPlaylist"].exists {
+    if app.buttons.matching(identifier: "SwipeAction.addToPlaylist").firstMatch.exists {
       return
     }
 

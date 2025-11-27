@@ -8,6 +8,10 @@
 import Foundation
 import XCTest
 
+enum SwipeConfigurationNavigationError: Error {
+  case missingEpisodeButton
+}
+
 extension SwipeConfigurationTestCase {
   @MainActor
   func resetSwipeSettingsToDefault() {
@@ -27,6 +31,14 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func relaunchApp(resetDefaults: Bool = false) {
+    if app == nil {
+      if resetDefaults {
+        resetSwipeSettingsToDefault()
+      }
+      app = launchConfiguredApp(environmentOverrides: launchEnvironment(reset: resetDefaults))
+      return
+    }
+
     app.terminate()
     if resetDefaults {
       resetSwipeSettingsToDefault()
@@ -41,7 +53,87 @@ extension SwipeConfigurationTestCase {
     } else {
       relaunchApp(resetDefaults: false)
     }
+
     try openConfigurationSheetFromEpisodeList()
+  }
+
+  /// Opens the configuration sheet, verifies baseline + section materialization once, and caches
+  /// the sheet container for this test instance. Use this to avoid repeated waits within a test.
+  @MainActor
+  @discardableResult
+  func openConfigurationSheetReady(resetDefaults: Bool = true) throws -> XCUIElement? {
+    // Always relaunch once per test unless already launched for this seed.
+    if !hasLaunchedForCurrentSeed {
+      if resetDefaults {
+        initializeApp()
+      } else {
+        relaunchApp(resetDefaults: false)
+      }
+      hasLaunchedForCurrentSeed = true
+    } else if resetDefaults {
+      relaunchApp(resetDefaults: true)
+    }
+
+    try openConfigurationSheetFromEpisodeList()
+
+    // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
+    if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
+      XCTAssertTrue(
+        waitForBaselineLoaded(),
+        "Swipe configuration baseline should load after opening sheet"
+      )
+    }
+
+    XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize within timeout"
+    )
+
+    guard let container = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet container should be discoverable after opening")
+      return nil
+    }
+
+    // Cache readiness state to avoid redundant waits on subsequent reuse
+    cachedReadiness = ReadinessContext(
+      baselineLoaded: true,
+      sectionsMaterialized: true,
+      seedApplied: hasLaunchedForCurrentSeed,
+      sheetContainer: container
+    )
+
+    return container
+  }
+
+  /// Returns the sheet container if discoverable; otherwise opens it.
+  /// Note: Always re-discovers instead of caching to handle SwiftUI sheet lifecycle.
+  @MainActor
+  @discardableResult
+  func reuseOrOpenConfigurationSheet(resetDefaults: Bool = false) throws -> XCUIElement? {
+    // If the app is not yet launched or was terminated, open the sheet from scratch.
+    if app == nil || app.state == .notRunning || app.state == .unknown {
+      return try openConfigurationSheetReady(resetDefaults: true)
+    }
+
+    if resetDefaults {
+      cachedReadiness = nil  // Clear cache when resetting defaults
+      return try openConfigurationSheetReady(resetDefaults: true)
+    }
+
+    // OPTIMIZATION: If we have cached readiness and container still exists, return immediately
+    // This skips waitForBaselineLoaded + waitForSectionMaterialization (1-2s per call)
+    if let cached = cachedReadiness,
+       cached.sheetContainer?.exists == true {
+      return cached.sheetContainer
+    }
+
+    // Try to reuse an existing sheet only when the app is running.
+    if let container = swipeActionsSheetListContainer(), container.exists {
+      return container
+    }
+
+    // Sheet not found, open it fresh.
+    return try openConfigurationSheetReady(resetDefaults: false)
   }
 
   @MainActor
@@ -54,12 +146,14 @@ extension SwipeConfigurationTestCase {
   func navigateToEpisodeList() throws {
     let tabBar = app.tabBars["Main Tab Bar"]
     guard tabBar.exists else {
-      throw XCTSkip("Main tab bar not available")
+      XCTFail("Main tab bar not available")
+      return
     }
 
     let libraryTab = tabBar.buttons["Library"]
     guard libraryTab.exists else {
-      throw XCTSkip("Library tab unavailable")
+      XCTFail("Library tab unavailable")
+      return
     }
 
     guard
@@ -69,17 +163,13 @@ extension SwipeConfigurationTestCase {
         description: "Library tab button"
       )
     else {
-      throw XCTSkip("Library tab not ready for interaction")
+      XCTFail("Library tab not ready for interaction")
+      return
     }
 
-    guard
-      waitForElementToBeHittable(
-        libraryTab,
-        timeout: adaptiveShortTimeout,
-        description: "Library tab button"
-      )
-    else {
-      throw XCTSkip("Library tab not hittable")
+    guard libraryTab.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Library tab did not appear within \(adaptiveShortTimeout) seconds")
+      return
     }
 
     let navigationSucceeded = navigateAndWaitForResult(
@@ -93,28 +183,26 @@ extension SwipeConfigurationTestCase {
     )
 
     guard navigationSucceeded else {
-      throw XCTSkip("Failed to navigate to Library tab")
+      XCTFail("Failed to navigate to Library tab")
+      return
     }
 
     guard
       waitForContentToLoad(containerIdentifier: "Podcast Cards Container", timeout: adaptiveTimeout)
     else {
-      throw XCTSkip("Library content did not load")
+      XCTFail("Library content did not load")
+      return
     }
 
     let podcastButton = app.buttons["Podcast-swift-talk"]
     guard podcastButton.exists else {
-      throw XCTSkip("Test podcast unavailable")
+      XCTFail("Test podcast unavailable")
+      return
     }
 
-    guard
-      waitForElementToBeHittable(
-        podcastButton,
-        timeout: adaptiveShortTimeout,
-        description: "Podcast button"
-      )
-    else {
-      throw XCTSkip("Podcast button not hittable")
+    guard podcastButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Podcast button did not appear within \(adaptiveShortTimeout) seconds")
+      return
     }
 
     let episodeNavSucceeded = navigateAndWaitForResult(
@@ -128,7 +216,8 @@ extension SwipeConfigurationTestCase {
     )
 
     guard episodeNavSucceeded else {
-      throw XCTSkip("Failed to navigate to episode list")
+      XCTFail("Failed to navigate to episode list")
+      return
     }
 
     if !waitForContentToLoad(
@@ -139,11 +228,12 @@ extension SwipeConfigurationTestCase {
       guard
         waitForElement(
           configureButton,
-          timeout: adaptiveTimeout,
+          timeout: adaptiveShortTimeout,
           description: "configure swipe actions button"
         )
       else {
-        throw XCTSkip("Episode list did not load")
+        XCTFail("Episode list did not load")
+        return
       }
     }
   }
@@ -167,7 +257,7 @@ extension SwipeConfigurationTestCase {
     guard
       waitForElement(
         configureButton,
-        timeout: adaptiveTimeout,
+        timeout: adaptiveShortTimeout,
         description: "configure swipe actions button"
       )
     else {
@@ -175,11 +265,11 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    _ = waitForElementToBeHittable(
-      configureButton,
-      timeout: adaptiveShortTimeout,
-      description: "configure swipe actions button"
-    )
+    guard configureButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail(
+        "Configure swipe actions button did not appear within \(adaptiveShortTimeout) seconds")
+      return
+    }
 
     tapElement(configureButton, description: "configure swipe actions button")
 
@@ -193,13 +283,21 @@ extension SwipeConfigurationTestCase {
 
     _ = waitForAnyElement(
       refreshedIndicators,
-      timeout: adaptiveTimeout,
+      timeout: adaptiveShortTimeout,
       description: "Swipe Actions configuration sheet"
     )
 
-    _ = waitForBaselineLoaded()
-    logDebugState("baseline after open")
-    reportAvailableSwipeIdentifiers(context: "Sheet opened (initial)")
+    // Only verify debug baseline if debug overlay is enabled (UITEST_SWIPE_DEBUG=1)
+    if baseLaunchEnvironment["UITEST_SWIPE_DEBUG"] == "1" {
+      XCTAssertTrue(
+        waitForBaselineLoaded(),
+        "Swipe configuration baseline should load after opening sheet"
+      )
+    }
+    XCTAssertTrue(
+      waitForSectionMaterialization(timeout: adaptiveShortTimeout),
+      "Swipe configuration sections should materialize within timeout"
+    )
     completeSeedIfNeeded()
   }
 
@@ -214,20 +312,18 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func saveAndDismissConfiguration() {
     let saveButton = element(withIdentifier: "SwipeActions.Save")
-    guard waitForElement(saveButton, timeout: adaptiveShortTimeout, description: "save button")
+    guard waitForElement(saveButton, timeout: postReadinessTimeout, description: "save button")
     else {
       return
     }
-    logDebugState("before save")
     _ = waitForSaveButton(enabled: true)
     saveButton.tap()
     waitForSheetDismissal()
-    logDebugState("after save (sheet dismissed)")
   }
 
   func dismissConfigurationSheetIfNeeded() {
     let cancelButton = app.buttons["SwipeActions.Cancel"]
-    guard cancelButton.waitForExistence(timeout: adaptiveShortTimeout) else { return }
+    guard cancelButton.exists else { return }
     tapElement(cancelButton, description: "SwipeActions.Cancel")
     _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
   }
@@ -243,7 +339,8 @@ extension SwipeConfigurationTestCase {
       .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
       .firstMatch
     guard fallbackEpisode.exists else {
-      throw XCTSkip("No episode button available for swipe configuration testing")
+      XCTFail("No episode button available for swipe configuration testing")
+      throw SwipeConfigurationNavigationError.missingEpisodeButton
     }
     return fallbackEpisode
   }

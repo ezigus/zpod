@@ -54,10 +54,85 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   @discardableResult
+  func waitForSectionMaterialization(
+    timeout: TimeInterval = 1.0,
+    failOnTimeout: Bool = true
+  ) -> Bool {
+    let materializationProbe = app.staticTexts.matching(
+      identifier: "SwipeActions.Debug.Materialized"
+    )
+    .firstMatch
+    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    if hapticsToggle.exists {
+      return true
+    }
+    if materializationProbe.exists,
+      let value = materializationProbe.value as? String,
+      value.contains("Materialized=1")
+    {
+      return true
+    }
+
+    let predicate = NSPredicate { _, _ in
+      if hapticsToggle.exists { return true }
+      if materializationProbe.exists, let value = materializationProbe.value as? String {
+        return value.contains("Materialized=1")
+      }
+      return false
+    }
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+    expectation.expectationDescription = "Wait for swipe sections to materialize"
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+
+    guard result == .completed else {
+      reportAvailableSwipeIdentifiers(context: "Section materialization timeout", scoped: true)
+      let scopedRoot = swipeActionsSheetListContainer() ?? app
+      let attachment = XCTAttachment(string: scopedRoot.debugDescription)
+      attachment.name = "Materialization Scoped Tree"
+      attachment.lifetime = .keepAlways
+      add(attachment)
+      if failOnTimeout {
+        XCTFail("Swipe sections failed to materialize within \(timeout) seconds")
+      }
+      return false
+    }
+    return true
+  }
+
+  @MainActor
+  @discardableResult
+  func waitForSectionIfNeeded(timeout: TimeInterval? = nil, failOnTimeout: Bool = true) -> Bool {
+    let effectiveTimeout = timeout ?? adaptiveShortTimeout
+    let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
+    if hapticsToggle.exists {
+      return true
+    }
+    let materializationProbe = app.staticTexts.matching(
+      identifier: "SwipeActions.Debug.Materialized"
+    )
+    .firstMatch
+    if materializationProbe.exists,
+      let value = materializationProbe.value as? String,
+      value.contains("Materialized=1")
+    {
+      return true
+    }
+    return waitForSectionMaterialization(timeout: effectiveTimeout, failOnTimeout: failOnTimeout)
+  }
+
+  @MainActor
+  @discardableResult
   func waitForDebugState(
     timeout: TimeInterval? = nil,
     validator: ((SwipeDebugState) -> Bool)? = nil
   ) -> SwipeDebugState? {
+    let effectiveTimeout = timeout ?? 2.0  // Standardized 2s timeout for debug probes
+
+    // Early exit: if state already satisfies validator, return immediately
+    if let validator, let current = currentDebugState(), validator(current) {
+      return current
+    }
+
     let summaryElement = element(withIdentifier: "SwipeActions.Debug.StateSummary")
     guard
       waitForElement(
@@ -70,7 +145,6 @@ extension SwipeConfigurationTestCase {
     }
 
     var lastObservedState: SwipeDebugState?
-    let effectiveTimeout = timeout ?? 3.0
     let predicate = NSPredicate { [weak self, weak summaryElement] _, _ in
       guard
         let element = summaryElement,
@@ -131,11 +205,44 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
+  @discardableResult
+  func expectDebugState(
+    leading expectedLeading: [String],
+    trailing expectedTrailing: [String],
+    unsaved expectedUnsaved: Bool? = nil,
+    timeout: TimeInterval? = nil
+  ) -> SwipeDebugState? {
+    guard let state = waitForDebugState(timeout: timeout) else {
+      let effectiveTimeout = timeout ?? debugStateTimeout
+      XCTFail("Debug state unavailable after \(effectiveTimeout) seconds")
+      return nil
+    }
+    if state.leading != expectedLeading {
+      XCTFail(
+        "Leading actions mismatch. Expected: \(expectedLeading) Actual: \(state.leading)"
+      )
+    }
+    if state.trailing != expectedTrailing {
+      XCTFail(
+        "Trailing actions mismatch. Expected: \(expectedTrailing) Actual: \(state.trailing)"
+      )
+    }
+    if let expectedUnsaved {
+      XCTAssertEqual(
+        state.unsaved,
+        expectedUnsaved,
+        "Unsaved marker should match expected state"
+      )
+    }
+    return state
+  }
+
+  @MainActor
   func logDebugState(_ label: String) {
     if let state = currentDebugState() {
-      logger.debug(
-        "[SwipeUITestDebug] \(label, privacy: .public): leading=\(state.leading, privacy: .public) trailing=\(state.trailing, privacy: .public) unsaved=\(state.unsaved, privacy: .public) baseline=\(state.baselineLoaded, privacy: .public)"
-      )
+      let summary =
+        "[SwipeUITestDebug] \(label): leading=\(state.leading) trailing=\(state.trailing) unsaved=\(state.unsaved) baseline=\(state.baselineLoaded)"
+      logger.debug("\(summary, privacy: .public)")
     } else {
       logger.debug("[SwipeUITestDebug] \(label, privacy: .public): state unavailable")
     }
@@ -209,10 +316,21 @@ extension SwipeConfigurationTestCase {
     let identifiers = Set(filtered.map { $0.identifier }).sorted()
     let summary = (["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers).joined(
       separator: "\n")
+    logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
+    print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot\(scoped ? " (Scoped)" : "")"
     attachment.lifetime = XCTAttachment.Lifetime.keepAlways
     add(attachment)
+
+    // Optional: dump scoped tree for visual inspection when debugging
+    if scoped {
+      let elements = descendants.map { element -> String in
+        let type = element.elementType.rawValue
+        return "[type=\(type)] id='\(element.identifier)' label='\(element.label)'"
+      }.joined(separator: "\n")
+      print("[SwipeUITestDebug] Scoped elements (\(context)):\n\(elements)")
+    }
   }
 
   @MainActor
@@ -227,6 +345,8 @@ extension SwipeConfigurationTestCase {
 
     let identifiers = Set(filtered.map { $0.identifier }).sorted()
     let summary = (["Context: \(context) [scoped]"] + identifiers).joined(separator: "\n")
+    logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
+    print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot (Scoped)"
     attachment.lifetime = .keepAlways

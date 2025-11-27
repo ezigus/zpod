@@ -35,7 +35,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
   /// Navigate to Library tab
   @MainActor
   private func navigateToLibraryTab() {
-    let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
     XCTAssertTrue(libraryTab.waitForExistence(timeout: adaptiveTimeout), "Library tab should exist")
     libraryTab.tap()
   }
@@ -53,7 +53,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
     XCTAssertTrue(podcastContainer.exists, "Podcast container should exist")
 
     // Wait for specific podcast
-    let podcastButton = app.buttons[podcastIdentifier]
+    let podcastButton = app.buttons.matching(identifier: podcastIdentifier).firstMatch
     XCTAssertTrue(
       podcastButton.waitForExistence(timeout: adaptiveShortTimeout),
       "Podcast '\(podcastIdentifier)' should exist")
@@ -71,7 +71,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
     XCTAssertTrue(episodeList.exists, "Episode list should exist")
 
     // Wait for specific episode
-    let episodeButton = app.buttons[episodeIdentifier]
+    let episodeButton = app.buttons.matching(identifier: episodeIdentifier).firstMatch
     XCTAssertTrue(
       episodeButton.waitForExistence(timeout: adaptiveShortTimeout),
       "Episode '\(episodeIdentifier)' should exist")

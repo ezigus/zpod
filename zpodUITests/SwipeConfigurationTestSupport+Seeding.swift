@@ -56,8 +56,25 @@ extension SwipeConfigurationTestCase {
   func completeSeedIfNeeded(timeout: TimeInterval = 10.0) {
     guard let expectation = pendingSeedExpectation else { return }
 
+    // OPTIMIZATION: Verify seed was persisted directly via UserDefaults before polling UI
+    // This reduces typical wait from 10s to ~100ms for successful seeds
+    let verificationDeadline = Date().addingTimeInterval(min(timeout, 2.0))
+    var configurationPersisted = false
+
+    while Date() < verificationDeadline && !configurationPersisted {
+      if verifySeedPersistedToDefaults(expected: expectation) {
+        configurationPersisted = true
+        break
+      }
+      Thread.sleep(forTimeInterval: 0.1)  // Brief wait between checks
+    }
+
+    // If persisted to defaults, wait briefly for UI to reflect the state
+    // Otherwise fall through to full UI polling with original timeout
+    let uiTimeout: TimeInterval = configurationPersisted ? 2.0 : timeout
+
     guard
-      waitForDebugState(timeout: timeout, validator: { state in
+      waitForDebugState(timeout: uiTimeout, validator: { state in
         guard state.baselineLoaded else { return false }
         let leadingMatches = state.leading == expectation.leading
         let trailingMatches = state.trailing == expectation.trailing
@@ -88,6 +105,42 @@ extension SwipeConfigurationTestCase {
     }
 
     clearSeededConfigurationPayload()
+  }
+
+  /// Verifies that seeded configuration was persisted to UserDefaults
+  /// Returns true if configuration in defaults matches expected seed values
+  private func verifySeedPersistedToDefaults(expected: SeedExpectation) -> Bool {
+    guard let defaults = UserDefaults(suiteName: swipeDefaultsSuite) else {
+      return false
+    }
+
+    // Read global_ui_settings JSON from defaults (same key used by app's test seeding)
+    guard let data = defaults.data(forKey: "global_ui_settings"),
+          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let swipeActionsJSON = json["swipeActions"] as? [String: Any]
+    else {
+      return false
+    }
+
+    // Verify leading actions
+    if let leadingArray = swipeActionsJSON["leading"] as? [String],
+       leadingArray != expected.leading {
+      return false
+    }
+
+    // Verify trailing actions
+    if let trailingArray = swipeActionsJSON["trailing"] as? [String],
+       trailingArray != expected.trailing {
+      return false
+    }
+
+    // Verify haptics enabled
+    if let haptics = swipeActionsJSON["hapticFeedbackEnabled"] as? Bool,
+       haptics != expected.hapticsEnabled {
+      return false
+    }
+
+    return true
   }
 
   @MainActor

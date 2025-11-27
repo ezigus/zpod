@@ -7,7 +7,10 @@
 //
 
 import Foundation
+import OSLog
 import XCTest
+
+private let launchLogger = Logger(subsystem: "us.zig.zpod", category: "UITestHelpers")
 
 // MARK: - UI Test Automation Fix for "Waiting for App to Idle" Hanging
 
@@ -48,12 +51,24 @@ extension XCUIApplication {
   }
 }
 
+// MARK: - Element Query Helpers
+
+extension XCUIElementQuery {
+  /// Returns the first match for the provided accessibility identifier, avoiding duplicate
+  /// element crashes by always funneling through `.matching(identifier:)`.
+  func element(matchingIdentifier identifier: String) -> XCUIElement {
+    matching(identifier: identifier).firstMatch
+  }
+}
+
 // MARK: - Core Testing Protocols
 
 /// Foundation protocol for event-based UI testing
 protocol UITestFoundation {
   var adaptiveTimeout: TimeInterval { get }
   var adaptiveShortTimeout: TimeInterval { get }
+  var postReadinessTimeout: TimeInterval { get }
+  var debugStateTimeout: TimeInterval { get }
 }
 
 /// Protocol for element waiting capabilities using XCTestExpectation patterns
@@ -97,6 +112,16 @@ extension UITestFoundation {
 
   var adaptiveShortTimeout: TimeInterval {
     let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 6.0 : 4.0
+    return baseTimeout * timeoutScale
+  }
+
+  var postReadinessTimeout: TimeInterval {
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 2.0 : 1.5
+    return baseTimeout * timeoutScale
+  }
+
+  var debugStateTimeout: TimeInterval {
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 4.0 : 2.5
     return baseTimeout * timeoutScale
   }
 }
@@ -246,13 +271,18 @@ extension XCTestCase {
 
     // Try identifier first
     if let identifier = identifier {
-      let element = app.descendants(matching: elementType)[identifier]
+      let element = app.descendants(matching: elementType)
+        .matching(identifier: identifier)
+        .firstMatch
       if element.exists { return element }
     }
 
     // Try label
     if let label = label {
-      let element = app.descendants(matching: elementType)[label]
+      let labelPredicate = NSPredicate(format: "label == %@", label)
+      let element = app.descendants(matching: elementType)
+        .matching(labelPredicate)
+        .firstMatch
       if element.exists { return element }
     }
 
@@ -270,6 +300,21 @@ extension XCTestCase {
     }
 
     return nil
+  }
+
+  /// Waits for an element to appear and fails the test immediately when it never becomes available.
+  @MainActor
+  @discardableResult
+  func waitForElementOrSkip(
+    _ element: XCUIElement,
+    timeout: TimeInterval,
+    description: String
+  ) throws -> XCUIElement {
+    guard element.waitForExistence(timeout: timeout) else {
+      XCTFail("\(description) not available; verify test data and launch arguments.")
+      return element
+    }
+    return element
   }
 
   /// Resolve a container element by accessibility identifier independent of backing UIKit type.
@@ -290,13 +335,15 @@ extension XCTestCase {
     ]
 
     for query in orderedQueries {
-      let element = query[identifier]
+      let element = query.matching(identifier: identifier).firstMatch
       if element.exists {
         return element
       }
     }
 
-    let anyMatch = app.descendants(matching: .any)[identifier]
+    let anyMatch = app.descendants(matching: .any)
+      .matching(identifier: identifier)
+      .firstMatch
     return anyMatch.exists ? anyMatch : nil
   }
 
@@ -319,7 +366,7 @@ extension XCTestCase {
       guard let self else { return false }
 
       // Presence of the batch operations overlay indicates the view finished loading
-      if app.otherElements["Batch Operation Progress"].exists {
+      if app.otherElements.matching(identifier: "Batch Operation Progress").firstMatch.exists {
         return true
       }
 
@@ -333,9 +380,9 @@ extension XCTestCase {
       }
 
       // Fallback: check if main navigation elements are present
-      let libraryTab = app.tabBars["Main Tab Bar"].buttons["Library"]
+      let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
       let navigationBar = app.navigationBars.firstMatch
-      let swiftPodcast = app.buttons["Podcast-swift-talk"]
+      let swiftPodcast = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
 
       if (libraryTab.exists && libraryTab.isHittable)
         || (navigationBar.exists && navigationBar.isHittable)
@@ -368,21 +415,21 @@ private struct BatchOverlayObservation {
   private let auxiliaryElements: [XCUIElement]
 
   init(app: XCUIApplication) {
-    primaryElement = app.otherElements["Batch Operation Progress"]
+    primaryElement = app.otherElements.matching(identifier: "Batch Operation Progress").firstMatch
     auxiliaryElements = [
-      app.scrollViews.otherElements["Batch Operation Progress"],
-      app.tables.otherElements["Batch Operation Progress"],
-      app.cells["Batch Operation Progress"],
-      app.tables.cells["Batch Operation Progress"],
-      app.staticTexts["Batch Operation Progress"],
-      app.staticTexts["Processing..."],
-      app.staticTexts["Processing"],
-      app.staticTexts["Complete"],
-      app.staticTexts["Completed"],
-      app.staticTexts["Batch Operation"],
-      app.buttons["Pause"],
-      app.buttons["Resume"],
-      app.buttons["Cancel"],
+      app.scrollViews.otherElements.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.tables.otherElements.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.cells.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.tables.cells.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.staticTexts.matching(identifier: "Batch Operation Progress").firstMatch,
+      app.staticTexts.matching(identifier: "Processing...").firstMatch,
+      app.staticTexts.matching(identifier: "Processing").firstMatch,
+      app.staticTexts.matching(identifier: "Complete").firstMatch,
+      app.staticTexts.matching(identifier: "Completed").firstMatch,
+      app.staticTexts.matching(identifier: "Batch Operation").firstMatch,
+      app.buttons.matching(identifier: "Pause").firstMatch,
+      app.buttons.matching(identifier: "Resume").firstMatch,
+      app.buttons.matching(identifier: "Cancel").firstMatch,
     ]
   }
 
@@ -392,8 +439,7 @@ private struct BatchOverlayObservation {
   }
 
   func debugSummary() -> String {
-    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap {
-      index, element -> String? in
+    let visibleElements = ([primaryElement] + auxiliaryElements).enumerated().compactMap { index, element -> String? in
       guard element.exists else { return nil }
       let identifier = element.identifier.isEmpty ? "∅" : element.identifier
       let label = element.label.isEmpty ? "∅" : element.label
@@ -449,28 +495,39 @@ extension SmartUITesting where Self: XCTestCase {
   @MainActor
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
+    logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
     forceTerminateAppIfRunning()
+    logLaunchEvent("Termination check complete")
 
     let application =
       environmentOverrides.isEmpty
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
     application.launch()
+    logLaunchEvent("Launch request issued")
 
-    // Check if app is actually running
     guard application.state == .runningForeground || application.state == .runningBackground else {
       XCTFail("App failed to launch. State: \(application.state.rawValue)")
       return application
     }
 
-    let mainTabBar = application.tabBars["Main Tab Bar"]
-    if !mainTabBar.waitForExistence(timeout: adaptiveTimeout) {
-      XCTFail("Main tab bar did not appear after launch. App state: \(application.state.rawValue)")
-    }
+    let mainTabBar = application.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let tabBarAppeared = mainTabBar.waitForExistence(timeout: adaptiveTimeout)
+    logLaunchEvent("Main tab bar existence=\(tabBarAppeared)")
+    XCTAssertTrue(
+      tabBarAppeared,
+      "Main tab bar did not appear after launch. App state: \(application.state.rawValue)"
+    )
 
-    _ = waitForBatchOverlayDismissalIfNeeded(in: application)
+    let overlayResult = waitForBatchOverlayDismissalIfNeeded(in: application)
+    logLaunchEvent("Batch overlay result=\(overlayResult)")
 
     return application
+  }
+
+  private func logLaunchEvent(_ message: String) {
+    launchLogger.debug("[SwipeUITestDebug] \(message, privacy: .public)")
+    print("[SwipeUITestDebug] \(message)")
   }
 
   @MainActor
@@ -478,15 +535,20 @@ extension SmartUITesting where Self: XCTestCase {
     let existingApp = XCUIApplication(bundleIdentifier: bundleIdentifier)
     guard existingApp.state != .notRunning else { return }
 
+    if existingApp.state == .runningBackground {
+      existingApp.activate()
+    }
     existingApp.terminate()
 
-    let deadline = Date().addingTimeInterval(5.0)
+    let deadline = Date().addingTimeInterval(12.0)
     while existingApp.state != .notRunning && Date() < deadline {
       RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
     }
 
     if existingApp.state != .notRunning {
-      XCTFail("Unable to terminate application before relaunch. Current state: \(existingApp.state.rawValue)")
+      XCTFail(
+        "Unable to terminate application before relaunch. Current state: \(existingApp.state.rawValue)"
+      )
     }
   }
 
@@ -674,7 +736,9 @@ extension SmartUITesting where Self: XCTestCase {
 
       if !itemIdentifiers.isEmpty {
         for identifier in itemIdentifiers {
-          let matchedElement = app.descendants(matching: .any)[identifier]
+          let matchedElement = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .firstMatch
           if matchedElement.exists {
             return true
           }

@@ -14,14 +14,31 @@ import UIKit
   import LibraryFeature
 #endif
 
+// Notification posted when app initializes - debug tools can listen for this
+extension Notification.Name {
+  static let appDidInitialize = Notification.Name("ZpodAppDidInitialize")
+}
+
 @main
 struct ZpodApp: App {
 
   init() {
     disableHardwareKeyboard()
-    configureAnimationsForUITesting()
     configureSiriSnapshots()
     configureCarPlayDependencies()
+
+    // Force creation of debug overlay manager BEFORE notification is posted
+    // This ensures the observer is registered when notification fires
+    // Note: UI tests run with UITEST_SWIPE_DEBUG=1 regardless of DEBUG build setting
+    #if canImport(LibraryFeature)
+      if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
+        _ = SwipeDebugOverlayManager.shared  // Creates observer immediately (sync)
+      }
+    #endif
+
+    // Always post initialization notification - debug tools can listen if needed
+    // This is harmless when nothing is listening (zero cost, loose coupling)
+    NotificationCenter.default.post(name: .appDidInitialize, object: nil)
   }
 
   #if canImport(LibraryFeature)
@@ -65,10 +82,14 @@ struct ZpodApp: App {
   var body: some Scene {
     WindowGroup {
       #if canImport(LibraryFeature)
-        ContentView(podcastManager: Self.sharedPodcastManager)
-          .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
-            handlePlayEpisodeActivity(userActivity)
-          }
+        if ProcessInfo.processInfo.environment["UITEST_USE_LIBRARY_PLACEHOLDER"] == "1" {
+          UITestLibraryPlaceholderView()
+        } else {
+          ContentView(podcastManager: Self.sharedPodcastManager)
+            .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
+              handlePlayEpisodeActivity(userActivity)
+            }
+        }
       #else
         ContentView()
       #endif
@@ -163,11 +184,11 @@ struct ZpodApp: App {
         }
 
         print("📱 Starting playback for episode: \(episode.title)")
-        
+
         // Get the queue manager from CarPlay dependencies
         let dependencies = CarPlayDependencyRegistry.resolve()
         dependencies.queueManager.playNow(episode)
-        
+
         print("✅ Episode playback initiated via Siri")
       }
     }
@@ -183,4 +204,28 @@ struct ZpodApp: App {
       return nil
     }
   #endif
+
+  /// Configures the swipe debug overlay for UI testing
+  /// Shows a persistent floating overlay with preset buttons when UITEST_SWIPE_DEBUG=1
+  private func configureSwipeDebugOverlay() {
+    guard ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" else {
+      return
+    }
+
+    // Called from onChange(of: scenePhase), so scene is already active
+    // Use a small delay to ensure window hierarchy is fully initialized
+    Task { @MainActor in
+      try? await Task.sleep(for: .seconds(0.5))
+
+      let presets: [SwipeDebugPresetEntry] = [
+        .playback,
+        .organization,
+        .download,
+      ]
+
+      SwipeDebugOverlayManager.shared.show(entries: presets) { settings in
+        // Handler will be set up properly when the configuration view appears
+      }
+    }
+  }
 }

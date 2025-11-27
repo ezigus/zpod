@@ -20,7 +20,6 @@ on:
   push:
     branches:
       - main
-      - "copilot/**"
     tags-ignore:
       - "*"
   pull_request:
@@ -189,18 +188,18 @@ jobs:
 
           echo "✅ Build verification passed"
 
-      - name: Package host app bundle
+      - name: Package host derived data
         run: |
           set -euo pipefail
-          HOST_DIR="$PWD/tmp_ci/DerivedData/HostPrebuild/Build/Products/Debug-iphonesimulator"
+          HOST_ROOT="$PWD/tmp_ci/DerivedData/HostPrebuild"
+          APP_DIR="$HOST_ROOT/Build/Products/Debug-iphonesimulator/zpod.app"
 
-          # Ensure symlink exists before packaging
-          if [ ! -f "$HOST_DIR/zpod.app/zpod" ] && [ -f "$HOST_DIR/zpod.app/zpod.debug.dylib" ]; then
-            ln -sf zpod.debug.dylib "$HOST_DIR/zpod.app/zpod"
+          if [ ! -f "$APP_DIR/zpod" ] && [ -f "$APP_DIR/zpod.debug.dylib" ]; then
+            ln -sf zpod.debug.dylib "$APP_DIR/zpod"
           fi
 
           mkdir -p artifacts
-          tar -czf artifacts/host-app.tar.gz -C "$HOST_DIR" .
+          tar -czf artifacts/host-app.tar.gz -C "$HOST_ROOT" .
 
           # Generate checksum for integrity verification (use relative path in checksum file)
           cd artifacts
@@ -409,52 +408,8 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
-        run: |
-          set -euo pipefail
-
-          # Verify artifact integrity with checksum
-          echo "Verifying artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
-
-          # Extract to temporary directory first (atomic operation)
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-
-          # Verify extraction was complete
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Create symlink if needed
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            echo "Creating symlink: zpod -> zpod.debug.dylib"
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
-
-          # Verify main binary exists
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Atomic move to final location
-          HOST_DIR="${{ steps.unit-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
-
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+      - name: Restore host app bundle
+        run: scripts/ci/restore-host-app.sh "${{ steps.unit-sim.outputs.derived_path }}" host-app
 
       - name: Run AppSmoke tests
         run: |
@@ -468,16 +423,7 @@ jobs:
 
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/AppSmoke
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/AppSmoke/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/AppSmoke/
-          fi
+        run: scripts/ci/archive-test-results.sh AppSmoke
       - name: Upload Unit Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -488,16 +434,7 @@ jobs:
 
       - name: Cleanup unit-test simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.unit-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.unit-sim.outputs.sim_name }} (${{ steps.unit-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.unit-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.unit-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.unit-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.unit-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.unit-sim.outputs.udid }}" "${{ steps.unit-sim.outputs.derived_path }}"
 
   integration-tests:
     runs-on: macos-15
@@ -636,52 +573,8 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
-        run: |
-          set -euo pipefail
-
-          # Verify artifact integrity with checksum
-          echo "Verifying artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
-
-          # Extract to temporary directory first (atomic operation)
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-
-          # Verify extraction was complete
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Create symlink if needed
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            echo "Creating symlink: zpod -> zpod.debug.dylib"
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
-
-          # Verify main binary exists
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Atomic move to final location
-          HOST_DIR="${{ steps.integration-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
-
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+      - name: Restore host derived data
+        run: scripts/ci/restore-host-app.sh "${{ steps.integration-sim.outputs.derived_path }}" host-app
 
       - name: Pre-warm simulator for integration tests
         if: steps.integration-sim.outputs.udid != ''
@@ -730,16 +623,7 @@ jobs:
 
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/Integration
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/Integration/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/Integration/
-          fi
+        run: scripts/ci/archive-test-results.sh Integration
 
       - name: Upload Integration Artifacts (always)
         if: always()
@@ -751,16 +635,7 @@ jobs:
 
       - name: Cleanup integration simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.integration-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.integration-sim.outputs.sim_name }} (${{ steps.integration-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.integration-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.integration-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.integration-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.integration-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.integration-sim.outputs.udid }}" "${{ steps.integration-sim.outputs.derived_path }}"
 
   ui-tests:
     if: github.event_name != 'workflow_dispatch'
@@ -916,52 +791,8 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
-        run: |
-          set -euo pipefail
-
-          # Verify artifact integrity with checksum
-          echo "Verifying artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
-
-          # Extract to temporary directory first (atomic operation)
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
-
-          # Verify extraction was complete
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Create symlink if needed
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            echo "Creating symlink: zpod -> zpod.debug.dylib"
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
-
-          # Verify main binary exists
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
-
-          # Atomic move to final location
-          HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
-
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+      - name: Restore host derived data
+        run: scripts/ci/restore-host-app.sh "${{ steps.provision-sim.outputs.derived_path }}" host-app
 
       - name: Pre-warm simulator for UI tests
         if: steps.provision-sim.outputs.udid != ''
@@ -1013,16 +844,7 @@ jobs:
           ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.name }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -1033,16 +855,7 @@ jobs:
 
       - name: Cleanup dedicated simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.provision-sim.outputs.udid }}" "${{ steps.provision-sim.outputs.derived_path }}"
 
   ui-tests-swipe:
     if: github.event_name != 'workflow_dispatch'
@@ -1054,21 +867,29 @@ jobs:
     runs-on: macos-15
     strategy:
       fail-fast: false
+      # Simulator isolation supports up to 5 parallel jobs reliably:
+      # - Staggered provisioning prevents resource contention
+      # - Active simulator monitoring enforces capacity limits
+      # - Retry logic handles transient resource exhaustion
+      # - Each job gets dedicated simulator + DerivedData
+      # Can be increased beyond 5 if CI hosts gain more capacity
       max-parallel: 5
       matrix:
         include:
+          # Tier 1: Simple UI tests (parallel, build independently)
           - name: UITests-SwipeUIDisplay
             tests: zpodUITests/SwipeConfigurationUIDisplayTests
-          - name: UITests-SwipeActionManagement
-            tests: zpodUITests/SwipeActionManagementTests
           - name: UITests-SwipePresetSelection
             tests: zpodUITests/SwipePresetSelectionTests
           - name: UITests-SwipeToggleInteraction
             tests: zpodUITests/SwipeToggleInteractionTests
+          # Tier 2: Complex suites (now split for parallelization)
+          - name: UITests-SwipeActionManagement
+            tests: zpodUITests/SwipeActionManagementTests
           - name: UITests-SwipePersistence
-            tests: zpodUITests/SwipeConfigurationPersistenceTests
+            tests: zpodUITests/SwipePersistenceTests
           - name: UITests-SwipeExecution
-            tests: zpodUITests/SwipeActionExecutionTests
+            tests: zpodUITests/SwipeExecutionTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -1129,6 +950,15 @@ jobs:
             exit 0
           fi
 
+          # Stagger simulator creation to avoid resource contention
+          # Hash the matrix name to get a deterministic delay (0-8 seconds)
+          STAGGER_SEED=$(echo "$MATRIX_NAME" | cksum | awk '{print $1}')
+          STAGGER_DELAY=$(( STAGGER_SEED % 9 ))
+          if [ $STAGGER_DELAY -gt 0 ]; then
+            echo "Staggering simulator creation by ${STAGGER_DELAY}s to avoid resource contention..."
+            sleep $STAGGER_DELAY
+          fi
+
           SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
           DEVICE_CANDIDATES=(
             com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
@@ -1143,56 +973,81 @@ jobs:
             com.apple.CoreSimulator.SimDeviceType.iPhone-13
           )
 
+          # Check current simulator load before attempting creation
+          ACTIVE_SIMS=$(xcrun simctl list devices | grep -c "Booted" || echo "0")
+          echo "Currently active simulators: ${ACTIVE_SIMS}"
+          if [ "$ACTIVE_SIMS" -ge 5 ]; then
+            echo "::warning::System already has ${ACTIVE_SIMS} active simulators. Waiting for capacity..."
+            for i in {1..30}; do
+              sleep 2
+              ACTIVE_SIMS=$(xcrun simctl list devices | grep -c "Booted" || echo "0")
+              if [ "$ACTIVE_SIMS" -lt 5 ]; then
+                echo "Simulator capacity available (${ACTIVE_SIMS}/5 active)"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "::error::Timeout waiting for simulator capacity. Current load: ${ACTIVE_SIMS}"
+                exit 1
+              fi
+            done
+          fi
+
           DEVICE_LIST=$(xcrun simctl list devicetypes)
           SELECTED_DEVICE=""
           UDID=""
           CREATE_LOG=$(mktemp)
+          MAX_RETRIES=3
+          RETRY_COUNT=0
 
-          for candidate in "${DEVICE_CANDIDATES[@]}"; do
-            if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
-              continue
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$UDID" ]; do
+            if [ $RETRY_COUNT -gt 0 ]; then
+              echo "Retry attempt $RETRY_COUNT/$MAX_RETRIES after waiting for system resources..."
+              sleep $(( RETRY_COUNT * 3 ))
             fi
-            echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
-            set +e
-            UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
-            status=$?
-            set -e
-            UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
-            if [ $status -eq 0 ] && [ -n "$UDID" ]; then
-              SELECTED_DEVICE="$candidate"
-              break
-            fi
-            echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
-            UDID=""
+
+            for candidate in "${DEVICE_CANDIDATES[@]}"; do
+              if ! printf '%s' "$DEVICE_LIST" | grep -q "$candidate"; then
+                continue
+              fi
+              echo "Attempting to create simulator ${candidate} for runtime ${RUNTIME_ID}"
+              set +e
+              UDID=$(xcrun simctl create "$SIM_NAME" "$candidate" "$RUNTIME_ID" 2>"$CREATE_LOG")
+              status=$?
+              set -e
+              UDID=$(printf '%s' "$UDID" | tr -d '\r\n')
+              if [ $status -eq 0 ] && [ -n "$UDID" ]; then
+                SELECTED_DEVICE="$candidate"
+                break 2
+              fi
+              
+              # Check if error is resource-related
+              if grep -q "resource\|limit\|busy" "$CREATE_LOG"; then
+                echo "::warning::Resource contention detected for ${candidate}, will retry..."
+                UDID=""
+                break
+              fi
+              
+              echo "::warning::Failed to create ${candidate} – $(cat "$CREATE_LOG")"
+              UDID=""
+            done
+            
+            RETRY_COUNT=$(( RETRY_COUNT + 1 ))
           done
 
           rm -f "$CREATE_LOG"
 
           if [ -z "$UDID" ]; then
-            echo "::warning::Unable to create a dedicated simulator for runtime ${RUNTIME_ID}; tests will fall back to automatic destination."
+            echo "::warning::Unable to create a dedicated simulator after $MAX_RETRIES attempts; tests will fall back to automatic destination."
             exit 0
           fi
 
-          echo "Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+          echo "✅ Created simulator ${SIM_NAME} (${UDID}) using device ${SELECTED_DEVICE}"
+          echo "Simulator will be booted on-demand by xcodebuild during test execution"
 
-          echo "Booting simulator ${SIM_NAME} (${UDID})"
-          set +e
-          xcrun simctl boot "$UDID"
-          boot_status=$?
-          if [ $boot_status -ne 0 ]; then
-            echo "::warning::simctl boot returned status ${boot_status} for ${UDID}"
-          fi
-          xcrun simctl bootstatus "$UDID" -b
-          bootstatus_status=$?
-          if [ $bootstatus_status -ne 0 ]; then
-            echo "::warning::simctl bootstatus failed for ${UDID} (status ${bootstatus_status})"
-          fi
-          set -e
-
-          echo "Configuring keyboard settings..."
-          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
-          sleep 2
-          echo "✅ Simulator pre-warming complete"
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "ZPOD_SIMULATOR_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "sim_name=$SIM_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Download host app artifact
         uses: actions/download-artifact@v4
@@ -1200,45 +1055,46 @@ jobs:
           name: host-app
           path: host-app
 
-      - name: Verify and restore host app bundle
+      - name: Restore host derived data
+        run: scripts/ci/restore-host-app.sh "${{ steps.provision-sim.outputs.derived_path }}" host-app
+
+      - name: Pre-warm simulator for UI tests
+        if: steps.provision-sim.outputs.udid != ''
         run: |
           set -euo pipefail
+          UDID="${{ steps.provision-sim.outputs.udid }}"
 
-          echo "Verifying host app artifact integrity..."
-          cd host-app
-          if ! shasum -a 256 -c host-app.tar.gz.sha256; then
-            echo "❌ Artifact checksum verification failed"
-            exit 1
-          fi
-          echo "✅ Artifact integrity verified"
-          cd ..
+          echo "Pre-warming simulator services for faster test execution..."
 
-          TEMP_DIR=$(mktemp -d)
-          echo "Extracting to temporary directory: $TEMP_DIR"
-          tar -xzf host-app/host-app.tar.gz -C "$TEMP_DIR"
+          # Wait for SpringBoard to be fully ready
+          echo "Waiting for SpringBoard to launch..."
+          for j in {1..60}; do
+            if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.SpringBoard; then
+              break
+            fi
+            sleep 0.5
+          done
 
-          if [ ! -d "$TEMP_DIR/zpod.app" ]; then
-            echo "❌ Extraction failed or incomplete - zpod.app not found"
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
+          # Pre-warm accessibility services (critical for UI testing)
+          echo "Initializing accessibility services..."
+          xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
 
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ] && [ -f "$TEMP_DIR/zpod.app/zpod.debug.dylib" ]; then
-            ln -sf zpod.debug.dylib "$TEMP_DIR/zpod.app/zpod"
-          fi
+          # Wait for accessibility server to be ready
+          for j in {1..30}; do
+            if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; then
+              break
+            fi
+            sleep 0.5
+          done
 
-          if [ ! -f "$TEMP_DIR/zpod.app/zpod" ]; then
-            echo "❌ Main binary missing after extraction"
-            ls -la "$TEMP_DIR/zpod.app/" || true
-            rm -rf "$TEMP_DIR"
-            exit 1
-          fi
+          # Enable software keyboard (critical for keyboard tests)
+          echo "Configuring keyboard settings..."
+          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
 
-          HOST_DIR="${{ steps.provision-sim.outputs.derived_path }}/Build/Products/Debug-iphonesimulator"
-          mkdir -p "$(dirname "$HOST_DIR")"
-          mv "$TEMP_DIR" "$HOST_DIR"
+          # Small delay to let services stabilize
+          sleep 2
 
-          echo "✅ Host app bundle restored successfully to $HOST_DIR"
+          echo "✅ Simulator pre-warming complete"
 
       - name: Run ${{ matrix.name }} Tests
         run: |
@@ -1252,16 +1108,7 @@ jobs:
           ZPOD_TEST_WITHOUT_BUILDING: "1"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.name }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.name }}/ \;
-          fi
-          if ls ~/Library/Logs/DiagnosticReports/*.crash >/dev/null 2>&1; then
-            cp ~/Library/Logs/DiagnosticReports/*.crash artifacts/${{ matrix.name }}/
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
@@ -1272,16 +1119,7 @@ jobs:
 
       - name: Cleanup dedicated simulator
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
-            echo "Cleaning up simulator ${{ steps.provision-sim.outputs.sim_name }} (${{ steps.provision-sim.outputs.udid }})"
-            xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" || true
-            xcrun simctl delete "${{ steps.provision-sim.outputs.udid }}" || true
-          fi
-          if [ -n "${{ steps.provision-sim.outputs.derived_path }}" ]; then
-            rm -rf "${{ steps.provision-sim.outputs.derived_path }}"
-          fi
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.provision-sim.outputs.udid }}" "${{ steps.provision-sim.outputs.derived_path }}"
 
   package-tests:
     runs-on: macos-15
@@ -1331,13 +1169,7 @@ jobs:
           NSUnbufferedIO: "YES"
       - name: Archive Test Results
         if: always()
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/${{ matrix.package }}
-          if ls TestResults >/dev/null 2>&1; then
-            find TestResults -maxdepth 1 -mindepth 1 \( -name "TestResults_*.xcresult" -o -name "TestResults_*.log" \) \
-              -exec cp -R {} artifacts/${{ matrix.package }}/ \;
-          fi
+        run: scripts/ci/archive-test-results.sh "${{ matrix.package }}"
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4

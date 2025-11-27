@@ -12,7 +12,7 @@ import SharedUtilities
 import SwiftData
 import SwiftUI
 
-#if canImport(UIKit)
+#if os(iOS)
   import UIKit
 #endif
 
@@ -572,21 +572,29 @@ import SwiftUI
   }
 
   // MARK: - Episode List View Wrapper with Real Batch Operations
-  struct EpisodeListViewWrapper: View {
-    let podcastId: String
-    let podcastTitle: String
+    struct EpisodeListViewWrapper: View {
+      let podcastId: String
+      let podcastTitle: String
 
-    var body: some View {
-      // Create a real Podcast object with sample episodes for testing
-      let samplePodcast = createSamplePodcast(id: podcastId, title: podcastTitle)
+      var body: some View {
+        // Create a real Podcast object with sample episodes for testing
+        let samplePodcast = createSamplePodcast(id: podcastId, title: podcastTitle)
 
-      // Use the real EpisodeListView with full batch operation functionality
-      EpisodeListView(podcast: samplePodcast)
-    }
+        // Allow UI tests to opt into a lightweight list to avoid dependency flakiness
+        let useSimpleList =
+          ProcessInfo.processInfo.environment["UITEST_USE_SIMPLE_EPISODE_LIST"] == "1"
 
-    private func createSamplePodcast(id: String, title: String) -> Podcast {
-      let sampleEpisodes = [
-        Episode(
+        if useSimpleList {
+          EpisodeListCardContainer(podcastId: podcastId, podcastTitle: podcastTitle)
+        } else {
+          // Use the real EpisodeListView with full batch operation functionality
+          EpisodeListView(podcast: samplePodcast)
+        }
+      }
+
+      private func createSamplePodcast(id: String, title: String) -> Podcast {
+        let sampleEpisodes = [
+          Episode(
           id: "st-001",
           title: "Episode 1: Introduction",
           podcastID: id,
@@ -666,6 +674,8 @@ import SwiftUI
       let playbackService: EpisodePlaybackService & EpisodeTransportControlling
       @State private var isPlaying: Bool = false
       @State private var progress: Double = 0.25
+      @State private var playbackSpeed: Double = 1.0
+      @State private var showingSpeedOptions = false
 
       var body: some View {
         NavigationStack {
@@ -690,11 +700,36 @@ import SwiftUI
           PlayerArtworkView()
           PlayerTitlesView()
           PlayerProgressSliderView(progress: $progress)
+          speedControl
           PlaybackControlsView(isPlaying: $isPlaying)
         }
         .padding()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Player Interface")
+      }
+
+      private var speedControl: some View {
+        Button {
+          showingSpeedOptions = true
+        } label: {
+          Text(String(format: "Speed %.1fx", playbackSpeed))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("Speed Control")
+        .accessibilityLabel(String(format: "Speed %.1fx", playbackSpeed))
+        .accessibilityHint("Adjust playback speed")
+        .confirmationDialog("Playback Speed", isPresented: $showingSpeedOptions) {
+          ForEach([1.0, 1.5, 2.0], id: \.self) { speed in
+            Button(String(format: "%.1fx", speed)) {
+              playbackSpeed = speed
+              showingSpeedOptions = false
+            }
+          }
+          Button("Cancel", role: .cancel) {
+            showingSpeedOptions = false
+          }
+        }
       }
 
       private var sampleEpisodeView: some View {
@@ -741,6 +776,7 @@ import SwiftUI
         .accessibilityIdentifier("Episode Artwork")
         .accessibilityLabel("Episode Artwork")
         .accessibilityHint("Artwork for the current episode")
+        .accessibilityAddTraits(.isImage)
     }
   }
 
@@ -749,16 +785,14 @@ import SwiftUI
       VStack(spacing: 4) {
         Text("Sample Episode Title")
           .font(.headline)
-          .accessibilityElement(children: .ignore)
           .accessibilityIdentifier("Episode Title")
-          .accessibilityLabel("Episode Title")
+          .accessibilityLabel("Sample Episode Title")
           .accessibilityAddTraits(.isHeader)
         Text("Sample Podcast Title")
           .font(.subheadline)
           .foregroundStyle(.secondary)
-          .accessibilityElement(children: .ignore)
           .accessibilityIdentifier("Podcast Title")
-          .accessibilityLabel("Podcast Title")
+          .accessibilityLabel("Sample Podcast Title")
       }
     }
   }
@@ -766,14 +800,64 @@ import SwiftUI
   private struct PlayerProgressSliderView: View {
     @Binding var progress: Double
     var body: some View {
-      Slider(value: $progress)
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("Progress Slider")
-        .accessibilityLabel("Progress Slider")
-        .accessibilityHint("Adjust playback position")
-        .accessibilityValue(Text("\(Int(progress * 100)) percent"))
+      #if os(iOS)
+        UITestProgressSlider(value: $progress)
+          .accessibilityIdentifier("Progress Slider")
+          .accessibilityLabel("Progress Slider")
+          .accessibilityHint("Adjust playback position")
+          .accessibilityValue(Text("\(Int(progress * 100)) percent"))
+      #else
+        Slider(value: $progress, in: 0...1)
+          .accessibilityIdentifier("Progress Slider")
+          .accessibilityLabel("Progress Slider")
+          .accessibilityHint("Adjust playback position")
+          .accessibilityValue(Text("\(Int(progress * 100)) percent"))
+      #endif
     }
   }
+
+  #if os(iOS)
+    private struct UITestProgressSlider: UIViewRepresentable {
+      @Binding var value: Double
+
+      func makeUIView(context: Context) -> UISlider {
+        let slider = UISlider(frame: .zero)
+        slider.minimumValue = 0
+        slider.maximumValue = 1
+        slider.value = Float(value)
+        slider.addTarget(
+          context.coordinator,
+          action: #selector(Coordinator.valueChanged(_:)),
+          for: .valueChanged
+        )
+        return slider
+      }
+
+      func updateUIView(_ uiView: UISlider, context: Context) {
+        let newValue = Float(value)
+        if uiView.value != newValue {
+          uiView.value = newValue
+        }
+      }
+
+      func makeCoordinator() -> Coordinator {
+        Coordinator(value: $value)
+      }
+
+      @MainActor
+      final class Coordinator: NSObject {
+        private var value: Binding<Double>
+
+        init(value: Binding<Double>) {
+          self.value = value
+        }
+
+        @objc func valueChanged(_ sender: UISlider) {
+          value.wrappedValue = Double(sender.value)
+        }
+      }
+    }
+  #endif
 
   private struct PlaybackControlsView: View {
     @Binding var isPlaying: Bool

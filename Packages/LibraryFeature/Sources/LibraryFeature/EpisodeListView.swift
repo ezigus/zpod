@@ -100,8 +100,10 @@ public struct EpisodeListView: View {
           } label: {
             Image(systemName: "slider.horizontal.3")
           }
-          .accessibilityIdentifier("ConfigureSwipeActions")
-          .accessibilityLabel("Configure Swipe Actions")
+          .accessibilityRepresentation {
+            Button("Configure Swipe Actions") {}
+              .accessibilityIdentifier("ConfigureSwipeActions")
+          }
         }
       }
     }
@@ -243,37 +245,45 @@ public struct EpisodeListView: View {
 
         // Selection controls
         HStack(spacing: 16) {
-          Button("All") {
+          Button {
             viewModel.selectAllEpisodes()
+          } label: {
+            Text("All")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("All")
+              .accessibilityLabel("Select All")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("All")
-          .accessibilityLabel("Select All")
 
-          Button("None") {
+          Button {
             viewModel.selectNone()
+          } label: {
+            Text("None")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("None")
+              .accessibilityLabel("Select None")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("None")
-          .accessibilityLabel("Select None")
 
-          Button("Invert") {
+          Button {
             viewModel.invertSelection()
+          } label: {
+            Text("Invert")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("Invert")
+              .accessibilityLabel("Invert Selection")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("Invert")
-          .accessibilityLabel("Invert Selection")
 
-          Button("Criteria") {
+          Button {
             viewModel.showingSelectionCriteriaSheet = true
+          } label: {
+            Text("Criteria")
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .accessibilityIdentifier("Criteria")
+              .accessibilityLabel("Select by Criteria")
           }
-          .font(.caption)
-          .foregroundStyle(.blue)
-          .accessibilityIdentifier("Criteria")
-          .accessibilityLabel("Select by Criteria")
         }
       }
       .padding(.horizontal)
@@ -312,17 +322,19 @@ public struct EpisodeListView: View {
                 .accessibilityLabel(operationType.displayName)
               }
 
-              Button("More") {
+              Button {
                 viewModel.showingBatchOperationSheet = true
+              } label: {
+                Text("More")
+                  .font(.caption)
+                  .foregroundStyle(.white)
+                  .padding(.horizontal, 12)
+                  .padding(.vertical, 6)
+                  .background(Color.gray)
+                  .cornerRadius(8)
+                  .accessibilityIdentifier("More")
+                  .accessibilityLabel("More batch operations")
               }
-              .font(.caption)
-              .foregroundStyle(.white)
-              .padding(.horizontal, 12)
-              .padding(.vertical, 6)
-              .background(Color.gray)
-              .cornerRadius(8)
-              .accessibilityIdentifier("More")
-              .accessibilityLabel("More batch operations")
             }
             .padding(.horizontal)
           }
@@ -394,13 +406,15 @@ public struct EpisodeListView: View {
 
         HStack(spacing: 12) {
           if viewModel.hasActiveFilters {
-            Button("Clear") {
+            Button {
               viewModel.clearFilter()
               viewModel.updateSearchText("")
+            } label: {
+              Text("Clear")
+                .font(.caption)
+                .foregroundStyle(.blue)
+                .accessibilityIdentifier("Clear All Filters")
             }
-            .font(.caption)
-            .foregroundStyle(.blue)
-            .accessibilityIdentifier("Clear All Filters")
           }
 
           EpisodeFilterButton(
@@ -511,22 +525,23 @@ public struct EpisodeListView: View {
             viewModel.enterMultiSelectMode()
             viewModel.toggleEpisodeSelection(episode)
           }
-        }
       }
-      .platformInsetGroupedListStyle()
-      .accessibilityIdentifier("Episode Cards Container")
-      #if DEBUG
-        .overlay(alignment: .topLeading) {
-          if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1",
-            !viewModel.swipeExecutionDebugSummary.isEmpty
-          {
+    }
+    .platformInsetGroupedListStyle()
+    .accessibilityIdentifier("Episode Cards Container")
+    .background(EpisodeListIdentifierSetter())
+    #if DEBUG
+      .overlay(alignment: .topLeading) {
+        if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1",
+          !viewModel.swipeExecutionDebugSummary.isEmpty
+        {
             Text(viewModel.swipeExecutionDebugSummary)
-              .font(.caption2)
-              .opacity(0.001)
-              .accessibilityHidden(false)
-              .accessibilityIdentifier("SwipeActions.Debug.LastExecution")
-              .accessibilityLabel("SwipeActions.Debug.LastExecution")
-              .accessibilityValue(viewModel.swipeExecutionDebugSummary)
+            .font(.caption2)
+            .opacity(0.001)
+            .accessibilityHidden(false)
+            .accessibilityIdentifier("SwipeActions.Debug.LastExecution")
+            .accessibilityLabel("SwipeActions.Debug.LastExecution")
+            .accessibilityValue(viewModel.swipeExecutionDebugSummary)
           }
         }
       #endif
@@ -650,12 +665,14 @@ public struct EpisodeListView: View {
         .foregroundStyle(.secondary)
         .multilineTextAlignment(.center)
 
-      Button("Clear Filters") {
+      Button {
         viewModel.clearFilter()
         viewModel.updateSearchText("")
+      } label: {
+        Text("Clear Filters")
+          .foregroundStyle(.blue)
+          .accessibilityIdentifier("Clear Filters Button")
       }
-      .foregroundStyle(.blue)
-      .accessibilityIdentifier("Clear Filters Button")
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -720,6 +737,64 @@ public struct EpisodeListView: View {
       _ uiViewController: UIActivityViewController,
       context: Context
     ) {}
+  }
+
+  private struct EpisodeListIdentifierSetter: UIViewControllerRepresentable {
+    private let maxAttempts = 30
+    private let retryInterval: TimeInterval = 0.1
+
+    func makeUIViewController(context: Context) -> UIViewController {
+      let controller = UIViewController()
+      scheduleIdentifierUpdate(from: controller, attempt: 0)
+      return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+      scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
+    }
+
+    private func scheduleIdentifierUpdate(from controller: UIViewController, attempt: Int) {
+      let delay = attempt == 0 ? 0 : retryInterval
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        guard let tableView = self.locateTableView(startingFrom: controller) else {
+          self.retryIfNeeded(from: controller, attempt: attempt)
+          return
+        }
+        if tableView.accessibilityIdentifier != "Episode Cards Container" {
+          tableView.accessibilityIdentifier = "Episode Cards Container"
+          tableView.accessibilityLabel = "Episode Cards Container"
+        }
+      }
+    }
+
+    private func retryIfNeeded(from controller: UIViewController, attempt: Int) {
+      guard attempt < maxAttempts else { return }
+      scheduleIdentifierUpdate(from: controller, attempt: attempt + 1)
+    }
+
+    private func locateTableView(startingFrom controller: UIViewController) -> UITableView? {
+      if let table = findTableView(in: controller.view) {
+        return table
+      }
+      if let parent = controller.parent, let table = findTableView(in: parent.view) {
+        return table
+      }
+      if let window = controller.view.window, let table = findTableView(in: window) {
+        return table
+      }
+      return nil
+    }
+
+    private func findTableView(in view: UIView?) -> UITableView? {
+      guard let view else { return nil }
+      if let table = view as? UITableView { return table }
+      for subview in view.subviews {
+        if let table = findTableView(in: subview) {
+          return table
+        }
+      }
+      return nil
+    }
   }
 #else
   private struct ShareSheet: View {

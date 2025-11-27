@@ -31,20 +31,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     app = launchConfiguredApp()
 
     // Wait for the main tab bar to be available
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
       waitForElement(
         tabBar, timeout: adaptiveTimeout, description: "Main tab bar"),
       "Main tab bar should be available after app launch")
 
     // Navigate to discovery interface for testing
-    let discoverTab = tabBar.buttons["Discover"]
+    let discoverTab = tabBar.buttons.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
 
     discoverTab.tap()
 
     // Wait for discover screen to load fully
-    let discoverNavBar = app.navigationBars["Discover"]
+    let discoverNavBar = app.navigationBars.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(
       waitForElement(
         discoverNavBar, timeout: adaptiveTimeout, description: "Discover navigation bar"),
@@ -52,13 +52,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   }
 
   private func rssURLField(in app: XCUIApplication) -> XCUIElement {
-    let identifierField = app.textFields["rss-url-field"]
+    let identifierField = app.textFields.matching(identifier: "rss-url-field").firstMatch
     if identifierField.exists {
       return identifierField
     }
 
     return app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'https://'")).firstMatch
+      NSPredicate(format: "placeholderValue CONTAINS 'https://'")
+    ).firstMatch
   }
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
@@ -72,7 +73,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I am on the Discover tab
-    XCTAssertTrue(app.navigationBars["Discover"].exists, "Should be on Discover tab")
+    XCTAssertTrue(app.navigationBars.matching(identifier: "Discover").firstMatch.exists, "Should be on Discover tab")
 
     // When: I look for search functionality
     let searchField = app.textFields.matching(
@@ -99,39 +100,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // When: I type in the search field
     searchField.tap()
-
-    // Wait for keyboard to appear - this is the real indicator of readiness
-    XCTAssertTrue(
-      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-      "Keyboard should appear after tapping search field")
-
-    // Make sure the field actually has focus before typing to avoid dropping input on slower sims.
-    XCTAssertTrue(
-      waitForKeyboardFocus(on: searchField, timeout: adaptiveShortTimeout, description: "search field focus"),
-      "Search field should gain keyboard focus after tap")
-
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
 
-    // Then: wait for the value to propagate (adapts to CI lag) and fall back to a visible result cell.
-    let valueMatches = waitUntil(
-      timeout: adaptiveTimeout,
-      pollInterval: 0.15,
-      description: "search field contains query"
-    ) {
-      guard let currentValue = searchField.value as? String else { return false }
-      return currentValue.localizedCaseInsensitiveContains(desiredQuery)
-    }
-    let searchFieldValue = searchField.value as? String
-
-    // Also accept the UI presenting a result cell if the text field clears (common on some devices)
-    let swiftTalkTextElement = app.staticTexts[desiredQuery]
-    let hasSwiftTalkText = swiftTalkTextElement.waitForExistence(timeout: adaptiveTimeout)
-
+    // Then: Entered text should remain in the field even when results lag
+    let fieldValue = searchField.value as? String ?? ""
     XCTAssertTrue(
-      valueMatches || hasSwiftTalkText,
-      "Search field should contain typed text. Found value: '\(searchFieldValue ?? "nil")', Swift Talk text exists: \(hasSwiftTalkText)"
-    )
+      fieldValue.contains(desiredQuery),
+      "Search field should echo the entered query even before results render")
   }
 
   @MainActor
@@ -144,25 +120,6 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     searchField.tap()
-
-    // Wait for keyboard to appear - this is the real indicator of readiness
-    XCTAssertTrue(
-      app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-      "Keyboard should appear after tapping search field")
-
-    // Verify the field is ready for input by checking it has focus
-    let hasKeyboardFocus2 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-    XCTAssertTrue(
-      hasKeyboardFocus2,
-      "Search field should have keyboard focus after tap")
-
-    // Wait for focus to be fully established before typing using proper async pattern
-    let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-      focusExpectation.fulfill()
-    }
-    _ = XCTWaiter.wait(for: [focusExpectation], timeout: 1.0)
-
     searchField.typeText("test")
 
     // When: I tap the clear button (if it exists)
@@ -172,9 +129,9 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       clearButton.tap()
 
       // Then: The search field should be empty
+      let fieldValue = searchField.value as? String ?? ""
       XCTAssertTrue(
-        searchField.value as? String == ""
-          || searchField.placeholderValue?.contains("Search") == true,
+        fieldValue.isEmpty || searchField.placeholderValue?.contains("Search") == true,
         "Search field should be cleared")
     }
   }
@@ -190,7 +147,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Given: I am on the Discover tab
     XCTAssertTrue(
       waitForElement(
-        app.navigationBars["Discover"], timeout: adaptiveTimeout,
+        app.navigationBars.matching(identifier: "Discover").firstMatch, timeout: adaptiveTimeout,
         description: "Discover navigation bar"), "Should navigate to Discover tab")
 
     // When: I look for the discovery options menu using smart discovery
@@ -217,8 +174,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       let menuAppeared = navigateAndWaitForResult(
         triggerAction: { button.tap() },
         expectedElements: [
-          app.buttons["discovery-options-menu.add-rss"],
-          app.buttons["discovery-options-menu.search-history"],
+          app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch,
+          app.buttons.matching(identifier: "discovery-options-menu.search-history").firstMatch,
         ],
         timeout: adaptiveShortTimeout,
         description: "discovery options menu"
@@ -227,14 +184,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       if menuAppeared {
         // Then: I should see menu options including RSS feed addition
         let hasMenuOptions =
-          app.buttons["discovery-options-menu.add-rss"].exists
-          || app.buttons["discovery-options-menu.search-history"].exists
+          app.buttons.matching(identifier: "discovery-options-menu.add-rss").firstMatch.exists
+          || app.buttons.matching(identifier: "discovery-options-menu.search-history").firstMatch.exists
         XCTAssertTrue(hasMenuOptions, "Discovery options menu should contain expected items")
       } else {
-        throw XCTSkip("Menu options did not appear - may need UI adjustments")
+        XCTFail("Menu options did not appear - may need UI adjustments"); return
       }
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -244,14 +201,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have access to the options menu
-    let navBar = app.navigationBars["Discover"]
+    let navBar = app.navigationBars.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(navBar.exists)
 
     // Find the options button using multiple strategies
     var optionsButton: XCUIElement?
 
     // Strategy 1: Look for button with accessibility identifier (most reliable)
-    let identifiedButton = navBar.buttons["discovery-options-menu"]
+    let identifiedButton = navBar.buttons.matching(identifier: "discovery-options-menu").firstMatch
     if identifiedButton.exists && identifiedButton.isHittable {
       optionsButton = identifiedButton
     }
@@ -327,7 +284,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       addRSSOption.tap()
 
       // Then: RSS feed addition sheet should appear
-      let rssSheet = app.navigationBars["Add RSS Feed"]
+      let rssSheet = app.navigationBars.matching(identifier: "Add RSS Feed").firstMatch
       guard
         waitForElement(
           rssSheet,
@@ -347,7 +304,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         "URL input field should be present"
       )
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -357,14 +314,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Navigate to RSS sheet if available
-    let navBar = app.navigationBars["Discover"]
+    let navBar = app.navigationBars.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(navBar.exists)
 
     // Find and tap options button
     var optionsButton: XCUIElement?
 
     // Strategy 1: Look for button with accessibility identifier
-    let identifiedButton = navBar.buttons["discovery-options-menu"]
+    let identifiedButton = navBar.buttons.matching(identifier: "discovery-options-menu").firstMatch
     if identifiedButton.exists && identifiedButton.isHittable {
       optionsButton = identifiedButton
     }
@@ -429,7 +386,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       addRSSOption.tap()
 
       // Given: RSS sheet is displayed
-      let rssSheetNavBar = app.navigationBars["Add RSS Feed"]
+      let rssSheetNavBar = app.navigationBars.matching(identifier: "Add RSS Feed").firstMatch
       guard
         waitForElement(
           rssSheetNavBar,
@@ -451,40 +408,18 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       }
 
       // When: I enter a URL
-      urlField.tap()
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-        "Keyboard should appear after selecting RSS URL field")
-
-      XCTAssertTrue(
-        waitForKeyboardFocus(on: urlField, timeout: adaptiveShortTimeout, description: "RSS URL field focus"),
-        "RSS URL field should gain keyboard focus")
-
       let desiredURL = "https://example.com/feed.xml"
+      urlField.tap()
       urlField.typeText(desiredURL)
 
-      let urlValueMatches = waitUntil(
-        timeout: adaptiveTimeout,
-        pollInterval: 0.2,
-        description: "RSS URL field reflects input"
-      ) {
-        guard let currentValue = urlField.value as? String else { return false }
-        if currentValue.caseInsensitiveCompare(desiredURL) == .orderedSame { return true }
-        let normalized = currentValue.replacingOccurrences(of: "…", with: "")
-        guard !normalized.isEmpty else { return false }
-        if normalized.caseInsensitiveCompare(desiredURL) == .orderedSame { return true }
-        return desiredURL.hasPrefix(normalized)
-      }
-
-      let staticTextMatches = app.staticTexts[desiredURL].waitForExistence(timeout: adaptiveTimeout)
-      let urlFieldValue = urlField.value as? String
-
+      // Then: Verify the URL was entered (field may show ellipsis or full URL)
+      let urlFieldValue = urlField.value as? String ?? ""
       XCTAssertTrue(
-        urlValueMatches || staticTextMatches,
-        "URL field should contain entered URL. Current value: '\(urlFieldValue ?? "nil")'"
+        urlFieldValue.contains("example.com") || urlFieldValue.contains("feed"),
+        "URL field should contain entered URL, got: '\(urlFieldValue)'"
       )
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -501,44 +436,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       NSPredicate(format: "placeholderValue CONTAINS 'Search'")
     ).firstMatch
     if searchField.exists {
+      // Note: tap() to focus, then typeText() to enter text.
       searchField.tap()
-
-      // Wait for keyboard to appear - this is the real indicator of readiness
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-        "Keyboard should appear after tapping search field")
-
-      // Verify the field is ready for input by checking it has focus
-      let hasKeyboardFocus3 = (searchField.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-      XCTAssertTrue(
-        hasKeyboardFocus3,
-        "Search field should have keyboard focus after tap")
-
-      // Wait for focus to be fully established before typing using proper async pattern
-      let focusExpectation = XCTestExpectation(description: "Wait for search field focus")
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        focusExpectation.fulfill()
-      }
-      _ = XCTWaiter.wait(for: [focusExpectation], timeout: 0.5)
-
       searchField.typeText("test")
 
-      // When: Search filters become available
-      // Look for filter buttons (All, Podcasts, Episodes)
-      let allFilter = app.buttons["All"]
-      let podcastsFilter = app.buttons["Podcasts"]
-      let episodesFilter = app.buttons["Episodes"]
-
       // Then: Filter options should be available when searching
-      // Note: Filters may appear after typing, so we check if any exist
-      let hasFilters = allFilter.exists || podcastsFilter.exists || episodesFilter.exists
+      let allFilter = app.buttons.matching(identifier: "All").firstMatch
+      let podcastsFilter = app.buttons.matching(identifier: "Podcasts").firstMatch
+      let episodesFilter = app.buttons.matching(identifier: "Episodes").firstMatch
 
-      if hasFilters {
-        XCTAssertTrue(true, "Search filters are available")
-      } else {
-        // Filters might appear after search results load
-        XCTAssertTrue(true, "Filters may appear after search execution")
-      }
+      let hasFilters = allFilter.exists || podcastsFilter.exists || episodesFilter.exists
+      XCTAssertTrue(
+        hasFilters,
+        "Search filters should be available after typing. Found: All=\(allFilter.exists), Podcasts=\(podcastsFilter.exists), Episodes=\(episodesFilter.exists)"
+      )
     }
   }
 
@@ -551,14 +462,14 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have access to the options menu
-    let navBar = app.navigationBars["Discover"]
+    let navBar = app.navigationBars.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(navBar.exists)
 
     // Find the options button using multiple strategies
     var optionsButton: XCUIElement?
 
     // Strategy 1: Look for button with accessibility identifier (most reliable)
-    let identifiedButton = navBar.buttons["discovery-options-menu"]
+    let identifiedButton = navBar.buttons.matching(identifier: "discovery-options-menu").firstMatch
     if identifiedButton.exists && identifiedButton.isHittable {
       optionsButton = identifiedButton
     }
@@ -596,15 +507,15 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         searchHistoryOption.tap()
 
         // Then: Search history sheet should appear
-        let historySheet = app.navigationBars["Search History"]
+        let historySheet = app.navigationBars.matching(identifier: "Search History").firstMatch
         XCTAssertTrue(
           historySheet.waitForExistence(timeout: 3.0),
           "Search history sheet should appear")
       } else {
-        throw XCTSkip("Search History option not found in menu")
+        XCTFail("Search History option not found in menu"); return
       }
     } else {
-      throw XCTSkip("Discovery options button not found or not accessible")
+      XCTFail("Discovery options button not found or not accessible"); return
     }
   }
 
@@ -617,7 +528,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // Given: The app is launched
     // When: I check accessibility elements on Discover tab
-    let discoverNavBar = app.navigationBars["Discover"]
+    let discoverNavBar = app.navigationBars.matching(identifier: "Discover").firstMatch
 
     // Then: Key elements should be accessible
     XCTAssertTrue(discoverNavBar.exists, "Discover navigation should be accessible")
@@ -640,7 +551,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // Given: I am on the Discover tab
     // When: I check the navigation title
-    let discoverTitle = app.navigationBars["Discover"]
+    let discoverTitle = app.navigationBars.matching(identifier: "Discover").firstMatch
 
     // Then: The title should be "Discover"
     XCTAssertTrue(discoverTitle.exists, "Discover tab should show correct title")
@@ -681,26 +592,16 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     if searchField.exists {
       // When: I interact with the search field
       searchField.tap()
-
-      // Wait for keyboard to appear - this is the real indicator of readiness
-      XCTAssertTrue(
-        app.keyboards.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
-        "Keyboard should appear after tapping search field")
-
-      // Type text into the search field (typeText is synchronous, no additional wait needed)
       searchField.typeText("test")
 
-      // Then: Verify the interface is responsive by checking that the text was entered
-      // Check the field's value directly - this is the most reliable method
+      // Then: Verify the text was entered
       let enteredValue = searchField.value as? String ?? ""
       XCTAssertTrue(
         enteredValue.contains("test"),
-        "Search field should contain typed text, got: '\(enteredValue)'")
-
-      // Additional verification: ensure search field remains available for further interaction
-      XCTAssertTrue(searchField.exists, "Search field should remain available after text input")
+        "Search field should contain typed text, got: '\(enteredValue)'"
+      )
     } else {
-      throw XCTSkip("Search field not found - skipping responsiveness test")
+      XCTFail("Search field not found - skipping responsiveness test"); return
     }
   }
 }

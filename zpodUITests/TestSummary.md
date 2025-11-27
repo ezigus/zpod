@@ -68,48 +68,38 @@ This document outlines the UI testing approach for the main zpod application.
 
 ### Swipe Configuration UI Tests
 
-**Purpose**: Validate the configurable swipe gesture workflow and ensure presets, haptics, and episode list actions remain stable.
+**Purpose**: Validate the configurable swipe gesture workflow, ensure presets/haptics remain correct, and verify seeded swipe execution in the episode list.
 
 **Specifications Covered**:
 
 - `Issues/02.1-episode-list-management-ui.md` — Scenario 6: Swipe Gestures & Quick Actions
 - `spec/ui.md` — Customizing Swipe Gestures section
 
-**Test Files** (decomposed from monolithic 1,765-line file per Issue #02.6.3):
+**Suite Layout (12 tests across 6 files)**:
 
-1. **`SwipeConfigurationUIDisplayTests.swift`** - UI display verification
-   - Tests that configuration sheet opens and displays correctly
-   - Verifies default actions, haptic controls visibility
-   - 3 focused tests
+| File | Tests | Focus |
+| --- | --- | --- |
+| `SwipeConfigurationUIDisplayTests.swift` | 3 | Opens sheet from the gear button, verifies all sections render, validates default leading/trailing actions + haptic controls. |
+| `SwipePresetSelectionTests.swift` | 3 | Applies Playback/Organization/Download presets, confirms save button enables, asserts rendered rows match preset expectations. |
+| `SwipeToggleInteractionTests.swift` | 3 | Exercises haptic toggle, style picker, and full-swipe toggles (leading + trailing) using cached sheet containers. |
+| `SwipeActionManagementTests.swift` | 1 | End-to-end workflow: add/remove/limit enforcement for leading/trailing actions without relaunching. |
+| `SwipePersistenceTests.swift` | 1 | Seeds configuration via encoded payload, reopens sheet after relaunch, and verifies persisted actions + haptic state. |
+| `SwipeExecutionTests.swift` | 1 | Seeds swipe actions, dismisses the sheet, and verifies leading/trailing swipe execution with instrumentation probes in the episode list. |
 
-2. **`SwipeActionManagementTests.swift`** - Action add/remove/limit enforcement
-   - Tests adding/removing actions to leading/trailing edges
-   - Verifies action cap enforcement (3 actions per edge)
-   - 4 focused tests
+**Latest targeted runtimes (2025‑11‑19 runs via `./scripts/run-xcode-tests.sh -t …`)**:
 
-3. **`SwipePresetSelectionTests.swift`** - Preset application
-   - Tests that presets (Playback, Organization, Download) apply correct configurations
-   - Verifies save button enablement and debug summary state
-   - 3 focused tests
+| Suite | Tests | Phase Runtime | Result Log |
+| --- | --- | --- | --- |
+| SwipeConfigurationUIDisplayTests | 3 | ~7s test phase (`00:00:07` inside `TestResults/TestResults_20251119_080416_test_zpodUITests-SwipeConfigurationUIDisplayTests.log`) | `TestResults/TestResults_20251119_080416_test_zpodUITests-SwipeConfigurationUIDisplayTests.log` |
+| SwipePresetSelectionTests | 3 | ~6s test phase | `TestResults/TestResults_20251119_080603_test_zpodUITests-SwipePresetSelectionTests.log` |
+| SwipeToggleInteractionTests | 3 | ~7s test phase | `TestResults/TestResults_20251119_080727_test_zpodUITests-SwipeToggleInteractionTests.log` |
+| SwipeActionManagementTests | 1 | ~4s test phase | `TestResults/TestResults_20251119_080850_test_zpodUITests-SwipeActionManagementTests.log` |
+| SwipePersistenceTests | 1 | ~69s test phase (includes seeded relaunch) | `TestResults/TestResults_20251119_083334_test_zpodUITests-SwipePersistenceTests.log` |
+| SwipeExecutionTests | 1 | ~63s test phase (includes seeded relaunch + swipe probes) | `TestResults/TestResults_20251119_084032_test_zpodUITests-SwipeExecutionTests.log` |
 
-4. **`SwipeToggleInteractionTests.swift`** - Toggle interactions
-   - Tests haptic toggle enable/disable
-   - Tests haptic style picker changes
-   - Tests full swipe toggle for leading/trailing
-   - 3 focused tests
+Each test phase time excludes the initial build (handled once by preflight). The persistence/execution suites are intentionally longer because they seed defaults, relaunch once, and wait for debug-state streams before verifying the episode list instrumentation.
 
-5. **`SwipeConfigurationPersistenceTests.swift`** - Persistence across relaunches
-   - Tests manual configuration persistence
-   - Tests haptic settings persistence
-   - Tests full swipe settings persistence
-   - 3 focused tests (uses seeding to avoid UserDefaults issues)
-
-6. **`SwipeActionExecutionTests.swift`** - Swipe execution in episode list
-   - Tests leading swipe actions execute correctly
-   - Tests trailing swipe actions execute correctly
-   - 2 focused tests
-
-**Shared Support**: `SwipeConfigurationTestSupport.swift` contains the base class `SwipeConfigurationTestCase` with all helper methods (~1,400 lines).
+**Shared Support**: `SwipeConfigurationTestSupport.swift` provides the base class plus modular extensions (Navigation, ActionManagement, Toggle, Debug, etc.). `reuseOrOpenConfigurationSheet(resetDefaults:)` caches the SwiftUI sheet container after a single readiness gate so later assertions run without redundant navigation. `launchSeededApp(resetDefaults:)` enforces a single launch per seed payload.
 
 **Test Areas**:
 
@@ -121,7 +111,13 @@ This document outlines the UI testing approach for the main zpod application.
 - Accessibility identifier coverage for configuration controls and rendered swipe buttons
 - Validates that preset buttons respond directly under automation (no manual fallback) and enforces the three-action cap via the add-action picker sheet
 
-**CI Parallelization**: Tests split into 6 independent jobs for faster execution and granular failure visibility.
+**CI Strategy (Hybrid Tier Architecture per Issue #02.6.3)**:
+
+- The preflight job builds zpod.app + test bundles once and uploads the derived data artifact.
+- Six swipe jobs (`UITests-SwipeUIDisplay`, `…-SwipePresetSelection`, `…-SwipeToggleInteraction`, `…-SwipeActionManagement`, `…-SwipePersistence`, `…-SwipeExecution`) download the preflight artifact, reuse the host app, and run in parallel.
+- Each job provisions its own simulator/derived data sandbox, so no derived data sharing or “test-without-building” hazards.
+- Target total swipe time: ≤6 minutes in parallel (vs ≥20 minutes before the decomposition). Latest Actions runs 
+  (recorded 2025‑11‑19) keep individual swipe jobs under 70s after the preflight artifact is restored.
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 

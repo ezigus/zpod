@@ -17,46 +17,52 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
   
   @MainActor
   func testHapticToggleEnablesDisables() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Get current haptic state from debug summary
-    guard let initialState = currentDebugState() else {
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
+
+    guard let toggle = requireToggleSwitch(
+      identifier: "SwipeActions.Haptics.Toggle",
+      context: "initial toggle load"
+    ) else { return }
+
+    let initialToggleState = currentStateIsOn(for: toggle)
+    guard let initialSummary = currentDebugState() else {
       XCTFail("Failed to read initial debug state")
       return
     }
-    
-    let initialHaptics = initialState.hapticsEnabled
-    
+
     // Toggle haptics to opposite state
-    setHaptics(enabled: !initialHaptics, styleLabel: "Medium")
-    
-    // Verify state changed in debug summary
-    guard
-      waitForDebugState(
-        timeout: adaptiveShortTimeout,
-        validator: { $0.hapticsEnabled == !initialHaptics }
-      ) != nil
-    else {
-      XCTFail("Haptic state should toggle to \(!initialHaptics)")
-      return
-    }
-    
-    // Toggle back to original state
-    setHaptics(enabled: initialHaptics, styleLabel: "Medium")
-    
-    // Verify state changed back
+    let target = !(initialToggleState ?? initialSummary.hapticsEnabled)
+    setHaptics(enabled: target, styleLabel: "Medium")
+
+    assertHapticsToggleState(expected: target)
     XCTAssertNotNil(
       waitForDebugState(
-        timeout: adaptiveShortTimeout,
-        validator: { $0.hapticsEnabled == initialHaptics }
+        timeout: debugStateTimeout,
+        validator: { $0.hapticsEnabled == target }
       ),
-      "Haptic state should toggle back to \(initialHaptics)"
+      "Haptic state should toggle to \(target)"
+    )
+
+    // Toggle back to original state
+    setHaptics(enabled: initialSummary.hapticsEnabled, styleLabel: "Medium")
+    assertHapticsToggleState(expected: initialSummary.hapticsEnabled)
+    XCTAssertNotNil(
+      waitForDebugState(
+        timeout: debugStateTimeout,
+        validator: { $0.hapticsEnabled == initialSummary.hapticsEnabled }
+      ),
+      "Haptic state should toggle back to \(initialSummary.hapticsEnabled)"
     )
   }
   
   @MainActor
   func testHapticStylePickerChangesValue() throws {
-    try beginWithFreshConfigurationSheet()
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
+
+    _ = requireToggleSwitch(
+      identifier: "SwipeActions.Haptics.Toggle",
+      context: "style picker precondition"
+    )
     
     // Enable haptics first (style picker only visible when haptics enabled)
     setHaptics(enabled: true, styleLabel: "Soft")
@@ -64,7 +70,7 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     // Verify haptics enabled
     guard
       waitForDebugState(
-        timeout: adaptiveShortTimeout,
+        timeout: debugStateTimeout,
         validator: { $0.hapticsEnabled == true }
       ) != nil
     else {
@@ -73,31 +79,28 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     }
     
     // Verify style picker is visible
-    let stylePicker = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
+    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker").firstMatch
     if let container = swipeActionsSheetListContainer() {
       _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.StylePicker", container: container)
     }
-    
+
     XCTAssertTrue(
       waitForElement(
         stylePicker,
-        timeout: adaptiveShortTimeout,
+        timeout: postReadinessTimeout,
         description: "haptic style picker"
       ),
       "Haptic style picker should be visible when haptics are enabled"
     )
     
     // Change to Rigid style
-    let rigidButton = stylePicker.buttons["Rigid"]
+    let rigidButton = stylePicker.buttons.matching(identifier: "Rigid").firstMatch
     if rigidButton.exists {
       rigidButton.tap()
-      
-      // Wait a moment for the change to register
-      _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     }
     
     // Verify we can change to Medium style
-    let mediumButton = stylePicker.buttons["Medium"]
+    let mediumButton = stylePicker.buttons.matching(identifier: "Medium").firstMatch
     XCTAssertTrue(
       mediumButton.exists,
       "Medium style button should exist in picker"
@@ -105,15 +108,12 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
     
     if mediumButton.exists {
       mediumButton.tap()
-      
-      // Wait for change to register
-      _ = waitForDebugState(timeout: adaptiveShortTimeout, validator: { _ in true })
     }
   }
   
   @MainActor
   func testFullSwipeToggleLeadingTrailing() throws {
-    try beginWithFreshConfigurationSheet()
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     
     // Verify default full swipe state
     assertFullSwipeState(leading: true, trailing: false)

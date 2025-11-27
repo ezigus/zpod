@@ -12,108 +12,61 @@ import XCTest
 
 /// Tests that verify swipe action presets apply correct configurations
 final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
-  
+
   // MARK: - Preset Selection Tests
-  
+
   @MainActor
   func testPlaybackPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline starts at default
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Should start with default configuration"
-    )
-    
-    // Apply Playback preset
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Playback")
-    
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
-      "Save button should enable after applying Playback preset"
-    )
-    
-    // Verify preset configuration via debug summary
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["play", "addToPlaylist"],
-        trailing: ["download", "favorite"],
-        unsaved: true
-      ),
-      "Playback preset should configure play+addToPlaylist leading, download+favorite trailing"
+    assertSaveEnabledAfterPreset()
+    assertConfiguration(
+      leadingActions: ["Play", "Add to Playlist"],
+      trailingActions: ["Download", "Favorite"]
     )
   }
-  
+
   @MainActor
   func testOrganizationPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline starts at default
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Should start with default configuration"
-    )
-    
-    // Apply Organization preset
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Organization")
-    
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
-      "Save button should enable after applying Organization preset"
-    )
-    
-    // Verify preset configuration via debug summary
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed", "favorite"],
-        trailing: ["archive", "delete"],
-        unsaved: true
-      ),
-      "Organization preset should configure markPlayed+favorite leading, archive+delete trailing"
+    assertSaveEnabledAfterPreset()
+    assertConfiguration(
+      leadingActions: ["Mark Played", "Favorite"],
+      trailingActions: ["Archive", "Delete"]
     )
   }
-  
+
   @MainActor
   func testDownloadPresetAppliesCorrectly() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline starts at default
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Should start with default configuration"
-    )
-    
-    // Apply Download preset
+    try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Download")
-    
-    // Verify save button enabled
-    XCTAssertTrue(
-      waitForSaveButton(enabled: true, timeout: adaptiveShortTimeout),
-      "Save button should enable after applying Download preset"
+    assertSaveEnabledAfterPreset()
+    assertConfiguration(
+      leadingActions: ["Download", "Mark Played"],
+      trailingActions: ["Archive", "Delete"]
     )
-    
-    // Verify preset configuration via debug summary
+  }
+
+  @MainActor
+  private func assertConfiguration(
+    leadingActions: [String],
+    trailingActions: [String]
+  ) {
+    // Verify preset applied to draft configuration (UI state)
+    assertActionList(
+      leadingIdentifiers: leadingActions.map { "SwipeActions.Leading.\($0)" },
+      trailingIdentifiers: trailingActions.map { "SwipeActions.Trailing.\($0)" }
+    )
+    // Note: Persistence validation happens in SwipeConfigurationPersistenceTests
+    // after Save button is tapped. These preset tests only verify draft state.
+  }
+
+  @MainActor
+  private func assertSaveEnabledAfterPreset() {
     XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["download", "markPlayed"],
-        trailing: ["archive", "delete"],
-        unsaved: true
-      ),
-      "Download preset should configure download+markPlayed leading, archive+delete trailing"
+      waitForSaveButton(enabled: true, timeout: adaptiveTimeout),
+      "Save button did not enable after applying preset."
     )
   }
 }

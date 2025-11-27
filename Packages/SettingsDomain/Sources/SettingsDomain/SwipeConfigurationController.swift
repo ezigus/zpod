@@ -17,6 +17,7 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   public var hapticsEnabled: Bool { draft.swipeActions.hapticFeedbackEnabled }
   public var hapticStyle: SwipeHapticStyle { draft.hapticStyle }
   public var currentConfiguration: SwipeConfiguration { draft }
+  public let debugIdentifier = UUID().uuidString
 
   private let service: SwipeConfigurationServicing
   private var updatesTask: Task<Void, Never>?
@@ -33,6 +34,7 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   }
 
   public func loadBaseline() async {
+    print("[SwipeConfigController][\(debugIdentifier)] loadBaseline()")
     let configuration = await service.load()
     applyBaseline(configuration)
   }
@@ -42,9 +44,13 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   }
 
   public func updateDraft(_ mutation: (inout SwipeConfiguration) -> Void) {
+    let before = draft
     var next = draft
     mutation(&next)
     normalizeAndAssign(next)
+    print(
+      "[SwipeConfigController][\(debugIdentifier)] updateDraft from hasUnsaved=\(before != baseline) to hasUnsaved=\(draft != baseline)"
+    )
   }
 
   public func applyPreset(_ preset: SwipeActionSettings) {
@@ -61,6 +67,7 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
   }
 
   public func setHapticsEnabled(_ enabled: Bool) {
+    let controllerID = debugIdentifier
     updateDraft { draft in
       draft.swipeActions = SwipeActionSettings(
         leadingActions: draft.swipeActions.leadingActions,
@@ -70,12 +77,17 @@ public final class SwipeConfigurationController: ObservableObject, FeatureConfig
         hapticFeedbackEnabled: enabled
       )
     }
+    Self.logger.debug("setHapticsEnabled[\(controllerID)] -> \(enabled, privacy: .public)")
+    print("[SwipeConfigController][\(controllerID)] setHapticsEnabled -> \(enabled)")
   }
 
   public func setHapticStyle(_ style: SwipeHapticStyle) {
+    let controllerID = debugIdentifier
     updateDraft { draft in
       draft.hapticStyle = style
     }
+    Self.logger.debug("setHapticStyle[\(controllerID)] -> \(style.rawValue, privacy: .public)")
+    print("[SwipeConfigController][\(controllerID)] setHapticStyle -> \(style.rawValue)")
   }
 
   public func setFullSwipe(_ enabled: Bool, edge: SwipeEdge) {

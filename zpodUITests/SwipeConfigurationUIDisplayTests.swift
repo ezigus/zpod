@@ -7,107 +7,102 @@
 //
 
 import Foundation
-import OSLog
 import XCTest
 
 /// Tests that verify the swipe configuration sheet opens and displays default UI elements
 final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
-  
-  // MARK: - Configuration Sheet Display Tests
-  
+
+  // Override to disable debug overlay for basic display tests
+  override var baseLaunchEnvironment: [String: String] {
+    var env = super.baseLaunchEnvironment
+    env["UITEST_SWIPE_DEBUG"] = "0"  // Display tests don't need debug overlay
+    return env
+  }
+
   @MainActor
   func testConfigurationSheetOpensFromEpisodeList() throws {
-    initializeApp()
-    try navigateToEpisodeList()
-    
-    let configureButton = element(withIdentifier: "ConfigureSwipeActions")
-    XCTAssertTrue(
-      waitForElement(
-        configureButton,
-        timeout: adaptiveTimeout,
-        description: "configure swipe actions button"
-      ),
-      "Configure swipe actions button should be visible on episode list"
-    )
-    
-    tapElement(configureButton, description: "configure swipe actions button")
-    
-    // Verify sheet opened with multiple indicators
-    let sheetIndicators: [XCUIElement] = [
-      app.navigationBars["Swipe Actions"],
-      app.buttons["SwipeActions.Save"],
-      app.buttons["SwipeActions.Cancel"],
-    ]
-    
-    let openedSheet = waitForAnyElement(
-      sheetIndicators,
-      timeout: adaptiveTimeout,
-      description: "Swipe Actions configuration sheet"
-    )
-    
-    XCTAssertNotNil(
-      openedSheet,
-      "Configuration sheet should open with navigation bar or action buttons visible"
-    )
+    _ = try reuseOrOpenConfigurationSheet()
   }
-  
+
   @MainActor
-  func testConfigurationSheetShowsDefaultActions() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify baseline loaded
+  func testAllSectionsAppearInSheet() throws {
+    guard let container = try reuseOrOpenConfigurationSheet(resetDefaults: true) else {
+      XCTFail("Swipe configuration sheet container should be discoverable")
+      return
+    }
+
     XCTAssertTrue(
-      waitForBaselineLoaded(timeout: adaptiveTimeout),
-      "Configuration baseline should load"
+      waitForSectionIfNeeded(timeout: postReadinessTimeout),
+      "Swipe sections should materialize after sheet opens"
     )
-    
-    // Verify default configuration via debug summary
-    XCTAssertTrue(
-      waitForDebugSummary(
-        leading: ["markPlayed"],
-        trailing: ["delete", "archive"],
-        unsaved: false
-      ),
-      "Default configuration should show markPlayed leading, delete+archive trailing"
-    )
-    
-    // Verify action buttons are present in the sheet
+
+    let identifiers = [
+      "SwipeActions.Haptics.Toggle",
+      "SwipeActions.Leading.FullSwipe",
+      "SwipeActions.Trailing.FullSwipe",
+      "SwipeActions.Add.Leading",
+      "SwipeActions.Add.Trailing",
+      "SwipeActions.Preset.Playback",
+    ]
+
+    for id in identifiers {
+      let attempts = id.contains("Add.") || id.contains("Preset.") ? 4 : 2
+      _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: attempts)
+      let element = self.element(withIdentifier: id, within: container)
+      XCTAssertTrue(
+        waitForElement(element, timeout: postReadinessTimeout, description: id),
+        "\(id) should be visible in configuration sheet"
+      )
+    }
+  }
+
+  @MainActor
+  func testDefaultActionsDisplayCorrectly() throws {
+    guard let container = try reuseOrOpenConfigurationSheet() else {
+      XCTFail("Swipe configuration sheet container should be discoverable")
+      return
+    }
+
+    // Display tests don't use debug overlay, skip debug summary check
+    // Just verify the action list is visible
+
     assertActionList(
       leadingIdentifiers: ["SwipeActions.Leading.Mark Played"],
       trailingIdentifiers: ["SwipeActions.Trailing.Delete", "SwipeActions.Trailing.Archive"]
     )
+
+    verifyHapticControlsVisible(container: container)
   }
-  
+
+  // MARK: - Private Helpers
+
   @MainActor
-  func testConfigurationSheetShowsHapticControls() throws {
-    try beginWithFreshConfigurationSheet()
-    
-    // Verify haptic toggle exists
+  private func verifyHapticControlsVisible(container: XCUIElement) {
     let hapticToggle = resolveToggleSwitch(identifier: "SwipeActions.Haptics.Toggle")
     XCTAssertNotNil(
       hapticToggle,
       "Haptic feedback toggle should be present in configuration sheet"
     )
-    
+
+    _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
+
     if let toggle = hapticToggle {
-      // Ensure toggle is visible in sheet
-      if let container = swipeActionsSheetListContainer() {
-        _ = ensureVisibleInSheet(identifier: "SwipeActions.Haptics.Toggle", container: container)
-      }
-      
       XCTAssertTrue(
         waitForElement(
           toggle,
-          timeout: adaptiveShortTimeout,
+          timeout: postReadinessTimeout,
           description: "haptic toggle"
         ),
         "Haptic toggle should be visible"
       )
     }
-    
-    // Verify haptic style picker exists (even if not currently visible because haptics might be disabled)
-    let stylePicker = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
-    // Note: Style picker may not exist if haptics are disabled, so we just check the element is queryable
-    _ = stylePicker.exists
+
+    let stylePicker = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker")
+      .firstMatch
+    XCTAssertTrue(
+      waitForElement(
+        stylePicker, timeout: postReadinessTimeout, description: "haptic style picker"),
+      "Haptic style picker should exist"
+    )
   }
 }

@@ -360,11 +360,11 @@ private struct ExpandedPlayerPreview: View {
     }
 
     let presenter = PlaybackAlertPresenter()
-    let vm = ExpandedPlayerViewModel(
+    let previewViewModel = ExpandedPlayerViewModel(
       playbackService: stubPlayer,
       alertPresenter: presenter
     )
-    _viewModel = StateObject(wrappedValue: vm)
+    _viewModel = StateObject(wrappedValue: previewViewModel)
   }
 
   var body: some View {
