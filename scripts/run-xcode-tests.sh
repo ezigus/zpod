@@ -2385,7 +2385,7 @@ test_package_target() {
     log_error "Package tests failed (${package}) status ${pkg_status} -> $RESULT_LOG"
     add_summary "test" "package ${package}" "error" "$RESULT_LOG" "" "" "" "" "failed"
     update_exit_status "$pkg_status"
-    return "$pkg_status"
+    return 0  # Continue with other packages despite failure
   fi
 
   log_success "Package tests finished -> $RESULT_LOG"

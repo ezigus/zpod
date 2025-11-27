@@ -114,8 +114,8 @@ extension SwipeConfigurationTestCase {
       return false
     }
 
-    // Read UISettings JSON from defaults (same key used by SettingsRepository)
-    guard let data = defaults.data(forKey: "UISettings"),
+    // Read global_ui_settings JSON from defaults (same key used by app's test seeding)
+    guard let data = defaults.data(forKey: "global_ui_settings"),
           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let swipeActionsJSON = json["swipeActions"] as? [String: Any]
     else {
