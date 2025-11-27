@@ -17,6 +17,17 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testPlaybackPresetAppliesCorrectly() throws {
+    // GIVEN: User opens swipe configuration sheet with default settings
+    // WHEN: User taps the "Playback" preset button
+    // THEN: Configuration updates to Playback preset:
+    //       - Leading: "Play", "Add to Playlist"
+    //       - Trailing: "Download", "Favorite"
+    //       - Save button becomes enabled (draft has unsaved changes)
+    //
+    // Spec: Issue #02.6.3 - Preset Selection Test 1
+    // Validates that the Playback preset applies the correct action configuration
+    // optimized for playback control scenarios.
+
     try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Playback")
     assertSaveEnabledAfterPreset()
@@ -28,6 +39,17 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testOrganizationPresetAppliesCorrectly() throws {
+    // GIVEN: User opens swipe configuration sheet with default settings
+    // WHEN: User taps the "Organization" preset button
+    // THEN: Configuration updates to Organization preset:
+    //       - Leading: "Mark Played", "Favorite"
+    //       - Trailing: "Archive", "Delete"
+    //       - Save button becomes enabled (draft has unsaved changes)
+    //
+    // Spec: Issue #02.6.3 - Preset Selection Test 2
+    // Validates that the Organization preset applies the correct action
+    // configuration optimized for library organization workflows.
+
     try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Organization")
     assertSaveEnabledAfterPreset()
@@ -39,6 +61,17 @@ final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testDownloadPresetAppliesCorrectly() throws {
+    // GIVEN: User opens swipe configuration sheet with default settings
+    // WHEN: User taps the "Download" preset button
+    // THEN: Configuration updates to Download preset:
+    //       - Leading: "Download", "Mark Played"
+    //       - Trailing: "Archive", "Delete"
+    //       - Save button becomes enabled (draft has unsaved changes)
+    //
+    // Spec: Issue #02.6.3 - Preset Selection Test 3
+    // Validates that the Download preset applies the correct action
+    // configuration optimized for offline listening workflows.
+
     try reuseOrOpenConfigurationSheet(resetDefaults: true)
     applyPreset(identifier: "SwipeActions.Preset.Download")
     assertSaveEnabledAfterPreset()

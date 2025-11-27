@@ -13,6 +13,26 @@ final class SwipeExecutionTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testLeadingAndTrailingSwipesExecute() throws {
+    // GIVEN: App launches with seeded swipe configuration:
+    //        - Leading: "Play", "Add to Playlist"
+    //        - Trailing: "Download", "Favorite"
+    //        - Haptics enabled with "Rigid" style
+    // WHEN: User dismisses configuration sheet and performs swipe gestures:
+    //       1. Swipes right on episode to reveal leading actions
+    //       2. Taps "Add to Playlist" action
+    //       3. Swipes left on episode to reveal trailing actions
+    //       4. Taps "Favorite" action
+    // THEN: Swipe actions execute correctly:
+    //       - Seeded configuration loads and persists (verified via debug state)
+    //       - Leading swipe reveals "Add to Playlist" button
+    //       - Trailing swipe reveals "Favorite" button
+    //       - Both actions execute with correct episode ID
+    //       - Execution records confirm action completion
+    //
+    // Spec: Issue #02.6.3 - Execution Test (Consolidated)
+    // Validates that seeded swipe configurations execute correctly from the episode
+    // list, with proper action button display and execution recording.
+
     seedSwipeConfiguration(
       leading: ["play", "addToPlaylist"],
       trailing: ["download", "favorite"],

@@ -86,6 +86,40 @@ This document outlines the UI testing approach for the main zpod application.
 | `SwipePersistenceTests.swift` | 1 | Seeds configuration via encoded payload, reopens sheet after relaunch, and verifies persisted actions + haptic state. |
 | `SwipeExecutionTests.swift` | 1 | Seeds swipe actions, dismisses the sheet, and verifies leading/trailing swipe execution with instrumentation probes in the episode list. |
 
+**Test Coverage Matrix (12 tests → Spec Traceability)**:
+
+| # | Test File | Test Method | Spec Ref | Validates |
+| --- | --- | --- | --- | --- |
+| 1 | `SwipeConfigurationUIDisplayTests` | `testConfigurationSheetOpensFromEpisodeList()` | Issue #02.6.3 - UI Display Test 1 | Sheet opens from episode list, all UI elements materialize and are accessible |
+| 2 | `SwipeConfigurationUIDisplayTests` | `testAllSectionsAppearInSheet()` | Issue #02.6.3 - UI Display Test 2 | All configuration sections (haptics, full-swipe, add actions, presets) materialize correctly via scrolling |
+| 3 | `SwipeConfigurationUIDisplayTests` | `testDefaultActionsDisplayCorrectly()` | Issue #02.6.3 - UI Display Test 3 | Default actions match factory settings (Leading: "Mark Played", Trailing: "Delete", "Archive") |
+| 4 | `SwipePresetSelectionTests` | `testPlaybackPresetAppliesCorrectly()` | Issue #02.6.3 - Preset Selection Test 1 | Playback preset applies correct configuration (Leading: Play, Add to Playlist; Trailing: Download, Favorite) |
+| 5 | `SwipePresetSelectionTests` | `testOrganizationPresetAppliesCorrectly()` | Issue #02.6.3 - Preset Selection Test 2 | Organization preset applies correct configuration (Leading: Mark Played, Favorite; Trailing: Archive, Delete) |
+| 6 | `SwipePresetSelectionTests` | `testDownloadPresetAppliesCorrectly()` | Issue #02.6.3 - Preset Selection Test 3 | Download preset applies correct configuration (Leading: Download, Mark Played; Trailing: Archive, Delete) |
+| 7 | `SwipeToggleInteractionTests` | `testHapticToggleEnablesDisables()` | Issue #02.6.3 - Toggle Interaction Test 1 | Haptic feedback toggle updates draft state correctly and persists across multiple toggle operations |
+| 8 | `SwipeToggleInteractionTests` | `testHapticStylePickerChangesValue()` | Issue #02.6.3 - Toggle Interaction Test 2 | Haptic style picker (Soft/Medium/Rigid) responds to taps and is visible only when haptics enabled |
+| 9 | `SwipeToggleInteractionTests` | `testFullSwipeToggleLeadingTrailing()` | Issue #02.6.3 - Toggle Interaction Test 3 | Full-swipe toggles operate independently for leading/trailing edges and update draft state correctly |
+| 10 | `SwipeActionManagementTests` | `testManagingActionsEndToEnd()` | Issue #02.6.3 - Action Management Test (Consolidated) | Complete workflow: add actions to cap (3 max), verify limit enforcement, remove actions, add trailing actions |
+| 11 | `SwipePersistenceTests` | `testSeededConfigurationPersistsAcrossControls()` | Issue #02.6.3 - Persistence Test (Consolidated) | Seeded configurations via UserDefaults persist correctly: actions, full-swipe toggles, haptic settings all survive relaunch |
+| 12 | `SwipeExecutionTests` | `testLeadingAndTrailingSwipesExecute()` | Issue #02.6.3 - Execution Test (Consolidated) | Seeded swipe actions execute correctly from episode list with proper action button display and execution recording |
+
+**Scenario Coverage Summary**:
+
+| Scenario Category | Tests | Coverage Status |
+| --- | --- | --- |
+| **UI Display & Materialization** | Tests 1-3 | ✅ Complete: Sheet opening, section visibility, default configuration rendering |
+| **Preset Application** | Tests 4-6 | ✅ Complete: All 3 presets (Playback, Organization, Download) apply correct configurations |
+| **Toggle Interactions** | Tests 7-9 | ✅ Complete: Haptic toggle, style picker, full-swipe toggles (both edges) |
+| **Action Management** | Test 10 | ✅ Complete: Add/remove actions, limit enforcement (3-action cap) |
+| **Persistence** | Test 11 | ✅ Complete: UserDefaults seeding persists across all configuration controls |
+| **Execution** | Test 12 | ✅ Complete: Swipe gestures execute configured actions on both edges |
+
+**Spec → Test Mapping**:
+
+- `Issues/02.1-episode-list-management-ui.md` Scenario 6 (Swipe Gestures): Tests 1-12
+- `spec/ui.md` Customizing Swipe Gestures: Tests 4-6 (presets), Tests 7-9 (toggles)
+- Issue #02.6.3 Acceptance Criteria: All 12 tests provide complete coverage of decomposed scenarios
+
 **Latest targeted runtimes (2025‑11‑19 runs via `./scripts/run-xcode-tests.sh -t …`)**:
 
 | Suite | Tests | Phase Runtime | Result Log |
@@ -151,6 +185,78 @@ Each test phase time excludes the initial build (handled once by preflight). The
 - No artificial `Thread.sleep()` or polling - responds to actual UI events
 - Timeout = Failure: tests fail immediately when elements don't appear within timeout
 - Helper functions: `waitForElement()`, `waitForAnyElement()`, `waitForLoadingToComplete()`
+
+### Index-Based Collection Enumeration
+
+The SwipeConfiguration test infrastructure uses explicit index-based enumeration (`element(boundBy: i)`) instead of relying solely on `.firstMatch` when searching for UI elements. This pattern is necessary due to XCUITest's limitations with SwiftUI's dynamic view hierarchy.
+
+**Why Index-Based Enumeration Is Required**:
+
+1. **SwiftUI Sheet Window Ambiguity**: SwiftUI sheets can appear in multiple windows depending on:
+   - iPad split-view configurations
+   - Multi-scene setups
+   - Runtime presentation context (sheet vs fullScreenCover vs popover)
+
+2. **Container Type Variability**: The SwiftUI List in `SwipeActionConfigurationView` may be backed by:
+   - `UITableView` (appears as `.table` in XCUITest)
+   - `UICollectionView` (appears as `.collectionView`)
+   - `UIScrollView` (appears as `.scrollView`)
+   - The backing type can change between iOS versions or SwiftUI updates
+
+3. **FirstMatch Unreliability**: Using `.firstMatch` alone fails when:
+   - Multiple containers exist with similar content
+   - The first match in hierarchy order isn't the visible/active sheet
+   - SwiftUI renders placeholder/offscreen containers that match the predicate
+
+**Implementation Pattern** (SwipeConfigurationTestSupport+SheetUtilities.swift:40-84):
+
+```swift
+// Enumerate ALL windows to find candidates
+let windows = app.windows.matching(NSPredicate(value: true))
+for i in 0..<windows.count {
+  let win = windows.element(boundBy: i)
+  // Check if window contains swipe-related elements
+  if win.descendants(matching: .any)["Swipe Actions"].exists {
+    candidateWindows.append(win)
+  }
+}
+
+// For each candidate window, enumerate ALL potential container types
+func searchContainer(in root: XCUIElement) -> XCUIElement? {
+  // Try tables
+  let tables = root.tables.matching(NSPredicate(value: true))
+  for i in 0..<tables.count {
+    let table = tables.element(boundBy: i)
+    if table.exists && containsSwipeElements(table) {
+      return table
+    }
+  }
+
+  // Try collections
+  let collections = root.collectionViews.matching(NSPredicate(value: true))
+  for i in 0..<collections.count {
+    let candidate = collections.element(boundBy: i)
+    if candidate.exists && containsSwipeElements(candidate) {
+      return candidate
+    }
+  }
+
+  // Try scroll views as fallback
+  // ... similar pattern
+}
+```
+
+**Optimization Strategy**: The current implementation combines defensive enumeration with fast-path optimization:
+- **Fast path** (lines 34-38): Try explicit identifier lookup first (`SwipeActions.List`)
+- **Defensive fallback** (lines 40-86): If fast path fails, enumerate all possibilities
+- **Result**: Typical case resolves in <100ms; worst case still succeeds within 500ms
+
+**When To Use This Pattern**:
+- ✅ **Use** for discovering SwiftUI sheets/modals where container type is unknown
+- ✅ **Use** when multiple windows might contain matching elements
+- ✅ **Use** when SwiftUI backing view type varies across iOS versions
+- ❌ **Avoid** for simple element lookups within a known container (use `.firstMatch`)
+- ❌ **Avoid** when accessibility identifier uniquely identifies the element
 
 ### Adaptive Timeout Scaling (Issue 12.7)
 
