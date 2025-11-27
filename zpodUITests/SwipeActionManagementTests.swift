@@ -13,6 +13,23 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testManagingActionsEndToEnd() throws {
+    // GIVEN: User opens swipe configuration sheet with default settings
+    // WHEN: User performs action management operations:
+    //       1. Adds actions to leading edge until cap is reached (3 max)
+    //       2. Verifies leading add button disappears at cap
+    //       3. Removes an action from leading edge
+    //       4. Adds an action to trailing edge
+    // THEN: Action management behaves correctly:
+    //       - Actions are added/removed successfully
+    //       - Debug state reflects changes after each operation
+    //       - Add buttons appear/disappear based on cap limits
+    //       - Save button enables when unsaved changes exist
+    //       - Trailing add button remains visible when under limit
+    //
+    // Spec: Issue #02.6.3 - Action Management Test (Consolidated)
+    // Validates the complete action management workflow including add, remove,
+    // and limit enforcement behaviors.
+
     try reuseOrOpenConfigurationSheet(resetDefaults: true)
     assertDefaultConfiguration()
 

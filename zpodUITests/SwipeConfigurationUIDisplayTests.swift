@@ -21,11 +21,31 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testConfigurationSheetOpensFromEpisodeList() throws {
+    // GIVEN: User is viewing the episode list
+    // WHEN: User taps the swipe configuration settings button
+    // THEN: The swipe configuration sheet opens and is accessible
+    //
+    // Spec: Issue #02.6.3 - UI Display Test 1
+    // Validates that the configuration sheet can be opened from the episode list
+    // and that all UI elements are properly materialized and accessible.
+
     _ = try reuseOrOpenConfigurationSheet()
   }
 
   @MainActor
   func testAllSectionsAppearInSheet() throws {
+    // GIVEN: User opens the swipe configuration sheet with default settings
+    // WHEN: The sheet finishes loading and sections materialize
+    // THEN: All expected UI sections are present and visible:
+    //       - Haptics toggle and style picker
+    //       - Full swipe toggles for leading/trailing edges
+    //       - Add action buttons for both edges
+    //       - Preset buttons (Playback, Organization, Download)
+    //
+    // Spec: Issue #02.6.3 - UI Display Test 2
+    // Validates that all configuration sections materialize correctly and are
+    // accessible via scrolling. Tests SwiftUI lazy-loading behavior.
+
     guard let container = try reuseOrOpenConfigurationSheet(resetDefaults: true) else {
       XCTFail("Swipe configuration sheet container should be discoverable")
       return
@@ -58,6 +78,17 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
 
   @MainActor
   func testDefaultActionsDisplayCorrectly() throws {
+    // GIVEN: User opens the swipe configuration sheet
+    // WHEN: Sheet displays with factory default configuration
+    // THEN: Default actions are correctly displayed:
+    //       - Leading: "Mark Played"
+    //       - Trailing: "Delete", "Archive"
+    //       - Haptic toggle and style picker are visible
+    //
+    // Spec: Issue #02.6.3 - UI Display Test 3
+    // Validates that the default action configuration matches the expected
+    // factory settings and that all controls are properly rendered.
+
     guard let container = try reuseOrOpenConfigurationSheet() else {
       XCTFail("Swipe configuration sheet container should be discoverable")
       return
