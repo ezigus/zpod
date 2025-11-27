@@ -317,7 +317,6 @@ extension SwipeConfigurationTestCase {
     let summary = (["Context: \(context)\(scoped ? " [scoped]" : "")"] + identifiers).joined(
       separator: "\n")
     logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
-    print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot\(scoped ? " (Scoped)" : "")"
     attachment.lifetime = XCTAttachment.Lifetime.keepAlways
@@ -329,7 +328,7 @@ extension SwipeConfigurationTestCase {
         let type = element.elementType.rawValue
         return "[type=\(type)] id='\(element.identifier)' label='\(element.label)'"
       }.joined(separator: "\n")
-      print("[SwipeUITestDebug] Scoped elements (\(context)):\n\(elements)")
+      logger.debug("[SwipeUITestDebug] Scoped elements (\(context, privacy: .public)):\n\(elements, privacy: .public)")
     }
   }
 
@@ -346,7 +345,6 @@ extension SwipeConfigurationTestCase {
     let identifiers = Set(filtered.map { $0.identifier }).sorted()
     let summary = (["Context: \(context) [scoped]"] + identifiers).joined(separator: "\n")
     logger.debug("[SwipeUITestDebug] \(summary, privacy: .public)")
-    print("[SwipeUITestDebug] \(summary)")
     let attachment = XCTAttachment(string: summary)
     attachment.name = "Swipe Identifier Snapshot (Scoped)"
     attachment.lifetime = .keepAlways

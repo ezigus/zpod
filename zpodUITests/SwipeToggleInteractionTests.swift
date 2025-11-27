@@ -116,20 +116,18 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
 
     // Change to Rigid style
     let rigidButton = stylePicker.buttons.matching(identifier: "Rigid").firstMatch
-    if rigidButton.exists {
+    if rigidButton.waitForExistence(timeout: postReadinessTimeout) {
       rigidButton.tap()
     }
 
     // Verify we can change to Medium style
     let mediumButton = stylePicker.buttons.matching(identifier: "Medium").firstMatch
     XCTAssertTrue(
-      mediumButton.exists,
+      mediumButton.waitForExistence(timeout: postReadinessTimeout),
       "Medium style button should exist in picker"
     )
-
-    if mediumButton.exists {
-      mediumButton.tap()
-    }
+    // Assertion above guarantees existence, tap directly
+    mediumButton.tap()
   }
   
   @MainActor

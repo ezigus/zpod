@@ -23,6 +23,8 @@
     @State private var pendingAddEdge: SwipeConfigurationController.SwipeEdge?
     @State private var materializationTriggered = false
     @State private var materializationComplete = false
+    @State private var saveError: Error?
+    @State private var showSaveErrorAlert = false
 
     public init(
       controller: SwipeConfigurationController,
@@ -125,10 +127,22 @@
             }
           }
           .navigationTitle("Swipe Actions")
+          .alert("Save Failed", isPresented: $showSaveErrorAlert) {
+            Button("OK") {
+              showSaveErrorAlert = false
+            }
+          } message: {
+            if let error = saveError {
+              Text("Could not save swipe configuration: \(error.localizedDescription)")
+            } else {
+              Text("Could not save swipe configuration. Please try again.")
+            }
+          }
           .toolbar {
             ToolbarItem(placement: .cancellationAction) {
               Button("Cancel") { dismiss() }
                 .accessibilityIdentifier("SwipeActions.Cancel")
+                .accessibilityHint("Discard changes and close swipe configuration")
             }
             ToolbarItem(placement: .confirmationAction) {
               Button("Save") {
@@ -138,12 +152,15 @@
                     onSave?(controller.currentConfiguration)
                     dismiss()
                   } catch {
-                    // TODO: surface error state when service throws
+                    Self.logger.error("Failed to save swipe configuration: \(error.localizedDescription)")
+                    saveError = error
+                    showSaveErrorAlert = true
                   }
                 }
               }
               .disabled(!controller.hasUnsavedChanges || controller.isSaving)
               .accessibilityIdentifier("SwipeActions.Save")
+              .accessibilityHint("Save swipe configuration and close")
             }
           }
         }
@@ -172,8 +189,7 @@
     }
 
     private var leadingSection: some View {
-      print("[SwipeConfigView] ⚠️ leadingSection computed property accessed")
-      return Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
+      Section(header: Text(String(localized: "Leading Actions", bundle: .main))) {
         ForEach(controller.leadingActions, id: \.self) { action in
           actionRow(for: action, edge: .leading)
         }
@@ -188,6 +204,7 @@
         ) { newValue in
           debugLog("UI toggled leading full swipe -> \(newValue)")
         }
+        .accessibilityHint("Enable to execute first leading action when swiping fully across episode")
 
         if controller.canAddMoreActions(to: .leading) {
           addActionTrigger(for: .leading)
@@ -196,8 +213,7 @@
     }
 
     private var trailingSection: some View {
-      print("[SwipeConfigView] ⚠️ trailingSection computed property accessed")
-      return Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
+      Section(header: Text(String(localized: "Trailing Actions", bundle: .main))) {
         ForEach(controller.trailingActions, id: \.self) { action in
           actionRow(for: action, edge: .trailing)
         }
@@ -212,6 +228,7 @@
         ) { newValue in
           debugLog("UI toggled trailing full swipe -> \(newValue)")
         }
+        .accessibilityHint("Enable to execute first trailing action when swiping fully across episode")
 
         if controller.canAddMoreActions(to: .trailing) {
           addActionTrigger(for: .trailing)
@@ -233,6 +250,7 @@
           guard newValue else { return }
           hapticsService.selectionChanged()
         }
+        .accessibilityHint("Enable vibration feedback when performing swipe actions")
 
         SettingsSegmentedPickerRow(
           "Intensity",
@@ -245,6 +263,7 @@
         ) { style in
           Text(style.description).tag(style)
         }
+        .accessibilityHint("Choose haptic feedback intensity: soft, medium, or rigid")
         .disabled(!controller.hapticsEnabled)
         .onChange(of: controller.hapticStyle) { newStyle in
           hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
@@ -310,6 +329,7 @@
         }
       }
       .accessibilityIdentifier("SwipeActions.Add." + edgeIdentifier(edge))
+      .accessibilityHint("Add a new swipe action to \(edgeIdentifier(edge).lowercased()) edge")
     }
 
     private func edgeIdentifier(_ edge: SwipeConfigurationController.SwipeEdge) -> String {
@@ -345,6 +365,7 @@
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Remove \(action.displayName)")
+        .accessibilityHint("Remove this action from \(edgeIdentifier(edge).lowercased()) swipe gestures")
       }
       .padding(.vertical, 8)
       .contentShape(Rectangle())
@@ -372,6 +393,7 @@
         }
         controller.applyPreset(preset)
       }
+      .accessibilityHint("Apply \(title.lowercased()) configuration preset")
     }
 
     private func isPresetActive(_ preset: SwipeActionSettings) -> Bool {

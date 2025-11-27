@@ -139,7 +139,6 @@ extension SwipeConfigurationTestCase {
       logger.debug(
         "[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier, privacy: .public)"
       )
-      print("[SwipeUITestDebug] ensureVisibleInSheet container missing for \(identifier)")
     }
 
     var target = element(withIdentifier: identifier, within: scrollContainer)
@@ -245,7 +244,6 @@ extension SwipeConfigurationTestCase {
       logger.debug(
         "[SwipeUITestDebug] unable to surface \(identifier, privacy: .public) after \(downwardSweeps) downward sweeps"
       )
-      print("[SwipeUITestDebug] unable to surface \(identifier) after \(downwardSweeps) downward sweeps")
     }
 
     return target.exists
