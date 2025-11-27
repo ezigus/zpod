@@ -159,9 +159,9 @@ extension SwipeConfigurationTestCase {
     if target.exists { return true }
 
     // OPTIMIZATION: With SwipeActionConfigurationView's UITEST_SWIPE_PRELOAD_SECTIONS,
-    // sections are pre-materialized. Reduce from (1↑ + 2↓ + 1↑) to (1↑ + 1↓)
-    let downwardSweeps = max(scrollAttempts, 1)  // Reduced from 2 to 1
-    let upwardSweeps = 0  // Skip upward sweep - rarely needed with pre-materialization
+    // sections are pre-materialized. Reduce downward sweeps minimum from 2 to 1.
+    let downwardSweeps = max(scrollAttempts, 1)
+    let upwardSweeps = 1  // Walk back up to catch elements we scrolled past
 
     enum ScrollDirection {
       case towardsBottom
