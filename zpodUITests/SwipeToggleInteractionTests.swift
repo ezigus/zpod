@@ -126,10 +126,8 @@ final class SwipeToggleInteractionTests: SwipeConfigurationTestCase {
       mediumButton.waitForExistence(timeout: postReadinessTimeout),
       "Medium style button should exist in picker"
     )
-
-    if mediumButton.waitForExistence(timeout: postReadinessTimeout) {
-      mediumButton.tap()
-    }
+    // Assertion above guarantees existence, tap directly
+    mediumButton.tap()
   }
   
   @MainActor
