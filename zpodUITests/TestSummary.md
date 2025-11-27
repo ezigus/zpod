@@ -86,7 +86,7 @@ This document outlines the UI testing approach for the main zpod application.
 | `SwipePersistenceTests.swift` | 1 | Seeds configuration via encoded payload, reopens sheet after relaunch, and verifies persisted actions + haptic state. |
 | `SwipeExecutionTests.swift` | 1 | Seeds swipe actions, dismisses the sheet, and verifies leading/trailing swipe execution with instrumentation probes in the episode list. |
 
-**Test Coverage Matrix (12 tests → Spec Traceability)**:
+### Test Coverage Matrix (12 tests → Spec Traceability)
 
 | # | Test File | Test Method | Spec Ref | Validates |
 | --- | --- | --- | --- | --- |
@@ -103,7 +103,7 @@ This document outlines the UI testing approach for the main zpod application.
 | 11 | `SwipePersistenceTests` | `testSeededConfigurationPersistsAcrossControls()` | Issue #02.6.3 - Persistence Test (Consolidated) | Seeded configurations via UserDefaults persist correctly: actions, full-swipe toggles, haptic settings all survive relaunch |
 | 12 | `SwipeExecutionTests` | `testLeadingAndTrailingSwipesExecute()` | Issue #02.6.3 - Execution Test (Consolidated) | Seeded swipe actions execute correctly from episode list with proper action button display and execution recording |
 
-**Scenario Coverage Summary**:
+### Scenario Coverage Summary
 
 | Scenario Category | Tests | Coverage Status |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ This document outlines the UI testing approach for the main zpod application.
 | **Persistence** | Test 11 | ✅ Complete: UserDefaults seeding persists across all configuration controls |
 | **Execution** | Test 12 | ✅ Complete: Swipe gestures execute configured actions on both edges |
 
-**Spec → Test Mapping**:
+### Spec → Test Mapping
 
 - `Issues/02.1-episode-list-management-ui.md` Scenario 6 (Swipe Gestures): Tests 1-12
 - `spec/ui.md` Customizing Swipe Gestures: Tests 4-6 (presets), Tests 7-9 (toggles)
@@ -208,7 +208,9 @@ The SwipeConfiguration test infrastructure uses explicit index-based enumeration
    - The first match in hierarchy order isn't the visible/active sheet
    - SwiftUI renders placeholder/offscreen containers that match the predicate
 
-**Implementation Pattern** (SwipeConfigurationTestSupport+SheetUtilities.swift:40-84):
+### Implementation Pattern
+
+(SwipeConfigurationTestSupport+SheetUtilities.swift:40-84):
 
 ```swift
 // Enumerate ALL windows to find candidates
@@ -251,7 +253,7 @@ func searchContainer(in root: XCUIElement) -> XCUIElement? {
 - **Defensive fallback** (lines 40-86): If fast path fails, enumerate all possibilities
 - **Result**: Typical case resolves in <100ms; worst case still succeeds within 500ms
 
-**When To Use This Pattern**:
+### When To Use This Pattern
 - ✅ **Use** for discovering SwiftUI sheets/modals where container type is unknown
 - ✅ **Use** when multiple windows might contain matching elements
 - ✅ **Use** when SwiftUI backing view type varies across iOS versions
