@@ -56,7 +56,9 @@ extension SwipeConfigurationTestCase {
   func revealLeadingSwipeActions(for element: XCUIElement) {
     element.swipeRight()
 
-    if app.buttons.matching(identifier: "SwipeAction.addToPlaylist").firstMatch.exists {
+    if app.buttons.matching(identifier: "SwipeAction.addToPlaylist").firstMatch.waitForExistence(
+      timeout: 0.5
+    ) {
       return
     }
 
