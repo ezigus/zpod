@@ -3,276 +3,237 @@
 //  zpodUITests
 //
 //  Created for Issue 02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
-//  Provides retry mechanisms for operations that may fail due to timing/async issues
+//  Provides diagnostic helpers and minimal wait utilities
 //
-//  Addresses: 70% of test failures (timing/synchronization category)
+//  Philosophy: UI elements appear "immediately or not at all" - if element isn't there,
+//  fix the root cause (scroll, verify state, clean setup) instead of retrying.
 //
 
 import Foundation
 import XCTest
 
-// MARK: - Retry Errors
+// MARK: - Test Errors
 
-/// Errors that can occur during retry operations
-enum TestRetryError: Error, CustomStringConvertible {
-  case elementNotFound(identifier: String)
-  case elementNotHittable(identifier: String)
-  case operationFailed(reason: String)
-  case maxAttemptsExceeded(attempts: Int, lastError: Error?)
+/// Errors that can occur during test operations
+enum TestError: Error, CustomStringConvertible {
+  case elementNotFound(identifier: String, context: String? = nil)
+  case elementNotHittable(identifier: String, context: String? = nil)
+  case stateNotReady(description: String)
+  case preconditionFailed(condition: String)
 
   var description: String {
     switch self {
-    case .elementNotFound(let id):
+    case .elementNotFound(let id, let context):
+      if let context = context {
+        return "Element not found: '\(id)' - \(context)"
+      }
       return "Element not found: '\(id)'"
-    case .elementNotHittable(let id):
+    case .elementNotHittable(let id, let context):
+      if let context = context {
+        return "Element not hittable: '\(id)' - \(context)"
+      }
       return "Element not hittable: '\(id)'"
-    case .operationFailed(let reason):
-      return "Operation failed: \(reason)"
-    case .maxAttemptsExceeded(let attempts, let lastError):
-      if let error = lastError {
-        return "Max retry attempts (\(attempts)) exceeded. Last error: \(error)"
-      }
-      return "Max retry attempts (\(attempts)) exceeded"
+    case .stateNotReady(let description):
+      return "State not ready: \(description)"
+    case .preconditionFailed(let condition):
+      return "Precondition failed: \(condition)"
     }
   }
 }
 
-// MARK: - Retry Mechanism
-
-extension XCTestCase {
-
-  /// Retries an operation that may fail due to timing or async issues
-  ///
-  /// This helper addresses timing/synchronization failures by automatically retrying
-  /// operations with exponential backoff. Useful for operations that interact with
-  /// async UI updates, network responses, or state transitions.
-  ///
-  /// Example:
-  /// ```swift
-  /// let value = try retryOnFailure(attempts: 3, delay: 0.5) {
-  ///   guard someAsyncState.isReady else {
-  ///     throw TestRetryError.operationFailed(reason: "State not ready")
-  ///   }
-  ///   return someAsyncState.value
-  /// }
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Initial delay between attempts in seconds (default: 0.5)
-  ///   - useExponentialBackoff: Whether to use exponential backoff (default: true)
-  ///   - operation: The operation to retry
-  /// - Returns: The result of the operation if successful
-  /// - Throws: `TestRetryError.maxAttemptsExceeded` if all attempts fail
-  @MainActor
-  func retryOnFailure<T>(
-    attempts: Int = 3,
-    delay: TimeInterval = 0.5,
-    useExponentialBackoff: Bool = true,
-    operation: () throws -> T
-  ) rethrows -> T {
-    var lastError: Error?
-    var currentDelay = delay
-
-    for attempt in 1...attempts {
-      do {
-        return try operation()
-      } catch {
-        lastError = error
-
-        if attempt < attempts {
-          // Sleep before retry
-          Thread.sleep(forTimeInterval: currentDelay)
-
-          // Exponential backoff: 0.5s -> 1.0s -> 2.0s
-          if useExponentialBackoff {
-            currentDelay *= 2
-          }
-        }
-      }
-    }
-
-    // All attempts failed
-    throw TestRetryError.maxAttemptsExceeded(attempts: attempts, lastError: lastError)
-  }
-
-  /// Retries element discovery with automatic existence checking
-  ///
-  /// This helper wraps element queries with automatic retry logic, addressing
-  /// SwiftUI lazy materialization and async view updates that cause "element not found"
-  /// failures.
-  ///
-  /// Example:
-  /// ```swift
-  /// let button = try retryElementDiscovery(attempts: 3) {
-  ///   app.buttons["Submit"]
-  /// } operation: { element in
-  ///   XCTAssertTrue(element.exists, "Button should exist")
-  ///   element.tap()
-  ///   return element
-  /// }
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Delay between attempts in seconds (default: 0.5)
-  ///   - query: Closure that returns the element to discover
-  ///   - operation: Operation to perform on the discovered element
-  /// - Returns: The result of the operation
-  /// - Throws: `TestRetryError.elementNotFound` if element never appears
-  @MainActor
-  func retryElementDiscovery<T>(
-    attempts: Int = 3,
-    delay: TimeInterval = 0.5,
-    query: () -> XCUIElement,
-    operation: (XCUIElement) throws -> T
-  ) rethrows -> T {
-    return try retryOnFailure(attempts: attempts, delay: delay) {
-      let element = query()
-      guard element.exists else {
-        throw TestRetryError.elementNotFound(identifier: element.identifier)
-      }
-      return try operation(element)
-    }
-  }
-
-  /// Retries element tap with hittability checking
-  ///
-  /// Ensures element is both existent and hittable before attempting tap,
-  /// with automatic retry on failure. Addresses race conditions where elements
-  /// exist but aren't yet interactive.
-  ///
-  /// Example:
-  /// ```swift
-  /// try retryTap(on: app.buttons["Submit"], attempts: 3)
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - element: The element to tap
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Delay between attempts in seconds (default: 0.5)
-  ///   - description: Description for error messages
-  /// - Throws: `TestRetryError.elementNotHittable` if element never becomes hittable
-  @MainActor
-  func retryTap(
-    on element: XCUIElement,
-    attempts: Int = 3,
-    delay: TimeInterval = 0.5,
-    description: String? = nil
-  ) throws {
-    try retryOnFailure(attempts: attempts, delay: delay) {
-      guard element.exists else {
-        let desc = description ?? element.identifier
-        throw TestRetryError.elementNotFound(identifier: desc)
-      }
-
-      guard element.isHittable else {
-        let desc = description ?? element.identifier
-        throw TestRetryError.elementNotHittable(identifier: desc)
-      }
-
-      element.tap()
-    }
-  }
-
-  /// Retries an assertion with automatic retry on failure
-  ///
-  /// Useful for assertions that depend on async state updates. Instead of failing
-  /// immediately, retries the assertion multiple times to allow state to stabilize.
-  ///
-  /// Example:
-  /// ```swift
-  /// try retryAssertion(attempts: 3) {
-  ///   XCTAssertTrue(element.isSelected, "Element should be selected")
-  /// }
-  /// ```
-  ///
-  /// - Parameters:
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Delay between attempts in seconds (default: 0.5)
-  ///   - assertion: The assertion to retry
-  /// - Throws: The last assertion error if all attempts fail
-  @MainActor
-  func retryAssertion(
-    attempts: Int = 3,
-    delay: TimeInterval = 0.5,
-    assertion: () throws -> Void
-  ) rethrows {
-    try retryOnFailure(attempts: attempts, delay: delay, operation: assertion)
-  }
-}
-
-// MARK: - XCUIElement Retry Extensions
+// MARK: - Minimal Wait Helpers
 
 extension XCUIElement {
 
-  /// Taps the element with automatic retry on failure
+  /// Waits briefly for element after page load or scroll
   ///
-  /// Convenience method for retrying taps without explicitly calling retryTap.
-  /// Automatically waits for element to be hittable before tapping.
+  /// Use ONLY for:
+  /// 1. Initial page load (things settling)
+  /// 2. Immediately after scroll (SwiftUI lazy materialization)
+  ///
+  /// If element doesn't appear within short timeout, it won't appear - fix the root cause:
+  /// - Scroll to reveal it (discoverWithScrolling)
+  /// - Verify state is correct (diagnoseElementAbsence)
+  /// - Check preconditions (data loaded, modal dismissed, etc.)
   ///
   /// Example:
   /// ```swift
-  /// try app.buttons["Submit"].tapWithRetry(attempts: 3)
+  /// scrollView.swipeUp()
+  /// // Wait briefly for SwiftUI to materialize newly visible elements
+  /// XCTAssertTrue(element.waitBriefly(timeout: 0.5))
+  /// ```
+  ///
+  /// - Parameter timeout: Short timeout (default: 0.5s, max recommended: 1.0s)
+  /// - Returns: True if element appeared
+  @MainActor
+  func waitBriefly(timeout: TimeInterval = 0.5) -> Bool {
+    return self.waitForExistence(timeout: timeout)
+  }
+
+  /// Waits for element to appear after page/view loads
+  ///
+  /// Use when transitioning to a new view and waiting for initial elements to settle.
+  /// Longer than waitBriefly but still short - if element doesn't appear, something is wrong.
+  ///
+  /// Example:
+  /// ```swift
+  /// app.buttons["Settings"].tap()
+  /// let settingsView = app.otherElements["Settings.Container"]
+  /// XCTAssertTrue(settingsView.waitForPageLoad(timeout: 2.0))
+  /// ```
+  ///
+  /// - Parameter timeout: Page load timeout (default: 2.0s, max recommended: 3.0s)
+  /// - Returns: True if element appeared
+  @MainActor
+  func waitForPageLoad(timeout: TimeInterval = 2.0) -> Bool {
+    return self.waitForExistence(timeout: timeout)
+  }
+}
+
+// MARK: - Diagnostic Helpers
+
+extension XCTestCase {
+
+  /// Diagnoses why an element isn't appearing
+  ///
+  /// Instead of retrying, understand the root cause. Checks preconditions and provides
+  /// actionable feedback about what's wrong.
+  ///
+  /// Example:
+  /// ```swift
+  /// let button = app.buttons["Submit"]
+  /// guard button.exists else {
+  ///   let diagnosis = diagnoseElementAbsence(button, preconditions: [
+  ///     "Data loaded": { !app.activityIndicators.firstMatch.exists },
+  ///     "Modal dismissed": { !app.sheets.firstMatch.exists },
+  ///     "Scrolled into view": { /* check scroll position */ }
+  ///   ])
+  ///   XCTFail("Submit button not found:\n\(diagnosis)")
+  ///   return
+  /// }
   /// ```
   ///
   /// - Parameters:
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Delay between attempts in seconds (default: 0.5)
-  /// - Throws: `TestRetryError` if tap never succeeds
+  ///   - element: The element that should exist but doesn't
+  ///   - preconditions: Dictionary of condition name -> check closure
+  /// - Returns: Diagnostic message explaining what's wrong
   @MainActor
-  func tapWithRetry(attempts: Int = 3, delay: TimeInterval = 0.5) throws {
-    var lastError: Error?
-    var currentDelay = delay
+  func diagnoseElementAbsence(
+    _ element: XCUIElement,
+    preconditions: [String: () -> Bool] = [:]
+  ) -> String {
+    guard !element.exists else {
+      return "✅ Element exists (identifier: '\(element.identifier)')"
+    }
 
-    for attempt in 1...attempts {
-      do {
-        // Check existence and hittability
-        guard self.exists else {
-          throw TestRetryError.elementNotFound(identifier: self.identifier)
-        }
-        guard self.isHittable else {
-          throw TestRetryError.elementNotHittable(identifier: self.identifier)
-        }
+    var diagnosis = "❌ Element not found: '\(element.identifier)'"
+    diagnosis += "\n   Type: \(element.elementType.rawValue)"
 
-        // Attempt tap
-        self.tap()
-        return  // Success
-
-      } catch {
-        lastError = error
-
-        if attempt < attempts {
-          Thread.sleep(forTimeInterval: currentDelay)
-          currentDelay *= 2  // Exponential backoff
-        }
+    // Check preconditions
+    if !preconditions.isEmpty {
+      diagnosis += "\n\n📋 Preconditions:"
+      for (condition, check) in preconditions.sorted(by: { $0.key < $1.key }) {
+        let passed = check()
+        diagnosis += "\n   \(passed ? "✅" : "❌") \(condition)"
       }
     }
 
-    // All attempts failed
-    throw TestRetryError.maxAttemptsExceeded(attempts: attempts, lastError: lastError)
+    // Suggestions
+    diagnosis += "\n\n💡 Possible fixes:"
+    diagnosis += "\n   • Use discoverWithScrolling() if element is off-screen"
+    diagnosis += "\n   • Verify state setup (seed applied, data loaded, etc.)"
+    diagnosis += "\n   • Check if modal/alert is blocking element"
+    diagnosis += "\n   • Ensure cleanup ran (no state pollution from previous test)"
+
+    return diagnosis
   }
 
-  /// Waits for element to exist with retry logic
+  /// Verifies preconditions before proceeding with test
   ///
-  /// Unlike `waitForExistence`, this method actively retries the query multiple times,
-  /// which can be useful for elements that appear/disappear rapidly or have unstable
-  /// view hierarchies.
+  /// Fail fast if preconditions aren't met instead of retrying operations.
   ///
-  /// - Parameters:
-  ///   - attempts: Maximum number of attempts (default: 3)
-  ///   - delay: Delay between attempts in seconds (default: 0.5)
-  /// - Returns: True if element exists within retry attempts
+  /// Example:
+  /// ```swift
+  /// verifyPreconditions([
+  ///   "Seed applied": { verifySwipeSeedApplied() },
+  ///   "App launched": { app.state == .runningForeground },
+  ///   "No modals": { !app.sheets.firstMatch.exists }
+  /// ])
+  /// ```
+  ///
+  /// - Parameter conditions: Dictionary of condition name -> check closure
   @MainActor
-  func existsWithRetry(attempts: Int = 3, delay: TimeInterval = 0.5) -> Bool {
-    for attempt in 1...attempts {
-      if self.exists {
-        return true
-      }
-      if attempt < attempts {
-        Thread.sleep(forTimeInterval: delay)
+  func verifyPreconditions(_ conditions: [String: () -> Bool]) {
+    var failures: [String] = []
+
+    for (condition, check) in conditions.sorted(by: { $0.key < $1.key }) {
+      if !check() {
+        failures.append("❌ \(condition)")
       }
     }
-    return false
+
+    guard failures.isEmpty else {
+      XCTFail("Preconditions failed:\n" + failures.joined(separator: "\n"))
+      return
+    }
+  }
+}
+
+// MARK: - Safe Tap Helper
+
+extension XCUIElement {
+
+  /// Taps element after verifying it's hittable (no retry)
+  ///
+  /// Deterministic tap - either works immediately or fails with diagnostic message.
+  /// If tap fails, fix the root cause instead of retrying.
+  ///
+  /// Example:
+  /// ```swift
+  /// try element.tapSafely(
+  ///   waitForStability: true,
+  ///   context: "Submit button in checkout flow"
+  /// )
+  /// ```
+  ///
+  /// - Parameters:
+  ///   - waitForStability: Whether to wait for frame stability first (default: false)
+  ///   - stabilityTimeout: Timeout for stability check (default: 1.0s)
+  ///   - context: Description for error messages
+  /// - Throws: TestError if element not hittable
+  @MainActor
+  func tapSafely(
+    waitForStability: Bool = false,
+    stabilityTimeout: TimeInterval = 1.0,
+    context: String? = nil
+  ) throws {
+    // Optional: wait for stability (animation complete)
+    if waitForStability {
+      guard self.waitForStable(timeout: stabilityTimeout) else {
+        throw TestError.elementNotHittable(
+          identifier: self.identifier,
+          context: context.map { "\($0) - frame never stabilized" }
+        )
+      }
+    }
+
+    // Verify element exists
+    guard self.exists else {
+      throw TestError.elementNotFound(
+        identifier: self.identifier,
+        context: context
+      )
+    }
+
+    // Verify element is hittable
+    guard self.isHittable else {
+      throw TestError.elementNotHittable(
+        identifier: self.identifier,
+        context: context
+      )
+    }
+
+    // Tap (should succeed immediately)
+    self.tap()
   }
 }
