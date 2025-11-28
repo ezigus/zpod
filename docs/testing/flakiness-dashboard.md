@@ -1,27 +1,57 @@
-# CI Test Flakiness Dashboard
+# CI Reliability Dashboard
 
-**Last Updated**: 2025-11-27
+**Last Updated**: 2025-11-28 (Corrected after script bug fix)
 **Baseline Period**: 2025-11-08 to 2025-11-27 (19 days)
+
+## ⚠️ CRITICAL UPDATE: Analysis Script Bug Fixed
+
+**Original Issue**: Script crashed on build/infrastructure failures, causing severe bias toward test-execution failures.
+
+**Fix Applied**: Added `|| true` to grep commands to tolerate zero matches.
+
+**Impact**: Revealed that **75% of CI failures are build/infrastructure issues**, not test flakiness!
 
 ## Overall Metrics
 
 | Metric | Current Value | Target | Status |
 |--------|--------------|--------|--------|
-| CI Run Failure Rate | **93.4%** | <5% | 🔴 Critical |
+| **CI Run Failure Rate** | **93.4%** | <5% | 🔴 Critical |
+| └─ Build/Infrastructure Failures | **~75%** | <5% | 🔴 **PRIMARY ISSUE** |
+| └─ Test Execution Failures | **~25%** | <2% | 🔴 Secondary |
 | Individual Test Failure Rate | 0.58% | <2% | 🟢 Good |
-| Flaky Tests (>1 failure) | 10 | 0 | 🔴 Critical |
+| Flaky Tests (>1 failure) | 10 | 0 | ⚠️ High |
 | CI Re-run Frequency | ~70-80% | <10% | 🔴 Critical |
 
-## Flakiness by Test Suite
+## Failure Type Breakdown
 
-| Suite | Flakiness Rate | Failure Count | Flakiest Test | Severity | Last Updated |
-|-------|----------------|---------------|---------------|----------|--------------|
-| **SwipePresetSelectionTests** | 45.5% | 10 | testPlaybackPresetAppliesCorrectly (4) | 🔥 Critical | 2025-11-27 |
-| **BatchOperationUITests** | 18.2% | 4 | testLaunchConfiguredApp_WithForcedOverlayDoesNotWait (1) | ⚠️ High | 2025-11-27 |
-| **SwipeActionManagementTests** | 13.6% | 3 | testManagingActionsEndToEnd (3) | 🔥 Critical | 2025-11-27 |
-| **SwipeExecutionTests** | 9.1% | 2 | testLeadingAndTrailingSwipesExecute (2) | ⚠️ High | 2025-11-27 |
-| **SwipeConfigurationUIDisplayTests** | 9.1% | 2 | testAllSectionsAppearInSheet (2) | ⚠️ High | 2025-11-27 |
-| **SwipePersistenceTests** | 4.5% | 1 | testSeededConfigurationPersistsAcrossControls (1) | ⚡ Medium | 2025-11-27 |
+### 🔴 PRIMARY: Build/Infrastructure Failures (~75% of failures)
+
+| Failure Type | Estimated % | Runs Affected | Investigation Status |
+|--------------|-------------|---------------|---------------------|
+| Build/Infrastructure (no tests execute) | **75%** | 15/20 sampled | 📋 **Needs Investigation** |
+
+**Common Symptoms**:
+- Zero test results in CI logs
+- Build failures before test execution
+- Simulator boot failures
+- Infrastructure timeouts
+
+**Priority**: **CRITICAL** - Must investigate in Phase 2 before addressing test flakiness
+
+---
+
+### ⚠️ SECONDARY: Test Execution Failures (~25% of failures)
+
+## Flakiness by Test Suite (within test-execution failures only)
+
+| Suite | % of Test Failures | Failure Count | % of Total CI Failures | Flakiest Test | Severity | Last Updated |
+|-------|-------------------|---------------|----------------------|---------------|----------|--------------|
+| **SwipePresetSelectionTests** | 45.5% | 10 | ~11.4% | testPlaybackPresetAppliesCorrectly (4) | ⚠️ High | 2025-11-28 |
+| **BatchOperationUITests** | 18.2% | 4 | ~4.5% | testLaunchConfiguredApp_WithForcedOverlayDoesNotWait (1) | ⚡ Medium | 2025-11-28 |
+| **SwipeActionManagementTests** | 13.6% | 3 | ~3.4% | testManagingActionsEndToEnd (3) | ⚠️ High | 2025-11-28 |
+| **SwipeExecutionTests** | 9.1% | 2 | ~2.3% | testLeadingAndTrailingSwipesExecute (2) | ⚡ Medium | 2025-11-28 |
+| **SwipeConfigurationUIDisplayTests** | 9.1% | 2 | ~2.3% | testAllSectionsAppearInSheet (2) | ⚡ Medium | 2025-11-28 |
+| **SwipePersistenceTests** | 4.5% | 1 | ~1.1% | testSeededConfigurationPersistsAcrossControls (1) | ⚡ Medium | 2025-11-28 |
 
 ## Top 10 Flakiest Individual Tests
 
@@ -57,27 +87,49 @@
 
 ## Action Items
 
-### 🔥 Critical Priority (Week 1)
+### 🔴 CRITICAL Priority (Week 1): Build/Infrastructure Failures
+
+**Must address FIRST** - these cause 75% of CI failures:
+
+- [ ] **Investigate build/infrastructure failure root causes**
+  - Examine CI logs from 15 runs with zero test results
+  - Categorize failures: build errors, simulator issues, infrastructure timeouts
+  - Document common patterns
+- [ ] **Identify build stability improvements**
+  - Add retry logic for simulator boot
+  - Increase infrastructure operation timeouts
+  - Add dependency caching
+- [ ] **Add build monitoring**
+  - Track build success rate separately
+  - Alert on build failure spikes
+
+### ⚠️ High Priority (Week 2-3): Test Execution Failures
+
+**After build/infrastructure is stable**:
+
 - [ ] Fix `testPlaybackPresetAppliesCorrectly` (SwipePresetSelectionTests)
 - [ ] Fix `testDownloadPresetAppliesCorrectly` (SwipePresetSelectionTests)
 - [ ] Fix `testManagingActionsEndToEnd` (SwipeActionManagementTests)
 
-### ⚠️ High Priority (Week 2-3)
-- [ ] Analyze `testOrganizationPresetAppliesCorrectly` root cause
-- [ ] Analyze `testLeadingAndTrailingSwipesExecute` root cause
-- [ ] Analyze `testAllSectionsAppearInSheet` root cause
-
 ### ⚡ Medium Priority (Week 4+)
-- [ ] Monitor 1-failure tests for recurrence
+- [ ] Analyze remaining flaky tests
 - [ ] Implement Phase 3 infrastructure improvements
+- [ ] Monitor for new flakiness patterns
 
 ## Historical Notes
 
-### 2025-11-27: Baseline Established
+### 2025-11-28: CORRECTION - Analysis Script Bug Fixed
+- **Critical Bug**: Script crashed on runs with zero test results (build/infra failures)
+- **Fix**: Added `|| true` to grep commands
+- **New Finding**: **75% of failures are build/infrastructure issues**, not test flakiness
+- Priority shift: Build stability is PRIMARY issue, test flakiness is SECONDARY
+- Updated Phase 2 scope to investigate build failures first
+
+### 2025-11-27: Initial Baseline (BIASED - see correction above)
 - Analyzed 150 CI runs (91 usable runs)
 - Identified 10 flaky tests across 6 test suites
-- **Critical finding**: 93.4% CI failure rate driven by small number of flaky tests
-- Created Issue #147 for Phase 2 root cause analysis
+- **Original (incorrect) finding**: Test flakiness is primary issue
+- **Correction**: Script bias caused underestimation of build/infrastructure failures
 
 ## Data Sources
 
