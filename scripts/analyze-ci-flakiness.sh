@@ -47,6 +47,7 @@ echo "🔬 Extracting test results from $(echo "$sampled_run_ids" | wc -l | tr -
 echo ""
 
 run_count=0
+runs_with_no_tests=0
 for run_id in $sampled_run_ids; do
   run_count=$((run_count + 1))
   echo "[$run_count/20] Processing run $run_id..."
@@ -55,6 +56,9 @@ for run_id in $sampled_run_ids; do
   run_data=$(jq -r ".[] | select(.databaseId == $run_id) | [.createdAt, .headBranch] | @tsv" "$OUTPUT_DIR/runs.json")
   run_date=$(echo "$run_data" | cut -f1)
   run_branch=$(echo "$run_data" | cut -f2)
+
+  # Track initial CSV line count to detect if this run had any test results
+  before_count=$(wc -l < "$RESULTS_CSV")
 
   # Fetch logs and extract test results
   gh run view "$run_id" --log 2>/dev/null | \
@@ -74,6 +78,13 @@ for run_id in $sampled_run_ids; do
         echo "$run_id,$run_date,$run_branch,$test_class,$test_name,$result,$duration" >> "$RESULTS_CSV"
       fi
     done
+
+  # Check if this run had any test results
+  after_count=$(wc -l < "$RESULTS_CSV")
+  if [ "$before_count" -eq "$after_count" ]; then
+    runs_with_no_tests=$((runs_with_no_tests + 1))
+    echo "  ⚠️  No test results found (likely build/infrastructure failure)"
+  fi
 done
 
 echo ""
@@ -82,17 +93,23 @@ echo ""
 
 # Generate summary statistics
 total_test_results=$(tail -n +2 "$RESULTS_CSV" | wc -l | tr -d ' ')
-total_failures=$(tail -n +2 "$RESULTS_CSV" | grep ",failed," | wc -l | tr -d ' ')
+total_failures=$(tail -n +2 "$RESULTS_CSV" | { grep ",failed," || true; } | wc -l | tr -d ' ')
 
 echo "📈 Test Result Summary:" | tee "$SUMMARY_FILE"
+echo "  Runs analyzed: $run_count" | tee -a "$SUMMARY_FILE"
+echo "  Runs with no test results (build/infra failures): $runs_with_no_tests" | tee -a "$SUMMARY_FILE"
 echo "  Total test executions analyzed: $total_test_results" | tee -a "$SUMMARY_FILE"
-echo "  Total failures: $total_failures" | tee -a "$SUMMARY_FILE"
+echo "  Total test failures: $total_failures" | tee -a "$SUMMARY_FILE"
+if [ "$total_test_results" -gt 0 ]; then
+  failure_rate=$(awk "BEGIN {printf \"%.2f\", ($total_failures/$total_test_results)*100}")
+  echo "  Test-level failure rate: ${failure_rate}%" | tee -a "$SUMMARY_FILE"
+fi
 echo "" | tee -a "$SUMMARY_FILE"
 
 # Find flakiest test suites
 echo "🔥 Top 10 Flakiest Test Suites:" | tee -a "$SUMMARY_FILE"
 tail -n +2 "$RESULTS_CSV" | \
-  grep ",failed," | \
+  { grep ",failed," || true; } | \
   cut -d, -f4 | \
   sort | uniq -c | sort -rn | head -10 | \
   awk '{printf "  %3d failures - %s\n", $1, $2}' | tee -a "$SUMMARY_FILE"
@@ -101,7 +118,7 @@ echo "" | tee -a "$SUMMARY_FILE"
 # Find flakiest individual tests
 echo "🔥 Top 20 Flakiest Individual Tests:" | tee -a "$SUMMARY_FILE"
 tail -n +2 "$RESULTS_CSV" | \
-  grep ",failed," | \
+  { grep ",failed," || true; } | \
   awk -F, '{print $4 "::" $5}' | \
   sort | uniq -c | sort -rn | head -20 | \
   awk '{printf "  %3d failures - %s\n", $1, $2}' | tee -a "$SUMMARY_FILE"
@@ -110,7 +127,7 @@ echo "" | tee -a "$SUMMARY_FILE"
 # Analyze flakiness by branch
 echo "📊 Failures by Branch:" | tee -a "$SUMMARY_FILE"
 tail -n +2 "$RESULTS_CSV" | \
-  grep ",failed," | \
+  { grep ",failed," || true; } | \
   cut -d, -f3 | \
   sort | uniq -c | sort -rn | head -10 | \
   awk '{printf "  %3d failures - %s\n", $1, $2}' | tee -a "$SUMMARY_FILE"
