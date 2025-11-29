@@ -43,11 +43,16 @@ ensureVisibleInSheet(identifier: "preset", container: sheet, scrollAttempts: 6)
 
 ### Example 1: SwipePresetSelectionTests (COMPLETED ✅)
 
-**Flakiness**: 47% of all test failures
-**Root Cause**: Infrastructure issue (settle() timeout too short)
-**Fix**: Infrastructure change (no test migration needed)
+**Flakiness**: 47% of all test failures (before any fixes)
+**Root Causes**: Two infrastructure issues discovered iteratively
+**Fixes**: Phase 1 (Infrastructure) + Phase 2 (Container race condition)
 
-**Before** (failing 1 of 3 tests):
+#### Phase 1: Infrastructure Improvements (Nov 28, 2025)
+**Problem**: settle() timeout too short (50ms → elements not materialized after scroll)
+**Fix**: Increased settle() to 300ms + automatic cleanup in tearDown
+**Result**: Improved stability but ~33% still failed in full regression runs
+
+**Before Phase 1** (test code):
 ```swift
 func testDownloadPresetAppliesCorrectly() throws {
   try reuseOrOpenConfigurationSheet(resetDefaults: true)
@@ -60,15 +65,58 @@ func testDownloadPresetAppliesCorrectly() throws {
 }
 ```
 
-**After** (passing 3 of 3 tests):
+**After Phase 1**: NO test code changes (infrastructure only)
+
+#### Phase 2: Container Race Condition Fix (Nov 29, 2025)
+**Problem**: `applyPreset()` rediscovered container immediately after app relaunch
+**Root Cause**: In full regression runs with `resetDefaults: true`, UI still settling from relaunch
+**Error**: "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened."
+**Pass Rate Before**: 66.7% (2/3 tests) - testOrganizationPresetAppliesCorrectly failed randomly
+**Pass Rate After**: 100% (3/3 tests)
+
+**Fix**: Pass container directly instead of rediscovering
+
 ```swift
-// NO CODE CHANGES NEEDED!
-// Infrastructure fixes applied automatically:
-// 1. settle() now waits 300ms after scroll
-// 2. cleanup runs in tearDown automatically
+// BEFORE (rediscovered container, causing race condition):
+func testOrganizationPresetAppliesCorrectly() throws {
+  try reuseOrOpenConfigurationSheet(resetDefaults: true)
+  applyPreset(identifier: "SwipeActions.Preset.Organization")  // ❌ Rediscovery failed
+  ...
+}
+
+// AFTER (reuse verified container):
+func testOrganizationPresetAppliesCorrectly() throws {
+  let container = try reuseOrOpenConfigurationSheet(resetDefaults: true)
+  applyPreset(identifier: "SwipeActions.Preset.Organization", container: container)  // ✅ Stable
+  ...
+}
 ```
 
-**Result**: 100% pass rate with zero test code changes
+**Infrastructure Change** (`SwipeConfigurationTestSupport+ActionManagement.swift:115`):
+```swift
+// Updated applyPreset() signature to accept optional container:
+func applyPreset(identifier: String, container: XCUIElement? = nil) {
+  // Use provided container or rediscover if not provided
+  // Providing container avoids race condition after app relaunch
+  let sheetContainer: XCUIElement
+  if let providedContainer = container {
+    sheetContainer = providedContainer
+  } else {
+    guard let discoveredContainer = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet not found...")
+      return
+    }
+    sheetContainer = discoveredContainer
+  }
+  // ... rest of function uses sheetContainer
+}
+```
+
+**Final Results**:
+- Pass rate: **100%** (3/3 tests passing)
+- Migration effort: **3 lines changed** per test (capture + pass container)
+- Improvement: **+33.3% pass rate** from container fix alone
+- Philosophy: **Deterministic testing** - reuse verified container instead of adding waits
 
 ---
 

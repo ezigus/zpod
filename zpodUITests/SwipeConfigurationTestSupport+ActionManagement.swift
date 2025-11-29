@@ -112,7 +112,7 @@ extension SwipeConfigurationTestCase {
   }
 
   @MainActor
-  func applyPreset(identifier: String) {
+  func applyPreset(identifier: String, container: XCUIElement? = nil) {
     if tapDebugOverlayButton(for: identifier) { return }
 
     if tapDebugToolbarButton(for: identifier) { return }
@@ -121,15 +121,22 @@ extension SwipeConfigurationTestCase {
 
     if tapDebugPresetFromMenu(for: identifier) { return }
 
-    // Re-discover container to handle sheet state changes
-    guard let container = swipeActionsSheetListContainer() else {
-      XCTFail(
-        "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened.")
-      return
+    // Use provided container or re-discover if not provided
+    // Providing container avoids race condition after app relaunch
+    let sheetContainer: XCUIElement
+    if let providedContainer = container {
+      sheetContainer = providedContainer
+    } else {
+      guard let discoveredContainer = swipeActionsSheetListContainer() else {
+        XCTFail(
+          "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened.")
+        return
+      }
+      sheetContainer = discoveredContainer
     }
 
-    _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 6)
-    let presetButton = element(withIdentifier: identifier, within: container)
+    _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 6)
+    let presetButton = element(withIdentifier: identifier, within: sheetContainer)
 
     XCTAssertTrue(
       waitForElement(
