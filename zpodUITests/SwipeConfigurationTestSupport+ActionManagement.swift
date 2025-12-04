@@ -17,6 +17,11 @@ extension SwipeConfigurationTestCase {
     guard let container = swipeActionsSheetListContainer() else { return false }
     let rowIdentifier = "SwipeActions." + edgeIdentifier + "." + displayName
     _ = ensureVisibleInSheet(identifier: rowIdentifier, container: container)
+
+    // Fallback pattern: Try scoped search first (faster, more precise), then app-wide.
+    // Scoped search limits query to container's accessibility tree, reducing search time
+    // and avoiding matches in other UI elements. Falls back to app-wide search if scoped
+    // search fails (e.g., due to SwiftUI view hierarchy quirks).
     let scopedButton = container.buttons.matching(identifier: "Remove " + displayName).firstMatch
     let removeButton =
       scopedButton.exists

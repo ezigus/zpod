@@ -23,6 +23,7 @@ protocol TestEnvironmentIsolation {
   func clearKeychain()
 
   /// Terminates and relaunches app to clear in-memory state
+  @MainActor
   func resetAppState(app: XCUIApplication)
 
   /// Performs standard cleanup (UserDefaults + Keychain)
