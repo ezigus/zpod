@@ -2,7 +2,7 @@
 //  UITestStableWaitHelpers.swift
 //  zpodUITests
 //
-//  Created for Issue 02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
+//  Created for Issue #148 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
 //  Provides wait primitives for stable element states (frame stability, animation completion)
 //
 //  Addresses: 20% of test failures (race conditions, animation/transition category)
@@ -49,7 +49,8 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      Thread.sleep(forTimeInterval: checkInterval)
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed
+      RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentFrame = self.frame
 
@@ -177,7 +178,8 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      Thread.sleep(forTimeInterval: checkInterval)
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed
+      RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentValue = self.value as? String
 
@@ -254,8 +256,8 @@ extension XCTestCase {
   /// toggle.tap()
   /// waitForElementProperty(
   ///   element: toggle,
-  ///   keyPath: \.value as? String,
-  ///   equals: "1",
+  ///   property: { $0.value as? String },
+  ///   expectedValue: "1",
   ///   timeout: 3.0
   /// )
   /// ```

@@ -3,11 +3,28 @@
 **Created for**: Issue #148 (02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements)
 **Last Updated**: 2025-12-04 (PR finalization with code review fixes)
 
-## Overview
+## ⚠️ IMPORTANT: Documentation Status
+
+**This file contains outdated documentation** describing a retry-based architecture that was **NOT implemented**.
+
+The actual implementation follows a **deterministic, no-retry philosophy**: "UI elements appear immediately or not at all - if element isn't there, fix the root cause instead of retrying."
+
+**For actual implementation**, see:
+- `UITestRetryHelpers.swift` - Diagnostic helpers (diagnoseElementState, verifyPreconditions, tapSafely)
+- `UITestStableWaitHelpers.swift` - Stability waits (waitForStable, waitForHittable, waitForTransition)
+- `UITestEnvironmentalIsolation.swift` - Cleanup utilities
+- `UITestImprovedElementDiscovery.swift` - Element discovery with scrolling
+- `flakiness-migration-guide.md` - Concrete migration examples
+
+Functions referenced below (retryOnFailure, tapWithRetry, etc.) **do not exist** in the codebase.
+
+---
+
+## Overview (OUTDATED - See note above)
 
 This guide documents the test infrastructure helpers designed to prevent flaky test failures. These utilities address the three main categories of test flakiness:
 
-1. **Timing/Synchronization Issues** (70% of failures) - Retry mechanisms
+1. **Timing/Synchronization Issues** (70% of failures) - ~~Retry mechanisms~~ **Deterministic waits**
 2. **Race Conditions/Animations** (20% of failures) - Stable wait primitives
 3. **State Pollution** (10% of failures) - Cleanup utilities
 

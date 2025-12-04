@@ -2,7 +2,7 @@
 //  UITestEnvironmentalIsolation.swift
 //  zpodUITests
 //
-//  Created for Issue 02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
+//  Created for Issue #148 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
 //  Provides cleanup utilities for test isolation (UserDefaults, Keychain, app state)
 //
 //  Addresses: 10% of test failures (state pollution category)
@@ -134,12 +134,13 @@ extension XCTestCase: TestEnvironmentIsolation {
     app.terminate()
 
     // Wait for app to fully terminate
+    // Check for .notRunning OR .unknown to handle edge cases where app may be in intermediate state
     let deadline = Date().addingTimeInterval(5.0)
-    while app.state != .notRunning && Date() < deadline {
+    while app.state != .notRunning && app.state != .unknown && Date() < deadline {
       RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
     }
 
-    if app.state != .notRunning {
+    if app.state != .notRunning && app.state != .unknown {
       print("⚠️ App did not terminate cleanly within 5s (state: \(app.state.rawValue))")
     }
 

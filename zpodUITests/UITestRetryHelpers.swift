@@ -2,7 +2,7 @@
 //  UITestRetryHelpers.swift
 //  zpodUITests
 //
-//  Created for Issue 02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
+//  Created for Issue #148 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
 //  Provides diagnostic helpers and minimal wait utilities
 //
 //  Philosophy: UI elements appear "immediately or not at all" - if element isn't there,

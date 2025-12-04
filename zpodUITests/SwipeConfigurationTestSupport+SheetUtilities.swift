@@ -208,7 +208,8 @@ extension SwipeConfigurationTestCase {
       // SwiftUI takes ~300ms to materialize elements in simulator after scroll gesture
       // This is a minimal, targeted wait - NOT a retry pattern
       // Aligns with "minimal waits after scroll" philosophy (only used post-scroll)
-      Thread.sleep(forTimeInterval: 0.3)
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed
+      RunLoop.current.run(until: Date().addingTimeInterval(0.3))
     }
 
     // Nudge to the top first so we have a deterministic starting point.

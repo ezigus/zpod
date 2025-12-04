@@ -2,7 +2,7 @@
 //  UITestImprovedElementDiscovery.swift
 //  zpodUITests
 //
-//  Created for Issue 02.7.3 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
+//  Created for Issue #148 - CI Test Flakiness: Phase 3 - Infrastructure Improvements
 //  Provides enhanced element discovery with scroll support for lazy-loaded SwiftUI views
 //
 //  Addresses: SwiftUI lazy materialization causing "element not found" errors
