@@ -164,58 +164,36 @@ extension XCUIElement {
     for attempt in 1...maxAttempts {
       guard Date() < deadline else { return false }
 
-      // Calculate start and end coordinates based on direction
-      let bounds = scrollView.frame
-      let startPoint: CGPoint
-      let endPoint: CGPoint
+      // Calculate start and end coordinates using normalized offsets (0.0-1.0)
+      // This avoids mixing coordinate systems and properly accounts for element bounds
+      let startNormalized: CGVector
+      let endNormalized: CGVector
 
       switch direction {
       case .up:
-        startPoint = CGPoint(
-          x: bounds.midX,
-          y: bounds.maxY - (bounds.height * scrollOffset)
-        )
-        endPoint = CGPoint(
-          x: bounds.midX,
-          y: bounds.minY + (bounds.height * scrollOffset)
-        )
+        // Swipe from bottom to top (scroll content downward)
+        startNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
+        endNormalized = CGVector(dx: 0.5, dy: scrollOffset)
 
       case .down:
-        startPoint = CGPoint(
-          x: bounds.midX,
-          y: bounds.minY + (bounds.height * scrollOffset)
-        )
-        endPoint = CGPoint(
-          x: bounds.midX,
-          y: bounds.maxY - (bounds.height * scrollOffset)
-        )
+        // Swipe from top to bottom (scroll content upward)
+        startNormalized = CGVector(dx: 0.5, dy: scrollOffset)
+        endNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
 
       case .left:
-        startPoint = CGPoint(
-          x: bounds.maxX - (bounds.width * scrollOffset),
-          y: bounds.midY
-        )
-        endPoint = CGPoint(
-          x: bounds.minX + (bounds.width * scrollOffset),
-          y: bounds.midY
-        )
+        // Swipe from right to left (scroll content rightward)
+        startNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
+        endNormalized = CGVector(dx: scrollOffset, dy: 0.5)
 
       case .right:
-        startPoint = CGPoint(
-          x: bounds.minX + (bounds.width * scrollOffset),
-          y: bounds.midY
-        )
-        endPoint = CGPoint(
-          x: bounds.maxX - (bounds.width * scrollOffset),
-          y: bounds.midY
-        )
+        // Swipe from left to right (scroll content leftward)
+        startNormalized = CGVector(dx: scrollOffset, dy: 0.5)
+        endNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
       }
 
-      // Perform drag gesture
-      let start = scrollView.coordinate(withNormalizedOffset: .zero)
-        .withOffset(CGVector(dx: startPoint.x - bounds.minX, dy: startPoint.y - bounds.minY))
-      let end = scrollView.coordinate(withNormalizedOffset: .zero)
-        .withOffset(CGVector(dx: endPoint.x - bounds.minX, dy: endPoint.y - bounds.minY))
+      // Perform drag gesture using normalized coordinates
+      let start = scrollView.coordinate(withNormalizedOffset: startNormalized)
+      let end = scrollView.coordinate(withNormalizedOffset: endNormalized)
 
       start.press(forDuration: 0.1, thenDragTo: end)
 

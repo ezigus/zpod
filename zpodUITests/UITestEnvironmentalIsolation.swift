@@ -111,7 +111,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     }
 
     if deletedCount > 0 {
-      print("✅ Cleared keychain (\(deletedCount) item classes deleted)")
+      print("✅ Cleared keychain (\(deletedCount) item classes cleared)")
     }
   }
 

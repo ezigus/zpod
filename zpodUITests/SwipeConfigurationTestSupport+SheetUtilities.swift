@@ -204,9 +204,10 @@ extension SwipeConfigurationTestCase {
     }
 
     func settle() {
-      // Wait for SwiftUI to materialize lazy-loaded elements after scroll
-      // This is deterministic, not a retry - SwiftUI needs ~300ms to render in simulator
-      // Only used after scroll operations, aligning with "minimal waits after scroll" philosophy
+      // Necessary accommodation for SwiftUI's lazy rendering after scroll
+      // SwiftUI takes ~300ms to materialize elements in simulator after scroll gesture
+      // This is a minimal, targeted wait - NOT a retry pattern
+      // Aligns with "minimal waits after scroll" philosophy (only used post-scroll)
       Thread.sleep(forTimeInterval: 0.3)
     }
 
