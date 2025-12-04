@@ -129,6 +129,7 @@ extension XCTestCase: TestEnvironmentIsolation {
   /// ```
   ///
   /// - Parameter app: The XCUIApplication instance to reset
+  @MainActor
   func resetAppState(app: XCUIApplication) {
     print("🔄 Resetting app state (terminate + relaunch)...")
     app.terminate()
