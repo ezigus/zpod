@@ -94,16 +94,17 @@ extension XCUIElement {
 
 extension XCTestCase {
 
-  /// Diagnoses why an element isn't appearing
+  /// Diagnoses element state and provides actionable feedback
   ///
   /// Instead of retrying, understand the root cause. Checks preconditions and provides
-  /// actionable feedback about what's wrong.
+  /// diagnostic information whether element exists or not. Most commonly used to diagnose
+  /// why an element isn't appearing.
   ///
   /// Example:
   /// ```swift
   /// let button = app.buttons["Submit"]
   /// guard button.exists else {
-  ///   let diagnosis = diagnoseElementAbsence(button, preconditions: [
+  ///   let diagnosis = diagnoseElementState(button, preconditions: [
   ///     "Data loaded": { !app.activityIndicators.firstMatch.exists },
   ///     "Modal dismissed": { !app.sheets.firstMatch.exists },
   ///     "Scrolled into view": { /* check scroll position */ }
@@ -114,11 +115,11 @@ extension XCTestCase {
   /// ```
   ///
   /// - Parameters:
-  ///   - element: The element that should exist but doesn't
+  ///   - element: The element to diagnose
   ///   - preconditions: Dictionary of condition name -> check closure
-  /// - Returns: Diagnostic message explaining what's wrong
+  /// - Returns: Diagnostic message explaining element state
   @MainActor
-  func diagnoseElementAbsence(
+  func diagnoseElementState(
     _ element: XCUIElement,
     preconditions: [String: () -> Bool] = [:]
   ) -> String {

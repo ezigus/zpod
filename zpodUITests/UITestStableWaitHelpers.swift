@@ -122,9 +122,10 @@ extension XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
 
     // First, wait for element to exist and be hittable
-    let predicate = NSPredicate { [weak self] _, _ in
-      guard let element = self else { return false }
-      return element.exists && element.isHittable
+    // Use unowned since the element is guaranteed to exist for the duration of this method call
+    // (we're calling this method ON the element, so it must exist while this runs)
+    let predicate = NSPredicate { [unowned self] _, _ in
+      return self.exists && self.isHittable
     }
 
     let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)

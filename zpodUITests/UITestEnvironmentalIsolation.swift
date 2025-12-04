@@ -56,14 +56,14 @@ extension XCTestCase: TestEnvironmentIsolation {
         return
       }
       defaults = suiteDefaults
+      // Use removePersistentDomain for efficient suite clearing (Apple recommended)
+      defaults.removePersistentDomain(forName: suiteName)
     } else {
       defaults = UserDefaults.standard
-    }
-
-    // Get all keys and remove them
-    let dictionary = defaults.dictionaryRepresentation()
-    dictionary.keys.forEach { key in
-      defaults.removeObject(forKey: key)
+      // For standard defaults, remove the bundle's domain
+      if let bundleID = Bundle.main.bundleIdentifier {
+        defaults.removePersistentDomain(forName: bundleID)
+      }
     }
 
     // Force synchronization

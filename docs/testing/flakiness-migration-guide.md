@@ -136,7 +136,7 @@ button.tap()
 let button = app.buttons["Submit"]
 guard button.exists else {
   // Use diagnostic helper to understand WHY element is missing
-  let diagnosis = diagnoseElementAbsence(button, preconditions: [
+  let diagnosis = diagnoseElementState(button, preconditions: [
     "Data loaded": { !app.activityIndicators.firstMatch.exists },
     "Modal dismissed": { !app.sheets.firstMatch.exists },
     "Sheet open": { swipeActionsSheetListContainer() != nil }
@@ -345,7 +345,7 @@ When migrating a flaky test:
 
 ### 2. Add Diagnostics
 - [ ] Replace assertions with diagnostic helpers where useful
-- [ ] Add `diagnoseElementAbsence()` for element not found failures
+- [ ] Add `diagnoseElementState()` for element not found failures
 - [ ] Add `verifyPreconditions()` for setup verification
 
 ### 3. Use Appropriate Waits
@@ -400,7 +400,7 @@ XCTAssertTrue(waitForTransition(to: app.alerts["Saved"], timeout: 2.0))
 ```swift
 let element = app.buttons["Submit"]
 guard element.exists else {
-  XCTFail(diagnoseElementAbsence(element, preconditions: [
+  XCTFail(diagnoseElementState(element, preconditions: [
     "Sheet open": { /* check */ },
     "Data ready": { /* check */ }
   ]))
