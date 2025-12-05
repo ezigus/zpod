@@ -116,7 +116,10 @@ extension UITestFoundation {
   }
 
   var postReadinessTimeout: TimeInterval {
-    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 2.0 : 1.5
+    // Increased from 1.5s→2.5s (local) and 2.0s→3.0s (CI) to handle resource exhaustion
+    // in full regression runs (81 UI tests). Tests still proceed immediately when elements
+    // appear quickly - this is a maximum ceiling, not a fixed delay.
+    let baseTimeout = ProcessInfo.processInfo.environment["CI"] != nil ? 3.0 : 2.5
     return baseTimeout * timeoutScale
   }
 

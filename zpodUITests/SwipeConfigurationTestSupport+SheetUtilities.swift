@@ -204,12 +204,12 @@ extension SwipeConfigurationTestCase {
     }
 
     func settle() {
-      // OPTIMIZATION: Replace RunLoop blocking with brief XCTWaiter
-      let expectation = XCTestExpectation(description: "UI settle after scroll")
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-        expectation.fulfill()
-      }
-      _ = XCTWaiter.wait(for: [expectation], timeout: 0.1)
+      // Necessary accommodation for SwiftUI's lazy rendering after scroll
+      // SwiftUI takes ~300ms to materialize elements in simulator after scroll gesture
+      // This is a minimal, targeted wait - NOT a retry pattern
+      // Aligns with "minimal waits after scroll" philosophy (only used post-scroll)
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed
+      RunLoop.current.run(until: Date().addingTimeInterval(0.3))
     }
 
     // Nudge to the top first so we have a deterministic starting point.

@@ -1189,7 +1189,18 @@ print_test_results_block() {
       local counts
       counts=$(test_counts_for_group "$group")
       IFS='|' read -r total passed failed skipped warn present <<< "$counts"
+
+      # Check for build failures (error status with no test results)
+      local status_counts error_count
+      status_counts=$(status_counts_for_groups "$group")
+      IFS='|' read -r _ _ error_count _ _ <<< "$status_counts"
+
       if (( total == 0 && warn == 0 && present == 0 )); then
+        # If there's an error but no test results, it's likely a build failure
+        if (( error_count > 0 )); then
+          any=1
+          printf "  %s: ❌ BUILD FAILED\n" "$group"
+        fi
         continue
       fi
       any=1
