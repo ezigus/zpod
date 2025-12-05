@@ -73,10 +73,15 @@ extension XCTestCase: TestEnvironmentIsolation {
     print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? "")")
   }
 
-  /// Clears all keychain items to ensure test isolation
+  /// Clears app-specific keychain items to ensure test isolation
   ///
   /// Prevents keychain data from leaking between tests. Important for tests that
   /// store authentication tokens, credentials, or other secure data.
+  ///
+  /// SAFETY: Scoped to app-specific service identifier ("us.zig.zpod.uitests")
+  /// to avoid deleting developer/CI credentials from the system keychain.
+  /// UI tests run in the host macOS process, so unscoped keychain deletion
+  /// would delete ALL items including SSH keys, passwords, certificates, etc.
   ///
   /// Example:
   /// ```swift
@@ -94,10 +99,16 @@ extension XCTestCase: TestEnvironmentIsolation {
       kSecClassIdentity,
     ]
 
+    // CRITICAL: Scope to app-specific service to avoid deleting system keychain items
+    // UI tests run in macOS host process, so unscoped deletion affects developer credentials
+    let appService = "us.zig.zpod.uitests"
     var deletedCount = 0
 
     for itemClass in secItemClasses {
-      let spec: [String: Any] = [kSecClass as String: itemClass]
+      let spec: [String: Any] = [
+        kSecClass as String: itemClass,
+        kSecAttrService as String: appService,  // Scope to app service only
+      ]
       let status = SecItemDelete(spec as CFDictionary)
 
       if status == errSecSuccess || status == errSecItemNotFound {
@@ -112,7 +123,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     }
 
     if deletedCount > 0 {
-      print("✅ Cleared keychain (\(deletedCount) item classes cleared)")
+      print("✅ Cleared app keychain items (\(deletedCount) item classes cleared)")
     }
   }
 
