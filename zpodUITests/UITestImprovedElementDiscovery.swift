@@ -89,15 +89,16 @@ extension XCUIElement {
     case right   // Swipe right (scrolls content leftward)
   }
 
-  /// Waits for element with automatic retry and detailed logging
+  /// Waits for element with enhanced diagnostic logging on failure
   ///
-  /// Enhanced version of `waitForExistence` that provides better debugging output
-  /// when elements aren't found. Helps diagnose "element not found" failures.
+  /// Enhanced version of `waitForExistence` that provides detailed debugging output
+  /// when elements aren't found. Does NOT retry - simply waits once with better diagnostics.
+  /// Aligns with Phase 3 "no-retry" philosophy (understand failures, don't mask them).
   ///
   /// Example:
   /// ```swift
   /// let button = app.buttons["Submit"]
-  /// XCTAssertTrue(button.waitWithRetry(
+  /// XCTAssertTrue(button.waitWithDiagnostics(
   ///   timeout: 5.0,
   ///   description: "Submit button in checkout flow"
   /// ))
@@ -109,7 +110,7 @@ extension XCUIElement {
   ///   - logHierarchyOnFailure: Whether to log view hierarchy on failure (default: false)
   /// - Returns: True if element appeared within timeout
   @MainActor
-  func waitWithRetry(
+  func waitWithDiagnostics(
     timeout: TimeInterval = 5.0,
     description: String? = nil,
     logHierarchyOnFailure: Bool = false
