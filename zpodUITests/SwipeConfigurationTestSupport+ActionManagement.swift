@@ -143,14 +143,27 @@ extension SwipeConfigurationTestCase {
     _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 6)
     let presetButton = element(withIdentifier: identifier, within: sheetContainer)
 
-    XCTAssertTrue(
-      waitForElement(
-        presetButton,
-        timeout: postReadinessTimeout,
-        description: "preset button \(identifier)"
-      ),
-      "Preset button \(identifier) should exist"
+    // DIAGNOSTIC: Aggressive 60s timeout to determine if preset buttons EVER appear in CI
+    // If element appears after 10-15s → timing issue, can optimize
+    // If element never appears → fundamental rendering problem in CI
+    // This is a temporary diagnostic change and will be reverted based on findings
+    let startTime = CFAbsoluteTimeGetCurrent()
+    print("🔍 [DIAGNOSTIC] Waiting for preset button '\(identifier)' (max 60s)...")
+
+    let found = waitForElement(
+      presetButton,
+      timeout: 60.0,  // DIAGNOSTIC: Increased from postReadinessTimeout (2.5s)
+      description: "preset button \(identifier)"
     )
+
+    let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+    if found {
+      print("✅ [DIAGNOSTIC] Preset button '\(identifier)' appeared after \(String(format: "%.2f", elapsed))s")
+    } else {
+      print("❌ [DIAGNOSTIC] Preset button '\(identifier)' NEVER appeared (waited 60s)")
+    }
+
+    XCTAssertTrue(found, "Preset button \(identifier) should exist")
     tapElement(presetButton, description: identifier)
   }
 }
