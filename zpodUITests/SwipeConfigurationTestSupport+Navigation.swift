@@ -89,6 +89,13 @@ extension SwipeConfigurationTestCase {
       "Swipe configuration sections should materialize within timeout"
     )
 
+    // Brief stability wait after section materialization to ensure UI rendering completes
+    // The materialization probe checks @State variables that update before SwiftUI renders all elements.
+    // In CI's slower environment, there's a race between probe passing and preset button rendering.
+    // This 500ms wait ensures all lazy-rendered elements (especially preset buttons) are fully materialized.
+    // Aligns with Phase 3 "wait for stability" philosophy (minimal targeted wait, not retry pattern).
+    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+
     guard let container = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet container should be discoverable after opening")
       return nil
