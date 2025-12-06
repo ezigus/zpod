@@ -110,6 +110,31 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **Fix: structural reordering, not scrolling** – when tests can't find elements, reposition them early in the List hierarchy, don't add scrolling workarounds
 - Ensure SwiftUI views have proper accessibility modifiers
 
+**⚠️ CRITICAL: SwiftUI Lazy Unmaterialization - Always Scroll Before Interaction**
+
+**The Problem**: SwiftUI Lists use lazy rendering—elements are removed from the accessibility tree when scrolled out of view, **even if they were previously materialized**. Pre-materialization (scrolling through all sections on sheet open) does NOT keep elements accessible after scrolling away.
+
+**The Failure Pattern**:
+```
+❌ BAD: Pre-materialize all sections, scroll to top, then try to interact with bottom elements
+1. Scroll to bottom (materializes all elements)
+2. Scroll back to top (unmaterializes bottom elements)
+3. Try to tap bottom element → Test fails (element doesn't exist)
+
+✅ GOOD: Scroll to target element immediately before interaction
+1. (Optional) Pre-materialize for performance
+2. When you need to interact with element:
+   a. Scroll directly to that element (ensureVisibleInSheet/ScrollViewReader)
+   b. Interact immediately (tap/verify)
+3. Success: Element is guaranteed visible and materialized
+```
+
+**Rule**: Never assume an element stays materialized after scrolling away. Always use `ensureVisibleInSheet` or `ScrollViewReader.scrollTo()` immediately before element interaction.
+
+**Example**: See `SwipePresetSelectionTests` and `docs/testing/preventing-flakiness.md` for reference implementations.
+
+**See Also**: Issue dev-log for SwipePresetSelection CI failures - Download/Organization presets unmaterialized after scroll-to-top.
+
 #### Key Resources (re-read when updating UI tests)
 
 1. **Hacking with Swift XCUITest Cheat Sheet**: <https://www.hackingwithswift.com/articles/148/xcode-ui-testing-cheat-sheet>

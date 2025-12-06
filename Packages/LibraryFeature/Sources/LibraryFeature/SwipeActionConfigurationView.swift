@@ -182,6 +182,7 @@
         proxy.scrollTo("swipe-haptics", anchor: .top)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
+
       withTransaction(transaction) {
         proxy.scrollTo("swipe-top", anchor: .top)
       }
