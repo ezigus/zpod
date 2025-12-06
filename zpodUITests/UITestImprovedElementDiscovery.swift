@@ -124,11 +124,15 @@ extension XCUIElement {
       print("   - Element type: \(self.elementType.rawValue)")
       print("   - Timeout: \(timeout)s")
 
+      // Always log basic state (cheap operations)
+      print("   - Exists: \(self.exists)")
+      print("   - Hittable: \(self.isHittable)")
+
       if logHierarchyOnFailure {
         // Note: Accessing debugDescription can be expensive and may cause issues
         // if app has crashed. Use sparingly.
-        print("   - Exists: \(self.exists)")
-        print("   - Hittable: \(self.isHittable)")
+        print("\n📋 Element hierarchy:")
+        print(XCUIApplication().debugDescription)
       }
     }
 

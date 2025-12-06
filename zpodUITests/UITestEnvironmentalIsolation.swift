@@ -334,13 +334,15 @@ extension XCTestCase {
   /// Example:
   /// ```swift
   /// override func tearDown() {
-  ///   performSwipeConfigurationCleanup()
+  ///   performSwipeConfigurationCleanup(suiteName: "us.zig.zpod.swipe-uitests")
   ///   super.tearDown()
   /// }
   /// ```
-  func performSwipeConfigurationCleanup() {
+  ///
+  /// - Parameter suiteName: Optional suite name (defaults to "us.zig.zpod.swipe-uitests")
+  func performSwipeConfigurationCleanup(suiteName: String = "us.zig.zpod.swipe-uitests") {
     // Clear the swipe-specific UserDefaults suite
-    clearUserDefaults(suiteName: "us.zig.zpod.swipe-uitests")
+    clearUserDefaults(suiteName: suiteName)
 
     // Also clear standard defaults in case anything leaked
     clearUserDefaults(suiteName: nil)

@@ -126,9 +126,10 @@ extension XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
 
     // First, wait for element to exist and be hittable
-    // Use unowned since the element is guaranteed to exist for the duration of this method call
-    // (we're calling this method ON the element, so it must exist while this runs)
-    let predicate = NSPredicate { [unowned self] _, _ in
+    // Use weak capture for safety - while technically the element should exist during the
+    // method call, XCTest predicates can be retained longer than expected in some edge cases
+    let predicate = NSPredicate { [weak self] _, _ in
+      guard let self = self else { return false }
       return self.exists && self.isHittable
     }
 
