@@ -136,7 +136,9 @@ extension XCTestCase: TestEnvironmentIsolation {
     app.terminate()
 
     // Wait for app to fully terminate
-    // Check for .notRunning OR .unknown to handle edge cases where app may be in intermediate state
+    // Check for .notRunning OR .unknown to handle edge cases where app may be in intermediate state.
+    // .unknown can occur during the termination process on slower CI environments, and is
+    // acceptable as a terminal state indicating the app is no longer running.
     let deadline = Date().addingTimeInterval(5.0)
     while app.state != .notRunning && app.state != .unknown && Date() < deadline {
       RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
@@ -144,10 +146,12 @@ extension XCTestCase: TestEnvironmentIsolation {
 
     if app.state != .notRunning && app.state != .unknown {
       print("⚠️ App did not terminate cleanly within 5s (state: \(app.state.rawValue))")
+    } else if app.state == .unknown {
+      print("⚠️ App state is .unknown (may indicate termination in progress)")
     }
 
     // Relaunch will happen automatically in setUp or can be done manually
-    print("✅ App terminated successfully")
+    print("✅ App terminated (final state: \(app.state.rawValue))")
   }
 
   /// Performs standard cleanup (UserDefaults + Keychain)
@@ -265,6 +269,10 @@ extension XCTestCase {
   /// Verifies UserDefaults is empty (for debugging)
   ///
   /// Useful for debugging test isolation issues - confirms cleanup worked.
+  ///
+  /// **Note**: After calling `removePersistentDomain(forName:)`, the dictionary representation
+  /// may still contain system keys that aren't part of the app's domain. This is normal and
+  /// doesn't indicate failed cleanup. Consider filtering system keys if false warnings occur.
   ///
   /// - Parameter suiteName: Optional suite name
   /// - Returns: True if UserDefaults is empty

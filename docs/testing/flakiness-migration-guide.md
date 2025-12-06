@@ -253,7 +253,8 @@ func testPresetAppliesCorrectly() {
   // Verify preconditions BEFORE opening sheet
   verifyPreconditions([
     "Seed applied": {
-      let defaults = UserDefaults(suiteName: swipeDefaultsSuite)
+      // Use the actual suite name: "us.zig.zpod.swipe-uitests"
+      let defaults = UserDefaults(suiteName: "us.zig.zpod.swipe-uitests")
       return defaults?.data(forKey: "global_ui_settings") != nil
     },
     "App running": { app.state == .runningForeground },

@@ -216,14 +216,15 @@ extension XCUIElement {
           context: context.map { "\($0) - frame never stabilized" }
         )
       }
-    }
-
-    // Verify element exists
-    guard self.exists else {
-      throw TestError.elementNotFound(
-        identifier: self.identifier,
-        context: context
-      )
+      // Note: waitForStable() checks exists at line 43, so element is guaranteed to exist here
+    } else {
+      // Verify element exists (only needed when stability check was skipped)
+      guard self.exists else {
+        throw TestError.elementNotFound(
+          identifier: self.identifier,
+          context: context
+        )
+      }
     }
 
     // Verify element is hittable

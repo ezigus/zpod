@@ -49,10 +49,11 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      // Use RunLoop instead of Thread.sleep to allow UI events to be processed.
-      // RunLoop.run() processes pending events (including UI updates from the app) before
-      // blocking, ensuring frame changes are detected. Thread.sleep would block completely
-      // and prevent the test process from receiving app state updates.
+      // CRITICAL: Use RunLoop.current.run(until:) to process app state updates.
+      // This method processes pending events (including UI updates from the app under test)
+      // before blocking at the specified date, ensuring state changes are detected via IPC.
+      // Thread.sleep would block completely and prevent the test process from receiving
+      // XCUIElement state updates from the app.
       RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentFrame = self.frame
@@ -182,10 +183,11 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      // Use RunLoop instead of Thread.sleep to allow UI events to be processed.
-      // RunLoop.run() processes pending events (including UI updates from the app) before
-      // blocking, ensuring frame changes are detected. Thread.sleep would block completely
-      // and prevent the test process from receiving app state updates.
+      // CRITICAL: Use RunLoop.current.run(until:) to process app state updates.
+      // This method processes pending events (including UI updates from the app under test)
+      // before blocking at the specified date, ensuring state changes are detected via IPC.
+      // Thread.sleep would block completely and prevent the test process from receiving
+      // XCUIElement state updates from the app.
       RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentValue = self.value as? String
@@ -241,8 +243,8 @@ extension XCTestCase {
       if condition() {
         return true
       }
-      // Use RunLoop to allow app events to be processed between polling checks.
-      // This ensures the test process receives state updates from the app.
+      // Use RunLoop.current.run(until:) to allow app events to be processed between checks.
+      // This ensures the test process receives state updates from the app under test via IPC.
       RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
     }
 
