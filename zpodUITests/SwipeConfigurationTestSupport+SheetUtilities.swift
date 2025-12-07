@@ -275,12 +275,15 @@ extension SwipeConfigurationTestCase {
   func tapDebugPresetSectionButton(for identifier: String) -> Bool {
     guard let debugIdentifier = debugIdentifier(from: identifier) else { return false }
     let container = swipeActionsSheetListContainer()
-    if let container {
-      _ = ensureVisibleInSheet(identifier: debugIdentifier, container: container, scrollAttempts: 2)
-    } else {
-      app.swipeDown()
+    guard let container else {
+      // Container not found - return false without side effects
+      // Previously did app.swipeDown() which harmfully scrolled sheet to top,
+      // breaking the fallback logic in applyPreset that expects stable scroll position
+      return false
     }
-    let scopedButton = container?
+
+    _ = ensureVisibleInSheet(identifier: debugIdentifier, container: container, scrollAttempts: 2)
+    let scopedButton = container
       .buttons
       .matching(identifier: debugIdentifier)
       .firstMatch

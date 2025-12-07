@@ -140,7 +140,9 @@ extension SwipeConfigurationTestCase {
       sheetContainer = discoveredContainer
     }
 
-    _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 6)
+    // Presets are at bottom of sheet, so increase scroll attempts from 6 to 10
+    // to ensure we can reach them even from the top of a long sheet
+    _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 10)
     let presetButton = element(withIdentifier: identifier, within: sheetContainer)
 
     XCTAssertTrue(
