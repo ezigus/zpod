@@ -68,6 +68,19 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     testStartTime = CFAbsoluteTimeGetCurrent()
     hasLaunchedForCurrentSeed = false
     cachedReadiness = nil
+
+    // Pre-test cleanup in CI: ensure any lingering app instance is terminated
+    if ProcessInfo.processInfo.environment["CI"] != nil {
+      let existingApp = XCUIApplication(bundleIdentifier: "us.zig.zpod")
+      if existingApp.state != .notRunning {
+        existingApp.terminate()
+        let deadline = Date().addingTimeInterval(5.0)
+        while existingApp.state != .notRunning && Date() < deadline {
+          RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+      }
+    }
   }
 
   override func tearDownWithError() throws {
@@ -88,6 +101,17 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
     // Note: Cleanup runs before app = nil, but performSwipeConfigurationCleanup() only clears
     // UserDefaults and Keychain - it doesn't need the app instance. Order is safe.
     performSwipeConfigurationCleanup()
+
+    // Terminate app between tests in CI to prevent resource exhaustion
+    if ProcessInfo.processInfo.environment["CI"] != nil {
+      if let application = app, application.state != .notRunning {
+        application.terminate()
+        let deadline = Date().addingTimeInterval(5.0)
+        while application.state != .notRunning && Date() < deadline {
+          RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+        }
+      }
+    }
 
     app = nil
     cachedReadiness = nil  // Clear readiness cache after each test
