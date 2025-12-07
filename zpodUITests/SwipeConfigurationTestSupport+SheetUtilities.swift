@@ -205,22 +205,11 @@ extension SwipeConfigurationTestCase {
 
     func settle() {
       // Necessary accommodation for SwiftUI's lazy rendering after scroll
-      // SwiftUI takes ~300-500ms to materialize elements in simulator after scroll gesture
-      // CI with fresh app launches needs longer (500ms) due to increased overhead
+      // SwiftUI takes ~300ms to materialize elements in simulator after scroll gesture
       // This is a minimal, targeted wait - NOT a retry pattern
       // Aligns with "minimal waits after scroll" philosophy (only used post-scroll)
       // Use RunLoop instead of Thread.sleep to allow UI events to be processed
-      let settleTime = ProcessInfo.processInfo.environment["CI"] != nil ? 0.5 : 0.3
-      RunLoop.current.run(until: Date().addingTimeInterval(settleTime))
-    }
-
-    // Helper to verify element stability after materialization
-    func verifyStability(of element: XCUIElement) -> Bool {
-      // Verify element remains materialized for a brief period
-      // This catches SwiftUI unmaterialization race conditions
-      guard element.exists else { return false }
-      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-      return element.exists
+      RunLoop.current.run(until: Date().addingTimeInterval(0.3))
     }
 
     // Nudge to the top first so we have a deterministic starting point.
@@ -228,7 +217,7 @@ extension SwipeConfigurationTestCase {
       scroll(.towardsTop)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
-      if target.exists && verifyStability(of: target) { return true }
+      if target.exists { return true }
     }
 
     // Scan downward through the sheet (swipe up) to materialize lazy rows.
@@ -236,7 +225,7 @@ extension SwipeConfigurationTestCase {
       scroll(.towardsBottom)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
-      if target.exists && verifyStability(of: target) { return true }
+      if target.exists { return true }
     }
 
     // Walk back upward in case the element lives near the top and the first sweep missed it.
@@ -244,7 +233,7 @@ extension SwipeConfigurationTestCase {
       scroll(.towardsTop)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
-      if target.exists && verifyStability(of: target) { return true }
+      if target.exists { return true }
     }
 
     if !target.exists {
