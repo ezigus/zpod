@@ -71,14 +71,16 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
     // Pre-test cleanup in CI: ensure any lingering app instance is terminated
     if ProcessInfo.processInfo.environment["CI"] != nil {
-      let existingApp = XCUIApplication(bundleIdentifier: "us.zig.zpod")
-      if existingApp.state != .notRunning {
-        existingApp.terminate()
-        let deadline = Date().addingTimeInterval(5.0)
-        while existingApp.state != .notRunning && Date() < deadline {
-          RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+      MainActor.assumeIsolated {
+        let existingApp = XCUIApplication(bundleIdentifier: "us.zig.zpod")
+        if existingApp.state != .notRunning {
+          existingApp.terminate()
+          let deadline = Date().addingTimeInterval(5.0)
+          while existingApp.state != .notRunning && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+          }
+          RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
       }
     }
   }
@@ -104,11 +106,13 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
 
     // Terminate app between tests in CI to prevent resource exhaustion
     if ProcessInfo.processInfo.environment["CI"] != nil {
-      if let application = app, application.state != .notRunning {
-        application.terminate()
-        let deadline = Date().addingTimeInterval(5.0)
-        while application.state != .notRunning && Date() < deadline {
-          RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+      MainActor.assumeIsolated {
+        if let application = app, application.state != .notRunning {
+          application.terminate()
+          let deadline = Date().addingTimeInterval(5.0)
+          while application.state != .notRunning && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+          }
         }
       }
     }
