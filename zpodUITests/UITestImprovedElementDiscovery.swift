@@ -124,15 +124,11 @@ extension XCUIElement {
       print("   - Element type: \(self.elementType.rawValue)")
       print("   - Timeout: \(timeout)s")
 
-      // Always log basic state (cheap operations)
-      print("   - Exists: \(self.exists)")
-      print("   - Hittable: \(self.isHittable)")
-
       if logHierarchyOnFailure {
         // Note: Accessing debugDescription can be expensive and may cause issues
         // if app has crashed. Use sparingly.
-        print("\n📋 Element hierarchy:")
-        print(XCUIApplication().debugDescription)
+        print("   - Exists: \(self.exists)")
+        print("   - Hittable: \(self.isHittable)")
       }
     }
 
@@ -144,14 +140,10 @@ extension XCUIElement {
   /// Provides more control over scrolling by allowing custom scroll distances.
   /// Useful when elements are far off-screen or when you need precise control.
   ///
-  /// **Important**: `scrollOffset` represents the fractional screen distance to travel, not a position.
-  /// Example: `scrollOffset: 0.5` with `direction: .up` swipes from y=0.5 to y=1.0 (50% screen height).
-  /// Use larger values (0.7-0.9) for longer swipes that reveal more content per attempt.
-  ///
   /// - Parameters:
   ///   - scrollView: The scroll container
   ///   - timeout: Maximum time to search (default: 5.0)
-  ///   - scrollOffset: Fractional screen distance to scroll (0.0 to 1.0, default: 0.5)
+  ///   - scrollOffset: Normalized scroll offset (0.0 to 1.0, default: 0.5)
   ///   - maxAttempts: Maximum scroll attempts (default: 10)
   ///   - direction: Scroll direction (default: .up)
   /// - Returns: True if element was discovered
@@ -324,9 +316,6 @@ extension XCTestCase {
     // Wait using predicate
     var foundElement: XCUIElement?
 
-    // Note: Mutation of foundElement inside the predicate is safe because XCTWaiter
-    // evaluates predicates serially on the main thread. The closure captures foundElement
-    // and modifies it when an element is found, allowing us to return which element matched.
     let predicate = NSPredicate { _, _ in
       for element in elements where element.exists {
         foundElement = element

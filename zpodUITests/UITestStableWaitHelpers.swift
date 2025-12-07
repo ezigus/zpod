@@ -49,11 +49,10 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      // CRITICAL: Use RunLoop.current.run(until:) to process app state updates.
-      // This method processes pending events (including UI updates from the app under test)
-      // before blocking at the specified date, ensuring state changes are detected via IPC.
-      // Thread.sleep would block completely and prevent the test process from receiving
-      // XCUIElement state updates from the app.
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed.
+      // RunLoop.run() processes pending events (including UI updates from the app) before
+      // blocking, ensuring frame changes are detected. Thread.sleep would block completely
+      // and prevent the test process from receiving app state updates.
       RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentFrame = self.frame
@@ -127,10 +126,9 @@ extension XCUIElement {
     let deadline = Date().addingTimeInterval(timeout)
 
     // First, wait for element to exist and be hittable
-    // Use weak capture for safety - while technically the element should exist during the
-    // method call, XCTest predicates can be retained longer than expected in some edge cases
-    let predicate = NSPredicate { [weak self] _, _ in
-      guard let self = self else { return false }
+    // Use unowned since the element is guaranteed to exist for the duration of this method call
+    // (we're calling this method ON the element, so it must exist while this runs)
+    let predicate = NSPredicate { [unowned self] _, _ in
       return self.exists && self.isHittable
     }
 
@@ -183,11 +181,10 @@ extension XCUIElement {
     var stableStartTime = Date()
 
     while Date() < deadline {
-      // CRITICAL: Use RunLoop.current.run(until:) to process app state updates.
-      // This method processes pending events (including UI updates from the app under test)
-      // before blocking at the specified date, ensuring state changes are detected via IPC.
-      // Thread.sleep would block completely and prevent the test process from receiving
-      // XCUIElement state updates from the app.
+      // Use RunLoop instead of Thread.sleep to allow UI events to be processed.
+      // RunLoop.run() processes pending events (including UI updates from the app) before
+      // blocking, ensuring frame changes are detected. Thread.sleep would block completely
+      // and prevent the test process from receiving app state updates.
       RunLoop.current.run(until: Date().addingTimeInterval(checkInterval))
 
       let currentValue = self.value as? String
@@ -243,8 +240,8 @@ extension XCTestCase {
       if condition() {
         return true
       }
-      // Use RunLoop.current.run(until:) to allow app events to be processed between checks.
-      // This ensures the test process receives state updates from the app under test via IPC.
+      // Use RunLoop to allow app events to be processed between polling checks.
+      // This ensures the test process receives state updates from the app.
       RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
     }
 

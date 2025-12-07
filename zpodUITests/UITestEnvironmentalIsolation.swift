@@ -73,10 +73,15 @@ extension XCTestCase: TestEnvironmentIsolation {
     print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? "")")
   }
 
-  /// Clears all keychain items to ensure test isolation
+  /// Clears app-specific keychain items to ensure test isolation
   ///
   /// Prevents keychain data from leaking between tests. Important for tests that
   /// store authentication tokens, credentials, or other secure data.
+  ///
+  /// SAFETY: Scoped to app-specific service identifier ("us.zig.zpod.uitests")
+  /// to avoid deleting developer/CI credentials from the system keychain.
+  /// UI tests run in the host macOS process, so unscoped keychain deletion
+  /// would delete ALL items including SSH keys, passwords, certificates, etc.
   ///
   /// Example:
   /// ```swift
@@ -94,10 +99,16 @@ extension XCTestCase: TestEnvironmentIsolation {
       kSecClassIdentity,
     ]
 
+    // CRITICAL: Scope to app-specific service to avoid deleting system keychain items
+    // UI tests run in macOS host process, so unscoped deletion affects developer credentials
+    let appService = "us.zig.zpod.uitests"
     var deletedCount = 0
 
     for itemClass in secItemClasses {
-      let spec: [String: Any] = [kSecClass as String: itemClass]
+      let spec: [String: Any] = [
+        kSecClass as String: itemClass,
+        kSecAttrService as String: appService,  // Scope to app service only
+      ]
       let status = SecItemDelete(spec as CFDictionary)
 
       if status == errSecSuccess || status == errSecItemNotFound {
@@ -112,7 +123,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     }
 
     if deletedCount > 0 {
-      print("✅ Cleared keychain (\(deletedCount) item classes cleared)")
+      print("✅ Cleared app keychain items (\(deletedCount) item classes cleared)")
     }
   }
 
@@ -136,9 +147,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     app.terminate()
 
     // Wait for app to fully terminate
-    // Check for .notRunning OR .unknown to handle edge cases where app may be in intermediate state.
-    // .unknown can occur during the termination process on slower CI environments, and is
-    // acceptable as a terminal state indicating the app is no longer running.
+    // Check for .notRunning OR .unknown to handle edge cases where app may be in intermediate state
     let deadline = Date().addingTimeInterval(5.0)
     while app.state != .notRunning && app.state != .unknown && Date() < deadline {
       RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
@@ -146,12 +155,10 @@ extension XCTestCase: TestEnvironmentIsolation {
 
     if app.state != .notRunning && app.state != .unknown {
       print("⚠️ App did not terminate cleanly within 5s (state: \(app.state.rawValue))")
-    } else if app.state == .unknown {
-      print("⚠️ App state is .unknown (may indicate termination in progress)")
     }
 
     // Relaunch will happen automatically in setUp or can be done manually
-    print("✅ App terminated (final state: \(app.state.rawValue))")
+    print("✅ App terminated successfully")
   }
 
   /// Performs standard cleanup (UserDefaults + Keychain)
@@ -270,10 +277,6 @@ extension XCTestCase {
   ///
   /// Useful for debugging test isolation issues - confirms cleanup worked.
   ///
-  /// **Note**: After calling `removePersistentDomain(forName:)`, the dictionary representation
-  /// may still contain system keys that aren't part of the app's domain. This is normal and
-  /// doesn't indicate failed cleanup. Consider filtering system keys if false warnings occur.
-  ///
   /// - Parameter suiteName: Optional suite name
   /// - Returns: True if UserDefaults is empty
   func verifyUserDefaultsIsEmpty(suiteName: String? = nil) -> Bool {
@@ -342,15 +345,13 @@ extension XCTestCase {
   /// Example:
   /// ```swift
   /// override func tearDown() {
-  ///   performSwipeConfigurationCleanup(suiteName: "us.zig.zpod.swipe-uitests")
+  ///   performSwipeConfigurationCleanup()
   ///   super.tearDown()
   /// }
   /// ```
-  ///
-  /// - Parameter suiteName: Optional suite name (defaults to "us.zig.zpod.swipe-uitests")
-  func performSwipeConfigurationCleanup(suiteName: String = "us.zig.zpod.swipe-uitests") {
+  func performSwipeConfigurationCleanup() {
     // Clear the swipe-specific UserDefaults suite
-    clearUserDefaults(suiteName: suiteName)
+    clearUserDefaults(suiteName: "us.zig.zpod.swipe-uitests")
 
     // Also clear standard defaults in case anything leaked
     clearUserDefaults(suiteName: nil)

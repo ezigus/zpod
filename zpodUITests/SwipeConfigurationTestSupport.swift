@@ -83,10 +83,17 @@ class SwipeConfigurationTestCase: XCTestCase, SmartUITesting {
         )
       }
     }
+
+    // Clean up state to prevent pollution between tests
+    // Note: Cleanup runs before app = nil, but performSwipeConfigurationCleanup() only clears
+    // UserDefaults and Keychain - it doesn't need the app instance. Order is safe.
+    performSwipeConfigurationCleanup()
+
     app = nil
     cachedReadiness = nil  // Clear readiness cache after each test
-    try super.tearDownWithError()
     hasLaunchedForCurrentSeed = false
+
+    try super.tearDownWithError()
   }
 
   func latestSwipeExecutionRecord() -> SwipeExecutionRecord? {
