@@ -36,9 +36,12 @@ struct ZpodApp: App {
       }
     #endif
 
-    // Always post initialization notification - debug tools can listen if needed
-    // This is harmless when nothing is listening (zero cost, loose coupling)
-    NotificationCenter.default.post(name: .appDidInitialize, object: nil)
+    // Post initialization notification after a delay to ensure observers are ready
+    // This allows the observer registration in SwipeDebugOverlayManager to complete
+    // before the notification is processed, preventing the race condition in CI
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(name: .appDidInitialize, object: nil)
+    }
   }
 
   #if canImport(LibraryFeature)
