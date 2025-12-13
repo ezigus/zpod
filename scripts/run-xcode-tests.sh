@@ -3043,8 +3043,13 @@ for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
 done
 unset __ZPOD_ALL_PACKAGES
 
+# Clean before IntegrationTests to prevent build deadlocks from stale artifacts
+# IntegrationTests standalone completes in 1 min, but hangs in regression due to
+# conflicts with previous workspace/package builds. Clean ensures fresh start.
+REQUESTED_CLEAN=1
 execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
 execute_phase "UI tests" "test" run_test_target "zpodUITests"
+REQUESTED_CLEAN=0
 
 execute_phase "Swift lint" "lint" run_swift_lint
 
