@@ -118,41 +118,62 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String, container: XCUIElement? = nil) {
+    // Try debug entrypoints first (fast path - overlay, toolbar, menu, section)
     if tapDebugOverlayButton(for: identifier) { return }
-
     if tapDebugToolbarButton(for: identifier) { return }
-
     if tapDebugPresetSectionButton(for: identifier) { return }
-
     if tapDebugPresetFromMenu(for: identifier) { return }
 
-    // Use provided container or re-discover if not provided
-    // Providing container avoids race condition after app relaunch
-    let sheetContainer: XCUIElement
-    if let providedContainer = container {
-      sheetContainer = providedContainer
-    } else {
-      guard let discoveredContainer = swipeActionsSheetListContainer() else {
-        XCTFail(
-          "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened.")
-        return
-      }
-      sheetContainer = discoveredContainer
+    // DEFENSIVE FIX #1: Always refresh container before scrolling
+    // Even caller-provided containers may be stale after previous interactions
+    // SwiftUI can recreate sheet hierarchy between test steps
+    guard let freshContainer = swipeActionsSheetListContainer() else {
+      XCTFail(
+        "Swipe configuration sheet not found before scrolling. " +
+        "Sheet may have been dismissed or not yet opened.")
+      return
     }
 
-    // Presets are at bottom of sheet, so increase scroll attempts from 6 to 10
-    // to ensure we can reach them even from the top of a long sheet
-    _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 10)
-    let presetButton = element(withIdentifier: identifier, within: sheetContainer)
+    // DEFENSIVE FIX #2: Increase scroll attempts for bottom-most presets
+    // Download preset (position 4) requires maximum scroll distance
+    // Previous limit (10) was insufficient; 12 provides safety margin
+    let scrollSuccess = ensureVisibleInSheet(
+      identifier: identifier,
+      container: freshContainer,
+      scrollAttempts: 12  // Increased from 10
+    )
+
+    // DEFENSIVE FIX #3: Refresh container AFTER scrolling
+    // Problem: 12 scroll attempts × 300-500ms = 3.6-6s total
+    // SwiftUI may recreate view hierarchy during long scroll sequences
+    // Solution: Re-query container to get fresh reference
+    guard let postScrollContainer = swipeActionsSheetListContainer() else {
+      XCTFail(
+        "Swipe configuration sheet disappeared during scroll. " +
+        "SwiftUI may have recreated the view. Scroll success: \(scrollSuccess)")
+      return
+    }
+
+    // DEFENSIVE FIX #4: Query element from FRESH container (post-scroll)
+    let presetButton = element(withIdentifier: identifier, within: postScrollContainer)
+
+    // DEFENSIVE FIX #5: Dedicated post-scroll timeout
+    // Problem: postReadinessTimeout (3s local, 5s CI) consumed by scrolling
+    // Solution: Separate budget for post-scroll element verification
+    let postScrollTimeout: TimeInterval = ProcessInfo.processInfo.environment["CI"] != nil
+      ? 8.0  // CI needs extra time after heavy scroll (resource contention)
+      : 5.0  // Local can verify faster (responsive simulator)
 
     XCTAssertTrue(
       waitForElement(
         presetButton,
-        timeout: postReadinessTimeout,
+        timeout: postScrollTimeout,
         description: "preset button \(identifier)"
       ),
-      "Preset button \(identifier) should exist"
+      "Preset button \(identifier) should exist after scrolling. " +
+      "Scroll success: \(scrollSuccess), Container refreshed: true, Timeout: \(postScrollTimeout)s"
     )
+
     tapElement(presetButton, description: identifier)
   }
 }
