@@ -174,8 +174,11 @@
         proxy.scrollTo("swipe-trailing", anchor: .top)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
+      // FIX: Scroll to actual preset button, not just the bottom marker
+      // SwiftUI's lazy List needs to see actual content to materialize rows
+      // Scrolling to "swipe-presets-bottom" (empty Color.clear) doesn't work
       withTransaction(transaction) {
-        proxy.scrollTo("swipe-presets-bottom", anchor: .bottom)
+        proxy.scrollTo("SwipeActions.Preset.Download", anchor: .center)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
       withTransaction(transaction) {
