@@ -2095,6 +2095,69 @@ build_package_target() {
   return 0
 }
 
+build_for_testing_phase() {
+  # Build-once-test-many optimization: Build zpod.app + ALL test bundles in one xcodebuild invocation
+  # This eliminates redundant rebuilds (previously: 3x zpod.app builds during regression)
+  # Output: zpod.app + AppSmokeTests.xctest + IntegrationTests.xctest + zpodUITests.xctest
+  require_xcodebuild || return 1
+  require_workspace
+  ensure_scheme_available
+  init_result_paths "build" "build-for-testing"
+  register_result_log "$RESULT_LOG"
+
+  select_destination "$WORKSPACE" "$SCHEME" "$PREFERRED_SIM"
+  local resolved_destination="$SELECTED_DESTINATION"
+
+  local -a args=(
+    -workspace "$WORKSPACE"
+    -scheme "$SCHEME"
+    -destination "$resolved_destination"
+    -resultBundlePath "$RESULT_BUNDLE"
+  )
+
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    mkdir -p "$ZPOD_DERIVED_DATA_PATH"
+    args+=(-derivedDataPath "$ZPOD_DERIVED_DATA_PATH")
+  fi
+
+  # CI safe mode: Clean DerivedData before build to avoid stale artifacts
+  if [[ "${ZPOD_CI_SAFE_MODE:-0}" == "1" ]]; then
+    log_info "CI safe mode: cleaning DerivedData before build-for-testing"
+    if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+      rm -rf "$ZPOD_DERIVED_DATA_PATH"/*
+    else
+      rm -rf "$HOME/Library/Developer/Xcode/DerivedData"/*
+    fi
+    REQUESTED_CLEAN=1
+  fi
+
+  if [[ $REQUESTED_CLEAN -eq 1 ]]; then
+    args+=(clean)
+  fi
+
+  args+=(build-for-testing)
+
+  log_section "xcodebuild build-for-testing"
+  set +e
+  xcodebuild_wrapper "${args[@]}" | tee "$RESULT_LOG"
+  local xc_status=${PIPESTATUS[0]}
+  set -e
+
+  local note=""
+  note=$(collect_build_summary_info "$RESULT_LOG")
+
+  if (( xc_status != 0 )); then
+    log_error "Build-for-testing failed: status ${xc_status} -> $RESULT_LOG"
+    add_summary "build" "build-for-testing" "error" "$RESULT_LOG" "" "" "" "" "failed"
+    update_exit_status "$xc_status"
+    return "$xc_status"
+  fi
+
+  log_success "Build-for-testing finished -> $RESULT_LOG"
+  add_summary "build" "build-for-testing" "success" "$RESULT_LOG" "" "" "" "" "$note"
+  return 0
+}
+
 run_build_target() {
   local target="$1"
   case "$target" in
@@ -3018,14 +3081,9 @@ if ! execute_phase "Swift syntax" "syntax" run_syntax_check; then
   finalize_and_exit "$EXIT_STATUS"
 fi
 
-if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; then
-  finalize_and_exit "$EXIT_STATUS"
-fi
-
 execute_phase "Test plan default" "testplan" run_testplan_check ""
 
-execute_phase "Build zpod" "build" build_app_target "zpod"
-
+# Package builds and tests
 __ZPOD_ALL_PACKAGES=()
 while IFS= read -r pkg; do
   [[ -z "$pkg" ]] && continue
@@ -3043,8 +3101,21 @@ for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
 done
 unset __ZPOD_ALL_PACKAGES
 
+# Build-once-test-many optimization:
+# Build zpod.app + ALL test bundles (AppSmoke, Integration, UI) in ONE xcodebuild invocation
+# This eliminates redundant builds (previously: 3x zpod.app from scratch)
+execute_phase "Build app and test bundles" "build" build_for_testing_phase
+
+# Run all app tests using pre-built artifacts (no rebuild)
+# Tests run instantly against artifacts from build-for-testing
+export ZPOD_TEST_WITHOUT_BUILDING=1
+if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; then
+  unset ZPOD_TEST_WITHOUT_BUILDING
+  finalize_and_exit "$EXIT_STATUS"
+fi
 execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
 execute_phase "UI tests" "test" run_test_target "zpodUITests"
+unset ZPOD_TEST_WITHOUT_BUILDING
 
 execute_phase "Swift lint" "lint" run_swift_lint
 

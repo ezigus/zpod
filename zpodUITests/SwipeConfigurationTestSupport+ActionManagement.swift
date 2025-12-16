@@ -118,39 +118,30 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String, container: XCUIElement? = nil) {
-    if tapDebugOverlayButton(for: identifier) { return }
-
-    if tapDebugToolbarButton(for: identifier) { return }
-
-    if tapDebugPresetSectionButton(for: identifier) { return }
-
-    if tapDebugPresetFromMenu(for: identifier) { return }
-
-    // Use provided container or re-discover if not provided
-    // Providing container avoids race condition after app relaunch
-    let sheetContainer: XCUIElement
-    if let providedContainer = container {
-      sheetContainer = providedContainer
-    } else {
-      guard let discoveredContainer = swipeActionsSheetListContainer() else {
-        XCTFail(
-          "Swipe configuration sheet not found. Sheet may have been dismissed or not yet opened.")
-        return
-      }
-      sheetContainer = discoveredContainer
+    // Get fresh container
+    // Note: UI fix ensures preset buttons are pre-materialized by materializeSections()
+    guard let freshContainer = swipeActionsSheetListContainer() else {
+      XCTFail("Swipe configuration sheet not found before applying preset")
+      return
     }
 
-    _ = ensureVisibleInSheet(identifier: identifier, container: sheetContainer, scrollAttempts: 6)
-    let presetButton = element(withIdentifier: identifier, within: sheetContainer)
-
-    XCTAssertTrue(
-      waitForElement(
-        presetButton,
-        timeout: postReadinessTimeout,
-        description: "preset button \(identifier)"
-      ),
-      "Preset button \(identifier) should exist"
+    // With UI fix (materializeSections scrolls to actual preset buttons),
+    // preset buttons should be pre-materialized. Minimal scroll as fallback.
+    // Reduced from 12 to 2 (should be pre-materialized!)
+    let scrollSuccess = ensureVisibleInSheet(
+      identifier: identifier,
+      container: freshContainer,
+      scrollAttempts: 2
     )
+
+    // Find and tap preset button (should be immediately available after UI fix)
+    let presetButton = element(withIdentifier: identifier, within: freshContainer)
+
+    guard waitForElement(presetButton, timeout: postReadinessTimeout, description: "preset button \(identifier)") else {
+      XCTFail("Preset button \(identifier) not found. Pre-materialization may have failed. Scroll success: \(scrollSuccess)")
+      return
+    }
+
     tapElement(presetButton, description: identifier)
   }
 }
