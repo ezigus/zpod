@@ -218,13 +218,13 @@ extension SwipeConfigurationTestCase {
 
   // MARK: - Persistence Inspection
 
-  private struct PersistedSwipeSettings: Decodable {
-    struct SwipeActions: Decodable {
-      let leadingActions: [String]
-      let trailingActions: [String]
-    }
+  private struct PersistedSwipeActions: Decodable {
+    let leadingActions: [String]
+    let trailingActions: [String]
+  }
 
-    let swipeActions: SwipeActions
+  private struct PersistedSwipeSettings: Decodable {
+    let swipeActions: PersistedSwipeActions
   }
 
   private func decodedGlobalUISettings() -> PersistedSwipeSettings? {

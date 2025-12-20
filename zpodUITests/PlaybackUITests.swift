@@ -23,6 +23,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     app = nil
   }
 
+}
+
+extension PlaybackUITests {
+
   // MARK: - Helpers
 
   @MainActor
@@ -65,6 +69,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       description: "Player interface"
     )
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - Now Playing Interface Tests
   // Covers: Player interface controls from ui spec
@@ -200,6 +208,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(episodeArtwork.exists, "Artwork should be accessible")
   }
 
+}
+
+extension PlaybackUITests {
+
   // MARK: - Advanced Controls Tests
   // Covers: Advanced playback features from ui spec
 
@@ -276,6 +288,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
   }
 
+}
+
+extension PlaybackUITests {
+
   // MARK: - Control Center Integration Tests
   // Covers: Control center integration from ui spec
 
@@ -307,6 +323,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         "Episode title should be available for control center")
     }
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - Lock Screen Integration Tests
   // Covers: Lock screen player from ui spec
@@ -343,6 +363,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
         "Artwork should be available for lock screen")
     }
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - CarPlay Interface Tests
   // Covers: CarPlay integration from ui spec
@@ -397,6 +421,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
   }
 
+}
+
+extension PlaybackUITests {
+
   // MARK: - Apple Watch Interface Tests
   // Covers: Apple Watch support from ui spec
 
@@ -426,6 +454,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       XCTAssertTrue(true, "Long titles should be handled appropriately for Watch")
     }
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - Accessibility Tests for Playback
   // Covers: Accessibility for playback features from ui spec
@@ -494,6 +526,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
     }
   }
 
+}
+
+extension PlaybackUITests {
+
   // MARK: - Performance Tests
   // Covers: UI responsiveness during playback
 
@@ -540,6 +576,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       XCTFail("No playback controls available - skipping performance test"); return
     }
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - Acceptance Criteria Tests
   // Covers: Complete playback UI workflows from ui specification
@@ -762,6 +802,10 @@ final class PlaybackUITests: XCTestCase, SmartUITesting {
       }
     }
   }
+
+}
+
+extension PlaybackUITests {
 
   // MARK: - Mini Player Tests
 

@@ -23,12 +23,20 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     app = nil
   }
 
+}
+
+extension CoreUINavigationTests {
+
   // MARK: - Helper Methods
 
   @MainActor
   private func initializeApp() {
     app = launchConfiguredApp()
   }
+
+}
+
+extension CoreUINavigationTests {
 
   // MARK: - Main Navigation Tests
   // Covers: Basic navigation flow from ui spec
@@ -169,6 +177,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       app.navigationBars.matching(identifier: "Library").firstMatch.exists,
       "Should return to Library screen")
   }
+
+}
+
+extension CoreUINavigationTests {
 
   // MARK: - Accessibility Tests
   // Covers: Accessibility compliance from ui spec
@@ -517,6 +529,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     )
   }
 
+}
+
+extension CoreUINavigationTests {
+
   // MARK: - App Shortcuts Tests
   // Covers: iOS Quick Actions from ui spec
 
@@ -543,6 +559,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       XCTAssertTrue(searchField.exists, "Search should be accessible")
     }
   }
+
+}
+
+extension CoreUINavigationTests {
 
   // MARK: - Dark Mode and Appearance Tests
   // Covers: Theme customization from ui spec
@@ -582,6 +602,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
     }
   }
 
+}
+
+extension CoreUINavigationTests {
+
   // MARK: - Error State Navigation Tests
   // Covers: Error handling in navigation from ui spec
 
@@ -612,6 +636,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       XCTAssertTrue(tabBar.exists, "Tab bar should remain functional")
     }
   }
+
+}
+
+extension CoreUINavigationTests {
 
   // MARK: - Performance Tests
   // Covers: UI responsiveness from ui spec
@@ -644,6 +672,10 @@ final class CoreUINavigationTests: XCTestCase, SmartUITesting {
       return
     }
   }
+
+}
+
+extension CoreUINavigationTests {
 
   // MARK: - Acceptance Criteria Tests
   // Covers: Complete navigation workflows from ui specification

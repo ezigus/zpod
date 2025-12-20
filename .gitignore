@@ -68,3 +68,6 @@ TestResults_*.log
 
 # Tooling caches
 .build-tools/
+
+# Local simulator captures
+simvision.png
