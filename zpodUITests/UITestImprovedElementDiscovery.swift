@@ -61,11 +61,11 @@ extension XCUIElement {
       switch scrollDirection {
       case .upward:
         scrollView.swipeUp()
-      case .down:
+      case .downward:
         scrollView.swipeDown()
-      case .left:
+      case .leftward:
         scrollView.swipeLeft()
-      case .right:
+      case .rightward:
         scrollView.swipeRight()
       }
 
@@ -83,10 +83,10 @@ extension XCUIElement {
 
   /// Scroll direction for element discovery
   enum ScrollDirection {
-    case upward  // Swipe up (scrolls content downward)
-    case down    // Swipe down (scrolls content upward)
-    case left    // Swipe left (scrolls content rightward)
-    case right   // Swipe right (scrolls content leftward)
+    case upward    // Swipe up (scrolls content downward)
+    case downward  // Swipe down (scrolls content upward)
+    case leftward  // Swipe left (scrolls content rightward)
+    case rightward // Swipe right (scrolls content leftward)
   }
 
   /// Waits for element with enhanced diagnostic logging on failure
@@ -176,17 +176,17 @@ extension XCUIElement {
         startNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
         endNormalized = CGVector(dx: 0.5, dy: scrollOffset)
 
-      case .down:
+      case .downward:
         // Swipe from top to bottom (scroll content upward)
         startNormalized = CGVector(dx: 0.5, dy: scrollOffset)
         endNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
 
-      case .left:
+      case .leftward:
         // Swipe from right to left (scroll content rightward)
         startNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
         endNormalized = CGVector(dx: scrollOffset, dy: 0.5)
 
-      case .right:
+      case .rightward:
         // Swipe from left to right (scroll content leftward)
         startNormalized = CGVector(dx: scrollOffset, dy: 0.5)
         endNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
