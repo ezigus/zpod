@@ -33,14 +33,14 @@ extension XCUIElement {
   ///   - scrollView: The scroll container to search within
   ///   - timeout: Maximum time to search (default: 5.0)
   ///   - maxScrollAttempts: Maximum number of scroll gestures (default: 10)
-  ///   - scrollDirection: Direction to scroll (default: .up for downward scrolling)
+  ///   - scrollDirection: Direction to scroll (default: .upward for downward scrolling)
   /// - Returns: True if element was discovered
   @MainActor
   func discoverWithScrolling(
     in scrollView: XCUIElement,
     timeout: TimeInterval = 5.0,
     maxScrollAttempts: Int = 10,
-    scrollDirection: ScrollDirection = .up
+    scrollDirection: ScrollDirection = .upward
   ) -> Bool {
     // Fast path: element already exists
     if self.waitForExistence(timeout: 1.0) {
@@ -59,13 +59,13 @@ extension XCUIElement {
 
       // Perform scroll gesture based on direction
       switch scrollDirection {
-      case .up:
+      case .upward:
         scrollView.swipeUp()
-      case .down:
+      case .downward:
         scrollView.swipeDown()
-      case .left:
+      case .leftward:
         scrollView.swipeLeft()
-      case .right:
+      case .rightward:
         scrollView.swipeRight()
       }
 
@@ -83,10 +83,10 @@ extension XCUIElement {
 
   /// Scroll direction for element discovery
   enum ScrollDirection {
-    case up      // Swipe up (scrolls content downward)
-    case down    // Swipe down (scrolls content upward)
-    case left    // Swipe left (scrolls content rightward)
-    case right   // Swipe right (scrolls content leftward)
+    case upward    // Swipe up (scrolls content downward)
+    case downward  // Swipe down (scrolls content upward)
+    case leftward  // Swipe left (scrolls content rightward)
+    case rightward // Swipe right (scrolls content leftward)
   }
 
   /// Waits for element with enhanced diagnostic logging on failure
@@ -145,7 +145,7 @@ extension XCUIElement {
   ///   - timeout: Maximum time to search (default: 5.0)
   ///   - scrollOffset: Normalized scroll offset (0.0 to 1.0, default: 0.5)
   ///   - maxAttempts: Maximum scroll attempts (default: 10)
-  ///   - direction: Scroll direction (default: .up)
+  ///   - direction: Scroll direction (default: .upward)
   /// - Returns: True if element was discovered
   @MainActor
   func discoverWithCustomScroll(
@@ -153,7 +153,7 @@ extension XCUIElement {
     timeout: TimeInterval = 5.0,
     scrollOffset: CGFloat = 0.5,
     maxAttempts: Int = 10,
-    direction: ScrollDirection = .up
+    direction: ScrollDirection = .upward
   ) -> Bool {
     // Fast path: element already exists
     if self.waitForExistence(timeout: 1.0) {
@@ -171,22 +171,22 @@ extension XCUIElement {
       let endNormalized: CGVector
 
       switch direction {
-      case .up:
+      case .upward:
         // Swipe from bottom to top (scroll content downward)
         startNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
         endNormalized = CGVector(dx: 0.5, dy: scrollOffset)
 
-      case .down:
+      case .downward:
         // Swipe from top to bottom (scroll content upward)
         startNormalized = CGVector(dx: 0.5, dy: scrollOffset)
         endNormalized = CGVector(dx: 0.5, dy: 1.0 - scrollOffset)
 
-      case .left:
+      case .leftward:
         // Swipe from right to left (scroll content rightward)
         startNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
         endNormalized = CGVector(dx: scrollOffset, dy: 0.5)
 
-      case .right:
+      case .rightward:
         // Swipe from left to right (scroll content leftward)
         startNormalized = CGVector(dx: scrollOffset, dy: 0.5)
         endNormalized = CGVector(dx: 1.0 - scrollOffset, dy: 0.5)
@@ -374,7 +374,7 @@ extension XCUIElement {
       in: collection,
       timeout: timeout,
       maxScrollAttempts: maxScrolls,
-      scrollDirection: .up
+      scrollDirection: .upward
     )
   }
 }

@@ -337,6 +337,94 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
 - Preflight provisions its own simulator + DerivedData bundle (same candidate loop) and reuses those env vars for AppSmoke so early gating steps behave like the UI matrix.
 - UI suites auto-build `zpod.app` inside the suite's DerivedData sandbox when `ZPOD_DERIVED_DATA_PATH` is set; this prevents linker failures when the test bundle expects a host app that hasn't been produced yet.
 
+## 7.1. MCP Servers
+
+Use these MCP servers for automation and diagnostics. Each server lists its commands and purpose.
+
+### github
+
+Repository, issue, and PR automation.
+
+- `add_issue_comment`: Add a comment to an existing issue.
+- `create_branch`: Create a new branch from a source branch (default: repo default).
+- `create_issue`: Create a new issue.
+- `create_or_update_file`: Create or update a single file (requires SHA for updates).
+- `create_pull_request`: Open a new pull request.
+- `create_pull_request_review`: Submit a review on a pull request.
+- `create_repository`: Create a new repository (optionally with README).
+- `fork_repository`: Fork a repository to a user or org.
+- `get_file_contents`: Read a file or directory contents from a repo.
+- `get_issue`: Fetch a specific issue.
+- `get_pull_request`: Fetch a specific pull request.
+- `get_pull_request_comments`: Fetch PR review comments.
+- `get_pull_request_files`: List files changed in a PR.
+- `get_pull_request_reviews`: List PR reviews.
+- `get_pull_request_status`: Get combined status checks for a PR.
+- `list_commits`: List commits for a branch or ref.
+- `list_issues`: List issues with filters.
+- `list_pull_requests`: List PRs with filters.
+- `merge_pull_request`: Merge a PR (choose merge method).
+- `push_files`: Push multiple files in a single commit.
+- `search_code`: Search code across GitHub.
+- `search_issues`: Search issues and PRs across GitHub.
+- `search_repositories`: Search repositories.
+- `search_users`: Search users.
+- `update_issue`: Update an existing issue.
+- `update_pull_request_branch`: Update PR branch from base.
+
+### github_actions
+
+Run and inspect GitHub Actions workflows.
+
+- `run_logs`: Fetch logs for a workflow run.
+- `run_status`: View status/details for a workflow run.
+- `trigger_workflow`: Dispatch a workflow with inputs and ref.
+
+### signing_manager
+
+Code signing inventory.
+
+- `list_identities`: List available signing identities.
+- `list_profiles`: List provisioning profiles (filter by team or bundle prefix).
+
+### sim_vision
+
+Simulator visual inspection helpers.
+
+- `sim_screenshot`: Capture a screenshot from the booted simulator (or named device).
+- `sim_ui_tree`: Dump the accessibility/UI tree from the booted simulator.
+
+### symbolication
+
+Crash and symbol analysis.
+
+- `atos_symbolicate`: Symbolicate an address using a binary or dSYM.
+- `dwarfdump_uuid`: Show UUIDs for a dSYM.
+- `list_dsyms`: Recursively find .dSYM bundles under a root.
+- `symbolicate_crash`: Symbolicate a .crash file (optionally with dSYM).
+
+### xcode_runner
+
+Xcode build/test automation via `scripts/run-xcode-tests.sh`.
+
+- `zpod_cleanup_logs`: Delete old logs by age.
+- `zpod_full_pipeline`: Run the full default pipeline.
+- `zpod_lint`: Run Swift lint gate.
+- `zpod_run_builds`: Build targets via the helper script.
+- `zpod_run_tests`: Run tests via the helper script.
+- `zpod_self_check`: Run script self-check.
+- `zpod_start_full_pipeline`: Start full pipeline asynchronously.
+- `zpod_syntax`: Run Swift syntax checks.
+- `zpod_task_status`: Check status/tail of an async task.
+- `zpod_verify_testplan`: Verify test plan coverage.
+
+### xcresult_explorer
+
+Inspect `.xcresult` bundles.
+
+- `xcresult_raw_get`: Fetch raw xcresult data (json/xml/human).
+- `xcresult_summary`: Summarize build/test issues and failures.
+
 ## 8. Issue & Documentation Management
 
 - Create issues in `Issues/` when work falls outside an existing scope; name files `xx.y-description.md` to preserve ordering. Use sub-issue numbering (e.g. `17.1`) when inserting between existing IDs.

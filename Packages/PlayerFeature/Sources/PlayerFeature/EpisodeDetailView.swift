@@ -369,6 +369,10 @@ public struct EpisodeDetailView: View {
     }
   }
 
+}
+
+extension EpisodeDetailView {
+
   private func formatChapterTime(_ seconds: TimeInterval) -> String {
     let minutes = Int(seconds) / 60
     let remainingSeconds = Int(seconds) % 60

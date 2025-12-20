@@ -28,3 +28,25 @@ flowchart TD
 
 ## Progress (2025-09-28 20:13 EDT)
 - Updated `scripts/run-xcode-tests.sh` to capture per-section summaries (syntax/build/test/lint/testplan) based on requested flags, emitting a final summary block with the relevant log paths.
+
+## Intent (2025-12-20 14:42 EST)
+- Clear the latest SwiftLint warnings in UI tests and the player episode detail view.
+- Prefer modular extraction over suppressions to keep refactors traceable.
+
+```mermaid
+flowchart TD
+    Lint[Run SwiftLint] --> Targets[Identify warning locations]
+    Targets --> Extract[Extract helpers/types]
+    Extract --> Verify[Re-run lint]
+```
+
+## Plan (2025-12-20 14:42 EST)
+1. Split oversized UI test classes into extensions or helper types.
+2. Flatten nested types in swipe configuration test support.
+3. Rename short enum cases to satisfy identifier length.
+4. Refactor EpisodeDetailView to smaller subviews.
+
+## Progress (2025-12-20 14:47 EST)
+- Split CoreUINavigationTests/PlaybackUITests into sectioned extensions to drop type body length warnings.
+- Flattened swipe settings persistence structs and renamed scroll direction case to satisfy nesting/identifier rules.
+- Moved EpisodeDetailView helpers into an extension and re-linted cleanly.
