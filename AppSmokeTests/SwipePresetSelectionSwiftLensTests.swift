@@ -84,19 +84,19 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
     await controller.loadBaseline()
 
     // Create SwiftLens workbench wrapping the view
+    let testController = controller!  // Local reference to avoid data races
     let workbench = LensWorkBench { _ in
-      SwipeActionConfigurationView(controller: self.controller)
+      SwipeActionConfigurationView(controller: testController)
     }
 
     // Wait for Download preset button to be visible
-    let isVisible = try await workbench.observer.waitForViewVisible(
+    try await workbench.observer.waitForViewVisible(
       withID: "SwipeActions.Preset.Download",
       timeout: 2.0
     )
-    XCTAssertTrue(isVisible, "Download preset button not visible")
 
     // Tap the Download preset button
-    try await workbench.interactor.tapButton(withId: "SwipeActions.Preset.Download")
+    try await workbench.interactor.tapButton(withID: "SwipeActions.Preset.Download")
 
     // Give the view a moment to update (SwiftUI state propagation)
     try await Task.sleep(nanoseconds: 100_000_000)  // 100ms
@@ -128,17 +128,17 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
 
     await controller.loadBaseline()
 
+    let testController = controller!
     let workbench = LensWorkBench { _ in
-      SwipeActionConfigurationView(controller: self.controller)
+      SwipeActionConfigurationView(controller: testController)
     }
 
-    let isVisible = try await workbench.observer.waitForViewVisible(
+    try await workbench.observer.waitForViewVisible(
       withID: "SwipeActions.Preset.Playback",
       timeout: 2.0
     )
-    XCTAssertTrue(isVisible, "Playback preset button not visible")
 
-    try await workbench.interactor.tapButton(withId: "SwipeActions.Preset.Playback")
+    try await workbench.interactor.tapButton(withID: "SwipeActions.Preset.Playback")
     try await Task.sleep(nanoseconds: 100_000_000)
 
     XCTAssertEqual(
@@ -162,17 +162,17 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
 
     await controller.loadBaseline()
 
+    let testController = controller!
     let workbench = LensWorkBench { _ in
-      SwipeActionConfigurationView(controller: self.controller)
+      SwipeActionConfigurationView(controller: testController)
     }
 
-    let isVisible = try await workbench.observer.waitForViewVisible(
+    try await workbench.observer.waitForViewVisible(
       withID: "SwipeActions.Preset.Organization",
       timeout: 2.0
     )
-    XCTAssertTrue(isVisible, "Organization preset button not visible")
 
-    try await workbench.interactor.tapButton(withId: "SwipeActions.Preset.Organization")
+    try await workbench.interactor.tapButton(withID: "SwipeActions.Preset.Organization")
     try await Task.sleep(nanoseconds: 100_000_000)
 
     XCTAssertEqual(
@@ -199,18 +199,18 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
     // Initially, no unsaved changes
     XCTAssertFalse(controller.hasUnsavedChanges, "Should have no unsaved changes initially")
 
+    let testController = controller!
     let workbench = LensWorkBench { _ in
-      SwipeActionConfigurationView(controller: self.controller)
+      SwipeActionConfigurationView(controller: testController)
     }
 
     // Select Download preset
-    let isVisible = try await workbench.observer.waitForViewVisible(
+    try await workbench.observer.waitForViewVisible(
       withID: "SwipeActions.Preset.Download",
       timeout: 2.0
     )
-    XCTAssertTrue(isVisible)
 
-    try await workbench.interactor.tapButton(withId: "SwipeActions.Preset.Download")
+    try await workbench.interactor.tapButton(withID: "SwipeActions.Preset.Download")
     try await Task.sleep(nanoseconds: 100_000_000)
 
     // Save button should be enabled
@@ -225,7 +225,7 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
 
 /// Mock service for SwiftLens testing
 /// Returns default configuration for all operations
-private final class MockSwipeConfigurationService: SwipeConfigurationServicing {
+private actor MockSwipeConfigurationService: SwipeConfigurationServicing {
 
   private var currentConfiguration: SwipeConfiguration = .default
   private let continuation: AsyncStream<SwipeConfiguration>.Continuation
