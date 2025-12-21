@@ -110,19 +110,6 @@
 		78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.5-refactor.log"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				.vscode/settings.json,
-				Info.plist,
-				README.md,
-				spec,
-			);
-			target = 786FD1082E22E615008CEE55 /* zpod */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		448868E042ED492A85BE6C62 /* IntegrationTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -136,9 +123,6 @@
 		};
 		786FD10B2E22E615008CEE55 /* zpod */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */,
-			);
 			explicitFolders = (
 				spec,
 			);
