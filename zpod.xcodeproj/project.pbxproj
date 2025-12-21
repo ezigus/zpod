@@ -1054,8 +1054,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gahntpo/SwiftLens.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.0;
+				kind = revision;
+				revision = 8d4d8323894b1d50cb832967299fc7f0b171ade8;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

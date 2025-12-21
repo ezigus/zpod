@@ -15,8 +15,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/gahntpo/SwiftLens.git",
       "state" : {
-        "revision" : "fed0db9fab43ed37be67b09c9e9cdd62efa63a87",
-        "version" : "1.1.0"
+        "revision" : "8d4d8323894b1d50cb832967299fc7f0b171ade8"
       }
     }
   ],
