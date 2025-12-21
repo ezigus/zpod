@@ -46,28 +46,27 @@ final class SwipePresetSelectionSwiftLensTests: XCTestCase {
 
   // MARK: - Test Fixtures
 
-  private var mockService: MockSwipeConfigurationService!
-  private var controller: SwipeConfigurationController!
+  nonisolated(unsafe) private var mockService: MockSwipeConfigurationService!
+  nonisolated(unsafe) private var controller: SwipeConfigurationController!
 
   // MARK: - Setup & Teardown
 
-  nonisolated override func setUpWithError() throws {
+  override func setUpWithError() throws {
     try super.setUpWithError()
     continueAfterFailure = false
-
-    // Create mock service with default configuration
-    MainActor.assumeIsolated {
-      mockService = MockSwipeConfigurationService()
-      controller = SwipeConfigurationController(service: mockService)
-    }
   }
 
-  nonisolated override func tearDownWithError() throws {
-    MainActor.assumeIsolated {
-      controller = nil
-      mockService = nil
-    }
-    try super.tearDownWithError()
+  @MainActor
+  override func setUp() async throws {
+    // Create mock service with default configuration
+    mockService = MockSwipeConfigurationService()
+    controller = SwipeConfigurationController(service: mockService)
+  }
+
+  @MainActor
+  override func tearDown() async throws {
+    controller = nil
+    mockService = nil
   }
 
   // MARK: - Preset Selection Tests (Pure SwiftLens)
