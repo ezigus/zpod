@@ -1,5 +1,5 @@
 {
-  "originHash" : "1e561c34181fc9c9e5c1dde1ee51d128e4760174144e37aa098118a657fb3508",
+  "originHash" : "86406d508b9152bc2fe2bf40dbaf02e352c2f361bce41bd8ed75d5d4ffdfd56e",
   "pins" : [
     {
       "identity" : "opencombine",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "8576f0d579b27020beccbccc3ea6844f3ddfc2c2",
         "version" : "0.14.0"
+      }
+    },
+    {
+      "identity" : "swiftlens",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gahntpo/SwiftLens.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "8d4d8323894b1d50cb832967299fc7f0b171ade8"
       }
     }
   ],

@@ -15,6 +15,10 @@
 		783109B62EC7479300A24B51 /* PlayerFeature in Frameworks */ = {isa = PBXBuildFile; productRef = C48BD14625D04700A5604586 /* PlayerFeature */; };
 		783109B72EC7479300A24B51 /* SharedUtilities in Frameworks */ = {isa = PBXBuildFile; productRef = 9ABCDEF0123456789ABCDEFA /* SharedUtilities */; };
 		786D3A092E57371F005A436B /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
+		78AB4F5A2EF74DEB00A4E648 /* SwiftLens in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F592EF74DEB00A4E648 /* SwiftLens */; };
+		78AB4F5C2EF74DEB00A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5B2EF74DEB00A4E648 /* SwiftLensTestSupport */; };
+		78AB4F5E2EF74F8800A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5D2EF74F8800A4E648 /* SwiftLensTestSupport */; };
+		78AB4F602EF74F9700A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5F2EF74F9700A4E648 /* SwiftLensTestSupport */; };
 		78BF3E192E575000001DB480 /* dev-log.issue06.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E102E575000001DB480 /* dev-log.issue06.log */; };
 		78BF3E1A2E575000001DB480 /* dev-log.issue02.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E0C2E575000001DB480 /* dev-log.issue02.log */; };
 		78BF3E1B2E575000001DB480 /* dev-log.issue11.1-rename.log in Resources */ = {isa = PBXBuildFile; fileRef = 78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */; };
@@ -166,6 +170,7 @@
 				78C0C2272EBC2F6D000CB820 /* PlaybackEngine in Frameworks */,
 				78C0C2212EBC2F6D000CB820 /* (null) in Frameworks */,
 				78C0C2222EBC2F6D000CB820 /* CoreModels in Frameworks */,
+				78AB4F602EF74F9700A4E648 /* SwiftLensTestSupport in Frameworks */,
 				78C0C2242EBC2F6D000CB820 /* SettingsDomain in Frameworks */,
 				78C0C2262EBC2F6D000CB820 /* SearchDomain in Frameworks */,
 				78C0C2252EBC2F6D000CB820 /* TestSupport in Frameworks */,
@@ -178,6 +183,7 @@
 			files = (
 				786D3A092E57371F005A436B /* zpodLib in Frameworks */,
 				F1111111111111111111111A /* LibraryFeature in Frameworks */,
+				78AB4F5A2EF74DEB00A4E648 /* SwiftLens in Frameworks */,
 				F1111111111111111111111B /* CoreModels in Frameworks */,
 				F1111111111111111111111C /* SearchDomain in Frameworks */,
 				F1111111111111111111111D /* DiscoverFeature in Frameworks */,
@@ -191,6 +197,7 @@
 			files = (
 				C2B10EA0ACF24C72A9EED05A /* CoreModels in Frameworks */,
 				186B4D3092654891B23838B6 /* Persistence in Frameworks */,
+				78AB4F5E2EF74F8800A4E648 /* SwiftLensTestSupport in Frameworks */,
 				5D9EE8EF1E6A4AC6B0F1A163 /* SettingsDomain in Frameworks */,
 				94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */,
 				715B23139D6B42E897254126 /* SearchDomain in Frameworks */,
@@ -205,6 +212,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				78AB4F5C2EF74DEB00A4E648 /* SwiftLensTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,6 +331,7 @@
 				F1234567890ABC12345DEFGH /* LibraryFeature */,
 				C48BD14625D04700A5604586 /* PlayerFeature */,
 				9ABCDEF0123456789ABCDEFA /* SharedUtilities */,
+				78AB4F5F2EF74F9700A4E648 /* SwiftLensTestSupport */,
 			);
 			productName = IntegrationTests;
 			productReference = 5B6F6F5F341A43FD81D7CB84 /* IntegrationTests.xctest */;
@@ -351,6 +360,7 @@
 				32049ED8E56C433DB7220A50 /* SearchDomain */,
 				885611E8E8644D078AC31FA4 /* DiscoverFeature */,
 				9ABCDEF0123456789ABCDEFA /* SharedUtilities */,
+				78AB4F592EF74DEB00A4E648 /* SwiftLens */,
 			);
 			productName = zpod;
 			productReference = 786FD1092E22E615008CEE55 /* zpod.app */;
@@ -382,6 +392,7 @@
 				786D3A082E57371F005A436B /* zpodLib */,
 				9ABCDEF0123456789ABCDEFA /* SharedUtilities */,
 				F2345678901BCD23456EFGHI /* PlaybackEngine */,
+				78AB4F5D2EF74F8800A4E648 /* SwiftLensTestSupport */,
 			);
 			productName = AppSmokeTests;
 			productReference = 786FD11D2E22E617008CEE55 /* AppSmokeTests.xctest */;
@@ -405,6 +416,7 @@
 			);
 			name = zpodUITests;
 			packageProductDependencies = (
+				78AB4F5B2EF74DEB00A4E648 /* SwiftLensTestSupport */,
 			);
 			productName = zpodUITests;
 			productReference = 786FD1272E22E617008CEE55 /* zpodUITests.xctest */;
@@ -461,6 +473,7 @@
 				78BF3E6B2E577C54001DB480 /* XCLocalSwiftPackageReference "Packages/PlaylistFeature" */,
 				78BF3E6C2E577C59001DB480 /* XCLocalSwiftPackageReference "Packages/RecommendationDomain" */,
 				1869BB7B04E440878263AF56 /* XCLocalSwiftPackageReference "Packages/TestSupport" */,
+				78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 786FD10A2E22E615008CEE55 /* Products */;
@@ -1039,6 +1052,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gahntpo/SwiftLens.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		32049ED8E56C433DB7220A50 /* SearchDomain */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1069,6 +1093,26 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */;
 			productName = zpodLib;
+		};
+		78AB4F592EF74DEB00A4E648 /* SwiftLens */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */;
+			productName = SwiftLens;
+		};
+		78AB4F5B2EF74DEB00A4E648 /* SwiftLensTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */;
+			productName = SwiftLensTestSupport;
+		};
+		78AB4F5D2EF74F8800A4E648 /* SwiftLensTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */;
+			productName = SwiftLensTestSupport;
+		};
+		78AB4F5F2EF74F9700A4E648 /* SwiftLensTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 78AB4F582EF74DEB00A4E648 /* XCRemoteSwiftPackageReference "SwiftLens" */;
+			productName = SwiftLensTestSupport;
 		};
 		885611E8E8644D078AC31FA4 /* DiscoverFeature */ = {
 			isa = XCSwiftPackageProductDependency;
