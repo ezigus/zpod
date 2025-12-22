@@ -48,6 +48,11 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     //
     // NOTE: Uses progressive timeout strategy to handle SwiftUI lazy-loading
     // flakiness without relying on fixed delays.
+    //
+    // TODO: [Issue #02.1.6.7] Migrate to SwiftLens state observation
+    // Current approach polls accessibility tree with extended timeouts (9s).
+    // SwiftLens would observe SwiftUI state changes directly (3s, event-driven).
+    // See docs/testing/swiftlens-vs-timeout-analysis.md for detailed comparison.
 
     guard let container = try reuseOrOpenConfigurationSheet(resetDefaults: true) else {
       XCTFail("Swipe configuration sheet container should be discoverable")
