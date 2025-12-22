@@ -91,8 +91,9 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       if scrollSuccess {
         timeout = postReadinessTimeout
       } else if isProblematicElement {
-        // Known problematic elements get 2x timeout for lazy-loading
-        timeout = postReadinessTimeout * 2.0
+        // Known problematic elements get 3x timeout for lazy-loading (increased from 2x)
+        // CI regression showed 6s still insufficient for "Add.Trailing" button
+        timeout = postReadinessTimeout * 3.0
       } else {
         timeout = postReadinessTimeout * 1.5
       }
