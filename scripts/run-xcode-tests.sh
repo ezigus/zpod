@@ -3094,7 +3094,8 @@ for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
   execute_phase "Build package ${pkg}" "build" build_package_target "$pkg"
 done
 
-REQUESTED_CLEAN=0
+# Keep REQUESTED_CLEAN=1 for workspace build to ensure clean test bundle builds
+# Reset it AFTER workspace build, before individual package tests
 
 for pkg in "${__ZPOD_ALL_PACKAGES[@]}"; do
   execute_phase "Package tests ${pkg}" "test" test_package_target "$pkg"
@@ -3104,7 +3105,11 @@ unset __ZPOD_ALL_PACKAGES
 # Build-once-test-many optimization:
 # Build zpod.app + ALL test bundles (AppSmoke, Integration, UI) in ONE xcodebuild invocation
 # This eliminates redundant builds (previously: 3x zpod.app from scratch)
+# REQUESTED_CLEAN=1 ensures test bundles are rebuilt fresh (prevents stale artifact issues)
 execute_phase "Build app and test bundles" "build" build_for_testing_phase
+
+# Reset clean flag after workspace build
+REQUESTED_CLEAN=0
 
 # Run all app tests using pre-built artifacts (no rebuild)
 # Tests run instantly against artifacts from build-for-testing
