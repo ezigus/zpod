@@ -425,6 +425,12 @@ Inspect `.xcresult` bundles.
 - `xcresult_raw_get`: Fetch raw xcresult data (json/xml/human).
 - `xcresult_summary`: Summarize build/test issues and failures.
 
+## 7.2 SwiftLens (SwiftUI testing)
+
+- The `zpod` app target depends on `SwiftLens`.
+- The `AppSmokeTests`, `IntegrationTests`, and `zpodUITests` targets depend on `SwiftLensTestSupport`.
+- Use SwiftLens for reliable SwiftUI UI testing and interaction; see <https://github.com/gahntpo/SwiftLens> for correct usage and APIs.
+
 ## 8. Issue & Documentation Management
 
 - Create issues in `Issues/` when work falls outside an existing scope; name files `xx.y-description.md` to preserve ordering. Use sub-issue numbering (e.g. `17.1`) when inserting between existing IDs.

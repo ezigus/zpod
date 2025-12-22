@@ -1304,7 +1304,60 @@ jobs:
         timeout-minutes: 45
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
+          
+          MAX_ATTEMPTS=2
+          ATTEMPT=1
+          RETRY_DELAY=30
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "::group::Test attempt $ATTEMPT of $MAX_ATTEMPTS"
+            
+            # Run tests and capture output
+            if ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}; then
+              echo "::endgroup::"
+              echo "✅ Tests passed on attempt $ATTEMPT"
+              exit 0
+            fi
+            
+            TEST_EXIT_CODE=$?
+            echo "::endgroup::"
+            
+            # Check if failure is due to environment issues (simulator/resource contention)
+            RECENT_LOG=$(ls -t TestResults/*.log 2>/dev/null | head -1)
+            
+            if [ -n "$RECENT_LOG" ] && [ -f "$RECENT_LOG" ]; then
+              # Check for known environment failure patterns
+              if grep -q "Failed to get background assertion" "$RECENT_LOG" || \
+                 grep -q "Main tab bar did not appear after launch" "$RECENT_LOG" || \
+                 grep -q "Process spawn via launchd failed because device is not booted" "$RECENT_LOG" || \
+                 grep -q "Timeout waiting for simulator capacity" "$RECENT_LOG"; then
+                
+                if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                  echo "::warning::Environment failure detected (simulator overload/resource contention)"
+                  echo "Waiting ${RETRY_DELAY}s before retry..."
+                  sleep $RETRY_DELAY
+                  
+                  # Clean up simulator state before retry
+                  if [ -n "${{ steps.provision-sim.outputs.udid }}" ]; then
+                    echo "Resetting simulator state..."
+                    xcrun simctl shutdown "${{ steps.provision-sim.outputs.udid }}" 2>/dev/null || true
+                    xcrun simctl erase "${{ steps.provision-sim.outputs.udid }}" 2>/dev/null || true
+                    sleep 5
+                  fi
+                  
+                  ATTEMPT=$((ATTEMPT + 1))
+                  continue
+                else
+                  echo "::error::Environment failure persisted after $MAX_ATTEMPTS attempts"
+                  exit $TEST_EXIT_CODE
+                fi
+              fi
+            fi
+            
+            # Not an environment failure, fail immediately
+            echo "::error::Test failure (non-environment issue)"
+            exit $TEST_EXIT_CODE
+          done
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"

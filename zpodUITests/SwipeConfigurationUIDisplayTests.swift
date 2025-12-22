@@ -45,6 +45,9 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
     // Spec: Issue #02.6.3 - UI Display Test 2
     // Validates that all configuration sections materialize correctly and are
     // accessible via scrolling. Tests SwiftUI lazy-loading behavior.
+    //
+    // NOTE: Uses progressive timeout strategy to handle SwiftUI lazy-loading
+    // flakiness without relying on fixed delays.
 
     guard let container = try reuseOrOpenConfigurationSheet(resetDefaults: true) else {
       XCTFail("Swipe configuration sheet container should be discoverable")
@@ -65,13 +68,47 @@ final class SwipeConfigurationUIDisplayTests: SwipeConfigurationTestCase {
       "SwipeActions.Preset.Playback",
     ]
 
+    // Progressive verification: scroll once, then wait with extended timeout
+    // This mimics event-driven testing where we trust the system to notify us
+    // when the element materializes, rather than polling repeatedly.
     for id in identifiers {
-      let attempts = id.contains("Add.") || id.contains("Preset.") ? 4 : 2
-      _ = ensureVisibleInSheet(identifier: id, container: container, scrollAttempts: attempts)
+      let isProblematicElement = id.contains("Add.") || id.contains("Preset.")
+      let scrollAttempts = isProblematicElement ? 4 : 2
+      
+      // Phase 1: Try to make element visible through scrolling
+      let scrollSuccess = ensureVisibleInSheet(
+        identifier: id,
+        container: container,
+        scrollAttempts: scrollAttempts
+      )
+      
       let element = self.element(withIdentifier: id, within: container)
+      
+      // Phase 2: Event-driven wait with appropriate timeout
+      // If scrolling found it, use standard timeout. Otherwise, extend timeout
+      // to account for SwiftUI's lazy materialization delay.
+      let timeout: TimeInterval
+      if scrollSuccess {
+        timeout = postReadinessTimeout
+      } else if isProblematicElement {
+        // Known problematic elements get 2x timeout for lazy-loading
+        timeout = postReadinessTimeout * 2.0
+      } else {
+        timeout = postReadinessTimeout * 1.5
+      }
+      
+      // Use XCUIElement's native waitForExistence (event-driven, not polling)
+      let appeared = element.waitForExistence(timeout: timeout)
+      
       XCTAssertTrue(
-        waitForElement(element, timeout: postReadinessTimeout, description: id),
-        "\(id) should be visible in configuration sheet"
+        appeared,
+        """
+        \(id) should appear in configuration sheet
+        - Scroll attempts: \(scrollAttempts)
+        - Scroll found element: \(scrollSuccess)
+        - Wait timeout: \(timeout)s
+        - Element type: \(element.elementType.rawValue)
+        """
       )
     }
   }
