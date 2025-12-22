@@ -1,17 +1,28 @@
 #if false
-// TODO: Re-enable when SwiftLens supports Swift 6.2+ strict concurrency
-// Issue: Swift 6.2.3 (Xcode 26.2) has stricter concurrency checking that detects
-// data race risks in SwiftLens's observer/interactor isolation model.
-// CI (Swift 6.1.2) passes fine, but local builds fail with:
-//   "error: sending 'workbench.observer' risks causing data races"
-// 
-// Tracked in: https://github.com/gahntpo/SwiftLens - pending Swift 6.2 compatibility
-// Related: Issue 02.1.6.6, PR #163
+// TODO: [Issue #02.1.6.7] Re-enable when SwiftLens supports Swift 6.2+ strict concurrency
 //
-// When re-enabling:
-// 1. Verify SwiftLens has updated isolation annotations
-// 2. Test locally on Swift 6.2.3+
-// 3. Remove this #if false guard
+// BLOCKER: Swift 6.2.3 (Xcode 26.2) has stricter concurrency checking that detects
+// data race risks in SwiftLens's observer/interactor isolation model.
+//
+// STATUS:
+//   - CI (Swift 6.1.2): ✅ Passes (tests disabled via #if false guard)
+//   - Local (Swift 6.2.3+): ❌ Would fail with data race errors if enabled
+//
+// ERROR:
+//   "error: sending 'workbench.observer' risks causing data races"
+//   "error: sending 'workbench.interactor' risks causing data races"
+//
+// TRACKING:
+//   - Issue: Issues/02.1.6.7-swiftlens-swift-6.2-compatibility.md
+//   - Upstream: https://github.com/gahntpo/SwiftLens
+//   - Related: Issue 02.1.6.6 (SwiftLens integration), PR #163
+//
+// RE-ENABLEMENT STEPS (see Issue 02.1.6.7 for details):
+//   1. Update SwiftLens dependency to version with Swift 6.2+ support
+//   2. Remove this #if false guard (line 1) and matching #endif (line 270)
+//   3. Verify locally on Swift 6.2.3+: ./scripts/run-xcode-tests.sh -t AppSmokeTests
+//   4. Run full regression: ./scripts/run-xcode-tests.sh
+//   5. Update Issue 02.1.6.7 with results and close
 //
 #if os(iOS)
 //
