@@ -112,7 +112,6 @@ final class SwipeActionsEpisodeListIntegrationTests: XCTestCase {
     await controller.loadBaseline()
 
     controller.applyPreset(.playbackFocused)
-    try await Task.sleep(nanoseconds: 100_000_000)
 
     XCTAssertEqual(controller.leadingActions, SwipeActionSettings.playbackFocused.leadingActions)
     XCTAssertEqual(controller.trailingActions, SwipeActionSettings.playbackFocused.trailingActions)
@@ -125,7 +124,6 @@ final class SwipeActionsEpisodeListIntegrationTests: XCTestCase {
     await controller.loadBaseline()
 
     controller.applyPreset(.organizationFocused)
-    try await Task.sleep(nanoseconds: 100_000_000)
 
     XCTAssertEqual(controller.leadingActions, SwipeActionSettings.organizationFocused.leadingActions)
     XCTAssertEqual(controller.trailingActions, SwipeActionSettings.organizationFocused.trailingActions)
@@ -138,7 +136,6 @@ final class SwipeActionsEpisodeListIntegrationTests: XCTestCase {
     await controller.loadBaseline()
 
     controller.applyPreset(.downloadFocused)
-    try await Task.sleep(nanoseconds: 100_000_000)
 
     XCTAssertEqual(controller.leadingActions, SwipeActionSettings.downloadFocused.leadingActions)
     XCTAssertEqual(controller.trailingActions, SwipeActionSettings.downloadFocused.trailingActions)
