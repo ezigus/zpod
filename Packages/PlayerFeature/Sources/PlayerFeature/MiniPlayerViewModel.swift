@@ -64,6 +64,7 @@ public final class MiniPlayerViewModel: ObservableObject {
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
   private let queueIsEmpty: () -> Bool
   private let alertPresenter: PlaybackAlertPresenter
+  private let hapticFeedback: HapticFeedbackServicing
   private var stateCancellable: AnyCancellable?
   private var alertCancellable: AnyCancellable?
 
@@ -72,11 +73,13 @@ public final class MiniPlayerViewModel: ObservableObject {
   public init(
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
     queueIsEmpty: @escaping () -> Bool = { true },
-    alertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter()
+    alertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter(),
+    hapticFeedback: HapticFeedbackServicing = HapticFeedbackService.shared
   ) {
     self.playbackService = playbackService
     self.queueIsEmpty = queueIsEmpty
     self.alertPresenter = alertPresenter
+    self.hapticFeedback = hapticFeedback
     subscribeToPlaybackState()
     subscribeToAlerts()
   }
@@ -84,6 +87,7 @@ public final class MiniPlayerViewModel: ObservableObject {
   // MARK: - User Intents
 
   public func togglePlayPause() {
+    hapticFeedback.impact(.light)
     if displayState.isPlaying {
       playbackService.pause()
       return
@@ -105,10 +109,12 @@ public final class MiniPlayerViewModel: ObservableObject {
   }
 
   public func skipForward(interval: TimeInterval? = nil) {
+    hapticFeedback.impact(.light)
     playbackService.skipForward(interval: interval)
   }
 
   public func skipBackward(interval: TimeInterval? = nil) {
+    hapticFeedback.impact(.light)
     playbackService.skipBackward(interval: interval)
   }
 

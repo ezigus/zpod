@@ -480,6 +480,11 @@ public struct EpisodeListView: View {
           )
           .accessibilityIdentifier("Episode-\(episode.id)")
         } else {
+          let quickPlayAction = {
+            let _: Task<Void, Never> = Task { @MainActor in
+              await viewModel.quickPlayEpisode(episode)
+            }
+          }
           NavigationLink(destination: episodeDetailView(for: episode)) {
             EpisodeRowView(
               episode: episode,
@@ -498,15 +503,23 @@ public struct EpisodeListView: View {
                   await viewModel.resumeEpisodeDownload(episode)
                 }
               },
-              onQuickPlay: {
-                let _: Task<Void, Never> = Task { @MainActor in
-                  await viewModel.quickPlayEpisode(episode)
-                }
-              },
+              onQuickPlay: nil,
               isSelected: false,
               isInMultiSelectMode: false,
               noteCount: viewModel.noteCounts[episode.id]
             )
+          }
+          .overlay(alignment: .topTrailing) {
+            Button(action: quickPlayAction) {
+              Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
+                .foregroundStyle(.primary)
+                .font(.title3)
+            }
+            .buttonStyle(.borderless)
+            .padding(.trailing, 8)
+            .accessibilityLabel("Quick play")
+            .accessibilityHint("Resume playback from the last position")
+            .accessibilityIdentifier("Episode-\(episode.id)-QuickPlay")
           }
           .swipeActions(
             edge: .trailing,
@@ -1044,8 +1057,10 @@ public struct EpisodeRowView: View {
               .foregroundStyle(.primary)
               .font(.title3)
           }
+          .buttonStyle(.borderless)
           .accessibilityLabel("Quick play")
           .accessibilityHint("Resume playback from the last position")
+          .accessibilityIdentifier("Episode-\(episode.id)-QuickPlay")
         }
 
         // Enhanced download status with additional states

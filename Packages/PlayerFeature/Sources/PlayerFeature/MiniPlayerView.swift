@@ -9,10 +9,6 @@ import CoreModels
 import SharedUtilities
 import SwiftUI
 
-#if canImport(UIKit)
-  import UIKit
-#endif
-
 /// Compact mini-player bar that appears during playback.
 public struct MiniPlayerView: View {
   @ObservedObject private var viewModel: MiniPlayerViewModel
@@ -60,7 +56,6 @@ public struct MiniPlayerView: View {
           .padding(.bottom, 4)
           .contentShape(Rectangle())
           .onTapGesture {
-            performHaptic()
             onTapExpand()
           }
           .accessibilityElement(children: .contain)
@@ -124,7 +119,6 @@ public struct MiniPlayerView: View {
   private func transportControls(state: MiniPlayerDisplayState) -> some View {
     HStack(spacing: 12) {
       Button {
-        performHaptic()
         viewModel.skipBackward()
       } label: {
         Image(systemName: "gobackward.15")
@@ -136,7 +130,6 @@ public struct MiniPlayerView: View {
       .accessibilityIdentifier("Mini Player Skip Backward")
 
       Button {
-        performHaptic()
         viewModel.togglePlayPause()
       } label: {
         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
@@ -148,7 +141,6 @@ public struct MiniPlayerView: View {
       .accessibilityIdentifier(state.isPlaying ? "Mini Player Pause" : "Mini Player Play")
 
       Button {
-        performHaptic()
         viewModel.skipForward()
       } label: {
         Image(systemName: "goforward.30")
@@ -163,12 +155,6 @@ public struct MiniPlayerView: View {
   }
 
   // MARK: - Helpers ----------------------------------------------------------
-
-  private func performHaptic() {
-    #if canImport(UIKit)
-      UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    #endif
-  }
 
   private struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

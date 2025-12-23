@@ -48,6 +48,20 @@ This document outlines the UI testing approach for the main zpod application.
 - Bluetooth control handling
 - Mini-player visibility, transport controls, and expansion flow
 
+### Mini-Player Persistence Tests (`MiniPlayerPersistenceTests.swift`)
+
+**Purpose**: Validate mini-player persistence, quick play entry, and VoiceOver labels.
+
+**Specifications Covered**:
+
+- `Issues/03.1.1.1-mini-player-foundation.md` - persistence across navigation and accessibility labels
+
+**Test Areas**:
+
+- Mini-player persistence across tab switches and navigation back/forward
+- Quick play from Library triggers mini-player without leaving the list
+- VoiceOver labels for mini-player transport controls and metadata
+
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
 **Purpose**: Verify search, browse, and discovery interface functionality

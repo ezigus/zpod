@@ -2,13 +2,7 @@ import XCTest
 
 /// UI tests for player playback interactions.
 ///
-/// Validates playback UI interactions:
-/// - Play button tap functionality
-/// - Mini-player appearance after playback
-/// - Mini-player to expanded player transitions
-///
-/// Note: Tests use EpisodeDetailPlaceholder (mock view) which provides UI structure
-/// but not actual playback functionality. Tests validate navigation and UI presence.
+/// Validates quick play and mini-player interactions against Issue 03.1.1.1.
 final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
 
   nonisolated(unsafe) var app: XCUIApplication!
@@ -32,7 +26,8 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
   /// Navigate to Library tab
   @MainActor
   private func navigateToLibraryTab() {
-    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     XCTAssertTrue(libraryTab.waitForExistence(timeout: adaptiveTimeout), "Library tab should exist")
     libraryTab.tap()
   }
@@ -40,95 +35,115 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
   /// Navigate to a podcast from Library (assumes Library tab is active)
   @MainActor
   private func navigateToPodcast(_ podcastIdentifier: String = "Podcast-swift-talk") {
-    // Wait for podcast container
-    guard
-      let podcastContainer = findContainerElement(in: app, identifier: "Podcast Cards Container")
-    else {
-      XCTFail("Could not find podcast cards container")
+    let libraryLoaded = waitForContentToLoad(
+      containerIdentifier: "Podcast Cards Container",
+      timeout: adaptiveTimeout
+    )
+    guard libraryLoaded else {
+      XCTFail("Library content failed to load")
       return
     }
-    XCTAssertTrue(podcastContainer.exists, "Podcast container should exist")
 
-    // Wait for specific podcast
-    let podcastButton = app.buttons[podcastIdentifier]
+    let podcastButton = app.buttons.matching(identifier: podcastIdentifier).firstMatch
     XCTAssertTrue(
       podcastButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Podcast '\(podcastIdentifier)' should exist")
+      "Podcast '\(podcastIdentifier)' should exist"
+    )
     podcastButton.tap()
   }
 
-  /// Navigate to an episode from episode list (assumes episode list is active)
+  /// Wait for episode list to load
   @MainActor
-  private func navigateToEpisode(_ episodeIdentifier: String = "Episode-st-001") {
-    // Wait for episode list
-    guard let episodeList = findContainerElement(in: app, identifier: "Episode List View") else {
-      XCTFail("Could not find episode list container")
-      return
-    }
-    XCTAssertTrue(episodeList.exists, "Episode list should exist")
-
-    // Wait for specific episode
-    let episodeButton = app.buttons[episodeIdentifier]
-    XCTAssertTrue(
-      episodeButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Episode '\(episodeIdentifier)' should exist")
-    episodeButton.tap()
+  private func waitForEpisodeList() -> Bool {
+    waitForContentToLoad(
+      containerIdentifier: "Episode List View",
+      itemIdentifiers: ["Episode-st-001"],
+      timeout: adaptiveTimeout
+    )
   }
 
-  /// Wait for episode detail to load (flexible detection)
+  /// Quick play a seeded episode
   @MainActor
-  private func waitForEpisodeDetail() -> Bool {
-    // Use waitUntil to check for any play button variant
-    waitUntil(timeout: adaptiveShortTimeout) {
-      let playButtons = self.app.buttons.matching(
-        NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
+  private func quickPlayEpisode(_ episodeIdentifier: String = "Episode-st-001") {
+    let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
+      ? String(episodeIdentifier.dropFirst("Episode-".count))
+      : episodeIdentifier
+    let primaryQuickPlayButton = app.buttons
+      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
+      .firstMatch
+    let fallbackQuickPlayButton = app.buttons
+      .matching(identifier: "Episode-\(rawEpisodeId)")
+      .matching(NSPredicate(format: "label == 'Quick play'"))
+      .firstMatch
+    guard
+      let quickPlayButton = waitForAnyElement(
+        [primaryQuickPlayButton, fallbackQuickPlayButton],
+        timeout: adaptiveShortTimeout,
+        description: "Quick play button",
+        failOnTimeout: true
       )
-      return playButtons.count > 0
-    }
+    else { return }
+    quickPlayButton.tap()
+  }
+
+  @MainActor
+  private func miniPlayerElement() -> XCUIElement {
+    app.otherElements.matching(identifier: "Mini Player").firstMatch
   }
 
   // MARK: - Playback Interaction Tests
 
-  /// Test: Play button is tappable and initiates UI change
+  /// Test: Quick play starts playback and shows mini-player controls
   @MainActor
-  func testPlayButtonStartsPlayback() throws {
+  func testQuickPlayStartsPlayback() throws {
     launchApp()
     navigateToLibraryTab()
     navigateToPodcast()
-    navigateToEpisode()
 
-    XCTAssertTrue(waitForEpisodeDetail(), "Episode detail should load")
+    XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    quickPlayEpisode()
 
-    // Find and tap play button using flexible matcher (placeholder uses different naming)
-    let playButton = app.buttons.matching(
-      NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
-    ).firstMatch
-    XCTAssertTrue(playButton.exists, "Play button should exist")
-    playButton.tap()
+    let miniPlayer = miniPlayerElement()
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
 
-    // Note: Placeholder doesn't implement real playback, so we just verify the button exists and is tappable
-    // This test validates navigation and UI presence, not actual playback functionality
+    let playButton = app.buttons.matching(identifier: "Mini Player Play").firstMatch
+    let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+    let playOrPause = waitForAnyElement(
+      [playButton, pauseButton],
+      timeout: adaptiveShortTimeout,
+      description: "Mini player play/pause",
+      failOnTimeout: false
+    )
+    XCTAssertNotNil(playOrPause, "Mini player play/pause control should be available")
   }
 
-  /// Test: Mini-player appears after starting playback and navigating back
+  /// Test: Mini-player remains visible after navigating back to the podcast list
   @MainActor
   func testMiniPlayerAppearsAfterPlayback() throws {
     launchApp()
     navigateToLibraryTab()
     navigateToPodcast()
-    navigateToEpisode()
 
-    XCTAssertTrue(waitForEpisodeDetail(), "Episode detail should load")
+    XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    quickPlayEpisode()
 
-    // Find play button in placeholder using flexible matcher
-    let playButton = app.buttons.matching(
-      NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
-    ).firstMatch
+    let miniPlayer = miniPlayerElement()
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
 
-    // Note: Placeholder view doesn't implement real playback or mini-player
-    // This test would need the actual PlayerFeature integration to test mini-player appearance
-    // For now, we just verify the episode detail loads correctly
-    XCTAssertTrue(playButton.exists, "Episode detail with play button loaded successfully")
+    let backButton = app.navigationBars.buttons.firstMatch
+    if backButton.waitForExistence(timeout: adaptiveShortTimeout) {
+      backButton.tap()
+    }
+
+    let podcastListLoaded = waitForContentToLoad(
+      containerIdentifier: "Podcast Cards Container",
+      timeout: adaptiveTimeout
+    )
+    XCTAssertTrue(podcastListLoaded, "Podcast list should load after navigating back")
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      "Mini player should remain visible after navigation"
+    )
   }
 
   /// Test: Tapping mini-player expands to full player
@@ -137,18 +152,18 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
     launchApp()
     navigateToLibraryTab()
     navigateToPodcast()
-    navigateToEpisode()
 
-    XCTAssertTrue(waitForEpisodeDetail(), "Episode detail should load")
+    XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    quickPlayEpisode()
 
-    // Find play button in placeholder using flexible matcher
-    let playButton = app.buttons.matching(
-      NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
-    ).firstMatch
+    let miniPlayer = miniPlayerElement()
+    XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
+    miniPlayer.tap()
 
-    // Note: Placeholder view doesn't implement real playback, mini-player, or expanded player
-    // This test would need the actual PlayerFeature integration to test full player UI flow
-    // For now, we just verify the episode detail loads correctly
-    XCTAssertTrue(playButton.exists, "Episode detail with play button loaded successfully")
+    let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
+    XCTAssertTrue(
+      expandedPlayer.waitForExistence(timeout: adaptiveTimeout),
+      "Expanded player should appear after tapping mini player"
+    )
   }
 }

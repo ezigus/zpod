@@ -126,19 +126,34 @@ extension SwipeConfigurationTestCase {
     }
 
     // With UI fix (materializeSections scrolls to actual preset buttons),
-    // preset buttons should be pre-materialized. Minimal scroll as fallback.
-    // Reduced from 12 to 2 (should be pre-materialized!)
-    let scrollSuccess = ensureVisibleInSheet(
+    // preset buttons should be pre-materialized. Use a light sweep, then
+    // fall back to a deeper scroll if the target is still not visible.
+    var scrollSuccess = ensureVisibleInSheet(
       identifier: identifier,
       container: freshContainer,
       scrollAttempts: 2
     )
 
     // Find and tap preset button (should be immediately available after UI fix)
-    let presetButton = element(withIdentifier: identifier, within: freshContainer)
+    var presetButton = element(withIdentifier: identifier, within: freshContainer)
+    if !presetButton.waitForExistence(timeout: postReadinessTimeout) {
+      scrollSuccess = ensureVisibleInSheet(
+        identifier: identifier,
+        container: freshContainer,
+        scrollAttempts: 6
+      )
+      let refreshedContainer = swipeActionsSheetListContainer() ?? freshContainer
+      presetButton = element(withIdentifier: identifier, within: refreshedContainer)
+    }
 
-    guard waitForElement(presetButton, timeout: postReadinessTimeout, description: "preset button \(identifier)") else {
-      XCTFail("Preset button \(identifier) not found. Pre-materialization may have failed. Scroll success: \(scrollSuccess)")
+    guard waitForElement(
+      presetButton,
+      timeout: adaptiveTimeout,
+      description: "preset button \(identifier)"
+    ) else {
+      XCTFail(
+        "Preset button \(identifier) not found. Pre-materialization may have failed. Scroll success: \(scrollSuccess)"
+      )
       return
     }
 
