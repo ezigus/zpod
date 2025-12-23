@@ -67,7 +67,6 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
     )
   }
 
-  @MainActor
   // MARK: - Tests
 
   @MainActor
