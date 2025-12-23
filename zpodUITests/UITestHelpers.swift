@@ -362,6 +362,7 @@ extension XCTestCase {
     let commonContainers = [
       "Content Container",
       "Episode Cards Container",
+      "Podcast Cards Container",
       "Library Content",
       "Podcast List Container",
     ]
