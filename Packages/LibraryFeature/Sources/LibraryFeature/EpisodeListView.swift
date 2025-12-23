@@ -509,17 +509,8 @@ public struct EpisodeListView: View {
               noteCount: viewModel.noteCounts[episode.id]
             )
           }
-          .overlay(alignment: .topTrailing) {
-            Button(action: quickPlayAction) {
-              Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
-                .foregroundStyle(.primary)
-                .font(.title3)
-            }
-            .buttonStyle(.borderless)
-            .padding(.trailing, 8)
-            .accessibilityLabel("Quick play")
-            .accessibilityHint("Resume playback from the last position")
-            .accessibilityIdentifier("Episode-\(episode.id)-QuickPlay")
+          .overlay(alignment: .trailing) {
+            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
           }
           .swipeActions(
             edge: .trailing,
@@ -822,6 +813,25 @@ public struct EpisodeListView: View {
     }
   }
 #endif
+
+@ViewBuilder
+private func quickPlayButton(
+  for episode: Episode,
+  action: @escaping () -> Void,
+  trailingPadding: CGFloat = 0
+) -> some View {
+  Button(action: action) {
+    Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
+      .foregroundStyle(.primary)
+      .font(.title3)
+  }
+  .buttonStyle(.borderless)
+  .padding(.trailing, trailingPadding)
+  .accessibilityLabel("Quick play")
+  .accessibilityHint("Resume playback from the last position")
+  .accessibilityIdentifier("Episode-\(episode.id)-QuickPlay")
+}
+
 /// Individual episode row view for the list with multi-selection support
 public struct EpisodeRowView: View {
   let episode: Episode
@@ -1052,15 +1062,7 @@ public struct EpisodeRowView: View {
         .accessibilityHint("Tap to toggle played status")
 
         if !isInMultiSelectMode, let onQuickPlay = onQuickPlay {
-          Button(action: onQuickPlay) {
-            Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
-              .foregroundStyle(.primary)
-              .font(.title3)
-          }
-          .buttonStyle(.borderless)
-          .accessibilityLabel("Quick play")
-          .accessibilityHint("Resume playback from the last position")
-          .accessibilityIdentifier("Episode-\(episode.id)-QuickPlay")
+          quickPlayButton(for: episode, action: onQuickPlay)
         }
 
         // Enhanced download status with additional states

@@ -68,40 +68,6 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
   }
 
   @MainActor
-  private func quickPlayEpisode(_ episodeIdentifier: String = "Episode-st-001") {
-    let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
-      ? String(episodeIdentifier.dropFirst("Episode-".count))
-      : episodeIdentifier
-    let primaryQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
-      .firstMatch
-    let fallbackQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)")
-      .matching(NSPredicate(format: "label == 'Quick play'"))
-      .firstMatch
-    guard
-      let quickPlayButton = waitForAnyElement(
-        [primaryQuickPlayButton, fallbackQuickPlayButton],
-        timeout: adaptiveTimeout,
-        description: "Quick play button",
-        failOnTimeout: true
-      )
-    else { return }
-    quickPlayButton.tap()
-  }
-
-  @MainActor
-  private func miniPlayerElement() -> XCUIElement {
-    app.otherElements.matching(identifier: "Mini Player").firstMatch
-  }
-
-  @MainActor
-  private func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
-    guard element.exists else { return false }
-    let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-    return !text.isEmpty
-  }
-
   // MARK: - Tests
 
   @MainActor
@@ -110,9 +76,9 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear after quick play"
@@ -148,9 +114,9 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear after quick play"
@@ -185,7 +151,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let episodeList = app.otherElements.matching(identifier: "Episode List View").firstMatch
     XCTAssertTrue(
@@ -193,7 +159,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
       "Episode list should remain visible after quick play"
     )
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear after quick play"
@@ -206,9 +172,9 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear before checking accessibility"

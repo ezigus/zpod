@@ -86,29 +86,7 @@ extension PlaybackUITests {
       return
     }
 
-    let primaryQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-st-001-QuickPlay")
-      .firstMatch
-    let fallbackQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-st-001")
-      .matching(NSPredicate(format: "label == 'Quick play'"))
-      .firstMatch
-    guard
-      let quickPlayButton = waitForAnyElement(
-        [primaryQuickPlayButton, fallbackQuickPlayButton],
-        timeout: adaptiveTimeout,
-        description: "Quick play button",
-        failOnTimeout: true
-      )
-    else { return }
-    quickPlayButton.tap()
-  }
-
-  @MainActor
-  private func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
-    guard element.exists else { return false }
-    let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-    return !text.isEmpty
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
   }
 
   @MainActor

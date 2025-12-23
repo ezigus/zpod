@@ -62,35 +62,6 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
     )
   }
 
-  /// Quick play a seeded episode
-  @MainActor
-  private func quickPlayEpisode(_ episodeIdentifier: String = "Episode-st-001") {
-    let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
-      ? String(episodeIdentifier.dropFirst("Episode-".count))
-      : episodeIdentifier
-    let primaryQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
-      .firstMatch
-    let fallbackQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)")
-      .matching(NSPredicate(format: "label == 'Quick play'"))
-      .firstMatch
-    guard
-      let quickPlayButton = waitForAnyElement(
-        [primaryQuickPlayButton, fallbackQuickPlayButton],
-        timeout: adaptiveShortTimeout,
-        description: "Quick play button",
-        failOnTimeout: true
-      )
-    else { return }
-    quickPlayButton.tap()
-  }
-
-  @MainActor
-  private func miniPlayerElement() -> XCUIElement {
-    app.otherElements.matching(identifier: "Mini Player").firstMatch
-  }
-
   // MARK: - Playback Interaction Tests
 
   /// Test: Quick play starts playback and shows mini-player controls
@@ -101,9 +72,9 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
     navigateToPodcast()
 
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveShortTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
 
     let playButton = app.buttons.matching(identifier: "Mini Player Play").firstMatch
@@ -125,9 +96,9 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
     navigateToPodcast()
 
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveShortTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
 
     let backButton = app.navigationBars.buttons.firstMatch
@@ -154,9 +125,9 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
     navigateToPodcast()
 
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    quickPlayEpisode()
+    tapQuickPlayButton(in: app, timeout: adaptiveShortTimeout)
 
-    let miniPlayer = miniPlayerElement()
+    let miniPlayer = miniPlayerElement(in: app)
     XCTAssertTrue(miniPlayer.waitForExistence(timeout: adaptiveTimeout), "Mini player should appear")
     miniPlayer.tap()
 
