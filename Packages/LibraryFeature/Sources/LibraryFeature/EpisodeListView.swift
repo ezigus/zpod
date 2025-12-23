@@ -814,6 +814,7 @@ public struct EpisodeListView: View {
   }
 #endif
 
+@MainActor
 @ViewBuilder
 private func quickPlayButton(
   for episode: Episode,
