@@ -553,6 +553,7 @@ extension SmartUITesting where Self: XCTestCase {
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
     logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
+    ensureSpringboardReady(timeout: adaptiveTimeout)
     forceTerminateAppIfRunning()
     logLaunchEvent("Termination check complete")
 
@@ -580,6 +581,18 @@ extension SmartUITesting where Self: XCTestCase {
     logLaunchEvent("Batch overlay result=\(overlayResult)")
 
     return application
+  }
+
+  @MainActor
+  private func ensureSpringboardReady(timeout: TimeInterval) {
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    springboard.activate()
+    let ready = waitUntil(timeout: timeout, pollInterval: 0.1, description: "Springboard ready") {
+      springboard.state == .runningForeground
+    }
+    if !ready {
+      logLaunchEvent("Springboard not foreground within \(timeout)s")
+    }
   }
 
   private func logLaunchEvent(_ message: String) {

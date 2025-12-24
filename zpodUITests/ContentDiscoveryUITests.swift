@@ -62,6 +62,19 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     ).firstMatch
   }
 
+  private func searchField(in app: XCUIApplication) -> XCUIElement {
+    let searchField = app.searchFields.matching(
+      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
+    ).firstMatch
+    if searchField.exists {
+      return searchField
+    }
+
+    return app.textFields.matching(
+      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
+    ).firstMatch
+  }
+
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
   // Given/When/Then: Basic Podcast Search and Discovery
 
@@ -76,9 +89,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(app.navigationBars.matching(identifier: "Discover").firstMatch.exists, "Should be on Discover tab")
 
     // When: I look for search functionality
-    let searchField = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
+    let searchField = searchField(in: app)
 
     // Then: I should see search interface elements
     XCTAssertTrue(searchField.exists, "Search field should be present")
@@ -93,21 +104,40 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: Search interface is available
-    let searchField = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
-    XCTAssertTrue(searchField.exists, "Search field should exist")
+    let searchField = searchField(in: app)
+    XCTAssertTrue(
+      waitForElement(searchField, timeout: adaptiveShortTimeout, description: "Search field"),
+      "Search field should exist"
+    )
+    XCTAssertTrue(
+      waitForElementToBeHittable(searchField, timeout: adaptiveShortTimeout, description: "Search field"),
+      "Search field should be hittable"
+    )
 
     // When: I type in the search field
     searchField.tap()
+    let keyboard = app.keyboards.firstMatch
+    XCTAssertTrue(
+      waitForElement(keyboard, timeout: adaptiveShortTimeout, description: "Keyboard"),
+      "Keyboard should appear after focusing search field"
+    )
+    _ = waitForKeyboardFocus(on: searchField, timeout: adaptiveShortTimeout, description: "Search field focus")
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
 
     // Then: Entered text should remain in the field even when results lag
-    let fieldValue = searchField.value as? String ?? ""
-    XCTAssertTrue(
-      fieldValue.contains(desiredQuery),
-      "Search field should echo the entered query even before results render")
+    let valuePredicate = NSPredicate { _, _ in
+      let fieldValue = searchField.value as? String ?? ""
+      return fieldValue.contains(desiredQuery)
+    }
+    let expectation = XCTNSPredicateExpectation(predicate: valuePredicate, object: nil)
+    expectation.expectationDescription = "Search field should echo query"
+    let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
+    XCTAssertEqual(
+      result,
+      .completed,
+      "Search field should echo the entered query even before results render"
+    )
   }
 
   @MainActor
@@ -116,9 +146,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have typed in the search field
-    let searchField = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
+    let searchField = searchField(in: app)
     searchField.tap()
     searchField.typeText("test")
 
@@ -432,9 +460,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have started a search
-    let searchField = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
+    let searchField = searchField(in: app)
     if searchField.exists {
       // Note: tap() to focus, then typeText() to enter text.
       searchField.tap()
@@ -534,10 +560,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(discoverNavBar.exists, "Discover navigation should be accessible")
 
     // Check for accessible search elements
-    let searchElements = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'"))
-    if searchElements.count > 0 {
-      let searchField = searchElements.firstMatch
+    let searchField = searchField(in: app)
+    if searchField.exists {
       XCTAssertTrue(
         searchField.waitForExistence(timeout: adaptiveShortTimeout),
         "Search field should be accessible")
@@ -585,9 +609,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: Search interface is available
-    let searchField = app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
+    let searchField = searchField(in: app)
 
     if searchField.exists {
       // When: I interact with the search field

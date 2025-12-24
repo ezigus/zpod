@@ -200,6 +200,14 @@ None - investigation complete, ready to implement.
 
 ---
 
+## 2025-12-23 CI Follow-Up
+
+- Investigated CI failures in `ContentDiscoveryUITests` (search field input) and `PlayerNavigationTests` (background assertion timeouts).
+- Updated search field discovery to prefer `searchFields`, added keyboard focus checks, and predicate-based wait for input echo.
+- Added Springboard readiness check before UI test app launches to reduce background assertion launch flakiness.
+
+---
+
 ## Current Branch Status
 
 **Branch**: `docs/swiftlens-infrastructure-setup`
