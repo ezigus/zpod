@@ -44,7 +44,10 @@ let package = Package(
         .product(name: "PlaybackEngine", package: "PlaybackEngine"),
         .product(name: "Networking", package: "Networking"),
       ],
-      path: "Sources"
+      path: "Sources",
+      exclude: [
+        "LibraryFeature/CARPLAY_README.md"
+      ]
     ),
     .testTarget(
       name: "LibraryFeatureTests",

@@ -183,7 +183,7 @@ private extension UpdateFrequency {
   }
 }
 
-extension RetentionPolicy: Hashable {
+extension RetentionPolicy: @retroactive Hashable {
   public func hash(into hasher: inout Hasher) {
     switch self {
     case .keepAll:

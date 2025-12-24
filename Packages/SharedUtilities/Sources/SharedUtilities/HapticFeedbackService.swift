@@ -28,6 +28,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   @MainActor
   public func impact(_ intensity: HapticFeedbackIntensity) {
     #if canImport(UIKit)
+      guard isHapticsAllowed else { return }
       let generator = UIImpactFeedbackGenerator(style: intensity.uiImpactStyle)
       generator.prepare()
       generator.impactOccurred()
@@ -37,6 +38,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   @MainActor
   public func selectionChanged() {
     #if canImport(UIKit)
+      guard isHapticsAllowed else { return }
       let generator = UISelectionFeedbackGenerator()
       generator.prepare()
       generator.selectionChanged()
@@ -46,6 +48,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   @MainActor
   public func notifySuccess() {
     #if canImport(UIKit)
+      guard isHapticsAllowed else { return }
       emitNotification(.success)
     #endif
   }
@@ -53,6 +56,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   @MainActor
   public func notifyWarning() {
     #if canImport(UIKit)
+      guard isHapticsAllowed else { return }
       emitNotification(.warning)
     #endif
   }
@@ -60,6 +64,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
   @MainActor
   public func notifyError() {
     #if canImport(UIKit)
+      guard isHapticsAllowed else { return }
       emitNotification(.error)
     #endif
   }
@@ -70,6 +75,10 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
       let generator = UINotificationFeedbackGenerator()
       generator.prepare()
       generator.notificationOccurred(type)
+    }
+
+    private var isHapticsAllowed: Bool {
+      !UIAccessibility.isVoiceOverRunning
     }
   #endif
 }
