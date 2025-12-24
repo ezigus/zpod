@@ -1,5 +1,6 @@
 import SettingsDomain
 import SwiftUI
+import UIKit
 import SharedUtilities
 
 struct SettingsHomeView: View {

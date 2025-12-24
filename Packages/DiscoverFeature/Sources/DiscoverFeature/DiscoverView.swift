@@ -1,5 +1,6 @@
 #if os(iOS) || os(macOS)
 import SwiftUI
+import UIKit
 import CoreModels
 import SearchDomain
 import FeedParsing
