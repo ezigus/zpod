@@ -30,7 +30,7 @@
 
     public func templateApplicationScene(
       _ templateApplicationScene: CPTemplateApplicationScene,
-      didConnect interfaceController: CPInterfaceController
+      didConnectInterfaceController interfaceController: CPInterfaceController
     ) {
       Self.logger.info("CarPlay interface connected")
       self.interfaceController = interfaceController
@@ -41,7 +41,7 @@
 
     public func templateApplicationScene(
       _ templateApplicationScene: CPTemplateApplicationScene,
-      didDisconnect interfaceController: CPInterfaceController
+      didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
       Self.logger.info("CarPlay interface disconnected")
       self.interfaceController = nil

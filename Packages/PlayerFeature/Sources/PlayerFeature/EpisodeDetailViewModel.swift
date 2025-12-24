@@ -277,7 +277,7 @@ public class EpisodeDetailViewModel: ObservableObject {
       .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
       .filter { !$0.isEmpty }
 
-    var note = EpisodeNote(
+    let note = EpisodeNote(
       episodeId: episodeId,
       text: trimmedText,
       tags: cleanedTags,

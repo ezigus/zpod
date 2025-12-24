@@ -100,7 +100,7 @@
             await controller.loadBaseline()
             baselineLoaded = true
           }
-          .onChange(of: baselineLoaded) { loaded in
+          .onChange(of: baselineLoaded) { _, loaded in
             guard loaded else { return }
 
             // UITEST DEBUG HOOK: Direct scroll to target identifier
@@ -269,7 +269,7 @@
         }
         .accessibilityHint("Choose haptic feedback intensity: soft, medium, or rigid")
         .disabled(!controller.hapticsEnabled)
-        .onChange(of: controller.hapticStyle) { newStyle in
+        .onChange(of: controller.hapticStyle) { _, newStyle in
           hapticsService.impact(HapticFeedbackIntensity(style: newStyle))
         }
       }

@@ -45,6 +45,13 @@ public struct SearchTerm: Sendable, Codable, Equatable, Identifiable {
         self.isNegated = isNegated
         self.isPhrase = isPhrase
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case text
+        case field
+        case isNegated
+        case isPhrase
+    }
 }
 
 /// Boolean operators for combining search terms
@@ -128,6 +135,12 @@ public struct SearchHistoryEntry: Sendable, Codable, Identifiable {
         self.timestamp = timestamp
         self.resultCount = resultCount
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case query
+        case timestamp
+        case resultCount
+    }
 }
 
 /// Enhanced search suggestions based on history and common patterns
@@ -141,6 +154,12 @@ public struct EpisodeSearchSuggestion: Sendable, Identifiable, Codable {
         self.text = text
         self.type = type
         self.frequency = frequency
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case text
+        case type
+        case frequency
     }
 }
 
@@ -168,7 +187,7 @@ public struct SearchQueryParser {
         // Simple implementation - can be enhanced with proper parsing
         let components = splitQueryComponents(normalizedQuery)
         
-        for (index, component) in components.enumerated() {
+        for component in components {
             if let op = BooleanOperator(rawValue: component.uppercased()) {
                 operators.append(op)
             } else {

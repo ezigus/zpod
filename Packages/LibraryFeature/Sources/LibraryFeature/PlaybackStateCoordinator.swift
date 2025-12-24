@@ -163,8 +163,8 @@ public final class PlaybackStateCoordinator {
         forName: UIApplication.willEnterForegroundNotification,
         object: nil,
         queue: .main
-      ) { [weak self] _ in
-        Task { @MainActor [weak self] in
+      ) { _ in
+        Task { @MainActor in
           // State should already be current from background save
           // Just ensure sync is accurate
         }
