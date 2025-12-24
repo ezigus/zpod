@@ -1,10 +1,13 @@
 #if os(iOS) || os(macOS)
 import SwiftUI
-import UIKit
 import CoreModels
 import SearchDomain
 import FeedParsing
 import SharedUtilities
+
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private struct DiscoveryOptionsState {
     var isDialogPresented = false
@@ -444,6 +447,7 @@ public struct DiscoverView: View {
 
 // MARK: - Navigation Bar Accessibility Helper
 
+#if canImport(UIKit)
 /// Modifier to set accessibility identifier on SwiftUI navigation bar
 private struct NavigationBarAccessibilityModifier: ViewModifier {
   let identifier: String
@@ -489,6 +493,16 @@ private struct NavigationBarAccessibilityHelper: UIViewRepresentable {
     return nil
   }
 }
+#else
+/// No-op modifier when UIKit is not available
+private struct NavigationBarAccessibilityModifier: ViewModifier {
+  let identifier: String
+
+  func body(content: Content) -> some View {
+    content
+  }
+}
+#endif
 
 #else
 import SwiftUI

@@ -1,7 +1,10 @@
 import SettingsDomain
 import SwiftUI
-import UIKit
 import SharedUtilities
+
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
@@ -148,6 +151,7 @@ private struct SettingsFeatureDetailView: View {
 
 // MARK: - Navigation Bar Accessibility Helper
 
+#if canImport(UIKit)
 /// Modifier to set accessibility identifier on SwiftUI navigation bar
 private struct NavigationBarAccessibilityModifier: ViewModifier {
   let identifier: String
@@ -193,3 +197,13 @@ private struct NavigationBarAccessibilityHelper: UIViewRepresentable {
     return nil
   }
 }
+#else
+/// No-op modifier when UIKit is not available
+private struct NavigationBarAccessibilityModifier: ViewModifier {
+  let identifier: String
+
+  func body(content: Content) -> some View {
+    content
+  }
+}
+#endif
