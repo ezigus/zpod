@@ -68,7 +68,7 @@ final class PlayerNavigationTests: XCTestCase, SmartUITesting {
     XCTAssertTrue(episodeList.exists, "Episode list should exist")
 
     // Wait for specific episode
-    let episodeButton = app.buttons[episodeIdentifier]
+    let episodeButton = app.buttons.matching(identifier: episodeIdentifier).firstMatch
     XCTAssertTrue(
       episodeButton.waitForExistence(timeout: adaptiveShortTimeout),
       "Episode '\(episodeIdentifier)' should exist")

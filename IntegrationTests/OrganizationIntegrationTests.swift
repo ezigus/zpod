@@ -70,8 +70,6 @@ final class OrganizationIntegrationTests: XCTestCase, @unchecked Sendable {
     func testCompleteSubscriptionWorkflow() async throws {
         // Given: User discovers a podcast and wants to organize their library
         let techFolder = Folder(id: "tech", name: "Technology")
-        let programmingTag = Tag(id: "programming", name: "Programming")
-        
         try folderManager.add(techFolder)
         
         let discoveredPodcast = Podcast(

@@ -148,6 +148,57 @@ extension ElementWaiting {
     return success
   }
 
+  func quickPlayButton(
+    in app: XCUIApplication,
+    episodeIdentifier: String = "Episode-st-001",
+    timeout: TimeInterval,
+    description: String = "Quick play button"
+  ) -> XCUIElement? {
+    let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
+      ? String(episodeIdentifier.dropFirst("Episode-".count))
+      : episodeIdentifier
+    let primaryQuickPlayButton = app.buttons
+      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
+      .firstMatch
+    let fallbackQuickPlayButton = app.buttons
+      .matching(identifier: "Episode-\(rawEpisodeId)")
+      .matching(NSPredicate(format: "label == 'Quick play'"))
+      .firstMatch
+    return waitForAnyElement(
+      [primaryQuickPlayButton, fallbackQuickPlayButton],
+      timeout: timeout,
+      description: description,
+      failOnTimeout: true
+    )
+  }
+
+  func tapQuickPlayButton(
+    in app: XCUIApplication,
+    episodeIdentifier: String = "Episode-st-001",
+    timeout: TimeInterval,
+    description: String = "Quick play button"
+  ) {
+    guard
+      let quickPlayButton = quickPlayButton(
+        in: app,
+        episodeIdentifier: episodeIdentifier,
+        timeout: timeout,
+        description: description
+      )
+    else { return }
+    quickPlayButton.tap()
+  }
+
+  func miniPlayerElement(in app: XCUIApplication) -> XCUIElement {
+    app.otherElements.matching(identifier: "Mini Player").firstMatch
+  }
+
+  func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
+    guard element.exists else { return false }
+    let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !text.isEmpty
+  }
+
   /// Wait for any element using XCTestExpectation pattern
   func waitForAnyElement(
     _ elements: [XCUIElement],
@@ -362,6 +413,7 @@ extension XCTestCase {
     let commonContainers = [
       "Content Container",
       "Episode Cards Container",
+      "Podcast Cards Container",
       "Library Content",
       "Podcast List Container",
     ]
@@ -501,6 +553,7 @@ extension SmartUITesting where Self: XCTestCase {
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
     logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
+    ensureSpringboardReady(timeout: adaptiveTimeout)
     forceTerminateAppIfRunning()
     logLaunchEvent("Termination check complete")
 
@@ -528,6 +581,18 @@ extension SmartUITesting where Self: XCTestCase {
     logLaunchEvent("Batch overlay result=\(overlayResult)")
 
     return application
+  }
+
+  @MainActor
+  private func ensureSpringboardReady(timeout: TimeInterval) {
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    springboard.activate()
+    let ready = waitUntil(timeout: timeout, pollInterval: 0.1, description: "Springboard ready") {
+      springboard.state == .runningForeground
+    }
+    if !ready {
+      logLaunchEvent("Springboard not foreground within \(timeout)s")
+    }
   }
 
   private func logLaunchEvent(_ message: String) {

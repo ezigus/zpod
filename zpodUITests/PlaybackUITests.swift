@@ -48,10 +48,45 @@ extension PlaybackUITests {
   }
 
   @MainActor
-  private func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
-    guard element.exists else { return false }
-    let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-    return !text.isEmpty
+  private func startPlaybackFromLibraryQuickPlay() {
+    app = launchConfiguredApp()
+
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
+    if libraryTab.waitForExistence(timeout: adaptiveShortTimeout) {
+      libraryTab.tap()
+    }
+
+    let libraryLoaded = waitForContentToLoad(
+      containerIdentifier: "Podcast Cards Container",
+      timeout: adaptiveTimeout
+    )
+    guard libraryLoaded else {
+      XCTFail("Library content failed to load")
+      return
+    }
+
+    let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
+    guard
+      waitForElement(
+        podcastButton,
+        timeout: adaptiveTimeout,
+        description: "Podcast swift-talk"
+      )
+    else { return }
+    podcastButton.tap()
+
+    let episodeListLoaded = waitForContentToLoad(
+      containerIdentifier: "Episode List View",
+      itemIdentifiers: ["Episode-st-001"],
+      timeout: adaptiveTimeout
+    )
+    guard episodeListLoaded else {
+      XCTFail("Episode list failed to load")
+      return
+    }
+
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
   }
 
   @MainActor
@@ -810,35 +845,12 @@ extension PlaybackUITests {
   // MARK: - Mini Player Tests
 
   /// Given/When/Then: Issue 03.1.1.1 – Mini-Player Foundation
-  /// - Given an episode is playing from the Player tab
+  /// - Given an episode is playing from Library quick play
   /// - When the mini-player becomes visible
   /// - Then it exposes transport controls and expands to the full player without leaving the tab
   @MainActor
   func testMiniPlayerVisibilityAndExpansion() throws {
-    initializeApp()
-
-    let openFullPlayer = app.buttons.matching(identifier: "open-full-player").firstMatch
-    if openFullPlayer.waitForExistence(timeout: 2) {
-      openFullPlayer.tap()
-    }
-
-    let playButton = app.buttons.matching(identifier: "Play").firstMatch
-    if playButton.waitForExistence(timeout: 3) {
-      playButton.tap()
-    }
-
-    let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
-    XCTAssertTrue(pauseButton.waitForExistence(timeout: 3))
-
-    let backButton = app.navigationBars.buttons.element(boundBy: 0)
-    if backButton.waitForExistence(timeout: 2) {
-      backButton.tap()
-    }
-
-    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
-    if libraryTab.waitForExistence(timeout: 2) {
-      libraryTab.tap()
-    }
+    startPlaybackFromLibraryQuickPlay()
 
     let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
     XCTAssertTrue(

@@ -238,6 +238,42 @@ struct MiniPlayerViewModelTests {
     #expect(viewModel.displayState.duration == 1800)
   }
 
+  @Test("Mini player exposes artwork URL from the current episode")
+  func testArtworkURLExposed() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    let episode = sampleEpisode(id: "artwork-1")
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.episode?.artworkURL == episode.artworkURL)
+  }
+
+  // MARK: - Haptics ----------------------------------------------------------
+
+  @Test("Mini player transport actions emit haptic feedback")
+  func testTransportActionsTriggerHaptics() async throws {
+    let service = RecordingPlaybackService()
+    let hapticService = RecordingHapticService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service,
+      hapticFeedback: hapticService
+    )
+
+    let episode = sampleEpisode(id: "haptics-1")
+    service.play(episode: episode, duration: 600)
+    try await waitForStateUpdate()
+
+    viewModel.togglePlayPause()
+    viewModel.skipForward()
+    viewModel.skipBackward()
+
+    #expect(hapticService.impactCallCount == 3)
+  }
+
   // MARK: - Helpers ----------------------------------------------------------
 
   private func waitForStateUpdate() async throws {
@@ -325,5 +361,34 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
   func fail(error: PlaybackError = .streamFailed) {
     let episode = currentEpisode ?? Episode(id: "failure", title: "Failure")
     subject.send(.failed(episode, position: currentPosition, duration: currentDuration, error: error))
+  }
+}
+
+@MainActor
+private final class RecordingHapticService: HapticFeedbackServicing {
+  private(set) var impactCallCount = 0
+  private(set) var selectionChangedCallCount = 0
+  private(set) var successCallCount = 0
+  private(set) var warningCallCount = 0
+  private(set) var errorCallCount = 0
+
+  func impact(_ intensity: HapticFeedbackIntensity) {
+    impactCallCount += 1
+  }
+
+  func selectionChanged() {
+    selectionChangedCallCount += 1
+  }
+
+  func notifySuccess() {
+    successCallCount += 1
+  }
+
+  func notifyWarning() {
+    warningCallCount += 1
+  }
+
+  func notifyError() {
+    errorCallCount += 1
   }
 }

@@ -337,15 +337,18 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func requireEpisodeButton() throws -> XCUIElement {
-    let preferredEpisode = app.buttons["Episode-st-001"]
-    if preferredEpisode.exists {
+    let preferredEpisode = app.buttons
+      .matching(identifier: "Episode-st-001")
+      .matching(NSPredicate(format: "label != 'Quick play'"))
+      .firstMatch
+    if preferredEpisode.waitForExistence(timeout: adaptiveShortTimeout) {
       return preferredEpisode
     }
 
     let fallbackEpisode = app.buttons
-      .matching(NSPredicate(format: "identifier CONTAINS 'Episode-'"))
+      .matching(NSPredicate(format: "identifier CONTAINS 'Episode-' AND label != 'Quick play'"))
       .firstMatch
-    guard fallbackEpisode.exists else {
+    guard fallbackEpisode.waitForExistence(timeout: adaptiveShortTimeout) else {
       XCTFail("No episode button available for swipe configuration testing")
       throw SwipeConfigurationNavigationError.missingEpisodeButton
     }
