@@ -189,7 +189,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         
         // Step 2: User organizes podcasts
         let techFolder = Folder(id: "tech", name: "Technology")
-        folderManager.add(techFolder)
+        try folderManager.add(techFolder)
         
         let organizedPodcasts: [Podcast] = discoveredPodcasts.compactMap { podcast in
             guard let existing = podcastManager.find(id: podcast.id) else { return nil }
