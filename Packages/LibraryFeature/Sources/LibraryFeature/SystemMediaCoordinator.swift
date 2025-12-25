@@ -20,7 +20,6 @@ public final class SystemMediaCoordinator {
   private let infoCenter = MPNowPlayingInfoCenter.default()
   private let commandCenter = MPRemoteCommandCenter.shared()
   private let audioSession = AVAudioSession.sharedInstance()
-  private let artworkLoader = NowPlayingArtworkLoader()
 
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
@@ -323,10 +322,12 @@ public final class SystemMediaCoordinator {
     artworkTask?.cancel()
 
     artworkTask = Task { [weak self] in
-      guard let self else { return }
-      let artwork = await self.loadArtwork(from: url)
-      guard let artwork else { return }
-      self.applyArtwork(artwork)
+      guard let data = await Self.fetchArtworkData(from: url) else { return }
+      await MainActor.run { [weak self] in
+        guard let self else { return }
+        guard let artwork = self.makeArtwork(from: data) else { return }
+        self.applyArtwork(artwork)
+      }
     }
   }
 
@@ -336,8 +337,19 @@ public final class SystemMediaCoordinator {
     infoCenter.nowPlayingInfo = info
   }
 
-  private nonisolated func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
-    await artworkLoader.loadArtwork(from: url)
+  private func makeArtwork(from data: Data) -> MPMediaItemArtwork? {
+    guard let image = UIImage(data: data) else { return nil }
+    return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+  }
+
+  private nonisolated static func fetchArtworkData(from url: URL) async -> Data? {
+    do {
+      let (data, _) = try await URLSession.shared.data(from: url)
+      return Task.isCancelled ? nil : data
+    } catch {
+      Logger.warning("Failed to load artwork data for now playing: \(error)")
+      return nil
+    }
   }
 
   private func updateRemoteCommandAvailability() {
@@ -386,16 +398,4 @@ public final class SystemMediaCoordinator {
 
 }
 
-private final class NowPlayingArtworkLoader: @unchecked Sendable {
-  func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
-    do {
-      let (data, _) = try await URLSession.shared.data(from: url)
-      guard !Task.isCancelled, let image = UIImage(data: data) else { return nil }
-      return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-    } catch {
-      Logger.warning("Failed to load artwork for now playing: \(error)")
-      return nil
-    }
-  }
-}
 #endif
