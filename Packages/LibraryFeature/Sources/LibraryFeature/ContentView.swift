@@ -314,7 +314,7 @@ import SwiftUI
       private let playbackDependencies: CarPlayDependencies
       @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
     #endif
-    @State private var showFullPlayer = false
+    @State private var showFullPlayer: Bool
 
     public init(podcastManager: PodcastManaging? = nil) {
       // Use provided podcast manager or create a new one (for backward compatibility)
@@ -325,6 +325,9 @@ import SwiftUI
       self.searchService = SearchService(indexSources: searchSources)
       let repository = UserDefaultsSettingsRepository()
       _settingsManager = StateObject(wrappedValue: SettingsManager(repository: repository))
+      let forceExpandedPlayer =
+        ProcessInfo.processInfo.environment["UITEST_FORCE_EXPANDED_PLAYER"] == "1"
+      _showFullPlayer = State(initialValue: forceExpandedPlayer)
 
       // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)

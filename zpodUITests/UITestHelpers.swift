@@ -552,6 +552,16 @@ extension SmartUITesting where Self: XCTestCase {
   @MainActor
   @discardableResult
   func launchConfiguredApp(environmentOverrides: [String: String] = [:]) -> XCUIApplication {
+    launchConfiguredApp(environmentOverrides: environmentOverrides, launchArguments: [])
+  }
+
+  /// Launches a configured application with explicit launch arguments for size category or feature flags.
+  @MainActor
+  @discardableResult
+  func launchConfiguredApp(
+    environmentOverrides: [String: String] = [:],
+    launchArguments: [String]
+  ) -> XCUIApplication {
     logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
     ensureSpringboardReady(timeout: adaptiveTimeout)
     forceTerminateAppIfRunning()
@@ -561,6 +571,7 @@ extension SmartUITesting where Self: XCTestCase {
       environmentOverrides.isEmpty
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
+    application.launchArguments += launchArguments
     application.launch()
     logLaunchEvent("Launch request issued")
 
