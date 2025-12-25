@@ -14,19 +14,19 @@ import UIKit
 
 @MainActor
 public final class SystemMediaCoordinator {
-  private nonisolated(unsafe) let playbackService: EpisodePlaybackService & EpisodeTransportControlling
-  private nonisolated(unsafe) let settingsRepository: SettingsRepository?
-  private nonisolated(unsafe) let infoBuilder = NowPlayingInfoBuilder()
-  private nonisolated(unsafe) let infoCenter = MPNowPlayingInfoCenter.default()
-  private nonisolated(unsafe) let commandCenter = MPRemoteCommandCenter.shared()
-  private nonisolated(unsafe) let audioSession = AVAudioSession.sharedInstance()
-  private nonisolated(unsafe) let artworkLoader = NowPlayingArtworkLoader()
+  private let playbackService: EpisodePlaybackService & EpisodeTransportControlling
+  private let settingsRepository: SettingsRepository?
+  private let infoBuilder = NowPlayingInfoBuilder()
+  private let infoCenter = MPNowPlayingInfoCenter.default()
+  private let commandCenter = MPRemoteCommandCenter.shared()
+  private let audioSession = AVAudioSession.sharedInstance()
+  private let artworkLoader = NowPlayingArtworkLoader()
 
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
-  private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
-  private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
+  private var interruptionObserver: NSObjectProtocol?
+  private var routeObserver: NSObjectProtocol?
 
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
@@ -175,29 +175,39 @@ public final class SystemMediaCoordinator {
     commandCenter.skipBackwardCommand.isEnabled = false
 
     commandCenter.playCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.play)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.play)
+      }
       return .success
     }
 
     commandCenter.pauseCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.pause)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.pause)
+      }
       return .success
     }
 
     commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.togglePlayPause)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.togglePlayPause)
+      }
       return .success
     }
 
     commandCenter.skipForwardCommand.addTarget { [weak self] event in
       let interval = (event as? MPSkipIntervalCommandEvent)?.interval
-      self?.remoteHandler.handle(.skipForward, interval: interval)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.skipForward, interval: interval)
+      }
       return .success
     }
 
     commandCenter.skipBackwardCommand.addTarget { [weak self] event in
       let interval = (event as? MPSkipIntervalCommandEvent)?.interval
-      self?.remoteHandler.handle(.skipBackward, interval: interval)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.skipBackward, interval: interval)
+      }
       return .success
     }
 
@@ -212,18 +222,16 @@ public final class SystemMediaCoordinator {
   private func loadSkipIntervals() {
     guard let settingsRepository else { return }
 
-    Task.detached { [weak self, settingsRepository] in
+    Task { @MainActor [weak self] in
       let settings = await settingsRepository.loadGlobalPlaybackSettings()
-      await MainActor.run { [weak self] in
-        guard let self else { return }
-        if let forward = settings.skipForwardInterval {
-          self.skipForwardInterval = TimeInterval(forward)
-        }
-        if let backward = settings.skipBackwardInterval {
-          self.skipBackwardInterval = TimeInterval(backward)
-        }
-        self.updateRemoteCommandIntervals()
+      guard let self else { return }
+      if let forward = settings.skipForwardInterval {
+        self.skipForwardInterval = TimeInterval(forward)
       }
+      if let backward = settings.skipBackwardInterval {
+        self.skipBackwardInterval = TimeInterval(backward)
+      }
+      self.updateRemoteCommandIntervals()
     }
   }
 
