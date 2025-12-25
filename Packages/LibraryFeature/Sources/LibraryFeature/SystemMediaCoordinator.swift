@@ -18,14 +18,14 @@ public final class SystemMediaCoordinator {
   private let settingsRepository: SettingsRepository?
   private let infoBuilder = NowPlayingInfoBuilder()
   private let infoCenter = MPNowPlayingInfoCenter.default()
-  private let commandCenter = MPRemoteCommandCenter.shared()
+  private nonisolated(unsafe) let commandCenter = MPRemoteCommandCenter.shared()
   private let audioSession = AVAudioSession.sharedInstance()
 
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
-  private var interruptionObserver: NSObjectProtocol?
-  private var routeObserver: NSObjectProtocol?
+  private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
+  private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
 
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
