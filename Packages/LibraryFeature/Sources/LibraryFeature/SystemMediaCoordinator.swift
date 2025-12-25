@@ -324,10 +324,9 @@ public final class SystemMediaCoordinator {
 
     artworkTask = Task { [weak self] in
       guard let self else { return }
-      guard let artwork = await artworkLoader.loadArtwork(from: url) else { return }
-      await MainActor.run { [weak self] in
-        self?.applyArtwork(artwork)
-      }
+      let artwork = await self.loadArtwork(from: url)
+      guard let artwork else { return }
+      self.applyArtwork(artwork)
     }
   }
 
@@ -335,6 +334,10 @@ public final class SystemMediaCoordinator {
     guard var info = infoCenter.nowPlayingInfo else { return }
     info[MPMediaItemPropertyArtwork] = artwork
     infoCenter.nowPlayingInfo = info
+  }
+
+  private nonisolated func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
+    await artworkLoader.loadArtwork(from: url)
   }
 
   private func updateRemoteCommandAvailability() {
@@ -383,7 +386,7 @@ public final class SystemMediaCoordinator {
 
 }
 
-private final class NowPlayingArtworkLoader {
+private final class NowPlayingArtworkLoader: @unchecked Sendable {
   func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
     do {
       let (data, _) = try await URLSession.shared.data(from: url)
