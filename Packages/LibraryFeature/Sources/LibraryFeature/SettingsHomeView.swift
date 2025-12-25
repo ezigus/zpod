@@ -31,7 +31,9 @@ struct SettingsHomeView: View {
         overlayContent()
       }
       .navigationTitle("Settings")
+#if os(iOS)
       .navigationBarTitleDisplayMode(.inline)
+#endif
       .modifier(NavigationBarAccessibilityModifier(identifier: "Settings"))
       .task { await loadDescriptors() }
       .refreshable { await loadDescriptors() }

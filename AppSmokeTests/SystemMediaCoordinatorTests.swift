@@ -1,14 +1,17 @@
 #if os(iOS)
 import AVFoundation
+import CombineSupport
 import CoreModels
 import MediaPlayer
 import PlaybackEngine
+import UIKit
 import XCTest
 @testable import LibraryFeature
 
-@MainActor
 final class SystemMediaCoordinatorTests: XCTestCase {
   private var coordinator: SystemMediaCoordinator!
+  private var playbackService: TestPlaybackService!
+
   private let testEpisode = Episode(
     id: "test-episode",
     title: "Test Episode",
@@ -20,26 +23,29 @@ final class SystemMediaCoordinatorTests: XCTestCase {
 
   override func tearDownWithError() throws {
     coordinator = nil
+    playbackService = nil
     try super.tearDownWithError()
   }
 
   // MARK: - Initialization Tests
 
+  @MainActor
   func testInitializationConfiguresAudioSession() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
     let audioSession = AVAudioSession.sharedInstance()
     XCTAssertEqual(audioSession.category, .playback)
     XCTAssertEqual(audioSession.mode, .spokenAudio)
     XCTAssertTrue(audioSession.categoryOptions.contains(.allowAirPlay))
-    XCTAssertTrue(audioSession.categoryOptions.contains(.allowBluetooth))
+    XCTAssertTrue(audioSession.categoryOptions.contains(.allowBluetoothHFP))
     XCTAssertTrue(audioSession.categoryOptions.contains(.allowBluetoothA2DP))
   }
 
+  @MainActor
   func testInitializationDisablesRemoteCommands() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
     let commandCenter = MPRemoteCommandCenter.shared()
     XCTAssertFalse(commandCenter.playCommand.isEnabled)
@@ -51,71 +57,77 @@ final class SystemMediaCoordinatorTests: XCTestCase {
 
   // MARK: - Remote Command Availability Tests
 
+  @MainActor
   func testPlayCommandEnabledOnlyWhenPaused() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    // When paused, play command should be enabled
-    mockService.setState(.paused(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.paused(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertTrue(MPRemoteCommandCenter.shared().playCommand.isEnabled)
 
-    // When playing, play command should be disabled
-    mockService.setState(.playing(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertFalse(MPRemoteCommandCenter.shared().playCommand.isEnabled)
   }
 
+  @MainActor
   func testPauseCommandEnabledOnlyWhenPlaying() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    // When playing, pause command should be enabled
-    mockService.setState(.playing(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertTrue(MPRemoteCommandCenter.shared().pauseCommand.isEnabled)
 
-    // When paused, pause command should be disabled
-    mockService.setState(.paused(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.paused(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertFalse(MPRemoteCommandCenter.shared().pauseCommand.isEnabled)
   }
 
+  @MainActor
   func testTogglePlayPauseCommandEnabledDuringPlayback() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    // Enabled during playback
-    mockService.setState(.playing(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertTrue(MPRemoteCommandCenter.shared().togglePlayPauseCommand.isEnabled)
 
-    // Enabled during pause
-    mockService.setState(.paused(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.paused(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertTrue(MPRemoteCommandCenter.shared().togglePlayPauseCommand.isEnabled)
 
-    // Disabled when idle
-    mockService.setState(.idle(testEpisode))
+    playbackService.setState(.idle(testEpisode))
+    advanceRunLoop()
     XCTAssertFalse(MPRemoteCommandCenter.shared().togglePlayPauseCommand.isEnabled)
   }
 
+  @MainActor
   func testSkipCommandsEnabledDuringPlayback() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    // Enabled during playback
-    mockService.setState(.playing(testEpisode, position: 50, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
+    advanceRunLoop()
     XCTAssertTrue(MPRemoteCommandCenter.shared().skipForwardCommand.isEnabled)
     XCTAssertTrue(MPRemoteCommandCenter.shared().skipBackwardCommand.isEnabled)
 
-    // Disabled when idle
-    mockService.setState(.idle(testEpisode))
+    playbackService.setState(.idle(testEpisode))
+    advanceRunLoop()
     XCTAssertFalse(MPRemoteCommandCenter.shared().skipForwardCommand.isEnabled)
     XCTAssertFalse(MPRemoteCommandCenter.shared().skipBackwardCommand.isEnabled)
   }
 
   // MARK: - Now Playing Metadata Tests
 
+  @MainActor
   func testNowPlayingInfoIncludesPodcastTitle() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.playing(testEpisode, position: 0, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 0, duration: 300))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertEqual(
@@ -128,11 +140,13 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     )
   }
 
+  @MainActor
   func testNowPlayingInfoIncludesDuration() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.playing(testEpisode, position: 150, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 150, duration: 300))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertEqual(
@@ -145,11 +159,13 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     )
   }
 
+  @MainActor
   func testPlayingStateUpdatesPlaybackState() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.playing(testEpisode, position: 45, duration: 300))
+    playbackService.setState(.playing(testEpisode, position: 45, duration: 300))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertEqual(infoCenter.playbackState, .playing)
@@ -159,11 +175,13 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     )
   }
 
+  @MainActor
   func testPausedStateUpdatesPlaybackState() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.paused(testEpisode, position: 100, duration: 300))
+    playbackService.setState(.paused(testEpisode, position: 100, duration: 300))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertEqual(infoCenter.playbackState, .paused)
@@ -173,22 +191,26 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     )
   }
 
+  @MainActor
   func testIdleStateClearsNowPlayingInfo() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.idle(testEpisode))
+    playbackService.setState(.idle(testEpisode))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertNil(infoCenter.nowPlayingInfo)
     XCTAssertEqual(infoCenter.playbackState, .stopped)
   }
 
+  @MainActor
   func testFinishedStateShowsCompletedProgress() {
-    let mockService = SimpleTestPlaybackService()
-    coordinator = SystemMediaCoordinator(playbackService: mockService)
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-    mockService.setState(.finished(testEpisode, duration: 300))
+    playbackService.setState(.finished(testEpisode, duration: 300))
+    advanceRunLoop()
 
     let infoCenter = MPNowPlayingInfoCenter.default()
     XCTAssertEqual(
@@ -196,30 +218,71 @@ final class SystemMediaCoordinatorTests: XCTestCase {
       300
     )
   }
-}
 
-// MARK: - Mock Implementations
+  @MainActor
+  func testNowPlayingInfoClearsArtworkWhenMissing() {
+    prepareCoordinator()
+    defer { resetNowPlayingState() }
 
-@MainActor
-private final class SimpleTestPlaybackService: EpisodePlaybackService, EpisodeTransportControlling {
-  private var currentState: EpisodePlaybackState
+    let infoCenter = MPNowPlayingInfoCenter.default()
+    let image = UIImage(systemName: "music.note") ?? UIImage()
+    infoCenter.nowPlayingInfo = [
+      MPMediaItemPropertyArtwork: MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    ]
 
-  init(initialState: EpisodePlaybackState? = nil) {
-    self.currentState = initialState ?? .idle(Episode(id: "default", title: "Default", description: ""))
+    playbackService.setState(.playing(testEpisode, position: 0, duration: 300))
+    advanceRunLoop()
+
+    XCTAssertNil(infoCenter.nowPlayingInfo?[MPMediaItemPropertyArtwork])
   }
 
-  // Simple publisher that can be subscribed to
-  var statePublisher: any Publisher<EpisodePlaybackState, Never> {
-    Just(currentState).eraseToAnyPublisher()
+  // MARK: - Helpers
+
+  @MainActor
+  private func advanceRunLoop() {
+    RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+  }
+
+  @MainActor
+  private func prepareCoordinator() {
+    playbackService = TestPlaybackService(
+      initialState: .idle(Episode(id: "idle", title: "Idle", description: ""))
+    )
+    coordinator = SystemMediaCoordinator(playbackService: playbackService)
+  }
+
+  @MainActor
+  private func resetNowPlayingState() {
+    let commandCenter = MPRemoteCommandCenter.shared()
+    commandCenter.playCommand.isEnabled = false
+    commandCenter.pauseCommand.isEnabled = false
+    commandCenter.togglePlayPauseCommand.isEnabled = false
+    commandCenter.skipForwardCommand.isEnabled = false
+    commandCenter.skipBackwardCommand.isEnabled = false
+
+    let infoCenter = MPNowPlayingInfoCenter.default()
+    infoCenter.nowPlayingInfo = nil
+    infoCenter.playbackState = .stopped
+  }
+}
+
+@MainActor
+private final class TestPlaybackService: EpisodePlaybackService, EpisodeTransportControlling {
+  private let subject: CurrentValueSubject<EpisodePlaybackState, Never>
+
+  init(initialState: EpisodePlaybackState) {
+    subject = CurrentValueSubject(initialState)
+  }
+
+  var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
+    subject.eraseToAnyPublisher()
   }
 
   func setState(_ state: EpisodePlaybackState) {
-    currentState = state
-    // Simulate state change by posting notification that coordinator listens to
-    // In a real test, we would need proper publisher support
+    subject.send(state)
   }
 
-  func play(episode: Episode, duration: TimeInterval) {}
+  func play(episode: Episode, duration: TimeInterval?) {}
   func pause() {}
   func seek(to position: TimeInterval) {}
   func skipForward(interval: TimeInterval?) {}

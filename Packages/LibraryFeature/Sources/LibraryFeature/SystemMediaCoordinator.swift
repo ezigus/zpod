@@ -303,6 +303,10 @@ public final class SystemMediaCoordinator {
   private func updateArtwork(for snapshot: NowPlayingInfoSnapshot) {
     guard let url = snapshot.artworkURL else {
       lastArtworkURL = nil
+      if var info = infoCenter.nowPlayingInfo {
+        info.removeValue(forKey: MPMediaItemPropertyArtwork)
+        infoCenter.nowPlayingInfo = info
+      }
       return
     }
 

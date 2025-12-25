@@ -76,7 +76,9 @@ public struct DiscoverView: View {
                 }
             }
             .navigationTitle("Discover")
+#if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .modifier(NavigationBarAccessibilityModifier(identifier: "Discover"))
             .toolbar {
                 ToolbarItem(placement: discoveryToolbarPlacement) {

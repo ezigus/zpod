@@ -49,6 +49,7 @@
 		78C0C2262EBC2F6D000CB820 /* SearchDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 32049ED8E56C433DB7220A50 /* SearchDomain */; };
 		78C0C2272EBC2F6D000CB820 /* PlaybackEngine in Frameworks */ = {isa = PBXBuildFile; productRef = F2345678901BCD23456EFGHI /* PlaybackEngine */; };
 		94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
+		A1B2C3D4E5F60718293A4B5C /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = F1234567890ABC12345DEFGH /* LibraryFeature */; };
 		AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
 		C2B10EA0ACF24C72A9EED05A /* CoreModels in Frameworks */ = {isa = PBXBuildFile; productRef = 320A8153AF4645E1BFE862F9 /* CoreModels */; };
 		D4E5F60718293A4B5C6D7E8F /* SharedUtilities in Frameworks */ = {isa = PBXBuildFile; productRef = 9ABCDEF0123456789ABCDEFA /* SharedUtilities */; };
@@ -200,6 +201,7 @@
 				715B23139D6B42E897254126 /* SearchDomain in Frameworks */,
 				F9314B82C43C4A67918A0EB3 /* zpodLib in Frameworks */,
 				78C0C21A2EBC2F6D000CB820 /* (null) in Frameworks */,
+				A1B2C3D4E5F60718293A4B5C /* LibraryFeature in Frameworks */,
 				E8765432109FEDCBA0123456 /* PlaybackEngine in Frameworks */,
 				78C0C21B2EBC2F6D000CB820 /* SharedUtilities in Frameworks */,
 			);
@@ -389,6 +391,7 @@
 				786D3A082E57371F005A436B /* zpodLib */,
 				9ABCDEF0123456789ABCDEFA /* SharedUtilities */,
 				F2345678901BCD23456EFGHI /* PlaybackEngine */,
+				F1234567890ABC12345DEFGH /* LibraryFeature */,
 				78AB4F5D2EF74F8800A4E648 /* SwiftLensTestSupport */,
 			);
 			productName = AppSmokeTests;
