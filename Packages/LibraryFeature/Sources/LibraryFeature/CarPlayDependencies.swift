@@ -16,6 +16,9 @@ public struct CarPlayDependencies {
   public let queueManager: CarPlayQueueManaging
   public let playbackStateCoordinator: PlaybackStateCoordinator?
   public let playbackAlertPresenter: PlaybackAlertPresenter
+  #if os(iOS)
+    public let systemMediaCoordinator: SystemMediaCoordinator?
+  #endif
 
   public init(
     podcastManager: any PodcastManaging,
@@ -29,7 +32,28 @@ public struct CarPlayDependencies {
     self.queueManager = queueManager
     self.playbackStateCoordinator = playbackStateCoordinator
     self.playbackAlertPresenter = playbackAlertPresenter
+    #if os(iOS)
+      self.systemMediaCoordinator = nil
+    #endif
   }
+
+  #if os(iOS)
+    public init(
+      podcastManager: any PodcastManaging,
+      playbackService: EpisodePlaybackService & EpisodeTransportControlling,
+      queueManager: CarPlayQueueManaging,
+      playbackStateCoordinator: PlaybackStateCoordinator? = nil,
+      playbackAlertPresenter: PlaybackAlertPresenter = PlaybackAlertPresenter(),
+      systemMediaCoordinator: SystemMediaCoordinator?
+    ) {
+      self.podcastManager = podcastManager
+      self.playbackService = playbackService
+      self.queueManager = queueManager
+      self.playbackStateCoordinator = playbackStateCoordinator
+      self.playbackAlertPresenter = playbackAlertPresenter
+      self.systemMediaCoordinator = systemMediaCoordinator
+    }
+  #endif
 }
 
 /// Protocol that coordinates CarPlay playback actions and queue management.
@@ -147,6 +171,13 @@ public enum CarPlayDependencyRegistry {
       },
       alertPresenter: alertPresenter
     )
+
+    #if os(iOS)
+      let systemMediaCoordinator = SystemMediaCoordinator(
+        playbackService: playback,
+        settingsRepository: settingsRepository
+      )
+    #endif
     
     // Restore playback state on initialization (asynchronous, non-blocking)
     // State restoration happens in background to avoid blocking app launch
@@ -154,13 +185,24 @@ public enum CarPlayDependencyRegistry {
       await stateCoordinator.restorePlaybackIfNeeded()
     }
     
-    return CarPlayDependencies(
-      podcastManager: podcastManager,
-      playbackService: playback,
-      queueManager: queueCoordinator,
-      playbackStateCoordinator: stateCoordinator,
-      playbackAlertPresenter: alertPresenter
-    )
+    #if os(iOS)
+      return CarPlayDependencies(
+        podcastManager: podcastManager,
+        playbackService: playback,
+        queueManager: queueCoordinator,
+        playbackStateCoordinator: stateCoordinator,
+        playbackAlertPresenter: alertPresenter,
+        systemMediaCoordinator: systemMediaCoordinator
+      )
+    #else
+      return CarPlayDependencies(
+        podcastManager: podcastManager,
+        playbackService: playback,
+        queueManager: queueCoordinator,
+        playbackStateCoordinator: stateCoordinator,
+        playbackAlertPresenter: alertPresenter
+      )
+    #endif
   }
 }
 

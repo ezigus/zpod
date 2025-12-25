@@ -1,0 +1,386 @@
+#if os(iOS)
+import AVFoundation
+import CoreModels
+import Foundation
+import MediaPlayer
+import Persistence
+import PlaybackEngine
+import SharedUtilities
+import UIKit
+
+#if canImport(Combine)
+  @preconcurrency import CombineSupport
+#endif
+
+@MainActor
+public final class SystemMediaCoordinator {
+  private nonisolated(unsafe) let playbackService: EpisodePlaybackService & EpisodeTransportControlling
+  private nonisolated(unsafe) let settingsRepository: SettingsRepository?
+  private nonisolated(unsafe) let infoBuilder = NowPlayingInfoBuilder()
+  private nonisolated(unsafe) let infoCenter = MPNowPlayingInfoCenter.default()
+  private nonisolated(unsafe) let commandCenter = MPRemoteCommandCenter.shared()
+  private nonisolated(unsafe) let audioSession = AVAudioSession.sharedInstance()
+  private nonisolated(unsafe) let artworkLoader = NowPlayingArtworkLoader()
+
+  private var stateCancellable: AnyCancellable?
+  private var lastArtworkURL: URL?
+  private var artworkTask: Task<Void, Never>?
+  private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
+  private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
+
+  private var currentEpisode: Episode?
+  private var currentPosition: TimeInterval = 0
+  private var currentDuration: TimeInterval = 0
+  private var isPlaying: Bool = false
+  private var hasActivePlayback: Bool = false
+  private var wasPlayingBeforeInterruption = false
+  private var skipForwardInterval: TimeInterval = 30
+  private var skipBackwardInterval: TimeInterval = 15
+
+  private lazy var remoteHandler = RemoteCommandHandler(
+    play: { [weak self] in self?.resumePlayback() },
+    pause: { [weak self] in self?.playbackService.pause() },
+    togglePlayPause: { [weak self] in self?.togglePlayPause() },
+    skipForward: { [weak self] interval in
+      self?.playbackService.skipForward(interval: interval ?? self?.skipForwardInterval)
+    },
+    skipBackward: { [weak self] interval in
+      self?.playbackService.skipBackward(interval: interval ?? self?.skipBackwardInterval)
+    }
+  )
+
+  public init(
+    playbackService: EpisodePlaybackService & EpisodeTransportControlling,
+    settingsRepository: SettingsRepository? = nil
+  ) {
+    self.playbackService = playbackService
+    self.settingsRepository = settingsRepository
+
+    configureAudioSession()
+    configureRemoteCommands()
+    subscribeToPlaybackState()
+    loadSkipIntervals()
+  }
+
+  deinit {
+    stateCancellable?.cancel()
+    stateCancellable = nil
+
+    artworkTask?.cancel()
+    artworkTask = nil
+
+    if let interruptionObserver {
+      NotificationCenter.default.removeObserver(interruptionObserver)
+      self.interruptionObserver = nil
+    }
+
+    if let routeObserver {
+      NotificationCenter.default.removeObserver(routeObserver)
+      self.routeObserver = nil
+    }
+
+    commandCenter.playCommand.removeTarget(nil)
+    commandCenter.pauseCommand.removeTarget(nil)
+    commandCenter.togglePlayPauseCommand.removeTarget(nil)
+    commandCenter.skipForwardCommand.removeTarget(nil)
+    commandCenter.skipBackwardCommand.removeTarget(nil)
+  }
+
+  // MARK: - Setup
+
+  private func subscribeToPlaybackState() {
+    #if canImport(Combine)
+      stateCancellable = playbackService.statePublisher
+        .receive(on: RunLoop.main)
+        .sink { [weak self] state in
+          self?.handlePlaybackStateChange(state)
+        }
+    #endif
+  }
+
+  private func configureAudioSession() {
+    do {
+      try audioSession.setCategory(
+        .playback,
+        mode: .spokenAudio,
+        options: [.allowAirPlay, .allowBluetooth, .allowBluetoothA2DP]
+      )
+    } catch {
+      Logger.warning("Failed to configure audio session: \(error)")
+    }
+
+    interruptionObserver = NotificationCenter.default.addObserver(
+      forName: AVAudioSession.interruptionNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      guard let self else { return }
+      guard let userInfo = notification.userInfo,
+            let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: typeValue)
+      else {
+        return
+      }
+
+      switch type {
+      case .began:
+        MainActor.assumeIsolated {
+          self.wasPlayingBeforeInterruption = self.isPlaying
+          if self.isPlaying {
+            self.playbackService.pause()
+          }
+        }
+      case .ended:
+        let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
+        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
+        MainActor.assumeIsolated {
+          if options.contains(.shouldResume), self.wasPlayingBeforeInterruption {
+            self.resumePlayback()
+          }
+          self.wasPlayingBeforeInterruption = false
+        }
+      @unknown default:
+        MainActor.assumeIsolated {
+          self.wasPlayingBeforeInterruption = false
+        }
+      }
+    }
+
+    routeObserver = NotificationCenter.default.addObserver(
+      forName: AVAudioSession.routeChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      guard let self else { return }
+      guard let userInfo = notification.userInfo,
+            let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+            let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue)
+      else {
+        return
+      }
+
+      MainActor.assumeIsolated {
+        if reason == .oldDeviceUnavailable {
+          self.playbackService.pause()
+        }
+      }
+    }
+  }
+
+  private func configureRemoteCommands() {
+    commandCenter.playCommand.isEnabled = false
+    commandCenter.pauseCommand.isEnabled = false
+    commandCenter.togglePlayPauseCommand.isEnabled = false
+    commandCenter.skipForwardCommand.isEnabled = false
+    commandCenter.skipBackwardCommand.isEnabled = false
+
+    commandCenter.playCommand.addTarget { [weak self] _ in
+      self?.remoteHandler.handle(.play)
+      return .success
+    }
+
+    commandCenter.pauseCommand.addTarget { [weak self] _ in
+      self?.remoteHandler.handle(.pause)
+      return .success
+    }
+
+    commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+      self?.remoteHandler.handle(.togglePlayPause)
+      return .success
+    }
+
+    commandCenter.skipForwardCommand.addTarget { [weak self] event in
+      let interval = (event as? MPSkipIntervalCommandEvent)?.interval
+      self?.remoteHandler.handle(.skipForward, interval: interval)
+      return .success
+    }
+
+    commandCenter.skipBackwardCommand.addTarget { [weak self] event in
+      let interval = (event as? MPSkipIntervalCommandEvent)?.interval
+      self?.remoteHandler.handle(.skipBackward, interval: interval)
+      return .success
+    }
+
+    updateRemoteCommandIntervals()
+  }
+
+  private func updateRemoteCommandIntervals() {
+    commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: skipForwardInterval)]
+    commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: skipBackwardInterval)]
+  }
+
+  private func loadSkipIntervals() {
+    guard let settingsRepository else { return }
+
+    Task.detached { [weak self, settingsRepository] in
+      let settings = await settingsRepository.loadGlobalPlaybackSettings()
+      await MainActor.run { [weak self] in
+        guard let self else { return }
+        if let forward = settings.skipForwardInterval {
+          self.skipForwardInterval = TimeInterval(forward)
+        }
+        if let backward = settings.skipBackwardInterval {
+          self.skipBackwardInterval = TimeInterval(backward)
+        }
+        self.updateRemoteCommandIntervals()
+      }
+    }
+  }
+
+  // MARK: - Playback State Handling
+
+  private func handlePlaybackStateChange(_ state: EpisodePlaybackState) {
+    updatePlaybackTracking(state)
+    updateNowPlayingInfo(for: state)
+    updateRemoteCommandAvailability()
+    updateAudioSessionActive(for: state)
+  }
+
+  private func updatePlaybackTracking(_ state: EpisodePlaybackState) {
+    switch state {
+    case .idle(let episode):
+      currentEpisode = nil
+      currentPosition = 0
+      currentDuration = 0
+      isPlaying = false
+      hasActivePlayback = false
+
+    case .playing(let episode, let position, let duration):
+      currentEpisode = episode
+      currentPosition = position
+      currentDuration = duration
+      isPlaying = true
+      hasActivePlayback = true
+
+    case .paused(let episode, let position, let duration):
+      currentEpisode = episode
+      currentPosition = position
+      currentDuration = duration
+      isPlaying = false
+      hasActivePlayback = true
+
+    case .finished(let episode, let duration):
+      currentEpisode = episode
+      currentPosition = duration
+      currentDuration = duration
+      isPlaying = false
+      hasActivePlayback = false
+
+    case .failed(let episode, let position, let duration, _):
+      currentEpisode = episode
+      currentPosition = position
+      currentDuration = duration
+      isPlaying = false
+      hasActivePlayback = false
+    }
+  }
+
+  private func updateNowPlayingInfo(for state: EpisodePlaybackState) {
+    guard let snapshot = infoBuilder.makeSnapshot(from: state) else {
+      infoCenter.nowPlayingInfo = nil
+      infoCenter.playbackState = .stopped
+      return
+    }
+
+    var info: [String: Any] = [
+      MPMediaItemPropertyTitle: snapshot.title,
+      MPMediaItemPropertyPlaybackDuration: snapshot.duration,
+      MPNowPlayingInfoPropertyElapsedPlaybackTime: snapshot.elapsed,
+      MPNowPlayingInfoPropertyPlaybackRate: snapshot.playbackRate,
+    ]
+
+    if !snapshot.podcastTitle.isEmpty {
+      info[MPMediaItemPropertyAlbumTitle] = snapshot.podcastTitle
+      info[MPMediaItemPropertyArtist] = snapshot.podcastTitle
+    }
+
+    infoCenter.nowPlayingInfo = info
+    infoCenter.playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+
+    updateArtwork(for: snapshot)
+  }
+
+  private func updateArtwork(for snapshot: NowPlayingInfoSnapshot) {
+    guard let url = snapshot.artworkURL else {
+      lastArtworkURL = nil
+      return
+    }
+
+    guard url != lastArtworkURL else { return }
+    lastArtworkURL = url
+    artworkTask?.cancel()
+
+    artworkTask = Task { [weak self] in
+      guard let self else { return }
+      guard let artwork = await artworkLoader.loadArtwork(from: url) else { return }
+      await MainActor.run { [weak self] in
+        self?.applyArtwork(artwork)
+      }
+    }
+  }
+
+  private func applyArtwork(_ artwork: MPMediaItemArtwork) {
+    guard var info = infoCenter.nowPlayingInfo else { return }
+    info[MPMediaItemPropertyArtwork] = artwork
+    infoCenter.nowPlayingInfo = info
+  }
+
+  private func updateRemoteCommandAvailability() {
+    commandCenter.playCommand.isEnabled = hasActivePlayback && !isPlaying
+    commandCenter.pauseCommand.isEnabled = hasActivePlayback && isPlaying
+    commandCenter.togglePlayPauseCommand.isEnabled = hasActivePlayback
+    commandCenter.skipForwardCommand.isEnabled = hasActivePlayback
+    commandCenter.skipBackwardCommand.isEnabled = hasActivePlayback
+  }
+
+  private func updateAudioSessionActive(for state: EpisodePlaybackState) {
+    let shouldActivate: Bool
+
+    switch state {
+    case .playing, .paused:
+      shouldActivate = true
+    case .idle, .finished, .failed:
+      shouldActivate = false
+    }
+
+    do {
+      try audioSession.setActive(shouldActivate, options: [.notifyOthersOnDeactivation])
+    } catch {
+      Logger.warning("Failed to update audio session active state: \(error)")
+    }
+  }
+
+  private func togglePlayPause() {
+    if isPlaying {
+      playbackService.pause()
+    } else {
+      resumePlayback()
+    }
+  }
+
+  private func resumePlayback() {
+    guard let episode = currentEpisode else { return }
+    let duration = currentDuration > 0 ? currentDuration : episode.duration
+    playbackService.play(episode: episode, duration: duration)
+
+    if currentPosition > 0 {
+      playbackService.seek(to: currentPosition)
+    }
+  }
+
+
+}
+
+private final class NowPlayingArtworkLoader {
+  func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
+    do {
+      let (data, _) = try await URLSession.shared.data(from: url)
+      guard !Task.isCancelled, let image = UIImage(data: data) else { return nil }
+      return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    } catch {
+      Logger.warning("Failed to load artwork for now playing: \(error)")
+      return nil
+    }
+  }
+}
+#endif

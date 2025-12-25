@@ -5,6 +5,10 @@ import SearchDomain
 import FeedParsing
 import SharedUtilities
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 private struct DiscoveryOptionsState {
     var isDialogPresented = false
     var isRSSSheetPresented = false
@@ -72,6 +76,8 @@ public struct DiscoverView: View {
                 }
             }
             .navigationTitle("Discover")
+            .navigationBarTitleDisplayMode(.inline)
+            .modifier(NavigationBarAccessibilityModifier(identifier: "Discover"))
             .toolbar {
                 ToolbarItem(placement: discoveryToolbarPlacement) {
                     Button {
@@ -438,6 +444,66 @@ public struct DiscoverView: View {
         }
     }
 }
+
+// MARK: - Navigation Bar Accessibility Helper
+
+#if canImport(UIKit)
+/// Modifier to set accessibility identifier on SwiftUI navigation bar
+private struct NavigationBarAccessibilityModifier: ViewModifier {
+  let identifier: String
+
+  func body(content: Content) -> some View {
+    content
+      .background(
+        NavigationBarAccessibilityHelper(identifier: identifier)
+          .frame(height: 0)
+      )
+  }
+}
+
+/// Helper to tag the native navigation bar with accessibility identifier
+private struct NavigationBarAccessibilityHelper: UIViewRepresentable {
+  let identifier: String
+
+  func makeUIView(context: Context) -> UIView {
+    let view = UIView()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      // Find the navigation bar and set its accessibility identifier
+      if let window = UIApplication.shared.connectedScenes
+        .compactMap({ $0 as? UIWindowScene })
+        .first?.windows.first,
+        let navBar = findNavigationBar(in: window) {
+        navBar.accessibilityIdentifier = identifier
+      }
+    }
+    return view
+  }
+
+  func updateUIView(_ uiView: UIView, context: Context) {}
+
+  private func findNavigationBar(in view: UIView) -> UINavigationBar? {
+    if let navBar = view as? UINavigationBar {
+      return navBar
+    }
+    for subview in view.subviews {
+      if let navBar = findNavigationBar(in: subview) {
+        return navBar
+      }
+    }
+    return nil
+  }
+}
+#else
+/// No-op modifier when UIKit is not available
+private struct NavigationBarAccessibilityModifier: ViewModifier {
+  let identifier: String
+
+  func body(content: Content) -> some View {
+    content
+  }
+}
+#endif
+
 #else
 import SwiftUI
 import CoreModels

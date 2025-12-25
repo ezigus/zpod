@@ -9,10 +9,6 @@ import CoreModels
 import SharedUtilities
 import SwiftUI
 
-#if canImport(UIKit)
-  import UIKit
-#endif
-
 /// Full-screen player interface with large artwork, metadata, and comprehensive playback controls.
 public struct ExpandedPlayerView: View {
   @ObservedObject private var viewModel: ExpandedPlayerViewModel
@@ -310,19 +306,11 @@ public struct ExpandedPlayerView: View {
   }
 
   private func performLightHaptic() {
-    #if canImport(UIKit)
-      let generator = UIImpactFeedbackGenerator(style: .light)
-      generator.prepare()
-      generator.impactOccurred()
-    #endif
+    HapticFeedbackService.shared.impact(.light)
   }
 
   private func performMediumHaptic() {
-    #if canImport(UIKit)
-      let generator = UIImpactFeedbackGenerator(style: .medium)
-      generator.prepare()
-      generator.impactOccurred()
-    #endif
+    HapticFeedbackService.shared.impact(.medium)
   }
 
   private struct TransportButtonStyle: ButtonStyle {
