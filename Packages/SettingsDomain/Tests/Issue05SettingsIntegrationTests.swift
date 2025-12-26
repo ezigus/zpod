@@ -237,7 +237,7 @@ final class Issue05SettingsIntegrationTests: XCTestCase {
 
       let changeExpectation = expectation(description: "Received change notification")
       let changeTask = Task {
-        let stream = repository.settingsChangeStream()
+        let stream = await repository.settingsChangeStream()
         for await change in stream {
           publishedChanges.append(change)
           changeExpectation.fulfill()

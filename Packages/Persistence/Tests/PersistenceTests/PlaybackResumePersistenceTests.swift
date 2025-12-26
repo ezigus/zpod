@@ -198,7 +198,7 @@ struct PlaybackResumePersistenceTests {
     var receivedChange: SettingsChange?
     let expectation = Expectation()
     
-    let stream = repository.settingsChangeStream()
+    let stream = await repository.settingsChangeStream()
     let task = Task {
       for await change in stream {
         receivedChange = change
@@ -250,7 +250,7 @@ struct PlaybackResumePersistenceTests {
     var receivedChange: SettingsChange?
     let expectation = Expectation()
     
-    let stream = repository.settingsChangeStream()
+    let stream = await repository.settingsChangeStream()
     let task = Task {
       for await change in stream {
         receivedChange = change

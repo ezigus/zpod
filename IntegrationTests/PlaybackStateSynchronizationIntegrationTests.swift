@@ -549,11 +549,12 @@
       }
     }
 
-    nonisolated func settingsChangeStream() -> AsyncStream<SettingsChange> {
+    func settingsChangeStream() async -> AsyncStream<SettingsChange> {
       AsyncStream { continuation in
         let id = UUID()
-        Task { await self.addContinuation(id: id, continuation: continuation) }
-        continuation.onTermination = { _ in
+        addContinuation(id: id, continuation: continuation)
+        continuation.onTermination = { [weak self] _ in
+          guard let self else { return }
           Task { await self.removeContinuation(id: id) }
         }
       }

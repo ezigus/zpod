@@ -77,6 +77,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
       generator.notificationOccurred(type)
     }
 
+    @MainActor
     private var isHapticsAllowed: Bool {
       !UIAccessibility.isVoiceOverRunning
     }

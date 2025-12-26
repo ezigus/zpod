@@ -381,7 +381,7 @@ final class Issue05SettingsTests: XCTestCase {
         var receivedChanges: [SettingsChange] = []
         let expectation = expectation(description: "settings change received")
         let changeTask = Task {
-            let stream = repository.settingsChangeStream()
+            let stream = await repository.settingsChangeStream()
             for await change in stream {
                 receivedChanges.append(change)
                 expectation.fulfill()
