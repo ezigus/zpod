@@ -25,6 +25,7 @@ public final class SystemMediaCoordinator {
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
+  private var skipIntervalsTask: Task<Void, Never>?
   private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
   private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
 
@@ -68,6 +69,9 @@ public final class SystemMediaCoordinator {
 
     artworkTask?.cancel()
     artworkTask = nil
+
+    skipIntervalsTask?.cancel()
+    skipIntervalsTask = nil
 
     if let interruptionObserver {
       NotificationCenter.default.removeObserver(interruptionObserver)
@@ -212,7 +216,11 @@ public final class SystemMediaCoordinator {
   private func loadSkipIntervals() {
     guard let settingsRepository else { return }
 
-    Task.detached { [weak self, settingsRepository] in
+    // Cancel any previous load task
+    skipIntervalsTask?.cancel()
+
+    // Create new load task and store reference for later cancellation
+    skipIntervalsTask = Task.detached { [weak self, settingsRepository] in
       let settings = await settingsRepository.loadGlobalPlaybackSettings()
       await MainActor.run { [weak self] in
         guard let self else { return }
