@@ -141,7 +141,7 @@ final class UISettingsIntegrationTests: XCTestCase {
         expectation.expectedFulfillmentCount = 1
         
         let listener = Task {
-            let stream = repository.settingsChangeStream()
+            let stream = await repository.settingsChangeStream()
             for await change in stream {
                 receivedChanges.append(change)
                 if case .globalUI = change {

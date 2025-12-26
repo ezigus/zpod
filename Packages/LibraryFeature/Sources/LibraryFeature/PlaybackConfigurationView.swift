@@ -1,5 +1,6 @@
 import CoreModels
 import SettingsDomain
+import SharedUtilities
 import SwiftUI
 
 public struct PlaybackConfigurationView: View {
@@ -24,6 +25,7 @@ public struct PlaybackConfigurationView: View {
       enhancementsSection
     }
     .navigationTitle("Playback")
+    .navigationBarAccessibilityIdentifier("Playback")
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {
         Button("Reset") {

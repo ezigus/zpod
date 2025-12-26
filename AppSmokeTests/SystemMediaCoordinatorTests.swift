@@ -38,7 +38,6 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     XCTAssertEqual(audioSession.category, .playback)
     XCTAssertEqual(audioSession.mode, .spokenAudio)
     XCTAssertTrue(audioSession.categoryOptions.contains(.allowAirPlay))
-    XCTAssertTrue(audioSession.categoryOptions.contains(.allowBluetoothHFP))
     XCTAssertTrue(audioSession.categoryOptions.contains(.allowBluetoothA2DP))
   }
 

@@ -14,20 +14,38 @@ import UIKit
 
 @MainActor
 public final class SystemMediaCoordinator {
-  private nonisolated(unsafe) let playbackService: EpisodePlaybackService & EpisodeTransportControlling
-  private nonisolated(unsafe) let settingsRepository: SettingsRepository?
-  private nonisolated(unsafe) let infoBuilder = NowPlayingInfoBuilder()
-  private nonisolated(unsafe) let infoCenter = MPNowPlayingInfoCenter.default()
-  private nonisolated(unsafe) let commandCenter = MPRemoteCommandCenter.shared()
-  private nonisolated(unsafe) let audioSession = AVAudioSession.sharedInstance()
-  private nonisolated(unsafe) let artworkLoader = NowPlayingArtworkLoader()
+  private struct AudioSessionObservers {
+    let interruptionObserver: NSObjectProtocol
+    let routeObserver: NSObjectProtocol
+  }
+
+  private final class MainActorCleanupToken {
+    private let cleanup: @MainActor () -> Void
+
+    init(_ cleanup: @escaping @MainActor () -> Void) {
+      self.cleanup = cleanup
+    }
+
+    deinit {
+      let cleanup = cleanup
+      Task { @MainActor in
+        cleanup()
+      }
+    }
+  }
+
+  private let playbackService: EpisodePlaybackService & EpisodeTransportControlling
+  private let settingsRepository: SettingsRepository?
+  private let infoBuilder = NowPlayingInfoBuilder()
+  private let infoCenter = MPNowPlayingInfoCenter.default()
+  private let commandCenter = MPRemoteCommandCenter.shared()
+  private let audioSession = AVAudioSession.sharedInstance()
+  private var cleanupToken: MainActorCleanupToken?
 
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
   private var skipIntervalsTask: Task<Void, Never>?
-  private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
-  private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
 
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
@@ -56,38 +74,22 @@ public final class SystemMediaCoordinator {
   ) {
     self.playbackService = playbackService
     self.settingsRepository = settingsRepository
+    let commandCenter = MPRemoteCommandCenter.shared()
 
     configureAudioSession()
     configureRemoteCommands()
+    let observers = registerAudioSessionObservers()
+    cleanupToken = MainActorCleanupToken { [commandCenter] in
+      NotificationCenter.default.removeObserver(observers.interruptionObserver)
+      NotificationCenter.default.removeObserver(observers.routeObserver)
+      commandCenter.playCommand.removeTarget(nil)
+      commandCenter.pauseCommand.removeTarget(nil)
+      commandCenter.togglePlayPauseCommand.removeTarget(nil)
+      commandCenter.skipForwardCommand.removeTarget(nil)
+      commandCenter.skipBackwardCommand.removeTarget(nil)
+    }
     subscribeToPlaybackState()
     loadSkipIntervals()
-  }
-
-  deinit {
-    stateCancellable?.cancel()
-    stateCancellable = nil
-
-    artworkTask?.cancel()
-    artworkTask = nil
-
-    skipIntervalsTask?.cancel()
-    skipIntervalsTask = nil
-
-    if let interruptionObserver {
-      NotificationCenter.default.removeObserver(interruptionObserver)
-      self.interruptionObserver = nil
-    }
-
-    if let routeObserver {
-      NotificationCenter.default.removeObserver(routeObserver)
-      self.routeObserver = nil
-    }
-
-    commandCenter.playCommand.removeTarget(nil)
-    commandCenter.pauseCommand.removeTarget(nil)
-    commandCenter.togglePlayPauseCommand.removeTarget(nil)
-    commandCenter.skipForwardCommand.removeTarget(nil)
-    commandCenter.skipBackwardCommand.removeTarget(nil)
   }
 
   // MARK: - Setup
@@ -112,8 +114,10 @@ public final class SystemMediaCoordinator {
     } catch {
       Logger.warning("Failed to configure audio session: \(error)")
     }
+  }
 
-    interruptionObserver = NotificationCenter.default.addObserver(
+  private func registerAudioSessionObservers() -> AudioSessionObservers {
+    let interruptionObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.interruptionNotification,
       object: nil,
       queue: .main
@@ -126,31 +130,27 @@ public final class SystemMediaCoordinator {
         return
       }
 
-      switch type {
-      case .began:
-        MainActor.assumeIsolated {
+      let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
+      Task { @MainActor in
+        switch type {
+        case .began:
           self.wasPlayingBeforeInterruption = self.isPlaying
           if self.isPlaying {
             self.playbackService.pause()
           }
-        }
-      case .ended:
-        let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
-        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
-        MainActor.assumeIsolated {
+        case .ended:
+          let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
           if options.contains(.shouldResume), self.wasPlayingBeforeInterruption {
             self.resumePlayback()
           }
           self.wasPlayingBeforeInterruption = false
-        }
-      @unknown default:
-        MainActor.assumeIsolated {
+        @unknown default:
           self.wasPlayingBeforeInterruption = false
         }
       }
     }
 
-    routeObserver = NotificationCenter.default.addObserver(
+    let routeObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.routeChangeNotification,
       object: nil,
       queue: .main
@@ -163,12 +163,17 @@ public final class SystemMediaCoordinator {
         return
       }
 
-      MainActor.assumeIsolated {
+      Task { @MainActor in
         if reason == .oldDeviceUnavailable {
           self.playbackService.pause()
         }
       }
     }
+
+    return AudioSessionObservers(
+      interruptionObserver: interruptionObserver,
+      routeObserver: routeObserver
+    )
   }
 
   private func configureRemoteCommands() {
@@ -179,29 +184,39 @@ public final class SystemMediaCoordinator {
     commandCenter.skipBackwardCommand.isEnabled = false
 
     commandCenter.playCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.play)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.play)
+      }
       return .success
     }
 
     commandCenter.pauseCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.pause)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.pause)
+      }
       return .success
     }
 
     commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-      self?.remoteHandler.handle(.togglePlayPause)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.togglePlayPause)
+      }
       return .success
     }
 
     commandCenter.skipForwardCommand.addTarget { [weak self] event in
       let interval = (event as? MPSkipIntervalCommandEvent)?.interval
-      self?.remoteHandler.handle(.skipForward, interval: interval)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.skipForward, interval: interval)
+      }
       return .success
     }
 
     commandCenter.skipBackwardCommand.addTarget { [weak self] event in
       let interval = (event as? MPSkipIntervalCommandEvent)?.interval
-      self?.remoteHandler.handle(.skipBackward, interval: interval)
+      Task { @MainActor in
+        self?.remoteHandler.handle(.skipBackward, interval: interval)
+      }
       return .success
     }
 
@@ -220,18 +235,16 @@ public final class SystemMediaCoordinator {
     skipIntervalsTask?.cancel()
 
     // Create new load task and store reference for later cancellation
-    skipIntervalsTask = Task.detached { [weak self, settingsRepository] in
+    skipIntervalsTask = Task { @MainActor [weak self] in
       let settings = await settingsRepository.loadGlobalPlaybackSettings()
-      await MainActor.run { [weak self] in
-        guard let self else { return }
-        if let forward = settings.skipForwardInterval {
-          self.skipForwardInterval = TimeInterval(forward)
-        }
-        if let backward = settings.skipBackwardInterval {
-          self.skipBackwardInterval = TimeInterval(backward)
-        }
-        self.updateRemoteCommandIntervals()
+      guard let self else { return }
+      if let forward = settings.skipForwardInterval {
+        self.skipForwardInterval = TimeInterval(forward)
       }
+      if let backward = settings.skipBackwardInterval {
+        self.skipBackwardInterval = TimeInterval(backward)
+      }
+      self.updateRemoteCommandIntervals()
     }
   }
 
@@ -246,7 +259,7 @@ public final class SystemMediaCoordinator {
 
   private func updatePlaybackTracking(_ state: EpisodePlaybackState) {
     switch state {
-    case .idle(let episode):
+    case .idle:
       currentEpisode = nil
       currentPosition = 0
       currentDuration = 0
@@ -323,10 +336,11 @@ public final class SystemMediaCoordinator {
     artworkTask?.cancel()
 
     artworkTask = Task { [weak self] in
-      guard let self else { return }
-      guard let artwork = await artworkLoader.loadArtwork(from: url) else { return }
+      guard let data = await Self.fetchArtworkData(from: url) else { return }
       await MainActor.run { [weak self] in
-        self?.applyArtwork(artwork)
+        guard let self else { return }
+        guard let artwork = self.makeArtwork(from: data) else { return }
+        self.applyArtwork(artwork)
       }
     }
   }
@@ -335,6 +349,21 @@ public final class SystemMediaCoordinator {
     guard var info = infoCenter.nowPlayingInfo else { return }
     info[MPMediaItemPropertyArtwork] = artwork
     infoCenter.nowPlayingInfo = info
+  }
+
+  private func makeArtwork(from data: Data) -> MPMediaItemArtwork? {
+    guard let image = UIImage(data: data) else { return nil }
+    return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+  }
+
+  private nonisolated static func fetchArtworkData(from url: URL) async -> Data? {
+    do {
+      let (data, _) = try await URLSession.shared.data(from: url)
+      return Task.isCancelled ? nil : data
+    } catch {
+      Logger.warning("Failed to load artwork data for now playing: \(error)")
+      return nil
+    }
   }
 
   private func updateRemoteCommandAvailability() {
@@ -383,16 +412,4 @@ public final class SystemMediaCoordinator {
 
 }
 
-private final class NowPlayingArtworkLoader {
-  func loadArtwork(from url: URL) async -> MPMediaItemArtwork? {
-    do {
-      let (data, _) = try await URLSession.shared.data(from: url)
-      guard !Task.isCancelled, let image = UIImage(data: data) else { return nil }
-      return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-    } catch {
-      Logger.warning("Failed to load artwork for now playing: \(error)")
-      return nil
-    }
-  }
-}
 #endif

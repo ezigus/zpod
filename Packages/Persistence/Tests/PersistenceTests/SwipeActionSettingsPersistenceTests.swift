@@ -123,7 +123,7 @@ final class SwipeActionSettingsPersistenceTests: XCTestCase {
     func testUISettingsChangeNotification() async throws {
         let expectation = XCTestExpectation(description: "Settings change notification")
         
-        let stream = repository.settingsChangeStream()
+        let stream = await repository.settingsChangeStream()
         let listener = Task {
             for await change in stream {
                 if case .globalUI(let settings) = change,
