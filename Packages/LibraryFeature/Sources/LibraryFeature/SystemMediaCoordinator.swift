@@ -14,18 +14,37 @@ import UIKit
 
 @MainActor
 public final class SystemMediaCoordinator {
+  private struct AudioSessionObservers {
+    let interruptionObserver: NSObjectProtocol
+    let routeObserver: NSObjectProtocol
+  }
+
+  private final class MainActorCleanupToken {
+    private let cleanup: @MainActor () -> Void
+
+    init(_ cleanup: @escaping @MainActor () -> Void) {
+      self.cleanup = cleanup
+    }
+
+    deinit {
+      let cleanup = cleanup
+      Task { @MainActor in
+        cleanup()
+      }
+    }
+  }
+
   private let playbackService: EpisodePlaybackService & EpisodeTransportControlling
   private let settingsRepository: SettingsRepository?
   private let infoBuilder = NowPlayingInfoBuilder()
   private let infoCenter = MPNowPlayingInfoCenter.default()
-  private nonisolated(unsafe) let commandCenter = MPRemoteCommandCenter.shared()
+  private let commandCenter = MPRemoteCommandCenter.shared()
   private let audioSession = AVAudioSession.sharedInstance()
+  private var cleanupToken: MainActorCleanupToken?
 
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
-  private nonisolated(unsafe) var interruptionObserver: NSObjectProtocol?
-  private nonisolated(unsafe) var routeObserver: NSObjectProtocol?
 
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
@@ -54,35 +73,22 @@ public final class SystemMediaCoordinator {
   ) {
     self.playbackService = playbackService
     self.settingsRepository = settingsRepository
+    let commandCenter = MPRemoteCommandCenter.shared()
 
     configureAudioSession()
     configureRemoteCommands()
+    let observers = registerAudioSessionObservers()
+    cleanupToken = MainActorCleanupToken { [commandCenter] in
+      NotificationCenter.default.removeObserver(observers.interruptionObserver)
+      NotificationCenter.default.removeObserver(observers.routeObserver)
+      commandCenter.playCommand.removeTarget(nil)
+      commandCenter.pauseCommand.removeTarget(nil)
+      commandCenter.togglePlayPauseCommand.removeTarget(nil)
+      commandCenter.skipForwardCommand.removeTarget(nil)
+      commandCenter.skipBackwardCommand.removeTarget(nil)
+    }
     subscribeToPlaybackState()
     loadSkipIntervals()
-  }
-
-  deinit {
-    stateCancellable?.cancel()
-    stateCancellable = nil
-
-    artworkTask?.cancel()
-    artworkTask = nil
-
-    if let interruptionObserver {
-      NotificationCenter.default.removeObserver(interruptionObserver)
-      self.interruptionObserver = nil
-    }
-
-    if let routeObserver {
-      NotificationCenter.default.removeObserver(routeObserver)
-      self.routeObserver = nil
-    }
-
-    commandCenter.playCommand.removeTarget(nil)
-    commandCenter.pauseCommand.removeTarget(nil)
-    commandCenter.togglePlayPauseCommand.removeTarget(nil)
-    commandCenter.skipForwardCommand.removeTarget(nil)
-    commandCenter.skipBackwardCommand.removeTarget(nil)
   }
 
   // MARK: - Setup
@@ -107,8 +113,10 @@ public final class SystemMediaCoordinator {
     } catch {
       Logger.warning("Failed to configure audio session: \(error)")
     }
+  }
 
-    interruptionObserver = NotificationCenter.default.addObserver(
+  private func registerAudioSessionObservers() -> AudioSessionObservers {
+    let interruptionObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.interruptionNotification,
       object: nil,
       queue: .main
@@ -121,31 +129,27 @@ public final class SystemMediaCoordinator {
         return
       }
 
-      switch type {
-      case .began:
-        MainActor.assumeIsolated {
+      let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
+      Task { @MainActor in
+        switch type {
+        case .began:
           self.wasPlayingBeforeInterruption = self.isPlaying
           if self.isPlaying {
             self.playbackService.pause()
           }
-        }
-      case .ended:
-        let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
-        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
-        MainActor.assumeIsolated {
+        case .ended:
+          let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
           if options.contains(.shouldResume), self.wasPlayingBeforeInterruption {
             self.resumePlayback()
           }
           self.wasPlayingBeforeInterruption = false
-        }
-      @unknown default:
-        MainActor.assumeIsolated {
+        @unknown default:
           self.wasPlayingBeforeInterruption = false
         }
       }
     }
 
-    routeObserver = NotificationCenter.default.addObserver(
+    let routeObserver = NotificationCenter.default.addObserver(
       forName: AVAudioSession.routeChangeNotification,
       object: nil,
       queue: .main
@@ -158,12 +162,17 @@ public final class SystemMediaCoordinator {
         return
       }
 
-      MainActor.assumeIsolated {
+      Task { @MainActor in
         if reason == .oldDeviceUnavailable {
           self.playbackService.pause()
         }
       }
     }
+
+    return AudioSessionObservers(
+      interruptionObserver: interruptionObserver,
+      routeObserver: routeObserver
+    )
   }
 
   private func configureRemoteCommands() {
@@ -245,7 +254,7 @@ public final class SystemMediaCoordinator {
 
   private func updatePlaybackTracking(_ state: EpisodePlaybackState) {
     switch state {
-    case .idle(let episode):
+    case .idle:
       currentEpisode = nil
       currentPosition = 0
       currentDuration = 0

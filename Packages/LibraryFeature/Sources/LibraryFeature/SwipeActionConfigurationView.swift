@@ -127,6 +127,7 @@
             }
           }
           .navigationTitle("Swipe Actions")
+          .navigationBarAccessibilityIdentifier("Swipe Actions")
           .alert("Save Failed", isPresented: $showSaveErrorAlert) {
             Button("OK") {
               showSaveErrorAlert = false

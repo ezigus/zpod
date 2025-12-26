@@ -119,7 +119,7 @@ final class NowPlayingInfoBuilderTests: XCTestCase {
     let snapshot = builder.makeSnapshot(from: .playing(episode, position: 50, duration: -100))
 
     XCTAssertEqual(snapshot?.duration, 0, "Negative duration should be normalized to 0")
-    // When duration is 0, position is clamped to 0 (no valid playback range exists)
+    // When duration is unknown (normalized to 0), keep elapsed as-is so progress doesn't reset.
     XCTAssertEqual(snapshot?.elapsed, 50, "Position stays as-is when duration becomes 0")
   }
 

@@ -237,8 +237,8 @@ public class SettingsManager {
 
     // Bridge repository change notifications to main-actor updates without
     // requiring cross-actor access to the manager instance.
-    let settingsChangeStream = repositoryActor.settingsChangeStream()
-    settingsChangeObservationTask = Task.detached { [weak self, settingsChangeStream] in
+    settingsChangeObservationTask = Task.detached { [weak self, repositoryActor] in
+      let settingsChangeStream = await repositoryActor.settingsChangeStream()
       for await change in settingsChangeStream {
         await MainActor.run { [weak self] in
           self?.applyRepositoryChange(change)

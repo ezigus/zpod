@@ -365,6 +365,8 @@ extension CoreUINavigationTests {
     )
 
     let candidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
       app.cells.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
       app.buttons.matching(identifier: "Swipe Actions").firstMatch,
       app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
@@ -432,10 +434,12 @@ extension CoreUINavigationTests {
     )
 
     let candidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
       app.cells.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
+      app.buttons.matching(identifier: "Playback Preferences").firstMatch,
       app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
       app.staticTexts.matching(identifier: "Playback Preferences").firstMatch,
-      app.buttons.matching(identifier: "Playback Preferences").firstMatch,
     ]
 
     guard
@@ -499,10 +503,12 @@ extension CoreUINavigationTests {
     )
 
     let candidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.cells.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
+      app.buttons.matching(identifier: "Download Policies").firstMatch,
       app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
       app.staticTexts.matching(identifier: "Download Policies").firstMatch,
-      app.buttons.matching(identifier: "Download Policies").firstMatch,
     ]
 
     guard

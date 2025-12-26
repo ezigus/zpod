@@ -1,6 +1,7 @@
 #if os(iOS) || os(macOS)
 import CoreModels
 import SettingsDomain
+import SharedUtilities
 import SwiftUI
 
 public struct DownloadConfigurationView: View {
@@ -23,6 +24,7 @@ public struct DownloadConfigurationView: View {
       retentionSection
     }
     .navigationTitle("Downloads")
+    .navigationBarAccessibilityIdentifier("Downloads")
     .toolbar {
       ToolbarItem(placement: .cancellationAction) {
         Button("Reset") {
