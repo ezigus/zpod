@@ -71,6 +71,11 @@ public struct NowPlayingInfoBuilder: Sendable {
     duration: TimeInterval,
     playbackRate: Float
   ) -> NowPlayingInfoSnapshot {
+    // Normalize duration and position to handle edge cases:
+    // - Duration: Clamp to non-negative (zero-duration episodes are valid)
+    // - Position: Clamp to [0, duration] range, except when duration is 0 (allows
+    //   position values in instant-finish scenarios). Prevents invalid Now Playing
+    //   states where elapsed time exceeds total duration.
     let normalizedDuration = max(duration, 0)
     let normalizedPosition = min(max(position, 0), normalizedDuration > 0 ? normalizedDuration : position)
 

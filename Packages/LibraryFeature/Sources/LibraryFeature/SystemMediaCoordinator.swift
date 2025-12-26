@@ -45,6 +45,7 @@ public final class SystemMediaCoordinator {
   private var stateCancellable: AnyCancellable?
   private var lastArtworkURL: URL?
   private var artworkTask: Task<Void, Never>?
+  private var skipIntervalsTask: Task<Void, Never>?
 
   private var currentEpisode: Episode?
   private var currentPosition: TimeInterval = 0
@@ -230,7 +231,11 @@ public final class SystemMediaCoordinator {
   private func loadSkipIntervals() {
     guard let settingsRepository else { return }
 
-    Task { @MainActor [weak self] in
+    // Cancel any previous load task
+    skipIntervalsTask?.cancel()
+
+    // Create new load task and store reference for later cancellation
+    skipIntervalsTask = Task { @MainActor [weak self] in
       let settings = await settingsRepository.loadGlobalPlaybackSettings()
       guard let self else { return }
       if let forward = settings.skipForwardInterval {
