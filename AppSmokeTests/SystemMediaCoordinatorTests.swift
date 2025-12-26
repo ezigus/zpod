@@ -274,6 +274,9 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
     advanceRunLoop()
 
+    // Reset counter to only measure pause from interruption
+    playbackService.pauseCallCount = 0
+
     // Simulate phone call interruption
     NotificationCenter.default.post(
       name: AVAudioSession.interruptionNotification,
@@ -386,6 +389,9 @@ final class SystemMediaCoordinatorTests: XCTestCase {
 
     playbackService.setState(.playing(testEpisode, position: 50, duration: 300))
     advanceRunLoop()
+
+    // Reset counter to only measure pause from route change
+    playbackService.pauseCallCount = 0
 
     // Simulate headphones being unplugged
     NotificationCenter.default.post(
