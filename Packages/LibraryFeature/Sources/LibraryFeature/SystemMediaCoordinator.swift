@@ -14,6 +14,8 @@ import UIKit
 
 @MainActor
 public final class SystemMediaCoordinator {
+  public typealias ArtworkDataLoader = @Sendable (URL) async -> Data?
+
   private struct AudioSessionObservers {
     let interruptionObserver: NSObjectProtocol
     let routeObserver: NSObjectProtocol
@@ -40,6 +42,7 @@ public final class SystemMediaCoordinator {
   private let infoCenter = MPNowPlayingInfoCenter.default()
   private let commandCenter = MPRemoteCommandCenter.shared()
   private let audioSession = AVAudioSession.sharedInstance()
+  private let artworkDataLoader: ArtworkDataLoader
   private var cleanupToken: MainActorCleanupToken?
 
   private var stateCancellable: AnyCancellable?
@@ -70,10 +73,12 @@ public final class SystemMediaCoordinator {
 
   public init(
     playbackService: EpisodePlaybackService & EpisodeTransportControlling,
-    settingsRepository: SettingsRepository? = nil
+    settingsRepository: SettingsRepository? = nil,
+    artworkDataLoader: @escaping ArtworkDataLoader = SystemMediaCoordinator.fetchArtworkData
   ) {
     self.playbackService = playbackService
     self.settingsRepository = settingsRepository
+    self.artworkDataLoader = artworkDataLoader
     let commandCenter = MPRemoteCommandCenter.shared()
 
     configureAudioSession()
@@ -90,6 +95,11 @@ public final class SystemMediaCoordinator {
     }
     subscribeToPlaybackState()
     loadSkipIntervals()
+  }
+
+  deinit {
+    stateCancellable?.cancel()
+    artworkTask?.cancel()
   }
 
   // MARK: - Setup
@@ -336,7 +346,8 @@ public final class SystemMediaCoordinator {
     artworkTask?.cancel()
 
     artworkTask = Task { [weak self] in
-      guard let data = await Self.fetchArtworkData(from: url) else { return }
+      guard let self else { return }
+      guard let data = await self.artworkDataLoader(url) else { return }
       await MainActor.run { [weak self] in
         guard let self else { return }
         guard let artwork = self.makeArtwork(from: data) else { return }
@@ -356,7 +367,7 @@ public final class SystemMediaCoordinator {
     return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
   }
 
-  private nonisolated static func fetchArtworkData(from url: URL) async -> Data? {
+  public nonisolated static func fetchArtworkData(from url: URL) async -> Data? {
     do {
       let (data, _) = try await URLSession.shared.data(from: url)
       return Task.isCancelled ? nil : data
