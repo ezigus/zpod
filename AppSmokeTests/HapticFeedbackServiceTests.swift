@@ -5,23 +5,21 @@ import XCTest
 final class HapticFeedbackServiceTests: XCTestCase {
   @MainActor
   func testHapticsSuppressedWhenVoiceOverRunning() {
-    let originalProvider = HapticFeedbackService.voiceOverStatusProvider
-    let originalOnEmit = HapticFeedbackService.testOnEmit
-
-    defer {
-      HapticFeedbackService.voiceOverStatusProvider = originalProvider
-      HapticFeedbackService.testOnEmit = originalOnEmit
-    }
-
+    var invokeCount = 0
     var emitCount = 0
-    HapticFeedbackService.voiceOverStatusProvider = { true }
-    HapticFeedbackService.testOnEmit = { emitCount += 1 }
+    let service = HapticFeedbackService(
+      voiceOverStatusProvider: { true },
+      onInvoke: { invokeCount += 1 },
+      onEmit: { emitCount += 1 }
+    )
 
-    let service = HapticFeedbackService.shared
     service.impact(.light)
     service.selectionChanged()
     service.notifySuccess()
+    service.notifyWarning()
+    service.notifyError()
 
+    XCTAssertEqual(invokeCount, 5, "All haptic methods should be invoked.")
     XCTAssertEqual(emitCount, 0, "Haptics should be suppressed while VoiceOver is active.")
   }
 }
