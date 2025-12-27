@@ -3,6 +3,7 @@ import AVFoundation
 import CombineSupport
 import CoreModels
 import MediaPlayer
+import Persistence
 import PlaybackEngine
 import UIKit
 import XCTest
@@ -231,11 +232,18 @@ final class SystemMediaCoordinatorTests: XCTestCase {
   }
 
   @MainActor
-  private func prepareCoordinator() {
+  private func prepareCoordinator(
+    settingsRepository: SettingsRepository? = nil,
+    artworkDataLoader: SystemMediaCoordinator.ArtworkDataLoader? = nil
+  ) {
     playbackService = RecordingPlaybackService(
       initialState: .idle(Episode(id: "idle", title: "Idle", description: ""))
     )
-    coordinator = SystemMediaCoordinator(playbackService: playbackService)
+    coordinator = SystemMediaCoordinator(
+      playbackService: playbackService,
+      settingsRepository: settingsRepository,
+      artworkDataLoader: artworkDataLoader ?? SystemMediaCoordinator.fetchArtworkData
+    )
   }
 
   @MainActor
@@ -250,6 +258,53 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     let infoCenter = MPNowPlayingInfoCenter.default()
     infoCenter.nowPlayingInfo = nil
     infoCenter.playbackState = .stopped
+  }
+
+  @MainActor
+  private func waitForArtwork(timeout: TimeInterval) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
+      if info?[MPMediaItemPropertyArtwork] != nil {
+        return true
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    return false
+  }
+
+  @MainActor
+  private func waitForPreferredIntervals(
+    forward: TimeInterval,
+    backward: TimeInterval,
+    timeout: TimeInterval
+  ) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    let commandCenter = MPRemoteCommandCenter.shared()
+    while Date() < deadline {
+      let forwardValue = commandCenter.skipForwardCommand.preferredIntervals.first?.doubleValue
+      let backwardValue = commandCenter.skipBackwardCommand.preferredIntervals.first?.doubleValue
+      if forwardValue == forward, backwardValue == backward {
+        return true
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    return false
+  }
+
+  private func makeArtworkData(color: UIColor) -> Data {
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
+    let image = renderer.image { context in
+      color.setFill()
+      context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+    }
+    return image.pngData() ?? Data()
+  }
+
+  private func makeEpisode(withArtworkURL url: URL) -> Episode {
+    var episode = testEpisode
+    episode.artworkURL = url
+    return episode
   }
 
   // MARK: - Audio Interruption Tests
@@ -417,6 +472,151 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     XCTAssertEqual(playbackService.pauseCallCount, 0, "Should not pause on non-destructive route changes")
   }
 
+  // MARK: - Artwork Loading Tests
+
+  @MainActor
+  func testArtworkLoadingOnURLChange() async {
+    let urlA = URL(string: "https://example.com/artwork-a.png")!
+    let urlB = URL(string: "https://example.com/artwork-b.png")!
+    let loader = ArtworkLoaderProbe(
+      responses: [
+        urlA: makeArtworkData(color: .red),
+        urlB: makeArtworkData(color: .blue),
+      ]
+    )
+
+    prepareCoordinator(artworkDataLoader: { url in
+      await loader.load(url)
+    })
+    defer { resetNowPlayingState() }
+
+    playbackService.setState(.playing(makeEpisode(withArtworkURL: urlA), position: 0, duration: 300))
+    advanceRunLoop()
+    let firstArtworkLoaded = await waitForArtwork(timeout: 1.0)
+    let firstRequests = await loader.allRequests()
+    XCTAssertTrue(firstArtworkLoaded)
+    XCTAssertEqual(firstRequests, [urlA])
+
+    playbackService.setState(.playing(makeEpisode(withArtworkURL: urlB), position: 10, duration: 300))
+    advanceRunLoop()
+    let secondArtworkLoaded = await waitForArtwork(timeout: 1.0)
+    let secondRequests = await loader.allRequests()
+    XCTAssertTrue(secondArtworkLoaded)
+    XCTAssertEqual(secondRequests, [urlA, urlB])
+  }
+
+  @MainActor
+  func testArtworkCachingPreventsDuplicateLoads() async {
+    let url = URL(string: "https://example.com/artwork-cache.png")!
+    let loader = ArtworkLoaderProbe(responses: [url: makeArtworkData(color: .green)])
+
+    prepareCoordinator(artworkDataLoader: { url in
+      await loader.load(url)
+    })
+    defer { resetNowPlayingState() }
+
+    let episode = makeEpisode(withArtworkURL: url)
+    playbackService.setState(.playing(episode, position: 0, duration: 300))
+    advanceRunLoop()
+    let artworkLoaded = await waitForArtwork(timeout: 1.0)
+    XCTAssertTrue(artworkLoaded)
+
+    playbackService.setState(.paused(episode, position: 20, duration: 300))
+    advanceRunLoop()
+
+    let requestCount = await loader.requestCount(for: url)
+    XCTAssertEqual(requestCount, 1)
+  }
+
+  @MainActor
+  func testArtworkFailureHandlingDoesNotAddArtwork() async {
+    let url = URL(string: "https://example.com/artwork-fail.png")!
+    let loader = ArtworkLoaderProbe(responses: [url: nil])
+
+    prepareCoordinator(artworkDataLoader: { url in
+      await loader.load(url)
+    })
+    defer { resetNowPlayingState() }
+
+    playbackService.setState(.playing(makeEpisode(withArtworkURL: url), position: 0, duration: 300))
+    advanceRunLoop()
+
+    let artworkLoaded = await waitForArtwork(timeout: 0.4)
+    XCTAssertFalse(artworkLoaded)
+    let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
+    XCTAssertNil(info?[MPMediaItemPropertyArtwork])
+  }
+
+  @MainActor
+  func testArtworkTaskCancellationOnURLChange() async {
+    let url = URL(string: "https://example.com/artwork-cancel.png")!
+    let updatedURL = URL(string: "https://example.com/artwork-cancel-next.png")!
+    let loader = ArtworkLoaderProbe(
+      responses: [
+        url: makeArtworkData(color: .purple),
+        updatedURL: makeArtworkData(color: .orange),
+      ],
+      delay: 1_000_000_000
+    )
+
+    prepareCoordinator(artworkDataLoader: { url in
+      await loader.load(url)
+    })
+    defer { resetNowPlayingState() }
+
+    playbackService.setState(.playing(makeEpisode(withArtworkURL: url), position: 0, duration: 300))
+    advanceRunLoop()
+    let requestStarted = await loader.waitForRequestCount(1, timeout: 0.5)
+    XCTAssertTrue(requestStarted)
+
+    playbackService.setState(.playing(makeEpisode(withArtworkURL: updatedURL), position: 5, duration: 300))
+    advanceRunLoop()
+
+    let cancellationObserved = await loader.waitForCancellation(timeout: 1.0)
+    XCTAssertTrue(cancellationObserved)
+  }
+
+  // MARK: - Settings Integration Tests
+
+  @MainActor
+  func testSkipIntervalsLoadFromSettings() async {
+    let settings = CoreModels.PlaybackSettings(skipForwardInterval: 20, skipBackwardInterval: 10)
+    let repository = MockSettingsRepository(playbackSettings: settings)
+
+    prepareCoordinator(settingsRepository: repository)
+    defer { resetNowPlayingState() }
+
+    let updated = await waitForPreferredIntervals(forward: 20, backward: 10, timeout: 1.0)
+    XCTAssertTrue(updated)
+  }
+
+  @MainActor
+  func testSkipIntervalsUpdateCommandCenter() async {
+    let firstSettings = CoreModels.PlaybackSettings(skipForwardInterval: 25, skipBackwardInterval: 12)
+    let secondSettings = CoreModels.PlaybackSettings(skipForwardInterval: 45, skipBackwardInterval: 30)
+
+    prepareCoordinator(settingsRepository: MockSettingsRepository(playbackSettings: firstSettings))
+    let firstUpdated = await waitForPreferredIntervals(forward: 25, backward: 12, timeout: 1.0)
+    XCTAssertTrue(firstUpdated)
+    coordinator = nil
+    resetNowPlayingState()
+
+    prepareCoordinator(settingsRepository: MockSettingsRepository(playbackSettings: secondSettings))
+    defer { resetNowPlayingState() }
+
+    let secondUpdated = await waitForPreferredIntervals(forward: 45, backward: 30, timeout: 1.0)
+    XCTAssertTrue(secondUpdated)
+  }
+
+  @MainActor
+  func testNilSettingsRepositoryKeepsDefaultIntervals() async {
+    prepareCoordinator(settingsRepository: nil)
+    defer { resetNowPlayingState() }
+
+    let updated = await waitForPreferredIntervals(forward: 30, backward: 15, timeout: 0.5)
+    XCTAssertTrue(updated)
+  }
+
 }
 
 @MainActor
@@ -474,6 +674,119 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
   func skipBackward(interval: TimeInterval?) {
     skipBackwardCallCount += 1
     lastSkipBackwardInterval = interval
+  }
+}
+
+actor ArtworkLoaderProbe {
+  private var requests: [URL] = []
+  private var cancellationCount = 0
+  private let responses: [URL: Data?]
+  private let delay: UInt64?
+
+  init(responses: [URL: Data?], delay: UInt64? = nil) {
+    self.responses = responses
+    self.delay = delay
+  }
+
+  func load(_ url: URL) async -> Data? {
+    requests.append(url)
+
+    if let delay {
+      do {
+        try await Task.sleep(nanoseconds: delay)
+      } catch {
+        cancellationCount += 1
+        return nil
+      }
+    }
+
+    if Task.isCancelled {
+      cancellationCount += 1
+      return nil
+    }
+
+    if let value = responses[url] {
+      return value
+    }
+    return nil
+  }
+
+  func allRequests() -> [URL] {
+    requests
+  }
+
+  func requestCount(for url: URL) -> Int {
+    requests.filter { $0 == url }.count
+  }
+
+  func waitForRequestCount(_ count: Int, timeout: TimeInterval) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      if requests.count >= count {
+        return true
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    return false
+  }
+
+  func waitForCancellation(timeout: TimeInterval) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      if cancellationCount > 0 {
+        return true
+      }
+      try? await Task.sleep(nanoseconds: 50_000_000)
+    }
+    return false
+  }
+}
+
+actor MockSettingsRepository: SettingsRepository {
+  private let playbackSettings: CoreModels.PlaybackSettings
+
+  init(playbackSettings: CoreModels.PlaybackSettings = CoreModels.PlaybackSettings()) {
+    self.playbackSettings = playbackSettings
+  }
+
+  func loadGlobalDownloadSettings() async -> DownloadSettings { .default }
+  func saveGlobalDownloadSettings(_ settings: DownloadSettings) async {}
+
+  func loadGlobalNotificationSettings() async -> NotificationSettings { .default }
+  func saveGlobalNotificationSettings(_ settings: NotificationSettings) async {}
+
+  func loadGlobalPlaybackSettings() async -> CoreModels.PlaybackSettings { playbackSettings }
+  func saveGlobalPlaybackSettings(_ settings: CoreModels.PlaybackSettings) async {}
+
+  func loadGlobalUISettings() async -> UISettings { .default }
+  func saveGlobalUISettings(_ settings: UISettings) async {}
+
+  func loadGlobalAppearanceSettings() async -> AppearanceSettings { .default }
+  func saveGlobalAppearanceSettings(_ settings: AppearanceSettings) async {}
+
+  func loadSmartListAutomationSettings() async -> SmartListRefreshConfiguration {
+    SmartListRefreshConfiguration()
+  }
+
+  func saveSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async {}
+
+  func loadPlaybackPresetLibrary() async -> PlaybackPresetLibrary { .default }
+  func savePlaybackPresetLibrary(_ library: PlaybackPresetLibrary) async {}
+
+  func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings? { nil }
+  func savePodcastDownloadSettings(_ settings: PodcastDownloadSettings) async {}
+  func removePodcastDownloadSettings(podcastId: String) async {}
+
+  func loadPodcastPlaybackSettings(podcastId: String) async -> PodcastPlaybackSettings? { nil }
+  func savePodcastPlaybackSettings(podcastId: String, _ settings: PodcastPlaybackSettings) async {}
+  func removePodcastPlaybackSettings(podcastId: String) async {}
+
+  func loadPlaybackResumeState() async -> PlaybackResumeState? { nil }
+  func savePlaybackResumeState(_ state: PlaybackResumeState) async {}
+  func clearPlaybackResumeState() async {}
+
+  func settingsChangeStream() async -> AsyncStream<SettingsChange> {
+    AsyncStream { _ in }
   }
 }
 

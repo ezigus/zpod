@@ -76,4 +76,52 @@ final class RemoteCommandHandlerTests: XCTestCase {
 
     XCTAssertEqual(receivedInterval, 15)
   }
+
+  func testHandleSkipForwardWithNilInterval() {
+    var receivedInterval: TimeInterval? = 1
+    let handler = RemoteCommandHandler(
+      play: {},
+      pause: {},
+      togglePlayPause: {},
+      skipForward: { interval in receivedInterval = interval },
+      skipBackward: { _ in }
+    )
+
+    handler.handle(.skipForward, interval: nil)
+
+    XCTAssertNil(receivedInterval)
+  }
+
+  func testHandleSkipBackwardWithNilInterval() {
+    var receivedInterval: TimeInterval? = 1
+    let handler = RemoteCommandHandler(
+      play: {},
+      pause: {},
+      togglePlayPause: {},
+      skipForward: { _ in },
+      skipBackward: { interval in receivedInterval = interval }
+    )
+
+    handler.handle(.skipBackward, interval: nil)
+
+    XCTAssertNil(receivedInterval)
+  }
+
+  func testHandleSkipForwardAcceptsZeroAndNegativeIntervals() {
+    var receivedIntervals: [TimeInterval?] = []
+    let handler = RemoteCommandHandler(
+      play: {},
+      pause: {},
+      togglePlayPause: {},
+      skipForward: { interval in receivedIntervals.append(interval) },
+      skipBackward: { _ in }
+    )
+
+    handler.handle(.skipForward, interval: 0)
+    handler.handle(.skipForward, interval: -15)
+
+    XCTAssertEqual(receivedIntervals.count, 2)
+    XCTAssertEqual(receivedIntervals[0], 0)
+    XCTAssertEqual(receivedIntervals[1], -15)
+  }
 }
