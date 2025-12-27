@@ -256,6 +256,7 @@ public struct ExpandedPlayerView: View {
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel("Skip backward 15 seconds")
+      .accessibilityHint("Jumps back fifteen seconds")
       .accessibilityIdentifier("Expanded Player Skip Backward")
 
       // Play/Pause
@@ -270,6 +271,7 @@ public struct ExpandedPlayerView: View {
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
+      .accessibilityHint("Toggles playback")
       .accessibilityIdentifier(
         viewModel.isPlaying ? "Expanded Player Pause" : "Expanded Player Play")
 
@@ -285,6 +287,7 @@ public struct ExpandedPlayerView: View {
       }
       .buttonStyle(TransportButtonStyle())
       .accessibilityLabel("Skip forward 30 seconds")
+      .accessibilityHint("Jumps ahead thirty seconds")
       .accessibilityIdentifier("Expanded Player Skip Forward")
     }
   }
