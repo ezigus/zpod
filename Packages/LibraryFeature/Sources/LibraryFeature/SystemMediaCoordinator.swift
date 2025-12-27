@@ -98,8 +98,8 @@ public final class SystemMediaCoordinator {
   }
 
   deinit {
-    stateCancellable?.cancel()
     artworkTask?.cancel()
+    skipIntervalsTask?.cancel()
   }
 
   // MARK: - Setup

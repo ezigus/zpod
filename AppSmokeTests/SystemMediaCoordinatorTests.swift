@@ -239,18 +239,11 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     playbackService = RecordingPlaybackService(
       initialState: .idle(Episode(id: "idle", title: "Idle", description: ""))
     )
-    if let artworkDataLoader {
-      coordinator = SystemMediaCoordinator(
-        playbackService: playbackService,
-        settingsRepository: settingsRepository,
-        artworkDataLoader: artworkDataLoader
-      )
-    } else {
-      coordinator = SystemMediaCoordinator(
-        playbackService: playbackService,
-        settingsRepository: settingsRepository
-      )
-    }
+    coordinator = SystemMediaCoordinator(
+      playbackService: playbackService,
+      settingsRepository: settingsRepository,
+      artworkDataLoader: artworkDataLoader ?? SystemMediaCoordinator.fetchArtworkData
+    )
   }
 
   @MainActor
@@ -712,7 +705,10 @@ actor ArtworkLoaderProbe {
       return nil
     }
 
-    return responses[url] ?? nil
+    if let value = responses[url] {
+      return value
+    }
+    return nil
   }
 
   func allRequests() -> [URL] {
