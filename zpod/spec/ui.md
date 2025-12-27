@@ -23,6 +23,12 @@
 - [Apple ID Sign-In and iCloud Sync](#apple-id-sign-in-and-icloud-sync)
 - [In-App Help and Support](#in-app-help-and-support)
 - [Accessibility for UI Features](#accessibility-for-ui-features)
+- [Mini-Player and Expanded Player UI](#mini-player-and-expanded-player-ui)
+  - [Mini-Player Shows Current Playback State](#mini-player-shows-current-playback-state)
+  - [Mini-Player Controls](#mini-player-controls)
+  - [Expanded Player Real-Time Updates](#expanded-player-real-time-updates)
+  - [Player Error State Display](#player-error-state-display)
+  - [Mini-Player Persistence](#mini-player-persistence)
 
 **Description:** User-friendly interface with navigation and accessibility options, designed for iPhone/iOS conventions. Users can choose from available integrations for casting (e.g., AirPlay, Chromecast).
 
@@ -152,7 +158,42 @@
 - Users can configure swipe actions in episode and podcast lists (e.g., swipe to delete, archive, mark as played).
 
 ### Mini-Player and Expanded Player UI
-- Persistent mini-player available throughout the app; expanded player with full controls and artwork.
+
+The mini-player and expanded player provide persistent access to playback controls throughout the app.
+
+#### Mini-Player Shows Current Playback State
+- **Given:** An episode is playing.
+- **When:** User views any tab in the app.
+- **Then:** The mini-player displays the episode title.
+- **And:** The mini-player shows the current position/duration.
+- **And:** The progress bar reflects actual playback progress.
+- **And:** The play/pause button reflects current state.
+
+#### Mini-Player Controls
+- **Given:** The mini-player is visible.
+- **When:** User taps the play/pause button.
+- **Then:** Playback toggles accordingly.
+- **And:** The button icon updates to reflect new state.
+
+#### Expanded Player Real-Time Updates
+- **Given:** The expanded player is open.
+- **When:** Playback is in progress.
+- **Then:** The scrubber position updates in real-time.
+- **And:** The elapsed time label updates every second.
+- **And:** Seeking via scrubber updates playback position.
+
+#### Player Error State Display
+- **Given:** Playback has failed with an error.
+- **When:** User views the mini-player or expanded player.
+- **Then:** An error message is displayed.
+- **And:** A retry button is shown (for recoverable errors).
+- **And:** VoiceOver announces the error state.
+
+#### Mini-Player Persistence
+- **Given:** An episode is playing or paused.
+- **When:** User navigates between tabs.
+- **Then:** The mini-player remains visible at the bottom.
+- **And:** Playback state is preserved.
 
 ### Podcast Artwork Display Options
 - Users can choose grid or list layouts, adjust artwork size, and toggle artwork visibility.

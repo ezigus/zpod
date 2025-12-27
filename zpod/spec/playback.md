@@ -3,6 +3,19 @@
 ## Table of Contents
 - [Description](#description)
 - [Background](#background)
+- [Core Playback Behavior](#core-playback-behavior)
+  - [Starting Episode Playback](#starting-episode-playback)
+  - [Timeline Advancement During Playback](#timeline-advancement-during-playback)
+  - [Pausing Playback](#pausing-playback)
+  - [Resuming Playback](#resuming-playback)
+  - [Seeking to Position](#seeking-to-position)
+  - [Background Playback](#background-playback)
+  - [Audio Interruption Handling](#audio-interruption-handling)
+  - [Headphone Disconnect](#headphone-disconnect)
+- [Playback Error Handling](#playback-error-handling)
+  - [Episode Missing Audio URL](#episode-missing-audio-url)
+  - [Network Error During Playback](#network-error-during-playback)
+  - [Successful Retry After Error](#successful-retry-after-error)
 - [Playing an Episode with Custom Speed](#playing-an-episode-with-custom-speed)
 - [Skipping Silences and Boosting Volume](#skipping-silences-and-boosting-volume)
 - [Skip Silence: Custom Threshold](#skip-silence-custom-threshold)
@@ -35,7 +48,92 @@
 - **Given:** The app is launched on iPhone.
 - **And:** At least one episode is available.
 
-## Scenarios
+## Core Playback Behavior
+
+These scenarios define fundamental playback behaviors that form the foundation for all other playback features.
+
+### Starting Episode Playback
+- **Given:** User has selected an episode with a valid audio URL.
+- **When:** User taps the play button.
+- **Then:** Audio begins streaming through the device speakers.
+- **And:** The playback position starts at 0 (or last saved position if resuming).
+- **And:** The Now Playing info updates with episode metadata.
+
+### Timeline Advancement During Playback
+- **Given:** An episode is currently playing.
+- **When:** 1 second of real time passes.
+- **Then:** The displayed playback position increases by 1 second.
+- **And:** The progress bar advances proportionally.
+- **And:** The lock screen/Control Center position updates.
+
+### Pausing Playback
+- **Given:** An episode is currently playing at position X.
+- **When:** User taps the pause button.
+- **Then:** Audio output stops.
+- **And:** The playback position remains at X.
+- **And:** The progress bar stops advancing.
+
+### Resuming Playback
+- **Given:** An episode is paused at position X.
+- **When:** User taps the play button.
+- **Then:** Audio resumes from position X.
+- **And:** The timeline continues advancing.
+
+### Seeking to Position
+- **Given:** An episode is playing or paused.
+- **When:** User drags the scrubber to position Y.
+- **Then:** Playback position jumps to Y.
+- **And:** Audio resumes from position Y (if playing).
+
+### Background Playback
+- **Given:** An episode is playing.
+- **When:** User backgrounds the app or locks the device.
+- **Then:** Audio continues playing.
+- **And:** Lock screen controls remain functional.
+- **And:** Position continues advancing.
+
+### Audio Interruption Handling
+- **Given:** An episode is playing.
+- **When:** A phone call is received.
+- **Then:** Playback pauses automatically.
+- **And:** When the call ends, playback may resume per system settings.
+
+### Headphone Disconnect
+- **Given:** An episode is playing via headphones.
+- **When:** Headphones are unplugged.
+- **Then:** Playback pauses immediately.
+- **And:** User must manually resume.
+
+---
+
+## Playback Error Handling
+
+These scenarios define how the app handles playback failures gracefully.
+
+### Episode Missing Audio URL
+- **Given:** User selects an episode with no audioURL.
+- **When:** User attempts to play the episode.
+- **Then:** An error message displays "This episode doesn't have audio available".
+- **And:** No retry button is shown.
+- **And:** The error is logged for diagnostics.
+
+### Network Error During Playback
+- **Given:** User selects an episode with a valid audio URL.
+- **When:** Playback fails due to network unavailability.
+- **Then:** An error message displays "Unable to load episode. Check your connection."
+- **And:** A retry button is shown.
+- **And:** Tapping retry attempts playback again.
+
+### Successful Retry After Error
+- **Given:** Playback previously failed with a recoverable error.
+- **When:** User taps retry.
+- **And:** The issue is resolved (network restored).
+- **Then:** Playback begins successfully.
+- **And:** The error state clears.
+
+---
+
+## Advanced Playback Features
 
 ### Playing an Episode with Custom Speed
 - **Given:** On episode playback screen.

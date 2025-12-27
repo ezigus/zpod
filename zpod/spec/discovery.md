@@ -16,6 +16,10 @@
 - [Parental Controls and Content Filters](#parental-controls-and-content-filters)
 - [Apple ID Sign-In and iCloud Sync](#apple-id-sign-in-and-icloud-sync)
 - [Accessibility for Discovery Features](#accessibility-for-discovery-features)
+- [Feed Parsing](#feed-parsing)
+  - [Parsing Episode Audio Enclosure](#parsing-episode-audio-enclosure)
+  - [Parsing Episode Duration](#parsing-episode-duration)
+  - [Handling Missing Audio Enclosure](#handling-missing-audio-enclosure)
 
 **Description:** Users can easily find and subscribe to a wide variety of podcasts, audiobooks, and other audio content, designed for iPhone/iOS conventions. Users can choose from available integrations for automation (e.g., iOS Shortcuts, Google Assistant).
 
@@ -96,3 +100,29 @@
 - **Given:** The user knows the RSS feed URL.
 - **When:** Selects "Add by RSS Feed URL" and enters the URL.
 - **Then:** The app validates and adds the podcast.
+
+---
+
+## Feed Parsing
+
+These scenarios define how podcast RSS feeds are parsed to extract episode metadata.
+
+### Parsing Episode Audio Enclosure
+- **Given:** A podcast RSS feed contains episodes with `<enclosure>` elements.
+- **When:** The feed is parsed.
+- **Then:** Each episode's audioURL is populated from the enclosure URL attribute.
+- **And:** The URL is validated as parseable.
+
+### Parsing Episode Duration
+- **Given:** A podcast RSS feed contains `<itunes:duration>` elements.
+- **When:** The feed is parsed.
+- **Then:** Each episode's duration is extracted.
+- **And:** Duration in seconds format (e.g., "3600") is parsed correctly.
+- **And:** Duration in HH:MM:SS format (e.g., "1:00:00") is parsed correctly.
+
+### Handling Missing Audio Enclosure
+- **Given:** An RSS feed episode is missing the `<enclosure>` element.
+- **When:** The feed is parsed.
+- **Then:** The episode is created with audioURL = nil.
+- **And:** A warning is logged.
+- **And:** No error is thrown.

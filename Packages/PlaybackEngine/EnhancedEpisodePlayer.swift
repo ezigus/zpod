@@ -17,6 +17,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     static let minimumAutoChapterDuration: TimeInterval = 600
     static let minimumChapterSegment: TimeInterval = 90
     static let defaultDuration: TimeInterval = 300
+    static let tickInterval: TimeInterval = 0.5
     static let minimumSpeed: Float = 0.8
     static let maximumSpeed: Float = 5.0
   }
@@ -35,6 +36,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   private var chapters: [Chapter] = []
   private var currentChapterIndex: Int?
+  private var ticker: Ticker?
 
   #if canImport(Combine)
     private let stateSubject: CurrentValueSubject<EpisodePlaybackState, Never>
@@ -63,6 +65,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     #endif
   }
 
+  deinit {
+    ticker?.cancel()  // Ensure no lingering timer
+  }
+
   // MARK: - EpisodePlaybackService
 
   public func play(episode: Episode, duration maybeDuration: TimeInterval?) {
@@ -75,11 +81,13 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     updateCurrentChapterIndex()
     persistPlaybackPosition()
     emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+    startTicker()  // Start position advancement
   }
 
   public func pause() {
     guard currentEpisode != nil else { return }
     isPlaying = false
+    stopTicker()  // Stop position advancement
     let snapshot = persistPlaybackPosition()
     emitState(.paused(snapshot, position: currentPosition, duration: currentDuration))
   }
@@ -105,6 +113,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   public func failPlayback(error: PlaybackError = .streamFailed) {
     guard currentEpisode != nil else { return }
     isPlaying = false
+    stopTicker()  // Stop position advancement
     let snapshot = persistPlaybackPosition()
     emitState(
       .failed(
@@ -242,6 +251,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   private func finishPlayback(markPlayed: Bool) {
     isPlaying = false
+    stopTicker()  // Stop position advancement
     currentPosition = currentDuration
     let snapshot = persistPlaybackPosition()
     if markPlayed {
@@ -318,6 +328,53 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     #if canImport(Combine)
       stateSubject.send(state)
     #endif
+  }
+
+  // MARK: - Ticker Management
+
+  /// Advances playback position by one tick interval and emits updated state.
+  /// Called periodically by the ticker during active playback.
+  private func tick() {
+    // Guard: Only tick if actually playing
+    guard isPlaying else { return }
+
+    // Guard: Check if we've reached the end
+    let tickInterval = Constants.tickInterval
+    let delta = tickInterval * Double(playbackSpeed)
+    let newPosition = currentPosition + delta
+
+    if newPosition >= currentDuration {
+      // Episode finished
+      currentPosition = currentDuration
+      finishPlayback(markPlayed: true)
+      return
+    }
+
+    // Advance position
+    currentPosition = newPosition
+    updateCurrentChapterIndex()  // Update chapter if position crossed boundary
+    persistPlaybackPosition()     // Save progress periodically
+
+    // Emit updated state to all subscribers
+    emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+  }
+
+  /// Starts the position ticker for continuous playback updates.
+  private func startTicker() {
+    guard currentDuration > 0 else { return }
+    ticker?.cancel()  // Cancel any existing ticker
+    ticker = TimerTicker()
+    ticker?.schedule(every: Constants.tickInterval) { [weak self] in
+      Task { @MainActor in
+        self?.tick()
+      }
+    }
+  }
+
+  /// Stops the position ticker.
+  private func stopTicker() {
+    ticker?.cancel()
+    ticker = nil
   }
 }
 
