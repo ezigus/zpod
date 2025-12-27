@@ -229,13 +229,31 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
   func testPlaybackSpeedScalesTickProgress() async throws {
     // Given: An episode is playing
     let episode = Episode(id: "test-ep-8", title: "Speed Test", duration: 60)
+    var receivedStates: [EpisodePlaybackState] = []
+
+    #if canImport(Combine)
+      player.statePublisher
+        .sink { receivedStates.append($0) }
+        .store(in: &cancellables)
+    #endif
+
     player.play(episode: episode, duration: 60)
+    let stateCountBeforeSpeed = receivedStates.count
 
-    // When: Increase playback speed and wait for ticks
+    // When: Increase playback speed
     player.setPlaybackSpeed(2.0)
-    try await Task.sleep(for: .seconds(1.1))
 
-    // Then: Position should advance faster than 1x (>= 1.5s over ~1.1s)
+    // Then: State should be emitted immediately
+    #if canImport(Combine)
+      XCTAssertEqual(
+        receivedStates.count,
+        stateCountBeforeSpeed + 1,
+        "Speed change should emit state"
+      )
+    #endif
+
+    // And: Position should advance faster than 1x (>= 1.5s over ~1.1s)
+    try await Task.sleep(for: .seconds(1.1))
     XCTAssertGreaterThan(
       player.currentPosition,
       1.5,
@@ -268,5 +286,258 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Then: Position should be in chapter 2 range
     XCTAssertGreaterThanOrEqual(playerWithChapters.currentPosition, 10.0)
     XCTAssertLessThan(playerWithChapters.currentPosition, 50.0)
+  }
+
+  // MARK: - State Injection Tests
+
+  /// **Scenario**: Restoring Playing State
+  /// **Given** player is idle
+  /// **When** .playing state is injected (e.g., app relaunch)
+  /// **Then** ticker starts and position advances
+  func testInjectPlayingStateStartsTicker() async throws {
+    // Given: Player in idle state
+    let episode = Episode(id: "test-inject-1", title: "Inject Test", duration: 60)
+
+    // When: Inject .playing state
+    player.injectPlaybackState(.playing(episode, position: 10, duration: 60))
+    try await Task.sleep(for: .seconds(0.6))
+
+    // Then: Position should advance beyond injected position
+    XCTAssertGreaterThan(
+      player.currentPosition,
+      10.0,
+      "Position should advance after injecting .playing state"
+    )
+  }
+
+  /// **Scenario**: Stopping Ticker on State Injection
+  /// **Given** player is actively playing
+  /// **When** .paused state is injected
+  /// **Then** ticker stops and position freezes
+  func testInjectPausedStateStopsTicker() async throws {
+    // Given: Player actively playing
+    let episode = Episode(id: "test-inject-2", title: "Inject Pause Test", duration: 60)
+    player.play(episode: episode, duration: 60)
+    try await Task.sleep(for: .seconds(0.6))
+
+    // When: Inject .paused state
+    player.injectPlaybackState(.paused(episode, position: 5, duration: 60))
+    let pausedPosition = player.currentPosition
+    try await Task.sleep(for: .seconds(0.6))
+
+    // Then: Position should not advance
+    XCTAssertEqual(
+      player.currentPosition,
+      pausedPosition,
+      accuracy: 0.01,
+      "Position should not advance after injecting .paused state"
+    )
+  }
+
+  // MARK: - Seek and Speed Edge Cases
+
+  /// **Scenario**: Seek During Active Playback
+  /// **Given** episode is playing
+  /// **When** user seeks to new position
+  /// **Then** ticker restarts and position continues advancing
+  func testSeekDuringPlaybackContinuesTicking() async throws {
+    // Given: Episode playing
+    let episode = Episode(id: "test-seek-1", title: "Seek Test", duration: 60)
+    player.play(episode: episode, duration: 60)
+    try await Task.sleep(for: .seconds(0.6))
+
+    // When: Seek to new position
+    player.seek(to: 30)
+    let seekPosition = player.currentPosition
+    try await Task.sleep(for: .seconds(0.6))
+
+    // Then: Position should advance from seek position
+    XCTAssertGreaterThan(
+      player.currentPosition,
+      seekPosition,
+      "Position should continue advancing after seek during playback"
+    )
+  }
+
+  /// **Scenario**: High Speed Near Episode End
+  /// **Given** episode playing at high speed near end
+  /// **When** position approaches duration
+  /// **Then** final state updates emitted before finish
+  func testHighSpeedNearEndDoesntSkipStates() async throws {
+    // Given: Episode with high speed playback near end
+    let episode = Episode(id: "test-highspeed-1", title: "High Speed Test", duration: 60)
+    var positions: [TimeInterval] = []
+
+    #if canImport(Combine)
+      player.statePublisher
+        .sink { state in
+          if case .playing(_, let position, _) = state {
+            positions.append(position)
+          }
+        }
+        .store(in: &cancellables)
+    #endif
+
+    player.play(episode: episode, duration: 60)
+    player.seek(to: 58.0)
+    player.setPlaybackSpeed(5.0)
+    try await Task.sleep(for: .seconds(1.0))
+
+    // Then: Should have emitted at least one state near 60s before finish
+    #if canImport(Combine)
+      XCTAssertTrue(
+        positions.contains(where: { $0 >= 59.0 }),
+        "Should emit state near end before finishing at high speed"
+      )
+    #endif
+  }
+
+  // MARK: - Spec-Driven Tests
+
+  /// **Scenario**: Starting Episode Playback with Saved Position
+  /// **Spec**: zpod/spec/playback.md line 55-60
+  /// **Given** episode has saved playback position
+  /// **When** user taps play
+  /// **Then** playback starts at saved position and advances
+  func testInitialPlaybackPositionRespectsSavedState() async throws {
+    // Given: Episode with saved position
+    let episode = Episode(id: "test-spec-1", title: "Saved Position Test", duration: 60)
+      .withPlaybackPosition(25)
+
+    // When: Play episode
+    player.play(episode: episode, duration: 60)
+
+    // Then: Position should start at saved position
+    XCTAssertEqual(player.currentPosition, 25.0, accuracy: 0.1, "Should start at saved position")
+
+    // And: Position should advance from there
+    try await Task.sleep(for: .seconds(0.6))
+    XCTAssertGreaterThan(player.currentPosition, 25.0, "Position should advance from saved position")
+  }
+
+  /// **Scenario**: Seeking to Position While Paused
+  /// **Spec**: zpod/spec/playback.md line 82-86
+  /// **Given** episode is paused
+  /// **When** user seeks to new position
+  /// **Then** position updates but ticker does not start
+  func testSeekWhilePausedUpdatesPosition() async throws {
+    // Given: Paused episode
+    let episode = Episode(id: "test-spec-2", title: "Seek Paused Test", duration: 60)
+    player.play(episode: episode, duration: 60)
+    try await Task.sleep(for: .seconds(0.6))
+    player.pause()
+
+    // When: Seek to position
+    player.seek(to: 40.0)
+
+    // Then: Position updated but ticker not started
+    XCTAssertEqual(player.currentPosition, 40.0, accuracy: 0.1, "Position should be updated")
+
+    try await Task.sleep(for: .seconds(0.6))
+    XCTAssertEqual(
+      player.currentPosition,
+      40.0,
+      accuracy: 0.1,
+      "Position should not advance while paused"
+    )
+  }
+
+  // MARK: - Speed Clamping and Resume Tests (User Findings)
+
+  /// **Scenario**: Speed Clamping to Minimum
+  /// **Given** player instance
+  /// **When** speed set below minimum (0.8)
+  /// **Then** speed is clamped to minimum
+  func testSpeedClampingToMinimum() async throws {
+    // When: Set speed below minimum (0.8)
+    player.setPlaybackSpeed(0.1)
+
+    // Then: Speed should be clamped to minimum
+    XCTAssertEqual(player.getCurrentPlaybackSpeed(), 0.8, accuracy: 0.01, "Speed should be clamped to minimum 0.8")
+  }
+
+  /// **Scenario**: Speed Clamping to Maximum
+  /// **Given** player instance
+  /// **When** speed set above maximum (5.0)
+  /// **Then** speed is clamped to maximum
+  func testSpeedClampingToMaximum() async throws {
+    // When: Set speed above maximum (5.0)
+    player.setPlaybackSpeed(10.0)
+
+    // Then: Speed should be clamped to maximum
+    XCTAssertEqual(player.getCurrentPlaybackSpeed(), 5.0, accuracy: 0.01, "Speed should be clamped to maximum 5.0")
+  }
+
+  /// **Scenario**: Resume Starts at Exact Persisted Position
+  /// **Given** episode with saved playback position
+  /// **When** play episode (resume)
+  /// **Then** initial position exactly matches saved position (before any ticks)
+  func testResumeStartsAtExactPersistedPosition() async throws {
+    // Given: Episode with saved playback position
+    let episode = Episode(id: "test-resume-1", title: "Resume Test", duration: 60)
+      .withPlaybackPosition(42)  // Saved at 42 seconds
+
+    // When: Play episode (resume)
+    player.play(episode: episode, duration: 60)
+
+    // Then: Initial position should EXACTLY match saved position (before any ticks)
+    XCTAssertEqual(
+      player.currentPosition,
+      42.0,
+      accuracy: 0.01,
+      "Resume should start at exact persisted position"
+    )
+
+    // And: Position should advance after resume
+    try await Task.sleep(for: .seconds(0.6))
+    XCTAssertGreaterThan(
+      player.currentPosition,
+      42.0,
+      "Position should advance after resume"
+    )
+  }
+
+  // MARK: - Edge Case Tests
+
+  /// **Scenario**: Zero Duration Episode Falls Back to Default
+  /// **Given** episode with 0 duration
+  /// **When** attempt to play
+  /// **Then** fallback to default duration and ticker starts
+  func testZeroDurationEpisodeFallsBackToDefault() async throws {
+    // Given: Episode with 0 duration
+    let episode = Episode(id: "test-edge-1", title: "Zero Duration Test", duration: 0)
+
+    // When: Attempt to play
+    player.play(episode: episode, duration: 0)
+
+    // Then: Should use default duration (300s) and ticker starts
+    XCTAssertEqual(player.currentPosition, 0, "Position should start at zero")
+    try await Task.sleep(for: .seconds(0.6))
+    // With fallback to default duration (300s), ticker starts normally
+    XCTAssertGreaterThan(player.currentPosition, 0, "Position should advance with fallback duration")
+  }
+
+  /// **Scenario**: Rapid State Transitions
+  /// **Given** episode
+  /// **When** rapid play/pause/seek transitions
+  /// **Then** should handle gracefully without crashes
+  func testRapidStateTransitionsStable() async throws {
+    // Given: Episode
+    let episode = Episode(id: "test-edge-2", title: "Rapid Transition Test", duration: 60)
+
+    // When: Rapid transitions
+    player.play(episode: episode, duration: 60)
+    try await Task.sleep(for: .seconds(0.1))
+    player.pause()
+    try await Task.sleep(for: .seconds(0.1))
+    player.play(episode: episode, duration: 60)
+    try await Task.sleep(for: .seconds(0.1))
+    player.seek(to: 30)
+    try await Task.sleep(for: .seconds(0.1))
+    player.pause()
+
+    // Then: Should handle gracefully without crashes
+    XCTAssertFalse(player.isPlaying, "Should be paused after rapid transitions")
+    XCTAssertEqual(player.currentPosition, 30.0, accuracy: 0.5, "Position should stabilize at seek target")
   }
 }

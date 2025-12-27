@@ -94,6 +94,13 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   public func seek(to position: TimeInterval) {
     guard currentDuration >= 0 else { return }
+
+    // Stop ticker temporarily if playing
+    let wasPlaying = isPlaying
+    if wasPlaying {
+      stopTicker()
+    }
+
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
     let snapshot = persistPlaybackPosition()
@@ -105,6 +112,11 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
         isPlaying
           ? .playing(snapshot, position: currentPosition, duration: currentDuration)
           : .paused(snapshot, position: currentPosition, duration: currentDuration))
+
+      // Restart ticker if was playing
+      if wasPlaying {
+        startTicker()
+      }
     }
   }
 
@@ -140,6 +152,11 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   public func setPlaybackSpeed(_ speed: Float) {
     playbackSpeed = clampSpeed(speed)
+
+    // Emit updated state if playing to notify subscribers of speed change
+    if isPlaying {
+      emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+    }
   }
 
   public func getCurrentPlaybackSpeed() -> Float {
@@ -344,8 +361,14 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     let newPosition = currentPosition + delta
 
     if newPosition >= currentDuration {
-      // Episode finished
+      // Clamp to duration
       currentPosition = currentDuration
+
+      // Emit final playing state before finish (for smooth UX at high speeds)
+      if newPosition - currentDuration < Constants.tickInterval * 2 {
+        emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+      }
+
       finishPlayback(markPlayed: true)
       return
     }
@@ -380,6 +403,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
 extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {
   public func injectPlaybackState(_ state: EpisodePlaybackState) {
+    stopTicker()  // Stop any existing ticker before injecting new state
     switch state {
     case .idle(let episode):
       hydrateState(
@@ -393,6 +417,7 @@ extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {
     case .playing(let episode, let position, let duration):
       hydrateState(with: episode, position: position, duration: duration, isPlaying: true)
       emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+      startTicker()  // Start ticker when restoring playing state
 
     case .paused(let episode, let position, let duration):
       hydrateState(with: episode, position: position, duration: duration, isPlaying: false)
