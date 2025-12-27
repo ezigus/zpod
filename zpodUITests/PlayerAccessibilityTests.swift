@@ -55,6 +55,10 @@ final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
       podcastButton.waitForExistence(timeout: adaptiveShortTimeout),
       "Podcast '\(podcastIdentifier)' should exist"
     )
+    XCTAssertTrue(
+      waitForElementToBeHittable(podcastButton, timeout: adaptiveShortTimeout, description: "Podcast button"),
+      "Podcast '\(podcastIdentifier)' should be hittable before tapping"
+    )
     podcastButton.tap()
   }
 

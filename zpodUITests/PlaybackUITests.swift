@@ -98,11 +98,15 @@ extension PlaybackUITests {
   @MainActor
   @discardableResult
   private func requirePlayerInterface() throws -> XCUIElement {
+    // Verify player interface by checking for Speed Control button
+    // (NavigationBar and container elements are unreliable in modern SwiftUI)
+    let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
     try waitForElementOrSkip(
-      app.otherElements.matching(identifier: "Player Interface").firstMatch,
+      speedControl,
       timeout: adaptiveTimeout,
-      description: "Player interface"
+      description: "Player interface (Speed Control)"
     )
+    return speedControl
   }
 
 }
