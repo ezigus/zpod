@@ -32,6 +32,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
       let generator = UIImpactFeedbackGenerator(style: intensity.uiImpactStyle)
       generator.prepare()
       generator.impactOccurred()
+      Self.testOnEmit?()
     #endif
   }
 
@@ -42,6 +43,7 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
       let generator = UISelectionFeedbackGenerator()
       generator.prepare()
       generator.selectionChanged()
+      Self.testOnEmit?()
     #endif
   }
 
@@ -71,15 +73,22 @@ public final class HapticFeedbackService: HapticFeedbackServicing {
 
   #if canImport(UIKit)
     @MainActor
+    static var voiceOverStatusProvider: () -> Bool = { UIAccessibility.isVoiceOverRunning }
+
+    @MainActor
+    static var testOnEmit: (() -> Void)?
+
+    @MainActor
     private func emitNotification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
       let generator = UINotificationFeedbackGenerator()
       generator.prepare()
       generator.notificationOccurred(type)
+      Self.testOnEmit?()
     }
 
     @MainActor
     private var isHapticsAllowed: Bool {
-      !UIAccessibility.isVoiceOverRunning
+      !Self.voiceOverStatusProvider()
     }
   #endif
 }
