@@ -353,16 +353,17 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     var optionsButton: XCUIElement?
 
     // Strategy 1: Look for button with accessibility identifier
-    let identifiedButton = navBar.buttons.matching(identifier: "discovery-options-menu").firstMatch
+    let identifiedButton = app.buttons.matching(identifier: "discovery-options-menu").firstMatch
     if identifiedButton.exists && identifiedButton.isHittable {
       optionsButton = identifiedButton
     }
 
-    // Strategy 2: Look for the last navigation bar button
+    // Strategy 2: Look for toolbar buttons containing "options" or "menu"
     if optionsButton == nil {
-      let navButtons = navBar.buttons.allElementsBoundByIndex
-      for button in navButtons {
-        if button.exists && button.isHittable {
+      let toolbarButtons = app.buttons.allElementsBoundByIndex
+      for button in toolbarButtons {
+        let label = button.label.lowercased()
+        if (label.contains("option") || label.contains("menu")) && button.exists && button.isHittable {
           optionsButton = button
           break
         }
@@ -491,8 +492,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have access to the options menu
-    let searchField = searchField(in: app)
-    XCTAssertTrue(searchField.exists, "Should be on Discover tab")
+    let discoverSearchField = searchField(in: app)
+    XCTAssertTrue(discoverSearchField.exists, "Should be on Discover tab")
 
     // Find the options button using multiple strategies
     var optionsButton: XCUIElement?
