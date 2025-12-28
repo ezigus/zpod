@@ -317,6 +317,44 @@ resolve_xcodebuild_timeout() {
   echo "$default_timeout"
 }
 
+list_ui_test_suites() {
+  if [[ -n "${ZPOD_UI_TEST_SUITES:-}" ]]; then
+    split_csv "$ZPOD_UI_TEST_SUITES"
+    local item
+    for item in "${__ZPOD_SPLIT_RESULT[@]}"; do
+      item="$(trim "$item")"
+      [[ -z "$item" ]] && continue
+      printf "%s\n" "$item"
+    done
+    return 0
+  fi
+
+  ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
+  rg -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests[[:space:]]*:[[:space:]]*XCTestCase' \
+    "${REPO_ROOT}/zpodUITests" | \
+    sed -E 's/.*class[[:space:]]+([A-Za-z0-9_]+Tests).*/\\1/' | \
+    sort -u
+}
+
+run_ui_test_suites() {
+  local suites=()
+  local suite
+  while IFS= read -r suite; do
+    [[ -z "$suite" ]] && continue
+    suites+=("$suite")
+  done < <(list_ui_test_suites)
+
+  if (( ${#suites[@]} == 0 )); then
+    log_warn "No UI test suites discovered; falling back to zpodUITests"
+    execute_phase "UI tests" "test" run_test_target "zpodUITests"
+    return
+  fi
+
+  for suite in "${suites[@]}"; do
+    execute_phase "UI tests ${suite}" "test" run_test_target "zpodUITests/${suite}"
+  done
+}
+
 is_sim_boot_failure_log() {
   local log_path="$1"
   [[ -f "$log_path" ]] || return 1
@@ -3139,7 +3177,7 @@ if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; the
   finalize_and_exit "$EXIT_STATUS"
 fi
 execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
-execute_phase "UI tests" "test" run_test_target "zpodUITests"
+run_ui_test_suites
 unset ZPOD_TEST_WITHOUT_BUILDING
 
 execute_phase "Swift lint" "lint" run_swift_lint
