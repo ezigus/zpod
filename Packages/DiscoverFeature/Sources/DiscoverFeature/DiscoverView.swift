@@ -199,6 +199,7 @@ public struct DiscoverView: View {
                 
                 TextField("Search podcasts, episodes...", text: $viewModel.searchText)
                     .textFieldStyle(.plain)
+                    .accessibilityIdentifier("Discover.SearchField")
                     .onSubmit {
                         Task {
                             await viewModel.search()

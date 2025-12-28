@@ -64,16 +64,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   }
 
   private func searchField(in app: XCUIApplication) -> XCUIElement {
-    let searchField = app.searchFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
-    if searchField.exists {
-      return searchField
-    }
-
-    return app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'Search'")
-    ).firstMatch
+    // Use explicit accessibility identifier for reliable discovery
+    return app.textFields.matching(identifier: "Discover.SearchField").firstMatch
   }
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
