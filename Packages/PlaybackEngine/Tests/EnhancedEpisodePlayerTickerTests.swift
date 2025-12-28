@@ -15,17 +15,20 @@ import SharedUtilities
 @MainActor
 final class EnhancedEpisodePlayerTickerTests: XCTestCase {
   private var player: EnhancedEpisodePlayer!
+  private var ticker: DeterministicTicker!
   private var cancellables: Set<AnyCancellable>!
 
   override func setUp() async throws {
     try await super.setUp()
-    player = EnhancedEpisodePlayer()
+    ticker = DeterministicTicker()
+    player = EnhancedEpisodePlayer(ticker: ticker)
     cancellables = []
   }
 
   override func tearDown() async throws {
     cancellables = nil
     player = nil
+    ticker = nil
     try await super.tearDown()
   }
 
@@ -48,26 +51,25 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
         .store(in: &cancellables)
     #endif
 
-    // When: Play and wait ~1.1 seconds (should get ~2 ticks at 0.5s interval)
+    // When: Play and advance 2 ticks (2 × 0.5s = 1.0s)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(1.1))
+    await ticker.tick(count: 2)
 
     // Then: Position should have advanced
     #if canImport(Combine)
       // Should have received: idle (initial), playing (play()), playing (tick 1), playing (tick 2)
-      XCTAssertGreaterThanOrEqual(receivedStates.count, 3, "Should have received multiple state updates")
+      XCTAssertEqual(receivedStates.count, 4, "Should have received 4 state updates")
 
       // Verify last state shows advanced position
       if case .playing(_, let position, _) = receivedStates.last {
-        XCTAssertGreaterThan(position, 0.5, "Position should have advanced at least one tick (0.5s)")
-        XCTAssertLessThan(position, 2.0, "Position shouldn't advance too far (sanity check)")
+        XCTAssertEqual(position, 1.0, accuracy: 0.01, "Position should be exactly 1.0s after 2 ticks")
       } else {
         XCTFail("Last state should be .playing")
       }
     #endif
 
     // Verify current position advanced
-    XCTAssertGreaterThan(player.currentPosition, 0.5)
+    XCTAssertEqual(player.currentPosition, 1.0, accuracy: 0.01, "Position should be exactly 1.0s")
   }
 
   /// **Scenario**: Pausing Playback
@@ -78,12 +80,12 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: A playing episode
     let episode = Episode(id: "test-ep-2", title: "Pause Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // When: Pause
     player.pause()
     let positionAtPause = player.currentPosition
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)  // Ticker stopped, this does nothing
 
     // Then: Position should not have changed
     XCTAssertEqual(
@@ -102,13 +104,13 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: A paused episode
     let episode = Episode(id: "test-ep-3", title: "Resume Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
     player.pause()
     // When: Resume play
     let resumeEpisode = player.currentEpisode ?? episode
     let resumeBaseline = Double(resumeEpisode.playbackPosition)
     player.play(episode: resumeEpisode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // Then: Position should have advanced beyond pause point
     XCTAssertGreaterThan(
@@ -137,9 +139,9 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
         .store(in: &cancellables)
     #endif
 
-    // When: Play episode with 1 second duration
+    // When: Play episode and advance to duration (2 ticks = 1.0s)
     player.play(episode: episode, duration: 1.0)
-    try await Task.sleep(for: .seconds(1.5))
+    await ticker.tick(count: 2)
 
     // Then: Should have emitted finished state
     #if canImport(Combine)
@@ -168,12 +170,12 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: A playing episode
     let episode = Episode(id: "test-ep-5", title: "Failure Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // When: Playback fails
     player.failPlayback(error: .streamFailed)
     let positionAtFailure = player.currentPosition
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)  // Ticker stopped, this does nothing
 
     // Then: Position should not advance
     XCTAssertEqual(
@@ -203,13 +205,13 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
         .store(in: &cancellables)
     #endif
 
-    // When: Play and wait for multiple ticks
+    // When: Play and advance 3 ticks (3 × 0.5s = 1.5s)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(1.6))
+    await ticker.tick(count: 3)
 
     // Then: Should have received multiple position updates
     #if canImport(Combine)
-      XCTAssertGreaterThanOrEqual(positions.count, 3, "Should receive multiple state updates")
+      XCTAssertEqual(positions.count, 4, "Should receive 4 state updates (initial + 3 ticks)")
 
       // Verify positions are monotonically increasing
       for i in 1..<positions.count {
@@ -219,6 +221,9 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
           "Positions should increase over time"
         )
       }
+
+      // Verify final position
+      XCTAssertEqual(positions.last ?? 0, 1.5, accuracy: 0.01, "Final position should be 1.5s")
     #endif
   }
 
@@ -252,12 +257,13 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
       )
     #endif
 
-    // And: Position should advance faster than 1x (>= 1.5s over ~1.1s)
-    try await Task.sleep(for: .seconds(1.1))
-    XCTAssertGreaterThan(
+    // And: Position should advance faster than 1x (2 ticks at 2.0x = 2.0s progress)
+    await ticker.tick(count: 2)
+    XCTAssertEqual(
       player.currentPosition,
-      1.5,
-      "Position should advance faster when playback speed is increased"
+      2.0,
+      accuracy: 0.01,
+      "Position should advance 2.0s after 2 ticks at 2.0x speed"
     )
   }
 
@@ -275,16 +281,17 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     ]
 
     let chapterResolver: (Episode, TimeInterval) -> [Chapter] = { _, _ in chapters }
-    let playerWithChapters = EnhancedEpisodePlayer(chapterResolver: chapterResolver)
+    let chapterTicker = DeterministicTicker()
+    let playerWithChapters = EnhancedEpisodePlayer(chapterResolver: chapterResolver, ticker: chapterTicker)
 
     // When: Play and let position advance past chapter boundary
     playerWithChapters.play(episode: episode, duration: 60)
     // Seek to just before chapter 2
     playerWithChapters.seek(to: 9.5)
-    try await Task.sleep(for: .seconds(0.7))  // Should tick into chapter 2
+    await chapterTicker.tick(count: 1)  // Advance 1 tick (0.5s) to 10.0s
 
     // Then: Position should be in chapter 2 range
-    XCTAssertGreaterThanOrEqual(playerWithChapters.currentPosition, 10.0)
+    XCTAssertEqual(playerWithChapters.currentPosition, 10.0, accuracy: 0.01, "Should be at chapter 2 start")
     XCTAssertLessThan(playerWithChapters.currentPosition, 50.0)
   }
 
@@ -298,15 +305,16 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: Player in idle state
     let episode = Episode(id: "test-inject-1", title: "Inject Test", duration: 60)
 
-    // When: Inject .playing state
+    // When: Inject .playing state and advance 1 tick
     player.injectPlaybackState(.playing(episode, position: 10, duration: 60))
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // Then: Position should advance beyond injected position
-    XCTAssertGreaterThan(
+    XCTAssertEqual(
       player.currentPosition,
-      10.0,
-      "Position should advance after injecting .playing state"
+      10.5,
+      accuracy: 0.01,
+      "Position should advance to 10.5s after 1 tick from 10.0s"
     )
   }
 
@@ -318,12 +326,12 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: Player actively playing
     let episode = Episode(id: "test-inject-2", title: "Inject Pause Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // When: Inject .paused state
     player.injectPlaybackState(.paused(episode, position: 5, duration: 60))
     let pausedPosition = player.currentPosition
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)  // Ticker stopped, this does nothing
 
     // Then: Position should not advance
     XCTAssertEqual(
@@ -344,12 +352,12 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: Episode playing
     let episode = Episode(id: "test-seek-1", title: "Seek Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // When: Seek to new position
     player.seek(to: 30)
     let seekPosition = player.currentPosition
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
 
     // Then: Position should advance from seek position
     XCTAssertGreaterThan(
@@ -357,6 +365,7 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
       seekPosition,
       "Position should continue advancing after seek during playback"
     )
+    XCTAssertEqual(player.currentPosition, 30.5, accuracy: 0.01, "Should be at 30.5s after seek + 1 tick")
   }
 
   /// **Scenario**: High Speed Near Episode End
@@ -381,9 +390,9 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     player.play(episode: episode, duration: 60)
     player.seek(to: 58.0)
     player.setPlaybackSpeed(5.0)
-    try await Task.sleep(for: .seconds(1.0))
+    await ticker.tick(count: 1)  // Advance 1 tick at 5.0x = 2.5s, but clamped to 60s
 
-    // Then: Should have emitted at least one state near 60s before finish
+    // Then: Should have emitted state at 60s before finish
     #if canImport(Combine)
       XCTAssertTrue(
         positions.contains(where: { $0 >= 59.0 }),
@@ -411,8 +420,8 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     XCTAssertEqual(player.currentPosition, 25.0, accuracy: 0.1, "Should start at saved position")
 
     // And: Position should advance from there
-    try await Task.sleep(for: .seconds(0.6))
-    XCTAssertGreaterThan(player.currentPosition, 25.0, "Position should advance from saved position")
+    await ticker.tick(count: 1)
+    XCTAssertEqual(player.currentPosition, 25.5, accuracy: 0.01, "Should advance to 25.5s after 1 tick")
   }
 
   /// **Scenario**: Seeking to Position While Paused
@@ -424,7 +433,7 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Given: Paused episode
     let episode = Episode(id: "test-spec-2", title: "Seek Paused Test", duration: 60)
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
     player.pause()
 
     // When: Seek to position
@@ -433,7 +442,7 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     // Then: Position updated but ticker not started
     XCTAssertEqual(player.currentPosition, 40.0, accuracy: 0.1, "Position should be updated")
 
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)  // Ticker stopped, this does nothing
     XCTAssertEqual(
       player.currentPosition,
       40.0,
@@ -489,11 +498,12 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
     )
 
     // And: Position should advance after resume
-    try await Task.sleep(for: .seconds(0.6))
-    XCTAssertGreaterThan(
+    await ticker.tick(count: 1)
+    XCTAssertEqual(
       player.currentPosition,
-      42.0,
-      "Position should advance after resume"
+      42.5,
+      accuracy: 0.01,
+      "Position should advance to 42.5s after 1 tick"
     )
   }
 
@@ -512,9 +522,9 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
 
     // Then: Should use default duration (300s) and ticker starts
     XCTAssertEqual(player.currentPosition, 0, "Position should start at zero")
-    try await Task.sleep(for: .seconds(0.6))
+    await ticker.tick(count: 1)
     // With fallback to default duration (300s), ticker starts normally
-    XCTAssertGreaterThan(player.currentPosition, 0, "Position should advance with fallback duration")
+    XCTAssertEqual(player.currentPosition, 0.5, accuracy: 0.01, "Position should advance to 0.5s after 1 tick")
   }
 
   /// **Scenario**: Rapid State Transitions
@@ -527,17 +537,17 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
 
     // When: Rapid transitions
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.1))
+    // No ticks - rapid transition
     player.pause()
-    try await Task.sleep(for: .seconds(0.1))
+    // No ticks - rapid transition
     player.play(episode: episode, duration: 60)
-    try await Task.sleep(for: .seconds(0.1))
+    // No ticks - rapid transition
     player.seek(to: 30)
-    try await Task.sleep(for: .seconds(0.1))
+    // No ticks - rapid transition
     player.pause()
 
     // Then: Should handle gracefully without crashes
     XCTAssertFalse(player.isPlaying, "Should be paused after rapid transitions")
-    XCTAssertEqual(player.currentPosition, 30.0, accuracy: 0.5, "Position should stabilize at seek target")
+    XCTAssertEqual(player.currentPosition, 30.0, accuracy: 0.1, "Position should stabilize at seek target")
   }
 }
