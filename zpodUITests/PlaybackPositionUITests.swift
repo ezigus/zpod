@@ -176,22 +176,60 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     return nil
   }
 
-  /// Wait briefly for UI to stabilize after an action (e.g., seek).
-  /// Uses element existence check instead of Thread.sleep.
+  /// Wait for the slider value to stabilize after seek (e.g., no longer changing).
+  /// Uses RunLoop to allow UI updates to be processed, similar to UITestStableWaitHelpers.
   @MainActor
-  private func waitForUIStabilization(timeout: TimeInterval = 1.0) {
+  private func waitForSliderValueStabilization(
+    from initialValue: String?,
+    timeout: TimeInterval = 2.0,
+    changeThreshold: TimeInterval = 0.5
+  ) -> String? {
     let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-    // Simply verify the slider is still accessible after the action
-    _ = slider.waitForExistence(timeout: timeout)
+    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return nil
+    }
+
+    let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
+    let deadline = Date().addingTimeInterval(timeout)
+    var lastValue = slider.value as? String
+    var lastPosition = extractCurrentPosition(from: lastValue) ?? initialPosition
+    var stableStartTime = Date()
+
+    while Date() < deadline {
+      // Use RunLoop to allow UI events to be processed (following UITestStableWaitHelpers pattern)
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+      let currentValue = slider.value as? String
+      let currentPosition = extractCurrentPosition(from: currentValue) ?? initialPosition
+
+      // Wait for value to change from initial position by at least threshold
+      let positionChange = abs(currentPosition - initialPosition)
+      if positionChange >= changeThreshold {
+        // Value has moved significantly - now check if it's stable
+        if currentValue == lastValue {
+          let stableDuration = Date().timeIntervalSince(stableStartTime)
+          if stableDuration >= 0.2 {
+            return currentValue  // Value stable after seek
+          }
+        } else {
+          lastValue = currentValue
+          stableStartTime = Date()
+        }
+      }
+
+      lastPosition = currentPosition
+    }
+
+    return slider.value as? String
   }
 
   /// Verify position remains stable (hasn't advanced) over a period.
-  /// Returns true if position stayed within tolerance, false if it advanced.
+  /// Returns true if position stayed close to expected value, false if it drifted.
   @MainActor
   private func verifyPositionStable(
     at expectedValue: String?,
     forDuration: TimeInterval = 2.0,
-    tolerance: TimeInterval = 0.5
+    tolerance: TimeInterval = 0.1
   ) -> Bool {
     let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
@@ -199,23 +237,25 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     }
 
     let expectedPosition = extractCurrentPosition(from: expectedValue) ?? 0
+    let deadline = Date().addingTimeInterval(forDuration)
 
-    // Use predicate that fails if position advances beyond tolerance
-    // We want this predicate to FAIL (timeout) if position stays stable
-    let advancementPredicate = NSPredicate { _, _ in
+    while Date() < deadline {
+      // Use RunLoop to allow UI events to be processed
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
       guard let currentValue = slider.value as? String,
-            let currentPosition = self.extractCurrentPosition(from: currentValue) else {
-        return false
+            let currentPosition = extractCurrentPosition(from: currentValue) else {
+        continue
       }
-      return currentPosition > expectedPosition + tolerance
+
+      // Check if position stayed within expected range (not just didn't exceed it)
+      let deviation = abs(currentPosition - expectedPosition)
+      if deviation > tolerance {
+        return false  // Position drifted beyond tolerance
+      }
     }
 
-    let expectation = XCTNSPredicateExpectation(predicate: advancementPredicate, object: slider)
-    let result = XCTWaiter.wait(for: [expectation], timeout: forDuration)
-
-    // If we timed out, position stayed stable (what we want)
-    // If completed, position advanced (not what we want)
-    return result == .timedOut
+    return true  // Position remained stable throughout
   }
 
   // MARK: - Position Advancement Tests
@@ -312,25 +352,9 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     let pausedValue = getSliderValue()
     let pausedPosition = extractCurrentPosition(from: pausedValue)
 
-    // Then: Verify position hasn't advanced using predicate-based waiting
-    let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.5)
-    XCTAssertTrue(positionStable, "Position should remain stable when paused")
-
-    // Double-check with explicit comparison
-    let stillPausedValue = getSliderValue()
-    let stillPausedPosition = extractCurrentPosition(from: stillPausedValue)
-
-    if let paused = pausedPosition, let stillPaused = stillPausedPosition {
-      // Allow 0.5s tolerance for timing variance
-      XCTAssertEqual(
-        stillPaused,
-        paused,
-        accuracy: 0.5,
-        "Position should remain at \(paused)s when paused, but got \(stillPaused)s"
-      )
-    } else {
-      XCTFail("Could not parse paused position values")
-    }
+    // Then: Verify position hasn't advanced using RunLoop-based waiting
+    let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.1)
+    XCTAssertTrue(positionStable, "Position should remain stable when paused (within 0.1s)")
   }
 
   /// **Spec**: Resuming Playback
@@ -422,12 +446,17 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
     // Seek to 50% position
+    let preSeekValue = getSliderValue()
     slider.adjust(toNormalizedSliderPosition: 0.5)
 
-    // Then: Position should update immediately - wait for UI to stabilize
-    waitForUIStabilization(timeout: 1.0)
+    // Then: Wait for slider value to stabilize after seek (position must change significantly)
+    let seekedValue = waitForSliderValueStabilization(
+      from: preSeekValue,
+      timeout: 2.0,
+      changeThreshold: 5.0  // Seek should move at least 5 seconds
+    )
+    XCTAssertNotNil(seekedValue, "Slider value should change after seek")
 
-    let seekedValue = getSliderValue()
     let seekedPosition = extractCurrentPosition(from: seekedValue)
 
     // Verify position changed significantly (not just ticking)
