@@ -295,9 +295,9 @@ xcodebuild_wrapper() {
   log_info "xcodebuild ${args[*]}"
   
   # UI tests can hang indefinitely waiting for app to idle or during diagnostic collection.
-  # Set a 30-minute timeout (1800s) - generous enough for legitimate test runs, protective against hangs.
+  # Use a configurable watchdog timeout via ZPOD_XCODEBUILD_TIMEOUT_SECONDS (seconds).
   # If timeout is reached, kill xcodebuild and all child processes (including simctl diagnose).
-  local timeout_seconds=1800
+  local timeout_seconds="${ZPOD_XCODEBUILD_TIMEOUT_SECONDS:-1800}"
   local xcodebuild_pid
   
   # Set up trap to forward INT signal to xcodebuild process

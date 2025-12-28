@@ -252,7 +252,7 @@ phase_group_for() {
   if [[ "$name" == Integration* ]]; then
     echo "Integration"; return
   fi
-  if [[ "$name" == "UI tests" || "$name" == zpodUITests* || "$name" == *UITests* ]]; then
+  if [[ "$name" == "UI tests" || "$name" == zpodUITests* || "$name" == *UITests* || "$name" == *-ui || "$name" == zpod-ui ]]; then
     echo "UI Tests"; return
   fi
   if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
@@ -290,7 +290,7 @@ test_group_for() {
   if [[ "$name" == IntegrationTests* || "$name" == *Integration* ]]; then
     echo "Integration"; return
   fi
-  if [[ "$name" == zpodUITests* || "$name" == *UITests* ]]; then
+  if [[ "$name" == zpodUITests* || "$name" == *UITests* || "$name" == *-ui || "$name" == zpod-ui ]]; then
     echo "UI Tests"; return
   fi
   if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
@@ -299,6 +299,22 @@ test_group_for() {
   if [[ "$name" == package* ]]; then
     echo "Package Tests"; return
   fi
+}
+
+resolve_xcodebuild_timeout() {
+  local label="$1"
+  if [[ -n "${ZPOD_XCODEBUILD_TIMEOUT_SECONDS:-}" ]]; then
+    echo "$ZPOD_XCODEBUILD_TIMEOUT_SECONDS"
+    return
+  fi
+
+  local ui_timeout="${ZPOD_UI_TEST_TIMEOUT_SECONDS:-900}"
+  local default_timeout="${ZPOD_TEST_TIMEOUT_SECONDS:-1800}"
+  if [[ "$label" == *UITests* || "$label" == *-ui || "$label" == "UI tests" ]]; then
+    echo "$ui_timeout"
+    return
+  fi
+  echo "$default_timeout"
 }
 
 is_sim_boot_failure_log() {
@@ -2292,7 +2308,9 @@ test_app_target() {
   local -a original_args=("${args[@]}")
   run_tests_once() {
     set +e
-    xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    local timeout_seconds
+    timeout_seconds=$(resolve_xcodebuild_timeout "$target")
+    ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     local status=${PIPESTATUS[0]}
     set -e
     return "$status"
@@ -2729,7 +2747,9 @@ run_filtered_xcode_tests() {
   local temp_sim_udid=""
   run_tests_once() {
     set +e
-    xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    local timeout_seconds
+    timeout_seconds=$(resolve_xcodebuild_timeout "$label")
+    ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     local status=${PIPESTATUS[0]}
     set -e
     return "$status"
