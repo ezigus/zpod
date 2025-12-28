@@ -429,6 +429,7 @@ public struct DiscoverView: View {
                     viewModel.searchHistory.remove(atOffsets: indexSet)
                 }
             }
+            .accessibilityIdentifier("Search History List")
             .navigationTitle("Search History")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

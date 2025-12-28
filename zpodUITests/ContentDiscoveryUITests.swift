@@ -245,17 +245,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       }
     }
 
-    // Strategy 3: Look for toolbar buttons containing "options" or "menu"
-    if optionsButton == nil {
-      let toolbarButtons = app.buttons.allElementsBoundByIndex
-      for button in toolbarButtons {
-        let label = button.label.lowercased()
-        if (label.contains("option") || label.contains("menu")) && button.exists && button.isHittable {
-          optionsButton = button
-          break
-        }
-      }
-    }
+    // Strategy 3 removed: Overly broad search through all buttons can match
+    // unintended elements. Strategies 1 and 2 should be sufficient.
 
     if let button = optionsButton {
       button.tap()
@@ -506,17 +497,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       }
     }
 
-    // Strategy 3: Look for toolbar buttons containing "options" or "menu"
-    if optionsButton == nil {
-      let toolbarButtons = app.buttons.allElementsBoundByIndex
-      for button in toolbarButtons {
-        let label = button.label.lowercased()
-        if (label.contains("option") || label.contains("menu")) && button.exists && button.isHittable {
-          optionsButton = button
-          break
-        }
-      }
-    }
+    // Strategy 3 removed: Overly broad search through all buttons can match
+    // unintended elements. Strategies 1 and 2 should be sufficient.
 
     if let button = optionsButton {
       button.tap()
@@ -529,13 +511,12 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         // When: I select "Search History"
         searchHistoryOption.tap()
 
-        // Then: Search history sheet should appear (verified by absence of search field from main screen)
-        // (NavigationBar elements are unreliable in modern SwiftUI)
-        // Search history would show a list or empty state instead of the main search field
-        let mainSearchField = searchField(in: app)
+        // Then: Search history sheet should appear
+        // Wait for the specific "Search History List" element to appear
+        let searchHistoryList = app.otherElements.matching(identifier: "Search History List").firstMatch
         XCTAssertTrue(
-          !mainSearchField.isHittable || app.otherElements.count > 0,
-          "Search history sheet should appear (main search field no longer primary focus)")
+          searchHistoryList.waitForExistence(timeout: adaptiveShortTimeout),
+          "Search history sheet should appear with Search History List")
       } else {
         XCTFail("Search History option not found in menu"); return
       }
