@@ -330,9 +330,9 @@ list_ui_test_suites() {
   fi
 
   ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
-  rg -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests[[:space:]]*:[[:space:]]*XCTestCase' \
+  rg -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
     "${REPO_ROOT}/zpodUITests" | \
-    sed -E 's/.*class[[:space:]]+([A-Za-z0-9_]+Tests).*/\1/' | \
+    sed -E 's/class[[:space:]]+//' | \
     sort -u
 }
 
@@ -350,9 +350,15 @@ run_ui_test_suites() {
     return
   fi
 
+  local any_failed=0
   for suite in "${suites[@]}"; do
-    execute_phase "UI tests ${suite}" "test" run_test_target "zpodUITests/${suite}"
+    if ! execute_phase "UI tests ${suite}" "test" run_test_target "zpodUITests/${suite}"; then
+      any_failed=1
+    fi
   done
+  if (( any_failed == 1 )); then
+    log_warn "One or more UI suites failed; continuing with remaining phases"
+  fi
 }
 
 is_sim_boot_failure_log() {
