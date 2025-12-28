@@ -55,7 +55,14 @@ final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
       podcastButton.waitForExistence(timeout: adaptiveShortTimeout),
       "Podcast '\(podcastIdentifier)' should exist"
     )
-    podcastButton.tap()
+
+    // If button isn't hittable (e.g., at large accessibility text sizes), try coordinate tap
+    if !waitForElementToBeHittable(podcastButton, timeout: adaptiveShortTimeout, description: "Podcast button") {
+      // Tap at the center of the button's frame using coordinates
+      podcastButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    } else {
+      podcastButton.tap()
+    }
   }
 
   @MainActor
