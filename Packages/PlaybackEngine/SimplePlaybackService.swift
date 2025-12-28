@@ -193,9 +193,12 @@ public final class TimerTicker: Ticker, @unchecked Sendable {
   
   public func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void) {
     cancel()
-    timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
+    let newTimer = Timer(timeInterval: interval, repeats: true) { _ in
       tick()
     }
+    // Add to .common run loop mode so timer continues during UI scrolling/interactions
+    RunLoop.main.add(newTimer, forMode: .common)
+    timer = newTimer
   }
   
   public func cancel() {

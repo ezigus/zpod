@@ -20,6 +20,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     static let tickInterval: TimeInterval = 0.5
     static let minimumSpeed: Float = 0.8
     static let maximumSpeed: Float = 5.0
+    static let persistenceInterval: TimeInterval = 5.0  // Persist every 5 seconds
   }
 
   private let episodeStateManager: EpisodeStateManager
@@ -36,7 +37,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   private var chapters: [Chapter] = []
   private var currentChapterIndex: Int?
-  private var ticker: Ticker?
+  private let tickerFactory: () -> Ticker
+  private var activeTicker: Ticker?
+  private var lastPersistenceTime: TimeInterval = 0
 
   #if canImport(Combine)
     private let stateSubject: CurrentValueSubject<EpisodePlaybackState, Never>
@@ -50,15 +53,18 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   ///   - playbackSettings: Source for skip intervals and default playback speed.
   ///   - stateManager: Persists playback position and played state; defaults to in-memory storage.
   ///   - chapterResolver: Optional override to provide chapters for an episode.
+  ///   - ticker: Optional ticker for deterministic testing; defaults to TimerTicker for production.
   public init(
     playbackSettings: PlaybackSettings = PlaybackSettings(),
     stateManager: EpisodeStateManager? = nil,
-    chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil
+    chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
+    ticker: Ticker? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
     self.chapterResolver = chapterResolver
     self.playbackSpeed = playbackSettings.defaultSpeed
+    self.tickerFactory = { ticker ?? TimerTicker() }
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
@@ -66,7 +72,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   }
 
   deinit {
-    ticker?.cancel()  // Ensure no lingering timer
+    activeTicker?.cancel()  // Ensure no lingering timer
   }
 
   // MARK: - EpisodePlaybackService
@@ -89,6 +95,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     isPlaying = false
     stopTicker()  // Stop position advancement
     let snapshot = persistPlaybackPosition()
+    lastPersistenceTime = currentPosition  // Force immediate persistence on pause
     emitState(.paused(snapshot, position: currentPosition, duration: currentDuration))
   }
 
@@ -104,6 +111,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
     let snapshot = persistPlaybackPosition()
+    lastPersistenceTime = currentPosition  // Force immediate persistence on seek
 
     if hasReachedEnd() {
       finishPlayback(markPlayed: true)
@@ -271,6 +279,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stopTicker()  // Stop position advancement
     currentPosition = currentDuration
     let snapshot = persistPlaybackPosition()
+    lastPersistenceTime = currentPosition  // Force immediate persistence on finish
     if markPlayed {
       updatePlayedStatus(true)
     }
@@ -376,7 +385,12 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     // Advance position
     currentPosition = newPosition
     updateCurrentChapterIndex()  // Update chapter if position crossed boundary
-    persistPlaybackPosition()     // Save progress periodically
+
+    // Throttle persistence: only save every 5 seconds
+    if currentPosition - lastPersistenceTime >= Constants.persistenceInterval {
+      persistPlaybackPosition()
+      lastPersistenceTime = currentPosition
+    }
 
     // Emit updated state to all subscribers
     emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
@@ -385,9 +399,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   /// Starts the position ticker for continuous playback updates.
   private func startTicker() {
     guard currentDuration > 0 else { return }
-    ticker?.cancel()  // Cancel any existing ticker
-    ticker = TimerTicker()
-    ticker?.schedule(every: Constants.tickInterval) { [weak self] in
+    activeTicker?.cancel()  // Cancel any existing ticker
+    activeTicker = tickerFactory()  // Create new ticker from factory
+    activeTicker?.schedule(every: Constants.tickInterval) { [weak self] in
       Task { @MainActor in
         self?.tick()
       }
@@ -396,8 +410,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   /// Stops the position ticker.
   private func stopTicker() {
-    ticker?.cancel()
-    ticker = nil
+    activeTicker?.cancel()
+    activeTicker = nil
   }
 }
 
