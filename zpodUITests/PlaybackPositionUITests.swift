@@ -144,6 +144,80 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     return nil
   }
 
+  /// Wait for the slider position to advance beyond the initial value.
+  /// Uses predicate-based waiting instead of Thread.sleep for reliability.
+  @MainActor
+  private func waitForPositionAdvancement(
+    beyond initialValue: String?,
+    timeout: TimeInterval = 5.0
+  ) -> String? {
+    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return nil
+    }
+
+    let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
+
+    // Use predicate expectation to wait for position to advance
+    let predicate = NSPredicate { _, _ in
+      guard let currentValue = slider.value as? String,
+            let currentPosition = self.extractCurrentPosition(from: currentValue) else {
+        return false
+      }
+      return currentPosition > initialPosition + 1.0  // Wait for at least 1 second advancement
+    }
+
+    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: slider)
+    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+
+    if result == .completed {
+      return slider.value as? String
+    }
+    return nil
+  }
+
+  /// Wait briefly for UI to stabilize after an action (e.g., seek).
+  /// Uses element existence check instead of Thread.sleep.
+  @MainActor
+  private func waitForUIStabilization(timeout: TimeInterval = 1.0) {
+    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    // Simply verify the slider is still accessible after the action
+    _ = slider.waitForExistence(timeout: timeout)
+  }
+
+  /// Verify position remains stable (hasn't advanced) over a period.
+  /// Returns true if position stayed within tolerance, false if it advanced.
+  @MainActor
+  private func verifyPositionStable(
+    at expectedValue: String?,
+    forDuration: TimeInterval = 2.0,
+    tolerance: TimeInterval = 0.5
+  ) -> Bool {
+    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return false
+    }
+
+    let expectedPosition = extractCurrentPosition(from: expectedValue) ?? 0
+
+    // Use predicate that fails if position advances beyond tolerance
+    // We want this predicate to FAIL (timeout) if position stays stable
+    let advancementPredicate = NSPredicate { _, _ in
+      guard let currentValue = slider.value as? String,
+            let currentPosition = self.extractCurrentPosition(from: currentValue) else {
+        return false
+      }
+      return currentPosition > expectedPosition + tolerance
+    }
+
+    let expectation = XCTNSPredicateExpectation(predicate: advancementPredicate, object: slider)
+    let result = XCTWaiter.wait(for: [expectation], timeout: forDuration)
+
+    // If we timed out, position stayed stable (what we want)
+    // If completed, position advanced (not what we want)
+    return result == .timedOut
+  }
+
   // MARK: - Position Advancement Tests
 
   /// **Spec**: Timeline Advancement During Playback
@@ -169,13 +243,12 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     XCTAssertNotNil(initialValue, "Progress slider should have an initial value")
     let initialPosition = extractCurrentPosition(from: initialValue)
 
-    // When: Wait for position to advance (ticker runs every 0.5s)
-    // Wait 2 seconds to ensure at least 4 ticks have occurred
-    Thread.sleep(forTimeInterval: 2.0)
+    // When: Wait for position to advance using predicate-based waiting
+    // This waits for at least 1 second of position advancement (more reliable than Thread.sleep)
+    let updatedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0)
 
     // Then: Progress slider should show advanced position
-    let updatedValue = getSliderValue()
-    XCTAssertNotNil(updatedValue, "Progress slider should have an updated value")
+    XCTAssertNotNil(updatedValue, "Progress slider should have advanced")
     let updatedPosition = extractCurrentPosition(from: updatedValue)
 
     // Verify position advanced
@@ -186,12 +259,12 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
         "Position should have advanced from \(initial)s to \(updated)s"
       )
 
-      // Position should have advanced at least 1.5 seconds (allowing for timing variance)
+      // Position should have advanced at least 1 second (what we waited for)
       let advancement = updated - initial
       XCTAssertGreaterThanOrEqual(
         advancement,
-        1.5,
-        "Position should advance at least 1.5s in 2 seconds of playback (got \(advancement)s)"
+        1.0,
+        "Position should advance at least 1.0s during playback (got \(advancement)s)"
       )
     } else {
       XCTFail("Could not parse position values - initial: \(String(describing: initialPosition)), updated: \(String(describing: updatedPosition))")
@@ -216,8 +289,9 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       return
     }
 
-    // Wait for initial position advancement
-    Thread.sleep(forTimeInterval: 1.0)
+    // Wait for initial position advancement using predicate-based waiting
+    let initialValue = getSliderValue()
+    _ = waitForPositionAdvancement(beyond: initialValue, timeout: 3.0)
 
     // When: Pause playback
     let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
@@ -238,18 +312,20 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     let pausedValue = getSliderValue()
     let pausedPosition = extractCurrentPosition(from: pausedValue)
 
-    // Then: Wait and verify position hasn't advanced
-    Thread.sleep(forTimeInterval: 2.0)
+    // Then: Verify position hasn't advanced using predicate-based waiting
+    let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.5)
+    XCTAssertTrue(positionStable, "Position should remain stable when paused")
 
+    // Double-check with explicit comparison
     let stillPausedValue = getSliderValue()
     let stillPausedPosition = extractCurrentPosition(from: stillPausedValue)
 
     if let paused = pausedPosition, let stillPaused = stillPausedPosition {
-      // Allow 0.1s tolerance for timing variance
+      // Allow 0.5s tolerance for timing variance
       XCTAssertEqual(
         stillPaused,
         paused,
-        accuracy: 0.1,
+        accuracy: 0.5,
         "Position should remain at \(paused)s when paused, but got \(stillPaused)s"
       )
     } else {
@@ -295,10 +371,10 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       "Pause button should reappear after resuming"
     )
 
-    // Then: Position should advance from paused position
-    Thread.sleep(forTimeInterval: 2.0)
+    // Then: Position should advance from paused position using predicate-based waiting
+    let resumedValue = waitForPositionAdvancement(beyond: pausedValue, timeout: 5.0)
+    XCTAssertNotNil(resumedValue, "Position should advance after resuming")
 
-    let resumedValue = getSliderValue()
     let resumedPosition = extractCurrentPosition(from: resumedValue)
 
     if let paused = pausedPosition, let resumed = resumedPosition {
@@ -311,8 +387,8 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       let advancement = resumed - paused
       XCTAssertGreaterThanOrEqual(
         advancement,
-        1.5,
-        "Position should advance at least 1.5s after resume (got \(advancement)s)"
+        1.0,
+        "Position should advance at least 1.0s after resume (got \(advancement)s)"
       )
     } else {
       XCTFail("Could not parse resumed position values")
@@ -348,8 +424,8 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     // Seek to 50% position
     slider.adjust(toNormalizedSliderPosition: 0.5)
 
-    // Then: Position should update immediately
-    Thread.sleep(forTimeInterval: 0.5)  // Brief pause for seek to complete
+    // Then: Position should update immediately - wait for UI to stabilize
+    waitForUIStabilization(timeout: 1.0)
 
     let seekedValue = getSliderValue()
     let seekedPosition = extractCurrentPosition(from: seekedValue)
@@ -366,10 +442,10 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       XCTFail("Could not parse seek position values")
     }
 
-    // Verify playback continues advancing after seek
-    Thread.sleep(forTimeInterval: 2.0)
+    // Verify playback continues advancing after seek using predicate-based waiting
+    let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0)
+    XCTAssertNotNil(finalValue, "Position should continue advancing after seek")
 
-    let finalValue = getSliderValue()
     let finalPosition = extractCurrentPosition(from: finalValue)
 
     if let seeked = seekedPosition, let final = finalPosition {

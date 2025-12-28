@@ -54,6 +54,22 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   ///   - stateManager: Persists playback position and played state; defaults to in-memory storage.
   ///   - chapterResolver: Optional override to provide chapters for an episode.
   ///   - ticker: Optional ticker for deterministic testing; defaults to TimerTicker for production.
+  ///
+  /// ## Ticker Factory Behavior
+  ///
+  /// The ticker parameter controls position advancement during playback. The factory pattern
+  /// creates intentionally different behavior for tests vs production:
+  ///
+  /// - **Production (ticker=nil)**: Creates a new `TimerTicker()` on each `startTicker()` call.
+  ///   This is correct because `pause()` invalidates the previous timer, and `resume()` needs
+  ///   a fresh timer instance.
+  ///
+  /// - **Testing (ticker provided)**: Returns the same injected ticker instance on each call.
+  ///   This allows tests to control and observe tick behavior across play/pause cycles using
+  ///   a single `DeterministicTicker` instance.
+  ///
+  /// This asymmetry is intentional and enables both correct production behavior and
+  /// deterministic test control.
   public init(
     playbackSettings: PlaybackSettings = PlaybackSettings(),
     stateManager: EpisodeStateManager? = nil,
@@ -83,6 +99,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     currentPosition = clampPosition(TimeInterval(episode.playbackPosition))
     playbackSpeed = clampSpeed(playbackSettings.defaultSpeed)
     isPlaying = true
+    lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
     chapters = resolveChapters(for: episode, duration: currentDuration)
     updateCurrentChapterIndex()
     persistPlaybackPosition()
@@ -95,7 +112,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     isPlaying = false
     stopTicker()  // Stop position advancement
     let snapshot = persistPlaybackPosition()
-    lastPersistenceTime = currentPosition  // Force immediate persistence on pause
+    lastPersistenceTime = 0  // Reset throttle so next tick after resume can persist immediately
     emitState(.paused(snapshot, position: currentPosition, duration: currentDuration))
   }
 
@@ -111,7 +128,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
     let snapshot = persistPlaybackPosition()
-    lastPersistenceTime = currentPosition  // Force immediate persistence on seek
+    lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
 
     if hasReachedEnd() {
       finishPlayback(markPlayed: true)
@@ -279,7 +296,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stopTicker()  // Stop position advancement
     currentPosition = currentDuration
     let snapshot = persistPlaybackPosition()
-    lastPersistenceTime = currentPosition  // Force immediate persistence on finish
+    // Note: No need to reset lastPersistenceTime here since playback has ended
     if markPlayed {
       updatePlayedStatus(true)
     }
@@ -430,6 +447,7 @@ extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {
 
     case .playing(let episode, let position, let duration):
       hydrateState(with: episode, position: position, duration: duration, isPlaying: true)
+      lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
       emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
       startTicker()  // Start ticker when restoring playing state
 

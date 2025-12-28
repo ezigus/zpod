@@ -19,9 +19,23 @@ import Foundation
 /// XCTAssertEqual(player.currentPosition, 1.0, accuracy: 0.01)
 /// ```
 ///
-/// @unchecked Sendable: This class is used exclusively in test contexts where a single
-/// test case controls the ticker instance. All operations (schedule, cancel, tick) are
-/// called from the test's main actor context sequentially, making concurrent access impossible.
+/// ## Thread Safety
+///
+/// This class uses `@unchecked Sendable` because it is designed exclusively for single-actor
+/// test contexts. The following constraints MUST be followed:
+///
+/// 1. **Single-actor access only**: All calls to `schedule()`, `cancel()`, and `tick()` must
+///    originate from the same actor context (typically `@MainActor` in tests).
+///
+/// 2. **No concurrent tick calls**: While `tick()` is async and uses `Task.yield()`, this only
+///    yields to the scheduler—it does not introduce true concurrency. However, calling `tick()`
+///    multiple times concurrently (from different tasks) is NOT supported and will violate
+///    internal state invariants.
+///
+/// 3. **Test-only usage**: This ticker should never be used in production code. Use `TimerTicker`
+///    for real-world scenarios.
+///
+/// If concurrent access is ever required, convert this to an actor or add explicit locking.
 public final class DeterministicTicker: Ticker, @unchecked Sendable {
   private var handler: (@Sendable () -> Void)?
   public private(set) var tickCount = 0
