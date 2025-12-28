@@ -176,48 +176,55 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     return nil
   }
 
-  /// Wait for the slider value to stabilize after seek (e.g., no longer changing).
-  /// Uses RunLoop to allow UI updates to be processed, similar to UITestStableWaitHelpers.
+  /// Wait for the slider value to change after a seek and then stabilize (no longer ticking).
+  /// Leverages UITestStableWaitHelpers primitives to avoid reading stale pre-seek values.
   @MainActor
-  private func waitForSliderValueStabilization(
-    from initialValue: String?,
+  private func waitForUIStabilization(
+    afterSeekingFrom initialValue: String?,
     timeout: TimeInterval = 2.0,
-    changeThreshold: TimeInterval = 0.5
+    minimumDelta: TimeInterval = 5.0,
+    stabilityWindow: TimeInterval = 0.2
   ) -> String? {
     let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
       return nil
     }
 
-    let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
     let deadline = Date().addingTimeInterval(timeout)
-    var lastValue = slider.value as? String
-    var lastPosition = extractCurrentPosition(from: lastValue) ?? initialPosition
-    var stableStartTime = Date()
+    let initialPosition = extractCurrentPosition(from: initialValue)
 
-    while Date() < deadline {
-      // Use RunLoop to allow UI events to be processed (following UITestStableWaitHelpers pattern)
-      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-
-      let currentValue = slider.value as? String
-      let currentPosition = extractCurrentPosition(from: currentValue) ?? initialPosition
-
-      // Wait for value to change from initial position by at least threshold
-      let positionChange = abs(currentPosition - initialPosition)
-      if positionChange >= changeThreshold {
-        // Value has moved significantly - now check if it's stable
-        if currentValue == lastValue {
-          let stableDuration = Date().timeIntervalSince(stableStartTime)
-          if stableDuration >= 0.2 {
-            return currentValue  // Value stable after seek
-          }
-        } else {
-          lastValue = currentValue
-          stableStartTime = Date()
-        }
+    // Wait for the slider to reflect a new position (not just exist)
+    let changeObserved = waitForState(
+      timeout: timeout,
+      pollInterval: 0.1,
+      description: "slider value change"
+    ) {
+      guard let value = slider.value as? String else {
+        return false
       }
 
-      lastPosition = currentPosition
+      if let initialPosition {
+        guard let currentPosition = self.extractCurrentPosition(from: value) else {
+          return false
+        }
+        return abs(currentPosition - initialPosition) >= minimumDelta
+      }
+
+      // Fallback when we cannot parse initial position: require any value change
+      return value != initialValue
+    }
+
+    guard changeObserved else {
+      return nil
+    }
+
+    let remainingTimeout = max(0.1, deadline.timeIntervalSinceNow)
+    guard slider.waitForValueStable(
+      timeout: remainingTimeout,
+      stabilityWindow: stabilityWindow,
+      checkInterval: 0.05
+    ) else {
+      return nil
     }
 
     return slider.value as? String
@@ -236,8 +243,11 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       return false
     }
 
-    let expectedPosition = extractCurrentPosition(from: expectedValue) ?? 0
+    guard let expectedPosition = extractCurrentPosition(from: expectedValue) else {
+      return false
+    }
     let deadline = Date().addingTimeInterval(forDuration)
+    var observedWithinTolerance = false
 
     while Date() < deadline {
       // Use RunLoop to allow UI events to be processed
@@ -248,14 +258,15 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
         continue
       }
 
-      // Check if position stayed within expected range (not just didn't exceed it)
       let deviation = abs(currentPosition - expectedPosition)
       if deviation > tolerance {
         return false  // Position drifted beyond tolerance
       }
+
+      observedWithinTolerance = true
     }
 
-    return true  // Position remained stable throughout
+    return observedWithinTolerance  // Position remained close to expected value
   }
 
   // MARK: - Position Advancement Tests
@@ -449,11 +460,12 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     let preSeekValue = getSliderValue()
     slider.adjust(toNormalizedSliderPosition: 0.5)
 
-    // Then: Wait for slider value to stabilize after seek (position must change significantly)
-    let seekedValue = waitForSliderValueStabilization(
-      from: preSeekValue,
+    // Then: Wait for slider value to change and stabilize after seek (position must change significantly)
+    let seekedValue = waitForUIStabilization(
+      afterSeekingFrom: preSeekValue,
       timeout: 2.0,
-      changeThreshold: 5.0  // Seek should move at least 5 seconds
+      minimumDelta: 5.0,
+      stabilityWindow: 0.2
     )
     XCTAssertNotNil(seekedValue, "Slider value should change after seek")
 
