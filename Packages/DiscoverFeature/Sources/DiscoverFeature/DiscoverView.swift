@@ -199,6 +199,7 @@ public struct DiscoverView: View {
                 
                 TextField("Search podcasts, episodes...", text: $viewModel.searchText)
                     .textFieldStyle(.plain)
+                    .accessibilityIdentifier("Discover.SearchField")
                     .onSubmit {
                         Task {
                             await viewModel.search()
@@ -428,6 +429,7 @@ public struct DiscoverView: View {
                     viewModel.searchHistory.remove(atOffsets: indexSet)
                 }
             }
+            .accessibilityIdentifier("Search History List")
             .navigationTitle("Search History")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
