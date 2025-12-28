@@ -365,6 +365,15 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
+    // Wait for Settings screen to load (async descriptor loading)
+    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
+    if loadingIndicator.exists {
+      XCTAssertTrue(
+        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
+        "Settings loading should complete"
+      )
+    }
+
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
     let candidates: [XCUIElement] = [
@@ -428,6 +437,15 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
+    // Wait for Settings screen to load (async descriptor loading)
+    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
+    if loadingIndicator.exists {
+      XCTAssertTrue(
+        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
+        "Settings loading should complete"
+      )
+    }
+
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
     let candidates: [XCUIElement] = [
@@ -490,6 +508,15 @@ extension CoreUINavigationTests {
     )
 
     settingsTab.tap()
+
+    // Wait for Settings screen to load (async descriptor loading)
+    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
+    if loadingIndicator.exists {
+      XCTAssertTrue(
+        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
+        "Settings loading should complete"
+      )
+    }
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
