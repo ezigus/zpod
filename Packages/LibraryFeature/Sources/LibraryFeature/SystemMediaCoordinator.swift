@@ -350,7 +350,7 @@ public final class SystemMediaCoordinator {
       guard let data = await self.artworkDataLoader(url) else { return }
       await MainActor.run { [weak self] in
         guard let self else { return }
-        guard let artwork = self.makeArtwork(from: data) else { return }
+        guard let artwork = Self.makeArtwork(from: data) else { return }
         self.applyArtwork(artwork)
       }
     }
@@ -362,9 +362,10 @@ public final class SystemMediaCoordinator {
     infoCenter.nowPlayingInfo = info
   }
 
-  private func makeArtwork(from data: Data) -> MPMediaItemArtwork? {
+  private nonisolated static func makeArtwork(from data: Data) -> MPMediaItemArtwork? {
     guard let image = UIImage(data: data) else { return nil }
-    return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    let size = image.size
+    return MPMediaItemArtwork(boundsSize: size) { _ in image }
   }
 
   public nonisolated static func fetchArtworkData(from url: URL) async -> Data? {
