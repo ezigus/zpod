@@ -44,6 +44,11 @@ extension PlaybackUITests {
     let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
     if playerTab.exists {
       playerTab.tap()
+
+      // Wait for Player tab content to load
+      // The Speed Control button should appear once the PlayerTabView renders
+      let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+      _ = speedControl.waitForExistence(timeout: adaptiveShortTimeout)
     }
   }
 
