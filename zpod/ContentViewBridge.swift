@@ -556,6 +556,13 @@ private struct PlayerPlaceholderView: View {
                 .accessibilityIdentifier("Player Interface")
                 .accessibilityLabel("Player Interface")
 
+            // Now Playing header for media integration tests
+            Text("Now Playing")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("Now Playing Title")
+                .accessibilityElement(children: .ignore)
+
             // Episode info
             VStack(spacing: 8) {
                 Text("Episode Title Example")
@@ -621,6 +628,15 @@ private struct PlayerPlaceholderView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+
+            // Speed control for media integration tests
+            Button("1.0×") {
+                // Speed control action placeholder
+            }
+            .font(.footnote)
+            .accessibilityIdentifier("Speed Control")
+            .accessibilityLabel("Speed Control")
+            .accessibilityHint("Changes playback speed")
 
             Spacer()
         }

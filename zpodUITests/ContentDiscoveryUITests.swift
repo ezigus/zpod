@@ -43,6 +43,23 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     discoverTab.tap()
 
+    // Wait for tab selection to complete (tab should have .selected trait)
+    // This synchronization step prevents race conditions where we query for
+    // search field before SwiftUI finishes the tab transition animation.
+    let tabSelectedPredicate = NSPredicate(format: "isSelected == true")
+    var tabSwitchResult = XCTWaiter().wait(
+      for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
+      timeout: adaptiveShortTimeout
+    )
+    if tabSwitchResult != .completed {
+      // Fallback: tap again if first tap didn't register
+      discoverTab.tap()
+      tabSwitchResult = XCTWaiter().wait(
+        for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
+        timeout: adaptiveShortTimeout
+      )
+    }
+
     // Wait for discover screen to load fully by checking for search field
     // (NavigationBar elements are unreliable in modern SwiftUI)
     let searchField = searchField(in: app)

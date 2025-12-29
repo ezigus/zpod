@@ -232,7 +232,9 @@ public struct ExpandedPlayerView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .labelsHidden()
     .tint(.clear)
-    .opacity(0.01)
+    // Opacity 0.1 (10%) is visually invisible but provides reliable XCUITest interaction.
+    // Lower values (0.01) caused test flakiness with slider.adjust() calls.
+    .opacity(0.1)
     .accessibilityIdentifier("Progress Slider")
     .accessibilityLabel("Progress Slider")
     .accessibilityHint("Adjust playback position")

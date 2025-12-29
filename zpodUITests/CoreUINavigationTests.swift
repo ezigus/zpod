@@ -92,10 +92,11 @@ extension CoreUINavigationTests {
 
     // Discover tab navigation - verify by checking for search field
     // (NavigationBar elements are unreliable in modern SwiftUI)
+    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier or placeholder
     let discoverNavigation = navigateAndWaitForResult(
       triggerAction: { discoverTab.tap() },
       expectedElements: [
-        app.searchFields.firstMatch,  // Discover has search field
+        app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
         app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
       ],
       timeout: adaptiveTimeout,
@@ -104,7 +105,7 @@ extension CoreUINavigationTests {
 
     if discoverNavigation {
       XCTAssertTrue(
-        app.searchFields.firstMatch.exists || app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch.exists,
+        app.textFields.matching(identifier: "Discover.SearchField").firstMatch.exists || app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch.exists,
         "Discover screen should be displayed with search field")
     } else {
       XCTFail("Discover navigation did not reach expected destination")
@@ -265,7 +266,8 @@ extension CoreUINavigationTests {
     }
 
     // Check for search functionality accessibility
-    let searchField = app.searchFields.firstMatch
+    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier
+    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
     if searchField.exists {
       let hasLabel = !searchField.label.isEmpty
       let hasPlaceholder = !(searchField.placeholderValue ?? "").isEmpty
@@ -303,11 +305,11 @@ extension CoreUINavigationTests {
     }
 
     // Test search field if available (common keyboard navigation target)
-    let searchField = app.searchFields.firstMatch
+    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier
+    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
     if searchField.exists {
-      let traits = searchField.accessibilityTraits
       XCTAssertTrue(
-        searchField.isHittable || traits.contains(.searchField),
+        searchField.isHittable,
         "Search field should be keyboard accessible")
     }
 
@@ -366,12 +368,15 @@ extension CoreUINavigationTests {
     settingsTab.tap()
 
     // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
+    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
+    let loadingCandidates = [
+      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
+      app.images.matching(identifier: "Settings.Loading").firstMatch
+    ]
+    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
+      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
+      break
     }
 
     // Settings screen verification - check for feature rows instead of navigation bar
@@ -438,12 +443,15 @@ extension CoreUINavigationTests {
     settingsTab.tap()
 
     // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
+    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
+    let loadingCandidates = [
+      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
+      app.images.matching(identifier: "Settings.Loading").firstMatch
+    ]
+    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
+      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
+      break
     }
 
     // Settings screen verification - check for feature rows instead of navigation bar
@@ -510,12 +518,15 @@ extension CoreUINavigationTests {
     settingsTab.tap()
 
     // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
+    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
+    let loadingCandidates = [
+      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
+      app.images.matching(identifier: "Settings.Loading").firstMatch
+    ]
+    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
+      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
+      break
     }
 
     // Settings screen verification - check for feature rows instead of navigation bar
@@ -580,7 +591,8 @@ extension CoreUINavigationTests {
     XCTAssertTrue(tabBar.exists, "Main navigation should be available for shortcuts")
 
     // Test that search is quickly accessible (common shortcut target)
-    let searchField = app.searchFields.firstMatch
+    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier
+    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
     if searchField.exists {
       XCTAssertTrue(searchField.exists, "Search should be accessible")
     }
