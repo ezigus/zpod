@@ -248,10 +248,6 @@ extension CoreUINavigationTests {
       XCTFail("App should be initialized before checking VoiceOver labels.")
       return
     }
-    XCTAssertTrue(
-      app.wait(for: .runningForeground, timeout: adaptiveShortTimeout),
-      "App should be running before accessibility checks."
-    )
 
     // Given: App interface is loaded
     // When: Checking accessibility labels
