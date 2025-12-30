@@ -11,6 +11,7 @@ import XCTest
 final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
   nonisolated(unsafe) var app: XCUIApplication!
+  private let discoverDiagnosticsEnabled = true
 
   override func setUpWithError() throws {
     continueAfterFailure = false
@@ -40,6 +41,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Navigate to discovery interface for testing
     let discoverTab = tabBar.buttons.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
+    logDiscoverDiagnostics("pre-tap", app: app, discoverTab: discoverTab)
 
     // Try coordinate-based tap if button isn't responding
     if discoverTab.isHittable {
@@ -66,6 +68,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         timeout: adaptiveShortTimeout
       )
     }
+    logDiscoverDiagnostics("post-tap", app: app, discoverTab: discoverTab)
 
     let discoverRoot = app.otherElements.matching(identifier: "Discover.Root").firstMatch
     _ = waitForElement(
@@ -92,6 +95,39 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         description: "Discover search field"
       ),
       "Discover screen should load after tapping tab"
+    )
+  }
+
+  @MainActor
+  private func logDiscoverDiagnostics(_ message: String, app: XCUIApplication, discoverTab: XCUIElement?) {
+    guard discoverDiagnosticsEnabled else { return }
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
+    let discoverRootOther = app.otherElements.matching(identifier: "Discover.Root").firstMatch
+    let discoverRootAny = app.descendants(matching: .any)
+      .matching(identifier: "Discover.Root")
+      .firstMatch
+    let customSearchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
+    let searchableField = app.searchFields.firstMatch
+
+    print("[DiscoverDiag] \(message)")
+    print("[DiscoverDiag] tabBar exists=\(tabBar.exists) frame=\(tabBar.frame)")
+    if let discoverTab {
+      print(
+        "[DiscoverDiag] discoverTab exists=\(discoverTab.exists) selected=\(discoverTab.isSelected) hittable=\(discoverTab.isHittable) frame=\(discoverTab.frame)"
+      )
+    }
+    print(
+      "[DiscoverDiag] miniPlayer exists=\(miniPlayer.exists) hittable=\(miniPlayer.isHittable) frame=\(miniPlayer.frame)"
+    )
+    print(
+      "[DiscoverDiag] discoverRoot other exists=\(discoverRootOther.exists) type=\(String(describing: discoverRootOther.elementType)) frame=\(discoverRootOther.frame)"
+    )
+    print(
+      "[DiscoverDiag] discoverRoot any exists=\(discoverRootAny.exists) type=\(String(describing: discoverRootAny.elementType)) frame=\(discoverRootAny.frame)"
+    )
+    print(
+      "[DiscoverDiag] searchField textField exists=\(customSearchField.exists) searchField exists=\(searchableField.exists)"
     )
   }
 
