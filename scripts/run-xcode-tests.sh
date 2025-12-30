@@ -2485,6 +2485,20 @@ test_app_target() {
     suite_counts=$(aggregate_suite_counts "$target")
     IFS='|' read -r total passed failed skipped <<< "$suite_counts"
   fi
+  if [[ -n "$total" ]]; then
+    if [[ -z "$passed" ]]; then
+      passed=$(( total - failed - skipped ))
+    fi
+  fi
+  if [[ -n "$total" && "$total" -gt 0 && "$log_total" -eq 0 ]]; then
+    log_info "xcresult counts: ${total} run, ${passed} passed, ${failed} failed, ${skipped} skipped"
+    if [[ -n "$RESULT_LOG" && -f "$RESULT_LOG" ]]; then
+      {
+        printf '\nTest Results (xcresult)\n--------------------------------\n'
+        printf 'Executed %s tests, with %s failures, %s skipped\n' "$total" "$failed" "$skipped"
+      } >> "$RESULT_LOG"
+    fi
+  fi
   add_summary "test" "${target}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
   return 0
 }
