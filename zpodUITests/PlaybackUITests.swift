@@ -40,8 +40,27 @@ extension PlaybackUITests {
     }
 
     // Navigate to player interface for testing
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let tabBar = waitForAnyElement(
+      [
+        app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
+        app.tabBars.firstMatch,
+      ],
+      timeout: adaptiveTimeout,
+      description: "Main Tab Bar",
+      failOnTimeout: true
+    )
+    guard let tabBar else {
+      XCTFail("Main Tab Bar did not appear")
+      return
+    }
     let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
+    guard
+      waitForElement(
+        playerTab,
+        timeout: adaptiveShortTimeout,
+        description: "Player tab"
+      )
+    else { return }
     if playerTab.exists {
       if playerTab.isHittable {
         playerTab.tap()
