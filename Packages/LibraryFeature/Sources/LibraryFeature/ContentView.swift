@@ -68,6 +68,7 @@ import SwiftUI
           }
           .accessibilityIdentifier("Search Results")
         }
+        // Matches the real DiscoverFeature identifier; only one is compiled per build.
         .accessibilityIdentifier("Discover.Root")
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Search podcasts")
@@ -317,8 +318,9 @@ import SwiftUI
     #endif
     @State private var showFullPlayer: Bool
 
-    // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests
-    // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false)
+    // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests.
+    // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
+    // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
 
     public init(podcastManager: PodcastManaging? = nil) {
@@ -425,33 +427,17 @@ import SwiftUI
     }
 
     private static func initialTabSelection() -> Int {
-      guard
-        let rawValue = ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"]?
-          .trimmingCharacters(in: .whitespacesAndNewlines)
-          .lowercased(),
-        !rawValue.isEmpty
-      else {
-        return 0
-      }
-
-      if let numericValue = Int(rawValue) {
-        return min(max(numericValue, 0), 4)
-      }
-
-      switch rawValue {
-      case "library":
-        return 0
-      case "discover":
-        return 1
-      case "playlists":
-        return 2
-      case "player":
-        return 3
-      case "settings":
-        return 4
-      default:
-        return 0
-      }
+      UITestTabSelection.resolve(
+        rawValue: ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"],
+        maxIndex: 4,
+        mapping: [
+          "library": 0,
+          "discover": 1,
+          "playlists": 2,
+          "player": 3,
+          "settings": 4,
+        ]
+      )
     }
   }
 

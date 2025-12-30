@@ -62,9 +62,12 @@ extension PlaybackUITests {
       )
     else { return }
     if playerTab.exists {
+      let initialTapMethod: String
       if playerTab.isHittable {
+        initialTapMethod = "direct"
         playerTab.tap()
       } else {
+        initialTapMethod = "coordinate"
         let coordinate = playerTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         coordinate.tap()
       }
@@ -75,11 +78,22 @@ extension PlaybackUITests {
         timeout: adaptiveShortTimeout
       )
       if tabSwitchResult != .completed {
-        playerTab.tap()
+        let retryTapMethod = playerTab.isHittable ? "direct" : "coordinate"
+        if playerTab.isHittable {
+          playerTab.tap()
+        } else {
+          let coordinate = playerTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+          coordinate.tap()
+        }
         tabSwitchResult = XCTWaiter().wait(
           for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: playerTab)],
           timeout: adaptiveShortTimeout
         )
+        if tabSwitchResult != .completed {
+          XCTFail(
+            "Player tab did not become selected after \(initialTapMethod) tap and \(retryTapMethod) retry"
+          )
+        }
       }
 
       let _ = waitForAnyElement(

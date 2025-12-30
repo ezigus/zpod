@@ -72,6 +72,7 @@ public struct DiscoverView: View {
                 }
             }
             .accessibilityElement(children: .contain)
+            // Identifier matches the fallback DiscoverView; only one is compiled per target.
             .accessibilityIdentifier("Discover.Root")
             .navigationTitle("Discover")
 #if os(iOS)

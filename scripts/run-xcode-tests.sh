@@ -330,9 +330,9 @@ list_ui_test_suites() {
   fi
 
   ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
-  rg -N --no-filename -g '*Tests.swift' 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
+  rg -N --no-filename -g '*Tests.swift' 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*XCTestCase' \
     "${REPO_ROOT}/zpodUITests" | \
-    sed -E 's/^.*class[[:space:]]+([A-Za-z0-9_]+Tests).*/\1/' | \
+    sed -E 's/^.*class[[:space:]]+([A-Za-z0-9_]+)[[:space:]]*:.*$/\1/' | \
     sort -u
 }
 
@@ -2487,7 +2487,12 @@ test_app_target() {
   fi
   if [[ -n "$total" ]]; then
     if [[ -z "$passed" ]]; then
-      passed=$(( total - failed - skipped ))
+      local computed=$(( total - failed - skipped ))
+      if (( computed < 0 )); then
+        computed=0
+        note="${note:+$note; }adjusted counts"
+      fi
+      passed=$computed
     fi
   fi
   if [[ -n "$total" && "$total" -gt 0 && "$log_total" -eq 0 ]]; then

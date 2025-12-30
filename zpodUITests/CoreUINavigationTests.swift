@@ -126,14 +126,8 @@ extension CoreUINavigationTests {
     // NOTE: Handle both real DiscoverFeature (TextField) and fallback (.searchable)
     let discoverNavigation = navigateAndWaitForResult(
       triggerAction: { discoverTab.tap() },
-      expectedElements: [
-        app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
-        app.descendants(matching: .any)
-          .matching(identifier: "Discover.SearchField")
-          .firstMatch,
-        app.searchFields.firstMatch,  // SwiftUI .searchable() creates searchField elements
-        app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch,
-        app.otherElements.matching(identifier: "Discover.Root").firstMatch,
+      expectedElements: discoverSearchFieldCandidates(in: app) + [
+        discoverRootElement(in: app)
       ],
       timeout: adaptiveTimeout,
       description: "navigation to Discover tab"
@@ -313,9 +307,7 @@ extension CoreUINavigationTests {
     }
 
     // Check for search functionality accessibility
-    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier
-    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
-    if searchField.exists {
+    if let searchField = discoverSearchFieldCandidates(in: app).first(where: { $0.exists }) {
       let hasLabel = !searchField.label.isEmpty
       let hasPlaceholder = !(searchField.placeholderValue ?? "").isEmpty
       XCTAssertTrue(
@@ -352,9 +344,7 @@ extension CoreUINavigationTests {
     }
 
     // Test search field if available (common keyboard navigation target)
-    // NOTE: SwiftUI TextField is NOT a searchField - use textFields with identifier
-    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
-    if searchField.exists {
+    if let searchField = discoverSearchFieldCandidates(in: app).first(where: { $0.exists }) {
       XCTAssertTrue(
         searchField.isHittable,
         "Search field should be keyboard accessible")
@@ -609,11 +599,7 @@ extension CoreUINavigationTests {
 
     // Test that search is quickly accessible (common shortcut target)
     // NOTE: Handle both real DiscoverFeature (TextField) and fallback (.searchable)
-    let searchCandidates: [XCUIElement] = [
-      app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
-      app.searchFields.firstMatch,
-      app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch,
-    ]
+    let searchCandidates = discoverSearchFieldCandidates(in: app)
     if let candidate = searchCandidates.first(where: { $0.exists }) {
       XCTAssertTrue(candidate.exists, "Search should be accessible")
     }

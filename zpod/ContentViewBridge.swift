@@ -9,6 +9,7 @@ import SwiftUI
 import CoreModels
 import SearchDomain
 import DiscoverFeature
+import SharedUtilities
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -314,29 +315,15 @@ public struct UITestLibraryPlaceholderView: View {
     }
 
     private static func initialTabSelection() -> Int {
-        guard
-            let rawValue = ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"]?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased(),
-            !rawValue.isEmpty
-        else {
-            return 0
-        }
-
-        if let numericValue = Int(rawValue) {
-            return min(max(numericValue, 0), 2)
-        }
-
-        switch rawValue {
-        case "library":
-            return 0
-        case "discover":
-            return 1
-        case "player":
-            return 2
-        default:
-            return 0
-        }
+        UITestTabSelection.resolve(
+            rawValue: ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"],
+            maxIndex: 2,
+            mapping: [
+                "library": 0,
+                "discover": 1,
+                "player": 2
+            ]
+        )
     }
 }
 
