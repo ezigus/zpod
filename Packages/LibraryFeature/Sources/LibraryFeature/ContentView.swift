@@ -68,6 +68,7 @@ import SwiftUI
           }
           .accessibilityIdentifier("Search Results")
         }
+        .accessibilityIdentifier("Discover.Root")
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Search podcasts")
         .toolbar {
@@ -316,6 +317,10 @@ import SwiftUI
     #endif
     @State private var showFullPlayer: Bool
 
+    // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests
+    // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false)
+    @State private var selectedTab: Int = 0
+
     public init(podcastManager: PodcastManaging? = nil) {
       // Use provided podcast manager or create a new one (for backward compatibility)
       self.podcastManager = podcastManager ?? InMemoryPodcastManager()
@@ -345,12 +350,13 @@ import SwiftUI
 
     public var body: some View {
       ZStack(alignment: .bottom) {
-        TabView {
+        TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
           LibraryView()
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
+            .tag(0)
 
           // Discover Tab (placeholder UI)
           DiscoverView(
@@ -360,12 +366,14 @@ import SwiftUI
           .tabItem {
             Label("Discover", systemImage: "safari")
           }
+          .tag(1)
 
           // Playlists Tab (placeholder UI)
           PlaylistTabView()
             .tabItem {
               Label("Playlists", systemImage: "music.note.list")
             }
+            .tag(2)
 
           // Player Tab (placeholder - shows sample episode)
           #if canImport(PlayerFeature)
@@ -373,17 +381,20 @@ import SwiftUI
               .tabItem {
                 Label("Player", systemImage: "play.circle")
               }
+              .tag(3)
           #else
             PlayerTabView()
               .tabItem {
                 Label("Player", systemImage: "play.circle")
               }
+              .tag(3)
           #endif
 
           SettingsHomeView(settingsManager: settingsManager)
             .tabItem {
               Label("Settings", systemImage: "gearshape")
             }
+            .tag(4)
         }
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())

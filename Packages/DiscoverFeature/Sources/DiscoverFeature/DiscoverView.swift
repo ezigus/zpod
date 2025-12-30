@@ -71,6 +71,8 @@ public struct DiscoverView: View {
                     emptyStateView
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("Discover.Root")
             .navigationTitle("Discover")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

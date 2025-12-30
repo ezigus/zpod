@@ -330,9 +330,9 @@ list_ui_test_suites() {
   fi
 
   ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
-  rg -N -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
+  rg -N --no-filename -g '*Tests.swift' 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
     "${REPO_ROOT}/zpodUITests" | \
-    sed -E 's/class[[:space:]]+//' | \
+    sed -E 's/^.*class[[:space:]]+([A-Za-z0-9_]+Tests).*/\1/' | \
     sort -u
 }
 

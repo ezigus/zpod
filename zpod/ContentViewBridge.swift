@@ -272,6 +272,7 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
 
 public struct UITestLibraryPlaceholderView: View {
     @State private var searchText: String = ""
+    @State private var selectedTab: Int = 0
 
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
@@ -283,7 +284,7 @@ public struct UITestLibraryPlaceholderView: View {
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 LibraryPlaceholderView()
                     .navigationTitle("Library")

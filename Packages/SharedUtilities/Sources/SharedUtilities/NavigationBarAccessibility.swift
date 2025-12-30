@@ -11,47 +11,35 @@ public extension View {
   }
 }
 
-private struct NavigationBarAccessibilityTagger: UIViewControllerRepresentable {
+private struct NavigationBarAccessibilityTagger: UIViewRepresentable {
   let identifier: String
 
-  func makeUIViewController(context: Context) -> NavigationBarAccessibilityController {
-    NavigationBarAccessibilityController(identifier: identifier)
+  func makeUIView(context: Context) -> UIView {
+    let view = UIView()
+    // Use async delay to ensure SwiftUI has finished rendering the navigation bar
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      if let window = UIApplication.shared.connectedScenes
+        .compactMap({ $0 as? UIWindowScene })
+        .first?.windows.first,
+        let navBar = findNavigationBar(in: window) {
+        navBar.accessibilityIdentifier = identifier
+      }
+    }
+    return view
   }
 
-  func updateUIViewController(
-    _ uiViewController: NavigationBarAccessibilityController,
-    context: Context
-  ) {
-    uiViewController.identifier = identifier
-    uiViewController.applyIdentifierIfNeeded()
-  }
-}
+  func updateUIView(_ uiView: UIView, context: Context) {}
 
-private final class NavigationBarAccessibilityController: UIViewController {
-  var identifier: String
-
-  init(identifier: String) {
-    self.identifier = identifier
-    super.init(nibName: nil, bundle: nil)
-  }
-
-  @available(*, unavailable)
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
-
-  override func viewDidAppear(_ animated: Bool) {
-    super.viewDidAppear(animated)
-    applyIdentifierIfNeeded()
-  }
-
-  override func viewDidLayoutSubviews() {
-    super.viewDidLayoutSubviews()
-    applyIdentifierIfNeeded()
-  }
-
-  func applyIdentifierIfNeeded() {
-    navigationController?.navigationBar.accessibilityIdentifier = identifier
+  private func findNavigationBar(in view: UIView) -> UINavigationBar? {
+    if let navBar = view as? UINavigationBar {
+      return navBar
+    }
+    for subview in view.subviews {
+      if let navBar = findNavigationBar(in: subview) {
+        return navBar
+      }
+    }
+    return nil
   }
 }
 #else
