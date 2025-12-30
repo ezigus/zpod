@@ -43,12 +43,32 @@ extension PlaybackUITests {
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
     if playerTab.exists {
-      playerTab.tap()
+      if playerTab.isHittable {
+        playerTab.tap()
+      } else {
+        let coordinate = playerTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        coordinate.tap()
+      }
 
-      // Wait for Player tab content to load
-      // The Speed Control button should appear once the PlayerTabView renders
-      let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
-      _ = speedControl.waitForExistence(timeout: adaptiveShortTimeout)
+      let tabSelectedPredicate = NSPredicate(format: "isSelected == true")
+      var tabSwitchResult = XCTWaiter().wait(
+        for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: playerTab)],
+        timeout: adaptiveShortTimeout
+      )
+      if tabSwitchResult != .completed {
+        playerTab.tap()
+        tabSwitchResult = XCTWaiter().wait(
+          for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: playerTab)],
+          timeout: adaptiveShortTimeout
+        )
+      }
+
+      let _ = waitForAnyElement(
+        playerInterfaceCandidates(in: app),
+        timeout: adaptiveTimeout,
+        description: "Player interface readiness",
+        failOnTimeout: false
+      )
     }
   }
 
@@ -105,13 +125,35 @@ extension PlaybackUITests {
   private func requirePlayerInterface() throws -> XCUIElement {
     // Verify player interface by checking for Speed Control button
     // (NavigationBar and container elements are unreliable in modern SwiftUI)
-    let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+    let speedControl = speedControlButton(in: app)
     try waitForElementOrSkip(
       speedControl,
       timeout: adaptiveTimeout,
       description: "Player interface (Speed Control)"
     )
     return speedControl
+  }
+
+  @MainActor
+  private func speedControlButton(in app: XCUIApplication) -> XCUIElement {
+    let button = app.buttons.matching(identifier: "Speed Control").firstMatch
+    if button.exists {
+      return button
+    }
+    return app.descendants(matching: .any)
+      .matching(identifier: "Speed Control")
+      .firstMatch
+  }
+
+  @MainActor
+  private func playerInterfaceCandidates(in app: XCUIApplication) -> [XCUIElement] {
+    [
+      speedControlButton(in: app),
+      app.otherElements.matching(identifier: "Player Interface").firstMatch,
+      app.sliders.matching(identifier: "Progress Slider").firstMatch,
+      app.staticTexts.matching(identifier: "Episode Title").firstMatch,
+      app.staticTexts.matching(identifier: "Podcast Title").firstMatch,
+    ]
   }
 
 }
