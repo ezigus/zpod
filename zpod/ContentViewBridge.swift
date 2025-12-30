@@ -281,6 +281,7 @@ public struct UITestLibraryPlaceholderView: View {
         self.podcastManager = PlaceholderPodcastManager()
         let searchSources: [SearchIndexSource] = []
         self.searchService = SearchService(indexSources: searchSources)
+        _selectedTab = State(initialValue: Self.initialTabSelection())
     }
 
     public var body: some View {
@@ -310,6 +311,32 @@ public struct UITestLibraryPlaceholderView: View {
         #if canImport(UIKit)
         .background(UITestTabBarIdentifierSetter())
         #endif
+    }
+
+    private static func initialTabSelection() -> Int {
+        guard
+            let rawValue = ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(),
+            !rawValue.isEmpty
+        else {
+            return 0
+        }
+
+        if let numericValue = Int(rawValue) {
+            return min(max(numericValue, 0), 2)
+        }
+
+        switch rawValue {
+        case "library":
+            return 0
+        case "discover":
+            return 1
+        case "player":
+            return 2
+        default:
+            return 0
+        }
     }
 }
 

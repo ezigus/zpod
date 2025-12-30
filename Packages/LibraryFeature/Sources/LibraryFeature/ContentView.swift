@@ -333,6 +333,7 @@ import SwiftUI
       let forceExpandedPlayer =
         ProcessInfo.processInfo.environment["UITEST_FORCE_EXPANDED_PLAYER"] == "1"
       _showFullPlayer = State(initialValue: forceExpandedPlayer)
+      _selectedTab = State(initialValue: Self.initialTabSelection())
 
       // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)
@@ -420,6 +421,36 @@ import SwiftUI
             .presentationBackground(.black)
           }
         #endif
+      }
+    }
+
+    private static func initialTabSelection() -> Int {
+      guard
+        let rawValue = ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"]?
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+          .lowercased(),
+        !rawValue.isEmpty
+      else {
+        return 0
+      }
+
+      if let numericValue = Int(rawValue) {
+        return min(max(numericValue, 0), 4)
+      }
+
+      switch rawValue {
+      case "library":
+        return 0
+      case "discover":
+        return 1
+      case "playlists":
+        return 2
+      case "player":
+        return 3
+      case "settings":
+        return 4
+      default:
+        return 0
       }
     }
   }

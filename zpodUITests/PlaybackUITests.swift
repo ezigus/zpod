@@ -31,7 +31,7 @@ extension PlaybackUITests {
 
   @MainActor
   private func initializeApp() {
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_INITIAL_TAB": "player"])
 
     // Verify app launched successfully
     guard app.state == .runningForeground else {
