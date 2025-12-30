@@ -34,6 +34,37 @@ extension CoreUINavigationTests {
     app = launchConfiguredApp()
   }
 
+  @MainActor
+  private func waitForSettingsToLoad() {
+    // Settings descriptors load asynchronously; wait for loading indicator to clear or rows to appear.
+    let loadingCandidates = [
+      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
+      app.images.matching(identifier: "Settings.Loading").firstMatch,
+    ]
+
+    if let loadingIndicator = loadingCandidates.first(where: { $0.exists }) {
+      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
+    }
+
+    let rowCandidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
+      app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
+      app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
+      app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch,
+    ]
+
+    _ = waitForAnyElement(
+      rowCandidates,
+      timeout: adaptiveShortTimeout,
+      description: "Settings feature rows",
+      failOnTimeout: false
+    )
+  }
+
 }
 
 extension CoreUINavigationTests {
@@ -387,17 +418,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
-    let loadingCandidates = [
-      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
-      app.images.matching(identifier: "Settings.Loading").firstMatch
-    ]
-    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
-      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
-      break
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -462,17 +483,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
-    let loadingCandidates = [
-      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
-      app.images.matching(identifier: "Settings.Loading").firstMatch
-    ]
-    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
-      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
-      break
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -537,17 +548,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    // NOTE: SwiftUI ProgressView may appear as activityIndicators, otherElements, or images
-    let loadingCandidates = [
-      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
-      app.images.matching(identifier: "Settings.Loading").firstMatch
-    ]
-    for loadingIndicator in loadingCandidates where loadingIndicator.exists {
-      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
-      break
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
