@@ -2370,7 +2370,7 @@ test_app_target() {
     if [[ -n "$timeout_seconds" ]]; then
       ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     else
-      xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS=0 xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     fi
     local status=${PIPESTATUS[0]}
     set -e
@@ -2844,7 +2844,7 @@ run_filtered_xcode_tests() {
     if [[ -n "$timeout_seconds" ]]; then
       ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     else
-      xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS=0 xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
     fi
     local status=${PIPESTATUS[0]}
     set -e

@@ -296,8 +296,19 @@ xcodebuild_wrapper() {
   
   # UI tests can hang indefinitely waiting for app to idle or during diagnostic collection.
   # Use a configurable watchdog timeout via ZPOD_XCODEBUILD_TIMEOUT_SECONDS (seconds).
+  # If the variable is explicitly set to 0/empty, disable the watchdog for this run.
   # If timeout is reached, kill xcodebuild and all child processes (including simctl diagnose).
-  local timeout_seconds="${ZPOD_XCODEBUILD_TIMEOUT_SECONDS:-1800}"
+  local timeout_seconds=""
+  if [[ -n "${ZPOD_XCODEBUILD_TIMEOUT_SECONDS+x}" ]]; then
+    timeout_seconds="$ZPOD_XCODEBUILD_TIMEOUT_SECONDS"
+  else
+    timeout_seconds=1800
+  fi
+
+  if [[ -z "$timeout_seconds" || "$timeout_seconds" == "0" ]]; then
+    xcodebuild "${args[@]}"
+    return $?
+  fi
   local xcodebuild_pid
   
   # Set up trap to forward INT signal to xcodebuild process
