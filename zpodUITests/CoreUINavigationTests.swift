@@ -353,7 +353,9 @@ extension CoreUINavigationTests {
       "Main tab bar should be present"
     )
 
-    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
+    // Find Settings tab button using label predicate since tab bar buttons have empty identifiers
+    let settingsTabPredicate = NSPredicate(format: "label == 'Settings'")
+    let settingsTab = tabBar.buttons.matching(settingsTabPredicate).firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsTab,
@@ -365,13 +367,69 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
+    // Wait for Settings navigation bar to confirm tab switch
+    let settingsNavTitle = app.navigationBars["Settings"].firstMatch
+    _ = settingsNavTitle.waitForExistence(timeout: adaptiveShortTimeout)
+
     // Wait for Settings screen to load (async descriptor loading)
+    // First, wait for EITHER loading indicator OR feature content to appear
     let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
+    let emptyState = app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
+    let firstFeatureRow = app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch
+
+    // Wait for any Settings content to appear
+    let anySettingsContent = waitForAnyElement(
+      [loadingIndicator, emptyState, firstFeatureRow],
+      timeout: adaptiveTimeout,
+      description: "Any Settings content (loading/empty/features)",
+      failOnTimeout: false
+    )
+
+    if anySettingsContent == nil {
+      // Debug: print detailed accessibility hierarchy info
+      var debugInfo = "Settings screen not rendering expected content.\n"
+      debugInfo += "Navigation bars: \(app.navigationBars.count)\n"
+      if app.navigationBars.count > 0 {
+        let navBar = app.navigationBars.firstMatch
+        debugInfo += "  NavBar id='\(navBar.identifier)', label='\(navBar.label)'\n"
+      }
+      let settingsNavBarExists = app.navigationBars["Settings"].exists
+      debugInfo += "Settings NavBar exists: \(settingsNavBarExists)\n"
+      debugInfo += "Buttons: \(app.buttons.count)\n"
+      debugInfo += "StaticTexts: \(app.staticTexts.count)\n"
+      debugInfo += "Cells: \(app.cells.count)\n"
+      debugInfo += "OtherElements: \(app.otherElements.count)\n"
+
+      // Print button identifiers
+      debugInfo += "\nButton identifiers/labels:\n"
+      for i in 0..<min(app.buttons.count, 20) {
+        let button = app.buttons.element(boundBy: i)
+        debugInfo += "  Button[\(i)]: id='\(button.identifier)', label='\(button.label)'\n"
+      }
+
+      // Print static text labels
+      debugInfo += "\nStatic texts (first 20):\n"
+      for i in 0..<min(app.staticTexts.count, 20) {
+        let text = app.staticTexts.element(boundBy: i)
+        debugInfo += "  Text[\(i)]: id='\(text.identifier)', label='\(text.label)'\n"
+      }
+
+      XCTFail(debugInfo)
+      return
+    }
+
+    // If we found loading, wait for it to disappear
     if loadingIndicator.exists {
       XCTAssertTrue(
         waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
         "Settings loading should complete"
       )
+    }
+
+    // Check if we got empty state instead of features
+    if emptyState.exists {
+      XCTFail("Settings showing empty state - allFeatureSections() may be returning empty array")
+      return
     }
 
     // Settings screen verification - check for feature rows instead of navigation bar
@@ -399,16 +457,24 @@ extension CoreUINavigationTests {
     swipeActionsElement.tap()
 
     // Verify Swipe Actions configuration screen by checking for its list element
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let swipeActionsList = app.otherElements.matching(identifier: "SwipeActions.List").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        swipeActionsList,
-        timeout: adaptiveShortTimeout,
-        description: "Swipe Actions configuration list"
-      ),
-      "Swipe Actions configuration view should appear with actions list"
-    )
+    // SwiftUI List can appear as different element types in accessibility hierarchy
+    let swipeActionsListCandidates: [XCUIElement] = [
+      app.otherElements.matching(identifier: "SwipeActions.List").firstMatch,
+      app.scrollViews.matching(identifier: "SwipeActions.List").firstMatch,
+      app.tables.matching(identifier: "SwipeActions.List").firstMatch,
+      app.collectionViews.matching(identifier: "SwipeActions.List").firstMatch,
+    ]
+
+    guard let swipeActionsList = waitForAnyElement(
+      swipeActionsListCandidates,
+      timeout: adaptiveShortTimeout,
+      description: "Swipe Actions configuration list"
+    ) else {
+      XCTFail("Swipe Actions configuration view should appear with actions list")
+      return
+    }
+
+    XCTAssertTrue(swipeActionsList.exists, "Swipe Actions list should be visible")
   }
 
   @MainActor
