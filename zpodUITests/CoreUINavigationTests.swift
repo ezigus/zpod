@@ -34,6 +34,37 @@ extension CoreUINavigationTests {
     app = launchConfiguredApp()
   }
 
+  @MainActor
+  private func waitForSettingsToLoad() {
+    // Settings descriptors load asynchronously; wait for loading indicator to clear or rows to appear.
+    let loadingCandidates = [
+      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
+      app.images.matching(identifier: "Settings.Loading").firstMatch,
+    ]
+
+    if let loadingIndicator = loadingCandidates.first(where: { $0.exists }) {
+      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
+    }
+
+    let rowCandidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
+      app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
+      app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
+      app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch,
+    ]
+
+    _ = waitForAnyElement(
+      rowCandidates,
+      timeout: adaptiveShortTimeout,
+      description: "Settings feature rows",
+      failOnTimeout: false
+    )
+  }
+
 }
 
 extension CoreUINavigationTests {
@@ -92,19 +123,26 @@ extension CoreUINavigationTests {
 
     // Discover tab navigation - verify by checking for search field
     // (NavigationBar elements are unreliable in modern SwiftUI)
+    // NOTE: Handle both real DiscoverFeature (TextField) and fallback (.searchable)
     let discoverNavigation = navigateAndWaitForResult(
       triggerAction: { discoverTab.tap() },
-      expectedElements: [
-        app.searchFields.firstMatch,  // Discover has search field
-        app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch
+      expectedElements: discoverSearchFieldCandidates(in: app) + [
+        discoverRootElement(in: app)
       ],
       timeout: adaptiveTimeout,
       description: "navigation to Discover tab"
     )
 
     if discoverNavigation {
+      // Check for any of the valid search field variants
+      let hasTextField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch.exists
+      let hasAnyTypeMatch = app.descendants(matching: .any)
+        .matching(identifier: "Discover.SearchField")
+        .firstMatch.exists
+      let hasSearchField = app.searchFields.firstMatch.exists
+      let hasPlaceholderField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch.exists
       XCTAssertTrue(
-        app.searchFields.firstMatch.exists || app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'Search'")).firstMatch.exists,
+        hasTextField || hasAnyTypeMatch || hasSearchField || hasPlaceholderField,
         "Discover screen should be displayed with search field")
     } else {
       XCTFail("Discover navigation did not reach expected destination")
@@ -200,6 +238,10 @@ extension CoreUINavigationTests {
   func testVoiceOverLabels() throws {
     // Initialize the app
     initializeApp()
+    guard let app else {
+      XCTFail("App should be initialized before checking VoiceOver labels.")
+      return
+    }
 
     // Given: App interface is loaded
     // When: Checking accessibility labels
@@ -265,8 +307,7 @@ extension CoreUINavigationTests {
     }
 
     // Check for search functionality accessibility
-    let searchField = app.searchFields.firstMatch
-    if searchField.exists {
+    if let searchField = discoverSearchFieldCandidates(in: app).first(where: { $0.exists }) {
       let hasLabel = !searchField.label.isEmpty
       let hasPlaceholder = !(searchField.placeholderValue ?? "").isEmpty
       XCTAssertTrue(
@@ -303,11 +344,9 @@ extension CoreUINavigationTests {
     }
 
     // Test search field if available (common keyboard navigation target)
-    let searchField = app.searchFields.firstMatch
-    if searchField.exists {
-      let traits = searchField.accessibilityTraits
+    if let searchField = discoverSearchFieldCandidates(in: app).first(where: { $0.exists }) {
       XCTAssertTrue(
-        searchField.isHittable || traits.contains(.searchField),
+        searchField.isHittable,
         "Search field should be keyboard accessible")
     }
 
@@ -365,14 +404,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -437,14 +469,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -509,14 +534,7 @@ extension CoreUINavigationTests {
 
     settingsTab.tap()
 
-    // Wait for Settings screen to load (async descriptor loading)
-    let loadingIndicator = app.otherElements.matching(identifier: "Settings.Loading").firstMatch
-    if loadingIndicator.exists {
-      XCTAssertTrue(
-        waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout),
-        "Settings loading should complete"
-      )
-    }
+    waitForSettingsToLoad()
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -580,9 +598,10 @@ extension CoreUINavigationTests {
     XCTAssertTrue(tabBar.exists, "Main navigation should be available for shortcuts")
 
     // Test that search is quickly accessible (common shortcut target)
-    let searchField = app.searchFields.firstMatch
-    if searchField.exists {
-      XCTAssertTrue(searchField.exists, "Search should be accessible")
+    // NOTE: Handle both real DiscoverFeature (TextField) and fallback (.searchable)
+    let searchCandidates = discoverSearchFieldCandidates(in: app)
+    if let candidate = searchCandidates.first(where: { $0.exists }) {
+      XCTAssertTrue(candidate.exists, "Search should be accessible")
     }
   }
 

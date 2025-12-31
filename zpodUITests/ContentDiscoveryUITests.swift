@@ -11,6 +11,9 @@ import XCTest
 final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
   nonisolated(unsafe) var app: XCUIApplication!
+  private var discoverDiagnosticsEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
+  }
 
   override func setUpWithError() throws {
     continueAfterFailure = false
@@ -40,33 +43,126 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Navigate to discovery interface for testing
     let discoverTab = tabBar.buttons.matching(identifier: "Discover").firstMatch
     XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
+    logDiscoverDiagnostics("pre-tap", app: app, discoverTab: discoverTab)
 
-    discoverTab.tap()
+    // Try coordinate-based tap if button isn't responding
+    if discoverTab.isHittable {
+      discoverTab.tap()
+    } else {
+      // Force tap using coordinate
+      let coordinate = discoverTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+      coordinate.tap()
+    }
+
+    // Wait for tab selection to complete (tab should have .selected trait)
+    // This synchronization step prevents race conditions where we query for
+    // search field before SwiftUI finishes the tab transition animation.
+    let tabSelectedPredicate = NSPredicate(format: "isSelected == true")
+    var tabSwitchResult = XCTWaiter().wait(
+      for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
+      timeout: adaptiveShortTimeout
+    )
+    if tabSwitchResult != .completed {
+      // Fallback: tap again if first tap didn't register
+      discoverTab.tap()
+      tabSwitchResult = XCTWaiter().wait(
+        for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
+        timeout: adaptiveShortTimeout
+      )
+    }
+    logDiscoverDiagnostics("post-tap", app: app, discoverTab: discoverTab)
+
+    let discoverRoot = discoverRootElement(in: app)
+    _ = waitForElement(
+      discoverRoot,
+      timeout: adaptiveShortTimeout,
+      description: "Discover root marker"
+    )
 
     // Wait for discover screen to load fully by checking for search field
     // (NavigationBar elements are unreliable in modern SwiftUI)
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.5, finalTimeout: adaptiveShortTimeout)
+    var searchFieldAppeared = searchField.waitForExistence(timeout: adaptiveTimeout)
+    if !searchFieldAppeared {
+      discoverTab.tap()
+      searchFieldAppeared = searchField.waitForExistence(timeout: adaptiveTimeout)
+    }
+
     XCTAssertTrue(
-      waitForElement(
-        searchField, timeout: adaptiveTimeout, description: "Discover search field"),
-      "Discover screen should load after tapping tab")
+      searchFieldAppeared,
+      "Discover screen should load after tapping tab"
+    )
+  }
+
+  @MainActor
+  private func logDiscoverDiagnostics(_ message: String, app: XCUIApplication, discoverTab: XCUIElement?) {
+    guard discoverDiagnosticsEnabled else { return }
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
+    let discoverRootOther = app.otherElements.matching(identifier: "Discover.Root").firstMatch
+    let discoverRootAny = app.descendants(matching: .any)
+      .matching(identifier: "Discover.Root")
+      .firstMatch
+    let customSearchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
+    let searchableField = app.searchFields.firstMatch
+
+    print("[DiscoverDiag] \(message)")
+    print("[DiscoverDiag] tabBar exists=\(tabBar.exists) frame=\(tabBar.frame)")
+    if let discoverTab {
+      print(
+        "[DiscoverDiag] discoverTab exists=\(discoverTab.exists) selected=\(discoverTab.isSelected) hittable=\(discoverTab.isHittable) frame=\(discoverTab.frame)"
+      )
+    }
+    if miniPlayer.exists {
+      print(
+        "[DiscoverDiag] miniPlayer exists=\(miniPlayer.exists) hittable=\(miniPlayer.isHittable) frame=\(miniPlayer.frame)"
+      )
+    } else {
+      print("[DiscoverDiag] miniPlayer exists=false")
+    }
+    if discoverRootOther.exists {
+      print(
+        "[DiscoverDiag] discoverRoot other exists=\(discoverRootOther.exists) type=\(String(describing: discoverRootOther.elementType)) frame=\(discoverRootOther.frame)"
+      )
+    } else {
+      print("[DiscoverDiag] discoverRoot other exists=false")
+    }
+    if discoverRootAny.exists {
+      print(
+        "[DiscoverDiag] discoverRoot any exists=\(discoverRootAny.exists) type=\(String(describing: discoverRootAny.elementType)) frame=\(discoverRootAny.frame)"
+      )
+    } else {
+      print("[DiscoverDiag] discoverRoot any exists=false")
+    }
+    print(
+      "[DiscoverDiag] searchField textField exists=\(customSearchField.exists) searchField exists=\(searchableField.exists)"
+    )
   }
 
   private func rssURLField(in app: XCUIApplication) -> XCUIElement {
     let identifierField = app.textFields.matching(identifier: "rss-url-field").firstMatch
-    if identifierField.exists {
+    if identifierField.waitForExistence(timeout: 2) {
       return identifierField
     }
 
-    return app.textFields.matching(
-      NSPredicate(format: "placeholderValue CONTAINS 'https://'")
+    let urlPlaceholderField = app.textFields.matching(
+      NSPredicate(format: "placeholderValue CONTAINS[cd] 'https://'")
     ).firstMatch
+    if urlPlaceholderField.waitForExistence(timeout: 2) {
+      return urlPlaceholderField
+    }
+
+    let rssPlaceholderField = app.textFields.matching(
+      NSPredicate(format: "placeholderValue CONTAINS[cd] 'rss'")
+    ).firstMatch
+    if rssPlaceholderField.waitForExistence(timeout: 2) {
+      return rssPlaceholderField
+    }
+
+    return identifierField
   }
 
-  private func searchField(in app: XCUIApplication) -> XCUIElement {
-    // Use explicit accessibility identifier for reliable discovery
-    return app.textFields.matching(identifier: "Discover.SearchField").firstMatch
-  }
+  // Search field discovery is shared via UITestHelpers.discoverSearchField(in:)
 
   // MARK: - Search Interface Tests (Issue 01.1.1 Scenario 1)
   // Given/When/Then: Basic Podcast Search and Discovery
@@ -79,7 +175,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I am on the Discover tab
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     XCTAssertTrue(searchField.exists, "Should be on Discover tab with search field visible")
 
     // When: I look for search functionality
@@ -98,7 +194,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: Search interface is available
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     XCTAssertTrue(
       waitForElement(searchField, timeout: adaptiveShortTimeout, description: "Search field"),
       "Search field should exist"
@@ -140,7 +236,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have typed in the search field
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     searchField.tap()
     searchField.typeText("test")
 
@@ -169,7 +265,8 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Given: I am on the Discover tab
     XCTAssertTrue(
       waitForElement(
-        searchField(in: app), timeout: adaptiveTimeout,
+      discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout),
+      timeout: adaptiveTimeout,
         description: "Discover search field"), "Should navigate to Discover tab")
 
     // When: I look for the discovery options menu using smart discovery
@@ -223,7 +320,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have access to the options menu
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     XCTAssertTrue(searchField.exists, "Should be on Discover tab")
 
     // Find the options button using multiple strategies
@@ -329,7 +426,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
     // Navigate to RSS sheet if available
     // (NavigationBar elements are unreliable in modern SwiftUI)
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     XCTAssertTrue(searchField.exists, "Should be on Discover tab")
 
     // Find and tap options button
@@ -447,7 +544,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have started a search
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
     if searchField.exists {
       // Note: tap() to focus, then typeText() to enter text.
       searchField.tap()
@@ -475,8 +572,12 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: I have access to the options menu
-    let discoverSearchField = searchField(in: app)
-    XCTAssertTrue(discoverSearchField.exists, "Should be on Discover tab")
+    let searchField = discoverSearchField(
+      in: app,
+      probeTimeout: 0.4,
+      finalTimeout: adaptiveShortTimeout
+    )
+    XCTAssertTrue(searchField.exists, "Should be on Discover tab")
 
     // Find the options button using multiple strategies
     var optionsButton: XCUIElement?
@@ -535,7 +636,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Given: The app is launched
     // When: I check accessibility elements on Discover tab
     // (NavigationBar elements are unreliable in modern SwiftUI)
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
 
     // Then: Key elements should be accessible
     XCTAssertTrue(searchField.exists, "Discover search field should be accessible")
@@ -552,7 +653,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     // Given: I am on the Discover tab
     // When: I verify the screen is displaying correctly
     // (NavigationBar elements are unreliable in modern SwiftUI)
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
 
     // Then: The Discover tab should be showing (verified by search field presence)
     XCTAssertTrue(searchField.exists, "Discover tab should be showing with search field")
@@ -586,7 +687,7 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     initializeApp()
 
     // Given: Search interface is available
-    let searchField = searchField(in: app)
+    let searchField = discoverSearchField(in: app, probeTimeout: 0.4, finalTimeout: adaptiveShortTimeout)
 
     if searchField.exists {
       // When: I interact with the search field

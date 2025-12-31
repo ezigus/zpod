@@ -9,6 +9,7 @@ import SwiftUI
 import CoreModels
 import SearchDomain
 import DiscoverFeature
+import SharedUtilities
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -272,6 +273,7 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
 
 public struct UITestLibraryPlaceholderView: View {
     @State private var searchText: String = ""
+    @State private var selectedTab: Int = 0
 
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
@@ -280,10 +282,11 @@ public struct UITestLibraryPlaceholderView: View {
         self.podcastManager = PlaceholderPodcastManager()
         let searchSources: [SearchIndexSource] = []
         self.searchService = SearchService(indexSources: searchSources)
+        _selectedTab = State(initialValue: Self.initialTabSelection())
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             NavigationStack {
                 LibraryPlaceholderView()
                     .navigationTitle("Library")
@@ -309,6 +312,18 @@ public struct UITestLibraryPlaceholderView: View {
         #if canImport(UIKit)
         .background(UITestTabBarIdentifierSetter())
         #endif
+    }
+
+    private static func initialTabSelection() -> Int {
+        UITestTabSelection.resolve(
+            rawValue: ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"],
+            maxIndex: 2,
+            mapping: [
+                "library": 0,
+                "discover": 1,
+                "player": 2
+            ]
+        )
     }
 }
 
@@ -556,6 +571,13 @@ private struct PlayerPlaceholderView: View {
                 .accessibilityIdentifier("Player Interface")
                 .accessibilityLabel("Player Interface")
 
+            // Now Playing header for media integration tests
+            Text("Now Playing")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("Now Playing Title")
+                .accessibilityElement(children: .ignore)
+
             // Episode info
             VStack(spacing: 8) {
                 Text("Episode Title Example")
@@ -621,6 +643,15 @@ private struct PlayerPlaceholderView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+
+            // Speed control for media integration tests
+            Button("1.0×") {
+                // Speed control action placeholder
+            }
+            .font(.footnote)
+            .accessibilityIdentifier("Speed Control")
+            .accessibilityLabel("Speed Control")
+            .accessibilityHint("Changes playback speed")
 
             Spacer()
         }

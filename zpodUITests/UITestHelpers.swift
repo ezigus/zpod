@@ -39,6 +39,7 @@ extension XCUIApplication {
     let app = XCUIApplication(bundleIdentifier: podAppBundleIdentifier)
     app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
     app.launchEnvironment["UITEST_DISABLE_ANIMATIONS"] = "1"
+    app.launchEnvironment["UITEST_SLIDER_OPACITY"] = "0.1"
     return app
   }
 
@@ -146,6 +147,42 @@ extension ElementWaiting {
       XCTFail("Element '\(description)' did not appear within \(timeout) seconds")
     }
     return success
+  }
+
+  func discoverRootElement(in app: XCUIApplication) -> XCUIElement {
+    app.descendants(matching: .any)
+      .matching(identifier: "Discover.Root")
+      .firstMatch
+  }
+
+  func discoverSearchFieldCandidates(in app: XCUIApplication) -> [XCUIElement] {
+    [
+      app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
+      app.descendants(matching: .any)
+        .matching(identifier: "Discover.SearchField")
+        .firstMatch,
+      app.searchFields.firstMatch,
+      app.textFields.matching(
+        NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")
+      ).firstMatch,
+    ]
+  }
+
+  func discoverSearchField(
+    in app: XCUIApplication,
+    probeTimeout: TimeInterval = 0.5,
+    finalTimeout: TimeInterval = 1.0
+  ) -> XCUIElement {
+    let candidates = discoverSearchFieldCandidates(in: app)
+    for candidate in candidates.dropLast() {
+      if candidate.waitForExistence(timeout: probeTimeout) {
+        return candidate
+      }
+    }
+
+    let lastCandidate = candidates.last ?? app.textFields.firstMatch
+    _ = lastCandidate.waitForExistence(timeout: finalTimeout)
+    return lastCandidate
   }
 
   func quickPlayButton(
