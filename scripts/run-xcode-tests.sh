@@ -2428,24 +2428,17 @@ test_app_target() {
   local log_total=0 log_passed=0 log_failed=0
   if [[ -f "$RESULT_LOG" ]]; then
     # Extract: "Executed X tests, with Y failures"
-    if grep -q "Executed [0-9]* test" "$RESULT_LOG"; then
-      read -r log_total log_failed < <(
-        awk '
-          match($0, /Executed [0-9]+ test/) {
-            value = substr($0, RSTART, RLENGTH)
-            sub("Executed ", "", value)
-            sub(" test.*", "", value)
-            total += value + 0
-          }
-          match($0, /with [0-9]+ failure/) {
-            value = substr($0, RSTART, RLENGTH)
-            sub("with ", "", value)
-            sub(" failure.*", "", value)
-            failed += value + 0
-          }
-          END { printf "%d %d\n", total, failed }
-        ' "$RESULT_LOG"
-      )
+    local counts_line=""
+    counts_line=$(grep -E "Test Suite 'All tests'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    if [[ -z "$counts_line" ]]; then
+      counts_line=$(grep -E "Test Suite '.*\\.xctest'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    fi
+    if [[ -z "$counts_line" ]]; then
+      counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    fi
+    if [[ -n "$counts_line" ]] && [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+      log_total="${BASH_REMATCH[1]}"
+      log_failed="${BASH_REMATCH[2]}"
       log_passed=$((log_total - log_failed))
     fi
   fi
