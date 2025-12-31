@@ -344,72 +344,72 @@ import SwiftUI
     }
 
     public var body: some View {
-      ZStack(alignment: .bottom) {
-        TabView {
-          // Library Tab (existing functionality)
-          LibraryView()
-            .tabItem {
-              Label("Library", systemImage: "books.vertical")
-            }
-
-          // Discover Tab (placeholder UI)
-          DiscoverView(
-            searchService: searchService,
-            podcastManager: podcastManager
-          )
+      TabView {
+        // Library Tab (existing functionality)
+        LibraryView()
           .tabItem {
-            Label("Discover", systemImage: "safari")
+            Label("Library", systemImage: "books.vertical")
           }
 
-          // Playlists Tab (placeholder UI)
-          PlaylistTabView()
-            .tabItem {
-              Label("Playlists", systemImage: "music.note.list")
-            }
-
-          // Player Tab (placeholder - shows sample episode)
-          #if canImport(PlayerFeature)
-            PlayerTabView(playbackService: playbackDependencies.playbackService)
-              .tabItem {
-                Label("Player", systemImage: "play.circle")
-              }
-          #else
-            PlayerTabView()
-              .tabItem {
-                Label("Player", systemImage: "play.circle")
-              }
-          #endif
-
-          SettingsHomeView(settingsManager: settingsManager)
-            .tabItem {
-              Label("Settings", systemImage: "gearshape")
-            }
+        // Discover Tab (placeholder UI)
+        DiscoverView(
+          searchService: searchService,
+          podcastManager: podcastManager
+        )
+        .tabItem {
+          Label("Discover", systemImage: "safari")
         }
-        #if canImport(UIKit)
-          .background(TabBarIdentifierSetter())
+
+        // Playlists Tab (placeholder UI)
+        PlaylistTabView()
+          .tabItem {
+            Label("Playlists", systemImage: "music.note.list")
+          }
+
+        // Player Tab (placeholder - shows sample episode)
+        #if canImport(PlayerFeature)
+          PlayerTabView(playbackService: playbackDependencies.playbackService)
+            .tabItem {
+              Label("Player", systemImage: "play.circle")
+            }
+        #else
+          PlayerTabView()
+            .tabItem {
+              Label("Player", systemImage: "play.circle")
+            }
         #endif
 
-        // Mini-player overlay
+        SettingsHomeView(settingsManager: settingsManager)
+          .tabItem {
+            Label("Settings", systemImage: "gearshape")
+          }
+      }
+      #if canImport(UIKit)
+        .background(TabBarIdentifierSetter())
+      #endif
+      // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
+      .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
-          VStack(spacing: 0) {
-            Spacer()
+          if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
-          }
-          .ignoresSafeArea(edges: .bottom)
-          .sheet(isPresented: $showFullPlayer) {
-            ExpandedPlayerView(
-              viewModel: ExpandedPlayerViewModel(
-                playbackService: playbackDependencies.playbackService,
-                alertPresenter: playbackDependencies.playbackAlertPresenter
-              )
-            )
-            .presentationDragIndicator(.hidden)
-            .presentationBackground(.black)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
           }
         #endif
       }
+      #if canImport(PlayerFeature)
+        .sheet(isPresented: $showFullPlayer) {
+          ExpandedPlayerView(
+            viewModel: ExpandedPlayerViewModel(
+              playbackService: playbackDependencies.playbackService,
+              alertPresenter: playbackDependencies.playbackAlertPresenter
+            )
+          )
+          .presentationDragIndicator(.hidden)
+          .presentationBackground(.black)
+        }
+      #endif
     }
   }
 
