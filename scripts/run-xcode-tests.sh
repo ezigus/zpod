@@ -2431,9 +2431,17 @@ test_app_target() {
     if grep -q "Executed [0-9]* test" "$RESULT_LOG"; then
       read -r log_total log_failed < <(
         awk '
-          match($0, /Executed ([0-9]+) test/, total_match) && match($0, /with ([0-9]+) failure/, failed_match) {
-            total += total_match[1]
-            failed += failed_match[1]
+          match($0, /Executed [0-9]+ test/) {
+            value = substr($0, RSTART, RLENGTH)
+            sub("Executed ", "", value)
+            sub(" test.*", "", value)
+            total += value + 0
+          }
+          match($0, /with [0-9]+ failure/) {
+            value = substr($0, RSTART, RLENGTH)
+            sub("with ", "", value)
+            sub(" failure.*", "", value)
+            failed += value + 0
           }
           END { printf "%d %d\n", total, failed }
         ' "$RESULT_LOG"
