@@ -1586,6 +1586,12 @@ print_summary() {
     local elapsed=$((end_time - START_TIME))
     printf '  Elapsed Time: %s\n' "$(format_elapsed_time "$elapsed")"
   fi
+  if [[ -n "${START_TIME_HUMAN:-}" ]]; then
+    local end_time_human
+    end_time_human=$(date "+%Y-%m-%d %H:%M:%S %Z")
+    printf '  Started: %s\n' "$START_TIME_HUMAN"
+    printf '  Ended: %s\n' "$end_time_human"
+  fi
 }
 
 print_phase_timing() {
@@ -3072,6 +3078,7 @@ partial_build_and_test() {
 
 # Start timer for entire script execution
 START_TIME=$(date +%s)
+START_TIME_HUMAN=$(date "+%Y-%m-%d %H:%M:%S %Z")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
