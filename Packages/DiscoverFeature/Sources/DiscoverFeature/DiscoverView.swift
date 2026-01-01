@@ -71,6 +71,9 @@ public struct DiscoverView: View {
                     emptyStateView
                 }
             }
+            .accessibilityElement(children: .contain)
+            // Identifier matches the fallback DiscoverView; only one is compiled per target.
+            .accessibilityIdentifier("Discover.Root")
             .navigationTitle("Discover")
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

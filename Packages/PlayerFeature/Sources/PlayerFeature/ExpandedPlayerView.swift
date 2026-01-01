@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import Foundation
 import SharedUtilities
 import SwiftUI
 
@@ -232,7 +233,8 @@ public struct ExpandedPlayerView: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .labelsHidden()
     .tint(.clear)
-    .opacity(0.01)
+    // Keep the slider effectively invisible for users while allowing UI tests to interact reliably.
+    .opacity(uiTestSliderOpacity)
     .accessibilityIdentifier("Progress Slider")
     .accessibilityLabel("Progress Slider")
     .accessibilityHint("Adjust playback position")
@@ -240,6 +242,15 @@ public struct ExpandedPlayerView: View {
       Text("\(viewModel.formattedCurrentTime) of \(viewModel.formattedDuration)")
     )
     .disabled(viewModel.episode == nil || viewModel.duration <= 0)
+  }
+
+  private var uiTestSliderOpacity: Double {
+    if let rawValue = ProcessInfo.processInfo.environment["UITEST_SLIDER_OPACITY"],
+      let value = Double(rawValue), value > 0
+    {
+      return value
+    }
+    return 0.01
   }
 
   private var transportControlsView: some View {

@@ -68,6 +68,8 @@ import SwiftUI
           }
           .accessibilityIdentifier("Search Results")
         }
+        // Matches the real DiscoverFeature identifier; only one is compiled per build.
+        .accessibilityIdentifier("Discover.Root")
         .navigationTitle("Discover")
         .searchable(text: $searchText, prompt: "Search podcasts")
         .toolbar {
@@ -351,6 +353,11 @@ import SwiftUI
       @StateObject private var tabBarHeight = TabBarHeightObserver.shared
     #endif
 
+    // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests.
+    // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
+    // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
+    @State private var selectedTab: Int = 0
+
     public init(podcastManager: PodcastManaging? = nil) {
       // Use provided podcast manager or create a new one (for backward compatibility)
       self.podcastManager = podcastManager ?? InMemoryPodcastManager()
@@ -363,6 +370,7 @@ import SwiftUI
       let forceExpandedPlayer =
         ProcessInfo.processInfo.environment["UITEST_FORCE_EXPANDED_PLAYER"] == "1"
       _showFullPlayer = State(initialValue: forceExpandedPlayer)
+      _selectedTab = State(initialValue: Self.initialTabSelection())
 
       // Initialize mini-player with playback service from CarPlay dependencies
       #if canImport(PlayerFeature)
@@ -379,49 +387,57 @@ import SwiftUI
     }
 
     public var body: some View {
-      TabView {
-        // Library Tab (existing functionality)
-        LibraryView()
-          .tabItem {
-            Label("Library", systemImage: "books.vertical")
-          }
+      ZStack(alignment: .bottom) {
+        TabView(selection: $selectedTab) {
+          // Library Tab (existing functionality)
+          LibraryView()
+            .tabItem {
+              Label("Library", systemImage: "books.vertical")
+            }
+            .tag(0)
 
-        // Discover Tab (placeholder UI)
-        DiscoverView(
-          searchService: searchService,
-          podcastManager: podcastManager
-        )
-        .tabItem {
-          Label("Discover", systemImage: "safari")
+          // Discover Tab (placeholder UI)
+          DiscoverView(
+            searchService: searchService,
+            podcastManager: podcastManager
+          )
+            .tabItem {
+              Label("Discover", systemImage: "safari")
+            }
+            .tag(1)
+
+          // Playlists Tab (placeholder UI)
+          PlaylistTabView()
+            .tabItem {
+              Label("Playlists", systemImage: "music.note.list")
+            }
+            .tag(2)
+
+          // Player Tab (placeholder - shows sample episode)
+          #if canImport(PlayerFeature)
+            PlayerTabView(playbackService: playbackDependencies.playbackService)
+              .tabItem {
+                Label("Player", systemImage: "play.circle")
+              }
+              .tag(3)
+          #else
+            PlayerTabView()
+              .tabItem {
+                Label("Player", systemImage: "play.circle")
+              }
+              .tag(3)
+          #endif
+
+          SettingsHomeView(settingsManager: settingsManager)
+            .tabItem {
+              Label("Settings", systemImage: "gearshape")
+            }
+            .tag(4)
         }
-
-        // Playlists Tab (placeholder UI)
-        PlaylistTabView()
-          .tabItem {
-            Label("Playlists", systemImage: "music.note.list")
-          }
-
-        // Player Tab (placeholder - shows sample episode)
-        #if canImport(PlayerFeature)
-          PlayerTabView(playbackService: playbackDependencies.playbackService)
-            .tabItem {
-              Label("Player", systemImage: "play.circle")
-            }
-        #else
-          PlayerTabView()
-            .tabItem {
-              Label("Player", systemImage: "play.circle")
-            }
+        #if canImport(UIKit)
+          .background(TabBarIdentifierSetter())
         #endif
-
-        SettingsHomeView(settingsManager: settingsManager)
-          .tabItem {
-            Label("Settings", systemImage: "gearshape")
-          }
       }
-      #if canImport(UIKit)
-        .background(TabBarIdentifierSetter())
-      #endif
       // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
       // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
       // TabBarHeightObserver.contentBottomPadding returns: tabBarHeight + 8pt margin
@@ -453,6 +469,20 @@ import SwiftUI
           .presentationBackground(.black)
         }
       #endif
+    }
+
+    private static func initialTabSelection() -> Int {
+      UITestTabSelection.resolve(
+        rawValue: ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"],
+        maxIndex: 4,
+        mapping: [
+          "library": 0,
+          "discover": 1,
+          "playlists": 2,
+          "player": 3,
+          "settings": 4,
+        ]
+      )
     }
   }
 

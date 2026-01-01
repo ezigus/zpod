@@ -339,9 +339,9 @@ list_ui_test_suites() {
   fi
 
   ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
-  rg -N -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
+  rg -N --no-filename -g '*Tests.swift' 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*XCTestCase' \
     "${REPO_ROOT}/zpodUITests" | \
-    sed -E 's/class[[:space:]]+//' | \
+    sed -E 's/^.*class[[:space:]]+([A-Za-z0-9_]+)[[:space:]]*:.*$/\1/' | \
     sort -u
 }
 
@@ -2554,6 +2554,25 @@ test_app_target() {
     local suite_counts
     suite_counts=$(aggregate_suite_counts "$target")
     IFS='|' read -r total passed failed skipped <<< "$suite_counts"
+  fi
+  if [[ -n "$total" ]]; then
+    if [[ -z "$passed" ]]; then
+      local computed=$(( total - failed - skipped ))
+      if (( computed < 0 )); then
+        computed=0
+        note="${note:+$note; }adjusted counts"
+      fi
+      passed=$computed
+    fi
+  fi
+  if [[ -n "$total" && "$total" -gt 0 && "$log_total" -eq 0 ]]; then
+    log_info "xcresult counts: ${total} run, ${passed} passed, ${failed} failed, ${skipped} skipped"
+    if [[ -n "$RESULT_LOG" && -f "$RESULT_LOG" ]]; then
+      {
+        printf '\nTest Results (xcresult)\n--------------------------------\n'
+        printf 'Executed %s tests, with %s failures, %s skipped\n' "$total" "$failed" "$skipped"
+      } >> "$RESULT_LOG"
+    fi
   fi
   add_summary "test" "${target}" "success" "$RESULT_LOG" "$total" "$passed" "$failed" "$skipped" "$note"
   return 0
