@@ -14,32 +14,22 @@ import SharedUtilities
 /// - Pausing and Resuming Playback
 @MainActor
 final class EnhancedEpisodePlayerTickerTests: XCTestCase {
-  private var player: EnhancedEpisodePlayer!
-  private var ticker: DeterministicTicker!
-  private var cancellables: Set<AnyCancellable>!
+  nonisolated(unsafe) private var player: EnhancedEpisodePlayer!
+  nonisolated(unsafe) private var ticker: DeterministicTicker!
+  nonisolated(unsafe) private var cancellables: Set<AnyCancellable>!
 
   override nonisolated func setUp() async throws {
     try await super.setUp()
-    await configureForTest()
-  }
-
-  override nonisolated func tearDown() async throws {
-    await cleanupAfterTest()
-    try await super.tearDown()
-  }
-
-  @MainActor
-  private func configureForTest() {
     ticker = DeterministicTicker()
-    player = EnhancedEpisodePlayer(ticker: ticker)
+    player = await EnhancedEpisodePlayer(ticker: ticker)
     cancellables = []
   }
 
-  @MainActor
-  private func cleanupAfterTest() {
+  override nonisolated func tearDown() async throws {
     cancellables = nil
     player = nil
     ticker = nil
+    try await super.tearDown()
   }
 
   // MARK: - Position Advancement Tests
