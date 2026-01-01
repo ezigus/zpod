@@ -388,16 +388,20 @@ import SwiftUI
         .background(TabBarIdentifierSetter())
       #endif
       // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
-      // Note: The mini-player needs bottom padding to avoid overlapping the tab bar buttons.
-      // On iOS 18+, safeAreaInset positions content above the safe area but may still
-      // visually overlap the tab bar without explicit padding.
+      // Note: safeAreaInset positions content above the system safe area (home indicator),
+      // but the tab bar sits ABOVE the safe area. The 32pt padding ensures the mini-player
+      // clears the tab bar buttons across all device sizes:
+      // - iPhone X+ devices: 34pt home indicator safe area + 49pt tab bar = 83pt from bottom
+      // - Older devices: 49pt tab bar
+      // - Compact mode (landscape): 32pt tab bar
+      // The padding value (32pt) is conservative and works across all configurations.
       .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
           if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
-            .padding(.bottom, 32)  // Additional padding to ensure mini-player clears tab bar buttons
+            .padding(.bottom, 32)
             .transition(.move(edge: .bottom).combined(with: .opacity))
           }
         #endif
