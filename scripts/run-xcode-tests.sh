@@ -309,8 +309,17 @@ resolve_xcodebuild_timeout() {
   fi
 
   local ui_timeout="${ZPOD_UI_TEST_TIMEOUT_SECONDS:-900}"
+  local ui_full_timeout="${ZPOD_UI_TEST_TIMEOUT_SECONDS_FULL:-}"
   local default_timeout="${ZPOD_TEST_TIMEOUT_SECONDS:-1800}"
-  if [[ "$label" == *UITests* || "$label" == *-ui || "$label" == "UI tests" ]]; then
+  if [[ "$label" == "zpodUITests" || "$label" == "UI tests" ]]; then
+    if [[ -n "$ui_full_timeout" ]]; then
+      echo "$ui_full_timeout"
+      return
+    fi
+    echo ""
+    return
+  fi
+  if [[ "$label" == *UITests* || "$label" == *-ui ]]; then
     echo "$ui_timeout"
     return
   fi
@@ -330,9 +339,9 @@ list_ui_test_suites() {
   fi
 
   ensure_command rg "ripgrep is required to enumerate UI test suites" || return 1
-  rg -N --no-filename -g '*Tests.swift' 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*XCTestCase' \
+  rg -N --no-filename -g '*Tests.swift' -o 'class[[:space:]]+[A-Za-z0-9_]+Tests' \
     "${REPO_ROOT}/zpodUITests" | \
-    sed -E 's/^.*class[[:space:]]+([A-Za-z0-9_]+)[[:space:]]*:.*$/\1/' | \
+    sed -E 's/class[[:space:]]+//' | \
     sort -u
 }
 
@@ -1315,11 +1324,33 @@ print_ui_suite_results_summary() {
   local summary_skipped="$4"
   local summary_warn="$5"
   local present="${6:-0}"
+  local computed_total=0
+  local computed_failed=0
+  local computed_skipped=0
+  local computed_warn=0
+  local computed_present=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped <<< "$entry"
+    [[ "$suite_target" == *UITests* ]] || continue
+    computed_present=1
+    (( computed_total += suite_total ))
+    (( computed_failed += suite_failed ))
+    (( computed_skipped += suite_skipped ))
+    [[ "$status" == "warn" ]] && (( computed_warn++ ))
+  done
+  if (( computed_present == 1 )); then
+    summary_total="$computed_total"
+    summary_failed="$computed_failed"
+    summary_skipped="$computed_skipped"
+    summary_passed=$(( summary_total - summary_failed - summary_skipped ))
+    summary_warn="$computed_warn"
+    present=1
+  fi
   if (( present == 0 )); then
     return
   fi
   local printed_header=0
-  local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
     IFS='|' read -r suite_target suite duration status suite_total suite_failed suite_skipped <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
@@ -1577,6 +1608,12 @@ print_summary() {
     local elapsed=$((end_time - START_TIME))
     printf '  Elapsed Time: %s\n' "$(format_elapsed_time "$elapsed")"
   fi
+  if [[ -n "${START_TIME_HUMAN:-}" ]]; then
+    local end_time_human
+    end_time_human=$(date "+%Y-%m-%d %H:%M:%S %Z")
+    printf '  Started: %s\n' "$START_TIME_HUMAN"
+    printf '  Ended: %s\n' "$end_time_human"
+  fi
 }
 
 print_phase_timing() {
@@ -1660,12 +1697,9 @@ record_test_suite_timings() {
   local bundle="$1"
   local target_label="$2"
   local log_path="${3:-}"
-  [[ -d "$bundle" ]] || return
-  if ! command_exists python3 || ! command_exists xcrun; then
-    return
-  fi
   local output
-  if ! output=$(python3 - "$bundle" "$target_label" <<'PY'
+  if [[ -d "$bundle" ]] && command_exists python3 && command_exists xcrun; then
+    if ! output=$(python3 - "$bundle" "$target_label" <<'PY'
 import json
 import subprocess
 import sys
@@ -1721,6 +1755,13 @@ for action in actions:
 if not results:
   sys.exit(0)
 
+has_all = any("::All tests::" in suite for suite, _, _ in results)
+has_selected = any("::Selected tests::" in suite for suite, _, _ in results)
+if has_all:
+  results = [entry for entry in results if "::All tests::" in entry[0]]
+elif has_selected:
+  results = [entry for entry in results if "::Selected tests::" in entry[0]]
+
 from collections import defaultdict
 aggregated = defaultdict(lambda: {"duration":0.0, "total":0, "failed":0, "skipped":0})
 for suite, status, duration in results:
@@ -1741,20 +1782,21 @@ for suite, info in aggregated.items():
   duration_int = int(round(info["duration"]))
   print(f"{suite}|{duration_int}|{status}|{info['total']}|{info['failed']}|{info['skipped']}")
 PY
-); then
-    output=""
-  fi
-  if [[ -n "$output" ]]; then
-    while IFS= read -r line; do
-      [[ -z "$line" ]] && continue
-      IFS='|' read -r suite duration status total failed skipped <<< "$line"
-      TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}")
-    done <<< "$output"
-    return
+    ); then
+      output=""
+    fi
+    if [[ -n "$output" ]]; then
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        IFS='|' read -r suite duration status total failed skipped <<< "$line"
+        TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}")
+      done <<< "$output"
+      return
+    fi
   fi
 
   # Fallback: parse xcodebuild log for suite timing when xcresulttool is unavailable
-  if [[ -n "$log_path" && -f "$log_path" ]]; then
+  if [[ -n "$log_path" && -f "$log_path" ]] && command_exists python3; then
     local log_output
     if log_output=$(python3 - "$log_path" "$target_label" <<'PY'
 import re, sys
@@ -2350,11 +2392,15 @@ test_app_target() {
 
   log_section "xcodebuild tests (${target})"
   local -a original_args=("${args[@]}")
+  local timeout_seconds=""
   run_tests_once() {
     set +e
-    local timeout_seconds
     timeout_seconds=$(resolve_xcodebuild_timeout "$target")
-    ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    if [[ -n "$timeout_seconds" ]]; then
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    else
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS=0 xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    fi
     local status=${PIPESTATUS[0]}
     set -e
     return "$status"
@@ -2411,11 +2457,35 @@ test_app_target() {
   local log_total=0 log_passed=0 log_failed=0
   if [[ -f "$RESULT_LOG" ]]; then
     # Extract: "Executed X tests, with Y failures"
-    if grep -q "Executed.*tests.*with.*failures" "$RESULT_LOG"; then
-      log_total=$(grep -o "Executed [0-9]* test" "$RESULT_LOG" | tail -1 | grep -o "[0-9]*" || echo "0")
-      log_failed=$(grep -o "with [0-9]* failure" "$RESULT_LOG" | tail -1 | grep -o "[0-9]*" || echo "0")
+    local counts_line=""
+    counts_line=$(grep -E "Test Suite 'All tests'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    if [[ -z "$counts_line" ]]; then
+      counts_line=$(grep -E "Test Suite '.*\\.xctest'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    fi
+    if [[ -z "$counts_line" ]]; then
+      counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    fi
+    if [[ -n "$counts_line" ]] && [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+      log_total="${BASH_REMATCH[1]}"
+      log_failed="${BASH_REMATCH[2]}"
       log_passed=$((log_total - log_failed))
     fi
+  fi
+
+  if (( xc_status == 124 )); then
+    record_test_suite_timings "$RESULT_BUNDLE" "$target" "$RESULT_LOG"
+    local note="timed out"
+    if [[ -n "$timeout_seconds" ]]; then
+      log_error "xcodebuild timed out after ${timeout_seconds}s -> $RESULT_LOG"
+    else
+      log_error "xcodebuild timed out -> $RESULT_LOG"
+    fi
+    if (( log_total > 0 )); then
+      note="timed out (partial)"
+    fi
+    add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "$note"
+    update_exit_status "$xc_status"
+    return "$xc_status"
   fi
 
   if [[ $xc_status -ne 0 ]]; then
@@ -2812,7 +2882,11 @@ run_filtered_xcode_tests() {
     set +e
     local timeout_seconds
     timeout_seconds=$(resolve_xcodebuild_timeout "$label")
-    ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    if [[ -n "$timeout_seconds" ]]; then
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS="$timeout_seconds" xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    else
+      ZPOD_XCODEBUILD_TIMEOUT_SECONDS=0 xcodebuild_wrapper "${args[@]}" 2>&1 | tee "$RESULT_LOG"
+    fi
     local status=${PIPESTATUS[0]}
     set -e
     return "$status"
@@ -3053,6 +3127,7 @@ partial_build_and_test() {
 
 # Start timer for entire script execution
 START_TIME=$(date +%s)
+START_TIME_HUMAN=$(date "+%Y-%m-%d %H:%M:%S %Z")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

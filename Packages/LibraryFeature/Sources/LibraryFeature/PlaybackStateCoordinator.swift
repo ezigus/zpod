@@ -29,6 +29,7 @@ public final class PlaybackStateCoordinator {
   private let playbackService: EpisodePlaybackService?
   private let settingsRepository: SettingsRepository
   private let episodeLookup: (String) async -> Episode?
+  private let isLibraryReady: () -> Bool
   private let alertPresenter: PlaybackAlertPresenter?
 
   nonisolated(unsafe) private var stateCancellable: AnyCancellable?
@@ -48,11 +49,13 @@ public final class PlaybackStateCoordinator {
     playbackService: EpisodePlaybackService?,
     settingsRepository: SettingsRepository,
     episodeLookup: @escaping (String) async -> Episode?,
+    isLibraryReady: @escaping () -> Bool = { true },
     alertPresenter: PlaybackAlertPresenter? = nil
   ) {
     self.playbackService = playbackService
     self.settingsRepository = settingsRepository
     self.episodeLookup = episodeLookup
+    self.isLibraryReady = isLibraryReady
     self.alertPresenter = alertPresenter
 
     setupPlaybackObserver()
@@ -78,11 +81,16 @@ public final class PlaybackStateCoordinator {
       return
     }
 
-    // Look up the episode or fall back to stored snapshot
-    let episode = await episodeLookup(resumeState.episodeId) ?? resumeState.episode
-    guard let resolvedEpisode = episode else {
-      await settingsRepository.clearPlaybackResumeState()
-      presentAlert(for: .episodeUnavailable)
+    // Look up the episode in the current library - do NOT use stored snapshot as fallback
+    // This prevents stale/test data from persisting when the episode is no longer available
+    guard let resolvedEpisode = await episodeLookup(resumeState.episodeId) else {
+      // Only clear state if library is confirmed loaded - prevents race condition
+      // where state is cleared before podcasts finish loading at app startup
+      if isLibraryReady() {
+        await settingsRepository.clearPlaybackResumeState()
+        // Don't show an alert for missing episodes - they may have been intentionally deleted
+      }
+      // If library not ready, silently return without clearing - will retry after library loads
       return
     }
 

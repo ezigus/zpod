@@ -23,6 +23,7 @@
     private var testEpisode: Episode!
     private var episodeLookupMap: [String: Episode] = [:]
     private var alertPresenter: PlaybackAlertPresenter!
+    private var libraryIsReady: Bool = true
 
     @MainActor
     override func setUpWithError() throws {
@@ -41,12 +42,16 @@
       mockPlaybackService = MockEpisodePlaybackService()
       mockRepository = MockSettingsRepository()
       alertPresenter = PlaybackAlertPresenter()
+      libraryIsReady = true
 
       coordinator = PlaybackStateCoordinator(
         playbackService: mockPlaybackService,
         settingsRepository: mockRepository,
         episodeLookup: { [weak self] id in
           return self?.episodeLookupMap[id]
+        },
+        isLibraryReady: { [weak self] in
+          return self?.libraryIsReady ?? true
         },
         alertPresenter: alertPresenter
       )
@@ -61,6 +66,7 @@
       episodeLookupMap = [:]
       testEpisode = nil
       alertPresenter = nil
+      libraryIsReady = true
     }
 
     // MARK: - Persistence Tests
@@ -213,8 +219,8 @@
     }
 
     @MainActor
-    func testRestoresUsingSnapshotWhenLookupFails() async throws {
-      // Given: Episode lookup cannot find the episode but snapshot exists
+    func testClearsStateWhenLookupFails() async throws {
+      // Given: Episode lookup cannot find the episode (even if snapshot exists)
       episodeLookupMap = [:]
       let resumeState = PlaybackResumeState(
         episodeId: testEpisode.id,
@@ -230,20 +236,16 @@
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 100_000_000)
 
-      // Then: Coordinator should inject the snapshot into playback service
-      guard case .paused(let episode, let position, let duration)? =
-        mockPlaybackService.injectedStates.last
-      else {
-        XCTFail("Expected injected paused state")
-        return
-      }
-      XCTAssertEqual(episode.id, testEpisode.id)
-      XCTAssertEqual(position, 250, accuracy: 0.1)
-      XCTAssertEqual(duration, 1800, accuracy: 0.1)
+      // Then: State should be cleared (no restore when episode not in library)
+      // This prevents stale/test data from persisting
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState)
+      XCTAssertTrue(mockPlaybackService.injectedStates.isEmpty)
     }
 
     @MainActor
-    func testMissingEpisodeTriggersAlert() async throws {
+    func testMissingEpisodeClearsStateSilently() async throws {
+      // Given: Resume state for non-existent episode (no snapshot)
       let resumeState = PlaybackResumeState(
         episodeId: "missing",
         position: 100,
@@ -254,10 +256,68 @@
       )
       await mockRepository.savePlaybackResumeState(resumeState)
 
+      // When: Restore is requested
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 50_000_000)
 
-      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Episode Unavailable")
+      // Then: State should be cleared silently (no alert, no restore)
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState)
+      XCTAssertNil(alertPresenter.currentAlert)
+      XCTAssertTrue(mockPlaybackService.injectedStates.isEmpty)
+    }
+
+    @MainActor
+    func testPreservesStateWhenLibraryNotReady() async throws {
+      // Given: Resume state exists but library hasn't loaded yet (race condition scenario)
+      libraryIsReady = false
+      episodeLookupMap = [:]  // Simulate empty library
+
+      let resumeState = PlaybackResumeState(
+        episodeId: testEpisode.id,
+        position: 500,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false,
+        episode: testEpisode
+      )
+      await mockRepository.savePlaybackResumeState(resumeState)
+
+      // When: Restore is requested (during app startup, before library loads)
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 50_000_000)
+
+      // Then: State should be PRESERVED (not cleared) for retry after library loads
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNotNil(savedState, "State should be preserved when library not ready")
+      XCTAssertEqual(savedState?.episodeId, testEpisode.id)
+      XCTAssertEqual(savedState?.position, 500)
+      XCTAssertTrue(mockPlaybackService.injectedStates.isEmpty, "Should not inject state when episode not found")
+    }
+
+    @MainActor
+    func testClearsStateWhenLibraryReadyAndEpisodeMissing() async throws {
+      // Given: Library is loaded but episode was deleted
+      libraryIsReady = true
+      episodeLookupMap = [:]  // Episode was deleted
+
+      let resumeState = PlaybackResumeState(
+        episodeId: "deleted-episode",
+        position: 500,
+        duration: 1800,
+        timestamp: Date(),
+        isPlaying: false,
+        episode: nil
+      )
+      await mockRepository.savePlaybackResumeState(resumeState)
+
+      // When: Restore is requested after library has loaded
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 50_000_000)
+
+      // Then: State should be cleared (episode genuinely missing)
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState, "State should be cleared when library is ready and episode is missing")
     }
 
     @MainActor

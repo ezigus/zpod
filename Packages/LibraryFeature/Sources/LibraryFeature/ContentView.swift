@@ -163,6 +163,33 @@ import SwiftUI
 #endif
 
 #if canImport(UIKit)
+  // MARK: - Tab Bar Height Observer
+
+  /// Shared observable that publishes the actual tab bar height for dynamic mini-player positioning.
+  /// Updated by TabBarIdentifierSetter when it locates the UITabBar.
+  @MainActor
+  final class TabBarHeightObserver: ObservableObject {
+    static let shared = TabBarHeightObserver()
+
+    /// The measured tab bar height (includes the full visual height)
+    @Published private(set) var height: CGFloat = 0
+
+    /// Safe bottom padding for content that should appear above the tab bar.
+    /// Returns 0 when height hasn't been measured yet (content will be positioned by safeAreaInset).
+    /// Once measured, returns the tab bar height plus a small margin for visual separation.
+    var contentBottomPadding: CGFloat {
+      guard height > 0 else { return 0 }
+      return height + 8  // Tab bar height + 8pt margin for visual separation
+    }
+
+    private init() {}
+
+    func update(height: CGFloat) {
+      guard height > 0, height != self.height else { return }
+      self.height = height
+    }
+  }
+
   // MARK: - UIKit Introspection Helper for Tab Bar Identifier
   private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     private let maxAttempts = 50
@@ -245,6 +272,9 @@ import SwiftUI
         tabBar.accessibilityLabel = "Main Tab Bar"
       }
 
+      // Publish the tab bar height for dynamic mini-player positioning
+      TabBarHeightObserver.shared.update(height: tabBar.frame.height)
+
       guard let items = tabBar.items, !items.isEmpty else { return }
 
       let fallbackTitles = ["Library", "Discover", "Playlists", "Player", "Settings"]
@@ -318,6 +348,11 @@ import SwiftUI
     #endif
     @State private var showFullPlayer: Bool
 
+    // Tab bar height for dynamic mini-player positioning
+    #if canImport(UIKit)
+      @StateObject private var tabBarHeight = TabBarHeightObserver.shared
+    #endif
+
     // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests.
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
@@ -366,10 +401,10 @@ import SwiftUI
             searchService: searchService,
             podcastManager: podcastManager
           )
-          .tabItem {
-            Label("Discover", systemImage: "safari")
-          }
-          .tag(1)
+            .tabItem {
+              Label("Discover", systemImage: "safari")
+            }
+            .tag(1)
 
           // Playlists Tab (placeholder UI)
           PlaylistTabView()
@@ -402,28 +437,38 @@ import SwiftUI
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())
         #endif
-
-        // Mini-player overlay
+      }
+      // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
+      // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
+      // TabBarHeightObserver.contentBottomPadding returns: tabBarHeight + 8pt margin
+      // This ensures proper spacing regardless of device size, orientation, or iOS version.
+      .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
-          VStack(spacing: 0) {
-            Spacer()
+          if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
-          }
-          .ignoresSafeArea(edges: .bottom)
-          .sheet(isPresented: $showFullPlayer) {
-            ExpandedPlayerView(
-              viewModel: ExpandedPlayerViewModel(
-                playbackService: playbackDependencies.playbackService,
-                alertPresenter: playbackDependencies.playbackAlertPresenter
-              )
-            )
-            .presentationDragIndicator(.hidden)
-            .presentationBackground(.black)
+            #if canImport(UIKit)
+              .padding(.bottom, tabBarHeight.contentBottomPadding)
+            #else
+              .padding(.bottom, 60)  // Fallback for non-UIKit platforms
+            #endif
+            .transition(.move(edge: .bottom).combined(with: .opacity))
           }
         #endif
       }
+      #if canImport(PlayerFeature)
+        .sheet(isPresented: $showFullPlayer) {
+          ExpandedPlayerView(
+            viewModel: ExpandedPlayerViewModel(
+              playbackService: playbackDependencies.playbackService,
+              alertPresenter: playbackDependencies.playbackAlertPresenter
+            )
+          )
+          .presentationDragIndicator(.hidden)
+          .presentationBackground(.black)
+        }
+      #endif
     }
 
     private static func initialTabSelection() -> Int {
@@ -549,6 +594,10 @@ import SwiftUI
       ]
 
       isLoading = false
+
+      // Retry playback restoration now that library is loaded
+      // This handles the race condition where initial restoration ran before data was available
+      await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
     }
   }
 

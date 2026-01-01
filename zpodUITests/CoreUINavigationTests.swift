@@ -392,7 +392,9 @@ extension CoreUINavigationTests {
       "Main tab bar should be present"
     )
 
-    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
+    // Find Settings tab button using label predicate since tab bar buttons have empty identifiers
+    let settingsTabPredicate = NSPredicate(format: "label == 'Settings'")
+    let settingsTab = tabBar.buttons.matching(settingsTabPredicate).firstMatch
     XCTAssertTrue(
       waitForElement(
         settingsTab,
@@ -405,6 +407,15 @@ extension CoreUINavigationTests {
     settingsTab.tap()
 
     waitForSettingsToLoad()
+
+    // Define emptyState here for the check below
+    let emptyState = app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
+
+    // Check if we got empty state instead of features
+    if emptyState.exists {
+      XCTFail("Settings showing empty state - allFeatureSections() may be returning empty array")
+      return
+    }
 
     // Settings screen verification - check for feature rows instead of navigation bar
     // (NavigationBar elements are unreliable in modern SwiftUI)
@@ -431,16 +442,24 @@ extension CoreUINavigationTests {
     swipeActionsElement.tap()
 
     // Verify Swipe Actions configuration screen by checking for its list element
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let swipeActionsList = app.otherElements.matching(identifier: "SwipeActions.List").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        swipeActionsList,
-        timeout: adaptiveShortTimeout,
-        description: "Swipe Actions configuration list"
-      ),
-      "Swipe Actions configuration view should appear with actions list"
-    )
+    // SwiftUI List can appear as different element types in accessibility hierarchy
+    let swipeActionsListCandidates: [XCUIElement] = [
+      app.otherElements.matching(identifier: "SwipeActions.List").firstMatch,
+      app.scrollViews.matching(identifier: "SwipeActions.List").firstMatch,
+      app.tables.matching(identifier: "SwipeActions.List").firstMatch,
+      app.collectionViews.matching(identifier: "SwipeActions.List").firstMatch,
+    ]
+
+    guard let swipeActionsList = waitForAnyElement(
+      swipeActionsListCandidates,
+      timeout: adaptiveShortTimeout,
+      description: "Swipe Actions configuration list"
+    ) else {
+      XCTFail("Swipe Actions configuration view should appear with actions list")
+      return
+    }
+
+    XCTAssertTrue(swipeActionsList.exists, "Swipe Actions list should be visible")
   }
 
   @MainActor
