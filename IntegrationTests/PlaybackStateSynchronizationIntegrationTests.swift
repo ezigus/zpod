@@ -27,6 +27,26 @@
   final class PlaybackStateSynchronizationIntegrationTests: XCTestCase {
 
     // MARK: - Properties
+    private final class AtomicFlag: @unchecked Sendable {
+      private let lock = NSLock()
+      private var value: Bool
+
+      init(_ value: Bool) {
+        self.value = value
+      }
+
+      func get() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+      }
+
+      func set(_ value: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.value = value
+      }
+    }
 
     private var podcastManager: InMemoryPodcastManager!
     private var settingsRepository: MockSettingsRepository!
@@ -38,14 +58,14 @@
     private var testEpisode: Episode!
     private var nextEpisode: Episode!
     private var alertPresenter: PlaybackAlertPresenter!
-    private var libraryIsReady = true
+    private var libraryReadyFlag: AtomicFlag!
 
     // MARK: - Setup & Teardown
 
     override func setUp() async throws {
       try await super.setUp()
       continueAfterFailure = false  // Create test episode
-      libraryIsReady = true
+      libraryReadyFlag = AtomicFlag(true)
       testEpisode = Episode(
         id: "test-episode-sync",
         title: "Test Episode",
@@ -83,11 +103,12 @@
       let testEpisode = self.testEpisode!
       let ticker = self.ticker!
       let settingsRepository = self.settingsRepository!
+      let libraryReadyFlag = self.libraryReadyFlag!
 
       let (service, coord, miniVM, expandedVM, presenter) = await MainActor.run {
         let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
         let presenter = PlaybackAlertPresenter()
-        let isLibraryReady = { [weak self] in self?.libraryIsReady ?? true }
+        let isLibraryReady = { libraryReadyFlag.get() }
 
         // Setup coordinator
         let coord = PlaybackStateCoordinator(
@@ -135,6 +156,7 @@
       testEpisode = nil
       nextEpisode = nil
       alertPresenter = nil
+      libraryReadyFlag = nil
       super.tearDown()
     }
 
@@ -230,7 +252,7 @@
     @MainActor
     func testRestoreDefersUntilLibraryReady() async throws {
       // Given: Library has not loaded yet but resume state exists
-      libraryIsReady = false
+      libraryReadyFlag.set(false)
       podcastManager.remove(id: "test-podcast")
       let resumeState = PlaybackResumeState(
         episodeId: testEpisode.id,
@@ -253,7 +275,7 @@
       XCTAssertNil(miniPlayerViewModel.currentEpisode)
 
       // When: Library finishes loading, restore should succeed
-      libraryIsReady = true
+      libraryReadyFlag.set(true)
       let podcast = Podcast(
         id: "test-podcast",
         title: "Test Podcast",
