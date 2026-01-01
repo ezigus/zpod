@@ -78,11 +78,11 @@ public final class PlaybackStateCoordinator {
       return
     }
 
-    // Look up the episode or fall back to stored snapshot
-    let episode = await episodeLookup(resumeState.episodeId) ?? resumeState.episode
-    guard let resolvedEpisode = episode else {
+    // Look up the episode in the current library - do NOT use stored snapshot as fallback
+    // This prevents stale/test data from persisting when the episode is no longer available
+    guard let resolvedEpisode = await episodeLookup(resumeState.episodeId) else {
       await settingsRepository.clearPlaybackResumeState()
-      presentAlert(for: .episodeUnavailable)
+      // Don't show an alert for missing episodes - they may have been intentionally deleted
       return
     }
 

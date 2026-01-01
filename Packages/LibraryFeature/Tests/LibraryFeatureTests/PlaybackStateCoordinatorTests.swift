@@ -213,8 +213,8 @@
     }
 
     @MainActor
-    func testRestoresUsingSnapshotWhenLookupFails() async throws {
-      // Given: Episode lookup cannot find the episode but snapshot exists
+    func testClearsStateWhenLookupFails() async throws {
+      // Given: Episode lookup cannot find the episode (even if snapshot exists)
       episodeLookupMap = [:]
       let resumeState = PlaybackResumeState(
         episodeId: testEpisode.id,
@@ -230,20 +230,16 @@
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 100_000_000)
 
-      // Then: Coordinator should inject the snapshot into playback service
-      guard case .paused(let episode, let position, let duration)? =
-        mockPlaybackService.injectedStates.last
-      else {
-        XCTFail("Expected injected paused state")
-        return
-      }
-      XCTAssertEqual(episode.id, testEpisode.id)
-      XCTAssertEqual(position, 250, accuracy: 0.1)
-      XCTAssertEqual(duration, 1800, accuracy: 0.1)
+      // Then: State should be cleared (no restore when episode not in library)
+      // This prevents stale/test data from persisting
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState)
+      XCTAssertTrue(mockPlaybackService.injectedStates.isEmpty)
     }
 
     @MainActor
-    func testMissingEpisodeTriggersAlert() async throws {
+    func testMissingEpisodeClearsStateSilently() async throws {
+      // Given: Resume state for non-existent episode (no snapshot)
       let resumeState = PlaybackResumeState(
         episodeId: "missing",
         position: 100,
@@ -254,10 +250,15 @@
       )
       await mockRepository.savePlaybackResumeState(resumeState)
 
+      // When: Restore is requested
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 50_000_000)
 
-      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Episode Unavailable")
+      // Then: State should be cleared silently (no alert, no restore)
+      let savedState = await mockRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState)
+      XCTAssertNil(alertPresenter.currentAlert)
+      XCTAssertTrue(mockPlaybackService.injectedStates.isEmpty)
     }
 
     @MainActor
