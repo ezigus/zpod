@@ -18,17 +18,21 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
   private var ticker: DeterministicTicker!
   private var cancellables: Set<AnyCancellable>!
 
-  override func setUp() async throws {
+  override nonisolated func setUp() async throws {
     try await super.setUp()
-    ticker = DeterministicTicker()
-    player = EnhancedEpisodePlayer(ticker: ticker)
-    cancellables = []
+    await MainActor.run { [self] in
+      ticker = DeterministicTicker()
+      player = EnhancedEpisodePlayer(ticker: ticker)
+      cancellables = []
+    }
   }
 
-  override func tearDown() async throws {
-    cancellables = nil
-    player = nil
-    ticker = nil
+  override nonisolated func tearDown() async throws {
+    await MainActor.run { [self] in
+      cancellables = nil
+      player = nil
+      ticker = nil
+    }
     try await super.tearDown()
   }
 
