@@ -1324,11 +1324,33 @@ print_ui_suite_results_summary() {
   local summary_skipped="$4"
   local summary_warn="$5"
   local present="${6:-0}"
+  local computed_total=0
+  local computed_failed=0
+  local computed_skipped=0
+  local computed_warn=0
+  local computed_present=0
+  local entry
+  for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped <<< "$entry"
+    [[ "$suite_target" == *UITests* ]] || continue
+    computed_present=1
+    (( computed_total += suite_total ))
+    (( computed_failed += suite_failed ))
+    (( computed_skipped += suite_skipped ))
+    [[ "$status" == "warn" ]] && (( computed_warn++ ))
+  done
+  if (( computed_present == 1 )); then
+    summary_total="$computed_total"
+    summary_failed="$computed_failed"
+    summary_skipped="$computed_skipped"
+    summary_passed=$(( summary_total - summary_failed - summary_skipped ))
+    summary_warn="$computed_warn"
+    present=1
+  fi
   if (( present == 0 )); then
     return
   fi
   local printed_header=0
-  local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
     IFS='|' read -r suite_target suite duration status suite_total suite_failed suite_skipped <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
@@ -1732,6 +1754,13 @@ for action in actions:
 
 if not results:
   sys.exit(0)
+
+has_all = any("::All tests::" in suite for suite, _, _ in results)
+has_selected = any("::Selected tests::" in suite for suite, _, _ in results)
+if has_all:
+  results = [entry for entry in results if "::All tests::" in entry[0]]
+elif has_selected:
+  results = [entry for entry in results if "::Selected tests::" in entry[0]]
 
 from collections import defaultdict
 aggregated = defaultdict(lambda: {"duration":0.0, "total":0, "failed":0, "skipped":0})
