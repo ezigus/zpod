@@ -38,12 +38,14 @@
     private var testEpisode: Episode!
     private var nextEpisode: Episode!
     private var alertPresenter: PlaybackAlertPresenter!
+    private var libraryIsReady = true
 
     // MARK: - Setup & Teardown
 
     override func setUp() async throws {
       try await super.setUp()
       continueAfterFailure = false  // Create test episode
+      libraryIsReady = true
       testEpisode = Episode(
         id: "test-episode-sync",
         title: "Test Episode",
@@ -81,6 +83,7 @@
       let testEpisode = self.testEpisode!
       let ticker = self.ticker!
       let settingsRepository = self.settingsRepository!
+      let isLibraryReady = { [weak self] in self?.libraryIsReady ?? true }
 
       let (service, coord, miniVM, expandedVM, presenter) = await MainActor.run {
         let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
@@ -96,6 +99,7 @@
               .flatMap { $0.episodes }
               .first(where: { $0.id == episodeId })
           },
+          isLibraryReady: isLibraryReady,
           alertPresenter: presenter
         )  // Setup view models
         let miniVM = MiniPlayerViewModel(
@@ -224,8 +228,9 @@
     }
 
     @MainActor
-    func testStateRestoresFromSnapshotWhenLibraryIsEmpty() async throws {
-      // Given: Library has not loaded yet but resume state has a snapshot
+    func testRestoreDefersUntilLibraryReady() async throws {
+      // Given: Library has not loaded yet but resume state exists
+      libraryIsReady = false
       podcastManager.remove(id: "test-podcast")
       let resumeState = PlaybackResumeState(
         episodeId: testEpisode.id,
@@ -241,7 +246,25 @@
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 200_000_000)
 
-      // Then: UI reflects restored episode even though catalog is empty
+      // Then: State is preserved but UI does not restore yet
+      let savedState = await settingsRepository.loadPlaybackResumeState()
+      XCTAssertNotNil(savedState)
+      XCTAssertFalse(miniPlayerViewModel.isVisible)
+      XCTAssertNil(miniPlayerViewModel.currentEpisode)
+
+      // When: Library finishes loading, restore should succeed
+      libraryIsReady = true
+      let podcast = Podcast(
+        id: "test-podcast",
+        title: "Test Podcast",
+        feedURL: URL(string: "https://example.com/feed.xml")!,
+        episodes: [testEpisode, nextEpisode]
+      )
+      podcastManager.add(podcast)
+      await coordinator.restorePlaybackIfNeeded()
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      // Then: UI reflects restored episode
       XCTAssertTrue(miniPlayerViewModel.isVisible)
       XCTAssertEqual(miniPlayerViewModel.currentEpisode?.id, testEpisode.id)
       XCTAssertEqual(miniPlayerViewModel.currentPosition, 400, accuracy: 0.1)
@@ -253,7 +276,7 @@
     }
 
     @MainActor
-    func testMissingEpisodeShowsAlert() async throws {
+    func testMissingEpisodeClearsStateWithoutAlert() async throws {
       let resumeState = PlaybackResumeState(
         episodeId: "missing-episode",
         position: 150,
@@ -266,11 +289,10 @@
       await coordinator.restorePlaybackIfNeeded()
       try await Task.sleep(nanoseconds: 200_000_000)
 
-      XCTAssertNotNil(miniPlayerViewModel.playbackAlert)
-      XCTAssertEqual(
-        miniPlayerViewModel.playbackAlert?.descriptor.title,
-        "Episode Unavailable"
-      )
+      let savedState = await settingsRepository.loadPlaybackResumeState()
+      XCTAssertNil(savedState)
+      XCTAssertNil(miniPlayerViewModel.playbackAlert)
+      XCTAssertFalse(miniPlayerViewModel.isVisible)
     }
 
     @MainActor
