@@ -20,20 +20,26 @@ final class EnhancedEpisodePlayerTickerTests: XCTestCase {
 
   override nonisolated func setUp() async throws {
     try await super.setUp()
-    await MainActor.run { [self] in
-      ticker = DeterministicTicker()
-      player = EnhancedEpisodePlayer(ticker: ticker)
-      cancellables = []
-    }
+    await configureForTest()
   }
 
   override nonisolated func tearDown() async throws {
-    await MainActor.run { [self] in
-      cancellables = nil
-      player = nil
-      ticker = nil
-    }
+    await cleanupAfterTest()
     try await super.tearDown()
+  }
+
+  @MainActor
+  private func configureForTest() {
+    ticker = DeterministicTicker()
+    player = EnhancedEpisodePlayer(ticker: ticker)
+    cancellables = []
+  }
+
+  @MainActor
+  private func cleanupAfterTest() {
+    cancellables = nil
+    player = nil
+    ticker = nil
   }
 
   // MARK: - Position Advancement Tests
