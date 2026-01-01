@@ -966,12 +966,16 @@ print_suite_breakdown() {
   local found=0
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    IFS='|' read -r suite_target suite duration status total failed skipped log_path <<< "$entry"
     [[ "$suite_target" == "$target" ]] || continue
     local symbol
     symbol=$(status_symbol "$status")
-    printf '    %s %s – %s (%s tests, failed %s, skipped %s)\n' \
+    printf '    %s %s – %s (%s tests, failed %s, skipped %s)' \
       "$symbol" "$suite" "$(format_elapsed_time "${duration:-0}")" "${total:-0}" "${failed:-0}" "${skipped:-0}"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
     found=1
   done
   (( found == 0 )) && return
@@ -1134,13 +1138,17 @@ ui_suite_timing_breakdown() {
   local -a lines=()
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    IFS='|' read -r suite_target suite duration status total failed skipped log_path <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
     local symbol
     symbol=$(status_symbol "$status")
     total_duration=$(( total_duration + ${duration:-0} ))
     any=1
-    lines+=("    ${symbol} ${suite} – $(format_elapsed_time "${duration:-0}")")
+    local line="    ${symbol} ${suite} – $(format_elapsed_time "${duration:-0}")"
+    if [[ -n "$log_path" ]]; then
+      line+=" – log: ${log_path}"
+    fi
+    lines+=("$line")
   done
   (( any == 0 )) && return
   local group_total
@@ -1331,7 +1339,7 @@ print_ui_suite_results_summary() {
   local computed_present=0
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped <<< "$entry"
+    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped _ <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
     computed_present=1
     (( computed_total += suite_total ))
@@ -1352,7 +1360,7 @@ print_ui_suite_results_summary() {
   fi
   local printed_header=0
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target suite duration status suite_total suite_failed suite_skipped <<< "$entry"
+    IFS='|' read -r suite_target suite duration status suite_total suite_failed suite_skipped log_path <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
     if (( printed_header == 0 )); then
       printf "  UI suite results: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
@@ -1362,8 +1370,12 @@ print_ui_suite_results_summary() {
     local passed=$(( ${suite_total:-0} - ${suite_failed:-0} - ${suite_skipped:-0} ))
     local suite_warn=0
     [[ "$status" == "warn" ]] && suite_warn=1
-    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
+    printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
       "$suite" "${suite_total:-0}" "${passed:-0}" "${suite_failed:-0}" "${suite_skipped:-0}" "$suite_warn"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
   done
 }
 
@@ -1371,7 +1383,7 @@ print_ui_suite_breakdown() {
   local printed_header=0
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target suite duration status total failed skipped <<< "$entry"
+    IFS='|' read -r suite_target suite duration status total failed skipped log_path <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
     if (( printed_header == 0 )); then
       printf "  UI suites:\n"
@@ -1380,8 +1392,12 @@ print_ui_suite_breakdown() {
     local symbol
     symbol=$(status_symbol "$status")
     local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
-    printf "    %s %s – total %s (✅ %s, ❌ %s, ⏭️ %s)\n" \
+    printf "    %s %s – total %s (✅ %s, ❌ %s, ⏭️ %s)" \
       "$symbol" "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
+    if [[ -n "$log_path" ]]; then
+      printf " – log: %s" "$log_path"
+    fi
+    printf "\n"
   done
 }
 
@@ -1390,7 +1406,7 @@ aggregate_suite_counts() {
   local total=0 failed=0 skipped=0
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped <<< "$entry"
+    IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped _ <<< "$entry"
     [[ "$suite_target" == "$target" ]] || continue
     (( total += suite_total ))
     (( failed += suite_failed ))
@@ -1662,7 +1678,7 @@ print_test_suite_timing() {
   fi
   local entry
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
-    IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
+    IFS='|' read -r target suite duration status total failed skipped log_path <<< "$entry"
     local symbol
     symbol=$(status_symbol "$status")
     printf '  %s %s › %s – %s (%s tests)\n' \
@@ -1682,7 +1698,7 @@ append_suite_timing_to_logs() {
       printf '\nTest Suite Timing\n--------------------------------\n'
       local entry
       for entry in "${entries[@]}"; do
-        IFS='|' read -r target suite duration status total failed skipped <<< "$entry"
+        IFS='|' read -r target suite duration status total failed skipped log_path <<< "$entry"
         local symbol
         symbol=$(status_symbol "$status")
         printf '  %s %s › %s – %s (%s tests)\n' \
@@ -1789,7 +1805,7 @@ PY
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         IFS='|' read -r suite duration status total failed skipped <<< "$line"
-        TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}")
+        TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}|${log_path}")
       done <<< "$output"
       return
     fi
@@ -1826,7 +1842,7 @@ PY
     ); then
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        TEST_SUITE_TIMING_ENTRIES+=("$line")
+        TEST_SUITE_TIMING_ENTRIES+=("${line}|${log_path}")
       done <<< "$log_output"
     fi
   fi
