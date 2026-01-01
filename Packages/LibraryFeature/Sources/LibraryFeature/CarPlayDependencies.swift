@@ -169,6 +169,11 @@ public enum CarPlayDependencyRegistry {
         }
         return nil
       },
+      isLibraryReady: {
+        // Consider library ready if we have at least one podcast loaded
+        // This prevents clearing resume state during startup race condition
+        !podcastManager.all().isEmpty
+      },
       alertPresenter: alertPresenter
     )
 

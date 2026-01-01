@@ -594,6 +594,10 @@ import SwiftUI
       ]
 
       isLoading = false
+
+      // Retry playback restoration now that library is loaded
+      // This handles the race condition where initial restoration ran before data was available
+      await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
     }
   }
 
