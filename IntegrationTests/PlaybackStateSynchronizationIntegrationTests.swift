@@ -83,11 +83,11 @@
       let testEpisode = self.testEpisode!
       let ticker = self.ticker!
       let settingsRepository = self.settingsRepository!
-      let isLibraryReady = { [weak self] in self?.libraryIsReady ?? true }
 
       let (service, coord, miniVM, expandedVM, presenter) = await MainActor.run {
         let service = StubEpisodePlayer(initialEpisode: testEpisode, ticker: ticker)
         let presenter = PlaybackAlertPresenter()
+        let isLibraryReady = { [weak self] in self?.libraryIsReady ?? true }
 
         // Setup coordinator
         let coord = PlaybackStateCoordinator(
