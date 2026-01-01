@@ -108,6 +108,52 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
   }
 
   @MainActor
+  func testMiniPlayerKeepsTabBarTappable() throws {
+    launchApp()
+    navigateToLibraryTab()
+    navigateToPodcast()
+    XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+
+    let miniPlayer = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
+      "Mini player should appear after quick play"
+    )
+
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    XCTAssertTrue(
+      waitForElement(tabBar, timeout: adaptiveShortTimeout, description: "Main tab bar"),
+      "Tab bar should be visible with mini player active"
+    )
+
+    func assertTabSelectable(_ tabName: String) {
+      let tab = tabBar.buttons.matching(identifier: tabName).firstMatch
+      XCTAssertTrue(
+        waitForElementToBeHittable(tab, timeout: adaptiveShortTimeout, description: "\(tabName) tab"),
+        "\(tabName) tab should exist"
+      )
+      XCTAssertTrue(tab.isHittable, "\(tabName) tab should remain tappable with mini player visible")
+      tab.tap()
+
+      let selectedExpectation = XCTNSPredicateExpectation(
+        predicate: NSPredicate(format: "isSelected == true"),
+        object: tab
+      )
+      selectedExpectation.expectationDescription = "Wait for \(tabName) tab selection"
+      XCTAssertEqual(
+        XCTWaiter.wait(for: [selectedExpectation], timeout: adaptiveShortTimeout),
+        .completed,
+        "\(tabName) tab should be selectable while mini player is active"
+      )
+    }
+
+    assertTabSelectable("Discover")
+    assertTabSelectable("Player")
+    assertTabSelectable("Settings")
+  }
+
+  @MainActor
   func testMiniPlayerPersistsAcrossNavigation() throws {
     launchApp()
     navigateToLibraryTab()

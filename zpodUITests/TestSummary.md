@@ -55,12 +55,14 @@ This document outlines the UI testing approach for the main zpod application.
 **Specifications Covered**:
 
 - `Issues/03.1.1.1-mini-player-foundation.md` - persistence across navigation and accessibility labels
+- `Issues/03.2-mini-player-bottom-overflow.md` - tab bar remains tappable with mini-player active
 
 **Test Areas**:
 
 - Mini-player persistence across tab switches and navigation back/forward
 - Quick play from Library triggers mini-player without leaving the list
 - VoiceOver labels for mini-player transport controls and metadata
+- Tab bar buttons remain tappable while the mini-player is visible
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
