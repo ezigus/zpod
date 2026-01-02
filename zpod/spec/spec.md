@@ -374,6 +374,31 @@ This document outlines the key features and functionalities of the Podcast Addic
 - **When:** Views lock screen/notification bar.
 - **Then:** Playback controls are available.
 
+#### Accessing the Mini-Player Pill Handle
+- **Given:** The app is launched on any tab.
+- **When:** The main UI renders.
+- **Then:** A minimal pill handle is visible above the tab bar.
+- **And:** The pill handle does not block tab bar taps or primary content.
+
+#### Expanding the Mini-Player
+- **Given:** The pill handle is visible.
+- **When:** Swipes up on the pill handle or taps it.
+- **Then:** The mini-player expands above the tab bar with playback controls.
+- **And:** If no episode is active, a neutral empty state is shown with a secondary path to the full player.
+- **And:** The expanded mini-player increases the bottom inset so content is pushed up.
+
+#### Hiding the Mini-Player
+- **Given:** The mini-player is expanded.
+- **When:** Swipes down or taps "Hide mini-player".
+- **Then:** The mini-player collapses back to the pill handle.
+- **And:** Playback continues uninterrupted if audio is active.
+
+#### Opening the Full Player from the Player Tab
+- **Given:** The user selects the "Player" tab.
+- **When:** The tab is displayed.
+- **Then:** The full player interface is shown (no duplicate simplified player).
+- **And:** If nothing is playing, the full player shows a neutral empty state.
+
 #### Utilizing Android Auto Integration
 - **Given:** Connected to Android Auto vehicle.
 - **When:** Accesses Podcast Addict via car interface.
