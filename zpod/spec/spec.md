@@ -374,15 +374,15 @@ This document outlines the key features and functionalities of the Podcast Addic
 - **When:** Views lock screen/notification bar.
 - **Then:** Playback controls are available.
 
-#### Accessing the Mini-Player Pill
+#### Accessing the Mini-Player Pill Handle
 - **Given:** The app is launched on any tab.
 - **When:** The main UI renders.
-- **Then:** A minimal mini-player pill is visible above the tab bar.
-- **And:** The pill does not block tab bar taps or primary content.
+- **Then:** A minimal pill handle is visible above the tab bar.
+- **And:** The pill handle does not block tab bar taps or primary content.
 
 #### Expanding the Mini-Player
-- **Given:** The mini-player pill is visible.
-- **When:** Swipes up on the pill or taps it.
+- **Given:** The pill handle is visible.
+- **When:** Swipes up on the pill handle or taps it.
 - **Then:** The mini-player expands above the tab bar with playback controls.
 - **And:** If no episode is active, a neutral empty state is shown with a secondary path to the full player.
 - **And:** The expanded mini-player increases the bottom inset so content is pushed up.
@@ -390,7 +390,7 @@ This document outlines the key features and functionalities of the Podcast Addic
 #### Hiding the Mini-Player
 - **Given:** The mini-player is expanded.
 - **When:** Swipes down or taps "Hide mini-player".
-- **Then:** The mini-player collapses back to the pill.
+- **Then:** The mini-player collapses back to the pill handle.
 - **And:** Playback continues uninterrupted if audio is active.
 
 #### Opening the Full Player from the Player Tab
