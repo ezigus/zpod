@@ -8,6 +8,7 @@
 import CombineSupport
 import CoreModels
 import Foundation
+import OSLog
 import PlaybackEngine
 import SharedUtilities
 
@@ -15,6 +16,11 @@ import SharedUtilities
 @MainActor
 public final class ExpandedPlayerViewModel: ObservableObject {
   // MARK: - Published State
+
+  private static let logger = Logger(
+    subsystem: "us.zig.zpod",
+    category: "ExpandedPlayerViewModel"
+  )
 
   @Published public private(set) var episode: Episode?
   @Published public private(set) var isPlaying: Bool = false
@@ -123,36 +129,59 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     // Don't update position while user is actively scrubbing
     guard !isScrubbing else { return }
 
+    let previousPosition = currentPosition
+
     switch state {
     case .idle(let episode):
       self.episode = episode
       self.isPlaying = false
       self.currentPosition = 0
       self.duration = 0
+      logPositionResetIfNeeded(previous: previousPosition, next: 0, state: "idle")
 
     case .playing(let episode, let position, let duration):
       self.episode = episode
       self.isPlaying = true
       self.currentPosition = position
       self.duration = duration
+      logPositionResetIfNeeded(previous: previousPosition, next: position, state: "playing")
 
     case .paused(let episode, let position, let duration):
       self.episode = episode
       self.isPlaying = false
       self.currentPosition = position
       self.duration = duration
+      logPositionResetIfNeeded(previous: previousPosition, next: position, state: "paused")
 
     case .finished(let episode, let duration):
       self.episode = episode
       self.isPlaying = false
       self.currentPosition = duration
       self.duration = duration
+      logPositionResetIfNeeded(previous: previousPosition, next: duration, state: "finished")
     case .failed(let episode, let position, let duration, _):
       self.episode = episode
       self.isPlaying = false
       self.currentPosition = position
       self.duration = duration
+      logPositionResetIfNeeded(previous: previousPosition, next: position, state: "failed")
     }
+  }
+
+  private var isPositionDebugEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_POSITION_DEBUG"] == "1"
+  }
+
+  private func logPositionResetIfNeeded(
+    previous: TimeInterval,
+    next: TimeInterval,
+    state: String
+  ) {
+    guard isPositionDebugEnabled else { return }
+    guard previous > 5, next + 1 < previous else { return }
+    Self.logger.info(
+      "position jumped backward state=\(state, privacy: .public) previous=\(previous, privacy: .public) next=\(next, privacy: .public)"
+    )
   }
 
   private func formatTime(_ interval: TimeInterval) -> String {

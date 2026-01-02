@@ -27,6 +27,7 @@ REQUESTED_SYNTAX=0
 REQUEST_TESTPLAN=0
 REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
+REQUESTED_OSLOG_DEBUG=0
 SELF_CHECK=0
 SCHEME_RESOLVED=0
 SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
@@ -201,6 +202,23 @@ record_phase_timing() {
   local elapsed="$3"
   local status="$4"
   PHASE_DURATION_ENTRIES+=("${category}|${name}|${elapsed}|${status}")
+}
+
+log_oslog_debug() {
+  local target="$1"
+  if [[ $REQUESTED_OSLOG_DEBUG -ne 1 ]]; then
+    return
+  fi
+  if ! command_exists log; then
+    log_warn "OSLog debug requested, but 'log' command is unavailable"
+    return
+  fi
+  local last="${ZPOD_OSLOG_LAST:-5m}"
+  local predicate="${ZPOD_OSLOG_PREDICATE:-subsystem == \"us.zig.zpod\" && (category == \"PlaybackStateCoordinator\" || category == \"ExpandedPlayerViewModel\" || category == \"PlaybackPositionUITests\")}"
+  log_section "OSLog debug (${target})"
+  log_info "OSLog window: ${last}"
+  log_info "OSLog predicate: ${predicate}"
+  log show --last "$last" --style compact --predicate "$predicate" --info --debug
 }
 
 category_in() {
@@ -1960,6 +1978,7 @@ Options:
   -s                Run Swift syntax verification only (no build or tests)
   -l                Run Swift lint checks (swiftlint/swift-format if available)
   -p [suite]        Verify test plan coverage (optional suite: default, AppSmokeTests, zpodUITests, IntegrationTests)
+  --oslog-debug     Enable OSLog debug output and emit a post-test log summary
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
@@ -2468,6 +2487,7 @@ test_app_target() {
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
+  log_oslog_debug "$target"
 
   # Parse test results from log file as fallback
   local log_total=0 log_passed=0 log_failed=0
@@ -3166,6 +3186,8 @@ while [[ $# -gt 0 ]]; do
         REQUEST_TESTPLAN_SUITE=""
         shift
       fi;;
+    --oslog-debug)
+      REQUESTED_OSLOG_DEBUG=1; shift;;
     --scheme)
       SCHEME="$2"; shift 2;;
     --workspace)
@@ -3193,6 +3215,12 @@ while [[ $# -gt 0 ]]; do
       exit_with_summary 1;;
   esac
 done
+
+if [[ $REQUESTED_OSLOG_DEBUG -eq 1 ]]; then
+  export OS_ACTIVITY_DT_MODE=YES
+  export OS_LOG_DEFAULT_LEVEL=debug
+  log_info "OSLog debug enabled (OS_ACTIVITY_DT_MODE=YES, OS_LOG_DEFAULT_LEVEL=debug)"
+fi
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
   if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 ]]; then
