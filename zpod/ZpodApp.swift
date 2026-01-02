@@ -14,8 +14,8 @@ import UIKit
   import LibraryFeature
   // TECHNICAL DEBT: Using InMemoryPodcastManager from zpod/Controllers/PodcastManager.swift
   // This is temporary scaffolding until persistent PodcastRepository is implemented.
-  // See Issue #288 for persistent implementation plan.
-  // TODO: [Issue #289] Migrate to PodcastRepository (Persistence package)
+  // See Issue 27.1.1 for persistent implementation plan.
+  // TODO: [Issue 27.1.2] Migrate to PodcastRepository (Persistence package)
 #endif
 
 // Notification posted when app initializes - debug tools can listen for this
