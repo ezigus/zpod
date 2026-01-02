@@ -102,6 +102,35 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
   }
 
+  // MARK: - Test Utilities
+
+  /// Resets all episode playback positions to 0 across all podcasts.
+  /// Used by UI tests to ensure clean state between test runs.
+  public func resetAllPlaybackPositions() {
+    for (id, podcast) in storage {
+      let resetEpisodes = podcast.episodes.map { episode in
+        episode.withPlaybackPosition(0)
+      }
+      let updatedPodcast = Podcast(
+        id: podcast.id,
+        title: podcast.title,
+        author: podcast.author,
+        description: podcast.description,
+        artworkURL: podcast.artworkURL,
+        feedURL: podcast.feedURL,
+        categories: podcast.categories,
+        episodes: resetEpisodes,
+        isSubscribed: podcast.isSubscribed,
+        dateAdded: podcast.dateAdded,
+        folderId: podcast.folderId,
+        tagIds: podcast.tagIds
+      )
+      storage[id] = updatedPodcast
+    }
+  }
+
+  // MARK: - Private Helpers
+
   private func persistSiriSnapshots() {
     guard #available(iOS 14.0, *) else { return }
 
