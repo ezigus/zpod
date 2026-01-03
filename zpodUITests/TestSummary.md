@@ -64,6 +64,36 @@ This document outlines the UI testing approach for the main zpod application.
 - VoiceOver labels for mini-player transport controls and metadata
 - Tab bar buttons remain tappable while the mini-player is visible
 
+### Playback Position UI Tests (`PlaybackPositionUITests.swift`)
+
+**Purpose**: Validate position ticking engine integration with UI layer
+
+**Specifications Covered**:
+
+- `spec/playback.md` - Timeline Advancement During Playback
+- `spec/playback.md` - Pausing Playback
+- `spec/playback.md` - Resuming Playback
+- `spec/playback.md` - Seeking to Position
+- `Issues/03.3.1-position-ticking-engine.md` - Position ticker acceptance criteria
+
+**Test Areas**:
+
+- Position advancement during playback (ticker integration)
+- Pause/resume position persistence
+- Seeking updates position immediately
+- Playback speed affects position advancement
+- Episode finish detection at duration
+
+**Test Coverage** (5 tests):
+
+1. `testExpandedPlayerProgressAdvancesDuringPlayback` - Verifies ticker advances position over time
+2. `testPausingStopsProgressAdvancement` - Confirms position freezes when paused
+3. `testResumingContinuesProgressAdvancement` - Validates position resumes from saved
+4. `testSeekingUpdatesPositionImmediately` - Ensures seek doesn't wait for next tick
+5. `testPlaybackSpeedAffectsProgressRate` - Confirms speed scaling works (0.8x-5.0x)
+
+**Note**: These tests validate the UI-layer integration of Issue 03.3.1 (Position Ticking Engine). The engine-layer unit tests (19 tests) are in `Packages/PlaybackEngine/Tests/EnhancedEpisodePlayerTickerTests.swift`.
+
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
 **Purpose**: Verify search, browse, and discovery interface functionality
