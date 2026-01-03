@@ -168,8 +168,10 @@ public final class AVPlayerPlaybackEngine {
             case .failed:
                 let error = item.error
                 Logger.error("AVPlayer failed: \(error?.localizedDescription ?? "Unknown error")")
-                Task { @MainActor in
-                    self.onError?(.streamFailed)
+                // KVO callbacks can fire on background threads. Since this class is @MainActor
+                // and onError callback may access UI, we must dispatch to main actor.
+                Task { @MainActor [weak self] in
+                    self?.onError?(.streamFailed)
                 }
                 
             case .readyToPlay:
