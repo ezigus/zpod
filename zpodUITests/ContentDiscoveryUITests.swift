@@ -24,6 +24,10 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   }
 
   override func tearDownWithError() throws {
+    // Clear search history to ensure test isolation
+    // This prevents state leakage between tests
+    UserDefaults.standard.removeObject(forKey: "SearchHistory")
+
     app = nil
   }
 
@@ -141,21 +145,21 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
   private func rssURLField(in app: XCUIApplication) -> XCUIElement {
     let identifierField = app.textFields.matching(identifier: "rss-url-field").firstMatch
-    if identifierField.waitForExistence(timeout: 2) {
+    if identifierField.waitForExistence(timeout: adaptiveShortTimeout) {
       return identifierField
     }
 
     let urlPlaceholderField = app.textFields.matching(
       NSPredicate(format: "placeholderValue CONTAINS[cd] 'https://'")
     ).firstMatch
-    if urlPlaceholderField.waitForExistence(timeout: 2) {
+    if urlPlaceholderField.waitForExistence(timeout: adaptiveShortTimeout) {
       return urlPlaceholderField
     }
 
     let rssPlaceholderField = app.textFields.matching(
       NSPredicate(format: "placeholderValue CONTAINS[cd] 'rss'")
     ).firstMatch
-    if rssPlaceholderField.waitForExistence(timeout: 2) {
+    if rssPlaceholderField.waitForExistence(timeout: adaptiveShortTimeout) {
       return rssPlaceholderField
     }
 
@@ -355,8 +359,6 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           timeout: adaptiveShortTimeout
         )
       else {
-        let tree = app.debugDescription
-        print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
         XCTFail("Discovery options dialog should appear after tapping the toolbar button")
         return
       }
@@ -369,8 +371,6 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           fallbackLabel: "Add RSS Feed"
         )
       else {
-        let tree = app.debugDescription
-        print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
         XCTFail("Add RSS Feed option should be available in discovery dialog")
         return
       }
@@ -460,8 +460,6 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           timeout: adaptiveShortTimeout
         )
       else {
-        let tree = app.debugDescription
-        print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
         XCTFail("Discovery options dialog should appear before selecting RSS feed")
         return
       }
@@ -474,8 +472,6 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
           fallbackLabel: "Add RSS Feed"
         )
       else {
-        let tree = app.debugDescription
-        print("[DEBUG] Discovery dialog missing. Accessibility tree:\n\(tree)")
         XCTFail("Add RSS Feed option should be available in discovery dialog")
         return
       }
@@ -579,6 +575,19 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
     )
     XCTAssertTrue(searchField.exists, "Should be on Discover tab")
 
+    // Populate search history by performing a search
+    // This ensures the Search History button is enabled
+    searchField.tap()
+    searchField.typeText("test query")
+    // Submit the search to add it to history
+    if app.keyboards.buttons["Search"].exists {
+      app.keyboards.buttons["Search"].tap()
+    } else {
+      searchField.typeText("\n")
+    }
+    // Brief wait for history to be recorded
+    _ = searchField.waitForExistence(timeout: 1)
+
     // Find the options button using multiple strategies
     var optionsButton: XCUIElement?
 
@@ -608,16 +617,29 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
       let searchHistoryOption = app.buttons.matching(
         identifier: "discovery-options-menu.search-history"
       ).firstMatch
-      if searchHistoryOption.waitForExistence(timeout: 2.0) {
+      if searchHistoryOption.waitForExistence(timeout: adaptiveShortTimeout) {
+        // Verify button is enabled before tapping
+        guard searchHistoryOption.isEnabled else {
+          XCTFail("Search History button is disabled - history was not populated")
+          return
+        }
         // When: I select "Search History"
         searchHistoryOption.tap()
 
         // Then: Search history sheet should appear
-        // Wait for the specific "Search History List" element to appear
-        let searchHistoryList = app.otherElements.matching(identifier: "Search History List").firstMatch
+        // First verify the sheet container appeared (more reliable than List element)
+        let searchHistorySheet = app.otherElements.matching(identifier: "Search History Sheet").firstMatch
         XCTAssertTrue(
-          searchHistoryList.waitForExistence(timeout: adaptiveShortTimeout),
-          "Search history sheet should appear with Search History List")
+          searchHistorySheet.waitForExistence(timeout: adaptiveShortTimeout),
+          "Search history sheet should appear after selecting Search History option"
+        )
+
+        // Verify the Done button is accessible (confirms sheet is interactive)
+        let doneButton = app.buttons.matching(identifier: "Search History Done").firstMatch
+        XCTAssertTrue(
+          doneButton.waitForExistence(timeout: 2),
+          "Done button should be accessible in search history sheet"
+        )
       } else {
         XCTFail("Search History option not found in menu"); return
       }
