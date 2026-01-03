@@ -154,6 +154,13 @@
 ### Episode Badges and Indicators
 - Visual indicators for downloaded, new, in progress, played/unplayed episodes in lists.
 
+### Episode List Inline Actions
+- **Given:** Viewing a podcast's episode list.
+- **When:** An episode row is visible.
+- **Then:** The row shows an inline action cluster with Play/Pause, Favorite (heart), and Bookmark/Tag controls.
+- **And:** The Play control reflects state (Play icon when idle, Pause icon when playing that episode).
+- **And:** Favorite and Bookmark controls reflect state and expose accessibility labels with current state.
+
 ### Customizable Swipe Actions
 - Users can configure swipe actions in episode and podcast lists (e.g., swipe to delete, archive, mark as played).
 
