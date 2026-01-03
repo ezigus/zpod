@@ -71,6 +71,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   ///   Position updates come from actual playback, audio plays through device speakers/headphones.
   ///
   /// When both are nil, defaults to production mode with TimerTicker (simulated playback).
+  #if os(iOS)
   public init(
     playbackSettings: PlaybackSettings = PlaybackSettings(),
     stateManager: EpisodeStateManager? = nil,
@@ -83,15 +84,30 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     self.chapterResolver = chapterResolver
     self.playbackSpeed = playbackSettings.defaultSpeed
     self.tickerFactory = { ticker ?? TimerTicker() }
-    
-    #if os(iOS)
-      self.audioEngine = audioEngine
-    #endif
+    self.audioEngine = audioEngine
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
     #endif
   }
+  #else
+  public init(
+    playbackSettings: PlaybackSettings = PlaybackSettings(),
+    stateManager: EpisodeStateManager? = nil,
+    chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
+    ticker: Ticker? = nil
+  ) {
+    self.playbackSettings = playbackSettings
+    self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
+    self.chapterResolver = chapterResolver
+    self.playbackSpeed = playbackSettings.defaultSpeed
+    self.tickerFactory = { ticker ?? TimerTicker() }
+
+    #if canImport(Combine)
+      self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
+    #endif
+  }
+  #endif
 
   deinit {
     activeTicker?.cancel()  // Ensure no lingering timer
