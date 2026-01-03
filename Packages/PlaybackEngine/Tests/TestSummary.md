@@ -146,9 +146,21 @@ XCTAssertEqual(player.currentPosition, 1.0, accuracy: 0.01)
 
 ## Coverage Gaps
 
-### Known Gaps (Not in Spec)
-- UI integration tests (mini-player position updates)
-- Now Playing info updates
+### UI Integration (Deferred to Issues 03.3.5 & 03.3.7)
+
+**Partial Coverage in zpodUITests/PlaybackPositionUITests.swift** (5 tests):
+- ✅ Position advancement during playback
+- ✅ Pause/resume position persistence
+- ✅ Seeking updates position immediately
+- ✅ Playback speed affects position
+- ✅ Episode finish detection
+
+**Still Deferred**:
+- Mini-player timeline visual updates → Issue 03.3.7 (Player Tab Playback Wiring)
+- Expanded player scrubber visual updates → Issue 03.3.7
+- Now Playing lock screen updates → Issue 03.3.5 (MPNowPlayingInfoCenter Sync)
+
+### Known Gaps (Low Priority)
 - Persistence throttling validation (tested indirectly)
 - Run loop mode validation (requires UI scrolling simulation)
 
