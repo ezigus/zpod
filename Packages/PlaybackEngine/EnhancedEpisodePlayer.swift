@@ -132,7 +132,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     
     #if os(iOS)
       // Check if audio engine is available and episode has audio URL
-      if let audioEngine = audioEngine, let audioURL = episode.audioURL {
+      if let _ = audioEngine, let audioURL = episode.audioURL {
         // Production mode: Use actual audio playback
         startAudioEnginePlayback(url: audioURL)
       } else if audioEngine != nil && episode.audioURL == nil {

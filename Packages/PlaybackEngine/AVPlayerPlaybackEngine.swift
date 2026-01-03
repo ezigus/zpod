@@ -182,7 +182,10 @@ public final class AVPlayerPlaybackEngine {
         ) { [weak self] time in
             guard let self = self else { return }
             let seconds = CMTimeGetSeconds(time)
-            self.onPositionUpdate?(seconds)
+            // Explicitly dispatch to main actor for callback
+            Task { @MainActor [weak self] in
+                self?.onPositionUpdate?(seconds)
+            }
         }
     }
     
@@ -195,12 +198,13 @@ public final class AVPlayerPlaybackEngine {
             switch item.status {
             case .failed:
                 let error = item.error
-                let urlString = self.currentURL?.absoluteString ?? "unknown"
-                Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
                 // KVO callbacks can fire on background threads. Since this class is @MainActor
                 // and onError callback may access UI, we must dispatch to main actor.
                 Task { @MainActor [weak self] in
-                    self?.onError?(.streamFailed)
+                    guard let self = self else { return }
+                    let urlString = self.currentURL?.absoluteString ?? "unknown"
+                    Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
+                    self.onError?(.streamFailed)
                 }
                 
             case .readyToPlay:
@@ -225,7 +229,10 @@ public final class AVPlayerPlaybackEngine {
         ) { [weak self] _ in
             guard let self = self else { return }
             Logger.debug("Playback finished")
-            self.onPlaybackFinished?()
+            // Explicitly dispatch to main actor for callback
+            Task { @MainActor [weak self] in
+                self?.onPlaybackFinished?()
+            }
         }
     }
     
