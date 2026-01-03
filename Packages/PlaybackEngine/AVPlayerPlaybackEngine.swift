@@ -53,8 +53,15 @@ public final class AVPlayerPlaybackEngine {
     private var timeObserver: Any?
     private var statusObserver: NSKeyValueObservation?
     private var didFinishObserver: NSObjectProtocol?
+    private var currentURL: URL?
     
     private let timeObserverInterval: TimeInterval = 0.5
+    
+    /// Seek tolerance controls precision vs performance tradeoff.
+    /// - `.zero`: Maximum precision (exact frame), higher CPU usage - best for podcasts
+    /// - `.positiveInfinity`: Fast seeking, lower precision - best for music/video
+    /// Default is .zero for podcast use case where exact position matters for chapter boundaries.
+    public var seekTolerance: CMTime = .zero
     
     // MARK: - Initialization
     
@@ -76,6 +83,9 @@ public final class AVPlayerPlaybackEngine {
         // Clean up any existing playback
         cleanup()
         
+        // Store URL for error logging
+        currentURL = url
+        
         // Activate audio session
         activateAudioSession()
         
@@ -95,7 +105,7 @@ public final class AVPlayerPlaybackEngine {
         // Seek to start position if non-zero
         if startPosition > 0 {
             let time = CMTime(seconds: startPosition, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-            player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+            player?.seek(to: time, toleranceBefore: seekTolerance, toleranceAfter: seekTolerance)
         }
         
         // Set playback rate and start playing
@@ -111,11 +121,12 @@ public final class AVPlayerPlaybackEngine {
     /// Seek to a specific position.
     ///
     /// - Parameter position: Target position in seconds
+    /// - Note: Uses `seekTolerance` property to control precision vs performance
     public func seek(to position: TimeInterval) {
         guard let player = player else { return }
         
         let time = CMTime(seconds: position, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        player.seek(to: time, toleranceBefore: seekTolerance, toleranceAfter: seekTolerance)
     }
     
     /// Update playback rate (speed).
@@ -132,6 +143,12 @@ public final class AVPlayerPlaybackEngine {
     
     // MARK: - Private Methods
     
+    /// Activates the audio session for playback.
+    ///
+    /// **Note**: This method only activates the session. Audio session category and mode
+    /// are configured by `SystemMediaCoordinator` at app launch with `.playback` category
+    /// and `.spokenAudio` mode. This design centralizes audio session configuration and
+    /// prevents conflicts between multiple audio components.
     private func activateAudioSession() {
         do {
             try AVAudioSession.sharedInstance().setActive(true)
@@ -167,7 +184,8 @@ public final class AVPlayerPlaybackEngine {
             switch item.status {
             case .failed:
                 let error = item.error
-                Logger.error("AVPlayer failed: \(error?.localizedDescription ?? "Unknown error")")
+                let urlString = self.currentURL?.absoluteString ?? "unknown"
+                Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
                 // KVO callbacks can fire on background threads. Since this class is @MainActor
                 // and onError callback may access UI, we must dispatch to main actor.
                 Task { @MainActor [weak self] in
@@ -221,6 +239,7 @@ public final class AVPlayerPlaybackEngine {
         player?.pause()
         player = nil
         playerItem = nil
+        currentURL = nil
     }
 }
 #endif

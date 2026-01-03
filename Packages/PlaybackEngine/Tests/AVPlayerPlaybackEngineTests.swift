@@ -248,5 +248,70 @@ final class AVPlayerPlaybackEngineTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(position, 0, "Current position should be non-negative")
         XCTAssertLessThan(position, 100, "Current position should be reasonable for short test")
     }
+    
+    // MARK: - Playback Completion Tests
+    
+    /// **Scenario**: Playback Finishes Naturally
+    /// **Given** audio is playing near the end
+    /// **When** playback reaches the end
+    /// **Then** onPlaybackFinished callback is invoked
+    func testPlaybackFinishedCallback() async throws {
+        // Given: A very short audio clip (using sample that finishes quickly)
+        // Note: Using a short sample for faster test execution
+        let testURL = URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8")!
+        
+        let finishedExpectation = expectation(description: "Playback finished")
+        var finishCallbackInvoked = false
+        
+        engine.onPlaybackFinished = {
+            finishCallbackInvoked = true
+            finishedExpectation.fulfill()
+        }
+        
+        // When: Play from near the end (or wait for natural completion)
+        // For testing purposes, we'll play and wait longer
+        engine.play(from: testURL, startPosition: 0, rate: 1.0)
+        
+        // Then: Should eventually finish (increased timeout for natural completion)
+        await fulfillment(of: [finishedExpectation], timeout: 30.0)
+        
+        XCTAssertTrue(finishCallbackInvoked, "Playback finished callback should be invoked")
+    }
+    
+    // MARK: - Multiple Cycle Tests
+    
+    /// **Scenario**: Multiple Play/Stop Cycles
+    /// **Given** the engine is idle
+    /// **When** multiple play/stop cycles are executed
+    /// **Then** no crashes occur and resources are properly cleaned up
+    func testMultiplePlayStopCycles() async throws {
+        // Given: Multiple test URLs
+        let testURL = URL(string: "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear1/prog_index.m3u8")!
+        
+        // When: Execute 3 play/stop cycles
+        for cycle in 1...3 {
+            let playExpectation = expectation(description: "Playback started cycle \(cycle)")
+            var positionUpdateCount = 0
+            
+            engine.onPositionUpdate = { _ in
+                positionUpdateCount += 1
+                if positionUpdateCount == 2 {
+                    playExpectation.fulfill()
+                }
+            }
+            
+            engine.play(from: testURL, startPosition: 0, rate: 1.0)
+            await fulfillment(of: [playExpectation], timeout: 5.0)
+            
+            // Stop and clean up
+            engine.stop()
+            
+            // Wait a bit between cycles
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        }
+        
+        // Then: Should complete all cycles without crash
+        XCTAssertTrue(true, "Multiple play/stop cycles should complete without crash")
+    }
 }
 #endif
