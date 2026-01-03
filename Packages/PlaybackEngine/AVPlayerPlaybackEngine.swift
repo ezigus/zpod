@@ -68,7 +68,12 @@ public final class AVPlayerPlaybackEngine {
     public init() {}
     
     deinit {
-        cleanup()
+        // Cleanup must be called synchronously to ensure proper deallocation
+        // We use assumeIsolated to assert we're on the main actor (which should
+        // be true since @MainActor class instances are deallocated on main actor)
+        MainActor.assumeIsolated {
+            cleanupSync()
+        }
     }
     
     // MARK: - Public Methods
@@ -81,7 +86,7 @@ public final class AVPlayerPlaybackEngine {
     ///   - rate: Playback rate/speed (1.0 = normal, 2.0 = 2x speed)
     public func play(from url: URL, startPosition: TimeInterval = 0, rate: Float = 1.0) {
         // Clean up any existing playback
-        cleanup()
+        cleanupSync()
         
         // Store URL for error logging
         currentURL = url
@@ -137,8 +142,13 @@ public final class AVPlayerPlaybackEngine {
     }
     
     /// Stop playback and release all resources.
-    public func stop() {
-        cleanup()
+    /// 
+    /// This method is nonisolated to allow safe cleanup from deinit contexts.
+    /// Cleanup operations are dispatched to the main actor when needed.
+    nonisolated public func stop() {
+        Task { @MainActor in
+            cleanupSync()
+        }
     }
     
     // MARK: - Private Methods
@@ -218,7 +228,7 @@ public final class AVPlayerPlaybackEngine {
         }
     }
     
-    private func cleanup() {
+    private func cleanupSync() {
         // Remove time observer
         if let timeObserver = timeObserver {
             player?.removeTimeObserver(timeObserver)
