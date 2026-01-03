@@ -40,6 +40,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private let tickerFactory: () -> Ticker
   private var activeTicker: Ticker?
   private var lastPersistenceTime: TimeInterval = 0
+  
+  #if os(iOS)
+  private let audioEngine: AVPlayerPlaybackEngine?
+  #endif
 
   #if canImport(Combine)
     private let stateSubject: CurrentValueSubject<EpisodePlaybackState, Never>
@@ -54,33 +58,35 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   ///   - stateManager: Persists playback position and played state; defaults to in-memory storage.
   ///   - chapterResolver: Optional override to provide chapters for an episode.
   ///   - ticker: Optional ticker for deterministic testing; defaults to TimerTicker for production.
+  ///   - audioEngine: Optional AVPlayerPlaybackEngine for actual audio playback (iOS only).
   ///
-  /// ## Ticker Factory Behavior
+  /// ## Ticker vs Audio Engine
   ///
-  /// The ticker parameter controls position advancement during playback. The factory pattern
-  /// creates intentionally different behavior for tests vs production:
+  /// The player supports two modes of operation:
   ///
-  /// - **Production (ticker=nil)**: Creates a new `TimerTicker()` on each `startTicker()` call.
-  ///   This is correct because `pause()` invalidates the previous timer, and `resume()` needs
-  ///   a fresh timer instance.
+  /// - **Test Mode (ticker provided)**: Uses ticker for simulated position updates.
+  ///   Fast, deterministic, no audio hardware required.
   ///
-  /// - **Testing (ticker provided)**: Returns the same injected ticker instance on each call.
-  ///   This allows tests to control and observe tick behavior across play/pause cycles using
-  ///   a single `DeterministicTicker` instance.
+  /// - **Production Mode (audioEngine provided, iOS only)**: Uses AVPlayer for real audio streaming.
+  ///   Position updates come from actual playback, audio plays through device speakers/headphones.
   ///
-  /// This asymmetry is intentional and enables both correct production behavior and
-  /// deterministic test control.
+  /// When both are nil, defaults to production mode with TimerTicker (simulated playback).
   public init(
     playbackSettings: PlaybackSettings = PlaybackSettings(),
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
-    ticker: Ticker? = nil
+    ticker: Ticker? = nil,
+    audioEngine: AVPlayerPlaybackEngine? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
     self.chapterResolver = chapterResolver
     self.playbackSpeed = playbackSettings.defaultSpeed
     self.tickerFactory = { ticker ?? TimerTicker() }
+    
+    #if os(iOS)
+      self.audioEngine = audioEngine
+    #endif
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
@@ -89,6 +95,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   deinit {
     activeTicker?.cancel()  // Ensure no lingering timer
+    #if os(iOS)
+      audioEngine?.stop()  // Clean up audio resources
+    #endif
   }
 
   // MARK: - EpisodePlaybackService
@@ -104,13 +113,39 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     updateCurrentChapterIndex()
     persistPlaybackPosition()
     emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
-    startTicker()  // Start position advancement
+    
+    #if os(iOS)
+      // Check if audio engine is available and episode has audio URL
+      if let audioEngine = audioEngine, let audioURL = episode.audioURL {
+        // Production mode: Use actual audio playback
+        startAudioEnginePlayback(url: audioURL)
+      } else if audioEngine != nil && episode.audioURL == nil {
+        // Error: audio engine provided but no URL
+        failPlayback(error: .episodeUnavailable)
+      } else {
+        // Fallback: Use ticker for simulated playback
+        startTicker()
+      }
+    #else
+      // Non-iOS: Always use ticker
+      startTicker()
+    #endif
   }
 
   public func pause() {
     guard currentEpisode != nil else { return }
     isPlaying = false
-    stopTicker()  // Stop position advancement
+    
+    #if os(iOS)
+      if audioEngine != nil {
+        audioEngine?.pause()
+      } else {
+        stopTicker()  // Stop position advancement
+      }
+    #else
+      stopTicker()  // Stop position advancement
+    #endif
+    
     let snapshot = persistPlaybackPosition()
     lastPersistenceTime = 0  // Reset throttle so next tick after resume can persist immediately
     emitState(.paused(snapshot, position: currentPosition, duration: currentDuration))
@@ -119,14 +154,30 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   public func seek(to position: TimeInterval) {
     guard currentDuration >= 0 else { return }
 
-    // Stop ticker temporarily if playing
+    // Stop ticker or audio engine temporarily if playing
     let wasPlaying = isPlaying
     if wasPlaying {
-      stopTicker()
+      #if os(iOS)
+        if audioEngine != nil {
+          // Audio engine handles seeking internally
+        } else {
+          stopTicker()
+        }
+      #else
+        stopTicker()
+      #endif
     }
 
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
+    
+    #if os(iOS)
+      // If using audio engine, seek the player
+      if audioEngine != nil {
+        audioEngine?.seek(to: currentPosition)
+      }
+    #endif
+    
     let snapshot = persistPlaybackPosition()
     lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
 
@@ -138,10 +189,16 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
           ? .playing(snapshot, position: currentPosition, duration: currentDuration)
           : .paused(snapshot, position: currentPosition, duration: currentDuration))
 
-      // Restart ticker if was playing
-      if wasPlaying {
-        startTicker()
-      }
+      // Restart ticker if was playing (only if not using audio engine)
+      #if os(iOS)
+        if wasPlaying && audioEngine == nil {
+          startTicker()
+        }
+      #else
+        if wasPlaying {
+          startTicker()
+        }
+      #endif
     }
   }
 
@@ -177,6 +234,13 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   public func setPlaybackSpeed(_ speed: Float) {
     playbackSpeed = clampSpeed(speed)
+    
+    #if os(iOS)
+      // Update audio engine rate if using it
+      if audioEngine != nil {
+        audioEngine?.setRate(playbackSpeed)
+      }
+    #endif
 
     // Emit updated state if playing to notify subscribers of speed change
     if isPlaying {
@@ -372,6 +436,57 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
       stateSubject.send(state)
     #endif
   }
+  
+  // MARK: - Audio Engine Integration
+  
+  #if os(iOS)
+  /// Start playback using the audio engine
+  private func startAudioEnginePlayback(url: URL) {
+    guard let audioEngine = audioEngine else { return }
+    
+    // Set up callbacks
+    audioEngine.onPositionUpdate = { [weak self] position in
+      Task { @MainActor in
+        guard let self = self else { return }
+        self.handleAudioEnginePositionUpdate(position)
+      }
+    }
+    
+    audioEngine.onPlaybackFinished = { [weak self] in
+      Task { @MainActor in
+        guard let self = self else { return }
+        self.finishPlayback(markPlayed: true)
+      }
+    }
+    
+    audioEngine.onError = { [weak self] error in
+      Task { @MainActor in
+        guard let self = self else { return }
+        self.failPlayback(error: error)
+      }
+    }
+    
+    // Start playback
+    audioEngine.play(from: url, startPosition: currentPosition, rate: playbackSpeed)
+  }
+  
+  /// Handle position update from audio engine
+  private func handleAudioEnginePositionUpdate(_ position: TimeInterval) {
+    guard isPlaying else { return }
+    
+    currentPosition = position
+    updateCurrentChapterIndex()
+    
+    // Throttle persistence: only save every 5 seconds
+    if currentPosition - lastPersistenceTime >= Constants.persistenceInterval {
+      persistPlaybackPosition()
+      lastPersistenceTime = currentPosition
+    }
+    
+    // Emit updated state to all subscribers
+    emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+  }
+  #endif
 
   // MARK: - Ticker Management
 
