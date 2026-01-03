@@ -12,6 +12,10 @@ import UIKit
 #if canImport(LibraryFeature)
   import SwiftData
   import LibraryFeature
+  // TECHNICAL DEBT: Using InMemoryPodcastManager from zpod/Controllers/PodcastManager.swift
+  // This is temporary scaffolding until persistent PodcastRepository is implemented.
+  // See Issue 27.1.1 for persistent implementation plan.
+  // TODO: [Issue 27.1.2] Migrate to PodcastRepository (Persistence package)
 #endif
 
 // Notification posted when app initializes - debug tools can listen for this
@@ -26,6 +30,9 @@ struct ZpodApp: App {
     disableHardwareKeyboard()
     configureSiriSnapshots()
     configureCarPlayDependencies()
+
+    // Reset playback state for UI tests to ensure clean state between tests
+    resetPlaybackStateForUITests()
 
     // Force creation of debug overlay manager BEFORE notification is posted
     // This ensures the observer is registered when notification fires
@@ -96,6 +103,20 @@ struct ZpodApp: App {
     }
     #if canImport(LibraryFeature)
       .modelContainer(Self.sharedModelContainer)
+    #endif
+  }
+
+  private func resetPlaybackStateForUITests() {
+    // Only reset in UI test mode to avoid affecting production
+    let isUITesting =
+      ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
+
+    guard isUITesting else { return }
+
+    #if canImport(LibraryFeature)
+      // Reset all episode playback positions to ensure clean state between tests
+      Self.sharedPodcastManager.resetAllPlaybackPositions()
+      print("🧪 UI Test: Reset all episode playback positions to 0")
     #endif
   }
 

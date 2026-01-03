@@ -8,6 +8,7 @@
 
 import CoreModels
 import Foundation
+import OSLog
 import Persistence
 import PlaybackEngine
 import SharedUtilities
@@ -25,6 +26,11 @@ import SharedUtilities
 public final class PlaybackStateCoordinator {
 
   // MARK: - Properties
+
+  private static let logger = Logger(
+    subsystem: "us.zig.zpod",
+    category: "PlaybackStateCoordinator"
+  )
 
   private let playbackService: EpisodePlaybackService?
   private let settingsRepository: SettingsRepository
@@ -70,16 +76,30 @@ public final class PlaybackStateCoordinator {
 
   /// Attempt to restore playback from persisted state
   public func restorePlaybackIfNeeded() async {
+    logPositionDebug("restorePlaybackIfNeeded called")
+    if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1" {
+      logPositionDebug("UI test mode: clearing resume state and skipping restore")
+      await settingsRepository.clearPlaybackResumeState()
+      return
+    }
     guard let resumeState = await settingsRepository.loadPlaybackResumeState() else {
+      logPositionDebug("no resume state found")
       return
     }
 
     // Check if state is still valid (within 24 hours)
     guard resumeState.isValid else {
+      logPositionDebug(
+        "resume state invalid; clearing episodeId=\(resumeState.episodeId) position=\(resumeState.position) duration=\(resumeState.duration)"
+      )
       await settingsRepository.clearPlaybackResumeState()
       presentAlert(for: .resumeStateExpired)
       return
     }
+
+    logPositionDebug(
+      "resume state loaded episodeId=\(resumeState.episodeId) position=\(resumeState.position) duration=\(resumeState.duration) libraryReady=\(isLibraryReady())"
+    )
 
     // Look up the episode in the current library - do NOT use stored snapshot as fallback
     // This prevents stale/test data from persisting when the episode is no longer available
@@ -87,8 +107,16 @@ public final class PlaybackStateCoordinator {
       // Only clear state if library is confirmed loaded - prevents race condition
       // where state is cleared before podcasts finish loading at app startup
       if isLibraryReady() {
+        logPositionDebug(
+          "resume episode missing; clearing state episodeId=\(resumeState.episodeId)"
+        )
         await settingsRepository.clearPlaybackResumeState()
         // Don't show an alert for missing episodes - they may have been intentionally deleted
+      }
+      if !isLibraryReady() {
+        logPositionDebug(
+          "resume episode missing; deferring clear episodeId=\(resumeState.episodeId)"
+        )
       }
       // If library not ready, silently return without clearing - will retry after library loads
       return
@@ -108,6 +136,9 @@ public final class PlaybackStateCoordinator {
     )
 
     if let injector = playbackService as? EpisodePlaybackStateInjecting {
+      logPositionDebug(
+        "injecting resume state episodeId=\(resumeState.episodeId) position=\(resumeState.position) duration=\(resumeState.duration)"
+      )
       injector.injectPlaybackState(restoredState)
     }
   }
@@ -279,5 +310,14 @@ public final class PlaybackStateCoordinator {
         }
       }
     }
+  }
+
+  private var isPositionDebugEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_POSITION_DEBUG"] == "1"
+  }
+
+  private func logPositionDebug(_ message: String) {
+    guard isPositionDebugEnabled else { return }
+    Self.logger.info("\(message, privacy: .public)")
   }
 }

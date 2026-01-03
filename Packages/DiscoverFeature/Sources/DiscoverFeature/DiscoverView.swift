@@ -442,9 +442,11 @@ public struct DiscoverView: View {
                     Button("Done") {
                         optionsState.dismissHistorySheet()
                     }
+                    .accessibilityIdentifier("Search History Done")
                 }
             }
         }
+        .accessibilityIdentifier("Search History Sheet")
     }
 }
 

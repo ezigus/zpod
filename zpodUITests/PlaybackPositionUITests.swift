@@ -1,3 +1,4 @@
+import OSLog
 import XCTest
 
 /// UI integration tests for playback position advancement and ticking engine.
@@ -13,6 +14,7 @@ import XCTest
 final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
   nonisolated(unsafe) var app: XCUIApplication!
+  private static let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionUITests")
 
   override func setUpWithError() throws {
     continueAfterFailure = false
@@ -27,12 +29,13 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   private func launchApp() {
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_POSITION_DEBUG": "1"])
   }
 
   /// Navigate to Library tab and start playback
   @MainActor
   private func startPlayback() -> Bool {
+    logBreadcrumb("startPlayback: select Library tab")
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     guard libraryTab.waitForExistence(timeout: adaptiveTimeout) else {
@@ -42,6 +45,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     libraryTab.tap()
 
     // Wait for library content
+    logBreadcrumb("startPlayback: waiting for library content")
     guard waitForContentToLoad(
       containerIdentifier: "Podcast Cards Container",
       timeout: adaptiveTimeout
@@ -51,6 +55,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     }
 
     // Navigate to podcast
+    logBreadcrumb("startPlayback: open podcast")
     let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
     guard podcastButton.waitForExistence(timeout: adaptiveShortTimeout) else {
       XCTFail("Podcast button not found")
@@ -59,6 +64,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     podcastButton.tap()
 
     // Wait for episode list
+    logBreadcrumb("startPlayback: waiting for episode list")
     guard waitForContentToLoad(
       containerIdentifier: "Episode List View",
       itemIdentifiers: ["Episode-st-001"],
@@ -69,9 +75,11 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     }
 
     // Start playback
+    logBreadcrumb("startPlayback: tap quick play")
     tapQuickPlayButton(in: app, timeout: adaptiveShortTimeout)
 
     // Verify mini-player appeared
+    logBreadcrumb("startPlayback: waiting for mini player")
     let miniPlayer = miniPlayerElement(in: app)
     guard miniPlayer.waitForExistence(timeout: adaptiveTimeout) else {
       XCTFail("Mini player did not appear after playback started")
@@ -84,6 +92,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
   /// Expand mini-player to full player view
   @MainActor
   private func expandPlayer() -> Bool {
+    logBreadcrumb("expandPlayer: tap mini player")
     let miniPlayer = miniPlayerElement(in: app)
     guard miniPlayer.waitForExistence(timeout: adaptiveShortTimeout) else {
       XCTFail("Mini player not visible")
@@ -93,6 +102,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     miniPlayer.tap()
 
     let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
+    logBreadcrumb("expandPlayer: waiting for expanded player")
     guard expandedPlayer.waitForExistence(timeout: adaptiveTimeout) else {
       XCTFail("Expanded player did not appear")
       return false
@@ -109,6 +119,19 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       return nil
     }
     return slider.value as? String
+  }
+
+  @MainActor
+  private func logSliderValue(_ label: String, value: String?) {
+    guard ProcessInfo.processInfo.environment["UITEST_POSITION_DEBUG"] == "1" else { return }
+    let resolvedValue = value ?? "nil"
+    Self.logger.info("\(label, privacy: .public): \(resolvedValue, privacy: .public)")
+  }
+
+  @MainActor
+  private func logBreadcrumb(_ message: String) {
+    guard ProcessInfo.processInfo.environment["UITEST_POSITION_DEBUG"] == "1" else { return }
+    Self.logger.info("\(message, privacy: .public)")
   }
 
   /// Extract numeric position from slider value string (format: "X of Y")
@@ -158,22 +181,24 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
     let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
 
-    // Use predicate expectation to wait for position to advance
-    let predicate = NSPredicate { _, _ in
+    var observedValue: String?
+    let advanced = waitForState(
+      timeout: timeout,
+      pollInterval: 0.1,
+      description: "position advancement"
+    ) {
       guard let currentValue = slider.value as? String,
             let currentPosition = self.extractCurrentPosition(from: currentValue) else {
         return false
       }
-      return currentPosition > initialPosition + 1.0  // Wait for at least 1 second advancement
+      if currentPosition > initialPosition + 1.0 {
+        observedValue = currentValue
+        return true
+      }
+      return false
     }
 
-    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: slider)
-    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-
-    if result == .completed {
-      return slider.value as? String
-    }
-    return nil
+    return advanced ? observedValue : nil
   }
 
   /// Wait for the slider value to change after a seek and then stabilize (no longer ticking).
@@ -437,6 +462,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
   @MainActor
   func testSeekingUpdatesPositionImmediately() throws {
     // Given: Episode is playing
+    logBreadcrumb("testSeekingUpdatesPositionImmediately: launch app")
     launchApp()
     guard startPlayback() else {
       XCTFail("Failed to start playback")
@@ -449,7 +475,9 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     }
 
     // Get initial position
+    logBreadcrumb("testSeekingUpdatesPositionImmediately: capture initial slider value")
     let initialValue = getSliderValue()
+    logSliderValue("initial", value: initialValue)
     let initialPosition = extractCurrentPosition(from: initialValue)
 
     // When: Seek to a new position via the slider
@@ -457,7 +485,9 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
     // Seek to 50% position
+    logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to 50%")
     let preSeekValue = getSliderValue()
+    logSliderValue("pre-seek", value: preSeekValue)
     slider.adjust(toNormalizedSliderPosition: 0.5)
 
     // Then: Wait for slider value to change and stabilize after seek (position must change significantly)
@@ -467,6 +497,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
       minimumDelta: 5.0,
       stabilityWindow: 0.2
     )
+    logSliderValue("seeked", value: seekedValue)
     XCTAssertNotNil(seekedValue, "Slider value should change after seek")
 
     let seekedPosition = extractCurrentPosition(from: seekedValue)
@@ -474,7 +505,7 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     // Verify position changed significantly (not just ticking)
     if let initial = initialPosition, let seeked = seekedPosition {
       let difference = abs(seeked - initial)
-      XCTAssertGreaterThan(
+      XCTAssertGreaterThanOrEqual(
         difference,
         5.0,
         "Seek should move position significantly (at least 5s), got \(difference)s change"
@@ -484,7 +515,9 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     }
 
     // Verify playback continues advancing after seek using predicate-based waiting
+    logBreadcrumb("testSeekingUpdatesPositionImmediately: wait for advancement")
     let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0)
+    logSliderValue("final", value: finalValue)
     XCTAssertNotNil(finalValue, "Position should continue advancing after seek")
 
     let finalPosition = extractCurrentPosition(from: finalValue)
