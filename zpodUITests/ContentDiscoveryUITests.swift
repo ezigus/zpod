@@ -617,9 +617,9 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
         // Wait for button to become enabled (history persistence may lag slightly)
         let enabledPredicate = NSPredicate(format: "isEnabled == true")
         let expectation = XCTNSPredicateExpectation(predicate: enabledPredicate, object: searchHistoryOption)
-        let result = XCTWaiter.wait(for: [expectation], timeout: 2.0)
+        let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
         guard result == .completed else {
-          XCTFail("Search History button did not become enabled within 2s - history may not have persisted")
+          XCTFail("Search History button did not become enabled - history may not have persisted")
           return
         }
         // When: I select "Search History"
