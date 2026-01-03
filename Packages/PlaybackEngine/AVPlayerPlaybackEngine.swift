@@ -113,9 +113,10 @@ public final class AVPlayerPlaybackEngine {
             player?.seek(to: time, toleranceBefore: seekTolerance, toleranceAfter: seekTolerance)
         }
         
-        // Set playback rate and start playing
-        player?.rate = rate
+        // Start playing at the requested rate
+        // Note: play() resets rate to 1.0, so we must set rate after calling play()
         player?.play()
+        player?.rate = rate
     }
     
     /// Pause playback.

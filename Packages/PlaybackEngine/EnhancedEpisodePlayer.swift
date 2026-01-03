@@ -137,6 +137,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
         startAudioEnginePlayback(url: audioURL)
       } else if audioEngine != nil && episode.audioURL == nil {
         // Error: audio engine provided but no URL
+        // Stop any existing audio before transitioning to failed state
+        audioEngine?.stop()
         failPlayback(error: .episodeUnavailable)
       } else {
         // Fallback: Use ticker for simulated playback
