@@ -311,5 +311,55 @@ final class EnhancedEpisodePlayerAudioIntegrationTests: XCTestCase {
         await fulfillment(of: [errorExpectation], timeout: 15.0)
         XCTAssertEqual(receivedError, .streamFailed, "Should report stream failure")
     }
+    
+    func testRetryAfterErrorSucceeds() async throws {
+        // Given: Player with audio engine and two episodes (one invalid, one valid)
+        let audioEngine = AVPlayerPlaybackEngine()
+        let player = EnhancedEpisodePlayer(audioEngine: audioEngine)
+        
+        let invalidEpisode = Episode(
+            id: "invalid-episode",
+            title: "Invalid Episode",
+            audioURL: URL(string: "https://invalid.example.com/nonexistent.m4a")
+        )
+        
+        let validEpisode = Episode(
+            id: "valid-episode",
+            title: "Valid Episode",
+            audioURL: URL(string: "https://traffic.libsyn.com/secure/swifttalk/350-2024-12-09-gps-viewer-part-4.m4a")
+        )
+        
+        let errorExpectation = XCTestExpectation(description: "Error state received")
+        let playingExpectation = XCTestExpectation(description: "Playing state received after retry")
+        var receivedError = false
+        var receivedPlaying = false
+        
+        #if canImport(Combine)
+            player.statePublisher
+                .sink { state in
+                    if case .failed = state {
+                        receivedError = true
+                        errorExpectation.fulfill()
+                    } else if case .playing = state, receivedError {
+                        receivedPlaying = true
+                        playingExpectation.fulfill()
+                    }
+                }
+                .store(in: &cancellables)
+        #endif
+        
+        // When: Play invalid episode, then retry with valid episode
+        player.play(episode: invalidEpisode, duration: 60)
+        await fulfillment(of: [errorExpectation], timeout: 15.0)
+        
+        // Retry with valid episode
+        player.play(episode: validEpisode, duration: 3600)
+        
+        // Then: Should succeed and enter playing state
+        await fulfillment(of: [playingExpectation], timeout: 10.0)
+        XCTAssertTrue(receivedPlaying, "Should successfully play after error")
+        
+        player.stop()
+    }
 }
 #endif

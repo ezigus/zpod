@@ -40,6 +40,7 @@ extension XCUIApplication {
     app.launchEnvironment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] = "1"
     app.launchEnvironment["UITEST_DISABLE_ANIMATIONS"] = "1"
     app.launchEnvironment["UITEST_SLIDER_OPACITY"] = "0.1"
+    app.launchEnvironment["UITEST_DISABLE_AUDIO_ENGINE"] = "1"  // Use ticker-based playback for deterministic timing
     return app
   }
 

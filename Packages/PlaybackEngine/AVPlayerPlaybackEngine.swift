@@ -107,16 +107,23 @@ public final class AVPlayerPlaybackEngine {
         // Add periodic time observer for position updates
         addTimeObserver()
         
-        // Seek to start position if non-zero
+        // Seek to start position if non-zero, then start playback after seek completes
         if startPosition > 0 {
             let time = CMTime(seconds: startPosition, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-            player?.seek(to: time, toleranceBefore: seekTolerance, toleranceAfter: seekTolerance)
+            player?.seek(to: time, toleranceBefore: seekTolerance, toleranceAfter: seekTolerance) { [weak self] finished in
+                guard finished, let self = self else { return }
+                // Seek completed, now start playback at the requested rate
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.player?.play()
+                    self.player?.rate = rate
+                }
+            }
+        } else {
+            // No seek needed, start playback immediately
+            player?.play()
+            player?.rate = rate
         }
-        
-        // Start playing at the requested rate
-        // Note: play() resets rate to 1.0, so we must set rate after calling play()
-        player?.play()
-        player?.rate = rate
     }
     
     /// Pause playback.
@@ -181,7 +188,21 @@ public final class AVPlayerPlaybackEngine {
             queue: .main
         ) { [weak self] time in
             guard let self = self else { return }
+            
+            // Validate time before converting to avoid NaN/infinity
+            guard time.isValid, time.isNumeric else {
+                Logger.warning("Invalid time from observer: \(time)")
+                return
+            }
+            
             let seconds = CMTimeGetSeconds(time)
+            
+            // Validate seconds value
+            guard seconds.isFinite, seconds >= 0 else {
+                Logger.warning("Non-finite or negative seconds: \(seconds)")
+                return
+            }
+            
             // Explicitly dispatch to main actor for callback
             Task { @MainActor [weak self] in
                 self?.onPositionUpdate?(seconds)
