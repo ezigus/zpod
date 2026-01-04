@@ -29,7 +29,7 @@ let package = Package(
         "SharedUtilities"
       ],
       path: ".",
-      exclude: ["Package.swift", "Tests"]
+      exclude: ["Package.swift", "Tests", "README.md"]
     ),
     .testTarget(
       name: "PlaybackEngineTests",

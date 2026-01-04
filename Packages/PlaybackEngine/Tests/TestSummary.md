@@ -1,9 +1,9 @@
 # PlaybackEngine Test Summary
 
-**Last Updated**: 2025-12-28
-**Test Count**: 19 tests
+**Last Updated**: 2026-01-03
+**Test Count**: 24 tests (19 ticker tests + 5 AVPlayer tests)
 **Spec Coverage**: `zpod/spec/playback.md` - Core Playback Behavior
-**Execution Time**: 0.004 seconds (deterministic ticking)
+**Execution Time**: 0.004 seconds (deterministic ticking), ~5-30s (AVPlayer integration tests)
 
 ---
 
@@ -20,20 +20,42 @@
 - **Performance**: 4,250x faster than real-time delays (17s → 0.004s)
 - **Reliability**: Zero timing variance, fully deterministic results
 
+### AVPlayerPlaybackEngineTests.swift
+
+**Purpose**: Validates actual audio streaming using AVPlayer (iOS only).
+
+**Coverage**: 8 tests covering playback lifecycle, error handling, and resource cleanup.
+
+**Testing Infrastructure**:
+- Uses Apple's sample streaming audio for consistent test data
+- Async/await based expectations for timing-sensitive operations
+- Platform-guarded with `#if os(iOS)`
+
+**Test Categories**:
+- Basic Playback (2 tests): Valid/invalid URL handling
+- Pause/Resume (1 test): Position update suspension
+- Seeking (1 test): Position jumping
+- Rate Control (1 test): Speed changes
+- Cleanup (1 test): Resource release
+- Current Position (1 test): Position query
+- Playback Completion (1 test): Natural finish callback
+- Multiple Cycles (1 test): Repeated play/stop stability
+
 ---
 
 ## Spec Traceability Matrix
 
 | Spec Scenario | Test(s) | Status |
 |---------------|---------|--------|
-| **Timeline Advancement During Playback** | `testPositionAdvancesDuringPlayback` | ✅ Covered |
-| **Pausing Playback** | `testPositionStopsOnPause` | ✅ Covered |
+| **Timeline Advancement During Playback** | `testPositionAdvancesDuringPlayback`<br>`testPlayWithValidURL` | ✅ Covered |
+| **Pausing Playback** | `testPositionStopsOnPause`<br>`testPause` | ✅ Covered |
 | **Resuming Playback** | `testPositionResumesAfterPause` | ✅ Covered |
-| **Seeking to Position** | `testSeekDuringPlaybackContinuesTicking`<br>`testSeekWhilePausedUpdatesPosition` | ✅ Covered |
-| **Episode Completion** | `testFinishStateWhenPositionReachesDuration` | ✅ Covered |
-| **Playback Speed** | `testPlaybackSpeedScalesTickProgress`<br>`testSpeedClampingToMinimum`<br>`testSpeedClampingToMaximum` | ✅ Covered |
+| **Seeking to Position** | `testSeekDuringPlaybackContinuesTicking`<br>`testSeekWhilePausedUpdatesPosition`<br>`testSeek` | ✅ Covered |
+| **Episode Completion** | `testFinishStateWhenPositionReachesDuration`<br>`testPlaybackFinishedCallback` | ✅ Covered |
+| **Playback Speed** | `testPlaybackSpeedScalesTickProgress`<br>`testSpeedClampingToMinimum`<br>`testSpeedClampingToMaximum`<br>`testSetRate` | ✅ Covered |
 | **State Persistence** | `testInitialPlaybackPositionRespectsSavedState`<br>`testResumeStartsAtExactPersistedPosition` | ✅ Covered |
-| **Error Handling** | `testTickerStopsOnFailure` | ✅ Covered |
+| **Error Handling** | `testTickerStopsOnFailure`<br>`testPlayWithInvalidURL` | ✅ Covered |
+| **Resource Cleanup** | `testStop`<br>`testMultiplePlayStopCycles` | ✅ Covered |
 
 ---
 
@@ -78,6 +100,9 @@
 - Automatic position clamping to duration
 - Episode finish detection
 - State persistence integration
+- **AVPlayer audio streaming** (iOS only)
+- **Network error handling** (invalid URLs)
+- **Resource cleanup** (observer removal, player deallocation)
 
 **Ticker Lifecycle**:
 - Ticker starts on play()
@@ -85,6 +110,17 @@
 - Ticker restarts after seek during playback
 - Ticker remains stopped after seek while paused
 - Ticker cleanup on failure
+
+**AVPlayer Lifecycle** (iOS only):
+- Player initialization with valid/invalid URLs
+- Periodic time observer callbacks (0.5s intervals)
+- Position query while playing
+- Pause suspends time updates
+- Seeking jumps to target position
+- Rate changes affect playback speed
+- Stop releases all resources
+- Playback completion notification
+- Multiple play/stop cycles without leaks
 
 **State Management**:
 - State injection for persistence restoration
@@ -101,16 +137,19 @@
 ### What Is Not Tested
 
 **Out of Scope** (covered by other test suites):
-- Real audio playback (Issue 03.3.2 - AVPlayer integration)
+- Real audio playback on device speakers/headphones (requires manual testing on physical device)
 - Background playback (separate background audio issue)
-- Audio interruption handling (platform-specific)
-- Network errors (not applicable to position ticking)
+- Audio interruption handling (calls, Siri - platform-specific)
+- Bluetooth/AirPlay routing (requires physical hardware)
+- Audio session category/mode configuration (handled by SystemMediaCoordinator)
 
 **Deferred to Future Enhancements**:
 - UI integration tests (mini-player, expanded player updates)
 - Now Playing system integration
 - CarPlay integration
 - Persistence performance benchmarks
+- Long-form audio memory profiling
+- Battery impact during continuous playback
 
 ---
 
