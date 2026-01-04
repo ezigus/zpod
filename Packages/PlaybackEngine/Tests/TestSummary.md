@@ -1,7 +1,7 @@
 # PlaybackEngine Test Summary
 
-**Last Updated**: 2026-01-03
-**Test Count**: 24 tests (19 ticker tests + 5 AVPlayer tests)
+**Last Updated**: 2026-01-04
+**Test Count**: 28 tests (19 ticker tests + 12 AVPlayer/integration tests)
 **Spec Coverage**: `zpod/spec/playback.md` - Core Playback Behavior
 **Execution Time**: 0.004 seconds (deterministic ticking), ~5-30s (AVPlayer integration tests)
 
@@ -24,7 +24,7 @@
 
 **Purpose**: Validates actual audio streaming using AVPlayer (iOS only).
 
-**Coverage**: 8 tests covering playback lifecycle, error handling, and resource cleanup.
+**Coverage**: 12 tests covering playback lifecycle, error handling, resource cleanup, and edge cases.
 
 **Testing Infrastructure**:
 - Uses Apple's sample streaming audio for consistent test data
@@ -40,6 +40,19 @@
 - Current Position (1 test): Position query
 - Playback Completion (1 test): Natural finish callback
 - Multiple Cycles (1 test): Repeated play/stop stability
+- **Edge Cases (3 tests): Seek readiness, finish cleanup, error cleanup**
+
+### EnhancedEpisodePlayerAudioIntegrationTests.swift
+
+**Purpose**: Validates integration between EnhancedEpisodePlayer and AVPlayerPlaybackEngine.
+
+**Coverage**: 4 tests covering full playback flow, error handling, and retry scenarios.
+
+**Test Categories**:
+- Full Playback Flow (1 test): State transitions during audio playback
+- Audio Engine Error Handling (1 test): Integration error reporting
+- Audio Engine Missing URL (1 test): Graceful fallback
+- **Retry After Error (1 test): Error recovery per spec requirement**
 
 ---
 
@@ -50,12 +63,13 @@
 | **Timeline Advancement During Playback** | `testPositionAdvancesDuringPlayback`<br>`testPlayWithValidURL` | ✅ Covered |
 | **Pausing Playback** | `testPositionStopsOnPause`<br>`testPause` | ✅ Covered |
 | **Resuming Playback** | `testPositionResumesAfterPause` | ✅ Covered |
-| **Seeking to Position** | `testSeekDuringPlaybackContinuesTicking`<br>`testSeekWhilePausedUpdatesPosition`<br>`testSeek` | ✅ Covered |
-| **Episode Completion** | `testFinishStateWhenPositionReachesDuration`<br>`testPlaybackFinishedCallback` | ✅ Covered |
+| **Seeking to Position** | `testSeekDuringPlaybackContinuesTicking`<br>`testSeekWhilePausedUpdatesPosition`<br>`testSeek`<br>`testSeekFromPositionWaitsForReady` | ✅ Covered |
+| **Episode Completion** | `testFinishStateWhenPositionReachesDuration`<br>`testPlaybackFinishedCallback`<br>`testFinishCallbackStopsEngine` | ✅ Covered |
 | **Playback Speed** | `testPlaybackSpeedScalesTickProgress`<br>`testSpeedClampingToMinimum`<br>`testSpeedClampingToMaximum`<br>`testSetRate` | ✅ Covered |
 | **State Persistence** | `testInitialPlaybackPositionRespectsSavedState`<br>`testResumeStartsAtExactPersistedPosition` | ✅ Covered |
-| **Error Handling** | `testTickerStopsOnFailure`<br>`testPlayWithInvalidURL` | ✅ Covered |
-| **Resource Cleanup** | `testStop`<br>`testMultiplePlayStopCycles` | ✅ Covered |
+| **Error Handling** | `testTickerStopsOnFailure`<br>`testPlayWithInvalidURL`<br>`testErrorCallbackStopsEngine` | ✅ Covered |
+| **Error Recovery (Retry)** | `testRetryAfterErrorSucceeds` | ✅ Covered |
+| **Resource Cleanup** | `testStop`<br>`testMultiplePlayStopCycles`<br>`testFinishCallbackStopsEngine`<br>`testErrorCallbackStopsEngine` | ✅ Covered |
 
 ---
 
