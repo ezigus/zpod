@@ -627,6 +627,33 @@ extension SmartUITesting where Self: XCTestCase {
     }
   }
 
+  /// Launches app with playback mode selection and full test infrastructure.
+  ///
+  /// This helper integrates `PlaybackTestMode` with the standard `launchConfiguredApp`
+  /// flow, ensuring proper app termination, Springboard readiness, and overlay handling.
+  ///
+  /// - Parameters:
+  ///   - mode: Playback engine mode (ticker or AVPlayer)
+  ///   - environmentOverrides: Additional environment variables
+  /// - Returns: Launched XCUIApplication instance
+  @MainActor
+  @discardableResult
+  func launchWithPlaybackMode(
+    _ mode: XCUIApplication.PlaybackTestMode,
+    environmentOverrides: [String: String] = [:]
+  ) -> XCUIApplication {
+    var overrides = environmentOverrides
+    
+    switch mode {
+    case .ticker:
+      overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "1"
+    case .avplayer:
+      overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
+    }
+    
+    return launchConfiguredApp(environmentOverrides: overrides)
+  }
+
   /// Launches a configured application and waits for the main tab bar to appear so tests start from a stable state.
   @MainActor
   @discardableResult

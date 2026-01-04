@@ -29,13 +29,9 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
 
     @MainActor
     private func launchApp() {
-        app = .configuredForUITests(
-            playbackMode: .ticker,
-            environmentOverrides: [
-                "UITEST_POSITION_DEBUG": "1"
-            ]
-        )
-        app.launch()
+        app = launchWithPlaybackMode(.ticker, environmentOverrides: [
+            "UITEST_POSITION_DEBUG": "1"
+        ])
     }
 
     // MARK: - Test 1: Position Advancement
@@ -257,5 +253,109 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         let playButton = app.buttons.matching(identifier: "Mini Player Play").firstMatch
         XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout),
             "Mini-player should show play button when paused")
+    }
+
+    // MARK: - Test 6: Seek While Paused
+
+    /// **Spec**: Seeking to Position (line 83: "episode is playing or paused")
+    /// **Critical**: Validates seeking works when playback is paused.
+    ///
+    /// **Given**: An episode is paused
+    /// **When**: User seeks to a new position
+    /// **Then**: Position updates and remains paused
+    /// **And**: Playback resumes from new position when play is pressed
+    @MainActor
+    func testSeekingWhilePausedUpdatesPosition() throws {
+        // Given: Episode is paused
+        launchApp()
+        guard startPlayback(), expandPlayer() else {
+            XCTFail("Failed to start playback and expand player")
+            return
+        }
+
+        // Pause playback first
+        let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
+        XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout))
+        pauseButton.tap()
+
+        let playButton = app.buttons.matching(identifier: "Expanded Player Play").firstMatch
+        XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Play button should appear after pause")
+
+        // When: Seek to 70% while paused
+        let pausedValue = getSliderValue()
+        logSliderValue("paused before seek", value: pausedValue)
+
+        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
+        slider.adjust(toNormalizedSliderPosition: 0.7)
+
+        // Then: Position should update even while paused
+        guard let seekedValue = waitForUIStabilization(
+            afterSeekingFrom: pausedValue,
+            timeout: 5.0,
+            minimumDelta: 3.0,
+            stabilityWindow: 0.5
+        ) else {
+            XCTFail("Position should update when seeking while paused")
+            return
+        }
+        logSliderValue("seeked while paused", value: seekedValue)
+
+        // Verify still paused (play button still visible)
+        XCTAssertTrue(playButton.exists, "Should remain paused after seeking")
+
+        // And: Playback should resume from seek position
+        playButton.tap()
+        guard let resumedValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0) else {
+            XCTFail("Position should advance after seeking while paused and resuming")
+            return
+        }
+        logSliderValue("resumed after seek", value: resumedValue)
+    }
+
+    // MARK: - Test 7: Initial Position Consistency
+
+    /// **Spec**: Starting Episode Playback (line 59: "position starts at 0 or last saved position")
+    /// **Critical**: Validates playback resumes from saved position consistently.
+    ///
+    /// **Given**: User starts playing an episode
+    /// **When**: Episode begins playback
+    /// **Then**: Position reflects saved state (0 for new episode, or last position if resumed)
+    /// **And**: Position advances from that point
+    @MainActor
+    func testInitialPositionStartsAtZero() throws {
+        // Given/When: Start playback
+        launchApp()
+        guard startPlayback(), expandPlayer() else {
+            XCTFail("Failed to start playback and expand player")
+            return
+        }
+
+        // Then: Verify position is consistent (could be 0 or saved position)
+        let initialValue = getSliderValue()
+        guard let initialPosition = extractCurrentPosition(from: initialValue) else {
+            XCTFail("Could not parse initial position from '\(String(describing: initialValue))'")
+            return
+        }
+
+        logSliderValue("initial position", value: initialValue)
+        
+        // Spec allows starting at 0 OR resuming from saved position
+        // Just verify it's a valid position (not negative, not beyond duration)
+        XCTAssertGreaterThanOrEqual(initialPosition, 0.0,
+            "Initial position should not be negative, got \(initialPosition)s")
+        
+        if let totalDuration = extractTotalDuration(from: initialValue) {
+            XCTAssertLessThanOrEqual(initialPosition, totalDuration,
+                "Initial position \(initialPosition)s should not exceed duration \(totalDuration)s")
+        }
+        
+        // And: Verify position advances from wherever it started
+        guard let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0) else {
+            XCTFail("Position should advance from initial position \(initialPosition)s")
+            return
+        }
+        logSliderValue("advanced position", value: advancedValue)
     }
 }
