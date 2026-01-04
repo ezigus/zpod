@@ -154,8 +154,10 @@ public enum CarPlayDependencyRegistry {
     
     // Wire AVPlayerPlaybackEngine for real audio streaming on iOS
     // Disable for UI tests to maintain deterministic timing
+    // Note: "0", "", or absent all mean: use audio engine (only "1" disables)
     #if os(iOS)
-      let useAudioEngine = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] != "1"
+      let disableFlag = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] ?? ""
+      let useAudioEngine = disableFlag != "1"
       if useAudioEngine {
         let audioEngine = AVPlayerPlaybackEngine()
         let playback = EnhancedEpisodePlayer(audioEngine: audioEngine)

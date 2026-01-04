@@ -51,6 +51,47 @@ extension XCUIApplication {
     }
     return app
   }
+
+  // MARK: - Playback Test Mode Configuration
+
+  /// Playback engine mode for UI tests.
+  /// Controls whether tests use the deterministic TimerTicker or real AVPlayer.
+  ///
+  /// **Issue**: 03.3.2.1 - Extract Shared Test Infrastructure
+  public enum PlaybackTestMode {
+    /// Uses TimerTicker for deterministic, fast position updates (no audio).
+    /// Sets UITEST_DISABLE_AUDIO_ENGINE=1.
+    case ticker
+
+    /// Uses AVPlayerPlaybackEngine for real audio streaming.
+    /// Does NOT set UITEST_DISABLE_AUDIO_ENGINE, allowing production audio path.
+    case avplayer
+  }
+
+  /// Launch app configured for UI testing with specified playback mode.
+  ///
+  /// - Parameters:
+  ///   - playbackMode: Whether to use ticker (fast, deterministic) or AVPlayer (real audio)
+  ///   - environmentOverrides: Additional environment variables to set
+  /// - Returns: Configured XCUIApplication ready to launch
+  static func configuredForUITests(
+    playbackMode: PlaybackTestMode,
+    environmentOverrides: [String: String] = [:]
+  ) -> XCUIApplication {
+    var baseOverrides: [String: String] = environmentOverrides
+
+    switch playbackMode {
+    case .ticker:
+      // Ensure ticker mode is enabled (same as default behavior)
+      baseOverrides["UITEST_DISABLE_AUDIO_ENGINE"] = "1"
+    case .avplayer:
+      // Explicitly remove the disable flag to use real AVPlayer
+      // Note: We set to "0" rather than removing, so it's explicit in logs
+      baseOverrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
+    }
+
+    return XCUIApplication.configuredForUITests(environmentOverrides: baseOverrides)
+  }
 }
 
 // MARK: - Element Query Helpers
