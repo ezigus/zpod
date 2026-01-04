@@ -153,15 +153,36 @@ public enum CarPlayDependencyRegistry {
     let podcastManager = podcastManagerOverride ?? EmptyPodcastManager()
     
     // Wire AVPlayerPlaybackEngine for real audio streaming on iOS
+    // Disable for UI tests to maintain deterministic timing
     #if os(iOS)
-      let audioEngine = AVPlayerPlaybackEngine()
-      let playback = EnhancedEpisodePlayer(audioEngine: audioEngine)
+      let useAudioEngine = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] != "1"
+      if useAudioEngine {
+        let audioEngine = AVPlayerPlaybackEngine()
+        let playback = EnhancedEpisodePlayer(audioEngine: audioEngine)
+        let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
+        let alertPresenter = PlaybackAlertPresenter()
+        return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)
+      } else {
+        // UI test mode: use ticker-based playback for deterministic timing
+        let playback = EnhancedEpisodePlayer()
+        let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
+        let alertPresenter = PlaybackAlertPresenter()
+        return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)
+      }
     #else
       let playback = EnhancedEpisodePlayer()
+      let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
+      let alertPresenter = PlaybackAlertPresenter()
+      return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)
     #endif
-    
-    let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
-    let alertPresenter = PlaybackAlertPresenter()
+  }
+  
+  private static func setupDependencies(
+    _ podcastManager: any PodcastManaging,
+    _ playback: EnhancedEpisodePlayer,
+    _ queueCoordinator: CarPlayPlaybackCoordinator,
+    _ alertPresenter: PlaybackAlertPresenter
+  ) -> CarPlayDependencies {
     
     // Create settings repository and playback state coordinator
     let settingsRepository = UserDefaultsSettingsRepository()
