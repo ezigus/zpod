@@ -151,7 +151,15 @@ public enum CarPlayDependencyRegistry {
     -> CarPlayDependencies
   {
     let podcastManager = podcastManagerOverride ?? EmptyPodcastManager()
-    let playback = EnhancedEpisodePlayer()
+    
+    // Wire AVPlayerPlaybackEngine for real audio streaming on iOS
+    #if os(iOS)
+      let audioEngine = AVPlayerPlaybackEngine()
+      let playback = EnhancedEpisodePlayer(audioEngine: audioEngine)
+    #else
+      let playback = EnhancedEpisodePlayer()
+    #endif
+    
     let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
     let alertPresenter = PlaybackAlertPresenter()
     
