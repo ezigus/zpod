@@ -313,5 +313,92 @@ final class AVPlayerPlaybackEngineTests: XCTestCase {
         // Then: Should complete all cycles without crash
         XCTAssertTrue(true, "Multiple play/stop cycles should complete without crash")
     }
+    
+    // MARK: - Edge Case Tests
+    
+    func testSeekFromPositionWaitsForReady() async throws {
+        // Given: Audio engine with start position
+        let engine = AVPlayerPlaybackEngine()
+        let testURL = URL(string: "https://traffic.libsyn.com/secure/swifttalk/350-2024-12-09-gps-viewer-part-4.m4a")!
+        let expectation = XCTestExpectation(description: "Position update after seek")
+        var receivedPositions: [TimeInterval] = []
+        
+        engine.onPositionUpdate = { position in
+            receivedPositions.append(position)
+            if receivedPositions.count >= 3 {
+                expectation.fulfill()
+            }
+        }
+        
+        // When: Playing from position 10 seconds
+        engine.play(from: testURL, startPosition: 10.0, rate: 1.0)
+        
+        // Then: First position update should be around 10 seconds, not 0
+        await fulfillment(of: [expectation], timeout: 10.0)
+        
+        // Verify first position is near start position (within 2 seconds tolerance)
+        if let firstPosition = receivedPositions.first {
+            XCTAssertGreaterThan(firstPosition, 8.0, "First position should be near 10 seconds, not 0")
+        }
+        
+        engine.stop()
+    }
+    
+    func testFinishCallbackStopsEngine() async throws {
+        // Given: Audio engine with playback finished callback
+        let engine = AVPlayerPlaybackEngine()
+        let testURL = URL(string: "https://traffic.libsyn.com/secure/swifttalk/350-2024-12-09-gps-viewer-part-4.m4a")!
+        let expectation = XCTestExpectation(description: "Playback finished")
+        var positionUpdateCountAfterFinish = 0
+        var finishedCalled = false
+        
+        engine.onPlaybackFinished = {
+            finishedCalled = true
+            expectation.fulfill()
+        }
+        
+        engine.onPositionUpdate = { _ in
+            if finishedCalled {
+                positionUpdateCountAfterFinish += 1
+            }
+        }
+        
+        // When: Simulating finish by calling stop (which triggers cleanup)
+        engine.play(from: testURL, startPosition: 0, rate: 1.0)
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        engine.stop()
+        
+        // Then: No position updates should occur after engine stopped
+        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        XCTAssertEqual(positionUpdateCountAfterFinish, 0, "Position updates should stop after engine cleanup")
+    }
+    
+    func testErrorCallbackStopsEngine() async throws {
+        // Given: Audio engine with error callback
+        let engine = AVPlayerPlaybackEngine()
+        let invalidURL = URL(string: "https://invalid.example.com/nonexistent.m4a")!
+        let expectation = XCTestExpectation(description: "Error callback")
+        var positionUpdateCountAfterError = 0
+        var errorCalled = false
+        
+        engine.onError = { error in
+            errorCalled = true
+            expectation.fulfill()
+        }
+        
+        engine.onPositionUpdate = { _ in
+            if errorCalled {
+                positionUpdateCountAfterError += 1
+            }
+        }
+        
+        // When: Playing invalid URL triggers error
+        engine.play(from: invalidURL, startPosition: 0, rate: 1.0)
+        
+        // Then: Error callback fired and no position updates after
+        await fulfillment(of: [expectation], timeout: 10.0)
+        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        XCTAssertEqual(positionUpdateCountAfterError, 0, "Position updates should stop after error")
+    }
 }
 #endif

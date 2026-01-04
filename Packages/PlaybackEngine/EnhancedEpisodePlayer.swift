@@ -226,6 +226,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     guard currentEpisode != nil else { return }
     isPlaying = false
     stopTicker()  // Stop position advancement
+    #if os(iOS)
+      audioEngine?.stop()  // Clean up audio engine observers and player
+    #endif
     let snapshot = persistPlaybackPosition()
     emitState(
       .failed(
@@ -376,6 +379,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private func finishPlayback(markPlayed: Bool) {
     isPlaying = false
     stopTicker()  // Stop position advancement
+    #if os(iOS)
+      audioEngine?.stop()  // Clean up audio engine observers and player
+    #endif
     currentPosition = currentDuration
     let snapshot = persistPlaybackPosition()
     // Note: No need to reset lastPersistenceTime here since playback has ended
