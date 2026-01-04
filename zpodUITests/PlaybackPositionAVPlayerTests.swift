@@ -240,6 +240,15 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             return
         }
         logSliderValue("seeked (AVPlayer)", value: seekedValue)
+        
+        // Verify seek landed near 50% mark (within tolerance for network/buffering delays)
+        if let seekedPosition = extractCurrentPosition(from: seekedValue),
+           let totalDuration = extractTotalDuration(from: seekedValue) {
+            let expectedPosition = totalDuration * 0.5
+            let tolerance = totalDuration * 0.15  // 15% tolerance for AVPlayer seek
+            XCTAssertTrue(abs(seekedPosition - expectedPosition) <= tolerance,
+                "AVPlayer seek to 50% should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
+        }
 
         // Verify position continues advancing after seek
         guard let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: avplayerTimeout) else {

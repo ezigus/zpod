@@ -155,6 +155,8 @@ public final class AVPlayerPlaybackEngine {
     /// Cleanup operations are dispatched to the main actor when needed.
     nonisolated public func stop() {
         Task { @MainActor in
+            // Pause playback first to stop audio output
+            player?.pause()
             cleanupSync()
         }
     }

@@ -118,6 +118,17 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
 
     return parseTimeString(timeString)
   }
+  
+  /// Extract total duration from slider value string (format: "X:XX of Y:YY").
+  func extractTotalDuration(from value: String?) -> TimeInterval? {
+    guard let value = value else { return nil }
+
+    // Value format: "0:30 of 60:00" or similar
+    let components = value.components(separatedBy: " of ")
+    guard components.count == 2, let timeString = components.last else { return nil }
+
+    return parseTimeString(timeString.trimmingCharacters(in: .whitespaces))
+  }
 
   /// Parse time string "MM:SS" or "H:MM:SS" to seconds.
   private func parseTimeString(_ timeString: String) -> TimeInterval? {
