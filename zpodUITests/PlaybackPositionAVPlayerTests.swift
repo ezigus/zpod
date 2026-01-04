@@ -38,9 +38,6 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     /// Longer timeout for AVPlayer operations (buffering, network latency)
     private let avplayerTimeout: TimeInterval = 10.0
 
-    /// More tolerant position delta for real-time playback jitter
-    private let avplayerPositionTolerance: TimeInterval = 0.5
-
     override func setUpWithError() throws {
         continueAfterFailure = false
         disableWaitingForIdleIfNeeded()
@@ -53,12 +50,9 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     @MainActor
     private func launchApp() {
         // Launch with AVPlayer enabled (override default ticker mode)
-        app = launchConfiguredApp(
-            environmentOverrides: [
-                "UITEST_POSITION_DEBUG": "1",
-                "UITEST_DISABLE_AUDIO_ENGINE": "0"  // Enable real AVPlayer (overrides default "1")
-            ]
-        )
+        app = launchWithPlaybackMode(.avplayer, environmentOverrides: [
+            "UITEST_POSITION_DEBUG": "1"
+        ])
     }
 
     // MARK: - Test 1: Position Advancement
@@ -149,8 +143,8 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // Then: Position should stop advancing
         let pausedValue = getSliderValue()
         // More tolerant for AVPlayer (may have one more callback after pause)
-        let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: avplayerPositionTolerance)
-        XCTAssertTrue(positionStable, "Position should remain stable when paused (within \(avplayerPositionTolerance)s)")
+        let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.5)
+        XCTAssertTrue(positionStable, "Position should remain stable when paused (within 0.5s)")
     }
 
     // MARK: - Test 3: Resume Advances Position
@@ -248,6 +242,9 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             let tolerance = totalDuration * 0.15  // 15% tolerance for AVPlayer seek
             XCTAssertTrue(abs(seekedPosition - expectedPosition) <= tolerance,
                 "AVPlayer seek to 50% should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
+        } else {
+            XCTFail("Failed to parse seek positions from '\(seekedValue ?? "nil")'")
+            return
         }
 
         // Verify position continues advancing after seek
@@ -289,5 +286,64 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         let playButton = app.buttons.matching(identifier: "Mini Player Play").firstMatch
         XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout),
             "Mini player should show play button when AVPlayer is paused")
+    }
+
+    // MARK: - Test 6: Seek While Paused
+
+    /// **Spec**: Seeking to Position (line 83: "episode is playing or paused")
+    /// **Critical**: Validates AVPlayer.seek(to:) works when paused.
+    ///
+    /// **Given**: An episode is paused with AVPlayer
+    /// **When**: User seeks to a new position
+    /// **Then**: Position updates via AVPlayer.seek(to:) while paused
+    /// **And**: Playback resumes from new position when play is pressed
+    @MainActor
+    func testSeekingWhilePausedUpdatesPosition() throws {
+        // Given: Episode is paused with AVPlayer
+        launchApp()
+        guard startPlayback(), expandPlayer() else {
+            XCTFail("Failed to start playback and expand player")
+            return
+        }
+
+        // Pause AVPlayer first
+        let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
+        XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout))
+        pauseButton.tap()
+
+        let playButton = app.buttons.matching(identifier: "Expanded Player Play").firstMatch
+        XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Play button should appear after AVPlayer pause")
+
+        // When: Seek to 70% while AVPlayer is paused
+        let pausedValue = getSliderValue()
+        logSliderValue("paused before seek (AVPlayer)", value: pausedValue)
+
+        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
+        slider.adjust(toNormalizedSliderPosition: 0.7)
+
+        // Then: Position should update via AVPlayer.seek(to:) even while paused
+        guard let seekedValue = waitForUIStabilization(
+            afterSeekingFrom: pausedValue,
+            timeout: 5.0,
+            minimumDelta: 3.0,
+            stabilityWindow: 0.5
+        ) else {
+            XCTFail("Position should update when seeking with AVPlayer while paused")
+            return
+        }
+        logSliderValue("seeked while paused (AVPlayer)", value: seekedValue)
+
+        // Verify still paused (play button still visible)
+        XCTAssertTrue(playButton.exists, "Should remain paused after AVPlayer seek")
+
+        // And: Playback should resume from seek position
+        playButton.tap()
+        guard let resumedValue = waitForPositionAdvancement(beyond: seekedValue, timeout: avplayerTimeout) else {
+            XCTFail("Position should advance after seeking while paused and resuming AVPlayer")
+            return
+        }
+        logSliderValue("resumed after seek (AVPlayer)", value: resumedValue)
     }
 }
