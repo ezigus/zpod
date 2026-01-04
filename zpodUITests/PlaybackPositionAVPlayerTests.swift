@@ -52,11 +52,11 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
     @MainActor
     private func launchApp() {
-        // Launch WITHOUT UITEST_DISABLE_AUDIO_ENGINE to use real AVPlayer
+        // Launch with AVPlayer enabled (override default ticker mode)
         app = launchConfiguredApp(
             environmentOverrides: [
-                "UITEST_POSITION_DEBUG": "1"
-                // Note: NO "UITEST_DISABLE_AUDIO_ENGINE" key → uses real AVPlayer
+                "UITEST_POSITION_DEBUG": "1",
+                "UITEST_DISABLE_AUDIO_ENGINE": "0"  // Enable real AVPlayer (overrides default "1")
             ]
         )
     }
