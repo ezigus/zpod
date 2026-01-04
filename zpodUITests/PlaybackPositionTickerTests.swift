@@ -10,7 +10,7 @@ import XCTest
 /// **Spec**: `zpod/spec/playback.md` - Core Playback Behavior
 ///
 /// These tests validate position UI updates using the deterministic TimerTicker.
-/// Fast execution (~10-15 seconds per test), no audio hardware required.
+/// Fast, deterministic execution (~20s per test), no audio hardware required.
 ///
 /// **CI Job**: UITests-PlaybackTicker
 final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport {
@@ -98,7 +98,9 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
 
         // Wait for initial position advancement
         let initialValue = getSliderValue()
-        _ = waitForPositionAdvancement(beyond: initialValue, timeout: 3.0)
+        let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 3.0)
+        XCTAssertNotNil(advancedValue, 
+            "Position must advance before testing pause behavior - ticker may not be running")
 
         // When: Pause playback
         let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
@@ -154,13 +156,16 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         XCTAssertNotNil(resumedValue, "Position should advance after resuming")
         logSliderValue("resumed", value: resumedValue)
 
-        if let paused = pausedPosition,
-           let resumed = extractCurrentPosition(from: resumedValue) {
-            XCTAssertGreaterThan(resumed, paused,
-                "Position should advance from \(paused)s to \(resumed)s after resume")
-            XCTAssertGreaterThanOrEqual(resumed - paused, 1.0,
-                "Position should advance at least 1.0s after resume")
+        guard let paused = pausedPosition,
+              let resumed = extractCurrentPosition(from: resumedValue) else {
+            XCTFail("Failed to parse position values - slider format may have changed")
+            return
         }
+        
+        XCTAssertGreaterThan(resumed, paused,
+            "Position should advance from \(paused)s to \(resumed)s after resume")
+        XCTAssertGreaterThanOrEqual(resumed - paused, 1.0,
+            "Position should advance at least 1.0s after resume")
     }
 
     // MARK: - Test 4: Seeking Updates Position
@@ -180,6 +185,14 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
 
         let initialValue = getSliderValue()
         logSliderValue("initial", value: initialValue)
+        
+        // Extract duration to validate 50% seek target
+        guard let initialPosition = extractCurrentPosition(from: initialValue),
+              let durationString = initialValue?.components(separatedBy: " of ").last,
+              let totalDuration = extractCurrentPosition(from: durationString) else {
+            XCTFail("Could not parse initial position and duration from slider")
+            return
+        }
 
         // When: Seek to 50% position
         let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
@@ -198,6 +211,16 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         )
         logSliderValue("seeked", value: seekedValue)
         XCTAssertNotNil(seekedValue, "Slider value should change after seek")
+        
+        // Verify seeked position is approximately at 50% of duration
+        if let seekedPosition = extractCurrentPosition(from: seekedValue) {
+            let expectedPosition = totalDuration * 0.5
+            let positionDelta = abs(seekedPosition - expectedPosition)
+            XCTAssertLessThan(positionDelta, totalDuration * 0.15,
+                "Seeked position \(seekedPosition)s should be close to 50% mark (\(expectedPosition)s)")
+        } else {
+            XCTFail("Could not parse seeked position value")
+        }
 
         // Verify position continues advancing after seek
         let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0)
