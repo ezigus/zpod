@@ -39,7 +39,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     private let avplayerTimeout: TimeInterval = 10.0
 
     /// More tolerant position delta for real-time playback jitter
-    private let avplayerPositionTolerance: TimeInterval = 2.0
+    private let avplayerPositionTolerance: TimeInterval = 0.5
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -149,8 +149,8 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // Then: Position should stop advancing
         let pausedValue = getSliderValue()
         // More tolerant for AVPlayer (may have one more callback after pause)
-        let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.5)
-        XCTAssertTrue(positionStable, "Position should remain stable when paused (within 0.5s)")
+        let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: avplayerPositionTolerance)
+        XCTAssertTrue(positionStable, "Position should remain stable when paused (within \(avplayerPositionTolerance)s)")
     }
 
     // MARK: - Test 3: Resume Advances Position
