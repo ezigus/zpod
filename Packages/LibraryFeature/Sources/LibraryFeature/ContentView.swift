@@ -673,6 +673,14 @@ import SwiftUI
       }
 
       private func createSamplePodcast(id: String, title: String) -> Podcast {
+        // Read test audio URLs from environment variables (only set during UI tests)
+        // In production, these will be nil and episodes will use placeholder URLs
+        let env = ProcessInfo.processInfo.environment
+        
+        let shortAudioURL: URL? = env["UITEST_AUDIO_SHORT_PATH"].map { URL(fileURLWithPath: $0) }
+        let mediumAudioURL: URL? = env["UITEST_AUDIO_MEDIUM_PATH"].map { URL(fileURLWithPath: $0) }
+        let longAudioURL: URL? = env["UITEST_AUDIO_LONG_PATH"].map { URL(fileURLWithPath: $0) }
+        
         let sampleEpisodes = [
           Episode(
           id: "st-001",
@@ -684,7 +692,7 @@ import SwiftUI
           pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
           duration: 2723,  // 45:23
           description: "Introduction to the podcast series.",
-          audioURL: URL(string: "https://example.com/episode1.mp3")
+          audioURL: shortAudioURL ?? URL(string: "https://example.com/episode1.mp3")
         ),
         Episode(
           id: "st-002",
@@ -696,7 +704,7 @@ import SwiftUI
           pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
           duration: 3137,  // 52:17
           description: "Covering Swift language basics.",
-          audioURL: URL(string: "https://example.com/episode2.mp3")
+          audioURL: mediumAudioURL ?? URL(string: "https://example.com/episode2.mp3")
         ),
         Episode(
           id: "st-003",
@@ -708,7 +716,7 @@ import SwiftUI
           pubDate: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
           duration: 3702,  // 61:42
           description: "Deep dive into advanced Swift concepts.",
-          audioURL: URL(string: "https://example.com/episode3.mp3")
+          audioURL: longAudioURL ?? URL(string: "https://example.com/episode3.mp3")
         ),
         Episode(
           id: "st-004",
@@ -720,7 +728,7 @@ import SwiftUI
           pubDate: Calendar.current.date(byAdding: .day, value: -28, to: Date()) ?? Date(),
           duration: 2336,  // 38:56
           description: "Performance optimization techniques.",
-          audioURL: URL(string: "https://example.com/episode4.mp3")
+          audioURL: shortAudioURL ?? URL(string: "https://example.com/episode4.mp3")
         ),
         Episode(
           id: "st-005",
@@ -732,7 +740,7 @@ import SwiftUI
           pubDate: Calendar.current.date(byAdding: .day, value: -35, to: Date()) ?? Date(),
           duration: 2673,  // 44:33
           description: "Testing strategies and best practices.",
-          audioURL: URL(string: "https://example.com/episode5.mp3")
+          audioURL: mediumAudioURL ?? URL(string: "https://example.com/episode5.mp3")
         ),
       ]
 
