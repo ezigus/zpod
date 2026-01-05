@@ -41,6 +41,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     override func setUpWithError() throws {
         continueAfterFailure = false
         disableWaitingForIdleIfNeeded()
+        validateTestAudioExists()
     }
 
     override func tearDownWithError() throws {

@@ -632,6 +632,10 @@ extension SmartUITesting where Self: XCTestCase {
   /// This helper integrates `PlaybackTestMode` with the standard `launchConfiguredApp`
   /// flow, ensuring proper app termination, Springboard readiness, and overlay handling.
   ///
+  /// **For AVPlayer mode**: Automatically injects test audio file paths via environment
+  /// variables so the app can populate Episode.audioURL during UI tests. Audio files are
+  /// resolved from the test bundle (TestResources/Audio/).
+  ///
   /// - Parameters:
   ///   - mode: Playback engine mode (ticker or AVPlayer)
   ///   - environmentOverrides: Additional environment variables
@@ -647,8 +651,25 @@ extension SmartUITesting where Self: XCTestCase {
     switch mode {
     case .ticker:
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "1"
+      
     case .avplayer:
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
+      
+      // Inject test audio file paths for AVPlayer tests
+      // This allows the app to populate Episode.audioURL with test bundle resources
+      if let testCase = self as? XCTestCase {
+        let bundle = Bundle(for: type(of: testCase))
+        
+        if let shortURL = bundle.url(forResource: "test-episode-short", withExtension: "m4a") {
+          overrides["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
+        }
+        if let mediumURL = bundle.url(forResource: "test-episode-medium", withExtension: "m4a") {
+          overrides["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
+        }
+        if let longURL = bundle.url(forResource: "test-episode-long", withExtension: "m4a") {
+          overrides["UITEST_AUDIO_LONG_PATH"] = longURL.path
+        }
+      }
     }
     
     return launchConfiguredApp(environmentOverrides: overrides)

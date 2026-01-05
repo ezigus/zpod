@@ -16,6 +16,78 @@ protocol PlaybackPositionTestSupport: SmartUITesting {
 
 extension PlaybackPositionTestSupport where Self: XCTestCase {
 
+  // MARK: - Test Audio Helpers
+  
+  /// Returns the file URL for a bundled test audio file from the test bundle.
+  ///
+  /// **Important**: Uses Bundle(for: type(of: self)) to access the TEST bundle,
+  /// not Bundle.main (which is the app bundle and won't contain test resources).
+  ///
+  /// - Parameters:
+  ///   - name: Audio file name without extension (e.g., "test-episode-short")
+  ///   - ext: File extension (default: "m4a", can use "aiff")
+  /// - Returns: file:// URL to the audio file, or nil if not found
+  func testAudioURL(named name: String, extension ext: String = "m4a") -> URL? {
+    Bundle(for: type(of: self)).url(
+      forResource: name,
+      withExtension: ext
+    )
+  }
+  
+  /// Returns launch environment variables with test audio file paths.
+  ///
+  /// Call this before launching the app to inject test audio URLs.
+  /// The app reads these environment variables to populate Episode.audioURL.
+  ///
+  /// **Environment Variables Set**:
+  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio
+  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio
+  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio
+  ///
+  /// - Returns: Dictionary of environment variables to merge into launchEnvironment
+  func audioLaunchEnvironment() -> [String: String] {
+    var env: [String: String] = [:]
+    
+    if let shortURL = testAudioURL(named: "test-episode-short") {
+      env["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
+    }
+    if let mediumURL = testAudioURL(named: "test-episode-medium") {
+      env["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
+    }
+    if let longURL = testAudioURL(named: "test-episode-long") {
+      env["UITEST_AUDIO_LONG_PATH"] = longURL.path
+    }
+    
+    return env
+  }
+  
+  /// Validates that all required test audio files exist in the test bundle.
+  ///
+  /// Call this in test setup (setUpWithError) to fail fast if audio is missing.
+  /// Prevents confusing timeout failures when audio files aren't properly added.
+  func validateTestAudioExists() {
+    let files = [
+      ("test-episode-short", "m4a"),
+      ("test-episode-medium", "m4a"),
+      ("test-episode-long", "m4a")
+    ]
+    
+    for (name, ext) in files {
+      guard testAudioURL(named: name, extension: ext) != nil else {
+        XCTFail("""
+          ❌ Missing required test audio file: \(name).\(ext)
+          
+          Expected location: TestResources/Audio/ in zpodUITests bundle
+          
+          Fix: Ensure files are added to Xcode project with:
+          - Folder references (blue folder icon, not yellow)
+          - Target membership: zpodUITests only
+          """)
+        return
+      }
+    }
+  }
+
   // MARK: - Navigation Helpers
 
   /// Navigate to Library tab and start playback of test episode.
