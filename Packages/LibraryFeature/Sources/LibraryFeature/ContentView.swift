@@ -6,6 +6,7 @@
 //
 
 import CoreModels
+import OSLog
 import Persistence
 import SettingsDomain
 import SharedUtilities
@@ -15,6 +16,8 @@ import SwiftUI
 #if os(iOS)
   import UIKit
 #endif
+
+private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAudio")
 
 #if canImport(DiscoverFeature)
   import DiscoverFeature
@@ -680,6 +683,29 @@ import SwiftUI
         let shortAudioURL: URL? = env["UITEST_AUDIO_SHORT_PATH"].map { URL(fileURLWithPath: $0) }
         let mediumAudioURL: URL? = env["UITEST_AUDIO_MEDIUM_PATH"].map { URL(fileURLWithPath: $0) }
         let longAudioURL: URL? = env["UITEST_AUDIO_LONG_PATH"].map { URL(fileURLWithPath: $0) }
+        
+        // Diagnostic logging (only in test environment)
+        if env["UITEST_DEBUG_AUDIO"] == "1" {
+          logger.info("🎵 Test audio paths from environment:")
+          if let url = shortAudioURL {
+            let readable = FileManager.default.isReadableFile(atPath: url.path)
+            logger.info("  short: \(url.path, privacy: .public) readable=\(readable)")
+          } else {
+            logger.info("  short: nil")
+          }
+          if let url = mediumAudioURL {
+            let readable = FileManager.default.isReadableFile(atPath: url.path)
+            logger.info("  medium: \(url.path, privacy: .public) readable=\(readable)")
+          } else {
+            logger.info("  medium: nil")
+          }
+          if let url = longAudioURL {
+            let readable = FileManager.default.isReadableFile(atPath: url.path)
+            logger.info("  long: \(url.path, privacy: .public) readable=\(readable)")
+          } else {
+            logger.info("  long: nil")
+          }
+        }
         
         let sampleEpisodes = [
           Episode(

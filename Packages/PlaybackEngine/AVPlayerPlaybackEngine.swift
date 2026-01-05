@@ -85,6 +85,11 @@ public final class AVPlayerPlaybackEngine {
     ///   - startPosition: Initial playback position in seconds (default: 0)
     ///   - rate: Playback rate/speed (1.0 = normal, 2.0 = 2x speed)
     public func play(from url: URL, startPosition: TimeInterval = 0, rate: Float = 1.0) {
+        // Diagnostic logging for test environment
+        if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+            Logger.info("🎵 AVPlayerPlaybackEngine.play(from: \(url.absoluteString, privacy: .public), startPosition: \(startPosition), rate: \(rate))")
+        }
+        
         // Clean up any existing playback
         cleanupSync()
         
@@ -218,6 +223,13 @@ public final class AVPlayerPlaybackEngine {
         statusObserver = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard let self = self else { return }
             
+            // Diagnostic logging for test environment
+            if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                Task { @MainActor in
+                    Logger.info("🎵 AVPlayerItem status changed to: \(item.status.rawValue)")
+                }
+            }
+            
             switch item.status {
             case .failed:
                 let error = item.error
@@ -227,11 +239,24 @@ public final class AVPlayerPlaybackEngine {
                     guard let self = self else { return }
                     let urlString = self.currentURL?.absoluteString ?? "unknown"
                     Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
+                    
+                    // Additional diagnostic for tests
+                    if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                        Logger.error("🎵 AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
+                    }
+                    
                     self.onError?(.streamFailed)
                 }
                 
             case .readyToPlay:
                 Logger.debug("AVPlayer ready to play")
+                
+                // Additional diagnostic for tests
+                if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                    Task { @MainActor in
+                        Logger.info("🎵 AVPlayerItem ready to play")
+                    }
+                }
                 
             case .unknown:
                 break

@@ -654,6 +654,7 @@ extension SmartUITesting where Self: XCTestCase {
       
     case .avplayer:
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
+      overrides["UITEST_DEBUG_AUDIO"] = "1"  // Enable diagnostic logging
       
       // Inject test audio file paths for AVPlayer tests
       // This allows the app to populate Episode.audioURL with test bundle resources
