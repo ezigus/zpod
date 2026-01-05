@@ -656,11 +656,15 @@ extension SmartUITesting where Self: XCTestCase {
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
       overrides["UITEST_DEBUG_AUDIO"] = "1"  // Enable diagnostic logging
       
-      // Copy audio files to app container and inject paths
+      // Copy audio files to /tmp and inject paths
       // Cast to concrete type to access audioLaunchEnvironment() helper
       if let testCase = self as? (any PlaybackPositionTestSupport & XCTestCase) {
+        NSLog("🔧 AVPlayer mode: calling audioLaunchEnvironment()")
         let audioEnv = testCase.audioLaunchEnvironment()
+        NSLog("🔧 Audio environment keys: \(audioEnv.keys.sorted().joined(separator: ", "))")
         overrides.merge(audioEnv) { _, new in new }
+      } else {
+        NSLog("⚠️  AVPlayer mode: Failed to cast to PlaybackPositionTestSupport")
       }
     }
     
