@@ -657,9 +657,9 @@ extension SmartUITesting where Self: XCTestCase {
       overrides["UITEST_DEBUG_AUDIO"] = "1"  // Enable diagnostic logging
       
       // Copy audio files to app container and inject paths
-      // Uses PlaybackPositionTestSupport helper to avoid duplication
-      if let support = self as? PlaybackPositionTestSupport {
-        let audioEnv = support.audioLaunchEnvironment()
+      // Cast to concrete type to access audioLaunchEnvironment() helper
+      if let testCase = self as? (any PlaybackPositionTestSupport & XCTestCase) {
+        let audioEnv = testCase.audioLaunchEnvironment()
         overrides.merge(audioEnv) { _, new in new }
       }
     }
