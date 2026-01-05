@@ -660,13 +660,13 @@ extension SmartUITesting where Self: XCTestCase {
       if let testCase = self as? XCTestCase {
         let bundle = Bundle(for: type(of: testCase))
         
-        if let shortURL = bundle.url(forResource: "test-episode-short", withExtension: "m4a", subdirectory: "TestResources/Audio") {
+        if let shortURL = bundle.url(forResource: "test-episode-short", withExtension: "m4a") {
           overrides["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
         }
-        if let mediumURL = bundle.url(forResource: "test-episode-medium", withExtension: "m4a", subdirectory: "TestResources/Audio") {
+        if let mediumURL = bundle.url(forResource: "test-episode-medium", withExtension: "m4a") {
           overrides["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
         }
-        if let longURL = bundle.url(forResource: "test-episode-long", withExtension: "m4a", subdirectory: "TestResources/Audio") {
+        if let longURL = bundle.url(forResource: "test-episode-long", withExtension: "m4a") {
           overrides["UITEST_AUDIO_LONG_PATH"] = longURL.path
         }
       }

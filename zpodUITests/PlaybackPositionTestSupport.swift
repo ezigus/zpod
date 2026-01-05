@@ -25,13 +25,12 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
   ///
   /// - Parameters:
   ///   - name: Audio file name without extension (e.g., "test-episode-short")
-  ///   - ext: File extension (default: "m4a", can use "mp3")
+  ///   - ext: File extension (default: "m4a", can use "aiff")
   /// - Returns: file:// URL to the audio file, or nil if not found
   func testAudioURL(named name: String, extension ext: String = "m4a") -> URL? {
     Bundle(for: type(of: self)).url(
       forResource: name,
-      withExtension: ext,
-      subdirectory: "TestResources/Audio"
+      withExtension: ext
     )
   }
   

@@ -112,6 +112,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7831F4082F0B3F93005AB782 /* Exceptions for "zpodUITests" folder in "zpodUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				TestSummary.md,
+			);
+			target = 786FD1262E22E617008CEE55 /* zpodUITests */;
+		};
 		786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -145,6 +152,9 @@
 		};
 		786FD12A2E22E617008CEE55 /* zpodUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7831F4082F0B3F93005AB782 /* Exceptions for "zpodUITests" folder in "zpodUITests" target */,
+			);
 			path = zpodUITests;
 			sourceTree = "<group>";
 		};
