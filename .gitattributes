@@ -11,3 +11,8 @@ scripts/dev-build.sh merge=ours
 
 # Documentation files
 *.md text eol=lf
+
+# Binary audio files (test resources)
+*.m4a binary
+*.mp3 binary
+*.aiff binary
