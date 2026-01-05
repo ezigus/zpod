@@ -656,20 +656,11 @@ extension SmartUITesting where Self: XCTestCase {
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
       overrides["UITEST_DEBUG_AUDIO"] = "1"  // Enable diagnostic logging
       
-      // Inject test audio file paths for AVPlayer tests
-      // This allows the app to populate Episode.audioURL with test bundle resources
-      if let testCase = self as? XCTestCase {
-        let bundle = Bundle(for: type(of: testCase))
-        
-        if let shortURL = bundle.url(forResource: "test-episode-short", withExtension: "m4a") {
-          overrides["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
-        }
-        if let mediumURL = bundle.url(forResource: "test-episode-medium", withExtension: "m4a") {
-          overrides["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
-        }
-        if let longURL = bundle.url(forResource: "test-episode-long", withExtension: "m4a") {
-          overrides["UITEST_AUDIO_LONG_PATH"] = longURL.path
-        }
+      // Copy audio files to app container and inject paths
+      // Uses PlaybackPositionTestSupport helper to avoid duplication
+      if let support = self as? PlaybackPositionTestSupport {
+        let audioEnv = support.audioLaunchEnvironment()
+        overrides.merge(audioEnv) { _, new in new }
       }
     }
     

@@ -34,28 +34,65 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     )
   }
   
-  /// Returns launch environment variables with test audio file paths.
+  /// Copies test audio files to the app's Documents directory and returns environment variables.
   ///
-  /// Call this before launching the app to inject test audio URLs.
+  /// **Why Copy?** The app runs in a separate sandbox and cannot read files from the
+  /// test bundle directly. This method copies audio files from the test bundle to the
+  /// app's Documents directory, which the app CAN access.
+  ///
+  /// Call this before launching the app to inject test audio URLs that AVPlayer can play.
   /// The app reads these environment variables to populate Episode.audioURL.
   ///
   /// **Environment Variables Set**:
-  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio
-  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio
-  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio
+  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio (copied to app container)
+  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio (copied to app container)
+  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio (copied to app container)
+  ///
+  /// **Cleanup**: Files remain in app container between test runs. This is acceptable
+  /// since tests terminate the app between runs, and file size is minimal (~150KB total).
   ///
   /// - Returns: Dictionary of environment variables to merge into launchEnvironment
   func audioLaunchEnvironment() -> [String: String] {
+    let fileManager = FileManager.default
     var env: [String: String] = [:]
     
-    if let shortURL = testAudioURL(named: "test-episode-short") {
-      env["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
+    // Get app's Documents directory (accessible to both test and app)
+    // We use a shared location that the app under test can access
+    guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+      XCTFail("Could not access Documents directory for audio file staging")
+      return env
     }
-    if let mediumURL = testAudioURL(named: "test-episode-medium") {
-      env["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
-    }
-    if let longURL = testAudioURL(named: "test-episode-long") {
-      env["UITEST_AUDIO_LONG_PATH"] = longURL.path
+    
+    // Create a subdirectory for test audio to avoid conflicts
+    let audioDir = documentsURL.appendingPathComponent("UITestAudio")
+    try? fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
+    
+    // Copy each audio file from test bundle to app container
+    let audioFiles: [(name: String, envKey: String)] = [
+      ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
+      ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
+      ("test-episode-long", "UITEST_AUDIO_LONG_PATH")
+    ]
+    
+    for (name, envKey) in audioFiles {
+      guard let sourceURL = testAudioURL(named: name) else {
+        XCTFail("Missing audio file in test bundle: \(name).m4a")
+        continue
+      }
+      
+      let destURL = audioDir.appendingPathComponent("\(name).m4a")
+      
+      // Remove existing file if present (allows re-running tests)
+      try? fileManager.removeItem(at: destURL)
+      
+      // Copy from test bundle to app container
+      do {
+        try fileManager.copyItem(at: sourceURL, to: destURL)
+        env[envKey] = destURL.path
+        Self.logger.debug("Copied test audio: \(name).m4a -> \(destURL.path)")
+      } catch {
+        XCTFail("Failed to copy \(name).m4a to app container: \(error.localizedDescription)")
+      }
     }
     
     return env
