@@ -87,7 +87,7 @@ public final class AVPlayerPlaybackEngine {
     public func play(from url: URL, startPosition: TimeInterval = 0, rate: Float = 1.0) {
         // Diagnostic logging for test environment
         if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
-            Logger.info("🎵 AVPlayerPlaybackEngine.play(from: \(url.absoluteString, privacy: .public), startPosition: \(startPosition), rate: \(rate))")
+            Logger.info("🎵 AVPlayerPlaybackEngine.play(from: \(url.absoluteString), startPosition: \(startPosition), rate: \(rate))")
         }
         
         // Clean up any existing playback

@@ -689,19 +689,19 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           logger.info("🎵 Test audio paths from environment:")
           if let url = shortAudioURL {
             let readable = FileManager.default.isReadableFile(atPath: url.path)
-            logger.info("  short: \(url.path, privacy: .public) readable=\(readable)")
+            logger.info("  short: \(url.path) readable=\(readable)")
           } else {
             logger.info("  short: nil")
           }
           if let url = mediumAudioURL {
             let readable = FileManager.default.isReadableFile(atPath: url.path)
-            logger.info("  medium: \(url.path, privacy: .public) readable=\(readable)")
+            logger.info("  medium: \(url.path) readable=\(readable)")
           } else {
             logger.info("  medium: nil")
           }
           if let url = longAudioURL {
             let readable = FileManager.default.isReadableFile(atPath: url.path)
-            logger.info("  long: \(url.path, privacy: .public) readable=\(readable)")
+            logger.info("  long: \(url.path) readable=\(readable)")
           } else {
             logger.info("  long: nil")
           }
