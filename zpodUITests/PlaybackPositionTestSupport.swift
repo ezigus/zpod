@@ -27,7 +27,7 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
   ///   - name: Audio file name without extension (e.g., "test-episode-short")
   ///   - ext: File extension (default: "m4a", can use "aiff")
   /// - Returns: file:// URL to the audio file, or nil if not found
-  func testAudioURL(named name: String, extension ext: String = "m4a") -> URL? {
+  nonisolated func testAudioURL(named name: String, extension ext: String = "m4a") -> URL? {
     Bundle(for: type(of: self)).url(
       forResource: name,
       withExtension: ext
@@ -120,7 +120,7 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
   ///
   /// Call this in test setup (setUpWithError) to fail fast if audio is missing.
   /// Prevents confusing timeout failures when audio files aren't properly added.
-  func validateTestAudioExists() {
+  nonisolated func validateTestAudioExists() {
     let files = [
       ("test-episode-short", "m4a"),
       ("test-episode-medium", "m4a"),
