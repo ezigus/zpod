@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-   zpodUITests.entitlements
-   zpod
-
-   Created by Eric Ziegler on 1/5/26.
-   Copyright (c) 2026 ___ORGANIZATIONNAME___. All rights reserved.
--->
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.us.zig.zpod.test-resources</string>
+	</array>
+</dict>
 </plist>

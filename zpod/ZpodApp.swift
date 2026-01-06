@@ -33,6 +33,16 @@ struct ZpodApp: App {
 
     // Reset playback state for UI tests to ensure clean state between tests
     resetPlaybackStateForUITests()
+    
+    // Diagnostic: Check if audio environment variables are present
+    let env = ProcessInfo.processInfo.environment
+    if env["UITEST_DEBUG_AUDIO"] == "1" {
+      NSLog("[TestAudio] ZpodApp.init() - Environment check:")
+      NSLog("  UITEST_AUDIO_SHORT_PATH: %@", env["UITEST_AUDIO_SHORT_PATH"] ?? "nil")
+      NSLog("  UITEST_AUDIO_MEDIUM_PATH: %@", env["UITEST_AUDIO_MEDIUM_PATH"] ?? "nil")
+      NSLog("  UITEST_AUDIO_LONG_PATH: %@", env["UITEST_AUDIO_LONG_PATH"] ?? "nil")
+      NSLog("  UITEST_DISABLE_AUDIO_ENGINE: %@", env["UITEST_DISABLE_AUDIO_ENGINE"] ?? "nil")
+    }
 
     // Force creation of debug overlay manager BEFORE notification is posted
     // This ensures the observer is registered when notification fires

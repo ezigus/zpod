@@ -44,6 +44,27 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     formatTime(duration)
   }
 
+  public var audioDebugText: String? {
+    guard isAudioDebugEnabled else { return nil }
+    guard let enhancedPlayer = playbackService as? EnhancedEpisodePlayer else {
+      return "audio debug unavailable (non-enhanced player)"
+    }
+    let info = enhancedPlayer.audioDebugInfo()
+    let position = String(format: "%.2f", info.position)
+    let duration = String(format: "%.2f", info.duration)
+    return [
+      "mode: \(info.playbackMode)",
+      "url: \(info.audioURL)",
+      "access: \(info.audioURLAccess)",
+      "engine status: \(info.engineStatus)",
+      "engine rate: \(info.engineRate)",
+      "engine error: \(info.engineError)",
+      "engine playing: \(info.engineIsPlaying)",
+      "player playing: \(info.playerIsPlaying)",
+      "position: \(position)s / \(duration)s"
+    ].joined(separator: "\n")
+  }
+
   // MARK: - Private Properties
 
   private let playbackService: (EpisodePlaybackService & EpisodeTransportControlling)
@@ -203,5 +224,9 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       .sink { [weak self] alert in
         self?.playbackAlert = alert
       }
+  }
+
+  private var isAudioDebugEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1"
   }
 }

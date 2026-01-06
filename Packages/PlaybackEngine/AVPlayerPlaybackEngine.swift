@@ -45,6 +45,35 @@ public final class AVPlayerPlaybackEngine {
         let time = player.currentTime()
         return CMTimeGetSeconds(time)
     }
+
+    public var isPlaying: Bool {
+        (player?.rate ?? 0) > 0
+    }
+
+    public var debugStatusDescription: String {
+        let status = lastStatus ?? playerItem?.status
+        switch status {
+        case .readyToPlay:
+            return "readyToPlay"
+        case .failed:
+            return "failed"
+        case .unknown:
+            return "unknown"
+        case .none:
+            return "nil"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
+    public var debugRateDescription: String {
+        guard let rate = player?.rate else { return "nil" }
+        return String(format: "%.2f", rate)
+    }
+
+    public var debugErrorDescription: String {
+        lastErrorDescription ?? playerItem?.error?.localizedDescription ?? "none"
+    }
     
     // MARK: - Private Properties
     
@@ -54,6 +83,8 @@ public final class AVPlayerPlaybackEngine {
     private var statusObserver: NSKeyValueObservation?
     private var didFinishObserver: NSObjectProtocol?
     private var currentURL: URL?
+    private var lastStatus: AVPlayerItem.Status?
+    private var lastErrorDescription: String?
     
     private let timeObserverInterval: TimeInterval = 0.5
     
@@ -87,7 +118,8 @@ public final class AVPlayerPlaybackEngine {
     public func play(from url: URL, startPosition: TimeInterval = 0, rate: Float = 1.0) {
         // Diagnostic logging for test environment
         if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
-            Logger.info("🎵 AVPlayerPlaybackEngine.play(from: \(url.absoluteString), startPosition: \(startPosition), rate: \(rate))")
+            Logger.info("[TestAudio] AVPlayerPlaybackEngine.play(from: \(url.absoluteString), startPosition: \(startPosition), rate: \(rate))")
+            NSLog("[TestAudio] AVPlayerPlaybackEngine.play(from: %@, startPosition: %f, rate: %f)", url.absoluteString, startPosition, rate)
         }
         
         // Clean up any existing playback
@@ -96,11 +128,24 @@ public final class AVPlayerPlaybackEngine {
         // Store URL for error logging
         currentURL = url
         
+        if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+            // Check if file exists for file URLs (test diagnostics only)
+            if url.isFileURL {
+                let exists = FileManager.default.fileExists(atPath: url.path)
+                NSLog("[TestAudio] File URL check: %@ exists=%@", url.path, exists ? "YES" : "NO")
+                if !exists {
+                    NSLog("[TestAudio][Error] File does not exist at path: %@", url.path)
+                }
+            }
+        }
+        
         // Activate audio session
         activateAudioSession()
         
         // Create player item and player
         playerItem = AVPlayerItem(url: url)
+        lastStatus = playerItem?.status
+        lastErrorDescription = nil
         player = AVPlayer(playerItem: playerItem)
         
         // Observe player item status for errors
@@ -221,48 +266,47 @@ public final class AVPlayerPlaybackEngine {
         guard let playerItem = playerItem else { return }
         
         statusObserver = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
-            guard let self = self else { return }
-            
-            // Diagnostic logging for test environment
-            if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
-                Task { @MainActor in
-                    Logger.info("🎵 AVPlayerItem status changed to: \(item.status.rawValue)")
+            let status = item.status
+            let error = item.error
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.lastStatus = status
+
+                // Diagnostic logging for test environment
+                if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                    Logger.info("[TestAudio] AVPlayerItem status changed to: \(status.rawValue)")
                 }
-            }
-            
-            switch item.status {
-            case .failed:
-                let error = item.error
-                // KVO callbacks can fire on background threads. Since this class is @MainActor
-                // and onError callback may access UI, we must dispatch to main actor.
-                Task { @MainActor [weak self] in
-                    guard let self = self else { return }
+
+                switch status {
+                case .failed:
+                    if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                        NSLog("[TestAudio][Error] AVPlayerItem FAILED: %@", error?.localizedDescription ?? "Unknown error")
+                    }
+                    self.lastErrorDescription = error?.localizedDescription
                     let urlString = self.currentURL?.absoluteString ?? "unknown"
                     Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
-                    
+
                     // Additional diagnostic for tests
                     if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
-                        Logger.error("🎵 AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
+                        Logger.error("[TestAudio][Error] AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
                     }
-                    
+
                     self.onError?(.streamFailed)
-                }
-                
-            case .readyToPlay:
-                Logger.debug("AVPlayer ready to play")
-                
-                // Additional diagnostic for tests
-                if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
-                    Task { @MainActor in
-                        Logger.info("🎵 AVPlayerItem ready to play")
+
+                case .readyToPlay:
+                    Logger.debug("AVPlayer ready to play")
+
+                    // Additional diagnostic for tests
+                    if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
+                        Logger.info("[TestAudio] AVPlayerItem ready to play")
                     }
+
+                case .unknown:
+                    break
+
+                @unknown default:
+                    break
                 }
-                
-            case .unknown:
-                break
-                
-            @unknown default:
-                break
             }
         }
     }
@@ -306,6 +350,8 @@ public final class AVPlayerPlaybackEngine {
         player = nil
         playerItem = nil
         currentURL = nil
+        lastStatus = nil
+        lastErrorDescription = nil
     }
 }
 #endif

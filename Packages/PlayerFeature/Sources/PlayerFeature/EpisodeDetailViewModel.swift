@@ -10,6 +10,7 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var episode: Episode?
   @Published public var isPlaying = false
   @Published public var currentPosition: TimeInterval = 0
+  @Published public var duration: TimeInterval = 0
   @Published public var progressFraction: Double = 0
   @Published public var formattedCurrentTime = "0:00"
   @Published public var formattedDuration = "0:00"
@@ -100,7 +101,11 @@ public class EpisodeDetailViewModel: ObservableObject {
     } else {
       // Use episode's duration or a default
       let duration = episode.duration ?? 300.0  // 5 minutes default
-      playbackService.play(episode: episode, duration: duration)
+      let resumeEpisode = episode.withPlaybackPosition(Int(currentPosition))
+      playbackService.play(episode: resumeEpisode, duration: duration)
+      if currentPosition > 0 {
+        enhancedPlayer?.seek(to: currentPosition)
+      }
     }
   }
 
@@ -407,6 +412,7 @@ public class EpisodeDetailViewModel: ObservableObject {
     progressFraction = duration > 0 ? min(max(position / duration, 0), 1) : 0
     formattedCurrentTime = formatTime(position)
     formattedDuration = formatTime(duration)
+    self.duration = duration
   }
 
   private func updateCurrentChapter() {

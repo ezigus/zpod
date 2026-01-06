@@ -16,6 +16,7 @@ public struct EpisodeDetailView: View {
   @State private var customBookmarkTimestamp = ""
   @State private var bookmarkValidationMessage: String?
   @State private var transcriptSearchText = ""
+  @State private var showingSpeedOptions = false
 
   public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
@@ -25,333 +26,9 @@ public struct EpisodeDetailView: View {
 
   public var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
-        // Episode title
-        Text(episode.title)
-          .font(.title2)
-          .fontWeight(.bold)
-          .multilineTextAlignment(.leading)
-
-        // Episode description (if available)
-        if let description = episode.description {
-          Text(description)
-            .font(.body)
-            .foregroundColor(.secondary)
-        }
-
-        // Playback controls section
-        VStack(spacing: 16) {
-          // Progress bar
-          VStack(alignment: .leading, spacing: 8) {
-            ProgressView(value: viewModel.progressFraction)
-              .progressViewStyle(LinearProgressViewStyle())
-
-            HStack {
-              Text(viewModel.formattedCurrentTime)
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-              Spacer()
-
-              Text(viewModel.formattedDuration)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            }
-          }
-
-          // Control buttons row
-          HStack(spacing: 20) {
-            // Skip backward button
-            Button(action: {
-              viewModel.skipBackward()
-            }) {
-              Image(systemName: "gobackward.15")
-                .font(.title2)
-                .foregroundColor(.accentColor)
-            }
-            .disabled(viewModel.episode == nil)
-
-            Spacer()
-
-            // Play/Pause button
-            Button(action: {
-              viewModel.playPause()
-            }) {
-              Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                .font(.largeTitle)
-                .foregroundColor(.accentColor)
-            }
-            .disabled(viewModel.episode == nil)
-
-            Spacer()
-
-            // Skip forward button
-            Button(action: {
-              viewModel.skipForward()
-            }) {
-              Image(systemName: "goforward.30")
-                .font(.title2)
-                .foregroundColor(.accentColor)
-            }
-            .disabled(viewModel.episode == nil)
-          }
-
-          // Playback speed control
-          HStack {
-            Text("Speed:")
-              .font(.caption)
-              .foregroundColor(.secondary)
-
-            Spacer()
-
-            Button(action: {
-              let speeds: [Float] = [0.8, 1.0, 1.25, 1.5, 2.0]
-              let currentIndex = speeds.firstIndex(of: viewModel.playbackSpeed) ?? 1
-              let nextIndex = (currentIndex + 1) % speeds.count
-              viewModel.setPlaybackSpeed(speeds[nextIndex])
-            }) {
-              Text("\(viewModel.playbackSpeed, specifier: "%.2g")x")
-                .font(.caption)
-                .foregroundColor(.accentColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.platformSystemGray5)
-                .cornerRadius(8)
-            }
-          }
-        }
-        .padding()
-        .background(Color.platformSystemGray6)
-        .cornerRadius(12)
-
-        // Chapters section
-        if !viewModel.chapters.isEmpty {
-          VStack(alignment: .leading, spacing: 12) {
-            Text("Chapters")
-              .font(.headline)
-              .fontWeight(.semibold)
-
-            LazyVStack(alignment: .leading, spacing: 8) {
-              ForEach(viewModel.chapters, id: \.id) { chapter in
-                Button(action: {
-                  viewModel.jumpToChapter(chapter)
-                }) {
-                  HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                      Text(chapter.title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .multilineTextAlignment(.leading)
-
-                      Text(formatChapterTime(chapter.startTime))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    if viewModel.currentChapter?.id == chapter.id {
-                      Image(systemName: "play.circle.fill")
-                        .foregroundColor(.accentColor)
-                        .font(.caption)
-                    }
-                  }
-                  .padding(.vertical, 8)
-                  .padding(.horizontal, 12)
-                  .background(
-                    viewModel.currentChapter?.id == chapter.id ? Color.platformSystemGray5 : Color.clear
-                  )
-                  .cornerRadius(8)
-                }
-                .buttonStyle(PlainButtonStyle())
-              }
-            }
-          }
-          .padding()
-          .background(Color.platformSystemGray6)
-          .cornerRadius(12)
-        }
-        
-        metadataSection
-        
-        // Rating section
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Your Rating")
-            .font(.headline)
-            .fontWeight(.semibold)
-          
-          HStack(spacing: 8) {
-            ForEach(1...5, id: \.self) { star in
-              Button(action: {
-                viewModel.setRating(viewModel.userRating == star ? nil : star)
-              }) {
-                Image(systemName: viewModel.userRating ?? 0 >= star ? "star.fill" : "star")
-                  .font(.title3)
-                  .foregroundColor(.yellow)
-              }
-            }
-            
-            if let rating = viewModel.userRating {
-              Text("(\(rating)/5)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 4)
-            }
-          }
-
-          if let community = viewModel.metadata?.formattedCommunityRating {
-            Text("Community: \(community)")
-              .font(.caption)
-              .foregroundColor(.secondary)
-              .accessibilityLabel("Community rating \(community)")
-          } else {
-            Text("Community rating coming soon")
-              .font(.caption)
-              .foregroundColor(.secondary)
-          }
-        }
-        .padding()
-        .background(Color.platformSystemGray6)
-        .cornerRadius(12)
-        
-        // Bookmarks section
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Bookmarks")
-            .font(.headline)
-            .fontWeight(.semibold)
-
-          bookmarkComposer
-
-          if viewModel.bookmarks.isEmpty {
-            Text("No bookmarks yet. Add one to jump back to important moments.")
-              .font(.caption)
-              .foregroundColor(.secondary)
-              .padding(.vertical, 8)
-          } else {
-            LazyVStack(alignment: .leading, spacing: 8) {
-              ForEach(viewModel.bookmarks) { bookmark in
-                HStack {
-                  Button(action: {
-                    viewModel.jumpToBookmark(bookmark)
-                  }) {
-                    VStack(alignment: .leading, spacing: 2) {
-                      Text(bookmark.displayLabel)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .multilineTextAlignment(.leading)
-
-                      Text(bookmark.formattedTimestamp)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    }
-                  }
-                  .buttonStyle(PlainButtonStyle())
-
-                  Spacer()
-
-                  Button(action: {
-                    viewModel.deleteBookmark(bookmark)
-                  }) {
-                    Image(systemName: "trash")
-                      .font(.caption)
-                      .foregroundColor(.red)
-                  }
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color.platformSystemGray5)
-                .cornerRadius(8)
-              }
-            }
-          }
-        }
-        .padding()
-        .background(Color.platformSystemGray6)
-        .cornerRadius(12)
-        
-        // Notes section
-        VStack(alignment: .leading, spacing: 12) {
-          Text("Notes")
-            .font(.headline)
-            .fontWeight(.semibold)
-
-          noteComposer
-
-          if viewModel.notes.isEmpty {
-            Text("No notes yet. Capture your thoughts with the composer above.")
-              .font(.caption)
-              .foregroundColor(.secondary)
-              .padding(.vertical, 8)
-          } else {
-            LazyVStack(alignment: .leading, spacing: 8) {
-              ForEach(viewModel.notes) { note in
-                VStack(alignment: .leading, spacing: 6) {
-                  Text(note.text)
-                    .font(.subheadline)
-                    .multilineTextAlignment(.leading)
-                    .fontWeight(editingNote?.id == note.id ? .semibold : .regular)
-
-                  if note.hasTags {
-                    HStack(spacing: 4) {
-                      ForEach(note.tags, id: \.self) { tag in
-                        Text("#\(tag)")
-                          .font(.caption2)
-                          .padding(.horizontal, 6)
-                          .padding(.vertical, 2)
-                          .background(Color.accentColor.opacity(0.2))
-                          .cornerRadius(4)
-                      }
-                    }
-                  }
-
-                  HStack {
-                    if let timestamp = note.formattedTimestamp {
-                      Text("at \(timestamp)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    }
-
-                    Spacer()
-
-                    Button("Edit") {
-                      beginEditing(note)
-                    }
-                    .font(.caption2)
-
-                    Button(action: {
-                      viewModel.deleteNote(note)
-                      if editingNote?.id == note.id {
-                        resetNoteComposer()
-                      }
-                    }) {
-                      Image(systemName: "trash")
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                    }
-                  }
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(
-                  editingNote?.id == note.id ? Color.accentColor.opacity(0.1) : Color.platformSystemGray5
-                )
-                .cornerRadius(8)
-              }
-            }
-          }
-        }
-        .padding()
-        .background(Color.platformSystemGray6)
-        .cornerRadius(12)
-        
-        // Transcript section
-        if viewModel.transcript != nil {
-          transcriptSection
-        }
-
-        Spacer()
-      }
-      .padding()
+      content
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("Episode Detail View")
     }
     .navigationTitle("Episode")
 #if os(iOS)
@@ -373,10 +50,424 @@ public struct EpisodeDetailView: View {
 
 extension EpisodeDetailView {
 
+  @ViewBuilder
+  private var content: some View {
+    VStack(alignment: .leading, spacing: 20) {
+      artworkView
+      headerSection
+      playbackControlsSection
+      chaptersSection
+      metadataSection
+      ratingSection
+      bookmarksSection
+      notesSection
+      transcriptSection
+      Spacer()
+    }
+    .padding()
+  }
+
   private func formatChapterTime(_ seconds: TimeInterval) -> String {
     let minutes = Int(seconds) / 60
     let remainingSeconds = Int(seconds) % 60
     return String(format: "%d:%02d", minutes, remainingSeconds)
+  }
+
+  private var artworkView: some View {
+    Group {
+      if let url = episode.artworkURL {
+        AsyncImage(url: url) { phase in
+          switch phase {
+          case .empty:
+            placeholderArtwork
+          case .success(let image):
+            image.resizable().scaledToFit()
+          case .failure:
+            placeholderArtwork
+          @unknown default:
+            placeholderArtwork
+          }
+        }
+      } else {
+        placeholderArtwork
+      }
+    }
+    .frame(width: 120, height: 120)
+    .foregroundColor(.secondary)
+    .accessibilityIdentifier("Episode Artwork")
+    .accessibilityLabel("Episode Artwork")
+  }
+
+  private var placeholderArtwork: some View {
+    Image(systemName: "music.note")
+      .resizable()
+      .scaledToFit()
+  }
+
+  private var progressAccessibilitySlider: some View {
+    let upperBound = max(viewModel.duration, viewModel.currentPosition, 1)
+    return Slider(
+      value: Binding(
+        get: { viewModel.currentPosition },
+        set: { newValue in viewModel.seek(to: newValue) }
+      ),
+      in: 0...upperBound
+    )
+    .labelsHidden()
+    .opacity(0.01)
+    .accessibilityIdentifier("Progress Slider")
+    .accessibilityLabel("Progress Slider")
+    .accessibilityHint("Adjust playback position")
+    .accessibilityValue(Text("\(viewModel.formattedCurrentTime) of \(viewModel.formattedDuration)"))
+    .disabled(viewModel.episode == nil || upperBound <= 0)
+  }
+
+  private var headerSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text(episode.title)
+        .font(.title2)
+        .fontWeight(.bold)
+        .multilineTextAlignment(.leading)
+        .accessibilityIdentifier("Episode Title")
+
+      if let description = episode.description {
+        Text(description)
+          .font(.body)
+          .foregroundColor(.secondary)
+      }
+    }
+  }
+
+  private var playbackControlsSection: some View {
+    VStack(spacing: 16) {
+      progressSection
+      playbackButtonsRow
+      playbackSpeedRow
+    }
+    .padding()
+    .background(Color.platformSystemGray6)
+    .cornerRadius(12)
+  }
+
+  private var progressSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ProgressView(value: viewModel.progressFraction)
+        .progressViewStyle(LinearProgressViewStyle())
+
+      HStack {
+        Text(viewModel.formattedCurrentTime)
+          .font(.caption)
+          .foregroundColor(.secondary)
+
+        Spacer()
+
+        Text(viewModel.formattedDuration)
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+
+      progressAccessibilitySlider
+    }
+  }
+
+  private var playbackButtonsRow: some View {
+    HStack(spacing: 20) {
+      Button(action: {
+        viewModel.skipBackward()
+      }) {
+        Image(systemName: "gobackward.15")
+          .font(.title2)
+          .foregroundColor(.accentColor)
+      }
+      .accessibilityIdentifier("Skip Backward")
+      .accessibilityLabel("Skip Backward")
+      .disabled(viewModel.episode == nil)
+
+      Spacer()
+
+      Button(action: {
+        viewModel.playPause()
+      }) {
+        Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+          .font(.largeTitle)
+          .foregroundColor(.accentColor)
+      }
+      .accessibilityIdentifier(viewModel.isPlaying ? "Pause" : "Play")
+      .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
+      .disabled(viewModel.episode == nil)
+
+      Spacer()
+
+      Button(action: {
+        viewModel.skipForward()
+      }) {
+        Image(systemName: "goforward.30")
+          .font(.title2)
+          .foregroundColor(.accentColor)
+      }
+      .accessibilityIdentifier("Skip Forward")
+      .accessibilityLabel("Skip Forward")
+      .disabled(viewModel.episode == nil)
+    }
+  }
+
+  private var playbackSpeedRow: some View {
+    HStack {
+      Text("Speed:")
+        .font(.caption)
+        .foregroundColor(.secondary)
+
+      Spacer()
+
+      Button(action: {
+        showingSpeedOptions = true
+      }) {
+        Text("\(Double(viewModel.playbackSpeed), specifier: "%.2g")x")
+          .font(.caption)
+          .foregroundColor(.accentColor)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 4)
+          .background(Color.platformSystemGray5)
+          .cornerRadius(8)
+      }
+      .accessibilityIdentifier("Speed Control")
+      .accessibilityLabel(String(format: "Speed %.1fx", Double(viewModel.playbackSpeed)))
+      .accessibilityHint("Adjust playback speed")
+      .confirmationDialog("Playback Speed", isPresented: $showingSpeedOptions) {
+        ForEach([Float(1.0), 1.5, 2.0], id: \.self) { speed in
+          Button(String(format: "%.1fx", Double(speed))) {
+            viewModel.setPlaybackSpeed(speed)
+            showingSpeedOptions = false
+          }
+        }
+        Button("Cancel", role: .cancel) {
+          showingSpeedOptions = false
+        }
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var chaptersSection: some View {
+    if !viewModel.chapters.isEmpty {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("Chapters")
+          .font(.headline)
+          .fontWeight(.semibold)
+
+        LazyVStack(alignment: .leading, spacing: 8) {
+          ForEach(viewModel.chapters, id: \.id) { chapter in
+            Button(action: {
+              viewModel.jumpToChapter(chapter)
+            }) {
+              HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(chapter.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.leading)
+
+                  Text(formatChapterTime(chapter.startTime))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                if viewModel.currentChapter?.id == chapter.id {
+                  Image(systemName: "play.circle.fill")
+                    .foregroundColor(.accentColor)
+                    .font(.caption)
+                }
+              }
+              .padding(.vertical, 8)
+              .padding(.horizontal, 12)
+              .background(
+                viewModel.currentChapter?.id == chapter.id ? Color.platformSystemGray5 : Color.clear
+              )
+              .cornerRadius(8)
+            }
+            .buttonStyle(PlainButtonStyle())
+          }
+        }
+      }
+      .padding()
+      .background(Color.platformSystemGray6)
+      .cornerRadius(12)
+    }
+  }
+
+  private var ratingSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Your Rating")
+        .font(.headline)
+        .fontWeight(.semibold)
+
+      HStack(spacing: 8) {
+        ForEach(1...5, id: \.self) { star in
+          Button(action: {
+            viewModel.setRating(viewModel.userRating == star ? nil : star)
+          }) {
+            Image(systemName: viewModel.userRating ?? 0 >= star ? "star.fill" : "star")
+              .font(.title3)
+              .foregroundColor(.yellow)
+          }
+        }
+
+        if let rating = viewModel.userRating {
+          Text("(\(rating)/5)")
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .padding(.leading, 4)
+        }
+      }
+
+      if let community = viewModel.metadata?.formattedCommunityRating {
+        Text("Community: \(community)")
+          .font(.caption)
+          .foregroundColor(.secondary)
+          .accessibilityLabel("Community rating \(community)")
+      } else {
+        Text("Community rating coming soon")
+          .font(.caption)
+          .foregroundColor(.secondary)
+      }
+    }
+    .padding()
+    .background(Color.platformSystemGray6)
+    .cornerRadius(12)
+  }
+
+  private var bookmarksSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Bookmarks")
+        .font(.headline)
+        .fontWeight(.semibold)
+
+      bookmarkComposer
+
+      if viewModel.bookmarks.isEmpty {
+        Text("No bookmarks yet. Add one to jump back to important moments.")
+          .font(.caption)
+          .foregroundColor(.secondary)
+          .padding(.vertical, 8)
+      } else {
+        LazyVStack(alignment: .leading, spacing: 8) {
+          ForEach(viewModel.bookmarks) { bookmark in
+            HStack {
+              Button(action: {
+                viewModel.jumpToBookmark(bookmark)
+              }) {
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(bookmark.displayLabel)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.leading)
+
+                  Text(bookmark.formattedTimestamp)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                }
+              }
+              .buttonStyle(PlainButtonStyle())
+
+              Spacer()
+
+              Button(action: {
+                viewModel.deleteBookmark(bookmark)
+              }) {
+                Image(systemName: "trash")
+                  .font(.caption)
+                  .foregroundColor(.red)
+              }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(Color.platformSystemGray5)
+            .cornerRadius(8)
+          }
+        }
+      }
+    }
+    .padding()
+    .background(Color.platformSystemGray6)
+    .cornerRadius(12)
+  }
+
+  private var notesSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Notes")
+        .font(.headline)
+        .fontWeight(.semibold)
+
+      noteComposer
+
+      if viewModel.notes.isEmpty {
+        Text("No notes yet. Capture your thoughts with the composer above.")
+          .font(.caption)
+          .foregroundColor(.secondary)
+          .padding(.vertical, 8)
+      } else {
+        LazyVStack(alignment: .leading, spacing: 8) {
+          ForEach(viewModel.notes) { note in
+            VStack(alignment: .leading, spacing: 6) {
+              Text(note.text)
+                .font(.subheadline)
+                .multilineTextAlignment(.leading)
+                .fontWeight(editingNote?.id == note.id ? .semibold : .regular)
+
+              if note.hasTags {
+                HStack(spacing: 4) {
+                  ForEach(note.tags, id: \.self) { tag in
+                    Text("#\(tag)")
+                      .font(.caption2)
+                      .padding(.horizontal, 6)
+                      .padding(.vertical, 2)
+                      .background(Color.accentColor.opacity(0.2))
+                      .cornerRadius(4)
+                  }
+                }
+              }
+
+              HStack {
+                if let timestamp = note.formattedTimestamp {
+                  Text("at \(timestamp)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Button("Edit") {
+                  beginEditing(note)
+                }
+                .font(.caption2)
+
+                Button(action: {
+                  viewModel.deleteNote(note)
+                  if editingNote?.id == note.id {
+                    resetNoteComposer()
+                  }
+                }) {
+                  Image(systemName: "trash")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                }
+              }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+              editingNote?.id == note.id ? Color.accentColor.opacity(0.1) : Color.platformSystemGray5
+            )
+            .cornerRadius(8)
+          }
+        }
+      }
+    }
+    .padding()
+    .background(Color.platformSystemGray6)
+    .cornerRadius(12)
   }
 
   private func transcriptRow(for segment: TranscriptSegment, highlightQuery: String) -> some View {
@@ -676,7 +767,11 @@ extension EpisodeDetailView {
 
       VStack(spacing: 8) {
         if !episode.podcastTitle.isEmpty {
-          MetadataRow(label: "Podcast", value: episode.podcastTitle)
+          MetadataRow(
+            label: "Podcast",
+            value: episode.podcastTitle,
+            valueIdentifier: "Podcast Title"
+          )
         }
 
         if let pubDate = episode.pubDate {
@@ -749,6 +844,7 @@ extension EpisodeDetailView {
 private struct MetadataRow: View {
   let label: String
   let value: String
+  var valueIdentifier: String? = nil
   
   var body: some View {
     HStack {
@@ -756,9 +852,16 @@ private struct MetadataRow: View {
         .font(.subheadline)
         .foregroundColor(.secondary)
       Spacer()
-      Text(value)
-        .font(.subheadline)
-        .fontWeight(.medium)
+      if let valueIdentifier {
+        Text(value)
+          .font(.subheadline)
+          .fontWeight(.medium)
+          .accessibilityIdentifier(valueIdentifier)
+      } else {
+        Text(value)
+          .font(.subheadline)
+          .fontWeight(.medium)
+      }
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 4)

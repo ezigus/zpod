@@ -67,6 +67,12 @@ public struct ExpandedPlayerView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("Expanded Player")
 
+        if let debugText = viewModel.audioDebugText {
+          audioDebugOverlay(text: debugText)
+            .padding(.top, geometry.safeAreaInsets.top + 12)
+            .padding(.horizontal, 16)
+        }
+
         if let alert = viewModel.playbackAlert {
           PlaybackAlertToastView(
             alert: alert,
@@ -88,6 +94,22 @@ public struct ExpandedPlayerView: View {
       .fill(Color.white.opacity(0.3))
       .frame(width: 36, height: 5)
       .accessibilityHidden(true)
+  }
+
+  private func audioDebugOverlay(text: String) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text("Audio Debug")
+        .font(.caption)
+        .fontWeight(.semibold)
+      Text(text)
+        .font(.caption2.monospaced())
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .padding(8)
+    .background(Color.black.opacity(0.6))
+    .cornerRadius(8)
+    .accessibilityIdentifier("Audio Debug Overlay")
+    .accessibilityLabel(text)
   }
 
   @ViewBuilder

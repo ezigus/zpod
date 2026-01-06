@@ -34,33 +34,37 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     )
   }
   
-  /// Copies test audio files to a shared temporary directory and returns environment variables.
+  /// Copies test audio files to /tmp directory and returns environment variables.
   ///
-  /// **Why Temp Directory?** The app runs in a separate sandbox and cannot read files
-  /// from the test bundle or test runner's Documents directory. However, both test and
-  /// app can access `/tmp` directory on the simulator, making it ideal for sharing files.
+  /// **Why /tmp?** The app runs in a separate sandbox and cannot read files
+  /// from the test bundle. On simulator, /tmp is accessible to both processes.
   ///
-  /// Call this before launching the app to inject test audio URLs that AVPlayer can play.
+  /// Call this before launching the app to inject test audio file paths that AVPlayer can access.
   /// The app reads these environment variables to populate Episode.audioURL.
   ///
   /// **Environment Variables Set**:
-  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio (in /tmp)
-  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio (in /tmp)
-  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio (in /tmp)
+  /// - UITEST_AUDIO_SHORT_PATH: ~6.5s test audio (in /tmp)
+  /// - UITEST_AUDIO_MEDIUM_PATH: 15s test audio (in /tmp)
+  /// - UITEST_AUDIO_LONG_PATH: 20s test audio (in /tmp)
   ///
-  /// **Cleanup**: Files remain in /tmp between test runs. The OS cleans /tmp periodically.
+  /// **Cleanup**: Call `cleanupAudioLaunchEnvironment()` in tearDown when needed.
   ///
   /// - Returns: Dictionary of environment variables to merge into launchEnvironment
   func audioLaunchEnvironment() -> [String: String] {
     let fileManager = FileManager.default
     var env: [String: String] = [:]
+    var failures: [String] = []
     
-    // Use /tmp directory (accessible to both test runner and app under test)
-    let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory())
-      .appendingPathComponent("zpod-ui-test-audio")
+    // Use /tmp directory (accessible on simulator to both test runner and app)
+    let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
     
     // Create directory if needed
-    try? fileManager.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    do {
+      try fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
+    } catch {
+      XCTFail("Failed to create audio directory at \(audioDir.path): \(error.localizedDescription)")
+      return env
+    }
     
     // Copy each audio file from test bundle to /tmp
     let audioFiles: [(name: String, envKey: String)] = [
@@ -71,26 +75,45 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     
     for (name, envKey) in audioFiles {
       guard let sourceURL = testAudioURL(named: name) else {
+        failures.append("\(name).m4a missing from test bundle")
         XCTFail("Missing audio file in test bundle: \(name).m4a")
         continue
       }
       
-      let destURL = tmpDir.appendingPathComponent("\(name).m4a")
+      let destURL = audioDir.appendingPathComponent("\(name).m4a")
       
-      // Remove existing file if present (allows re-running tests)
+      // Always recopy to ensure fresh files (remove existing first)
       try? fileManager.removeItem(at: destURL)
       
-      // Copy from test bundle to /tmp
       do {
         try fileManager.copyItem(at: sourceURL, to: destURL)
-        env[envKey] = destURL.path
-        Self.logger.debug("Copied test audio: \(name).m4a -> \(destURL.path)")
+        Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
       } catch {
-        XCTFail("Failed to copy \(name).m4a to tmp directory: \(error.localizedDescription)")
+        failures.append("\(name).m4a copy failed: \(error.localizedDescription)")
+        XCTFail("Failed to copy \(name).m4a to temp directory: \(error.localizedDescription)")
+        continue
       }
+      
+      env[envKey] = destURL.path
     }
-    
+
+    if !failures.isEmpty {
+      XCTFail("Audio environment incomplete: \(failures.joined(separator: "; "))")
+    }
+    Self.logger.debug("Audio environment configured: \(env.keys.joined(separator: ", "), privacy: .public)")
     return env
+  }
+
+  func cleanupAudioLaunchEnvironment() {
+    let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
+    guard FileManager.default.fileExists(atPath: audioDir.path) else { return }
+    do {
+      try FileManager.default.removeItem(at: audioDir)
+    } catch {
+      Self.logger.debug(
+        "Test audio cleanup failed: \(error.localizedDescription, privacy: .public)"
+      )
+    }
   }
   
   /// Validates that all required test audio files exist in the test bundle.
@@ -179,6 +202,46 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     return true
   }
 
+  /// Navigate to Player tab and start playback using the sample episode controls.
+  /// Returns true if playback started successfully.
+  func startPlaybackFromPlayerTab() -> Bool {
+    logBreadcrumb("startPlaybackFromPlayerTab: select Player tab")
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
+    guard playerTab.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Player tab not found")
+      return false
+    }
+    playerTab.tap()
+
+    logBreadcrumb("startPlaybackFromPlayerTab: waiting for episode detail")
+    guard waitForContentToLoad(
+      containerIdentifier: "Episode Detail View",
+      timeout: adaptiveTimeout
+    ) else {
+      XCTFail("Episode detail failed to load")
+      return false
+    }
+
+    logBreadcrumb("startPlaybackFromPlayerTab: tap play")
+    let episodeDetail = app.otherElements.matching(identifier: "Episode Detail View").firstMatch
+    let playButton = episodeDetail.buttons.matching(identifier: "Play").firstMatch
+    guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      XCTFail("Play button not found in episode detail")
+      return false
+    }
+    playButton.tap()
+
+    logBreadcrumb("startPlaybackFromPlayerTab: waiting for mini player")
+    let miniPlayer = miniPlayerElement(in: app)
+    guard miniPlayer.waitForExistence(timeout: adaptiveTimeout) else {
+      XCTFail("Mini player did not appear after playback started")
+      return false
+    }
+
+    return true
+  }
+
   /// Expand mini-player to full player view.
   /// Returns true if expansion succeeded.
   func expandPlayer() -> Bool {
@@ -203,9 +266,19 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
 
   // MARK: - Slider Value Helpers
 
+  func progressSlider() -> XCUIElement? {
+    let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
+    guard expandedPlayer.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return nil
+    }
+    return expandedPlayer.sliders.matching(identifier: "Progress Slider").firstMatch
+  }
+
   /// Get the progress slider's current value string.
   func getSliderValue() -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard let slider = progressSlider() else {
+      return nil
+    }
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
       return nil
     }
@@ -232,6 +305,18 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     guard components.count == 2, let timeString = components.last else { return nil }
 
     return parseTimeString(timeString.trimmingCharacters(in: .whitespaces))
+  }
+
+  func recordAudioDebugOverlay(_ context: String) {
+    let overlay = app.otherElements.matching(identifier: "Audio Debug Overlay").firstMatch
+    let text = overlay.exists ? overlay.label : "Audio Debug Overlay not found"
+    let attachment = XCTAttachment(string: text)
+    let name = "Audio Debug Overlay (\(context))"
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    XCTContext.runActivity(named: name) { activity in
+      activity.add(attachment)
+    }
   }
 
   /// Parse time string "MM:SS" or "H:MM:SS" to seconds.
@@ -267,7 +352,9 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     beyond initialValue: String?,
     timeout: TimeInterval = 5.0
   ) -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard let slider = progressSlider() else {
+      return nil
+    }
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
       return nil
     }
@@ -285,8 +372,15 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
         return false
       }
       if currentPosition > initialPosition + 1.0 {
-        observedValue = currentValue
-        return true
+        let firstValue = currentValue
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        guard let secondValue = slider.value as? String else {
+          return false
+        }
+        if secondValue == firstValue {
+          observedValue = firstValue
+          return true
+        }
       }
       return false
     }
@@ -301,7 +395,9 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     minimumDelta: TimeInterval = 3.0,
     stabilityWindow: TimeInterval = 0.3
   ) -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard let slider = progressSlider() else {
+      return nil
+    }
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
       return nil
     }
@@ -347,7 +443,9 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     forDuration: TimeInterval = 2.0,
     tolerance: TimeInterval = 0.1
   ) -> Bool {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard let slider = progressSlider() else {
+      return false
+    }
     guard slider.waitForExistence(timeout: adaptiveShortTimeout) else { return false }
 
     guard let expectedPosition = extractCurrentPosition(from: expectedValue) else {
