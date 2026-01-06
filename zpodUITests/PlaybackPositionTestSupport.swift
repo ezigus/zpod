@@ -34,28 +34,60 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     )
   }
   
-  /// Returns launch environment variables with test audio file paths.
+  /// Copies test audio files to a shared temporary directory and returns environment variables.
   ///
-  /// Call this before launching the app to inject test audio URLs.
+  /// **Why Temp Directory?** The app runs in a separate sandbox and cannot read files
+  /// from the test bundle or test runner's Documents directory. However, both test and
+  /// app can access `/tmp` directory on the simulator, making it ideal for sharing files.
+  ///
+  /// Call this before launching the app to inject test audio URLs that AVPlayer can play.
   /// The app reads these environment variables to populate Episode.audioURL.
   ///
   /// **Environment Variables Set**:
-  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio
-  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio
-  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio
+  /// - UITEST_AUDIO_SHORT_PATH: 10 second test audio (in /tmp)
+  /// - UITEST_AUDIO_MEDIUM_PATH: 15 second test audio (in /tmp)
+  /// - UITEST_AUDIO_LONG_PATH: 20 second test audio (in /tmp)
+  ///
+  /// **Cleanup**: Files remain in /tmp between test runs. The OS cleans /tmp periodically.
   ///
   /// - Returns: Dictionary of environment variables to merge into launchEnvironment
   func audioLaunchEnvironment() -> [String: String] {
+    let fileManager = FileManager.default
     var env: [String: String] = [:]
     
-    if let shortURL = testAudioURL(named: "test-episode-short") {
-      env["UITEST_AUDIO_SHORT_PATH"] = shortURL.path
-    }
-    if let mediumURL = testAudioURL(named: "test-episode-medium") {
-      env["UITEST_AUDIO_MEDIUM_PATH"] = mediumURL.path
-    }
-    if let longURL = testAudioURL(named: "test-episode-long") {
-      env["UITEST_AUDIO_LONG_PATH"] = longURL.path
+    // Use /tmp directory (accessible to both test runner and app under test)
+    let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory())
+      .appendingPathComponent("zpod-ui-test-audio")
+    
+    // Create directory if needed
+    try? fileManager.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+    
+    // Copy each audio file from test bundle to /tmp
+    let audioFiles: [(name: String, envKey: String)] = [
+      ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
+      ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
+      ("test-episode-long", "UITEST_AUDIO_LONG_PATH")
+    ]
+    
+    for (name, envKey) in audioFiles {
+      guard let sourceURL = testAudioURL(named: name) else {
+        XCTFail("Missing audio file in test bundle: \(name).m4a")
+        continue
+      }
+      
+      let destURL = tmpDir.appendingPathComponent("\(name).m4a")
+      
+      // Remove existing file if present (allows re-running tests)
+      try? fileManager.removeItem(at: destURL)
+      
+      // Copy from test bundle to /tmp
+      do {
+        try fileManager.copyItem(at: sourceURL, to: destURL)
+        env[envKey] = destURL.path
+        Self.logger.debug("Copied test audio: \(name).m4a -> \(destURL.path)")
+      } catch {
+        XCTFail("Failed to copy \(name).m4a to tmp directory: \(error.localizedDescription)")
+      }
     }
     
     return env
