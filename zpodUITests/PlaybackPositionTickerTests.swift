@@ -179,11 +179,16 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
             return
         }
 
-        let initialValue = getSliderValue()
+        guard let initialValue = getSliderValue() else {
+            XCTFail("Progress slider has no initial value")
+            return
+        }
         logSliderValue("initial", value: initialValue)
 
-        let baselineValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0) ?? initialValue
-        guard let resolvedBaseline = baselineValue else {
+        guard let resolvedBaseline = waitForPositionAdvancement(
+            beyond: initialValue,
+            timeout: 5.0
+        ) else {
             XCTFail("Progress slider did not advance before seeking")
             return
         }
