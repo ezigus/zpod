@@ -653,7 +653,7 @@ extension SmartUITesting where Self: XCTestCase {
       
     case .avplayer:
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
-      // Note: HTTP server and audio URLs are handled by test's launchApp() method
+      // Note: audio URLs are handled by each test's launchApp() method.
     }
     
     return launchConfiguredApp(environmentOverrides: overrides)
