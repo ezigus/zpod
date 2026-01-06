@@ -25,8 +25,8 @@ extension XCTestCase {
     // 3. Avoiding operations that trigger quiescence checks
 
     // Apply optimizations in both CI and local environments for better test reliability
-    print("🔧 Applying UI test hanging prevention measures")
-    print("✅ Applied UI test hanging prevention measures")
+    launchLogger.debug("🔧 Applying UI test hanging prevention measures")
+    launchLogger.debug("✅ Applied UI test hanging prevention measures")
   }
 }
 
@@ -536,8 +536,7 @@ extension XCTestCase {
     let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
     if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
       // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
-      print("Loading did not complete within \(timeout)s.")
-      // print("Loading did not complete within \(timeout)s. Accessibility tree:\n\(app.debugDescription)")
+      launchLogger.warning("Loading did not complete within \(timeout, privacy: .public)s.")
     }
     return result == .completed
   }
@@ -654,18 +653,7 @@ extension SmartUITesting where Self: XCTestCase {
       
     case .avplayer:
       overrides["UITEST_DISABLE_AUDIO_ENGINE"] = "0"
-      overrides["UITEST_DEBUG_AUDIO"] = "1"  // Enable diagnostic logging
-      
-      // Copy audio files to /tmp and inject paths
-      // Cast to concrete type to access audioLaunchEnvironment() helper
-      if let testCase = self as? (any PlaybackPositionTestSupport & XCTestCase) {
-        NSLog("🔧 AVPlayer mode: calling audioLaunchEnvironment()")
-        let audioEnv = testCase.audioLaunchEnvironment()
-        NSLog("🔧 Audio environment keys: \(audioEnv.keys.sorted().joined(separator: ", "))")
-        overrides.merge(audioEnv) { _, new in new }
-      } else {
-        NSLog("⚠️  AVPlayer mode: Failed to cast to PlaybackPositionTestSupport")
-      }
+      // Note: audio URLs are handled by each test's launchApp() method.
     }
     
     return launchConfiguredApp(environmentOverrides: overrides)
@@ -685,6 +673,7 @@ extension SmartUITesting where Self: XCTestCase {
     environmentOverrides: [String: String] = [:],
     launchArguments: [String]
   ) -> XCUIApplication {
+    launchLogger.debug("🔧 launchConfiguredApp called with overrides: \(environmentOverrides.keys.sorted(), privacy: .public)")
     logLaunchEvent("Preparing to launch app (envOverrides=\(!environmentOverrides.isEmpty))")
     ensureSpringboardReady(timeout: adaptiveTimeout)
     forceTerminateAppIfRunning()
@@ -694,6 +683,9 @@ extension SmartUITesting where Self: XCTestCase {
       environmentOverrides.isEmpty
       ? XCUIApplication.configuredForUITests()
       : XCUIApplication.configuredForUITests(environmentOverrides: environmentOverrides)
+
+    launchLogger.debug("🔧 Application launchEnvironment keys: \(application.launchEnvironment.keys.sorted(), privacy: .public)")
+    
     application.launchArguments += launchArguments
     application.launch()
     logLaunchEvent("Launch request issued")
@@ -731,7 +723,6 @@ extension SmartUITesting where Self: XCTestCase {
 
   private func logLaunchEvent(_ message: String) {
     launchLogger.debug("[SwipeUITestDebug] \(message, privacy: .public)")
-    print("[SwipeUITestDebug] \(message)")
   }
 
   @MainActor

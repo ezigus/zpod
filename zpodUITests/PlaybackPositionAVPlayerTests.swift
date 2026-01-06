@@ -45,15 +45,24 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     }
 
     override func tearDownWithError() throws {
+        cleanupAudioLaunchEnvironment()
         app = nil
     }
 
     @MainActor
     private func launchApp() {
+        // Copy test audio to /tmp and get environment variables
+        let audioEnv = audioLaunchEnvironment()
+        
+        // Merge with debug environment
+        var env = audioEnv
+        env["UITEST_POSITION_DEBUG"] = "1"
+        env["UITEST_DEBUG_AUDIO"] = "1"  // Enable audio path logging
+        env["UITEST_INITIAL_TAB"] = "player"
+        env["UITEST_AUDIO_VARIANT"] = "long"
+        
         // Launch with AVPlayer enabled (override default ticker mode)
-        app = launchWithPlaybackMode(.avplayer, environmentOverrides: [
-            "UITEST_POSITION_DEBUG": "1"
-        ])
+        app = launchWithPlaybackMode(.avplayer, environmentOverrides: env)
     }
 
     // MARK: - Test 1: Position Advancement
@@ -71,7 +80,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     func testExpandedPlayerProgressAdvancesDuringPlayback() throws {
         // Given: Episode is playing with real AVPlayer
         launchApp()
-        guard startPlayback() else {
+        guard startPlaybackFromPlayerTab() else {
             XCTFail("Failed to start playback")
             return
         }
@@ -89,6 +98,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // When: Wait for position to advance (AVPlayer updates every 0.5s)
         // Use longer timeout for AVPlayer (buffering + network latency)
         guard let updatedValue = waitForPositionAdvancement(beyond: initialValue, timeout: avplayerTimeout) else {
+            recordAudioDebugOverlay("position advancement timeout")
             XCTFail("Progress slider should have advanced with AVPlayer after \(avplayerTimeout)s")
             return
         }
@@ -119,7 +129,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     @MainActor
     func testPositionStopsAdvancingWhenPaused() throws {
         launchApp()
-        guard startPlayback(), expandPlayer() else {
+        guard startPlaybackFromPlayerTab(), expandPlayer() else {
             XCTFail("Failed to start playback and expand player")
             return
         }
@@ -127,6 +137,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // Wait for AVPlayer to start streaming and advance position
         let initialValue = getSliderValue()
         guard let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: avplayerTimeout) else {
+            recordAudioDebugOverlay("pre-pause advancement timeout")
             XCTFail("AVPlayer should have started advancing position before pause test")
             return
         }
@@ -159,7 +170,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     @MainActor
     func testPositionResumesAdvancingAfterPause() throws {
         launchApp()
-        guard startPlayback(), expandPlayer() else {
+        guard startPlaybackFromPlayerTab(), expandPlayer() else {
             XCTFail("Failed to start playback and expand player")
             return
         }
@@ -181,6 +192,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         // Then: Position should advance (may need time to resume streaming)
         guard let resumedValue = waitForPositionAdvancement(beyond: pausedValue, timeout: avplayerTimeout) else {
+            recordAudioDebugOverlay("resume advancement timeout")
             XCTFail("Position should advance after resuming AVPlayer")
             return
         }
@@ -207,30 +219,47 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     func testSeekingUpdatesPositionImmediately() throws {
         logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): launch app")
         launchApp()
-        guard startPlayback(), expandPlayer() else {
+        guard startPlaybackFromPlayerTab(), expandPlayer() else {
             XCTFail("Failed to start playback and expand player")
             return
         }
 
-        let initialValue = getSliderValue()
+        guard let initialValue = getSliderValue() else {
+            XCTFail("Progress slider value unavailable before seek")
+            return
+        }
         logSliderValue("initial (AVPlayer)", value: initialValue)
+        guard let totalDuration = extractTotalDuration(from: initialValue) else {
+            XCTFail("Audio duration unavailable for seek test")
+            return
+        }
+        guard totalDuration > 10.0 else {
+            XCTFail("Audio duration too short for seek test (need >10s, got \(totalDuration))")
+            return
+        }
 
         // When: Seek to 50% position (calls AVPlayer.seek(to:))
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard let slider = progressSlider() else {
+            XCTFail("Progress slider not found in expanded player")
+            return
+        }
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
-        logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): seek to 50%")
+        logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): seek to target")
         let preSeekValue = getSliderValue()
-        slider.adjust(toNormalizedSliderPosition: 0.5)
+        let targetNormalized = seekTargetNormalizedPosition(from: preSeekValue)
+        slider.adjust(toNormalizedSliderPosition: targetNormalized)
 
         // Then: Wait for position to change (AVPlayer seek may take time)
         // Use longer stabilization window for AVPlayer seek completion
+        let minimumDelta = seekMinimumDelta(from: preSeekValue)
         guard let seekedValue = waitForUIStabilization(
             afterSeekingFrom: preSeekValue,
             timeout: 5.0,  // Longer for AVPlayer seek
-            minimumDelta: 3.0,
+            minimumDelta: minimumDelta,
             stabilityWindow: 0.5  // Longer stability window
         ) else {
+            recordAudioDebugOverlay("seek did not change slider")
             XCTFail("Slider value should change after AVPlayer seek")
             return
         }
@@ -239,10 +268,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // Verify seek landed near 50% mark (within tolerance for network/buffering delays)
         if let seekedPosition = extractCurrentPosition(from: seekedValue),
            let totalDuration = extractTotalDuration(from: seekedValue) {
-            let expectedPosition = totalDuration * 0.5
+            let expectedPosition = totalDuration * targetNormalized
             let tolerance = totalDuration * 0.15  // 15% tolerance for AVPlayer seek
             XCTAssertTrue(abs(seekedPosition - expectedPosition) <= tolerance,
-                "AVPlayer seek to 50% should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
+                "AVPlayer seek should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
         } else {
             XCTFail("Failed to parse seek positions from '\(seekedValue ?? "nil")'")
             return
@@ -250,10 +279,30 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         // Verify position continues advancing after seek
         guard let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: avplayerTimeout) else {
+            recordAudioDebugOverlay("post-seek advancement timeout")
             XCTFail("Position should continue advancing after AVPlayer seek")
             return
         }
         logSliderValue("final (AVPlayer)", value: finalValue)
+    }
+
+    @MainActor
+    private func seekTargetNormalizedPosition(from value: String?) -> Double {
+        guard let current = extractCurrentPosition(from: value),
+              let total = extractTotalDuration(from: value),
+              total > 0 else {
+            return 0.5
+        }
+        let ratio = current / total
+        return ratio >= 0.5 ? 0.2 : 0.8
+    }
+
+    @MainActor
+    private func seekMinimumDelta(from value: String?) -> TimeInterval {
+        guard let total = extractTotalDuration(from: value), total > 0 else {
+            return 2.0
+        }
+        return max(2.0, total * 0.1)
     }
 
     // MARK: - Test 5: Mini-Player State
@@ -267,7 +316,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     @MainActor
     func testMiniPlayerReflectsPlaybackState() throws {
         launchApp()
-        guard startPlayback() else {
+        guard startPlaybackFromPlayerTab() else {
             XCTFail("Failed to start playback")
             return
         }
@@ -302,7 +351,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     func testSeekingWhilePausedUpdatesPosition() throws {
         // Given: Episode is paused with AVPlayer
         launchApp()
-        guard startPlayback(), expandPlayer() else {
+        guard startPlaybackFromPlayerTab(), expandPlayer() else {
             XCTFail("Failed to start playback and expand player")
             return
         }
@@ -320,7 +369,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         let pausedValue = getSliderValue()
         logSliderValue("paused before seek (AVPlayer)", value: pausedValue)
 
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard let slider = progressSlider() else {
+            XCTFail("Progress slider not found in expanded player")
+            return
+        }
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
         slider.adjust(toNormalizedSliderPosition: 0.7)
 
@@ -331,6 +383,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             minimumDelta: 3.0,
             stabilityWindow: 0.5
         ) else {
+            recordAudioDebugOverlay("seek while paused did not change slider")
             XCTFail("Position should update when seeking with AVPlayer while paused")
             return
         }
@@ -342,6 +395,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // And: Playback should resume from seek position
         playButton.tap()
         guard let resumedValue = waitForPositionAdvancement(beyond: seekedValue, timeout: avplayerTimeout) else {
+            recordAudioDebugOverlay("resume after seek advancement timeout")
             XCTFail("Position should advance after seeking while paused and resuming AVPlayer")
             return
         }

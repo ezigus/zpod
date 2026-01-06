@@ -191,7 +191,10 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         }
 
         // When: Seek to 50% position
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard let slider = progressSlider() else {
+            XCTFail("Progress slider not found in expanded player")
+            return
+        }
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
         logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to 50%")
@@ -286,7 +289,10 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         let pausedValue = getSliderValue()
         logSliderValue("paused before seek", value: pausedValue)
 
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard let slider = progressSlider() else {
+            XCTFail("Progress slider not found in expanded player")
+            return
+        }
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
         slider.adjust(toNormalizedSliderPosition: 0.7)
 

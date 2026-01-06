@@ -335,6 +335,38 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
 #if os(iOS) || os(macOS)
 
+  private func resolveTestAudioURL(
+    envKey: String,
+    bundleName: String,
+    env: [String: String]
+  ) -> URL? {
+    let isDebugAudio = env["UITEST_DEBUG_AUDIO"] == "1"
+
+    if let path = env[envKey] {
+      let url = URL(fileURLWithPath: path)
+      if FileManager.default.isReadableFile(atPath: url.path) {
+        if isDebugAudio {
+          NSLog("Audio env resolved: %@ -> %@", envKey, url.path)
+        }
+        return url
+      } else if isDebugAudio {
+        NSLog("Audio env missing file: %@ -> %@", envKey, path)
+      }
+    }
+
+    if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "m4a") {
+      if isDebugAudio {
+        NSLog("Audio bundle resolved: %@ -> %@", bundleName, bundleURL.path)
+      }
+      return bundleURL
+    }
+
+    if isDebugAudio {
+      NSLog("Audio not found for env=%@ bundle=%@", envKey, bundleName)
+    }
+    return nil
+  }
+
   public struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
@@ -348,6 +380,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     #if canImport(PlayerFeature)
       private let playbackDependencies: CarPlayDependencies
       @StateObject private var miniPlayerViewModel: MiniPlayerViewModel
+      @StateObject private var expandedPlayerViewModel: ExpandedPlayerViewModel
     #endif
     @State private var showFullPlayer: Bool
 
@@ -383,6 +416,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           wrappedValue: MiniPlayerViewModel(
             playbackService: dependencies.playbackService,
             queueIsEmpty: { dependencies.queueManager.queuedEpisodes.isEmpty },
+            alertPresenter: dependencies.playbackAlertPresenter
+          )
+        )
+        _expandedPlayerViewModel = StateObject(
+          wrappedValue: ExpandedPlayerViewModel(
+            playbackService: dependencies.playbackService,
             alertPresenter: dependencies.playbackAlertPresenter
           )
         )
@@ -463,10 +502,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       #if canImport(PlayerFeature)
         .sheet(isPresented: $showFullPlayer) {
           ExpandedPlayerView(
-            viewModel: ExpandedPlayerViewModel(
-              playbackService: playbackDependencies.playbackService,
-              alertPresenter: playbackDependencies.playbackAlertPresenter
-            )
+            viewModel: expandedPlayerViewModel
           )
           .presentationDragIndicator(.hidden)
           .presentationBackground(.black)
@@ -676,13 +712,26 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
 
       private func createSamplePodcast(id: String, title: String) -> Podcast {
-        // Read test audio URLs from environment variables (only set during UI tests)
-        // In production, these will be nil and episodes will use placeholder URLs
-        let env = ProcessInfo.processInfo.environment
-        
-        let shortAudioURL: URL? = env["UITEST_AUDIO_SHORT_PATH"].map { URL(fileURLWithPath: $0) }
-        let mediumAudioURL: URL? = env["UITEST_AUDIO_MEDIUM_PATH"].map { URL(fileURLWithPath: $0) }
-        let longAudioURL: URL? = env["UITEST_AUDIO_LONG_PATH"].map { URL(fileURLWithPath: $0) }
+      // Read test audio URLs from environment variables (only set during UI tests)
+      // In production, these will be nil and episodes will use placeholder URLs
+      let env = ProcessInfo.processInfo.environment
+
+      // Resolve audio URLs with fallback to bundle
+      let shortAudioURL = resolveTestAudioURL(
+        envKey: "UITEST_AUDIO_SHORT_PATH",
+        bundleName: "test-episode-short",
+        env: env
+      )
+      let mediumAudioURL = resolveTestAudioURL(
+        envKey: "UITEST_AUDIO_MEDIUM_PATH",
+        bundleName: "test-episode-medium",
+        env: env
+      )
+      let longAudioURL = resolveTestAudioURL(
+        envKey: "UITEST_AUDIO_LONG_PATH",
+        bundleName: "test-episode-long",
+        env: env
+      )
         
         // Diagnostic logging (only in test environment)
         if env["UITEST_DEBUG_AUDIO"] == "1" {
@@ -786,63 +835,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   #if canImport(PlayerFeature)
     struct PlayerTabView: View {
       let playbackService: EpisodePlaybackService & EpisodeTransportControlling
-      @State private var isPlaying: Bool = false
-      @State private var progress: Double = 0.25
-      @State private var playbackSpeed: Double = 1.0
-      @State private var showingSpeedOptions = false
 
       var body: some View {
         NavigationStack {
-          ScrollView {
-            VStack(spacing: 16) {
-              playerInterface
-
-              NavigationLink("Open Full Player", destination: sampleEpisodeView)
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("open-full-player")
-            }
-            .frame(maxWidth: .infinity)
-            .padding()
+          ZStack {
+            sampleEpisodeView
           }
+          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Player Interface")
           .navigationTitle("Player")
-        }
-      }
-
-      @ViewBuilder
-      private var playerInterface: some View {
-        VStack(spacing: 16) {
-          PlayerArtworkView()
-          PlayerTitlesView()
-          PlayerProgressSliderView(progress: $progress)
-          speedControl
-          PlaybackControlsView(isPlaying: $isPlaying)
-        }
-        .padding()
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Player Interface")
-      }
-
-      private var speedControl: some View {
-        Button {
-          showingSpeedOptions = true
-        } label: {
-          Text(String(format: "Speed %.1fx", playbackSpeed))
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .accessibilityIdentifier("Speed Control")
-        .accessibilityLabel(String(format: "Speed %.1fx", playbackSpeed))
-        .accessibilityHint("Adjust playback speed")
-        .confirmationDialog("Playback Speed", isPresented: $showingSpeedOptions) {
-          ForEach([1.0, 1.5, 2.0], id: \.self) { speed in
-            Button(String(format: "%.1fx", speed)) {
-              playbackSpeed = speed
-              showingSpeedOptions = false
-            }
-          }
-          Button("Cancel", role: .cancel) {
-            showingSpeedOptions = false
-          }
         }
       }
 
@@ -854,7 +855,34 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
 
       private var sampleEpisode: Episode {
-        Episode(
+        let env = ProcessInfo.processInfo.environment
+        let audioVariant = env["UITEST_AUDIO_VARIANT"]?.lowercased() ?? "short"
+        let audioURL: URL?
+        let duration: TimeInterval
+        switch audioVariant {
+        case "long":
+          audioURL = resolveTestAudioURL(
+            envKey: "UITEST_AUDIO_LONG_PATH",
+            bundleName: "test-episode-long",
+            env: env
+          )
+          duration = 20.0
+        case "medium":
+          audioURL = resolveTestAudioURL(
+            envKey: "UITEST_AUDIO_MEDIUM_PATH",
+            bundleName: "test-episode-medium",
+            env: env
+          )
+          duration = 15.0
+        default:
+          audioURL = resolveTestAudioURL(
+            envKey: "UITEST_AUDIO_SHORT_PATH",
+            bundleName: "test-episode-short",
+            env: env
+          )
+          duration = 6.523
+        }
+        return Episode(
           id: "sample-1",
           title: "Sample Episode",
           podcastID: "sample-podcast",
@@ -862,9 +890,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           playbackPosition: 0,
           isPlayed: false,
           pubDate: Date(),
-          duration: 1800,
+          duration: duration,
           description: "This is a sample episode to demonstrate the player interface.",
-          audioURL: URL(string: "https://example.com/episode.mp3")
+          audioURL: audioURL ?? URL(string: "https://example.com/episode.mp3")
         )
       }
     }
@@ -877,153 +905,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
     }
   #endif
-
-  // MARK: - Player Subviews (extracted to improve type-check performance)
-  private struct PlayerArtworkView: View {
-    var body: some View {
-      Image(systemName: "music.note")
-        .resizable()
-        .scaledToFit()
-        .frame(width: 160, height: 160)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("Episode Artwork")
-        .accessibilityLabel("Episode Artwork")
-        .accessibilityHint("Artwork for the current episode")
-        .accessibilityAddTraits(.isImage)
-    }
-  }
-
-  private struct PlayerTitlesView: View {
-    var body: some View {
-      VStack(spacing: 4) {
-        Text("Sample Episode Title")
-          .font(.headline)
-          .accessibilityIdentifier("Episode Title")
-          .accessibilityLabel("Sample Episode Title")
-          .accessibilityAddTraits(.isHeader)
-        Text("Sample Podcast Title")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-          .accessibilityIdentifier("Podcast Title")
-          .accessibilityLabel("Sample Podcast Title")
-      }
-    }
-  }
-
-  private struct PlayerProgressSliderView: View {
-    @Binding var progress: Double
-    var body: some View {
-      #if os(iOS)
-        UITestProgressSlider(value: $progress)
-          .accessibilityIdentifier("Progress Slider")
-          .accessibilityLabel("Progress Slider")
-          .accessibilityHint("Adjust playback position")
-          .accessibilityValue(Text("\(Int(progress * 100)) percent"))
-      #else
-        Slider(value: $progress, in: 0...1)
-          .accessibilityIdentifier("Progress Slider")
-          .accessibilityLabel("Progress Slider")
-          .accessibilityHint("Adjust playback position")
-          .accessibilityValue(Text("\(Int(progress * 100)) percent"))
-      #endif
-    }
-  }
-
-  #if os(iOS)
-    private struct UITestProgressSlider: UIViewRepresentable {
-      @Binding var value: Double
-
-      func makeUIView(context: Context) -> UISlider {
-        let slider = UISlider(frame: .zero)
-        slider.minimumValue = 0
-        slider.maximumValue = 1
-        slider.value = Float(value)
-        slider.addTarget(
-          context.coordinator,
-          action: #selector(Coordinator.valueChanged(_:)),
-          for: .valueChanged
-        )
-        return slider
-      }
-
-      func updateUIView(_ uiView: UISlider, context: Context) {
-        let newValue = Float(value)
-        if uiView.value != newValue {
-          uiView.value = newValue
-        }
-      }
-
-      func makeCoordinator() -> Coordinator {
-        Coordinator(value: $value)
-      }
-
-      @MainActor
-      final class Coordinator: NSObject {
-        private var value: Binding<Double>
-
-        init(value: Binding<Double>) {
-          self.value = value
-        }
-
-        @objc func valueChanged(_ sender: UISlider) {
-          value.wrappedValue = Double(sender.value)
-        }
-      }
-    }
-  #endif
-
-  private struct PlaybackControlsView: View {
-    @Binding var isPlaying: Bool
-    var body: some View {
-      HStack(spacing: 24) {
-        Button(action: {
-          // no-op for tests
-        }) {
-          Text("Skip Backward")
-            .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("Skip Backward")
-        .accessibilityLabel("Skip Backward")
-        .accessibilityHint("Skips backward")
-        .accessibilityAddTraits(.isButton)
-        .frame(minWidth: 80, minHeight: 56)
-        .contentShape(Rectangle())
-
-        Button(action: {
-          isPlaying.toggle()
-        }) {
-          Text(isPlaying ? "Pause" : "Play")
-            .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier(isPlaying ? "Pause" : "Play")
-        .accessibilityLabel(isPlaying ? "Pause" : "Play")
-        .accessibilityHint("Toggles playback")
-        .accessibilityAddTraits(.isButton)
-        .frame(minWidth: 120, minHeight: 56)
-        .contentShape(Rectangle())
-
-        Button(action: {
-          // no-op for tests
-        }) {
-          Text("Skip Forward")
-            .accessibilityHidden(true)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("Skip Forward")
-        .accessibilityLabel("Skip Forward")
-        .accessibilityHint("Skips forward")
-        .accessibilityAddTraits(.isButton)
-        .frame(minWidth: 80, minHeight: 56)
-        .contentShape(Rectangle())
-      }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.large)
-      .padding(.vertical, 8)
-    }
-  }
 
   // MARK: - Episode List Card Container (No Table Structure)
   struct EpisodeListCardContainer: View {

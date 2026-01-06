@@ -6,6 +6,43 @@ import SharedUtilities
   @preconcurrency import CombineSupport
 #endif
 
+public struct AudioDebugInfo: Equatable, Sendable {
+  public let playbackMode: String
+  public let audioURL: String
+  public let audioURLAccess: String
+  public let engineStatus: String
+  public let engineRate: String
+  public let engineError: String
+  public let engineIsPlaying: Bool
+  public let playerIsPlaying: Bool
+  public let position: TimeInterval
+  public let duration: TimeInterval
+
+  public init(
+    playbackMode: String,
+    audioURL: String,
+    audioURLAccess: String,
+    engineStatus: String,
+    engineRate: String,
+    engineError: String,
+    engineIsPlaying: Bool,
+    playerIsPlaying: Bool,
+    position: TimeInterval,
+    duration: TimeInterval
+  ) {
+    self.playbackMode = playbackMode
+    self.audioURL = audioURL
+    self.audioURLAccess = audioURLAccess
+    self.engineStatus = engineStatus
+    self.engineRate = engineRate
+    self.engineError = engineError
+    self.engineIsPlaying = engineIsPlaying
+    self.playerIsPlaying = playerIsPlaying
+    self.position = position
+    self.duration = duration
+  }
+}
+
 /// Enhanced playback engine that powers advanced controls for the episode detail surface and
 /// player-focused integration tests.
 @MainActor
@@ -131,17 +168,35 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
     
     #if os(iOS)
+      let isDebugAudio = ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1"
       // Check if audio engine is available and episode has audio URL
+      if isDebugAudio {
+        NSLog(
+          "[TestAudio] EnhancedEpisodePlayer.play() - audioEngine: %@, episode.audioURL: %@",
+          audioEngine != nil ? "present" : "nil",
+          episode.audioURL?.absoluteString ?? "nil"
+        )
+      }
+
       if let _ = audioEngine, let audioURL = episode.audioURL {
         // Production mode: Use actual audio playback
+        if isDebugAudio {
+          NSLog("[TestAudio] Starting audio engine playback with URL: %@", audioURL.absoluteString)
+        }
         startAudioEnginePlayback(url: audioURL)
       } else if audioEngine != nil && episode.audioURL == nil {
         // Error: audio engine provided but no URL
+        if isDebugAudio {
+          NSLog("[TestAudio][Error] Audio engine present but episode.audioURL is nil - failing playback")
+        }
         // Stop any existing audio before transitioning to failed state
         audioEngine?.stop()
         failPlayback(error: .episodeUnavailable)
       } else {
         // Fallback: Use ticker for simulated playback
+        if isDebugAudio {
+          NSLog("[TestAudio] Using ticker (audioEngine nil or no URL)")
+        }
         startTicker()
       }
     #else
@@ -459,6 +514,48 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     #if canImport(Combine)
       stateSubject.send(state)
     #endif
+  }
+
+  public func audioDebugInfo() -> AudioDebugInfo {
+    let url = currentEpisode?.audioURL
+    let urlString = url?.absoluteString ?? "nil"
+    let access: String
+    if let url {
+      if url.isFileURL {
+        access = FileManager.default.isReadableFile(atPath: url.path) ? "readable" : "missing"
+      } else {
+        access = "remote"
+      }
+    } else {
+      access = "none"
+    }
+
+    #if os(iOS)
+      let mode = audioEngine == nil ? "ticker" : "audioEngine"
+      let engineStatus = audioEngine?.debugStatusDescription ?? "none"
+      let engineRate = audioEngine?.debugRateDescription ?? "none"
+      let engineError = audioEngine?.debugErrorDescription ?? "none"
+      let engineIsPlaying = audioEngine?.isPlaying ?? false
+    #else
+      let mode = "ticker"
+      let engineStatus = "n/a"
+      let engineRate = "n/a"
+      let engineError = "n/a"
+      let engineIsPlaying = false
+    #endif
+
+    return AudioDebugInfo(
+      playbackMode: mode,
+      audioURL: urlString,
+      audioURLAccess: access,
+      engineStatus: engineStatus,
+      engineRate: engineRate,
+      engineError: engineError,
+      engineIsPlaying: engineIsPlaying,
+      playerIsPlaying: isPlaying,
+      position: currentPosition,
+      duration: currentDuration
+    )
   }
   
   // MARK: - Audio Engine Integration
