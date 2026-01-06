@@ -104,15 +104,14 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     return env
   }
 
-  func cleanupAudioLaunchEnvironment() {
+  nonisolated func cleanupAudioLaunchEnvironment() {
     let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
     guard FileManager.default.fileExists(atPath: audioDir.path) else { return }
     do {
       try FileManager.default.removeItem(at: audioDir)
     } catch {
-      Self.logger.debug(
-        "Test audio cleanup failed: \(error.localizedDescription, privacy: .public)"
-      )
+      let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionTestSupport")
+      logger.debug("Test audio cleanup failed: \(error.localizedDescription, privacy: .public)")
     }
   }
   
