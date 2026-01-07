@@ -15,15 +15,30 @@ if [[ ! -d "$ARTIFACT_DIR" ]]; then
   exit 1
 fi
 
-pushd "$ARTIFACT_DIR" >/dev/null
-if ! shasum -a 256 -c host-app.tar.gz.sha256; then
+CHECKSUM_FILE="$ARTIFACT_DIR/host-app.tar.gz.sha256"
+ARCHIVE_FILE="$ARTIFACT_DIR/host-app.tar.gz"
+ARTIFACT_ROOT="$ARTIFACT_DIR"
+
+if [[ ! -f "$CHECKSUM_FILE" || ! -f "$ARCHIVE_FILE" ]]; then
+  if [[ -f "$ARTIFACT_DIR/artifacts/host-app.tar.gz.sha256" && -f "$ARTIFACT_DIR/artifacts/host-app.tar.gz" ]]; then
+    CHECKSUM_FILE="$ARTIFACT_DIR/artifacts/host-app.tar.gz.sha256"
+    ARCHIVE_FILE="$ARTIFACT_DIR/artifacts/host-app.tar.gz"
+    ARTIFACT_ROOT="$ARTIFACT_DIR/artifacts"
+  else
+    echo "❌ Host app artifacts not found in '$ARTIFACT_DIR'" >&2
+    exit 1
+  fi
+fi
+
+pushd "$ARTIFACT_ROOT" >/dev/null
+if ! shasum -a 256 -c "$(basename "$CHECKSUM_FILE")"; then
   echo "❌ Artifact checksum verification failed" >&2
   exit 1
 fi
 popd >/dev/null
 
 TEMP_DIR=$(mktemp -d)
-tar -xzf "$ARTIFACT_DIR/host-app.tar.gz" -C "$TEMP_DIR"
+tar -xzf "$ARCHIVE_FILE" -C "$TEMP_DIR"
 
 PARENT_DIR=$(dirname "$DERIVED_PATH")
 mkdir -p "$PARENT_DIR"
