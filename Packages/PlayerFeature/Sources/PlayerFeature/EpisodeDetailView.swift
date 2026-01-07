@@ -53,6 +53,11 @@ extension EpisodeDetailView {
   @ViewBuilder
   private var content: some View {
     VStack(alignment: .leading, spacing: 20) {
+      Color.clear
+        .frame(height: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("Player Interface")
+        .accessibilityLabel("Player Interface")
       artworkView
       headerSection
       playbackControlsSection
@@ -178,6 +183,8 @@ extension EpisodeDetailView {
         Image(systemName: "gobackward.15")
           .font(.title2)
           .foregroundColor(.accentColor)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
       .accessibilityIdentifier("Skip Backward")
       .accessibilityLabel("Skip Backward")
@@ -191,6 +198,8 @@ extension EpisodeDetailView {
         Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
           .font(.largeTitle)
           .foregroundColor(.accentColor)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
       .accessibilityIdentifier(viewModel.isPlaying ? "Pause" : "Play")
       .accessibilityLabel(viewModel.isPlaying ? "Pause" : "Play")
@@ -204,6 +213,8 @@ extension EpisodeDetailView {
         Image(systemName: "goforward.30")
           .font(.title2)
           .foregroundColor(.accentColor)
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
       .accessibilityIdentifier("Skip Forward")
       .accessibilityLabel("Skip Forward")

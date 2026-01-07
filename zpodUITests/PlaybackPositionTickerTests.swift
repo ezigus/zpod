@@ -179,16 +179,32 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
             return
         }
 
-        let initialValue = getSliderValue()
+        guard let initialValue = getSliderValue() else {
+            XCTFail("Progress slider has no initial value")
+            return
+        }
         logSliderValue("initial", value: initialValue)
+
+        guard let resolvedBaseline = waitForPositionAdvancement(
+            beyond: initialValue,
+            timeout: 5.0
+        ) else {
+            XCTFail("Progress slider did not advance before seeking")
+            return
+        }
+        logSliderValue("baseline", value: resolvedBaseline)
         
         // Extract duration to validate 50% seek target
-        guard let initialPosition = extractCurrentPosition(from: initialValue),
-              let durationString = initialValue?.components(separatedBy: " of ").last,
+        guard let initialPosition = extractCurrentPosition(from: resolvedBaseline),
+              let durationString = resolvedBaseline.components(separatedBy: " of ").last,
               let totalDuration = extractCurrentPosition(from: durationString) else {
             XCTFail("Could not parse initial position and duration from slider")
             return
         }
+
+        let targetPosition = totalDuration * 0.5
+        let expectedDelta = abs(targetPosition - initialPosition)
+        let minimumDelta = max(0.5, min(3.0, expectedDelta * 0.8))
 
         // When: Seek to 50% position
         guard let slider = progressSlider() else {
@@ -198,14 +214,14 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
         logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to 50%")
-        let preSeekValue = getSliderValue()
+        let preSeekValue = getSliderValue() ?? resolvedBaseline
         slider.adjust(toNormalizedSliderPosition: 0.5)
 
         // Then: Wait for position to change significantly
         let seekedValue = waitForUIStabilization(
             afterSeekingFrom: preSeekValue,
             timeout: 3.0,
-            minimumDelta: 3.0,
+            minimumDelta: minimumDelta,
             stabilityWindow: 0.3
         )
         logSliderValue("seeked", value: seekedValue)
@@ -213,7 +229,7 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
         
         // Verify seeked position is approximately at 50% of duration
         if let seekedPosition = extractCurrentPosition(from: seekedValue) {
-            let expectedPosition = totalDuration * 0.5
+            let expectedPosition = targetPosition
             let positionDelta = abs(seekedPosition - expectedPosition)
             XCTAssertLessThan(positionDelta, totalDuration * 0.15,
                 "Seeked position \(seekedPosition)s should be close to 50% mark (\(expectedPosition)s)")
