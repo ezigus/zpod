@@ -1396,6 +1396,7 @@ jobs:
       max-parallel: 2
       matrix:
         include:
+          # Dual-mode playback position tests (Issue 03.3.2.4)
           - name: UITests-PlaybackTicker
             tests: zpodUITests/PlaybackPositionTickerTests
           - name: UITests-PlaybackAVPlayer
@@ -1518,16 +1519,52 @@ jobs:
           echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
-      - name: Download preflight host app
+      - name: Download host app artifact
         uses: actions/download-artifact@v4
         with:
           name: host-app
-          path: artifacts/host-app
+          path: host-app
 
-      - name: Extract preflight host app
+      - name: Restore host derived data
+        run: scripts/ci/restore-host-app.sh "${{ steps.provision-sim.outputs.derived_path }}" host-app
+
+      - name: Pre-warm simulator for UI tests
+        if: steps.provision-sim.outputs.udid != ''
         run: |
           set -euo pipefail
-          tar -xzf artifacts/host-app/host-app.tar.gz -C "$PWD"
+          UDID="${{ steps.provision-sim.outputs.udid }}"
+
+          echo "Pre-warming simulator services for faster test execution..."
+
+          # Wait for SpringBoard to be fully ready
+          echo "Waiting for SpringBoard to launch..."
+          for j in {1..60}; do
+            if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.SpringBoard; then
+              break
+            fi
+            sleep 0.5
+          done
+
+          # Pre-warm accessibility services (critical for UI testing)
+          echo "Initializing accessibility services..."
+          xcrun simctl spawn "$UDID" launchctl list com.apple.accessibility.AccessibilityUIServer 2>/dev/null || true
+
+          # Wait for accessibility server to be ready
+          for j in {1..30}; do
+            if xcrun simctl spawn $UDID launchctl list | grep -q com.apple.accessibility; then
+              break
+            fi
+            sleep 0.5
+          done
+
+          # Enable software keyboard (critical for keyboard tests)
+          echo "Configuring keyboard settings..."
+          xcrun simctl spawn "$UDID" defaults write com.apple.Preferences AutomaticMinimizationEnabled -bool false 2>/dev/null || true
+
+          # Small delay to let services stabilize
+          sleep 2
+
+          echo "✅ Simulator pre-warming complete"
 
       - name: Run ${{ matrix.name }} Tests
         timeout-minutes: 45
