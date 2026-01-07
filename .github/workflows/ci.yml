@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       matrix:
-        description: "Choose which matrix to run (all, packages, ui, linux)"
+        description: "Choose which matrix to run (all, packages, ui, ui-swipe, ui-playback, linux)"
         required: false
         type: choice
         default: "all"
@@ -15,6 +15,7 @@ on:
           - integration-tests
           - ui
           - ui-swipe
+          - ui-playback
           - packages
           - linux
   push:
@@ -286,6 +287,7 @@ jobs:
       || github.event.inputs.matrix == 'integration-tests'
       || github.event.inputs.matrix == 'ui'
       || github.event.inputs.matrix == 'ui-swipe'
+      || github.event.inputs.matrix == 'ui-playback'
     needs:
       - preflight
     steps:
@@ -790,6 +792,7 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
       || github.event.inputs.matrix == 'all'
       || github.event.inputs.matrix == 'ui'
+      || github.event.inputs.matrix == 'ui-playback'
     needs:
       - unit-tests
       - package-tests
@@ -810,6 +813,10 @@ jobs:
             tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
+          - name: UITests-PlaybackTicker
+            tests: zpodUITests/PlaybackPositionTickerTests
+          - name: UITests-PlaybackAVPlayer
+            tests: zpodUITests/PlaybackPositionAVPlayerTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -1387,6 +1394,7 @@ jobs:
       || github.event.inputs.matrix == 'integration-tests'
       || github.event.inputs.matrix == 'ui'
       || github.event.inputs.matrix == 'ui-swipe'
+      || github.event.inputs.matrix == 'ui-playback'
     needs: preflight
     strategy:
       fail-fast: false
