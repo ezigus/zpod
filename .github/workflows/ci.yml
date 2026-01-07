@@ -1516,6 +1516,67 @@ jobs:
             exit 0
           fi
 
+          echo "Created simulator ${SIM_NAME} (${UDID})"
+
+          # Boot simulator with retry logic
+          MAX_BOOT_RETRIES=3
+          BOOT_SUCCESS=0
+
+          for boot_attempt in $(seq 1 $MAX_BOOT_RETRIES); do
+            echo "Boot attempt $boot_attempt/$MAX_BOOT_RETRIES for simulator ${SIM_NAME} (${UDID})"
+
+            # Clean up any existing processes before retry
+            if [ $boot_attempt -gt 1 ]; then
+              echo "Cleaning up before retry attempt..."
+              killall -9 Simulator 2>/dev/null || true
+              xcrun simctl shutdown "$UDID" 2>/dev/null || true
+              sleep 5
+            fi
+
+            # Attempt to boot with extended timeout
+            set +e
+            xcrun simctl boot "$UDID"
+            boot_status=$?
+            set -e
+
+            if [ $boot_status -eq 0 ]; then
+              # Verify boot completed successfully
+              set +e
+              xcrun simctl bootstatus "$UDID" -b
+              bootstatus_status=$?
+              set -e
+
+              if [ $bootstatus_status -eq 0 ]; then
+                # Final health check: verify simulator is actually responsive
+                sleep 2
+                if xcrun simctl list devices | grep -q "$UDID.*Booted"; then
+                  echo "✅ Simulator booted successfully and is responsive"
+                  BOOT_SUCCESS=1
+                  break
+                else
+                  echo "⚠️ Simulator reported booted but not in device list"
+                fi
+              else
+                echo "⚠️ Boot status check failed with status ${bootstatus_status}"
+              fi
+            else
+              echo "⚠️ Boot command failed with status ${boot_status}"
+            fi
+
+            if [ $boot_attempt -lt $MAX_BOOT_RETRIES ]; then
+              echo "Retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          if [ $BOOT_SUCCESS -eq 0 ]; then
+            echo "❌ Failed to boot simulator after $MAX_BOOT_RETRIES attempts"
+            echo "::error::Simulator boot failed after retries. Tests will fall back to automatic destination."
+            echo "ZPOD_SIMULATOR_UDID=" >> "$GITHUB_ENV"
+            echo "udid=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
