@@ -792,7 +792,6 @@ jobs:
     if: github.event_name != 'workflow_dispatch'
       || github.event.inputs.matrix == 'all'
       || github.event.inputs.matrix == 'ui'
-      || github.event.inputs.matrix == 'ui-playback'
     needs:
       - unit-tests
       - package-tests
@@ -813,10 +812,6 @@ jobs:
             tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
-          - name: UITests-PlaybackTicker
-            tests: zpodUITests/PlaybackPositionTickerTests
-          - name: UITests-PlaybackAVPlayer
-            tests: zpodUITests/PlaybackPositionAVPlayerTests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -1374,6 +1369,182 @@ jobs:
       - name: Archive Test Results
         if: always()
         run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
+      - name: Upload Test Artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-${{ matrix.name }}
+          path: artifacts/${{ matrix.name }}
+          if-no-files-found: warn
+
+      - name: Cleanup dedicated simulator
+        if: always()
+        run: scripts/ci/cleanup-simulator.sh "${{ steps.provision-sim.outputs.udid }}" "${{ steps.provision-sim.outputs.derived_path }}"
+
+  ui-tests-playback:
+    if: github.event_name != 'workflow_dispatch'
+      || github.event.inputs.matrix == 'all'
+      || github.event.inputs.matrix == 'ui'
+      || github.event.inputs.matrix == 'ui-playback'
+    needs:
+      - unit-tests
+      - package-tests
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - name: UITests-PlaybackTicker
+            tests: zpodUITests/PlaybackPositionTickerTests
+          - name: UITests-PlaybackAVPlayer
+            tests: zpodUITests/PlaybackPositionAVPlayerTests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.4"
+      - name: Self-check build script
+        run: ./scripts/run-xcode-tests.sh --self-check
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Ensure iOS Simulator runtime is installed
+        run: |
+          set -euo pipefail
+          echo "Checking installed runtimes before download..."
+          xcrun simctl list runtimes || true
+
+          HAS_IOS_RUNTIME=$(xcrun simctl list runtimes | grep -c "iOS ") || true
+          if [ "$HAS_IOS_RUNTIME" -eq 0 ]; then
+            echo "No iOS runtimes found. Attempting to download iOS platform..."
+            sudo xcodebuild -runFirstLaunch || true
+            if xcodebuild -help | grep -q "-downloadPlatform"; then
+              sudo xcodebuild -downloadPlatform iOS || true
+            fi
+            if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+              echo "Retrying with -downloadAllPlatforms..."
+              if xcodebuild -help | grep -q "-downloadAllPlatforms"; then
+                sudo xcodebuild -downloadAllPlatforms || true
+              fi
+            fi
+            echo "Runtimes after download attempt:"
+            xcrun simctl list runtimes || true
+          fi
+
+          if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
+            echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
+          fi
+
+      - name: Provision dedicated simulator & derived data
+        id: provision-sim
+        run: |
+          set -euo pipefail
+
+          MATRIX_NAME="${{ matrix.name }}"
+          SAFE_NAME=$(echo "$MATRIX_NAME" | tr '[:space:]/' '-' | tr -c 'A-Za-z0-9_-.' '-')
+          SAFE_NAME="${SAFE_NAME%-}"
+          DERIVED_PATH="$PWD/tmp_ci/DerivedData/${SAFE_NAME}"
+
+          rm -rf "$DERIVED_PATH"
+          mkdir -p "$DERIVED_PATH"
+          echo "ZPOD_DERIVED_DATA_PATH=$DERIVED_PATH" >> "$GITHUB_ENV"
+          echo "derived_path=$DERIVED_PATH" >> "$GITHUB_OUTPUT"
+
+          RUNTIME_ID=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; runtimes=json.load(sys.stdin).get('runtimes',[]); preferred=[r for r in runtimes if r.get('identifier','').startswith('com.apple.CoreSimulator.SimRuntime.iOS-18') and r.get('isAvailable')]; preferred = preferred or [r for r in runtimes if r.get('platform','')=='iOS' and r.get('isAvailable')]; print(preferred[0]['identifier'] if preferred else '')" || true)
+
+          if [ -z "$RUNTIME_ID" ]; then
+            echo "::warning::Unable to determine an iOS runtime; tests will fall back to default destination."
+            exit 0
+          fi
+
+          SIM_NAME="zpod-${GITHUB_RUN_ID}-${SAFE_NAME}"
+          DEVICE_CANDIDATES=(
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-16
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-17
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-15
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-14
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro
+            com.apple.CoreSimulator.SimDeviceType.iPhone-13
+          )
+
+          create_sim() {
+            local device_type="$1"
+            local udid=""
+            if udid=$(xcrun simctl create "$SIM_NAME" "$device_type" "$RUNTIME_ID" 2>/dev/null); then
+              echo "$udid"
+              return 0
+            fi
+            return 1
+          }
+
+          MAX_ATTEMPTS=3
+          BASE_DELAY=3
+          ATTEMPT=1
+          UDID=""
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ -z "$UDID" ]; do
+            ACTIVE_COUNT=$(xcrun simctl list devices -j | python3 -c "import json,sys; data=json.load(sys.stdin); devices=data.get('devices',{}); print(sum(1 for runtime in devices.values() for dev in runtime if dev.get('isAvailable')))" || true)
+            if [ -n "$ACTIVE_COUNT" ] && [ "$ACTIVE_COUNT" -ge 5 ]; then
+              echo "Active simulator count ($ACTIVE_COUNT) is high; waiting before provisioning."
+              sleep $((BASE_DELAY * ATTEMPT))
+            fi
+
+            for candidate in "${DEVICE_CANDIDATES[@]}"; do
+              if UDID=$(create_sim "$candidate"); then
+                break
+              fi
+            done
+
+            if [ -z "$UDID" ]; then
+              echo "Simulator provisioning attempt $ATTEMPT failed; retrying."
+              sleep $((BASE_DELAY * ATTEMPT))
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          if [ -z "$UDID" ]; then
+            echo "::warning::Failed to provision a simulator for $MATRIX_NAME; continuing with default destination."
+            exit 0
+          fi
+
+          echo "ZPOD_SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Download preflight host app
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: artifacts/host-app
+
+      - name: Extract preflight host app
+        run: |
+          set -euo pipefail
+          tar -xzf artifacts/host-app/host-app.tar.gz -C "$PWD"
+
+      - name: Run ${{ matrix.name }} Tests
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
+        env:
+          NSUnbufferedIO: "YES"
+          UITEST_TIMEOUT_SCALE: "1.5"
+          ZPOD_SIMULATOR_UDID: ${{ steps.provision-sim.outputs.udid }}
+          ZPOD_DERIVED_DATA_PATH: ${{ steps.provision-sim.outputs.derived_path }}
+          ZPOD_TEST_WITHOUT_BUILDING: "1"
+
+      - name: Archive Test Results
+        if: always()
+        run: scripts/ci/archive-test-results.sh "${{ matrix.name }}"
+
       - name: Upload Test Artifacts (always)
         if: always()
         uses: actions/upload-artifact@v4
