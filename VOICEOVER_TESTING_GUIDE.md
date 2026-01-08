@@ -8,7 +8,7 @@
 ### 1. Configure Xcode Scheme
 
 1. Open zpod project: `cd /Volumes/zHardDrive/code/zpod && open zpod.xcworkspace`
-2. **Product menu** → **Scheme** → **Edit Scheme...** (or press ⌘<)
+2. **Product menu** → **Scheme** → **Edit Scheme...** (or press **⌘<**)
 3. Select **"Run"** in left sidebar
 4. Click **"Arguments"** tab
 5. Under **"Environment Variables"** click **"+"**

@@ -117,7 +117,7 @@ public struct ExpandedPlayerView: View {
     }
     .padding(.top, 8)
     .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
-    .accessibilityElement(children: .contain)
+    .accessibilityElement(children: .ignore)
     .accessibilityIdentifier("ExpandedPlayer.ErrorView")
     .accessibilityLabel("Playback Error. \(error.userMessage)")
     .accessibilityHint(
