@@ -1,4 +1,5 @@
 #if os(iOS) || os(macOS)
+import Foundation
 import SwiftUI
 import CoreModels
 import PlaybackEngine
@@ -25,10 +26,26 @@ public struct EpisodeDetailView: View {
   }
 
   public var body: some View {
-    ScrollView {
-      content
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Episode Detail View")
+    ZStack(alignment: .topTrailing) {
+      ScrollView {
+        content
+          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Episode Detail View")
+      }
+
+      if isPlaybackDebugEnabled {
+        VStack {
+          Spacer()
+            .frame(height: 8)  // Small gap below nav bar
+          HStack {
+            Spacer()
+            PlaybackDebugControlsView()
+              .padding(.trailing, 12)
+          }
+          Spacer()
+        }
+        .allowsHitTesting(true)
+      }
     }
     .navigationTitle("Episode")
 #if os(iOS)
@@ -76,6 +93,47 @@ extension EpisodeDetailView {
     let minutes = Int(seconds) / 60
     let remainingSeconds = Int(seconds) % 60
     return String(format: "%d:%02d", minutes, remainingSeconds)
+  }
+
+  private var isPlaybackDebugEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_PLAYBACK_DEBUG"] == "1"
+  }
+
+  private struct PlaybackDebugControlsView: View {
+    var body: some View {
+      VStack(alignment: .trailing, spacing: 8) {
+        Button("Interruption Began") {
+          postInterruption(.began, shouldResume: false)
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("Playback.Debug.InterruptionBegan")
+
+        Button("Interruption Ended") {
+          postInterruption(.ended, shouldResume: true)
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("Playback.Debug.InterruptionEnded")
+      }
+      .padding(8)
+      .background(Color.black.opacity(0.6))
+      .cornerRadius(8)
+      .accessibilityIdentifier("Playback Debug Controls")
+      .zIndex(1000)  // Ensure overlay stays on top
+    }
+
+    private func postInterruption(
+      _ type: PlaybackDebugInterruptionType,
+      shouldResume: Bool
+    ) {
+      NotificationCenter.default.post(
+        name: .playbackDebugInterruption,
+        object: nil,
+        userInfo: [
+          PlaybackDebugNotificationKey.interruptionType: type.rawValue,
+          PlaybackDebugNotificationKey.shouldResume: shouldResume
+        ]
+      )
+    }
   }
 
   private var artworkView: some View {
@@ -246,10 +304,12 @@ extension EpisodeDetailView {
       .accessibilityHint("Adjust playback speed")
       .confirmationDialog("Playback Speed", isPresented: $showingSpeedOptions) {
         ForEach([Float(1.0), 1.5, 2.0], id: \.self) { speed in
-          Button(String(format: "%.1fx", Double(speed))) {
+          let label = String(format: "%.1fx", Double(speed))
+          Button(label) {
             viewModel.setPlaybackSpeed(speed)
             showingSpeedOptions = false
           }
+          .accessibilityIdentifier("PlaybackSpeed.Option.\(label)")
         }
         Button("Cancel", role: .cancel) {
           showingSpeedOptions = false
