@@ -77,7 +77,6 @@ public struct ExpandedPlayerView: View {
             .font(.body)
             .foregroundColor(.white.opacity(0.85))
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 40)
         }
 
         // Retry button (if recoverable)
@@ -110,7 +109,6 @@ public struct ExpandedPlayerView: View {
               .lineLimit(1)
           }
           .padding(.top, 32)
-          .padding(.horizontal, 32)
         }
       }
       .padding(.horizontal, 32)
