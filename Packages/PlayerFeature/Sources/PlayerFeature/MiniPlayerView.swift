@@ -143,7 +143,8 @@ public struct MiniPlayerView: View {
       }
       .padding(.horizontal, 12)
       .padding(.vertical, 8)
-      .background(Color(uiColor: .systemBackground))
+      .background(.background.opacity(0.95))
+      .cornerRadius(8)
       .accessibilityElement(children: .combine)
       .accessibilityIdentifier("MiniPlayer.ErrorOverlay")
     }
