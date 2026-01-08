@@ -806,7 +806,7 @@ jobs:
             tests: zpodUITests/CoreUINavigationTests,zpodUITests/EpisodeListUITests
           - name: UITests-ContentDiscovery
             tests: zpodUITests/ContentDiscoveryUITests
-          - name: UITests-Playback
+          - name: UITests-PlayerNavigation
             tests: zpodUITests/PlayerNavigationTests,zpodUITests/PlayerPlaybackInteractionTests,zpodUITests/PlayerOrientationSnapshotTests
           - name: UITests-CorePlayback
             tests: zpodUITests/PlaybackUITests
