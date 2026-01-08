@@ -109,16 +109,72 @@ public final class PlaybackAlertPresenter: ObservableObject {
 // MARK: - Playback Error Mapping
 
 public enum PlaybackError: Equatable, Sendable {
+  // Existing cases
   case episodeUnavailable
   case resumeStateExpired
   case persistenceCorrupted
   case streamFailed
   case unknown(message: String?)
+
+  // NEW: Network/URL errors (Issue 03.3.4.1)
+  case missingAudioURL
+  case networkError
+  case timeout
 }
 
 public extension PlaybackError {
+  /// Indicates whether this error can be recovered from by user action (e.g., retry).
+  var isRecoverable: Bool {
+    switch self {
+    case .networkError, .timeout:
+      return true  // User can retry these errors
+    case .missingAudioURL, .episodeUnavailable, .resumeStateExpired, .persistenceCorrupted, .streamFailed, .unknown:
+      return false  // Cannot recover from these errors
+    }
+  }
+
+  /// User-facing error message suitable for display in UI.
+  var userMessage: String {
+    switch self {
+    case .missingAudioURL:
+      return "This episode doesn't have audio available"
+    case .networkError:
+      return "Unable to load episode. Check your connection."
+    case .timeout:
+      return "Loading timed out. Tap to retry."
+    case .episodeUnavailable:
+      return "The episode you were listening to is no longer available."
+    case .resumeStateExpired:
+      return "Your previous listening session expired."
+    case .persistenceCorrupted:
+      return "We couldn't access your last listening position."
+    case .streamFailed:
+      return "Playback failed. Please try again."
+    case .unknown(let message):
+      return message ?? "An unknown error occurred"
+    }
+  }
+
   func descriptor() -> PlaybackAlertDescriptor {
     switch self {
+    case .missingAudioURL:
+      return PlaybackAlertDescriptor(
+        title: "Audio Not Available",
+        message: userMessage,
+        style: .error
+      )
+    case .networkError:
+      return PlaybackAlertDescriptor(
+        title: "Connection Error",
+        message: userMessage,
+        style: .error
+      )
+    case .timeout:
+      return PlaybackAlertDescriptor(
+        title: "Request Timed Out",
+        message: userMessage,
+        style: .error
+      )
     case .episodeUnavailable:
       return PlaybackAlertDescriptor(
         title: "Episode Unavailable",
