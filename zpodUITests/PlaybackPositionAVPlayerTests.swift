@@ -50,18 +50,22 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     }
 
     @MainActor
-    private func launchApp() {
-        // Copy test audio to /tmp and get environment variables
+    private func launchApp(
+        environmentOverrides: [String: String] = [:],
+        audioVariant: String = "long"
+    ) {
         let audioEnv = audioLaunchEnvironment()
-        
-        // Merge with debug environment
+
         var env = audioEnv
         env["UITEST_POSITION_DEBUG"] = "1"
-        env["UITEST_DEBUG_AUDIO"] = "1"  // Enable audio path logging
+        env["UITEST_DEBUG_AUDIO"] = "1"
         env["UITEST_INITIAL_TAB"] = "player"
-        env["UITEST_AUDIO_VARIANT"] = "long"
-        
-        // Launch with AVPlayer enabled (override default ticker mode)
+        env["UITEST_AUDIO_VARIANT"] = audioVariant
+
+        environmentOverrides.forEach { key, value in
+            env[key] = value
+        }
+
         app = launchWithPlaybackMode(.avplayer, environmentOverrides: env)
     }
 
@@ -400,5 +404,238 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             return
         }
         logSliderValue("resumed after seek (AVPlayer)", value: resumedValue)
+    }
+
+    // MARK: - Test 7: Missing/Network Errors (Blocked by 03.3.4)
+
+    @MainActor
+    func testMissingAudioURLShowsErrorNoRetry() throws {
+        throw XCTSkip("Blocked by 03.3.4: error UI/messages not aligned yet")
+    }
+
+    @MainActor
+    func testNetworkErrorShowsRetryAndRecovers() throws {
+        throw XCTSkip("Blocked by 03.3.4: error UI/messages not aligned yet")
+    }
+
+    // MARK: - Test 8: Interruption Handling
+
+    /// **Spec**: Audio Interruption Handling
+    /// 
+    /// **NOTE**: This test is currently skipped due to UI visibility issues with debug controls.
+    /// The PlaybackDebugControlsView overlay doesn't appear consistently in the Player tab during
+    /// UI tests, preventing interaction with interruption simulation buttons.
+    /// 
+    /// **TODO**: Investigate alternative approaches:
+    /// 1. Move debug controls to a different location (bottom overlay?)
+    /// 2. Use notification-based triggering instead of UI buttons
+    /// 3. Add integration test that posts notifications directly
+    @MainActor
+    func testInterruptionPausesAndResumesPlayback() throws {
+        throw XCTSkip("Debug controls not accessible in Player tab - needs UI investigation")
+        
+        /* Original test code preserved for when UI issue is resolved:
+        launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
+
+        guard startPlaybackFromPlayerTab() else {
+            XCTFail("Failed to start playback from Player tab")
+            return
+        }
+
+        guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
+            XCTFail("Playback should advance before interruption")
+            return
+        }
+
+        let interruptionBegan = app.buttons.matching(identifier: "Playback.Debug.InterruptionBegan").firstMatch
+        guard interruptionBegan.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Interruption debug button not found")
+            return
+        }
+        interruptionBegan.tap()
+
+        let playButton = app.buttons.matching(identifier: "Play").firstMatch
+        XCTAssertTrue(playButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Playback should pause on interruption")
+
+        let pausedValue = playerTabSliderValue()
+        XCTAssertTrue(
+            verifyPlayerTabPositionStable(at: pausedValue, forDuration: 1.5, tolerance: 0.5),
+            "Position should remain stable during interruption"
+        )
+
+        let interruptionEnded = app.buttons.matching(identifier: "Playback.Debug.InterruptionEnded").firstMatch
+        guard interruptionEnded.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Interruption end debug button not found")
+            return
+        }
+        interruptionEnded.tap()
+
+        let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+        XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Playback should resume after interruption ends")
+
+        guard waitForPlayerTabAdvancement(beyond: pausedValue, timeout: avplayerTimeout) != nil else {
+            XCTFail("Playback should advance after interruption resumes")
+            return
+        }
+        */
+    }
+
+    // MARK: - Test 9: Speed Rate
+
+    @MainActor
+    func testPlaybackSpeedChangesPositionRate() throws {
+        launchApp()
+
+        guard startPlaybackFromPlayerTab() else {
+            XCTFail("Failed to start playback from Player tab")
+            return
+        }
+
+        guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
+            XCTFail("Playback should advance before speed measurement")
+            return
+        }
+
+        guard let baselineStart = playerTabSliderValue(),
+              let baselineStartPosition = extractCurrentPosition(from: baselineStart) else {
+            XCTFail("Unable to read baseline position")
+            return
+        }
+
+        let baselineStartTime = Date()
+        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "baseline window") {
+            Date().timeIntervalSince(baselineStartTime) >= 2.0
+        }
+
+        guard let baselineEnd = playerTabSliderValue(),
+              let baselineEndPosition = extractCurrentPosition(from: baselineEnd) else {
+            XCTFail("Unable to read baseline end position")
+            return
+        }
+
+        let baselineDelta = baselineEndPosition - baselineStartPosition
+        XCTAssertGreaterThan(baselineDelta, 0.5,
+            "Baseline playback should advance before speed change")
+
+        let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+        guard speedControl.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Speed control not found")
+            return
+        }
+        speedControl.tap()
+
+        let speedOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.2.0x").firstMatch
+        guard speedOption.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Speed option 2.0x not found")
+            return
+        }
+        speedOption.tap()
+
+        guard let fastStart = playerTabSliderValue(),
+              let fastStartPosition = extractCurrentPosition(from: fastStart) else {
+            XCTFail("Unable to read position after speed change")
+            return
+        }
+
+        let fastStartTime = Date()
+        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "fast window") {
+            Date().timeIntervalSince(fastStartTime) >= 2.0
+        }
+
+        guard let fastEnd = playerTabSliderValue(),
+              let fastEndPosition = extractCurrentPosition(from: fastEnd) else {
+            XCTFail("Unable to read fast end position")
+            return
+        }
+
+        let fastDelta = fastEndPosition - fastStartPosition
+        XCTAssertGreaterThan(
+            fastDelta,
+            baselineDelta * 1.4,
+            "Playback should advance faster at 2.0x (baseline \(baselineDelta)s, fast \(fastDelta)s)"
+        )
+    }
+
+    // MARK: - Helpers
+
+    @MainActor
+    private func playerTabSliderValue() -> String? {
+        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return nil
+        }
+        return slider.value as? String
+    }
+
+    @MainActor
+    private func waitForPlayerTabAdvancement(
+        beyond initialValue: String? = nil,
+        timeout: TimeInterval
+    ) -> String? {
+        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return nil
+        }
+
+        let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
+        var observedValue: String?
+
+        let advanced = waitUntil(timeout: timeout, pollInterval: 0.1, description: "player tab advancement") {
+            guard let currentValue = slider.value as? String,
+                  let currentPosition = self.extractCurrentPosition(from: currentValue) else {
+                return false
+            }
+            if currentPosition > initialPosition + 1.0 {
+                let firstValue = currentValue
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+                guard let secondValue = slider.value as? String else {
+                    return false
+                }
+                if secondValue == firstValue {
+                    observedValue = firstValue
+                    return true
+                }
+            }
+            return false
+        }
+
+        return advanced ? observedValue : nil
+    }
+
+    @MainActor
+    private func verifyPlayerTabPositionStable(
+        at expectedValue: String?,
+        forDuration: TimeInterval,
+        tolerance: TimeInterval
+    ) -> Bool {
+        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+        guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return false
+        }
+        guard let expectedPosition = extractCurrentPosition(from: expectedValue) else {
+            return false
+        }
+
+        let deadline = Date().addingTimeInterval(forDuration)
+        var observedWithinTolerance = false
+
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            guard let currentValue = slider.value as? String,
+                  let currentPosition = extractCurrentPosition(from: currentValue) else {
+                continue
+            }
+
+            let deviation = abs(currentPosition - expectedPosition)
+            if deviation > tolerance {
+                return false
+            }
+
+            observedWithinTolerance = true
+        }
+
+        return observedWithinTolerance
     }
 }

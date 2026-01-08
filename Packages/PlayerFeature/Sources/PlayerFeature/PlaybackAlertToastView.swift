@@ -18,9 +18,11 @@ struct PlaybackAlertToastView: View {
         VStack(alignment: .leading, spacing: 4) {
           Text(alert.descriptor.title)
             .font(.headline)
+            .accessibilityIdentifier("Playback Alert Title")
           Text(alert.descriptor.message)
             .font(.subheadline)
             .foregroundStyle(.secondary)
+            .accessibilityIdentifier("Playback Alert Message")
         }
 
         Spacer()
@@ -33,6 +35,7 @@ struct PlaybackAlertToastView: View {
             .foregroundStyle(.secondary)
         }
         .accessibilityLabel("Dismiss playback alert")
+        .accessibilityIdentifier("Playback Alert Dismiss")
       }
 
       HStack(spacing: 12) {
@@ -41,6 +44,7 @@ struct PlaybackAlertToastView: View {
             onSecondary?()
           }
           .buttonStyle(SecondaryActionStyle())
+          .accessibilityIdentifier("Playback Alert Secondary Action")
         }
 
         if let primary = alert.primaryAction {
@@ -48,6 +52,7 @@ struct PlaybackAlertToastView: View {
             onPrimary?()
           }
           .buttonStyle(PrimaryActionStyle(style: alert.descriptor.style))
+          .accessibilityIdentifier("Playback Alert Primary Action")
         }
       }
     }
@@ -55,6 +60,7 @@ struct PlaybackAlertToastView: View {
     .background(backgroundColor(for: alert.descriptor.style).opacity(0.9))
     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     .shadow(radius: 8, y: 4)
+    .accessibilityIdentifier("Playback Alert Toast")
     .accessibilityElement(children: .contain)
     .accessibilityLabel("\(alert.descriptor.title). \(alert.descriptor.message)")
   }

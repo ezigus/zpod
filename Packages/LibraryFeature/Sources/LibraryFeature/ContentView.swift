@@ -341,6 +341,31 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     env: [String: String]
   ) -> URL? {
     let isDebugAudio = env["UITEST_DEBUG_AUDIO"] == "1"
+    if env["UITEST_AUDIO_OVERRIDE_MODE"] == "missing" {
+      if isDebugAudio {
+        NSLog("Audio override mode=missing for %@", envKey)
+      }
+      return nil
+    }
+
+    if let overrideValue = env["UITEST_AUDIO_OVERRIDE_URL"], !overrideValue.isEmpty {
+      if let overrideURL = URL(string: overrideValue), overrideURL.scheme != nil {
+        if isDebugAudio {
+          NSLog("Audio override URL resolved: %@", overrideURL.absoluteString)
+        }
+        return overrideURL
+      }
+
+      let fileURL = URL(fileURLWithPath: overrideValue)
+      if FileManager.default.isReadableFile(atPath: fileURL.path) {
+        if isDebugAudio {
+          NSLog("Audio override file resolved: %@", fileURL.path)
+        }
+        return fileURL
+      } else if isDebugAudio {
+        NSLog("Audio override file missing: %@", overrideValue)
+      }
+    }
 
     if let path = env[envKey] {
       let url = URL(fileURLWithPath: path)
@@ -352,6 +377,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       } else if isDebugAudio {
         NSLog("Audio env missing file: %@ -> %@", envKey, path)
       }
+    }
+
+    if env["UITEST_AUDIO_DISABLE_BUNDLE"] == "1" {
+      if isDebugAudio {
+        NSLog("Audio bundle fallback disabled for %@", bundleName)
+      }
+      return nil
     }
 
     if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "m4a") {
@@ -715,6 +747,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       // Read test audio URLs from environment variables (only set during UI tests)
       // In production, these will be nil and episodes will use placeholder URLs
       let env = ProcessInfo.processInfo.environment
+      let disableFallback = env["UITEST_AUDIO_OVERRIDE_MODE"] == "missing"
+        || env["UITEST_AUDIO_DISABLE_BUNDLE"] == "1"
+        || (env["UITEST_AUDIO_OVERRIDE_URL"]?.isEmpty == false)
 
       // Resolve audio URLs with fallback to bundle
       let shortAudioURL = resolveTestAudioURL(
@@ -767,7 +802,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
           duration: 2723,  // 45:23
           description: "Introduction to the podcast series.",
-          audioURL: shortAudioURL ?? URL(string: "https://example.com/episode1.mp3")
+          audioURL: disableFallback ? shortAudioURL : (shortAudioURL ?? URL(string: "https://example.com/episode1.mp3"))
         ),
         Episode(
           id: "st-002",
@@ -779,7 +814,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date(),
           duration: 3137,  // 52:17
           description: "Covering Swift language basics.",
-          audioURL: mediumAudioURL ?? URL(string: "https://example.com/episode2.mp3")
+          audioURL: disableFallback ? mediumAudioURL : (mediumAudioURL ?? URL(string: "https://example.com/episode2.mp3"))
         ),
         Episode(
           id: "st-003",
@@ -791,7 +826,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Calendar.current.date(byAdding: .day, value: -21, to: Date()) ?? Date(),
           duration: 3702,  // 61:42
           description: "Deep dive into advanced Swift concepts.",
-          audioURL: longAudioURL ?? URL(string: "https://example.com/episode3.mp3")
+          audioURL: disableFallback ? longAudioURL : (longAudioURL ?? URL(string: "https://example.com/episode3.mp3"))
         ),
         Episode(
           id: "st-004",
@@ -803,7 +838,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Calendar.current.date(byAdding: .day, value: -28, to: Date()) ?? Date(),
           duration: 2336,  // 38:56
           description: "Performance optimization techniques.",
-          audioURL: shortAudioURL ?? URL(string: "https://example.com/episode4.mp3")
+          audioURL: disableFallback ? shortAudioURL : (shortAudioURL ?? URL(string: "https://example.com/episode4.mp3"))
         ),
         Episode(
           id: "st-005",
@@ -815,7 +850,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Calendar.current.date(byAdding: .day, value: -35, to: Date()) ?? Date(),
           duration: 2673,  // 44:33
           description: "Testing strategies and best practices.",
-          audioURL: mediumAudioURL ?? URL(string: "https://example.com/episode5.mp3")
+          audioURL: disableFallback ? mediumAudioURL : (mediumAudioURL ?? URL(string: "https://example.com/episode5.mp3"))
         ),
       ]
 
@@ -857,6 +892,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       private var sampleEpisode: Episode {
         let env = ProcessInfo.processInfo.environment
         let audioVariant = env["UITEST_AUDIO_VARIANT"]?.lowercased() ?? "short"
+        let disableFallback = env["UITEST_AUDIO_OVERRIDE_MODE"] == "missing"
+          || env["UITEST_AUDIO_DISABLE_BUNDLE"] == "1"
+          || (env["UITEST_AUDIO_OVERRIDE_URL"]?.isEmpty == false)
         let audioURL: URL?
         let duration: TimeInterval
         switch audioVariant {
@@ -892,7 +930,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           pubDate: Date(),
           duration: duration,
           description: "This is a sample episode to demonstrate the player interface.",
-          audioURL: audioURL ?? URL(string: "https://example.com/episode.mp3")
+          audioURL: disableFallback ? audioURL : (audioURL ?? URL(string: "https://example.com/episode.mp3"))
         )
       }
     }

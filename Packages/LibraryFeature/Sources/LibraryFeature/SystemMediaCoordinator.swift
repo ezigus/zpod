@@ -19,6 +19,7 @@ public final class SystemMediaCoordinator {
   private struct AudioSessionObservers {
     let interruptionObserver: NSObjectProtocol
     let routeObserver: NSObjectProtocol
+    let debugInterruptionObserver: NSObjectProtocol?
   }
 
   private final class MainActorCleanupToken {
@@ -87,6 +88,9 @@ public final class SystemMediaCoordinator {
     cleanupToken = MainActorCleanupToken { [commandCenter] in
       NotificationCenter.default.removeObserver(observers.interruptionObserver)
       NotificationCenter.default.removeObserver(observers.routeObserver)
+      if let debugObserver = observers.debugInterruptionObserver {
+        NotificationCenter.default.removeObserver(debugObserver)
+      }
       commandCenter.playCommand.removeTarget(nil)
       commandCenter.pauseCommand.removeTarget(nil)
       commandCenter.togglePlayPauseCommand.removeTarget(nil)
@@ -142,21 +146,8 @@ public final class SystemMediaCoordinator {
 
       let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt
       Task { @MainActor in
-        switch type {
-        case .began:
-          self.wasPlayingBeforeInterruption = self.isPlaying
-          if self.isPlaying {
-            self.playbackService.pause()
-          }
-        case .ended:
-          let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
-          if options.contains(.shouldResume), self.wasPlayingBeforeInterruption {
-            self.resumePlayback()
-          }
-          self.wasPlayingBeforeInterruption = false
-        @unknown default:
-          self.wasPlayingBeforeInterruption = false
-        }
+        let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue ?? 0)
+        self.handleInterruption(type: type, shouldResume: options.contains(.shouldResume))
       }
     }
 
@@ -182,8 +173,54 @@ public final class SystemMediaCoordinator {
 
     return AudioSessionObservers(
       interruptionObserver: interruptionObserver,
-      routeObserver: routeObserver
+      routeObserver: routeObserver,
+      debugInterruptionObserver: registerDebugInterruptionObserver()
     )
+  }
+
+  private func registerDebugInterruptionObserver() -> NSObjectProtocol? {
+    guard ProcessInfo.processInfo.environment["UITEST_PLAYBACK_DEBUG"] == "1" else {
+      return nil
+    }
+
+    return NotificationCenter.default.addObserver(
+      forName: .playbackDebugInterruption,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      guard let self else { return }
+      let userInfo = notification.userInfo
+      let rawType = userInfo?[PlaybackDebugNotificationKey.interruptionType] as? String
+      let shouldResume = userInfo?[PlaybackDebugNotificationKey.shouldResume] as? Bool ?? false
+      guard let rawType,
+            let type = PlaybackDebugInterruptionType(rawValue: rawType) else {
+        return
+      }
+      Task { @MainActor in
+        let sessionType: AVAudioSession.InterruptionType = (type == .began) ? .began : .ended
+        self.handleInterruption(type: sessionType, shouldResume: shouldResume)
+      }
+    }
+  }
+
+  private func handleInterruption(
+    type: AVAudioSession.InterruptionType,
+    shouldResume: Bool
+  ) {
+    switch type {
+    case .began:
+      wasPlayingBeforeInterruption = isPlaying
+      if isPlaying {
+        playbackService.pause()
+      }
+    case .ended:
+      if shouldResume, wasPlayingBeforeInterruption {
+        resumePlayback()
+      }
+      wasPlayingBeforeInterruption = false
+    @unknown default:
+      wasPlayingBeforeInterruption = false
+    }
   }
 
   private func configureRemoteCommands() {
