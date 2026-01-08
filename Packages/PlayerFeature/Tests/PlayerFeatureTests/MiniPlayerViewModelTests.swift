@@ -142,6 +142,169 @@ struct MiniPlayerViewModelTests {
     #expect(viewModel.displayState.currentPosition == 120)
   }
 
+  // MARK: - Error State (Issue 03.3.4.2) -------------------------------------
+
+  @Test("Mini player exposes error when playback fails")
+  func testErrorExposedOnFailure() async throws {
+    let episode = sampleEpisode(id: "error-test")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+
+    let expectedError = PlaybackError.networkError
+    service.fail(error: expectedError)
+    try await waitForStateUpdate()
+
+    #expect(viewModel.displayState.error == expectedError)
+    #expect(viewModel.displayState.isVisible == true)
+    #expect(viewModel.displayState.episode?.id == "error-test")
+  }
+
+  @Test("Error is cleared when playback resumes after failure")
+  func testErrorClearedOnSuccessfulPlayback() async throws {
+    let episode = sampleEpisode(id: "error-clear-test")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    // Start with an error
+    service.fail(error: .networkError)
+    try await waitForStateUpdate()
+    #expect(viewModel.displayState.error != nil)
+
+    // Resume playback
+    service.play(episode: episode, duration: 1200)
+    try await waitForStateUpdate()
+
+    // Error should be cleared
+    #expect(viewModel.displayState.error == nil)
+    #expect(viewModel.displayState.isPlaying == true)
+  }
+
+  @Test("Error is cleared when playback is paused after failure")
+  func testErrorClearedOnPause() async throws {
+    let episode = sampleEpisode(id: "error-pause-test")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    // Fail first
+    service.fail(error: .timeout)
+    try await waitForStateUpdate()
+    #expect(viewModel.displayState.error != nil)
+
+    // Pause (simulating recovery)
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+    service.pause()
+    try await waitForStateUpdate()
+
+    // Error should be cleared
+    #expect(viewModel.displayState.error == nil)
+    #expect(viewModel.displayState.isPlaying == false)
+  }
+
+  @Test("Error is cleared when playback finishes after failure")
+  func testErrorClearedOnFinish() async throws {
+    let episode = sampleEpisode(id: "error-finish-test")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service,
+      queueIsEmpty: { false }
+    )
+
+    // Start playing, then fail
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+    service.fail(error: .streamFailed)
+    try await waitForStateUpdate()
+    #expect(viewModel.displayState.error != nil)
+
+    // Finish playback (service maintains currentEpisode from play)
+    service.finish()
+    try await waitForStateUpdate()
+
+    // Error should be cleared
+    #expect(viewModel.displayState.error == nil)
+  }
+
+  @Test("retryPlayback calls play with current episode and position")
+  func testRetryPlaybackCallsPlayAndSeek() async throws {
+    let episode = sampleEpisode(id: "retry-test")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    // Set up a failure at position 300
+    service.play(episode: episode, duration: 1800)
+    try await waitForStateUpdate()
+    service.seek(to: 300)
+    try await waitForStateUpdate()
+    service.fail(error: .networkError)
+    try await waitForStateUpdate()
+
+    let initialPlayCount = service.playCallCount
+    let initialSeekCount = service.seekCallCount
+
+    // Retry
+    viewModel.retryPlayback()
+    try await waitForStateUpdate()
+
+    // Should have called play and seek
+    #expect(service.playCallCount == initialPlayCount + 1)
+    #expect(service.seekCallCount == initialSeekCount + 1)
+    #expect(service.lastPlayedEpisode?.id == "retry-test")
+    #expect(service.lastSeekPosition == 300)
+  }
+
+  @Test("retryPlayback does nothing when no error present")
+  func testRetryPlaybackIgnoredWhenNoError() async throws {
+    let episode = sampleEpisode(id: "no-error-retry")
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    service.play(episode: episode, duration: 900)
+    try await waitForStateUpdate()
+
+    let playCountBefore = service.playCallCount
+
+    // Try to retry when no error
+    viewModel.retryPlayback()
+    try await waitForStateUpdate()
+
+    // Play count should not increase
+    #expect(service.playCallCount == playCountBefore)
+  }
+
+  @Test("retryPlayback does nothing when no episode present")
+  func testRetryPlaybackIgnoredWhenNoEpisode() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = MiniPlayerViewModel(
+      playbackService: service
+    )
+
+    // Start in idle state (no episode)
+    #expect(viewModel.displayState.episode == nil)
+
+    let playCountBefore = service.playCallCount
+
+    // Try to retry
+    viewModel.retryPlayback()
+    try await waitForStateUpdate()
+
+    // Play count should not increase
+    #expect(service.playCallCount == playCountBefore)
+  }
+
   // MARK: - Transport Actions ------------------------------------------------
 
   @Test("togglePlayPause pauses when currently playing")
@@ -310,6 +473,11 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
   var pauseCallCount = 0
   var skipForwardCallCount = 0
   var skipBackwardCallCount = 0
+  var seekCallCount = 0
+  
+  // Issue 03.3.4.2: Track last operations for retry testing
+  var lastPlayedEpisode: Episode?
+  var lastSeekPosition: TimeInterval = 0
 
   var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
     subject.eraseToAnyPublisher()
@@ -323,6 +491,7 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
 
   func play(episode: Episode, duration maybeDuration: TimeInterval?) {
     playCallCount += 1
+    lastPlayedEpisode = episode
     currentEpisode = episode
     currentDuration = maybeDuration ?? episode.duration ?? 300
     currentPosition = 0
@@ -344,6 +513,8 @@ private final class RecordingPlaybackService: EpisodePlaybackService, EpisodeTra
   }
 
   func seek(to position: TimeInterval) {
+    seekCallCount += 1
+    lastSeekPosition = position
     guard let episode = currentEpisode else { return }
     currentPosition = position
     subject.send(.playing(episode, position: currentPosition, duration: currentDuration))

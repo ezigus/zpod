@@ -25,78 +25,8 @@ public struct MiniPlayerView: View {
     ZStack(alignment: .top) {
       Group {
         if state.isVisible, let episode = state.episode {
-          // Issue 03.3.4.2: Show error overlay if error present, otherwise normal controls
-          if state.error != nil {
-            HStack(spacing: 12) {
-              artwork(for: episode)
-
-              VStack(alignment: .leading, spacing: 4) {
-                Text(episode.title)
-                  .font(.subheadline)
-                  .fontWeight(.semibold)
-                  .lineLimit(1)
-                  .accessibilityIdentifier("Mini Player Episode Title")
-
-                errorOverlay
-              }
-              .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(radius: 4, y: 2)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 4)
-            .contentShape(Rectangle())
-            .onTapGesture {
-              onTapExpand()
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("Mini Player")
-            .accessibilityLabel("Mini player showing \(episode.title) with error")
-            .accessibilityHint("Double-tap to open the full player")
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-          } else {
-            HStack(spacing: 12) {
-              artwork(for: episode)
-
-              VStack(alignment: .leading, spacing: 4) {
-                Text(episode.title)
-                  .font(.subheadline)
-                  .fontWeight(.semibold)
-                  .lineLimit(1)
-                  .accessibilityIdentifier("Mini Player Episode Title")
-
-                if !episode.podcastTitle.isEmpty {
-                  Text(episode.podcastTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("Mini Player Podcast Title")
-                }
-              }
-              .frame(maxWidth: .infinity, alignment: .leading)
-
-              transportControls(state: state)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(radius: 4, y: 2)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 4)
-            .contentShape(Rectangle())
-            .onTapGesture {
-              onTapExpand()
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("Mini Player")
-            .accessibilityLabel("Mini player showing \(episode.title)")
-            .accessibilityHint("Double-tap to open the full player")
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-          }
+          // Issue 03.3.4.2: Unified card layout with conditional content
+          miniPlayerCard(for: episode, state: state)
         }
       }
       .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
@@ -116,38 +46,83 @@ public struct MiniPlayerView: View {
 
   // MARK: - Subviews ---------------------------------------------------------
 
-  /// Issue 03.3.4.2: Error overlay for failed playback
+  /// Issue 03.3.4.2: Unified mini-player card with conditional content
   @ViewBuilder
-  private var errorOverlay: some View {
-    if let error = viewModel.displayState.error {
-      HStack(spacing: 8) {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .foregroundColor(.red)
-          .accessibilityLabel("Error")
+  private func miniPlayerCard(for episode: Episode, state: MiniPlayerDisplayState) -> some View {
+    HStack(spacing: 12) {
+      artwork(for: episode)
 
-        Text(error.userMessage)
-          .font(.caption)
-          .foregroundColor(.secondary)
+      VStack(alignment: .leading, spacing: 4) {
+        Text(episode.title)
+          .font(.subheadline)
+          .fontWeight(.semibold)
           .lineLimit(1)
+          .accessibilityIdentifier("Mini Player Episode Title")
 
-        if error.isRecoverable {
-          Button {
-            viewModel.retryPlayback()
-          } label: {
-            Text("Retry")
-              .font(.caption.bold())
-          }
-          .buttonStyle(.bordered)
-          .accessibilityIdentifier("MiniPlayer.RetryButton")
+        // Show error overlay if present, otherwise show podcast subtitle
+        if let error = state.error {
+          errorContent(for: error)
+        } else if !episode.podcastTitle.isEmpty {
+          Text(episode.podcastTitle)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .accessibilityIdentifier("Mini Player Podcast Title")
         }
       }
-      .padding(.horizontal, 12)
-      .padding(.vertical, 8)
-      .background(.background.opacity(0.95))
-      .cornerRadius(8)
-      .accessibilityElement(children: .combine)
-      .accessibilityIdentifier("MiniPlayer.ErrorOverlay")
+      .frame(maxWidth: .infinity, alignment: .leading)
+
+      // Show transport controls only when no error
+      if state.error == nil {
+        transportControls(state: state)
+      }
     }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(.regularMaterial)
+    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .shadow(radius: 4, y: 2)
+    .padding(.horizontal, 12)
+    .padding(.bottom, 4)
+    .contentShape(Rectangle())
+    .onTapGesture {
+      onTapExpand()
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("Mini Player")
+    .accessibilityHint("Double-tap to open the full player")
+    .transition(.move(edge: .bottom).combined(with: .opacity))
+  }
+
+  /// Issue 03.3.4.2: Error content for failed playback
+  @ViewBuilder
+  private func errorContent(for error: PlaybackError) -> some View {
+    HStack(spacing: 8) {
+      Image(systemName: "exclamationmark.triangle.fill")
+        .foregroundColor(.red)
+        .font(.caption)
+        .accessibilityHidden(true)
+
+      Text(error.userMessage)
+        .font(.caption)
+        .foregroundColor(.secondary)
+        .lineLimit(1)
+        .accessibilityIdentifier("MiniPlayer.ErrorMessage")
+
+      if error.isRecoverable {
+        Button {
+          viewModel.retryPlayback()
+        } label: {
+          Text("Retry")
+            .font(.caption.bold())
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("MiniPlayer.RetryButton")
+        .accessibilityLabel("Retry playback")
+      }
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("MiniPlayer.ErrorOverlay")
   }
 
   @ViewBuilder
