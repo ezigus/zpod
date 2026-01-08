@@ -19,7 +19,8 @@ public struct MiniPlayerDisplayState: Equatable, Sendable {
     isPlaying: false,
     episode: nil,
     currentPosition: 0,
-    duration: 0
+    duration: 0,
+    error: nil
   )
 
   public var isVisible: Bool
@@ -27,19 +28,22 @@ public struct MiniPlayerDisplayState: Equatable, Sendable {
   public var episode: Episode?
   public var currentPosition: TimeInterval
   public var duration: TimeInterval
+  public var error: PlaybackError?  // Issue 03.3.4.2: Expose error to view
 
   public init(
     isVisible: Bool,
     isPlaying: Bool,
     episode: Episode?,
     currentPosition: TimeInterval,
-    duration: TimeInterval
+    duration: TimeInterval,
+    error: PlaybackError? = nil
   ) {
     self.isVisible = isVisible
     self.isPlaying = isPlaying
     self.episode = episode
     self.currentPosition = currentPosition
     self.duration = duration
+    self.error = error
   }
 }
 
@@ -130,6 +134,29 @@ public final class MiniPlayerViewModel: ObservableObject {
     alertPresenter.performSecondaryAction()
   }
 
+  /// Issue 03.3.4.2: Retry playback for recoverable errors
+  public func retryPlayback() {
+    // Only retry if there's an error and an episode to retry
+    guard displayState.error != nil,
+          let episode = displayState.episode else { return }
+
+    let position = displayState.currentPosition
+
+    // Resolve duration (prefer display state, fallback to episode)
+    let resolvedDuration: TimeInterval?
+    if displayState.duration > 0 {
+      resolvedDuration = displayState.duration
+    } else {
+      resolvedDuration = episode.duration
+    }
+
+    // Attempt playback again from the same position
+    playbackService.play(episode: episode, duration: resolvedDuration)
+    if position > 0 {
+      playbackService.seek(to: position)
+    }
+  }
+
   // MARK: - Internal Helpers
 
   private func subscribeToPlaybackState() {
@@ -151,7 +178,8 @@ public final class MiniPlayerViewModel: ObservableObject {
         isPlaying: true,
         episode: episode,
         currentPosition: position,
-        duration: duration
+        duration: duration,
+        error: nil  // Issue 03.3.4.2: Clear error on successful playback
       )
 
     case .paused(let episode, let position, let duration):
@@ -160,7 +188,8 @@ public final class MiniPlayerViewModel: ObservableObject {
         isPlaying: false,
         episode: episode,
         currentPosition: position,
-        duration: duration
+        duration: duration,
+        error: nil  // Issue 03.3.4.2: Clear error on successful pause
       )
 
     case .finished(let episode, let duration):
@@ -172,16 +201,18 @@ public final class MiniPlayerViewModel: ObservableObject {
           isPlaying: false,
           episode: episode,
           currentPosition: duration,
-          duration: duration
+          duration: duration,
+          error: nil  // Issue 03.3.4.2: Clear error on finish
         )
       }
-    case .failed(let episode, let position, let duration, _):
+    case .failed(let episode, let position, let duration, let error):
       displayState = MiniPlayerDisplayState(
         isVisible: true,
         isPlaying: false,
         episode: episode,
         currentPosition: position,
-        duration: duration
+        duration: duration,
+        error: error  // Issue 03.3.4.2: Expose error to view
       )
     }
   }
