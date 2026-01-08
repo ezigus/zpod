@@ -491,7 +491,7 @@ For error state testing, enable debug controls:
 
 **Note:** CarPlay testing requires macOS environment. See `docs/carplay/MANUAL_TESTING_CHECKLIST.md` for complete 44-point checklist.
 
-### Quick CarPlay Smoke Test
+### Test 17: Quick CarPlay Smoke Test
 
 **Prerequisites:**
 - macOS with Xcode
@@ -524,7 +524,7 @@ For error state testing, enable debug controls:
 
 ## Network Conditions Testing
 
-### Test 17: Slow Network
+### Test 18: Slow Network
 
 **Objective:** Verify app handles slow connections gracefully
 
@@ -547,7 +547,7 @@ For error state testing, enable debug controls:
 
 ---
 
-### Test 18: Network Interruption
+### Test 19: Network Interruption
 
 **Objective:** Verify graceful handling of network loss
 
@@ -597,12 +597,12 @@ Use this high-level checklist to track manual testing completion:
 - [ ] Test 16: Mini-Player VoiceOver
 
 ### CarPlay
-- [ ] Quick CarPlay Smoke Test
-- [ ] Full CarPlay Checklist (if required)
+- [ ] Test 17: Quick CarPlay Smoke Test
+  - [ ] Full CarPlay Checklist (if required)
 
 ### Network Conditions
-- [ ] Test 17: Slow Network
-- [ ] Test 18: Network Interruption
+- [ ] Test 18: Slow Network
+- [ ] Test 19: Network Interruption
 
 ---
 

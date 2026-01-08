@@ -119,6 +119,12 @@ public struct ExpandedPlayerView: View {
     .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("ExpandedPlayer.ErrorView")
+    .accessibilityLabel("Playback Error. \(error.userMessage)")
+    .accessibilityHint(
+      error.isRecoverable
+        ? "Retry playback is available."
+        : "Retry playback is not available for this error."
+    )
   }
 
   /// Normal player view (non-error state)

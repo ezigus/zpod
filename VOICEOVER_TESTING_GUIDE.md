@@ -8,7 +8,7 @@
 ### 1. Configure Xcode Scheme
 
 1. Open zpod project: `cd /Volumes/zHardDrive/code/zpod && open zpod.xcworkspace`
-2. **Product menu** → **Scheme** → **Edit Scheme...** (or press **⌘<**)
+2. **Product menu** → **Scheme** → **Edit Scheme...** (or press ⌘<)
 3. Select **"Run"** in left sidebar
 4. Click **"Arguments"** tab
 5. Under **"Environment Variables"** click **"+"**
@@ -215,9 +215,9 @@
 If you want to remove the debug controls after testing:
 
 1. Delete `#if DEBUG` blocks in:
-   - `ExpandedPlayerViewModel.swift` (lines ~111-140)
-   - `ExpandedPlayerView.swift` (lines ~186-250)
-   - `ExpandedPlayerViewModelTests.swift` (lines ~259-327)
+   - `ExpandedPlayerViewModel.swift` (lines 124-152)
+   - `ExpandedPlayerView.swift` (lines 186-250)
+   - `ExpandedPlayerViewModelTests.swift` (lines 259-327)
 2. Remove `ENABLE_ERROR_DEBUG` from Xcode scheme
 3. Commit changes
 
