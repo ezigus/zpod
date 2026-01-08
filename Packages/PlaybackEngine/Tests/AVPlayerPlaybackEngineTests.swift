@@ -400,5 +400,24 @@ final class AVPlayerPlaybackEngineTests: XCTestCase {
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
         XCTAssertEqual(positionUpdateCountAfterError, 0, "Position updates should stop after error")
     }
+
+    func testMapAVErrorDetectsNetworkFailure() throws {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
+        XCTAssertEqual(engine.mapAVError(error), .networkError)
+    }
+
+    func testMapAVErrorDetectsTimeout() throws {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)
+        XCTAssertEqual(engine.mapAVError(error), .timeout)
+    }
+
+    func testMapAVErrorDefaultsToUnknown() throws {
+        let error = NSError(
+            domain: "CustomDomain",
+            code: 1234,
+            userInfo: [NSLocalizedDescriptionKey: "Unexpected failure"]
+        )
+        XCTAssertEqual(engine.mapAVError(error), .unknown(message: "Unexpected failure"))
+    }
 }
 #endif

@@ -1,5 +1,6 @@
 import CoreModels
 @preconcurrency import Foundation
+import OSLog
 import SharedUtilities
 
 #if canImport(Combine)
@@ -59,6 +60,12 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     static let maximumSpeed: Float = 5.0
     static let persistenceInterval: TimeInterval = 5.0  // Persist every 5 seconds
   }
+
+  @MainActor
+  private static let logger = Logger(
+    subsystem: "us.zig.zpod",
+    category: "EnhancedEpisodePlayer"
+  )
 
   private let episodeStateManager: EpisodeStateManager
   private let playbackSettings: PlaybackSettings
@@ -127,6 +134,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
     #endif
   }
+
   #else
   public init(
     playbackSettings: PlaybackSettings = PlaybackSettings(),
@@ -186,12 +194,12 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
         startAudioEnginePlayback(url: audioURL)
       } else if audioEngine != nil && episode.audioURL == nil {
         // Error: audio engine provided but no URL
-        if isDebugAudio {
-          NSLog("[TestAudio][Error] Audio engine present but episode.audioURL is nil - failing playback")
-        }
-        // Stop any existing audio before transitioning to failed state
-        audioEngine?.stop()
-        failPlayback(error: .episodeUnavailable)
+      if isDebugAudio {
+        NSLog("[TestAudio][Error] Audio engine present but episode.audioURL is nil - failing playback")
+      }
+      // Stop any existing audio before transitioning to failed state
+      audioEngine?.stop()
+      failPlayback(error: .missingAudioURL)
       } else {
         // Fallback: Use ticker for simulated playback
         if isDebugAudio {
@@ -278,7 +286,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   // MARK: - Error Handling
 
   public func failPlayback(error: PlaybackError = .streamFailed) {
-    guard currentEpisode != nil else { return }
+    guard let episode = currentEpisode else { return }
+    logPlaybackError(error, for: episode)
     isPlaying = false
     stopTicker()  // Stop position advancement
     #if os(iOS)
@@ -292,6 +301,21 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
         duration: currentDuration,
         error: error
       )
+    )
+  }
+
+  private func logPlaybackError(_ error: PlaybackError, for episode: Episode) {
+    let urlString = episode.audioURL?.absoluteString ?? "nil"
+    let message = error.userMessage
+    let errorText = String(describing: error)
+    Self.logger.error("""
+      Playback failed for episode \(episode.id, privacy: .public) "\(episode.title, privacy: .public)"
+      url: \(urlString, privacy: .public)
+      error: \(errorText, privacy: .public)
+      message: \(message, privacy: .public)
+      position: \(self.currentPosition, privacy: .public)
+      duration: \(self.currentDuration, privacy: .public)
+      """
     )
   }
 

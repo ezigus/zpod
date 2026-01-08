@@ -1,6 +1,7 @@
 #if os(iOS)
 import AVFoundation
 import Foundation
+import OSLog
 import SharedUtilities
 
 /// Production audio playback engine using AVPlayer.
@@ -33,7 +34,7 @@ public final class AVPlayerPlaybackEngine {
     
     /// Called when playback reaches the end of the audio
     public var onPlaybackFinished: (() -> Void)?
-    
+
     /// Called when an error occurs (network failure, invalid URL, etc.)
     public var onError: ((PlaybackError) -> Void)?
     
@@ -82,6 +83,7 @@ public final class AVPlayerPlaybackEngine {
     private var timeObserver: Any?
     private var statusObserver: NSKeyValueObservation?
     private var didFinishObserver: NSObjectProtocol?
+    private var failureObserver: NSObjectProtocol?
     private var currentURL: URL?
     private var lastStatus: AVPlayerItem.Status?
     private var lastErrorDescription: String?
@@ -97,6 +99,11 @@ public final class AVPlayerPlaybackEngine {
     // MARK: - Initialization
     
     public init() {}
+
+    private static let logger = Logger(
+        subsystem: "us.zig.zpod",
+        category: "AVPlayerPlaybackEngine"
+    )
     
     deinit {
         // Cleanup must be called synchronously to ensure proper deallocation
@@ -150,6 +157,7 @@ public final class AVPlayerPlaybackEngine {
         
         // Observe player item status for errors
         observePlayerStatus()
+        observePlayerItemFailure()
         
         // Observe playback completion
         observePlaybackCompletion()
@@ -283,15 +291,16 @@ public final class AVPlayerPlaybackEngine {
                         NSLog("[TestAudio][Error] AVPlayerItem FAILED: %@", error?.localizedDescription ?? "Unknown error")
                     }
                     self.lastErrorDescription = error?.localizedDescription
-                    let urlString = self.currentURL?.absoluteString ?? "unknown"
-                    Logger.error("AVPlayer failed for URL \(urlString): \(error?.localizedDescription ?? "Unknown error")")
+                    let nsError = error as NSError?
+                    let playbackError = nsError.map { self.mapAVError($0) } ?? .streamFailed
+                    self.logPlaybackFailure(playbackError, underlying: nsError)
 
                     // Additional diagnostic for tests
                     if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
                         Logger.error("[TestAudio][Error] AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
                     }
 
-                    self.onError?(.streamFailed)
+                    self.onError?(playbackError)
 
                 case .readyToPlay:
                     Logger.debug("AVPlayer ready to play")
@@ -327,6 +336,60 @@ public final class AVPlayerPlaybackEngine {
             }
         }
     }
+
+    private func observePlayerItemFailure() {
+        guard let playerItem = playerItem else { return }
+
+        failureObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError
+            let playbackError = error.map { self.mapAVError($0) } ?? .streamFailed
+            self.logPlaybackFailure(playbackError, underlying: error)
+            Task { @MainActor in
+                self.onError?(playbackError)
+            }
+        }
+    }
+
+    func mapAVError(_ error: NSError) -> PlaybackError {
+        switch (error.domain, error.code) {
+        case (NSURLErrorDomain, NSURLErrorNotConnectedToInternet),
+             (NSURLErrorDomain, NSURLErrorNetworkConnectionLost),
+             (NSURLErrorDomain, NSURLErrorCannotFindHost),
+             (NSURLErrorDomain, NSURLErrorCannotConnectToHost):
+            return .networkError
+
+        case (NSURLErrorDomain, NSURLErrorTimedOut):
+            return .timeout
+
+        case (AVFoundationErrorDomain, _):
+            return .streamFailed
+
+        default:
+            let message = error.localizedDescription
+            return .unknown(message: message.isEmpty ? nil : message)
+        }
+    }
+
+    private func logPlaybackFailure(_ playbackError: PlaybackError, underlying: NSError?) {
+        let urlString = currentURL?.absoluteString ?? "unknown"
+        let domain = underlying?.domain ?? "unknown"
+        let code = underlying?.code ?? 0
+        let description = underlying?.localizedDescription ?? "unknown"
+
+        Self.logger.error("""
+            AVPlayer playback failed:
+            - url: \(urlString, privacy: .public)
+            - error: \(playbackError)
+            - underlying: \(description, privacy: .public)
+            - domain: \(domain, privacy: .public) code: \(code, privacy: .public)
+            """
+        )
+    }
     
     private func cleanupSync() {
         // Remove time observer
@@ -343,6 +406,10 @@ public final class AVPlayerPlaybackEngine {
         if let didFinishObserver = didFinishObserver {
             NotificationCenter.default.removeObserver(didFinishObserver)
             self.didFinishObserver = nil
+        }
+        if let failureObserver = failureObserver {
+            NotificationCenter.default.removeObserver(failureObserver)
+            self.failureObserver = nil
         }
         
         // Stop and release player
