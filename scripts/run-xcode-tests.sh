@@ -41,6 +41,8 @@ TESTPLAN_LAST_MISSING_NAMES=""
 
 declare -a SUMMARY_ITEMS=()
 declare -a RESULT_LOG_PATHS=()
+declare -a PACKAGE_TEST_TARGET_ENTRIES=()
+PACKAGE_TEST_TARGETS_LOADED=0
 
 EXIT_STATUS=0
 INTERRUPTED=0
@@ -2055,6 +2057,43 @@ list_package_targets() {
     -exec basename {} \; | sort
 }
 
+add_package_test_target_entry() {
+  local target="$1"
+  local pkg="$2"
+  PACKAGE_TEST_TARGET_ENTRIES+=("${target}|${pkg}")
+}
+
+lookup_package_for_test_target() {
+  local identifier="$1"
+  local entry
+  for entry in "${PACKAGE_TEST_TARGET_ENTRIES[@]}"; do
+    if [[ "$entry" == "${identifier}|"* ]]; then
+      printf '%s' "${entry#*|}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+load_package_test_targets() {
+  if (( PACKAGE_TEST_TARGETS_LOADED == 1 )); then
+    return 0
+  fi
+  [[ -d "${REPO_ROOT}/Packages" ]] || { PACKAGE_TEST_TARGETS_LOADED=1; return 0; }
+
+  local pkg_dir pkg_name default_test_target
+  for pkg_dir in "${REPO_ROOT}/Packages"/*; do
+    [[ -d "$pkg_dir" ]] || continue
+    pkg_name="$(basename "$pkg_dir")"
+    default_test_target="${pkg_name}Tests"
+    if [[ -d "${pkg_dir}/Tests" ]]; then
+      add_package_test_target_entry "$default_test_target" "$pkg_name"
+    fi
+  done
+
+  PACKAGE_TEST_TARGETS_LOADED=1
+}
+
 package_supports_host_build() {
   local package="$1"
   local manifest="${REPO_ROOT}/Packages/${package}/Package.swift"
@@ -2072,6 +2111,11 @@ package_supports_host_build() {
 find_package_for_test_target() {
   local identifier="$1"
   [[ -z "$identifier" ]] && return 1
+  load_package_test_targets || true
+  if lookup_package_for_test_target "$identifier" >/dev/null 2>&1; then
+    lookup_package_for_test_target "$identifier"
+    return 0
+  fi
   local pkg_dir pkg_name
   for pkg_dir in "${REPO_ROOT}/Packages"/*; do
     [[ -d "$pkg_dir" ]] || continue
@@ -3056,6 +3100,12 @@ resolve_test_identifier() {
   local spec="$1"
   [[ -z "$spec" ]] && { log_error "Empty test identifier"; return 1; }
 
+  load_package_test_targets || true
+  if lookup_package_for_test_target "$spec" >/dev/null 2>&1; then
+    lookup_package_for_test_target "$spec"
+    return 0
+  fi
+
   local known_targets=(all zpod AppSmokeTests zpodUITests IntegrationTests)
   local candidate
   for candidate in "${known_targets[@]}"; do
@@ -3086,6 +3136,15 @@ resolve_test_identifier() {
   if [[ "$spec" == */* ]]; then
     local first_part="${spec%%/*}"
     local remainder="${spec#*/}"
+    if lookup_package_for_test_target "$first_part" >/dev/null 2>&1; then
+      local pkg
+      pkg=$(lookup_package_for_test_target "$first_part")
+      if [[ "$remainder" != "$spec" ]]; then
+        log_warn "Package test filtering is not supported; running full package '${pkg}'"
+      fi
+      echo "$pkg"
+      return 0
+    fi
     for candidate in "${known_targets[@]}"; do
       if [[ "$first_part" == "$candidate" ]]; then
         echo "$spec"
