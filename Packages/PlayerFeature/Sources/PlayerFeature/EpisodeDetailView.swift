@@ -35,9 +35,13 @@ public struct EpisodeDetailView: View {
 
       if isPlaybackDebugEnabled {
         VStack {
-          PlaybackDebugControlsView()
-            .padding(.top, 60)  // Below navigation bar
-            .padding(.trailing, 12)
+          Spacer()
+            .frame(height: 8)  // Small gap below nav bar
+          HStack {
+            Spacer()
+            PlaybackDebugControlsView()
+              .padding(.trailing, 12)
+          }
           Spacer()
         }
         .allowsHitTesting(true)

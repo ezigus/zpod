@@ -747,6 +747,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       // Read test audio URLs from environment variables (only set during UI tests)
       // In production, these will be nil and episodes will use placeholder URLs
       let env = ProcessInfo.processInfo.environment
+      
+      // Disable bundle fallback when testing error scenarios
+      // - "missing": Tests missing audioURL handling
+      // - "UITEST_AUDIO_DISABLE_BUNDLE": Tests explicit nil URLs
+      // - "UITEST_AUDIO_OVERRIDE_URL": Tests custom URLs (may be invalid for error tests)
+      // NOTE: If override URL is invalid, episodes will have nil audio - this is intentional
+      // for testing error UI (Issue 03.3.4)
       let disableFallback = env["UITEST_AUDIO_OVERRIDE_MODE"] == "missing"
         || env["UITEST_AUDIO_DISABLE_BUNDLE"] == "1"
         || (env["UITEST_AUDIO_OVERRIDE_URL"]?.isEmpty == false)

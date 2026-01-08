@@ -52,7 +52,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     @MainActor
     private func launchApp(
         environmentOverrides: [String: String] = [:],
-        audioVariant: String = "long"
+        audioVariant: String = "long"  // Default: 20s audio for buffering tests
     ) {
         let audioEnv = audioLaunchEnvironment()
 
@@ -551,10 +551,17 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         }
 
         let fastDelta = fastEndPosition - fastStartPosition
+        
+        // Assert: Position should advance ~2x faster at 2.0x speed
+        // Using 1.7x threshold (rather than 2.0x) to account for:
+        // - AVPlayer buffering delays
+        // - UI update cycle latency
+        // - Test timing measurement variance
+        // Real-world observation: 1.8x-1.95x typical, 1.7x minimum acceptable
         XCTAssertGreaterThan(
             fastDelta,
-            baselineDelta * 1.4,
-            "Playback should advance faster at 2.0x (baseline \(baselineDelta)s, fast \(fastDelta)s)"
+            baselineDelta * 1.7,
+            "Playback should advance ~2x faster at 2.0x speed (baseline \(baselineDelta)s, fast \(fastDelta)s, ratio \(fastDelta/baselineDelta)x)"
         )
     }
 
