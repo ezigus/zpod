@@ -137,7 +137,7 @@ public extension PlaybackError {
   var userMessage: String {
     switch self {
     case .missingAudioURL:
-      return "This episode doesn't have audio available"
+      return "This episode doesn't have audio available."
     case .networkError:
       return "Unable to load episode. Check your connection."
     case .timeout:

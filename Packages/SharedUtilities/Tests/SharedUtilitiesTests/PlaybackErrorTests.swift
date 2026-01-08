@@ -33,7 +33,7 @@ final class PlaybackErrorTests: XCTestCase {
     // Given: A missing audio URL error
     let error = PlaybackError.missingAudioURL
 
-    // When/Then: Missing URL errors cannot be recovered
+    // When/Then: Missing URL errors cannot be recovered from
     XCTAssertFalse(error.isRecoverable, "Missing audio URL errors are not recoverable")
   }
 
@@ -65,7 +65,7 @@ final class PlaybackErrorTests: XCTestCase {
     // Then: Should have appropriate user-facing message
     XCTAssertEqual(
       message,
-      "This episode doesn't have audio available",
+      "This episode doesn't have audio available.",
       "Missing URL should have clear user message"
     )
   }
