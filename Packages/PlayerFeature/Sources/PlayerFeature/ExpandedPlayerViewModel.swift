@@ -121,6 +121,36 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     }
   }
 
+  #if DEBUG
+  // MARK: - Debug Methods (Issue 03.3.4.3.1 - VoiceOver Testing)
+
+  /// Temporary method for VoiceOver testing - allows triggering network error state
+  /// This will be removed once Issue 03.3.4.4 provides real error detection
+  public func debugTriggerNetworkError() {
+    currentError = .networkError
+  }
+
+  /// Temporary method for VoiceOver testing - allows triggering timeout error state
+  public func debugTriggerTimeoutError() {
+    currentError = .timeout
+  }
+
+  /// Temporary method for VoiceOver testing - allows triggering stream failed error state
+  public func debugTriggerStreamFailedError() {
+    currentError = .streamFailed
+  }
+
+  /// Temporary method for VoiceOver testing - allows triggering missing URL error state
+  public func debugTriggerMissingURLError() {
+    currentError = .missingAudioURL
+  }
+
+  /// Temporary method for VoiceOver testing - clears error state
+  public func debugClearError() {
+    currentError = nil
+  }
+  #endif
+
   public func beginScrubbing() {
     isScrubbing = true
   }

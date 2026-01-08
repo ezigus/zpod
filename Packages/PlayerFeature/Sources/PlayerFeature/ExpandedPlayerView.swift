@@ -77,7 +77,6 @@ public struct ExpandedPlayerView: View {
             .font(.body)
             .foregroundColor(.white.opacity(0.85))
             .multilineTextAlignment(.center)
-            .padding(.horizontal, 40)
         }
 
         // Retry button (if recoverable)
@@ -110,7 +109,6 @@ public struct ExpandedPlayerView: View {
               .lineLimit(1)
           }
           .padding(.top, 32)
-          .padding(.horizontal, 32)
         }
       }
       .padding(.horizontal, 32)
@@ -180,6 +178,64 @@ public struct ExpandedPlayerView: View {
       .padding(.horizontal, 24)
       .padding(.top, geometry.safeAreaInsets.top + 16)
     }
+
+    #if DEBUG
+    // VoiceOver testing controls (Issue 03.3.4.3.1)
+    if ProcessInfo.processInfo.environment["ENABLE_ERROR_DEBUG"] == "1" {
+      VStack {
+        Spacer()
+        
+        VStack(spacing: 12) {
+          Text("Error Debug Controls")
+            .font(.caption.bold())
+            .foregroundColor(.white)
+          
+          HStack(spacing: 8) {
+            Button("Network") {
+              viewModel.debugTriggerNetworkError()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .controlSize(.small)
+            
+            Button("Timeout") {
+              viewModel.debugTriggerTimeoutError()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .controlSize(.small)
+          }
+          
+          HStack(spacing: 8) {
+            Button("Stream") {
+              viewModel.debugTriggerStreamFailedError()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.purple)
+            .controlSize(.small)
+            
+            Button("Missing URL") {
+              viewModel.debugTriggerMissingURLError()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.pink)
+            .controlSize(.small)
+          }
+          
+          Button("Clear Error") {
+            viewModel.debugClearError()
+          }
+          .buttonStyle(.bordered)
+          .tint(.green)
+          .controlSize(.small)
+        }
+        .padding()
+        .background(Color.black.opacity(0.8))
+        .cornerRadius(12)
+        .padding(.bottom, 120)
+      }
+    }
+    #endif
   }
 
   // MARK: - Player Components
