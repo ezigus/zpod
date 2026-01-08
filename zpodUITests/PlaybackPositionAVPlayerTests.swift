@@ -406,16 +406,36 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         logSliderValue("resumed after seek (AVPlayer)", value: resumedValue)
     }
 
-    // MARK: - Test 7: Missing/Network Errors (Blocked by 03.3.4)
-
+    // MARK: - Test 7: Error Handling (Needs Test Data Infrastructure)
+    
+    /// **Spec**: Episode Missing Audio URL (error handling)
+    ///
+    /// **Given**: An episode has no audioURL
+    /// **When**: User attempts to play the episode
+    /// **Then**: Error UI appears with "doesn't have audio available" message
+    /// **And**: NO retry button shown (not recoverable)
+    ///
+    /// **Implementation Status**: Error UI complete (03.3.4.2-3), error detection complete (03.3.4.4)
+    /// **Blocker**: Test data infrastructure doesn't support creating episodes with nil audioURL
+    /// **Next Steps**: Add test episode factory that can generate episodes with missing/invalid URLs
     @MainActor
     func testMissingAudioURLShowsErrorNoRetry() throws {
-        throw XCTSkip("Blocked by 03.3.4: error UI/messages not aligned yet")
+        throw XCTSkip("Needs test data infrastructure: episode factory with nil audioURL support")
     }
-
+    
+    /// **Spec**: Network Error During Playback (error handling with retry)
+    ///
+    /// **Given**: An episode has an unreachable audioURL
+    /// **When**: User attempts to play the episode
+    /// **Then**: Error UI appears with network error message
+    /// **And**: Retry button is shown (recoverable error)
+    ///
+    /// **Implementation Status**: Error UI complete (03.3.4.2-3), error detection complete (03.3.4.4)
+    /// **Blocker**: Test data infrastructure doesn't support network error simulation
+    /// **Next Steps**: Add environment override for invalid audio URLs (e.g., http://invalid-host.local/)
     @MainActor
     func testNetworkErrorShowsRetryAndRecovers() throws {
-        throw XCTSkip("Blocked by 03.3.4: error UI/messages not aligned yet")
+        throw XCTSkip("Needs test data infrastructure: invalid URL injection support")
     }
 
     // MARK: - Test 8: Interruption Handling
