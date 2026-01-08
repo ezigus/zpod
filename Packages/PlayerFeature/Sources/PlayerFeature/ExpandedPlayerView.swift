@@ -22,72 +22,167 @@ public struct ExpandedPlayerView: View {
   public var body: some View {
     GeometryReader { geometry in
       ZStack(alignment: .top) {
-        // Background with gradient
-        LinearGradient(
-          colors: [
-            Color.black.opacity(0.95),
-            Color.black.opacity(0.85),
-          ],
-          startPoint: .top,
-          endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        // Background with gradient (always shown)
+        gradientBackground
+          .ignoresSafeArea()
 
-        VStack(spacing: 0) {
-          // Drag indicator
-          dragIndicator
-
-          Spacer(minLength: 20)
-
-          // Artwork
-          artworkView(size: artworkSize(for: geometry))
-
-          Spacer(minLength: 24)
-
-          // Metadata
-          metadataView
-            .padding(.horizontal, 24)
-
-          Spacer(minLength: 32)
-
-          // Progress slider
-          progressSliderView
-            .padding(.horizontal, 24)
-
-          Spacer(minLength: 32)
-
-          // Transport controls
-          transportControlsView
-            .padding(.horizontal, 24)
-
-          Spacer(minLength: 40)
-        }
-        .padding(.top, 8)
-        .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("Expanded Player")
-
-        if let debugText = viewModel.audioDebugText {
-          audioDebugOverlay(text: debugText)
-            .padding(.top, geometry.safeAreaInsets.top + 12)
-            .padding(.horizontal, 16)
+        // Issue 03.3.4.3: Conditional content based on error state
+        if let error = viewModel.currentError {
+          errorView(error: error, geometry: geometry)
+        } else {
+          normalPlayerView(geometry: geometry)
         }
 
-        if let alert = viewModel.playbackAlert {
-          PlaybackAlertToastView(
-            alert: alert,
-            onPrimary: viewModel.performPrimaryAlertAction,
-            onSecondary: viewModel.performSecondaryAlertAction,
-            onDismiss: viewModel.dismissAlert
-          )
-          .padding(.horizontal, 24)
-          .padding(.top, geometry.safeAreaInsets.top + 16)
-        }
+        // Overlays (debug, alerts) stay on top
+        debugAndAlertOverlays(geometry: geometry)
       }
     }
   }
 
   // MARK: - Subviews
+
+  private var gradientBackground: some View {
+    LinearGradient(
+      colors: [
+        Color.black.opacity(0.95),
+        Color.black.opacity(0.85),
+      ],
+      startPoint: .top,
+      endPoint: .bottom
+    )
+  }
+
+  /// Issue 03.3.4.3: Error view for failed playback
+  @ViewBuilder
+  private func errorView(error: PlaybackError, geometry: GeometryProxy) -> some View {
+    VStack(spacing: 0) {
+      dragIndicator
+
+      Spacer()
+
+      VStack(spacing: 24) {
+        // Large error icon
+        Image(systemName: "exclamationmark.triangle.fill")
+          .font(.system(size: 64))
+          .foregroundColor(.red)
+          .accessibilityHidden(true)
+
+        // Error message
+        VStack(spacing: 12) {
+          Text("Playback Error")
+            .font(.title2.bold())
+            .foregroundColor(.white)
+
+          Text(error.userMessage)
+            .font(.body)
+            .foregroundColor(.white.opacity(0.85))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 40)
+        }
+
+        // Retry button (if recoverable)
+        if error.isRecoverable {
+          Button {
+            viewModel.retryPlayback()
+          } label: {
+            Label("Retry Playback", systemImage: "arrow.clockwise")
+              .font(.headline)
+          }
+          .buttonStyle(.borderedProminent)
+          .controlSize(.large)
+          .tint(.white)
+          .accessibilityIdentifier("ExpandedPlayer.RetryButton")
+          .accessibilityLabel("Retry playback")
+        }
+
+        // Episode context
+        if let episode = viewModel.episode {
+          VStack(spacing: 6) {
+            Text(episode.title)
+              .font(.subheadline)
+              .foregroundColor(.white.opacity(0.7))
+              .lineLimit(2)
+              .multilineTextAlignment(.center)
+
+            Text(episode.podcastTitle)
+              .font(.caption)
+              .foregroundColor(.white.opacity(0.5))
+              .lineLimit(1)
+          }
+          .padding(.top, 32)
+          .padding(.horizontal, 32)
+        }
+      }
+      .padding(.horizontal, 32)
+
+      Spacer()
+    }
+    .padding(.top, 8)
+    .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("ExpandedPlayer.ErrorView")
+  }
+
+  /// Normal player view (non-error state)
+  @ViewBuilder
+  private func normalPlayerView(geometry: GeometryProxy) -> some View {
+    VStack(spacing: 0) {
+      // Drag indicator
+      dragIndicator
+
+      Spacer(minLength: 20)
+
+      // Artwork
+      artworkView(size: artworkSize(for: geometry))
+
+      Spacer(minLength: 24)
+
+      // Metadata
+      metadataView
+        .padding(.horizontal, 24)
+
+      Spacer(minLength: 32)
+
+      // Progress slider
+      progressSliderView
+        .padding(.horizontal, 24)
+
+      Spacer(minLength: 32)
+
+      // Transport controls
+      transportControlsView
+        .padding(.horizontal, 24)
+
+      Spacer(minLength: 40)
+    }
+    .padding(.top, 8)
+    .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("Expanded Player")
+  }
+
+  /// Debug and alert overlays
+  @ViewBuilder
+  private func debugAndAlertOverlays(geometry: GeometryProxy) -> some View {
+    if let debugText = viewModel.audioDebugText {
+      audioDebugOverlay(text: debugText)
+        .padding(.top, geometry.safeAreaInsets.top + 12)
+        .padding(.horizontal, 16)
+    }
+
+    if let alert = viewModel.playbackAlert {
+      PlaybackAlertToastView(
+        alert: alert,
+        onPrimary: viewModel.performPrimaryAlertAction,
+        onSecondary: viewModel.performSecondaryAlertAction,
+        onDismiss: viewModel.dismissAlert
+      )
+      .padding(.horizontal, 24)
+      .padding(.top, geometry.safeAreaInsets.top + 16)
+    }
+  }
+
+  // MARK: - Player Components
 
   private var dragIndicator: some View {
     RoundedRectangle(cornerRadius: 2.5)

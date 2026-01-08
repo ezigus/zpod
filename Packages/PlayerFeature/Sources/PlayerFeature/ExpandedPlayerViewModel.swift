@@ -28,6 +28,7 @@ public final class ExpandedPlayerViewModel: ObservableObject {
   @Published public private(set) var duration: TimeInterval = 0
   @Published public private(set) var isScrubbing: Bool = false
   @Published public private(set) var playbackAlert: PlaybackAlertState?
+  @Published public private(set) var currentError: PlaybackError?  // Issue 03.3.4.3: Expose error state
 
   // MARK: - Computed Properties
 
@@ -109,6 +110,17 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     playbackService.skipBackward(interval: interval)
   }
 
+  /// Issue 03.3.4.3: Retry playback for recoverable errors
+  public func retryPlayback() {
+    guard currentError != nil, let episode = episode else { return }
+    let position = currentPosition
+    let resolvedDuration = duration > 0 ? duration : episode.duration
+    playbackService.play(episode: episode, duration: resolvedDuration)
+    if position > 0 {
+      playbackService.seek(to: position)
+    }
+  }
+
   public func beginScrubbing() {
     isScrubbing = true
   }
@@ -158,6 +170,7 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = false
       self.currentPosition = 0
       self.duration = 0
+      self.currentError = nil  // Issue 03.3.4.3: Clear error on idle
       logPositionResetIfNeeded(previous: previousPosition, next: 0, state: "idle")
 
     case .playing(let episode, let position, let duration):
@@ -165,6 +178,7 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = true
       self.currentPosition = position
       self.duration = duration
+      self.currentError = nil  // Issue 03.3.4.3: Clear error on successful playback
       logPositionResetIfNeeded(previous: previousPosition, next: position, state: "playing")
 
     case .paused(let episode, let position, let duration):
@@ -172,6 +186,7 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = false
       self.currentPosition = position
       self.duration = duration
+      self.currentError = nil  // Issue 03.3.4.3: Clear error on pause
       logPositionResetIfNeeded(previous: previousPosition, next: position, state: "paused")
 
     case .finished(let episode, let duration):
@@ -179,12 +194,15 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = false
       self.currentPosition = duration
       self.duration = duration
+      self.currentError = nil  // Issue 03.3.4.3: Clear error on finish
       logPositionResetIfNeeded(previous: previousPosition, next: duration, state: "finished")
-    case .failed(let episode, let position, let duration, _):
+      
+    case .failed(let episode, let position, let duration, let error):
       self.episode = episode
       self.isPlaying = false
       self.currentPosition = position
       self.duration = duration
+      self.currentError = error  // Issue 03.3.4.3: Expose error to view
       logPositionResetIfNeeded(previous: previousPosition, next: position, state: "failed")
     }
   }
