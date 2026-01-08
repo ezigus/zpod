@@ -90,7 +90,7 @@ final class EnhancedEpisodePlayerAudioIntegrationTests: XCTestCase {
     /// **Scenario**: Play Episode Without Audio URL
     /// **Given** an episode without an audio URL
     /// **When** play() is called
-    /// **Then** state transitions to .failed with episodeUnavailable error
+    /// **Then** state transitions to .failed with missingAudioURL error
     func testPlayWithoutAudioURL() async throws {
         // Given: An episode without audio URL
         let episode = Episode(
@@ -118,7 +118,7 @@ final class EnhancedEpisodePlayerAudioIntegrationTests: XCTestCase {
         
         // Then: Should receive error state
         await fulfillment(of: [errorExpectation], timeout: 5.0)
-        XCTAssertEqual(receivedError, .episodeUnavailable, "Should report episode unavailable")
+        XCTAssertEqual(receivedError, .missingAudioURL, "Should report missing audio URL")
     }
     
     // MARK: - Pause/Resume Tests
