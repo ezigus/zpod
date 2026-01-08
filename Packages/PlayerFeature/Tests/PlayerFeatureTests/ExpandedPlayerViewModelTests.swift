@@ -253,6 +253,78 @@ struct ExpandedPlayerViewModelTests {
     #expect(service.playCallCount == playCountBefore)
   }
 
+  // MARK: - Debug Methods (Issue 03.3.4.3.1 - VoiceOver Testing)
+
+  #if DEBUG
+  @Test("debugTriggerNetworkError sets currentError to networkError")
+  func testDebugTriggerNetworkError() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    try await waitForStateUpdate()
+    #expect(viewModel.currentError == nil)
+
+    viewModel.debugTriggerNetworkError()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.currentError == .networkError)
+  }
+
+  @Test("debugTriggerTimeoutError sets currentError to timeout")
+  func testDebugTriggerTimeoutError() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    try await waitForStateUpdate()
+    viewModel.debugTriggerTimeoutError()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.currentError == .timeout)
+  }
+
+  @Test("debugTriggerStreamFailedError sets currentError to streamFailed")
+  func testDebugTriggerStreamFailedError() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    try await waitForStateUpdate()
+    viewModel.debugTriggerStreamFailedError()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.currentError == .streamFailed)
+  }
+
+  @Test("debugTriggerMissingURLError sets currentError to missingAudioURL")
+  func testDebugTriggerMissingURLError() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    try await waitForStateUpdate()
+    viewModel.debugTriggerMissingURLError()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.currentError == .missingAudioURL)
+  }
+
+  @Test("debugClearError clears currentError")
+  func testDebugClearError() async throws {
+    let service = RecordingPlaybackService()
+    let viewModel = ExpandedPlayerViewModel(playbackService: service)
+
+    // Set an error first
+    try await waitForStateUpdate()
+    viewModel.debugTriggerNetworkError()
+    try await waitForStateUpdate()
+    #expect(viewModel.currentError != nil)
+
+    // Clear it
+    viewModel.debugClearError()
+    try await waitForStateUpdate()
+
+    #expect(viewModel.currentError == nil)
+  }
+  #endif
+
   // MARK: - Position Tracking
 
   @Test("Expanded player tracks position updates during playback")
