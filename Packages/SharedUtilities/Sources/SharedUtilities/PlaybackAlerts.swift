@@ -108,7 +108,7 @@ public final class PlaybackAlertPresenter: ObservableObject {
 
 // MARK: - Playback Error Mapping
 
-public enum PlaybackError: Equatable, Sendable {
+public enum PlaybackError: Equatable, Sendable, CustomStringConvertible {
   // Existing cases
   case episodeUnavailable
   case resumeStateExpired
@@ -120,6 +120,27 @@ public enum PlaybackError: Equatable, Sendable {
   case missingAudioURL
   case networkError
   case timeout
+  
+  public var description: String {
+    switch self {
+    case .episodeUnavailable:
+      return "episodeUnavailable"
+    case .resumeStateExpired:
+      return "resumeStateExpired"
+    case .persistenceCorrupted:
+      return "persistenceCorrupted"
+    case .streamFailed:
+      return "streamFailed"
+    case .unknown(let message):
+      return "unknown(\(message ?? "nil"))"
+    case .missingAudioURL:
+      return "missingAudioURL"
+    case .networkError:
+      return "networkError"
+    case .timeout:
+      return "timeout"
+    }
+  }
 }
 
 public extension PlaybackError {
