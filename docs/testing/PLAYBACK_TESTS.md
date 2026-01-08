@@ -53,13 +53,15 @@ Playback position tests validate that the UI correctly reflects playback state (
 | File | Purpose | Lines | Mode |
 |------|---------|-------|------|
 | `PlaybackPositionTestSupport.swift` | Shared protocol with navigation/assertion helpers | ~200 | N/A |
-| `PlaybackPositionTickerTests.swift` | Ticker mode tests (5 tests) | ~180 | Ticker |
-| `PlaybackPositionAVPlayerTests.swift` | AVPlayer mode tests (5 tests) | ~200 | AVPlayer |
+| `PlaybackPositionTickerTests.swift` | Ticker mode tests (5 core tests) | ~180 | Ticker |
+| `PlaybackPositionAVPlayerTests.swift` | AVPlayer mode tests (5 core + 4 edge-case tests) | ~560 | AVPlayer |
 | `PlaybackPositionUITests.swift` | **DEPRECATED** - Original tests | ~300 | Ticker (implicit) |
 
 ### Test Scenarios (Both Suites)
 
 All scenarios map to `zpod/spec/playback.md` - Core Playback Behavior:
+
+#### Core Position Tests
 
 | Test Method | Spec Reference | Validates |
 |-------------|----------------|-----------|
@@ -69,7 +71,18 @@ All scenarios map to `zpod/spec/playback.md` - Core Playback Behavior:
 | `testSeekingUpdatesPositionImmediately` | Seeking to Position | Seek updates position, playback continues |
 | `testMiniPlayerReflectsPlaybackState` | Timeline Advancement (Mini-Player) | Mini-player shows correct state |
 
-**Total Coverage**: 10 tests (5 ticker + 5 AVPlayer) validating 5 scenarios in 2 modes
+#### Edge-Case Tests (AVPlayer Only - Issue 03.3.2.7)
+
+| Test Method | Spec Reference | Status | Validates |
+|-------------|----------------|--------|-----------|
+| `testPlaybackSpeedChangesPositionRate` | Playing Episode with Custom Speed | ✅ Passing | 2x speed advances position ~2x faster |
+| `testInterruptionPausesAndResumesPlayback` | Audio Interruption Handling | ⏸️ Skipped | Debug UI visibility issue |
+| `testMissingAudioURLShowsErrorNoRetry` | Episode Missing Audio URL | ⏸️ Skipped | Awaits Issue #269 (03.3.4) |
+| `testNetworkErrorShowsRetryAndRecovers` | Network Error + Retry | ⏸️ Skipped | Awaits Issue #269 (03.3.4) |
+
+**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Interruption and error tests are currently blocked by missing dependencies (error UI not implemented).
+
+**Total Coverage**: 14 tests (5 ticker + 9 AVPlayer) validating 9 scenarios
 
 ## Key Implementation Details
 

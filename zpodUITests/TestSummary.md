@@ -94,6 +94,31 @@ This document outlines the UI testing approach for the main zpod application.
 
 **Note**: These tests validate the UI-layer integration of Issue 03.3.1 (Position Ticking Engine). The engine-layer unit tests (19 tests) are in `Packages/PlaybackEngine/Tests/EnhancedEpisodePlayerTickerTests.swift`.
 
+### Playback Edge-Case AVPlayer Tests (`PlaybackPositionAVPlayerTests.swift`)
+
+**Purpose**: Validate AVPlayer-specific edge cases from `spec/playback.md` beyond core position/seek tests.
+
+**Specifications Covered**:
+
+- `spec/playback.md` - Audio Interruption Handling
+- `spec/playback.md` - Playing an Episode with Custom Speed
+- `spec/playback.md` - Playback Error Handling (blocked by Issue #269 / 03.3.4)
+
+**Test Areas**:
+
+- Interruption handling (pause on interruption, resume when allowed) - ⏸️ Skipped (debug UI visibility issue)
+- Playback speed affects position advancement rate - ✅ Passing
+- Error UI for missing audio/network failure - ⏸️ Skipped (blocked by 03.3.4)
+
+**Test Coverage** (4 tests, 1 passing, 3 skipped):
+
+1. `testPlaybackSpeedChangesPositionRate` - ✅ Validates 2x speed advances position ~2x faster
+2. `testInterruptionPausesAndResumesPlayback` - ⏭️ Skipped (debug controls not visible)
+3. `testMissingAudioURLShowsErrorNoRetry` - ⏭️ Skipped (awaits 03.3.4 error UI)
+4. `testNetworkErrorShowsRetryAndRecovers` - ⏭️ Skipped (awaits 03.3.4 error UI)
+
+**Note**: Edge-case tests complement core playback tests by validating scenarios like interruptions, errors, and playback speed. Currently 25% complete (1/4 passing); remaining tests blocked by missing dependencies (Issue #269 - Unplayable Episode UX).
+
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
 **Purpose**: Verify search, browse, and discovery interface functionality

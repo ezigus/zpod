@@ -1,6 +1,26 @@
 import OSLog
 import XCTest
 
+// ⚠️ DEPRECATED: This test file has been replaced by dual-mode playback tests
+//
+// **Replacement Files**:
+// - `PlaybackPositionTickerTests.swift` - Deterministic ticker-based tests (5 tests)
+// - `PlaybackPositionAVPlayerTests.swift` - Real AVPlayer integration tests (9 tests)
+// - `PlaybackPositionTestSupport.swift` - Shared test helpers and protocol
+//
+// **Why Deprecated**:
+// - New architecture validates both UI logic (ticker) and audio integration (AVPlayer)
+// - Shared protocol eliminates code duplication
+// - Better CI parallelization (separate jobs for ticker vs AVPlayer)
+// - Clearer test intent (explicit mode selection)
+//
+// **Migration**: 
+// - All scenarios from this file are covered in the new test files
+// - See `docs/testing/PLAYBACK_TESTS.md` for complete dual-mode strategy
+// - This file will be removed in Issue #TBD after verification period
+//
+// **Last Updated**: 2026-01-08 (Issue 03.3.2.5)
+
 /// UI integration tests for playback position advancement and ticking engine.
 ///
 /// **Issue**: 03.3.1 - Position Ticking Engine
