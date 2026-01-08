@@ -88,14 +88,26 @@ public struct MiniPlayerView: View {
     .onTapGesture {
       onTapExpand()
     }
-    .accessibilityElement(children: .contain)
+    .accessibilityElement(children: .ignore)
     .accessibilityIdentifier("Mini Player")
+    .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
     .accessibilityHint("Double-tap to open the full player")
     .transition(.move(edge: .bottom).combined(with: .opacity))
   }
 
+  private func miniPlayerAccessibilityLabel(
+    for episode: Episode,
+    error: PlaybackError?
+  ) -> String {
+    guard let error = error else {
+      return "Mini player showing \(episode.title). Double-tap to open the full player."
+    }
+
+    let recoverableHint = error.isRecoverable ? " Retry playback is available." : ""
+    return "Mini player showing \(episode.title) with error: \(error.userMessage).\(recoverableHint)"
+  }
+
   /// Issue 03.3.4.2: Error content for failed playback
-  @ViewBuilder
   private func errorContent(for error: PlaybackError) -> some View {
     HStack(spacing: 8) {
       Image(systemName: "exclamationmark.triangle.fill")
@@ -121,7 +133,10 @@ public struct MiniPlayerView: View {
         .accessibilityLabel("Retry playback")
       }
     }
-    .accessibilityElement(children: .combine)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 8)
+    .background(.background.opacity(0.95))
+    .cornerRadius(8)
     .accessibilityIdentifier("MiniPlayer.ErrorOverlay")
   }
 
