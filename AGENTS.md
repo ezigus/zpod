@@ -61,6 +61,12 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **Never** block the main thread with semaphores or `sleep`; use helper waiters (`waitForAnyElement`, `navigateAndWaitForResult`, `waitForContentToLoad`).
 - UI loading remains asynchronous—show indicators, and wait for state changes instead of fixed timeouts.
 
+### Logging Guidelines
+
+- `Logger` (in `Packages/SharedUtilities`) is intentionally actor-neutral; call it from any thread, detached `Task`, or background actor without awaiting, and the helper will forward to `os.Logger`/`print()` for you.
+- `MainActorLogger.shared` is a thin `@MainActor` facade that simply delegates to `Logger`. Use it inside MainActor-bound contexts (view models, UI controllers, other `@MainActor` services) when you want to keep logging work on that actor and avoid implicit actor hops.
+- Prefer `Logger` for cross-actor helpers or shared infrastructure that could be triggered from background queues; prefer `MainActorLogger.shared` when the surrounding code is already MainActor-isolated so the choice is explicit to future readers.
+
 ### iOS UI Testing Best Practices
 
 **⚠️ IMPORTANT: Review these comprehensive testing resources before building or updating UI tests:**

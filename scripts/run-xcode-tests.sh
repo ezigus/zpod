@@ -1975,7 +1975,7 @@ Usage: scripts/run-xcode-tests.sh [OPTIONS]
 
 Options:
   -b <targets>      Comma-separated list of build targets (e.g. zpod,CoreModels)
-  -t <tests>        Comma-separated list of tests (target, class, or class/method)
+  -t <tests>        Comma-separated list of tests (target, class, or class/method); use "Packages" to run every SwiftPM package test
   -c                Clean before running build/test
   -s                Run Swift syntax verification only (no build or tests)
   -l                Run Swift lint checks (swiftlint/swift-format if available)
@@ -2066,7 +2066,7 @@ add_package_test_target_entry() {
 lookup_package_for_test_target() {
   local identifier="$1"
   local entry
-  for entry in "${PACKAGE_TEST_TARGET_ENTRIES[@]}"; do
+  for entry in "${PACKAGE_TEST_TARGET_ENTRIES[@]-}"; do
     if [[ "$entry" == "${identifier}|"* ]]; then
       printf '%s' "${entry#*|}"
       return 0
@@ -3043,10 +3043,31 @@ run_filtered_xcode_tests() {
   return 0
 }
 
+run_package_suite() {
+  local packages=()
+  while IFS= read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    packages+=("$pkg")
+  done < <(list_package_targets)
+
+  if (( ${#packages[@]} == 0 )); then
+    log_warn "No Swift packages detected; nothing to test"
+    add_summary "test" "Packages" "warn" "" "" "" "" "no packages found"
+    return 0
+  fi
+
+  for pkg in "${packages[@]}"; do
+    test_package_target "$pkg"
+  done
+  return 0
+}
+
 run_test_target() {
   local target
   target=$(resolve_test_identifier "$1") || exit_with_summary 1
   case "$target" in
+    Packages)
+      run_package_suite || return $?;;
     all|zpod|AppSmokeTests|zpodTests|zpodUITests|IntegrationTests|*/*)
       test_app_target "$target" || return $?;;
     "") ;;
@@ -3100,6 +3121,13 @@ resolve_test_identifier() {
   local spec="$1"
   [[ -z "$spec" ]] && { log_error "Empty test identifier"; return 1; }
 
+  local normalized
+  normalized=$(printf '%s' "$spec" | tr '[:upper:]' '[:lower:]')
+  if [[ "$normalized" == "packages" ]]; then
+    echo "Packages"
+    return 0
+  fi
+
   load_package_test_targets || true
   if lookup_package_for_test_target "$spec" >/dev/null 2>&1; then
     lookup_package_for_test_target "$spec"
@@ -3139,9 +3167,7 @@ resolve_test_identifier() {
     if lookup_package_for_test_target "$first_part" >/dev/null 2>&1; then
       local pkg
       pkg=$(lookup_package_for_test_target "$first_part")
-      if [[ "$remainder" != "$spec" ]]; then
-        log_warn "Package test filtering is not supported; running full package '${pkg}'"
-      fi
+      log_warn "Package test filtering is not supported; running full package '${pkg}'"
       echo "$pkg"
       return 0
     fi
@@ -3153,18 +3179,14 @@ resolve_test_identifier() {
     done
 
     if is_package_target "$first_part"; then
-      if [[ "$remainder" != "$spec" ]]; then
-        log_warn "Package test filtering is not supported; running full package '$first_part'"
-      fi
+      log_warn "Package test filtering is not supported; running full package '$first_part'"
       echo "$first_part"
       return 0
     fi
 
     if package_match=$(find_package_for_test_target "$first_part" 2>/dev/null); then
       if [[ -n "$package_match" ]]; then
-        if [[ "$remainder" != "$spec" ]]; then
-          log_warn "Package test filtering is not supported; running full package '$package_match'"
-        fi
+        log_warn "Package test filtering is not supported; running full package '$package_match'"
         echo "$package_match"
         return 0
       fi
