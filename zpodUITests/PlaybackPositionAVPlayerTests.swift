@@ -422,16 +422,37 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             audioVariant: "short"
         )
         
-        // When: Navigate to Player tab and attempt to play
-        guard startPlaybackFromPlayerTab() else {
-            XCTFail("Failed to start playback from Player tab")
+        // When: Navigate to Player tab
+        let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+        let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
+        guard playerTab.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Player tab not found")
+            return
+        }
+        playerTab.tap()
+        
+        // Wait for episode detail to load
+        guard waitForContentToLoad(
+            containerIdentifier: "Episode Detail View",
+            timeout: adaptiveTimeout
+        ) else {
+            XCTFail("Episode detail failed to load")
             return
         }
         
-        // Then: Error UI should appear
+        // Tap play button
+        let episodeDetail = app.otherElements.matching(identifier: "Episode Detail View").firstMatch
+        let playButton = episodeDetail.buttons.matching(identifier: "Play").firstMatch
+        guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Play button not found in episode detail")
+            return
+        }
+        playButton.tap()
+        
+        // Then: Error UI should appear (not mini player)
         let errorOverlay = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
         XCTAssertTrue(
-            errorOverlay.waitForExistence(timeout: adaptiveShortTimeout),
+            errorOverlay.waitForExistence(timeout: adaptiveTimeout),
             "Error view should appear for missing audioURL"
         )
         
@@ -466,11 +487,32 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             audioVariant: "short"
         )
         
-        // When: Navigate to Player tab and attempt to play
-        guard startPlaybackFromPlayerTab() else {
-            XCTFail("Failed to start playback from Player tab")
+        // When: Navigate to Player tab
+        let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+        let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
+        guard playerTab.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Player tab not found")
             return
         }
+        playerTab.tap()
+        
+        // Wait for episode detail to load
+        guard waitForContentToLoad(
+            containerIdentifier: "Episode Detail View",
+            timeout: adaptiveTimeout
+        ) else {
+            XCTFail("Episode detail failed to load")
+            return
+        }
+        
+        // Tap play button
+        let episodeDetail = app.otherElements.matching(identifier: "Episode Detail View").firstMatch
+        let playButton = episodeDetail.buttons.matching(identifier: "Play").firstMatch
+        guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Play button not found in episode detail")
+            return
+        }
+        playButton.tap()
         
         // Then: Error UI should appear (may take longer for network timeout)
         let errorOverlay = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
