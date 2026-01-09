@@ -406,7 +406,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         logSliderValue("resumed after seek (AVPlayer)", value: resumedValue)
     }
 
-    // MARK: - Test 7: Error Handling (Needs Test Data Infrastructure)
+    // MARK: - Test 7: Error Handling
     
     /// **Spec**: Episode Missing Audio URL (error handling)
     ///
@@ -414,13 +414,40 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     /// **When**: User attempts to play the episode
     /// **Then**: Error UI appears with "doesn't have audio available" message
     /// **And**: NO retry button shown (not recoverable)
-    ///
-    /// **Implementation Status**: Error UI complete (03.3.4.2-3), error detection complete (03.3.4.4)
-    /// **Blocker**: Test data infrastructure doesn't support creating episodes with nil audioURL
-    /// **Next Steps**: Add test episode factory that can generate episodes with missing/invalid URLs
     @MainActor
     func testMissingAudioURLShowsErrorNoRetry() throws {
-        throw XCTSkip("Needs test data infrastructure: episode factory with nil audioURL support")
+        // Given: Launch with environment that creates episodes with nil audioURL
+        launchApp(
+            environmentOverrides: ["UITEST_AUDIO_OVERRIDE_MODE": "missing"],
+            audioVariant: "short"
+        )
+        
+        // When: Navigate to Player tab and attempt to play
+        guard startPlaybackFromPlayerTab() else {
+            XCTFail("Failed to start playback from Player tab")
+            return
+        }
+        
+        // Then: Error UI should appear
+        let errorOverlay = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+        XCTAssertTrue(
+            errorOverlay.waitForExistence(timeout: adaptiveShortTimeout),
+            "Error view should appear for missing audioURL"
+        )
+        
+        // Verify error message
+        let errorMessage = errorOverlay.staticTexts["This episode doesn't have audio available"]
+        XCTAssertTrue(
+            errorMessage.exists,
+            "Should show missing audio message"
+        )
+        
+        // Verify NO retry button (not recoverable)
+        let retryButton = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
+        XCTAssertFalse(
+            retryButton.exists,
+            "Should not show retry button for missing URL (not recoverable)"
+        )
     }
     
     /// **Spec**: Network Error During Playback (error handling with retry)
@@ -429,13 +456,45 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     /// **When**: User attempts to play the episode
     /// **Then**: Error UI appears with network error message
     /// **And**: Retry button is shown (recoverable error)
-    ///
-    /// **Implementation Status**: Error UI complete (03.3.4.2-3), error detection complete (03.3.4.4)
-    /// **Blocker**: Test data infrastructure doesn't support network error simulation
-    /// **Next Steps**: Add environment override for invalid audio URLs (e.g., http://invalid-host.local/)
     @MainActor
     func testNetworkErrorShowsRetryAndRecovers() throws {
-        throw XCTSkip("Needs test data infrastructure: invalid URL injection support")
+        // Given: Launch with environment that uses an invalid URL
+        launchApp(
+            environmentOverrides: [
+                "UITEST_AUDIO_OVERRIDE_URL": "http://invalid-host-does-not-exist.local/episode.mp3"
+            ],
+            audioVariant: "short"
+        )
+        
+        // When: Navigate to Player tab and attempt to play
+        guard startPlaybackFromPlayerTab() else {
+            XCTFail("Failed to start playback from Player tab")
+            return
+        }
+        
+        // Then: Error UI should appear (may take longer for network timeout)
+        let errorOverlay = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+        XCTAssertTrue(
+            errorOverlay.waitForExistence(timeout: avplayerTimeout),
+            "Error view should appear for network error"
+        )
+        
+        // Verify error message (check for network-related text)
+        // The exact message is "Unable to load episode. Check your connection."
+        let hasNetworkErrorText = errorOverlay.staticTexts.containing(NSPredicate(format: "label CONTAINS[cd] 'connection' OR label CONTAINS[cd] 'network' OR label CONTAINS[cd] 'load'")).firstMatch
+        XCTAssertTrue(
+            hasNetworkErrorText.exists,
+            "Should show network error message"
+        )
+        
+        // Verify retry button exists (recoverable error)
+        let retryButton = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
+        XCTAssertTrue(
+            retryButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Should show retry button for network error (recoverable)"
+        )
+        
+        XCTAssertTrue(retryButton.isEnabled, "Retry button should be enabled")
     }
 
     // MARK: - Test 8: Interruption Handling
