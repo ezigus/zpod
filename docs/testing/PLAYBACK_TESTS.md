@@ -77,10 +77,10 @@ All scenarios map to `zpod/spec/playback.md` - Core Playback Behavior:
 |-------------|----------------|--------|-----------|
 | `testPlaybackSpeedChangesPositionRate` | Playing Episode with Custom Speed | ✅ Passing | 2x speed advances position ~2x faster |
 | `testInterruptionPausesAndResumesPlayback` | Audio Interruption Handling | ⏸️ Skipped | Debug UI visibility issue |
-| `testMissingAudioURLShowsErrorNoRetry` | Episode Missing Audio URL | ⏸️ Skipped | Awaits Issue #269 (03.3.4) |
-| `testNetworkErrorShowsRetryAndRecovers` | Network Error + Retry | ⏸️ Skipped | Awaits Issue #269 (03.3.4) |
+| `testMissingAudioURLShowsErrorNoRetry` | Episode Missing Audio URL | ✅ Passing | Missing-audio error UI now surfaces message and no retry button (03.3.4) |
+| `testNetworkErrorShowsRetryAndRecovers` | Network Error + Retry | ✅ Passing | Network error UI exposes retry button (03.3.4) |
 
-**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Interruption and error tests are currently blocked by missing dependencies (error UI not implemented).
+**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Missing-audio and network-error paths now pass, bringing Issue 03.3.2.7 to 90% completion (9/10 tests); only the interruption test remains skipped due to the debug control visibility issue described above.
 
 **Total Coverage**: 14 tests (5 ticker + 9 AVPlayer) validating 9 scenarios
 

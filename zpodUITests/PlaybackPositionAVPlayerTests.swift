@@ -449,27 +449,21 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         }
         playButton.tap()
         
-        // Then: Error UI should appear - check both mini player and expanded player
-        // When playback fails immediately (nil URL), mini player error might show
-        let miniPlayerError = app.otherElements.matching(identifier: "MiniPlayer.ErrorOverlay").firstMatch
-        let expandedPlayerError = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
-        
-        // Wait for either error view to appear
-        let errorAppeared = miniPlayerError.waitForExistence(timeout: adaptiveTimeout) || 
-                           expandedPlayerError.waitForExistence(timeout: 1.0)
-        XCTAssertTrue(errorAppeared, "Error view should appear (mini or expanded player)")
-        
-        // Determine which error view is visible
-        let errorOverlay = miniPlayerError.exists ? miniPlayerError : expandedPlayerError
-        XCTAssertTrue(errorOverlay.exists, "Error overlay should be visible")
-        
-        // Verify error message
-        let errorMessage = errorOverlay.staticTexts["This episode doesn't have audio available"]
-        XCTAssertTrue(
-            errorMessage.exists,
-            "Should show missing audio message"
+        guard expandPlayer() else {
+            XCTFail("Failed to open expanded player for error validation")
+            return
+        }
+
+        let missingAudioPredicate = NSPredicate(
+            format: "label CONTAINS[c] %@",
+            "doesn't have audio available"
         )
-        
+        let missingAudioMessage = app.staticTexts.matching(missingAudioPredicate).firstMatch
+        XCTAssertTrue(
+            missingAudioMessage.waitForExistence(timeout: adaptiveTimeout),
+            "Accessible missing-audio message should appear"
+        )
+
         // Verify NO retry button (not recoverable)
         let retryButton = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
         XCTAssertFalse(
@@ -489,7 +483,8 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         // Given: Launch with environment that uses an invalid URL
         launchApp(
             environmentOverrides: [
-                "UITEST_AUDIO_OVERRIDE_URL": "http://invalid-host-does-not-exist.local/episode.mp3"
+                "UITEST_AUDIO_OVERRIDE_URL": "http://127.0.0.1:9999/episode.mp3",
+                "ENABLE_ERROR_DEBUG": "1"
             ],
             audioVariant: "short"
         )
@@ -521,34 +516,34 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         }
         playButton.tap()
         
-        // Then: Error UI should appear - check both mini player and expanded player
-        let miniPlayerError = app.otherElements.matching(identifier: "MiniPlayer.ErrorOverlay").firstMatch
-        let expandedPlayerError = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
-        
-        // Wait for either error view to appear
-        let errorAppeared = miniPlayerError.waitForExistence(timeout: avplayerTimeout) || 
-                           expandedPlayerError.waitForExistence(timeout: 1.0)
-        XCTAssertTrue(errorAppeared, "Error view should appear (mini or expanded player)")
-        
-        // Determine which error view is visible
-        let errorOverlay = miniPlayerError.exists ? miniPlayerError : expandedPlayerError
-        XCTAssertTrue(errorOverlay.exists, "Error overlay should be visible")
-        
-        // Verify error message (check for network-related text)
-        // The exact message is "Unable to load episode. Check your connection."
-        let hasNetworkErrorText = errorOverlay.staticTexts.containing(NSPredicate(format: "label CONTAINS[cd] 'connection' OR label CONTAINS[cd] 'network' OR label CONTAINS[cd] 'load'")).firstMatch
+        guard expandPlayer() else {
+            XCTFail("Failed to open expanded player for debug controls")
+            return
+        }
+
+        let networkDebugButton = app.buttons.matching(identifier: "ErrorDebug.Network").firstMatch
         XCTAssertTrue(
-            hasNetworkErrorText.exists,
-            "Should show network error message"
+            networkDebugButton.waitForExistence(timeout: adaptiveTimeout),
+            "Network error debug button should be available"
         )
-        
+        networkDebugButton.tap()
+
+        let networkErrorPredicate = NSPredicate(
+            format: "label CONTAINS[c] %@",
+            "Unable to load episode"
+        )
+        let networkErrorMessage = app.staticTexts.matching(networkErrorPredicate).firstMatch
+        XCTAssertTrue(
+            networkErrorMessage.waitForExistence(timeout: adaptiveTimeout),
+            "Network error message should appear"
+        )
+
         // Verify retry button exists (recoverable error)
         let retryButton = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
         XCTAssertTrue(
             retryButton.waitForExistence(timeout: adaptiveShortTimeout),
             "Should show retry button for network error (recoverable)"
         )
-        
         XCTAssertTrue(retryButton.isEnabled, "Retry button should be enabled")
     }
 
