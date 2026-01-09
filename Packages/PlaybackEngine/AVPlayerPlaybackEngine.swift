@@ -347,7 +347,7 @@ public final class AVPlayerPlaybackEngine {
         ) { [weak self] notification in
             guard let self = self else { return }
             let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 let playbackError = error.map { self.mapAVError($0) } ?? .streamFailed
                 self.logPlaybackFailure(playbackError, underlying: error)
