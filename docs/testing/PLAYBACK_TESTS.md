@@ -80,7 +80,7 @@ All scenarios map to `zpod/spec/playback.md` - Core Playback Behavior:
 | `testMissingAudioURLShowsErrorNoRetry` | Episode Missing Audio URL | ✅ Passing | Missing-audio error UI now surfaces message and no retry button (03.3.4) |
 | `testNetworkErrorShowsRetryAndRecovers` | Network Error + Retry | ✅ Passing | Network error UI exposes retry button (03.3.4) |
 
-**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Missing-audio and network-error paths now pass, bringing Issue 03.3.2.7 to 90% completion (9/10 tests); only the interruption test remains skipped due to the debug control visibility issue described above.
+**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Missing-audio and network-error tests now pass thanks to the error message accessibility improvements implemented under 03.3.4.5. This brings Issue 03.3.2.7 to 90% completion (9/10 tests). Only the interruption test remains skipped due to the debug control visibility issue described above.
 
 **Total Coverage**: 14 tests (5 ticker + 9 AVPlayer) validating 9 scenarios
 

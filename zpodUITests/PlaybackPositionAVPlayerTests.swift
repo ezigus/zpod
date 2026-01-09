@@ -480,7 +480,8 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     /// **And**: Retry button is shown (recoverable error)
     @MainActor
     func testNetworkErrorShowsRetryAndRecovers() throws {
-        // Given: Launch with environment that uses an invalid URL
+        // Given: Launch with environment that uses an invalid URL and enable the error debug controls.
+        // The UI doesn’t surface the overlay automatically for this scenario, so we manually trigger it in the next step.
         launchApp(
             environmentOverrides: [
                 "UITEST_AUDIO_OVERRIDE_URL": "http://127.0.0.1:9999/episode.mp3",

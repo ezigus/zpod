@@ -203,6 +203,7 @@ public struct ExpandedPlayerView: View {
             .buttonStyle(.borderedProminent)
             .tint(.red)
             .controlSize(.small)
+            .accessibilityIdentifier("ErrorDebug.Network")
             
             Button("Timeout") {
               viewModel.debugTriggerTimeoutError()
@@ -210,6 +211,7 @@ public struct ExpandedPlayerView: View {
             .buttonStyle(.borderedProminent)
             .tint(.orange)
             .controlSize(.small)
+            .accessibilityIdentifier("ErrorDebug.Timeout")
           }
           
           HStack(spacing: 8) {
@@ -219,6 +221,7 @@ public struct ExpandedPlayerView: View {
             .buttonStyle(.borderedProminent)
             .tint(.purple)
             .controlSize(.small)
+            .accessibilityIdentifier("ErrorDebug.Stream")
             
             Button("Missing URL") {
               viewModel.debugTriggerMissingURLError()
@@ -226,6 +229,7 @@ public struct ExpandedPlayerView: View {
             .buttonStyle(.borderedProminent)
             .tint(.pink)
             .controlSize(.small)
+            .accessibilityIdentifier("ErrorDebug.MissingURL")
           }
           
           Button("Clear Error") {
