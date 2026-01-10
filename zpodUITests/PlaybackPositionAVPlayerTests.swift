@@ -628,16 +628,67 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             return
         }
 
+        // CRITICAL FIX: Explicitly set baseline speed to 1.0x (was implicit assumption)
+        // CI failure data showed baselineDelta=4.0s over 2.0s window → suggests baseline was at ~2.0x
+        XCTContext.runActivity(named: "Set baseline speed to 1.0x") { _ in
+            let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+            XCTAssertTrue(speedControl.waitForExistence(timeout: adaptiveShortTimeout),
+                "Speed Control button should exist")
+            speedControl.tap()
+
+            let oneXOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.1.0x").firstMatch
+            XCTAssertTrue(oneXOption.waitForExistence(timeout: adaptiveShortTimeout),
+                "1.0x speed option should exist")
+            oneXOption.tap()
+
+            // Wait for UI to settle (speed menu should close)
+            _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed UI settle") {
+                !oneXOption.exists
+            }
+
+            XCTContext.runActivity(named: "Baseline speed set to 1.0x") { _ in }
+        }
+
+        // Verify playback is advancing at normal rate before measurement
+        guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
+            XCTFail("Playback should be advancing after setting 1.0x speed")
+            return
+        }
+
+        // Baseline measurement start
         guard let baselineStart = playerTabSliderValue(),
               let baselineStartPosition = extractCurrentPosition(from: baselineStart) else {
             XCTFail("Unable to read baseline position")
             return
         }
 
-        let baselineStartTime = Date()
-        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "baseline window") {
-            Date().timeIntervalSince(baselineStartTime) >= 2.0
+        XCTContext.runActivity(named: "Baseline Start") { _ in
+            XCTContext.runActivity(named: "Raw: '\(baselineStart)'") { _ in }
+            XCTContext.runActivity(named: "Parsed: \(baselineStartPosition)s") { _ in }
         }
+
+        let baselineStartTime = Date()
+
+        // Intermediate sampling for diagnostics (doesn't affect delta calculation)
+        var baselineSamples: [(time: TimeInterval, pos: TimeInterval)] = []
+        _ = waitUntil(timeout: 4.0, pollInterval: 0.1, description: "baseline window") { [self] in
+            let elapsed = Date().timeIntervalSince(baselineStartTime)
+
+            // Sample at 0.5s intervals for diagnostics
+            for target in stride(from: 0.5, through: 3.5, by: 0.5) {
+                if elapsed >= target && !baselineSamples.contains(where: { abs($0.time - target) < 0.05 }) {
+                    if let value = playerTabSliderValue(),
+                       let pos = extractCurrentPosition(from: value) {
+                        baselineSamples.append((target, pos))
+                        XCTContext.runActivity(named: "Baseline t=\(String(format: "%.1f", target))s: pos=\(String(format: "%.1f", pos))s") { _ in }
+                    }
+                }
+            }
+
+            return elapsed >= 3.5
+        }
+
+        let actualBaselineElapsed = Date().timeIntervalSince(baselineStartTime)
 
         guard let baselineEnd = playerTabSliderValue(),
               let baselineEndPosition = extractCurrentPosition(from: baselineEnd) else {
@@ -645,7 +696,15 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             return
         }
 
+        XCTContext.runActivity(named: "Baseline End") { _ in
+            XCTContext.runActivity(named: "Raw: '\(baselineEnd)'") { _ in }
+            XCTContext.runActivity(named: "Parsed: \(baselineEndPosition)s") { _ in }
+        }
+
         let baselineDelta = baselineEndPosition - baselineStartPosition
+
+        XCTContext.runActivity(named: "Baseline window: target=3.5s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Baseline delta: \(String(format: "%.3f", baselineDelta))s") { _ in }
         XCTAssertGreaterThan(baselineDelta, 0.5,
             "Baseline playback should advance before speed change")
 
@@ -663,16 +722,82 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         }
         speedOption.tap()
 
+        // Wait for speed menu to close
+        _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed menu close") {
+            !speedOption.exists
+        }
+
+        // CRITICAL FIX: Poll for accelerated movement (NOT sleep!)
+        // Verify position is advancing faster than baseline before measuring
+        XCTContext.runActivity(named: "Wait for 2.0x rate to apply") { _ in
+            guard let preStabilizeValue = playerTabSliderValue(),
+                  let preStabilize = extractCurrentPosition(from: preStabilizeValue) else {
+                XCTFail("Failed to get position before stabilization check")
+                return
+            }
+
+            var consecutiveFastSamples = 0
+            let stabilized = waitUntil(timeout: 2.0, pollInterval: 0.2, description: "rate stabilization") { [self] in
+                guard let currentValue = playerTabSliderValue(),
+                      let currentPos = extractCurrentPosition(from: currentValue) else {
+                    return false
+                }
+
+                let delta = currentPos - preStabilize
+                let rate = delta / 0.2  // Position change per 0.2s poll interval
+
+                // At 1.0x: rate ≈ 0.2 (0.2s advancement per 0.2s)
+                // At 2.0x: rate ≈ 0.4 (0.4s advancement per 0.2s)
+                // Threshold: >0.3 indicates faster than 1.0x
+                if rate > 0.3 {
+                    consecutiveFastSamples += 1
+                    XCTContext.runActivity(named: "Sample \(consecutiveFastSamples): rate ≈\(String(format: "%.1f", rate * 5))x") { _ in }
+                } else {
+                    consecutiveFastSamples = 0
+                }
+
+                // Need 2 consecutive fast samples to confirm rate applied
+                return consecutiveFastSamples >= 2
+            }
+
+            XCTAssertTrue(stabilized,
+                "2.0x rate should be applied within 2s (check speed control implementation)")
+        }
+
+        // Fast measurement start
         guard let fastStart = playerTabSliderValue(),
               let fastStartPosition = extractCurrentPosition(from: fastStart) else {
             XCTFail("Unable to read position after speed change")
             return
         }
 
-        let fastStartTime = Date()
-        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "fast window") {
-            Date().timeIntervalSince(fastStartTime) >= 2.0
+        XCTContext.runActivity(named: "Fast Start") { _ in
+            XCTContext.runActivity(named: "Raw: '\(fastStart)'") { _ in }
+            XCTContext.runActivity(named: "Parsed: \(fastStartPosition)s") { _ in }
         }
+
+        let fastStartTime = Date()
+
+        // Intermediate sampling for diagnostics (doesn't affect delta calculation)
+        var fastSamples: [(time: TimeInterval, pos: TimeInterval)] = []
+        _ = waitUntil(timeout: 4.0, pollInterval: 0.1, description: "fast window") { [self] in
+            let elapsed = Date().timeIntervalSince(fastStartTime)
+
+            // Sample at 0.5s intervals for diagnostics
+            for target in stride(from: 0.5, through: 3.5, by: 0.5) {
+                if elapsed >= target && !fastSamples.contains(where: { abs($0.time - target) < 0.05 }) {
+                    if let value = playerTabSliderValue(),
+                       let pos = extractCurrentPosition(from: value) {
+                        fastSamples.append((target, pos))
+                        XCTContext.runActivity(named: "Fast t=\(String(format: "%.1f", target))s: pos=\(String(format: "%.1f", pos))s") { _ in }
+                    }
+                }
+            }
+
+            return elapsed >= 3.5
+        }
+
+        let actualFastElapsed = Date().timeIntervalSince(fastStartTime)
 
         guard let fastEnd = playerTabSliderValue(),
               let fastEndPosition = extractCurrentPosition(from: fastEnd) else {
@@ -680,8 +805,27 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             return
         }
 
+        XCTContext.runActivity(named: "Fast End") { _ in
+            XCTContext.runActivity(named: "Raw: '\(fastEnd)'") { _ in }
+            XCTContext.runActivity(named: "Parsed: \(fastEndPosition)s") { _ in }
+        }
+
         let fastDelta = fastEndPosition - fastStartPosition
-        
+
+        XCTContext.runActivity(named: "Fast window: target=3.5s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Fast delta: \(String(format: "%.3f", fastDelta))s") { _ in }
+
+        // Compute and log measurements before assertion
+        let ratio = fastDelta / baselineDelta
+        let threshold = baselineDelta * 1.7
+
+        XCTContext.runActivity(named: "Measurements") { _ in
+            XCTContext.runActivity(named: "Baseline: \(String(format: "%.3f", baselineDelta))s over \(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+            XCTContext.runActivity(named: "Fast: \(String(format: "%.3f", fastDelta))s over \(String(format: "%.3f", actualFastElapsed))s") { _ in }
+            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold 1.7x)") { _ in }
+            XCTContext.runActivity(named: "Pass? \(ratio >= 1.7 ? "YES" : "NO (need \(String(format: "%.3f", threshold))s)")") { _ in }
+        }
+
         // Assert: Position should advance ~2x faster at 2.0x speed
         // Using 1.7x threshold (rather than 2.0x) to account for:
         // - AVPlayer buffering delays
