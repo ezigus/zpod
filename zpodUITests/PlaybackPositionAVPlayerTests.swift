@@ -634,6 +634,11 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
             XCTAssertTrue(speedControl.waitForExistence(timeout: adaptiveShortTimeout),
                 "Speed Control button should exist")
+
+            // Check current speed before changing
+            let currentSpeedLabel = speedControl.label
+            XCTContext.runActivity(named: "Current speed before setting: \(currentSpeedLabel)") { _ in }
+
             speedControl.tap()
 
             let oneXOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.1.0x").firstMatch
@@ -646,7 +651,13 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
                 !oneXOption.exists
             }
 
-            XCTContext.runActivity(named: "Baseline speed set to 1.0x") { _ in }
+            // VERIFY speed was actually set to 1.0x by checking accessibility label
+            let updatedSpeedLabel = speedControl.label
+            XCTContext.runActivity(named: "Speed after setting to 1.0x: \(updatedSpeedLabel)") { _ in }
+            XCTAssertTrue(updatedSpeedLabel.contains("1.0x") || updatedSpeedLabel.contains("1x"),
+                "Speed Control should show 1.0x after setting (got: '\(updatedSpeedLabel)')")
+
+            XCTContext.runActivity(named: "Baseline speed confirmed at 1.0x") { _ in }
         }
 
         // Verify playback is advancing at normal rate before measurement
@@ -713,6 +724,12 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed menu close") {
             !speedOption.exists
         }
+
+        // VERIFY speed was actually set to 2.0x by checking accessibility label
+        let fastSpeedLabel = speedControl.label
+        XCTContext.runActivity(named: "Speed after setting to 2.0x: \(fastSpeedLabel)") { _ in }
+        XCTAssertTrue(fastSpeedLabel.contains("2.0x") || fastSpeedLabel.contains("2x"),
+            "Speed Control should show 2.0x after setting (got: '\(fastSpeedLabel)')")
 
         // Verify playback is still advancing after speed change
         // (simpler than complex stabilization - let measurement window handle rate variance)
