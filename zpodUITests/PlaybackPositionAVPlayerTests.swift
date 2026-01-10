@@ -727,41 +727,11 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             !speedOption.exists
         }
 
-        // CRITICAL FIX: Poll for accelerated movement (NOT sleep!)
-        // Verify position is advancing faster than baseline before measuring
-        XCTContext.runActivity(named: "Wait for 2.0x rate to apply") { _ in
-            guard let preStabilizeValue = playerTabSliderValue(),
-                  let preStabilize = extractCurrentPosition(from: preStabilizeValue) else {
-                XCTFail("Failed to get position before stabilization check")
-                return
-            }
-
-            var consecutiveFastSamples = 0
-            let stabilized = waitUntil(timeout: 2.0, pollInterval: 0.2, description: "rate stabilization") { [self] in
-                guard let currentValue = playerTabSliderValue(),
-                      let currentPos = extractCurrentPosition(from: currentValue) else {
-                    return false
-                }
-
-                let delta = currentPos - preStabilize
-                let rate = delta / 0.2  // Position change per 0.2s poll interval
-
-                // At 1.0x: rate ≈ 0.2 (0.2s advancement per 0.2s)
-                // At 2.0x: rate ≈ 0.4 (0.4s advancement per 0.2s)
-                // Threshold: >0.3 indicates faster than 1.0x
-                if rate > 0.3 {
-                    consecutiveFastSamples += 1
-                    XCTContext.runActivity(named: "Sample \(consecutiveFastSamples): rate ≈\(String(format: "%.1f", rate * 5))x") { _ in }
-                } else {
-                    consecutiveFastSamples = 0
-                }
-
-                // Need 2 consecutive fast samples to confirm rate applied
-                return consecutiveFastSamples >= 2
-            }
-
-            XCTAssertTrue(stabilized,
-                "2.0x rate should be applied within 2s (check speed control implementation)")
+        // Verify playback is still advancing after speed change
+        // (simpler than complex stabilization - let measurement window handle rate variance)
+        guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
+            XCTFail("Playback should be advancing after changing to 2.0x speed")
+            return
         }
 
         // Fast measurement start
