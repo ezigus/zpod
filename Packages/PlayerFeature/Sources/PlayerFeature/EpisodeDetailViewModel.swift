@@ -17,6 +17,27 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var playbackSpeed: Float = 1.0
   @Published public var chapters: [Chapter] = []
   @Published public var currentChapter: Chapter?
+
+  public var audioDebugText: String? {
+    guard isAudioDebugEnabled else { return nil }
+    guard let enhancedPlayer else {
+      return "audio debug unavailable (non-enhanced player)"
+    }
+    let info = enhancedPlayer.audioDebugInfo()
+    let position = String(format: "%.2f", info.position)
+    let duration = String(format: "%.2f", info.duration)
+    return [
+      "mode: \(info.playbackMode)",
+      "url: \(info.audioURL)",
+      "access: \(info.audioURLAccess)",
+      "engine status: \(info.engineStatus)",
+      "engine rate: \(info.engineRate)",
+      "engine error: \(info.engineError)",
+      "engine playing: \(info.engineIsPlaying)",
+      "player playing: \(info.playerIsPlaying)",
+      "position: \(position)s / \(duration)s"
+    ].joined(separator: "\n")
+  }
   
   // Annotation properties
   @Published public var metadata: EpisodeMetadata?
@@ -36,6 +57,10 @@ public class EpisodeDetailViewModel: ObservableObject {
   // Enhanced player reference for extended features
   private var enhancedPlayer: EnhancedEpisodePlayer? {
     return playbackService as? EnhancedEpisodePlayer
+  }
+
+  private var isAudioDebugEnabled: Bool {
+    ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1"
   }
 
   public init(

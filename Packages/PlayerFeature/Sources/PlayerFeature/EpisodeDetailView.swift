@@ -33,13 +33,26 @@ public struct EpisodeDetailView: View {
           .accessibilityIdentifier("Episode Detail View")
       }
 
+      if let debugText = viewModel.audioDebugText {
+        VStack {
+          HStack {
+            audioDebugOverlay(text: debugText)
+            Spacer()
+          }
+          Spacer()
+        }
+        .padding(.top, 8)
+        .padding(.leading, 12)
+        .allowsHitTesting(false)
+      }
+
       if isPlaybackDebugEnabled {
         VStack {
           Spacer()
             .frame(height: 8)  // Small gap below nav bar
           HStack {
             Spacer()
-            PlaybackDebugControlsView()
+            PlaybackDebugControlsView(onSeekToStart: { viewModel.seek(to: 2.0) })
               .padding(.trailing, 12)
           }
           Spacer()
@@ -96,12 +109,20 @@ extension EpisodeDetailView {
   }
 
   private var isPlaybackDebugEnabled: Bool {
-    ProcessInfo.processInfo.environment["UITEST_PLAYBACK_DEBUG"] == "1"
+    let env = ProcessInfo.processInfo.environment
+    return env["UITEST_PLAYBACK_DEBUG"] == "1" || env["UITEST_DEBUG_AUDIO"] == "1"
   }
 
   private struct PlaybackDebugControlsView: View {
+    let onSeekToStart: () -> Void
+
     var body: some View {
       VStack(alignment: .trailing, spacing: 8) {
+        Button("Seek Start") {
+          onSeekToStart()
+        }
+        .accessibilityIdentifier("PlaybackDebug.SeekToStart")
+
         Button("Interruption Began") {
           postInterruption(.began, shouldResume: false)
         }
@@ -134,6 +155,23 @@ extension EpisodeDetailView {
         ]
       )
     }
+  }
+
+  private func audioDebugOverlay(text: String) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text("Audio Debug")
+        .font(.caption)
+        .fontWeight(.semibold)
+      Text(text)
+        .font(.caption2.monospaced())
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .padding(8)
+    .background(Color.black.opacity(0.6))
+    .cornerRadius(8)
+    .accessibilityElement(children: .ignore)
+    .accessibilityIdentifier("Audio Debug Overlay")
+    .accessibilityLabel(text)
   }
 
   private var artworkView: some View {
