@@ -669,23 +669,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let baselineStartTime = Date()
 
-        // Intermediate sampling for diagnostics (doesn't affect delta calculation)
-        var baselineSamples: [(time: TimeInterval, pos: TimeInterval)] = []
-        _ = waitUntil(timeout: 4.0, pollInterval: 0.1, description: "baseline window") { [self] in
+        // Wait for measurement window (no intermediate sampling - UI queries are too expensive ~1s each)
+        _ = waitUntil(timeout: 2.5, pollInterval: 0.1, description: "baseline window") { [self] in
             let elapsed = Date().timeIntervalSince(baselineStartTime)
-
-            // Sample at 0.5s intervals for diagnostics
-            for target in stride(from: 0.5, through: 3.5, by: 0.5) {
-                if elapsed >= target && !baselineSamples.contains(where: { abs($0.time - target) < 0.05 }) {
-                    if let value = playerTabSliderValue(),
-                       let pos = extractCurrentPosition(from: value) {
-                        baselineSamples.append((target, pos))
-                        XCTContext.runActivity(named: "Baseline t=\(String(format: "%.1f", target))s: pos=\(String(format: "%.1f", pos))s") { _ in }
-                    }
-                }
-            }
-
-            return elapsed >= 3.5
+            return elapsed >= 2.0
         }
 
         let actualBaselineElapsed = Date().timeIntervalSince(baselineStartTime)
@@ -703,7 +690,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let baselineDelta = baselineEndPosition - baselineStartPosition
 
-        XCTContext.runActivity(named: "Baseline window: target=3.5s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Baseline window: target=2.0s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
         XCTContext.runActivity(named: "Baseline delta: \(String(format: "%.3f", baselineDelta))s") { _ in }
         XCTAssertGreaterThan(baselineDelta, 0.5,
             "Baseline playback should advance before speed change")
@@ -748,23 +735,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let fastStartTime = Date()
 
-        // Intermediate sampling for diagnostics (doesn't affect delta calculation)
-        var fastSamples: [(time: TimeInterval, pos: TimeInterval)] = []
-        _ = waitUntil(timeout: 4.0, pollInterval: 0.1, description: "fast window") { [self] in
+        // Wait for measurement window (no intermediate sampling - UI queries are too expensive ~1s each)
+        _ = waitUntil(timeout: 2.5, pollInterval: 0.1, description: "fast window") { [self] in
             let elapsed = Date().timeIntervalSince(fastStartTime)
-
-            // Sample at 0.5s intervals for diagnostics
-            for target in stride(from: 0.5, through: 3.5, by: 0.5) {
-                if elapsed >= target && !fastSamples.contains(where: { abs($0.time - target) < 0.05 }) {
-                    if let value = playerTabSliderValue(),
-                       let pos = extractCurrentPosition(from: value) {
-                        fastSamples.append((target, pos))
-                        XCTContext.runActivity(named: "Fast t=\(String(format: "%.1f", target))s: pos=\(String(format: "%.1f", pos))s") { _ in }
-                    }
-                }
-            }
-
-            return elapsed >= 3.5
+            return elapsed >= 2.0
         }
 
         let actualFastElapsed = Date().timeIntervalSince(fastStartTime)
@@ -782,7 +756,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let fastDelta = fastEndPosition - fastStartPosition
 
-        XCTContext.runActivity(named: "Fast window: target=3.5s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Fast window: target=2.0s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
         XCTContext.runActivity(named: "Fast delta: \(String(format: "%.3f", fastDelta))s") { _ in }
 
         // Compute and log measurements before assertion
