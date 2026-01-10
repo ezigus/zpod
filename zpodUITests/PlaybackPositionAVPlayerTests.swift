@@ -680,10 +680,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let baselineStartTime = Date()
 
-        // Wait for measurement window (no intermediate sampling - UI queries are too expensive ~1s each)
-        _ = waitUntil(timeout: 2.5, pollInterval: 0.1, description: "baseline window") { [self] in
+        // Wait for measurement window (1.0s to fit within 20s episode)
+        _ = waitUntil(timeout: 1.5, pollInterval: 0.1, description: "baseline window") { [self] in
             let elapsed = Date().timeIntervalSince(baselineStartTime)
-            return elapsed >= 2.0
+            return elapsed >= 1.0
         }
 
         let actualBaselineElapsed = Date().timeIntervalSince(baselineStartTime)
@@ -701,7 +701,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let baselineDelta = baselineEndPosition - baselineStartPosition
 
-        XCTContext.runActivity(named: "Baseline window: target=2.0s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Baseline window: target=1.0s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
         XCTContext.runActivity(named: "Baseline delta: \(String(format: "%.3f", baselineDelta))s") { _ in }
         XCTAssertGreaterThan(baselineDelta, 0.5,
             "Baseline playback should advance before speed change")
@@ -752,10 +752,10 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let fastStartTime = Date()
 
-        // Wait for measurement window (no intermediate sampling - UI queries are too expensive ~1s each)
-        _ = waitUntil(timeout: 2.5, pollInterval: 0.1, description: "fast window") { [self] in
+        // Wait for measurement window (1.0s to fit within 20s episode)
+        _ = waitUntil(timeout: 1.5, pollInterval: 0.1, description: "fast window") { [self] in
             let elapsed = Date().timeIntervalSince(fastStartTime)
-            return elapsed >= 2.0
+            return elapsed >= 1.0
         }
 
         let actualFastElapsed = Date().timeIntervalSince(fastStartTime)
@@ -773,7 +773,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
         let fastDelta = fastEndPosition - fastStartPosition
 
-        XCTContext.runActivity(named: "Fast window: target=2.0s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Fast window: target=1.0s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
         XCTContext.runActivity(named: "Fast delta: \(String(format: "%.3f", fastDelta))s") { _ in }
 
         // Compute and log measurements before assertion
