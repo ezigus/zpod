@@ -706,6 +706,16 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         XCTAssertGreaterThan(baselineDelta, 0.5,
             "Baseline playback should advance before speed change")
 
+        // CRITICAL FIX: Pause playback while changing speed to prevent episode from advancing to EOF
+        // During speed change UI interaction (~6s), episode would advance 11s and hit 20s EOF
+        let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+        guard pauseButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Pause button not found (expected after playback starts)")
+            return
+        }
+        pauseButton.tap()
+        XCTContext.runActivity(named: "Paused playback before speed change") { _ in }
+
         let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
         guard speedControl.waitForExistence(timeout: adaptiveShortTimeout) else {
             XCTFail("Speed control not found")
@@ -731,10 +741,18 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         XCTAssertTrue(fastSpeedLabel.contains("2.0x") || fastSpeedLabel.contains("2x"),
             "Speed Control should show 2.0x after setting (got: '\(fastSpeedLabel)')")
 
-        // Verify playback is still advancing after speed change
-        // (simpler than complex stabilization - let measurement window handle rate variance)
+        // Resume playback after speed change
+        let playButton = app.buttons.matching(identifier: "Play").firstMatch
+        guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Play button not found after pause")
+            return
+        }
+        playButton.tap()
+        XCTContext.runActivity(named: "Resumed playback at 2.0x speed") { _ in }
+
+        // Verify playback is advancing at new speed
         guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
-            XCTFail("Playback should be advancing after changing to 2.0x speed")
+            XCTFail("Playback should be advancing after resuming at 2.0x speed")
             return
         }
 
