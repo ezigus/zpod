@@ -307,8 +307,8 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
   }
 
   func recordAudioDebugOverlay(_ context: String) {
-    let overlay = app.otherElements.matching(identifier: "Audio Debug Overlay").firstMatch
-    let text = overlay.exists ? overlay.label : "Audio Debug Overlay not found"
+    let overlay = audioDebugOverlayElement(timeout: adaptiveShortTimeout)
+    let text = overlay.flatMap { audioDebugOverlayLabel(for: $0) } ?? "Audio Debug Overlay not found"
     let attachment = XCTAttachment(string: text)
     let name = "Audio Debug Overlay (\(context))"
     attachment.name = name
@@ -316,6 +316,68 @@ extension PlaybackPositionTestSupport where Self: XCTestCase {
     XCTContext.runActivity(named: name) { activity in
       activity.add(attachment)
     }
+  }
+
+  func audioDebugOverlayText(timeout: TimeInterval = 2.0) -> String? {
+    guard let overlay = audioDebugOverlayElement(timeout: timeout) else { return nil }
+    return audioDebugOverlayLabel(for: overlay)
+  }
+
+  func audioDebugOverlayElement(timeout: TimeInterval = 2.0) -> XCUIElement? {
+    let overlay = app.descendants(matching: .any).matching(identifier: "Audio Debug Overlay").firstMatch
+    guard overlay.waitForExistence(timeout: timeout) else { return nil }
+    return overlay
+  }
+
+  func audioDebugEngineRate(from text: String) -> Double? {
+    parseAudioDebugValue(prefix: "engine rate:", from: text).flatMap { Double($0) }
+  }
+
+  func audioDebugPosition(from text: String) -> TimeInterval? {
+    guard let value = parseAudioDebugValue(prefix: "position:", from: text) else { return nil }
+    let parts = value.split(separator: "/")
+    guard let positionPart = parts.first else { return nil }
+    let cleaned = positionPart.replacingOccurrences(of: "s", with: "")
+    return Double(cleaned.trimmingCharacters(in: .whitespaces))
+  }
+
+  func audioDebugDuration(from text: String) -> TimeInterval? {
+    guard let value = parseAudioDebugValue(prefix: "position:", from: text) else { return nil }
+    let parts = value.split(separator: "/")
+    guard parts.count > 1 else { return nil }
+    let durationPart = parts[1].replacingOccurrences(of: "s", with: "")
+    return Double(durationPart.trimmingCharacters(in: .whitespaces))
+  }
+
+  func waitForAudioDebugRate(
+    _ targetRate: Double,
+    tolerance: Double = 0.05,
+    timeout: TimeInterval = 2.0
+  ) -> Bool {
+    guard let overlay = audioDebugOverlayElement(timeout: adaptiveShortTimeout) else { return false }
+    return waitForState(timeout: timeout, pollInterval: 0.1, description: "audio debug rate") {
+      guard let text = audioDebugOverlayLabel(for: overlay),
+            let rate = audioDebugEngineRate(from: text) else {
+        return false
+      }
+      return abs(rate - targetRate) <= tolerance
+    }
+  }
+
+  func audioDebugOverlayLabel(for element: XCUIElement) -> String? {
+    let label = element.label
+    if !label.isEmpty { return label }
+    return element.value as? String
+  }
+
+  private func parseAudioDebugValue(prefix: String, from text: String) -> String? {
+    for rawLine in text.split(separator: "\n") {
+      let line = rawLine.trimmingCharacters(in: .whitespaces)
+      guard line.hasPrefix(prefix) else { continue }
+      let value = line.dropFirst(prefix.count)
+      return value.trimmingCharacters(in: .whitespaces)
+    }
+    return nil
   }
 
   /// Parse time string "MM:SS" or "H:MM:SS" to seconds.

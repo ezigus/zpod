@@ -616,37 +616,190 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
     @MainActor
     func testPlaybackSpeedChangesPositionRate() throws {
-        launchApp()
+        launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
         guard startPlaybackFromPlayerTab() else {
             XCTFail("Failed to start playback from Player tab")
             return
         }
 
-        guard waitForPlayerTabAdvancement(timeout: avplayerTimeout) != nil else {
-            XCTFail("Playback should advance before speed measurement")
+        let initialPauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+        guard initialPauseButton.waitForExistence(timeout: adaptiveTimeout) else {
+            XCTFail("Pause button not found after starting playback")
+            return
+        }
+        initialPauseButton.tap()
+        XCTContext.runActivity(named: "Paused playback before baseline setup") { _ in }
+
+        // CRITICAL FIX: Explicitly set baseline speed to 1.0x (was implicit assumption)
+        // CI failure data showed baselineDelta=4.0s over 2.0s window → suggests baseline was at ~2.0x
+        XCTContext.runActivity(named: "Set baseline speed to 1.0x") { _ in
+            let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+            XCTAssertTrue(speedControl.waitForExistence(timeout: adaptiveShortTimeout),
+                "Speed Control button should exist")
+
+            // Check current speed before changing
+            let currentSpeedLabel = speedControl.label
+            XCTContext.runActivity(named: "Current speed before setting: \(currentSpeedLabel)") { _ in }
+
+            if !currentSpeedLabel.contains("1.0x") && !currentSpeedLabel.contains("1x") {
+                speedControl.tap()
+
+                let oneXOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.1.0x").firstMatch
+                XCTAssertTrue(oneXOption.waitForExistence(timeout: adaptiveShortTimeout),
+                    "1.0x speed option should exist")
+                oneXOption.tap()
+
+                // Wait for UI to settle (speed menu should close)
+                _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed UI settle") {
+                    !oneXOption.exists
+                }
+            }
+
+            // VERIFY speed was actually set to 1.0x by checking accessibility label
+            let updatedSpeedLabel = speedControl.label
+            XCTContext.runActivity(named: "Speed after setting to 1.0x: \(updatedSpeedLabel)") { _ in }
+            XCTAssertTrue(updatedSpeedLabel.contains("1.0x") || updatedSpeedLabel.contains("1x"),
+                "Speed Control should show 1.0x after setting (got: '\(updatedSpeedLabel)')")
+
+            XCTContext.runActivity(named: "Baseline speed confirmed at 1.0x") { _ in }
+        }
+
+        XCTContext.runActivity(named: "Ensure playback position near start") { _ in
+            guard let overlay = audioDebugOverlayElement(timeout: adaptiveShortTimeout) else {
+                recordAudioDebugOverlay("audio debug overlay missing before baseline")
+                XCTFail("Audio debug overlay not available for baseline setup")
+                return
+            }
+
+            guard let overlayText = audioDebugOverlayLabel(for: overlay),
+                  let initialPosition = audioDebugPosition(from: overlayText),
+                  let duration = audioDebugDuration(from: overlayText) else {
+                recordAudioDebugOverlay("audio debug parse failed before baseline")
+                XCTFail("Unable to parse audio debug overlay before baseline")
+                return
+            }
+
+            let safePositionLimit = min(3.0, duration * 0.2)
+            if initialPosition <= safePositionLimit {
+                XCTContext.runActivity(named: "Position already near start: \(String(format: "%.2f", initialPosition))s") { _ in }
+                return
+            }
+
+            let skipBackward = app.buttons.matching(identifier: "Skip Backward").firstMatch
+            guard skipBackward.waitForExistence(timeout: adaptiveShortTimeout) else {
+                recordAudioDebugOverlay("skip backward missing")
+                XCTFail("Skip Backward button not available for baseline setup")
+                return
+            }
+
+            var currentPosition = initialPosition
+            for attempt in 1...3 {
+                skipBackward.tap()
+
+                let moved = waitForState(timeout: 2.0, pollInterval: 0.1, description: "skip backward \(attempt)") {
+                    guard let updatedText = audioDebugOverlayLabel(for: overlay),
+                          let updatedPosition = audioDebugPosition(from: updatedText) else {
+                        return false
+                    }
+                    return updatedPosition < currentPosition
+                }
+
+                if !moved {
+                    recordAudioDebugOverlay("skip backward did not move")
+                    XCTFail("Skip Backward did not update playback position")
+                    return
+                }
+
+                guard let updatedText = audioDebugOverlayLabel(for: overlay),
+                      let updatedPosition = audioDebugPosition(from: updatedText) else {
+                    recordAudioDebugOverlay("skip backward parse failed")
+                    XCTFail("Unable to read position after skip backward")
+                    return
+                }
+
+                currentPosition = updatedPosition
+                if currentPosition <= safePositionLimit {
+                    XCTContext.runActivity(named: "Position reset to \(String(format: "%.2f", currentPosition))s") { _ in }
+                    break
+                }
+            }
+
+            if currentPosition > safePositionLimit {
+                recordAudioDebugOverlay("position still near end after skip back")
+                XCTFail("Playback position remained near end (\(String(format: "%.2f", currentPosition))s) after skip backward")
+            }
+        }
+
+        let baselinePlayButton = app.buttons.matching(identifier: "Play").firstMatch
+        guard baselinePlayButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            XCTFail("Play button not found before baseline measurement")
+            return
+        }
+        baselinePlayButton.tap()
+        XCTContext.runActivity(named: "Resumed playback for baseline measurement") { _ in }
+
+        guard let overlay = audioDebugOverlayElement(timeout: adaptiveShortTimeout) else {
+            recordAudioDebugOverlay("audio debug overlay missing before baseline")
+            XCTFail("Audio debug overlay not available for baseline measurement")
             return
         }
 
-        guard let baselineStart = playerTabSliderValue(),
-              let baselineStartPosition = extractCurrentPosition(from: baselineStart) else {
-            XCTFail("Unable to read baseline position")
+        let baselineRateConfirmed = waitForState(timeout: avplayerTimeout, pollInterval: 0.1, description: "baseline rate confirmation") {
+            guard let text = audioDebugOverlayLabel(for: overlay),
+                  let rate = audioDebugEngineRate(from: text) else {
+                return false
+            }
+            return abs(rate - 1.0) <= 0.1
+        }
+
+        guard baselineRateConfirmed else {
+            recordAudioDebugOverlay("baseline rate wait failed")
+            XCTFail("Audio engine rate did not settle at 1.0x before baseline measurement")
             return
         }
 
+        // Baseline measurement start (use audio debug overlay for fractional seconds)
+        guard let baselineStartText = audioDebugOverlayLabel(for: overlay),
+              let baselineStartPosition = audioDebugPosition(from: baselineStartText) else {
+            recordAudioDebugOverlay("baseline start read failed")
+            XCTFail("Unable to read baseline position from audio debug overlay")
+            return
+        }
+
+        let baselineStartRate = audioDebugEngineRate(from: baselineStartText)
+        XCTContext.runActivity(named: "Baseline Start") { _ in
+            XCTContext.runActivity(named: "Rate: \(baselineStartRate.map { String(format: "%.2f", $0) } ?? "nil")") { _ in }
+            XCTContext.runActivity(named: "Position: \(String(format: "%.2f", baselineStartPosition))s") { _ in }
+        }
+
+        let baselineWindow: TimeInterval = 1.0
         let baselineStartTime = Date()
-        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "baseline window") {
-            Date().timeIntervalSince(baselineStartTime) >= 2.0
+
+        _ = waitUntil(timeout: baselineWindow + 0.6, pollInterval: 0.1, description: "baseline window") { [self] in
+            Date().timeIntervalSince(baselineStartTime) >= baselineWindow
         }
 
-        guard let baselineEnd = playerTabSliderValue(),
-              let baselineEndPosition = extractCurrentPosition(from: baselineEnd) else {
-            XCTFail("Unable to read baseline end position")
+        let actualBaselineElapsed = Date().timeIntervalSince(baselineStartTime)
+
+        guard let baselineEndText = audioDebugOverlayLabel(for: overlay),
+              let baselineEndPosition = audioDebugPosition(from: baselineEndText) else {
+            recordAudioDebugOverlay("baseline end read failed")
+            XCTFail("Unable to read baseline end position from audio debug overlay")
             return
+        }
+
+        let baselineEndRate = audioDebugEngineRate(from: baselineEndText)
+        XCTContext.runActivity(named: "Baseline End") { _ in
+            XCTContext.runActivity(named: "Rate: \(baselineEndRate.map { String(format: "%.2f", $0) } ?? "nil")") { _ in }
+            XCTContext.runActivity(named: "Position: \(String(format: "%.2f", baselineEndPosition))s") { _ in }
         }
 
         let baselineDelta = baselineEndPosition - baselineStartPosition
-        XCTAssertGreaterThan(baselineDelta, 0.5,
+
+        XCTContext.runActivity(named: "Baseline window: target=\(String(format: "%.1f", baselineWindow))s, actual=\(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Baseline delta: \(String(format: "%.3f", baselineDelta))s") { _ in }
+        XCTAssertGreaterThan(baselineDelta, 0.2,
             "Baseline playback should advance before speed change")
 
         let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
@@ -663,25 +816,87 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         }
         speedOption.tap()
 
-        guard let fastStart = playerTabSliderValue(),
-              let fastStartPosition = extractCurrentPosition(from: fastStart) else {
-            XCTFail("Unable to read position after speed change")
+        // Wait for speed menu to close
+        _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed menu close") {
+            !speedOption.exists
+        }
+
+        // VERIFY speed was actually set to 2.0x by checking accessibility label
+        let fastSpeedLabel = speedControl.label
+        XCTContext.runActivity(named: "Speed after setting to 2.0x: \(fastSpeedLabel)") { _ in }
+        XCTAssertTrue(fastSpeedLabel.contains("2.0x") || fastSpeedLabel.contains("2x"),
+            "Speed Control should show 2.0x after setting (got: '\(fastSpeedLabel)')")
+
+        let fastWindow: TimeInterval = 1.0
+
+        let fastRateConfirmed = waitForState(timeout: 2.0, pollInterval: 0.1, description: "fast rate confirmation") {
+            guard let text = audioDebugOverlayLabel(for: overlay),
+                  let rate = audioDebugEngineRate(from: text) else {
+                return false
+            }
+            return rate >= 1.8
+        }
+
+        if !fastRateConfirmed {
+            recordAudioDebugOverlay("fast rate not confirmed")
+            XCTFail("Audio engine rate did not reach 2.0x before fast measurement")
             return
+        }
+
+        // Fast measurement start (use audio debug overlay for fractional seconds)
+        guard let fastStartText = audioDebugOverlayLabel(for: overlay),
+              let fastStartPosition = audioDebugPosition(from: fastStartText) else {
+            recordAudioDebugOverlay("fast start read failed")
+            XCTFail("Unable to read position after speed change from audio debug overlay")
+            return
+        }
+
+        let fastStartRate = audioDebugEngineRate(from: fastStartText)
+        XCTContext.runActivity(named: "Fast Start") { _ in
+            XCTContext.runActivity(named: "Rate: \(fastStartRate.map { String(format: "%.2f", $0) } ?? "nil")") { _ in }
+            XCTContext.runActivity(named: "Position: \(String(format: "%.2f", fastStartPosition))s") { _ in }
         }
 
         let fastStartTime = Date()
-        _ = waitUntil(timeout: 2.4, pollInterval: 0.1, description: "fast window") {
-            Date().timeIntervalSince(fastStartTime) >= 2.0
+
+        _ = waitUntil(timeout: fastWindow + 0.6, pollInterval: 0.1, description: "fast window") { [self] in
+            Date().timeIntervalSince(fastStartTime) >= fastWindow
         }
 
-        guard let fastEnd = playerTabSliderValue(),
-              let fastEndPosition = extractCurrentPosition(from: fastEnd) else {
-            XCTFail("Unable to read fast end position")
+        let actualFastElapsed = Date().timeIntervalSince(fastStartTime)
+
+        guard let fastEndText = audioDebugOverlayLabel(for: overlay),
+              let fastEndPosition = audioDebugPosition(from: fastEndText) else {
+            recordAudioDebugOverlay("fast end read failed")
+            XCTFail("Unable to read fast end position from audio debug overlay")
             return
         }
 
+        let fastEndRate = audioDebugEngineRate(from: fastEndText)
+        XCTContext.runActivity(named: "Fast End") { _ in
+            XCTContext.runActivity(named: "Rate: \(fastEndRate.map { String(format: "%.2f", $0) } ?? "nil")") { _ in }
+            XCTContext.runActivity(named: "Position: \(String(format: "%.2f", fastEndPosition))s") { _ in }
+        }
+
         let fastDelta = fastEndPosition - fastStartPosition
-        
+
+        XCTContext.runActivity(named: "Fast window: target=\(String(format: "%.1f", fastWindow))s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
+        XCTContext.runActivity(named: "Fast delta: \(String(format: "%.3f", fastDelta))s") { _ in }
+
+        // Compute and log measurements before assertion
+        let ratio = fastDelta / baselineDelta
+        let threshold = baselineDelta * 1.7
+        let passSummary = ratio >= 1.7
+            ? "YES"
+            : "NO (need \(String(format: "%.3f", threshold))s)"
+
+        XCTContext.runActivity(named: "Measurements") { _ in
+            XCTContext.runActivity(named: "Baseline: \(String(format: "%.3f", baselineDelta))s over \(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
+            XCTContext.runActivity(named: "Fast: \(String(format: "%.3f", fastDelta))s over \(String(format: "%.3f", actualFastElapsed))s") { _ in }
+            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold 1.7x)") { _ in }
+            XCTContext.runActivity(named: "Pass? \(passSummary)") { _ in }
+        }
+
         // Assert: Position should advance ~2x faster at 2.0x speed
         // Using 1.7x threshold (rather than 2.0x) to account for:
         // - AVPlayer buffering delays
@@ -698,12 +913,21 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     // MARK: - Helpers
 
     @MainActor
-    private func playerTabSliderValue() -> String? {
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    private func playerTabSlider() -> XCUIElement? {
+        let episodeDetail = app.otherElements.matching(identifier: "Episode Detail View").firstMatch
+        guard episodeDetail.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return nil
+        }
+        let slider = episodeDetail.sliders.matching(identifier: "Progress Slider").firstMatch
         guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
             return nil
         }
-        return slider.value as? String
+        return slider
+    }
+
+    @MainActor
+    private func playerTabSliderValue() -> String? {
+        playerTabSlider()?.value as? String
     }
 
     @MainActor
@@ -711,8 +935,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
         beyond initialValue: String? = nil,
         timeout: TimeInterval
     ) -> String? {
-        let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-        guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
+        guard let slider = playerTabSlider() else {
             return nil
         }
 
