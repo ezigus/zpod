@@ -102,22 +102,22 @@ This document outlines the UI testing approach for the main zpod application.
 
 - `spec/playback.md` - Audio Interruption Handling
 - `spec/playback.md` - Playing an Episode with Custom Speed
-- `spec/playback.md` - Playback Error Handling (blocked by Issue #269 / 03.3.4)
+- `spec/playback.md` - Playback Error Handling
 
 **Test Areas**:
 
-- Interruption handling (pause on interruption, resume when allowed) - ⏸️ Skipped (debug UI visibility issue)
+- Interruption handling (pause on interruption, resume when allowed) - ✅ Passing
 - Playback speed affects position advancement rate - ✅ Passing
 - Error UI for missing audio/network failure - ✅ Passing (accessible error message text + retry button now observable thanks to the error text accessibility improvements)
 
-**Test Coverage** (4 tests, 3 passing, 1 skipped):
+**Test Coverage** (4 tests, 4 passing):
 
 1. `testPlaybackSpeedChangesPositionRate` - ✅ Validates 2x speed advances position ~2x faster
-2. `testInterruptionPausesAndResumesPlayback` - ⏭️ Skipped (debug controls not visible)
+2. `testInterruptionPausesAndResumesPlayback` - ✅ Validates pause/resume on interruption notifications
 3. `testMissingAudioURLShowsErrorNoRetry` - ✅ Validates missing-audio message and no retry button
 4. `testNetworkErrorShowsRetryAndRecovers` - ✅ Validates network error message with retry button
 
-**Note**: Edge-case tests complement core playback tests by validating scenarios like interruptions, errors, and playback speed. Missing-audio and network-error tests now pass. This brings Issue 03.3.2.7 to 90% completion (9/10 tests). Only the interruption test remains blocked by the debug control visibility issue.
+**Note**: Edge-case tests complement core playback tests by validating scenarios like interruptions, errors, and playback speed. Issue 03.3.2.7 is now at 100% completion (10/10 tests).
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 

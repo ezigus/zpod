@@ -552,19 +552,9 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
 
     /// **Spec**: Audio Interruption Handling
     /// 
-    /// **NOTE**: This test is currently skipped due to UI visibility issues with debug controls.
-    /// The PlaybackDebugControlsView overlay doesn't appear consistently in the Player tab during
-    /// UI tests, preventing interaction with interruption simulation buttons.
-    /// 
-    /// **TODO**: Investigate alternative approaches:
-    /// 1. Move debug controls to a different location (bottom overlay?)
-    /// 2. Use notification-based triggering instead of UI buttons
-    /// 3. Add integration test that posts notifications directly
+    /// **Note**: Uses debug interruption controls gated by `UITEST_PLAYBACK_DEBUG`.
     @MainActor
     func testInterruptionPausesAndResumesPlayback() throws {
-        throw XCTSkip("Debug controls not accessible in Player tab - needs UI investigation")
-        
-        /* Original test code preserved for when UI issue is resolved:
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
         guard startPlaybackFromPlayerTab() else {
@@ -609,7 +599,6 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
             XCTFail("Playback should advance after interruption resumes")
             return
         }
-        */
     }
 
     // MARK: - Test 9: Speed Rate
