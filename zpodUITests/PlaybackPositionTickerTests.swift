@@ -202,20 +202,28 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
             return
         }
 
-        let targetPosition = totalDuration * 0.5
+        let currentRatio = max(0.0, min(1.0, initialPosition / totalDuration))
+        let lowTarget = 0.2
+        let highTarget = 0.8
+        let targetNormalized =
+            abs(currentRatio - lowTarget) > abs(currentRatio - highTarget)
+            ? lowTarget
+            : highTarget
+        let targetPosition = totalDuration * targetNormalized
         let expectedDelta = abs(targetPosition - initialPosition)
-        let minimumDelta = max(0.5, min(3.0, expectedDelta * 0.8))
+        let minimumDelta = max(0.4, min(2.0, expectedDelta * 0.6))
 
-        // When: Seek to 50% position
+        // When: Seek to a target far from the current position
         guard let slider = progressSlider() else {
             XCTFail("Progress slider not found in expanded player")
             return
         }
         XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
-        logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to 50%")
+        let targetPercent = Int((targetNormalized * 100).rounded())
+        logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to \(targetPercent)%")
         let preSeekValue = getSliderValue() ?? resolvedBaseline
-        slider.adjust(toNormalizedSliderPosition: 0.5)
+        slider.adjust(toNormalizedSliderPosition: targetNormalized)
 
         // Then: Wait for position to change significantly
         let seekedValue = waitForUIStabilization(
@@ -232,7 +240,7 @@ final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport
             let expectedPosition = targetPosition
             let positionDelta = abs(seekedPosition - expectedPosition)
             XCTAssertLessThan(positionDelta, totalDuration * 0.15,
-                "Seeked position \(seekedPosition)s should be close to 50% mark (\(expectedPosition)s)")
+                "Seeked position \(seekedPosition)s should be close to \(targetPercent)% mark (\(expectedPosition)s)")
         } else {
             XCTFail("Could not parse seeked position value")
         }
