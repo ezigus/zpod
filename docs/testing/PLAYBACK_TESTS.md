@@ -136,8 +136,8 @@ AVPlayer tests use relaxed tolerances to account for:
 
 | Job Name | Tests | Timeout | Execution Time | Blocking |
 |----------|-------|---------|----------------|----------|
-| `UITests-PlaybackTicker` | PlaybackPositionTickerTests (5) | 10 min | ~3 min | ✅ Yes |
-| `UITests-PlaybackAVPlayer` | PlaybackPositionAVPlayerTests (5) | 15 min | ~5 min | ✅ Yes |
+| `UITests-PlaybackTicker` | PlaybackPositionTickerTests (7) | 10 min | ~3 min | ✅ Yes |
+| `UITests-PlaybackAVPlayer` | PlaybackPositionAVPlayerTests (10) | 15 min | ~4 min | ✅ Yes |
 
 **Total CI Impact**: +5 minutes (runs in Wave 2 after other UI tests)
 

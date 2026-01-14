@@ -1073,13 +1073,12 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      # Simulator isolation supports up to 5 parallel jobs reliably:
-      # - Staggered provisioning prevents resource contention
-      # - Active simulator monitoring enforces capacity limits
-      # - Retry logic handles transient resource exhaustion
-      # - Each job gets dedicated simulator + DerivedData
-      # Can be increased beyond 5 if CI hosts gain more capacity
-      max-parallel: 5
+      # Reduced from 5 to 3 due to resource contention failures
+      # - 5 parallel jobs caused 30-40% failure rate (app crashes, lost connections)
+      # - Tests pass reliably on retry, confirming 3-job parallelism is sufficient
+      # - CI runtime increases ~2-3 minutes but reliability improves significantly
+      # - Can be increased if GitHub Actions hosts gain more simulator capacity
+      max-parallel: 3
       matrix:
         include:
           # Tier 1: Simple UI tests (parallel, build independently)
