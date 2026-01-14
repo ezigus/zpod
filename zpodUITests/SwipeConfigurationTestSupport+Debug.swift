@@ -63,22 +63,24 @@ extension SwipeConfigurationTestCase {
     )
     .firstMatch
     let hapticsToggle = element(withIdentifier: "SwipeActions.Haptics.Toggle")
-    if hapticsToggle.exists {
+    if materializationProbe.exists,
+       let value = materializationProbe.value as? String,
+       value.contains("Materialized=1")
+    {
       return true
     }
-    if materializationProbe.exists,
-      let value = materializationProbe.value as? String,
-      value.contains("Materialized=1")
-    {
+    if !materializationProbe.exists, hapticsToggle.exists {
       return true
     }
 
     let predicate = NSPredicate { _, _ in
-      if hapticsToggle.exists { return true }
-      if materializationProbe.exists, let value = materializationProbe.value as? String {
-        return value.contains("Materialized=1")
+      if materializationProbe.exists {
+        if let value = materializationProbe.value as? String {
+          return value.contains("Materialized=1")
+        }
+        return false
       }
-      return false
+      return hapticsToggle.exists
     }
     let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
     expectation.expectationDescription = "Wait for swipe sections to materialize"

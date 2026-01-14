@@ -52,9 +52,9 @@ Playback position tests validate that the UI correctly reflects playback state (
 
 | File | Purpose | Lines | Mode |
 |------|---------|-------|------|
-| `PlaybackPositionTestSupport.swift` | Shared protocol with navigation/assertion helpers | ~200 | N/A |
-| `PlaybackPositionTickerTests.swift` | Ticker mode tests (5 core tests) | ~180 | Ticker |
-| `PlaybackPositionAVPlayerTests.swift` | AVPlayer mode tests (5 core + 4 edge-case tests) | ~560 | AVPlayer |
+| `PlaybackPositionTestSupport.swift` | Shared protocol with navigation/assertion helpers | ~570 | N/A |
+| `PlaybackPositionTickerTests.swift` | Ticker mode tests (7 core tests) | ~390 | Ticker |
+| `PlaybackPositionAVPlayerTests.swift` | AVPlayer mode tests (6 core + 4 edge-case tests) | ~990 | AVPlayer |
 | `PlaybackPositionUITests.swift` | **DEPRECATED** - Original tests | ~300 | Ticker (implicit) |
 
 ### Test Scenarios (Both Suites)
@@ -76,13 +76,13 @@ All scenarios map to `zpod/spec/playback.md` - Core Playback Behavior:
 | Test Method | Spec Reference | Status | Validates |
 |-------------|----------------|--------|-----------|
 | `testPlaybackSpeedChangesPositionRate` | Playing Episode with Custom Speed | ✅ Passing | 2x speed advances position ~2x faster |
-| `testInterruptionPausesAndResumesPlayback` | Audio Interruption Handling | ⏸️ Skipped | Debug UI visibility issue |
+| `testInterruptionPausesAndResumesPlayback` | Audio Interruption Handling | ✅ Passing | Interruption pause/resume via debug controls |
 | `testMissingAudioURLShowsErrorNoRetry` | Episode Missing Audio URL | ✅ Passing | Missing-audio error UI now surfaces message and no retry button (03.3.4) |
 | `testNetworkErrorShowsRetryAndRecovers` | Network Error + Retry | ✅ Passing | Network error UI exposes retry button (03.3.4) |
 
-**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Missing-audio and network-error tests now pass thanks to the error message accessibility improvements implemented under 03.3.4.5. This brings Issue 03.3.2.7 to 90% completion (9/10 tests). Only the interruption test remains skipped due to the debug control visibility issue described above.
+**Note**: Edge-case tests validate scenarios beyond basic position/seek behavior. Issue 03.3.2.7 is now at 100% completion (10/10 tests).
 
-**Total Coverage**: 14 tests (5 ticker + 9 AVPlayer) validating 9 scenarios
+**Total Coverage**: 17 tests (7 ticker + 10 AVPlayer) validating 9 scenarios
 
 ## Key Implementation Details
 
@@ -111,7 +111,7 @@ Both test classes conform to `PlaybackPositionTestSupport`, which provides:
 | **Position tolerance** | ±0.1s | ±0.5s (real-time jitter) |
 | **Position source** | TimerTicker (deterministic) | AVPlayer time observer |
 | **Audio output** | None | Real audio streams |
-| **CI execution time** | ~15 seconds | ~30-45 seconds |
+| **CI execution time** | ~3 minutes | ~4 minutes |
 | **Flakiness risk** | Low | Medium (network/hardware) |
 | **Environment** | `UITEST_DISABLE_AUDIO_ENGINE=1` | No flag (production path) |
 | **What it validates** | UI state management, control logic | AVPlayer → UI integration pipeline |
@@ -136,8 +136,8 @@ AVPlayer tests use relaxed tolerances to account for:
 
 | Job Name | Tests | Timeout | Execution Time | Blocking |
 |----------|-------|---------|----------------|----------|
-| `UITests-PlaybackTicker` | PlaybackPositionTickerTests (5) | 10 min | ~3 min | ✅ Yes |
-| `UITests-PlaybackAVPlayer` | PlaybackPositionAVPlayerTests (5) | 15 min | ~5 min | ✅ Yes |
+| `UITests-PlaybackTicker` | PlaybackPositionTickerTests (7) | 10 min | ~3 min | ✅ Yes |
+| `UITests-PlaybackAVPlayer` | PlaybackPositionAVPlayerTests (10) | 15 min | ~4 min | ✅ Yes |
 
 **Total CI Impact**: +5 minutes (runs in Wave 2 after other UI tests)
 
@@ -160,8 +160,8 @@ AVPlayer tests use relaxed tolerances to account for:
 ./scripts/run-xcode-tests.sh -t zpodUITests/PlaybackPositionTickerTests,zpodUITests/PlaybackPositionAVPlayerTests
 
 # Expected output:
-# Test Suite 'PlaybackPositionTickerTests' passed (5 tests in ~15s)
-# Test Suite 'PlaybackPositionAVPlayerTests' passed (5 tests in ~90s)
+# Test Suite 'PlaybackPositionTickerTests' passed (7 tests in ~180s)
+# Test Suite 'PlaybackPositionAVPlayerTests' passed (10 tests in ~230s)
 ```
 
 ### Run Ticker Tests Only (Fast)
@@ -170,7 +170,7 @@ AVPlayer tests use relaxed tolerances to account for:
 ./scripts/run-xcode-tests.sh -t zpodUITests/PlaybackPositionTickerTests
 
 # Expected output:
-# Executed 5 tests, with 0 failures (0 unexpected) in 14.234 (14.567) seconds
+# Executed 7 tests, with 0 failures (0 unexpected) in 179.234 (180.567) seconds
 ```
 
 ### Run AVPlayer Tests Only (Real Audio)
@@ -179,7 +179,7 @@ AVPlayer tests use relaxed tolerances to account for:
 ./scripts/run-xcode-tests.sh -t zpodUITests/PlaybackPositionAVPlayerTests
 
 # Expected output:
-# Executed 5 tests, with 0 failures (0 unexpected) in 87.456 (88.123) seconds
+# Executed 10 tests, with 0 failures (0 unexpected) in 227.769 (228.123) seconds
 ```
 
 ### Enable Debug Logging

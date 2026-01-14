@@ -138,7 +138,6 @@ extension EpisodeDetailView {
       .padding(8)
       .background(Color.black.opacity(0.6))
       .cornerRadius(8)
-      .accessibilityIdentifier("Playback Debug Controls")
       .zIndex(1000)  // Ensure overlay stays on top
     }
 
