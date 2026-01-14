@@ -17,7 +17,6 @@
 
 import OSLog
 import XCTest
-
 /// UI tests for playback position using the AVPlayer engine (real audio).
 ///
 /// These tests validate the full audio pipeline integration:
@@ -28,6 +27,9 @@ import XCTest
 /// - Longer timeouts account for buffering and network latency
 /// - Tolerances increased for real-time playback jitter
 /// - Validates production audio path end-to-end
+///
+/// - Note: Type body length rule disabled due to comprehensive test coverage
+// swiftlint:disable:next type_body_length
 final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSupport {
 
     nonisolated(unsafe) var app: XCUIApplication!
@@ -604,6 +606,7 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     // MARK: - Test 9: Speed Rate
 
     @MainActor
+    // swiftlint:disable:next function_body_length
     func testPlaybackSpeedChangesPositionRate() throws {
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 

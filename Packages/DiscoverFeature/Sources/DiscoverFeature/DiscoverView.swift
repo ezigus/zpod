@@ -450,7 +450,6 @@ public struct DiscoverView: View {
     }
 }
 
-
 #else
 import SwiftUI
 import CoreModels

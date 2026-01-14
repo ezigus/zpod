@@ -1,5 +1,4 @@
 import XCTest
-
 /// UI tests for content discovery and search interface functionality
 ///
 /// **Specifications Covered**: `spec/ui.md` - Search and discovery sections
@@ -8,6 +7,9 @@ import XCTest
 /// - Subscription management interface testing
 /// - Filter and sort controls validation
 /// - Content recommendation displays
+///
+/// - Note: Type body length rule disabled due to comprehensive test coverage
+// swiftlint:disable:next type_body_length
 final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
 
   nonisolated(unsafe) var app: XCUIApplication!

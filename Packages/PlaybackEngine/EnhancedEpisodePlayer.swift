@@ -186,7 +186,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
         )
       }
 
-      if let _ = audioEngine, let audioURL = episode.audioURL {
+      if audioEngine != nil, let audioURL = episode.audioURL {
         // Production mode: Use actual audio playback
         if isDebugAudio {
           NSLog("[TestAudio] Starting audio engine playback with URL: %@", audioURL.absoluteString)
