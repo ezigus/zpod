@@ -14,7 +14,6 @@ import SwiftData
 /// - In-memory mode verification (UI tests should not persist)
 /// - Persistence layer integration with app infrastructure
 @available(iOS 17, macOS 14, watchOS 10, *)
-@MainActor
 final class PodcastPersistenceIntegrationTests: XCTestCase {
 
     // MARK: - Properties
