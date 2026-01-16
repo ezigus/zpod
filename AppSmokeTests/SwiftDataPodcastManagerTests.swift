@@ -18,7 +18,6 @@ import Foundation
 /// - Domain/entity conversion logic
 /// - Data persistence across updates
 @available(iOS 17, macOS 14, watchOS 10, *)
-@MainActor
 final class SwiftDataPodcastManagerTests: XCTestCase {
 
     // MARK: - Properties
