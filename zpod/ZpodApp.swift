@@ -12,10 +12,7 @@ import UIKit
 #if canImport(LibraryFeature)
   import SwiftData
   import LibraryFeature
-  // TECHNICAL DEBT: Using InMemoryPodcastManager from zpod/Controllers/PodcastManager.swift
-  // This is temporary scaffolding until persistent PodcastRepository is implemented.
-  // See Issue 27.1.1 for persistent implementation plan.
-  // TODO: [Issue 27.1.2] Migrate to PodcastRepository (Persistence package)
+  import Persistence
 #endif
 
 // Notification posted when app initializes - debug tools can listen for this
@@ -60,6 +57,7 @@ struct ZpodApp: App {
 
   #if canImport(LibraryFeature)
     // Create model container as a static property to ensure single instance
+    @available(iOS 17, *)
     private static let sharedModelContainer: ModelContainer = {
       // Detect UI testing environment early
       let isUITesting =
@@ -69,7 +67,10 @@ struct ZpodApp: App {
         print("🧪 UI Test mode - creating in-memory ModelContainer")
         do {
           let config = ModelConfiguration(isStoredInMemoryOnly: true)
-          let container = try ModelContainer(for: LibraryFeature.Item.self, configurations: config)
+          let container = try ModelContainer(
+            for: LibraryFeature.Item.self, PodcastEntity.self,
+            configurations: config
+          )
           print("✅ UI Test: Successfully created in-memory ModelContainer")
           return container
         } catch {
@@ -79,7 +80,7 @@ struct ZpodApp: App {
       } else {
         print("📱 Production mode - creating persistent ModelContainer")
         do {
-          let schema = Schema([LibraryFeature.Item.self])
+          let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self])
           let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
           let container = try ModelContainer(for: schema, configurations: [config])
           print("✅ Production: Successfully created persistent ModelContainer")
@@ -93,7 +94,10 @@ struct ZpodApp: App {
   #endif
 
   #if canImport(LibraryFeature)
-    private static let sharedPodcastManager: InMemoryPodcastManager = InMemoryPodcastManager()
+    @available(iOS 17, *)
+    private static let sharedPodcastManager: SwiftDataPodcastManager = {
+      SwiftDataPodcastManager(modelContainer: sharedModelContainer)
+    }()
   #endif
 
   var body: some Scene {
