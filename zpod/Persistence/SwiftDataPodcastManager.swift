@@ -36,20 +36,8 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
     /// Creates a new podcast manager.
     ///
     /// - Parameter modelContainer: SwiftData model container (must include PodcastEntity schema)
-    public init(modelContainer: ModelContainer) {
-        self.modelContainer = modelContainer
-        let queue = DispatchQueue(label: "us.zig.zpod.SwiftDataPodcastManager")
-        self.serialQueue = queue
-        var context: ModelContext?
-        queue.sync {
-            context = ModelContext(modelContainer)
-        }
-        guard let context else {
-            fatalError("Failed to create ModelContext on SwiftDataPodcastManager queue.")
-        }
-        self.modelContext = context
-        self.siriSnapshotRefresher = nil
-        logger.info("SwiftDataPodcastManager initialized")
+    public convenience init(modelContainer: ModelContainer) {
+        self.init(modelContainer: modelContainer, siriSnapshotRefresher: nil)
     }
 
     init(
@@ -129,21 +117,7 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
                 return false
             }
 
-            let resolvedIsSubscribed = resolveIsSubscribed(for: podcast, existing: entity)
-            let resolvedPodcast = Podcast(
-                id: podcast.id,
-                title: podcast.title,
-                author: podcast.author,
-                description: podcast.description,
-                artworkURL: podcast.artworkURL,
-                feedURL: podcast.feedURL,
-                categories: podcast.categories,
-                episodes: podcast.episodes,
-                isSubscribed: resolvedIsSubscribed,
-                dateAdded: entity.dateAdded,
-                folderId: podcast.folderId,
-                tagIds: podcast.tagIds
-            )
+            let resolvedPodcast = makePodcast(from: podcast, entity: entity)
             entity.updateFrom(resolvedPodcast)
 
             do {
@@ -244,34 +218,10 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
                 let resetEpisodes = podcast.episodes.map { episode in
                     episode.withPlaybackPosition(0)
                 }
-                let updatedPodcast = Podcast(
-                    id: podcast.id,
-                    title: podcast.title,
-                    author: podcast.author,
-                    description: podcast.description,
-                    artworkURL: podcast.artworkURL,
-                    feedURL: podcast.feedURL,
-                    categories: podcast.categories,
-                    episodes: resetEpisodes,
-                    isSubscribed: podcast.isSubscribed,
-                    dateAdded: podcast.dateAdded,
-                    folderId: podcast.folderId,
-                    tagIds: podcast.tagIds
-                )
-                let resolvedIsSubscribed = resolveIsSubscribed(for: updatedPodcast, existing: entity)
-                let resolvedPodcast = Podcast(
-                    id: updatedPodcast.id,
-                    title: updatedPodcast.title,
-                    author: updatedPodcast.author,
-                    description: updatedPodcast.description,
-                    artworkURL: updatedPodcast.artworkURL,
-                    feedURL: updatedPodcast.feedURL,
-                    categories: updatedPodcast.categories,
-                    episodes: updatedPodcast.episodes,
-                    isSubscribed: resolvedIsSubscribed,
-                    dateAdded: entity.dateAdded,
-                    folderId: updatedPodcast.folderId,
-                    tagIds: updatedPodcast.tagIds
+                let resolvedPodcast = makePodcast(
+                    from: podcast,
+                    entity: entity,
+                    episodes: resetEpisodes
                 )
                 entity.updateFrom(resolvedPodcast)
                 didUpdate = true
@@ -332,6 +282,28 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
             return []
         }
         return entities
+    }
+
+    private func makePodcast(
+        from podcast: Podcast,
+        entity: PodcastEntity,
+        episodes: [Episode]? = nil
+    ) -> Podcast {
+        let resolvedIsSubscribed = resolveIsSubscribed(for: podcast, existing: entity)
+        return Podcast(
+            id: podcast.id,
+            title: podcast.title,
+            author: podcast.author,
+            description: podcast.description,
+            artworkURL: podcast.artworkURL,
+            feedURL: podcast.feedURL,
+            categories: podcast.categories,
+            episodes: episodes ?? podcast.episodes,
+            isSubscribed: resolvedIsSubscribed,
+            dateAdded: entity.dateAdded,
+            folderId: podcast.folderId,
+            tagIds: podcast.tagIds
+        )
     }
 
     private func resolveIsSubscribed(for podcast: Podcast, existing: PodcastEntity) -> Bool {
