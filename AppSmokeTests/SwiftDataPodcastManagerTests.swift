@@ -222,12 +222,12 @@ final class SwiftDataPodcastManagerTests: XCTestCase {
         XCTAssertEqual(retrieved?.description, "Updated Description")
     }
 
-    func testUpdate_PreservesIsSubscribedWhenMetadataChanges() {
+    func testUpdate_HonorsIsSubscribedWhenMetadataChanges() {
         // Given: A subscribed podcast in storage
         let original = makeSamplePodcast(id: "subscribed", title: "Original", isSubscribed: true)
         manager.add(original)
 
-        // When: Updating metadata but passing isSubscribed false
+        // When: Updating metadata while explicitly changing subscription
         let updated = Podcast(
             id: original.id,
             title: "Updated Title",
@@ -244,9 +244,9 @@ final class SwiftDataPodcastManagerTests: XCTestCase {
         )
         manager.update(updated)
 
-        // Then: Subscription should remain true (metadata updates should not unsubscribe)
+        // Then: Subscription should reflect the explicit change
         let retrieved = manager.find(id: "subscribed")
-        XCTAssertEqual(retrieved?.isSubscribed, true)
+        XCTAssertEqual(retrieved?.isSubscribed, false)
     }
 
     func testUpdate_AllowsIsSubscribedChangeWhenOnlySubscriptionChanges() {

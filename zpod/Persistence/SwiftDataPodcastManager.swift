@@ -307,18 +307,10 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
     }
 
     private func resolveIsSubscribed(for podcast: Podcast, existing: PodcastEntity) -> Bool {
-        let sameExceptSubscription = (
-            existing.title == podcast.title
-            && existing.author == podcast.author
-            && existing.podcastDescription == podcast.description
-            && existing.artworkURLString == podcast.artworkURL?.absoluteString
-            && existing.feedURLString == podcast.feedURL.absoluteString
-            && existing.categories == podcast.categories
-            && existing.dateAdded == podcast.dateAdded
-            && existing.folderId == podcast.folderId
-            && existing.tagIds == podcast.tagIds
-        )
-        return sameExceptSubscription ? podcast.isSubscribed : existing.isSubscribed
+        if podcast.isSubscribed != existing.isSubscribed {
+            return podcast.isSubscribed
+        }
+        return existing.isSubscribed
     }
 
     private func refreshSiriSnapshotsIfNeeded() {
