@@ -3,6 +3,10 @@ import OSLog
 import CoreModels
 import SharedUtilities
 
+protocol SiriSnapshotRefreshing: Sendable {
+    func refreshAll()
+}
+
 @available(iOS 14.0, *)
 struct SiriSnapshotCoordinator {
     private let logger = Logger(subsystem: "us.zig.zpod", category: "SiriSnapshotCoordinator")
@@ -51,3 +55,6 @@ struct SiriSnapshotCoordinator {
         return SiriPodcastSnapshot(id: podcast.id, title: podcast.title, episodes: episodes)
     }
 }
+
+@available(iOS 14.0, *)
+extension SiriSnapshotCoordinator: SiriSnapshotRefreshing {}

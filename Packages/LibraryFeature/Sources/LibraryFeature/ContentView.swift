@@ -22,7 +22,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #if canImport(DiscoverFeature)
   import DiscoverFeature
   import SearchDomain
-  import TestSupport
 #else
   // Fallback placeholder when DiscoverFeature module isn't linked
   struct DiscoverView: View {
@@ -426,9 +425,8 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
 
-    public init(podcastManager: PodcastManaging? = nil) {
-      // Use provided podcast manager or create a new one (for backward compatibility)
-      self.podcastManager = podcastManager ?? InMemoryPodcastManager()
+    public init(podcastManager: PodcastManaging) {
+      self.podcastManager = podcastManager
 
       // Create search index sources (empty for now, will be populated as content is added)
       let searchSources: [SearchIndexSource] = []
@@ -1112,8 +1110,95 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     }
   }
 
+  private final class PreviewPodcastManager: PodcastManaging, @unchecked Sendable {
+    private var storage: [String: Podcast]
+
+    init(initial: [Podcast] = PreviewPodcastData.samplePodcasts) {
+      storage = Dictionary(uniqueKeysWithValues: initial.map { ($0.id, $0) })
+    }
+
+    func all() -> [Podcast] { Array(storage.values) }
+    func find(id: String) -> Podcast? { storage[id] }
+    func add(_ podcast: Podcast) { storage[podcast.id] = podcast }
+    func update(_ podcast: Podcast) { storage[podcast.id] = podcast }
+    func remove(id: String) { storage.removeValue(forKey: id) }
+
+    func findByFolder(folderId: String) -> [Podcast] {
+      storage.values.filter { $0.folderId == folderId }
+    }
+
+    func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] {
+      var podcasts = findByFolder(folderId: folderId)
+      let descendants = folderManager.getDescendants(of: folderId)
+      for folder in descendants {
+        podcasts.append(contentsOf: findByFolder(folderId: folder.id))
+      }
+      return podcasts
+    }
+
+    func findByTag(tagId: String) -> [Podcast] {
+      storage.values.filter { $0.tagIds.contains(tagId) }
+    }
+
+    func findUnorganized() -> [Podcast] {
+      storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
+    }
+  }
+
+  private enum PreviewPodcastData {
+    static let sampleEpisodes: [Episode] = [
+      Episode(
+        id: "preview-episode-1",
+        title: "Swift Concurrency Deep Dive",
+        podcastID: "preview-pod-1",
+        podcastTitle: "Swift Signals",
+        duration: 1_800,
+        description: "A focused look at actors and structured concurrency."
+      ),
+      Episode(
+        id: "preview-episode-2",
+        title: "Designing Resilient Feeds",
+        podcastID: "preview-pod-2",
+        podcastTitle: "Feed Forward",
+        duration: 1_650,
+        description: "Handling flaky RSS feeds without breaking UX."
+      ),
+    ]
+
+    static let samplePodcasts: [Podcast] = [
+      Podcast(
+        id: "preview-pod-1",
+        title: "Swift Signals",
+        author: "Zpod Labs",
+        description: "Weekly Swift engineering interviews.",
+        artworkURL: URL(string: "https://example.com/swift-signals.png"),
+        feedURL: URL(string: "https://example.com/swift-signals.rss")!,
+        categories: ["Development"],
+        episodes: sampleEpisodes,
+        isSubscribed: true
+      ),
+      Podcast(
+        id: "preview-pod-2",
+        title: "Feed Forward",
+        author: "Metadata Monthly",
+        description: "Practical RSS tips and platform insights.",
+        artworkURL: URL(string: "https://example.com/feed-forward.png"),
+        feedURL: URL(string: "https://example.com/feed-forward.rss")!,
+        categories: ["Product", "News"],
+        episodes: sampleEpisodes.map { episode in
+          var copy = episode
+          copy.id = "preview-\(episode.id)"
+          copy.podcastID = "preview-pod-2"
+          copy.podcastTitle = "Feed Forward"
+          return copy
+        },
+        isSubscribed: false
+      ),
+    ]
+  }
+
   #Preview {
-    ContentView()
+    ContentView(podcastManager: PreviewPodcastManager())
       .modelContainer(for: Item.self, inMemory: true)
   }
 

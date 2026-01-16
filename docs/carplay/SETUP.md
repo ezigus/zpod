@@ -80,7 +80,7 @@ import CarPlay
 struct ZpodApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(podcastManager: Self.sharedPodcastManager)
         }
         #if canImport(LibraryFeature)
         .modelContainer(Self.sharedModelContainer)
