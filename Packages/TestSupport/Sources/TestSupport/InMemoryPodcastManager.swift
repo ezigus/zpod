@@ -11,6 +11,10 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   private var storage: [String: Podcast] = [:]
   private let siriSnapshotRefresher: SiriSnapshotRefreshing?
 
+  /// Creates an in-memory podcast manager for tests and previews.
+  ///
+  /// - Parameter initial: Initial podcasts to seed the store.
+  /// - Parameter siriSnapshotRefresher: Optional refresher for Siri snapshot updates.
   public init(initial: [Podcast] = [], siriSnapshotRefresher: SiriSnapshotRefreshing? = nil) {
     self.siriSnapshotRefresher = siriSnapshotRefresher
     for p in initial { storage[p.id] = p }

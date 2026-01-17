@@ -11,6 +11,12 @@ import Foundation
 ///
 /// ## Thread Safety
 /// Implementations should be thread-safe (`Sendable`) as refresh may be called from any context.
+///
+/// ## When to Call `refreshAll()`
+/// Invoke after mutations that change the podcast library or episode state:
+/// - Adding or removing podcasts
+/// - Updating podcast metadata or organization
+/// - Resetting or updating episode playback state
 public protocol SiriSnapshotRefreshing: Sendable {
     /// Refreshes all podcast snapshots for Siri media queries.
     ///

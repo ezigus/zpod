@@ -488,7 +488,7 @@ final class ComprehensiveInMemoryPodcastManagerTests: XCTestCase {
         manager.update(podcast)
         manager.remove(id: "no-refresher")
 
-        // Then: Should not crash (no assertion needed - just verify no exception)
-        XCTAssertTrue(manager.all().isEmpty)
+        // Then: Operations complete and state reflects removal
+        XCTAssertTrue(manager.all().isEmpty, "Expected the podcast to be removed after mutations")
     }
 }
