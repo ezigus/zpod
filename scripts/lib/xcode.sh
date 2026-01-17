@@ -290,6 +290,207 @@ select_destination() {
   return 0
 }
 
+reset_core_simulator_service() {
+  command_exists xcrun || return
+  set +e
+  xcrun simctl shutdown all >/dev/null 2>&1
+  killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1
+  set -e
+}
+
+is_sim_boot_failure_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+  if grep -qi "Unable to boot the Simulator" "$log_path"; then
+    return 0
+  fi
+  if grep -qi "Failed to prepare device" "$log_path"; then
+    return 0
+  fi
+  return 1
+}
+
+is_system_test_bundle_failure_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+
+  local -a patterns=(
+    "Failed to create a bundle instance representing"
+    "Failed to load the test bundle"
+    "The bundle at .*\\.xctest.*could not be loaded"
+    "xctest.*could not be loaded"
+    "Test runner exited before executing tests"
+  )
+
+  local pattern
+  for pattern in "${patterns[@]}"; do
+    if grep -Eqi "$pattern" "$log_path"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+latest_ios_runtime_id() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local runtime_id=""
+  set +e
+  runtime_id=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
+import json, sys
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+runtimes = [
+  r for r in data.get("runtimes", [])
+  if r.get("platform") == "iOS" and r.get("isAvailable", True)
+]
+if not runtimes:
+  sys.exit(1)
+def version_key(rt):
+  ver = rt.get("version") or ""
+  parts = []
+  for part in str(ver).replace("-", ".").split("."):
+    try:
+      parts.append(int(part))
+    except Exception:
+      parts.append(-1)
+  return parts
+runtimes = sorted(runtimes, key=version_key, reverse=True)
+print(runtimes[0].get("identifier", ""))
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  [[ -n "$runtime_id" ]] || return 1
+  printf "%s" "$runtime_id"
+}
+
+list_ios_runtime_ids() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local output
+  set +e
+  output=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
+import json, sys
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+runtimes = [
+  r for r in data.get("runtimes", [])
+  if r.get("platform") == "iOS" and r.get("isAvailable", True)
+]
+if not runtimes:
+  sys.exit(1)
+def version_key(rt):
+  ver = rt.get("version") or ""
+  parts = []
+  for part in str(ver).replace("-", ".").split("."):
+    try:
+      parts.append(int(part))
+    except Exception:
+      parts.append(-1)
+  return parts
+runtimes = sorted(runtimes, key=version_key, reverse=True)
+for rt in runtimes:
+  ident = rt.get("identifier")
+  if ident:
+    print(ident)
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  printf "%s" "$output"
+}
+
+pick_device_type_identifier() {
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local -a preferred_names=(
+    "iPhone 17 Pro"
+    "iPhone 17"
+    "iPhone 16 Pro"
+    "iPhone 16"
+    "iPhone 15 Pro"
+    "iPhone 15"
+    "iPhone 14"
+    "iPhone SE (3rd generation)"
+  )
+
+  local encoded_names
+  encoded_names=$(printf "%s|" "${preferred_names[@]}")
+  encoded_names="${encoded_names%|}"
+
+  local identifier=""
+  set +e
+  identifier=$(xcrun simctl list devicetypes -j 2>/dev/null | python3 - "$encoded_names" <<'PY'
+import json, sys
+
+preferred = sys.argv[1].split("|")
+try:
+  data = json.load(sys.stdin)
+except Exception:
+  sys.exit(1)
+
+types = data.get("devicetypes", [])
+lookup = {t.get("name"): t.get("identifier") for t in types}
+for name in preferred:
+  ident = lookup.get(name)
+  if ident:
+    print(ident)
+    sys.exit(0)
+sys.exit(1)
+PY
+)
+  local status=$?
+  set -e
+  (( status == 0 )) || return 1
+  [[ -n "$identifier" ]] || return 1
+  printf "%s" "$identifier"
+}
+
+create_ephemeral_simulator() {
+  local device_type
+  device_type=$(pick_device_type_identifier) || return 1
+
+  local runtime_list
+  runtime_list=$(list_ios_runtime_ids) || return 1
+
+  local runtime_id
+  while IFS= read -r runtime_id; do
+    [[ -z "$runtime_id" ]] && continue
+    local name="zpod-temp-$(date +%s)-$$-$RANDOM"
+    local udid=""
+    set +e
+    udid=$(xcrun simctl create "$name" "$device_type" "$runtime_id" 2>&1)
+    local status=$?
+    set -e
+    if (( status == 0 )) && [[ -n "$udid" ]]; then
+      printf "%s" "$udid"
+      return 0
+    fi
+    log_warn "simctl create failed for runtime ${runtime_id} with status ${status}: ${udid}"
+  done <<< "$runtime_list"
+
+  return 1
+}
+
+cleanup_ephemeral_simulator() {
+  local udid="$1"
+  [[ -n "$udid" ]] || return
+  set +e
+  xcrun simctl shutdown "$udid" >/dev/null 2>&1
+  xcrun simctl delete "$udid" >/dev/null 2>&1
+  set -e
+}
+
 xcodebuild_wrapper() {
   local -a args=("$@")
   log_info "xcodebuild ${args[*]}"

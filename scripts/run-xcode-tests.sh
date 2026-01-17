@@ -380,9 +380,36 @@ run_ui_test_suites() {
   fi
 
   local any_failed=0
+  local use_fresh_sim=0
+  if [[ "${ZPOD_UI_TEST_FRESH_SIM:-0}" == "1" ]]; then
+    use_fresh_sim=1
+  fi
+  local original_sim_udid="${ZPOD_SIMULATOR_UDID:-}"
+
   for suite in "${suites[@]}"; do
+    local temp_sim_udid=""
+    if (( use_fresh_sim == 1 )); then
+      log_info "Provisioning fresh simulator for UI suite ${suite}..."
+      if temp_sim_udid=$(create_ephemeral_simulator 2>/dev/null); then
+        log_info "Using simulator id=${temp_sim_udid} for UI suite ${suite}"
+        export ZPOD_SIMULATOR_UDID="$temp_sim_udid"
+      else
+        log_warn "Failed to provision fresh simulator for ${suite}; using default destination"
+      fi
+    fi
+
     if ! execute_phase "UI tests ${suite}" "test" run_test_target "zpodUITests/${suite}"; then
       any_failed=1
+    fi
+
+    if [[ -n "$temp_sim_udid" ]]; then
+      cleanup_ephemeral_simulator "$temp_sim_udid"
+      temp_sim_udid=""
+    fi
+    if [[ -n "$original_sim_udid" ]]; then
+      export ZPOD_SIMULATOR_UDID="$original_sim_udid"
+    else
+      unset ZPOD_SIMULATOR_UDID
     fi
   done
   if (( any_failed == 1 )); then
@@ -390,184 +417,41 @@ run_ui_test_suites() {
   fi
 }
 
-is_sim_boot_failure_log() {
-  local log_path="$1"
-  [[ -f "$log_path" ]] || return 1
-  if grep -qi "Unable to boot the Simulator" "$log_path"; then
+retry_with_fresh_sim() {
+  local label="$1"
+  local reason="$2"
+  local runner="${3:-run_tests_once}"
+
+  if [[ "${retry_attempted:-0}" -ne 0 ]]; then
     return 0
   fi
-  if grep -qi "Failed to prepare device" "$log_path"; then
-    return 0
+  retry_attempted=1
+
+  log_warn "${reason}; resetting CoreSimulator service..."
+  reset_core_simulator_service
+  if [[ -n "${temp_sim_udid:-}" ]]; then
+    cleanup_ephemeral_simulator "$temp_sim_udid"
+    temp_sim_udid=""
   fi
-  return 1
-}
 
-reset_core_simulator_service() {
-  command_exists xcrun || return
-  set +e
-  xcrun simctl shutdown all >/dev/null 2>&1
-  killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1
-  set -e
-}
-
-latest_ios_runtime_id() {
-  command_exists xcrun || return 1
-  command_exists python3 || return 1
-
-  local runtime_id=""
-  set +e
-  runtime_id=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
-import json, sys
-try:
-  data = json.load(sys.stdin)
-except Exception:
-  sys.exit(1)
-runtimes = [
-  r for r in data.get("runtimes", [])
-  if r.get("platform") == "iOS" and r.get("isAvailable", True)
-]
-if not runtimes:
-  sys.exit(1)
-def version_key(rt):
-  ver = rt.get("version") or ""
-  parts = []
-  for part in str(ver).replace("-", ".").split("."):
-    try:
-      parts.append(int(part))
-    except Exception:
-      parts.append(-1)
-  return parts
-runtimes = sorted(runtimes, key=version_key, reverse=True)
-print(runtimes[0].get("identifier", ""))
-PY
-)
-  local status=$?
-  set -e
-  (( status == 0 )) || return 1
-  [[ -n "$runtime_id" ]] || return 1
-  printf "%s" "$runtime_id"
-}
-
-list_ios_runtime_ids() {
-  command_exists xcrun || return 1
-  command_exists python3 || return 1
-
-  local output
-  set +e
-  output=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
-import json, sys
-try:
-  data = json.load(sys.stdin)
-except Exception:
-  sys.exit(1)
-runtimes = [
-  r for r in data.get("runtimes", [])
-  if r.get("platform") == "iOS" and r.get("isAvailable", True)
-]
-if not runtimes:
-  sys.exit(1)
-def version_key(rt):
-  ver = rt.get("version") or ""
-  parts = []
-  for part in str(ver).replace("-", ".").split("."):
-    try:
-      parts.append(int(part))
-    except Exception:
-      parts.append(-1)
-  return parts
-runtimes = sorted(runtimes, key=version_key, reverse=True)
-for rt in runtimes:
-  ident = rt.get("identifier")
-  if ident:
-    print(ident)
-PY
-)
-  local status=$?
-  set -e
-  (( status == 0 )) || return 1
-  printf "%s" "$output"
-}
-
-pick_device_type_identifier() {
-  command_exists xcrun || return 1
-  command_exists python3 || return 1
-
-  local -a preferred_names=(
-    "iPhone 17 Pro"
-    "iPhone 17"
-    "iPhone 16 Pro"
-    "iPhone 16"
-    "iPhone 15 Pro"
-    "iPhone 15"
-    "iPhone 14"
-    "iPhone SE (3rd generation)"
-  )
-
-  local encoded_names
-  encoded_names=$(printf "%s|" "${preferred_names[@]}")
-  encoded_names="${encoded_names%|}"
-
-  local identifier=""
-  set +e
-  identifier=$(xcrun simctl list devicetypes -j 2>/dev/null | python3 - "$encoded_names" <<'PY'
-import json, sys
-
-preferred = sys.argv[1].split("|")
-try:
-  data = json.load(sys.stdin)
-except Exception:
-  sys.exit(1)
-
-types = data.get("devicetypes", [])
-lookup = {t.get("name"): t.get("identifier") for t in types}
-for name in preferred:
-  ident = lookup.get(name)
-  if ident:
-    print(ident)
-    sys.exit(0)
-sys.exit(1)
-PY
-)
-  local status=$?
-  set -e
-  (( status == 0 )) || return 1
-  [[ -n "$identifier" ]] || return 1
-  printf "%s" "$identifier"
-}
-
-create_ephemeral_simulator() {
-  local device_type
-  device_type=$(pick_device_type_identifier) || return 1
-
-  local runtime_list
-  runtime_list=$(list_ios_runtime_ids) || return 1
-
-  local runtime_id
-  while IFS= read -r runtime_id; do
-    [[ -z "$runtime_id" ]] && continue
-    local name="zpod-temp-$(date +%s)"
-    local udid=""
-    set +e
-    udid=$(xcrun simctl create "$name" "$device_type" "$runtime_id" 2>&1)
-    local status=$?
-    set -e
-    if (( status == 0 )) && [[ -n "$udid" ]]; then
-      printf "%s" "$udid"
-      return 0
-    fi
-    log_warn "simctl create failed for runtime ${runtime_id} with status ${status}: ${udid}"
-  done <<< "$runtime_list"
-
-  return 1
-}
-
-cleanup_ephemeral_simulator() {
-  local udid="$1"
-  [[ -n "$udid" ]] || return
-  set +e
-  xcrun simctl shutdown "$udid" >/dev/null 2>&1
-  xcrun simctl delete "$udid" >/dev/null 2>&1
-  set -e
+  log_warn "Retrying ${label} with a freshly created simulator..."
+  local new_udid=""
+  if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
+    temp_sim_udid="$new_udid"
+    log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
+    args=("${original_args[@]}")
+    local idx
+    for idx in "${!args[@]}"; do
+      if [[ "${args[$idx]}" == "-destination" ]]; then
+        args[$((idx + 1))]="id=${temp_sim_udid}"
+        break
+      fi
+    done
+    $runner
+    xc_status=$?
+  else
+    log_warn "Failed to provision a fresh simulator; keeping previous failure"
+  fi
 }
 
 print_section_header() {
@@ -1986,6 +1870,9 @@ Options:
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
   --self-check      Run environment self-checks and exit
   --help            Show this message
+
+Environment:
+  ZPOD_UI_TEST_FRESH_SIM=1  Run each UI suite on a fresh simulator (overrides ZPOD_SIMULATOR_UDID per suite)
 EOF
 }
 
@@ -2471,6 +2358,7 @@ test_app_target() {
 
   log_section "xcodebuild tests (${target})"
   local -a original_args=("${args[@]}")
+  local retry_attempted=0
   local timeout_seconds=""
   run_tests_once() {
     set +e
@@ -2488,46 +2376,13 @@ test_app_target() {
   run_tests_once
   local xc_status=$?
 
-  # Retry once on simulator boot failure by reselecting destination and rerunning.
   local temp_sim_udid=""
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure detected; reselecting destination and retrying once..."
-    select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
-    resolved_destination="$SELECTED_DESTINATION"
-    args=("${original_args[@]}")
-    local idx
-    for idx in "${!args[@]}"; do
-      if [[ "${args[$idx]}" == "-destination" ]]; then
-        args[$((idx + 1))]="$resolved_destination"
-        break
-      fi
-    done
-    run_tests_once
-    xc_status=$?
+    retry_with_fresh_sim "$target" "Simulator boot failure detected" run_tests_once
   fi
 
-  # If the retry still failed due to boot issues, reset CoreSimulator and create a fresh simulator once.
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure persists; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    log_warn "Retrying ${target} with a freshly created simulator..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${target} with simulator id=${temp_sim_udid}"
-      args=("${original_args[@]}")
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; keeping previous failure"
-    fi
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$target" "System-level test bundle failure detected" run_tests_once
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
@@ -2958,6 +2813,8 @@ run_filtered_xcode_tests() {
 
   log_section "xcodebuild tests (${label})"
   local temp_sim_udid=""
+  local -a original_args=("${args[@]}")
+  local retry_attempted=0
   run_tests_once() {
     set +e
     local timeout_seconds
@@ -2976,25 +2833,11 @@ run_filtered_xcode_tests() {
   local xc_status=$?
 
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure detected for ${label}; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    log_warn "Creating a fresh simulator and retrying once..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; skipping retry"
-    fi
+    retry_with_fresh_sim "$label" "Simulator boot failure detected" run_tests_once
+  fi
+
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$label" "System-level test bundle failure detected" run_tests_once
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
