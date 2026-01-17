@@ -3,14 +3,16 @@ import CoreModels
 
 /// In-memory implementation suitable for early development & unit testing.
 /// Thread-safety: Not yet synchronized; assume single-threaded access for initial phase.
-/// 
+///
 /// @unchecked Sendable: This test-only implementation uses mutable state but is designed
 /// for single-threaded test scenarios where thread safety is not required. The @unchecked
 /// annotation acknowledges this intentional design limitation for testing purposes.
 public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
   private var storage: [String: Podcast] = [:]
+  private let siriSnapshotRefresher: SiriSnapshotRefreshing?
 
-  public init(initial: [Podcast] = []) {
+  public init(initial: [Podcast] = [], siriSnapshotRefresher: SiriSnapshotRefreshing? = nil) {
+    self.siriSnapshotRefresher = siriSnapshotRefresher
     for p in initial { storage[p.id] = p }
   }
 
@@ -22,6 +24,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     // Enforce id uniqueness; ignore if already present (could log later)
     guard storage[podcast.id] == nil else { return }
     storage[podcast.id] = podcast
+    siriSnapshotRefresher?.refreshAll()
   }
 
   public func update(_ podcast: Podcast) {
@@ -46,9 +49,13 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       tagIds: podcast.tagIds
     )
     storage[podcast.id] = merged
+    siriSnapshotRefresher?.refreshAll()
   }
 
-  public func remove(id: String) { storage.removeValue(forKey: id) }
+  public func remove(id: String) {
+    guard storage.removeValue(forKey: id) != nil else { return }
+    siriSnapshotRefresher?.refreshAll()
+  }
   
   // MARK: - Organization Filtering
   
@@ -82,7 +89,14 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
   /// Resets all episode playback positions to 0 across all podcasts.
   /// Used by UI tests to ensure clean state between test runs.
   public func resetAllPlaybackPositions() {
+    guard !storage.isEmpty else { return }
+
+    var updatedStorage = storage
+    var didUpdate = false
+
     for (id, podcast) in storage {
+      guard !podcast.episodes.isEmpty else { continue }
+
       let resetEpisodes = podcast.episodes.map { episode in
         episode.withPlaybackPosition(0)
       }
@@ -100,7 +114,12 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
         folderId: podcast.folderId,
         tagIds: podcast.tagIds
       )
-      storage[id] = updatedPodcast
+      updatedStorage[id] = updatedPodcast
+      didUpdate = true
     }
+
+    guard didUpdate else { return }
+    storage = updatedStorage
+    siriSnapshotRefresher?.refreshAll()
   }
 }
