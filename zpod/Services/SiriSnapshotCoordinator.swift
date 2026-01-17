@@ -9,29 +9,52 @@ import SharedUtilities
 struct SiriSnapshotCoordinator {
     private let logger = Logger(subsystem: "us.zig.zpod", category: "SiriSnapshotCoordinator")
     private let podcastManager: PodcastManaging
+    private let primarySuiteName: String
+    private let devSuiteName: String
 
-    init(podcastManager: PodcastManaging) {
+    init(
+        podcastManager: PodcastManaging,
+        primarySuiteName: String = AppGroup.suiteName,
+        devSuiteName: String = AppGroup.devSuiteName
+    ) {
         self.podcastManager = podcastManager
+        self.primarySuiteName = primarySuiteName
+        self.devSuiteName = devSuiteName
     }
 
     func refreshAll() {
+        let snapshots = makeSnapshots()
+        let primarySuiteName = primarySuiteName
+        let devSuiteName = devSuiteName
+
         Task.detached(priority: .background) {
-            await persistAllPodcasts()
+            Self.persistSnapshots(
+                snapshots,
+                primarySuiteName: primarySuiteName,
+                devSuiteName: devSuiteName
+            )
         }
     }
 
-    private func persistAllPodcasts() async {
+    private func makeSnapshots() -> [SiriPodcastSnapshot] {
         let podcasts = podcastManager.all().filter { $0.isSubscribed }
-        let snapshots = podcasts
+        return podcasts
             .map(Self.makeSnapshot)
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
 
+    private static func persistSnapshots(
+        _ snapshots: [SiriPodcastSnapshot],
+        primarySuiteName: String,
+        devSuiteName: String
+    ) {
+        let logger = Logger(subsystem: "us.zig.zpod", category: "SiriSnapshotCoordinator")
         do {
-            if let sharedDefaults = UserDefaults(suiteName: AppGroup.suiteName) {
+            if let sharedDefaults = UserDefaults(suiteName: primarySuiteName) {
                 try SiriMediaLibrary.save(snapshots, to: sharedDefaults)
             }
 
-            if let devDefaults = UserDefaults(suiteName: AppGroup.devSuiteName) {
+            if let devDefaults = UserDefaults(suiteName: devSuiteName) {
                 try SiriMediaLibrary.save(snapshots, to: devDefaults)
             }
         } catch {
