@@ -86,6 +86,9 @@
 - **Given:** User wants to automate actions.
 - **When:** Configures Siri, iOS Shortcuts, or Google Assistant.
 - **Then:** App actions can be triggered via voice or automation.
+- **Given:** User updates the podcast library (subscribe, unsubscribe, or metadata changes).
+- **When:** Triggers a Siri or Shortcut action that queries the library.
+- **Then:** Results reflect the latest library state.
 
 ### Apple Watch Support
 - **Given:** User has an Apple Watch paired with their iPhone.
