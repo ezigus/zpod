@@ -39,6 +39,7 @@
 - **Given:** User has multiple podcasts.
 - **When:** User creates folders or assigns categories.
 - **Then:** Podcasts can be viewed and managed by folder/category.
+- **And:** Folder organization persists after closing and reopening the app.
 
 ### Creating Custom Playlists
 - **Given:** Multiple episodes available.
@@ -69,6 +70,7 @@
 - **Given:** Multiple podcasts.
 - **When:** Applies tags/groups.
 - **Then:** Can filter/organize library.
+- **And:** Tag assignments persist after closing and reopening the app.
 
 ### Widget Customization (iOS Widgets, Google Assistant)
 - **Given:** User adds a Podcast Addict widget.

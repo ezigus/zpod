@@ -35,6 +35,7 @@
 - **And:** Uses the search engine (keywords, category, episode title).
 - **Then:** Selects a content item and taps "Subscribe".
 - **And:** The podcast is added to "Subscriptions" and episodes are available.
+- **And:** The subscription remains after closing and reopening the app.
 
 ### In-App Episode Search
 - **Given:** The user is viewing a podcast's episode list.
