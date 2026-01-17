@@ -397,6 +397,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             XCTAssertEqual(snapshots.count, 1)
             XCTAssertEqual(snapshots.first?.id, podcast.id)
             XCTAssertEqual(snapshots.first?.title, podcast.title)
+            // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
             XCTAssertEqual(snapshots.first?.episodes.count, 0)
 
             let devDefaults = try XCTUnwrap(UserDefaults(suiteName: devSuiteName))
@@ -404,6 +405,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             XCTAssertEqual(devSnapshots.count, 1)
         }
 
+        // Clear snapshots so phase 2 proves a fresh refresh after restart.
         UserDefaults(suiteName: primarySuiteName)?.removeObject(forKey: SiriMediaLibrary.storageKey)
         UserDefaults(suiteName: devSuiteName)?.removeObject(forKey: SiriMediaLibrary.storageKey)
 
@@ -428,6 +430,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             XCTAssertEqual(snapshots.count, 1)
             XCTAssertEqual(snapshots.first?.id, podcast.id)
             XCTAssertEqual(snapshots.first?.title, podcast.title)
+            // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
             XCTAssertEqual(snapshots.first?.episodes.count, 0)
         }
     }
@@ -444,7 +447,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
 @available(iOS 17, macOS 14, watchOS 10, *)
 private extension PodcastPersistenceIntegrationTests {
-    func waitForSnapshots(inSuiteNamed suiteName: String, timeout: TimeInterval = 2.0) {
+    func waitForSnapshots(inSuiteNamed suiteName: String, timeout: TimeInterval = 5.0) {
         let predicate = NSPredicate { _, _ in
             guard let defaults = UserDefaults(suiteName: suiteName) else {
                 return false

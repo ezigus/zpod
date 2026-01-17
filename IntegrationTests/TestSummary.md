@@ -35,7 +35,7 @@
   - **Highlights**: Folder/tag hierarchies, multi-level organization, search integration with organized content.
   - **Spec Coverage**: `spec.md` and `customization.md` organization scenarios.
 
-- `PodcastPersistenceIntegrationTests.swift` (376 lines)
+- `PodcastPersistenceIntegrationTests.swift` (458 lines)
   - **Purpose**: SwiftData-backed podcast persistence across app restarts (Issue 27.1).
   - **Highlights**: Persistence across container recreation, in-memory isolation, organization persistence.
   - **Spec Coverage**: `discovery.md` and `customization.md` persistence scenarios, plus Siri snapshot persistence verification.
