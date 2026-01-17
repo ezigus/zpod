@@ -131,13 +131,20 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     return true
   }
 
+  @MainActor
+  private func progressSlider() -> XCUIElement? {
+    let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
+    guard expandedPlayer.waitForExistence(timeout: adaptiveShortTimeout) else {
+      return nil
+    }
+    return expandedPlayer.sliders.matching(identifier: "Progress Slider").firstMatch
+  }
+
   /// Get the progress slider's current value
   @MainActor
   private func getSliderValue() -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
-      return nil
-    }
+    guard let slider = progressSlider(),
+          slider.waitForExistence(timeout: adaptiveShortTimeout) else { return nil }
     return slider.value as? String
   }
 
@@ -194,10 +201,8 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     beyond initialValue: String?,
     timeout: TimeInterval = 5.0
   ) -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
-      return nil
-    }
+    guard let slider = progressSlider(),
+          slider.waitForExistence(timeout: adaptiveShortTimeout) else { return nil }
 
     let initialPosition = extractCurrentPosition(from: initialValue) ?? 0
 
@@ -230,10 +235,8 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     minimumDelta: TimeInterval = 3.0,  // Reduced from 5.0s to 3.0s for less strict requirement
     stabilityWindow: TimeInterval = 0.3  // Increased from 0.2s to 0.3s for more stability
   ) -> String? {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
-      return nil
-    }
+    guard let slider = progressSlider(),
+          slider.waitForExistence(timeout: adaptiveShortTimeout) else { return nil }
 
     let deadline = Date().addingTimeInterval(timeout)
     let initialPosition = extractCurrentPosition(from: initialValue)
@@ -283,10 +286,8 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
     forDuration: TimeInterval = 2.0,
     tolerance: TimeInterval = 0.1
   ) -> Bool {
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
-    guard slider.waitForExistence(timeout: adaptiveShortTimeout) else {
-      return false
-    }
+    guard let slider = progressSlider(),
+          slider.waitForExistence(timeout: adaptiveShortTimeout) else { return false }
 
     guard let expectedPosition = extractCurrentPosition(from: expectedValue) else {
       return false
@@ -406,7 +407,6 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
     // Capture position immediately after pause
     let pausedValue = getSliderValue()
-    let pausedPosition = extractCurrentPosition(from: pausedValue)
 
     // Then: Verify position hasn't advanced using RunLoop-based waiting
     let positionStable = verifyPositionStable(at: pausedValue, forDuration: 2.0, tolerance: 0.1)
@@ -496,43 +496,70 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
     // Get initial position
     logBreadcrumb("testSeekingUpdatesPositionImmediately: capture initial slider value")
-    let initialValue = getSliderValue()
+    guard let initialValue = getSliderValue() else {
+      XCTFail("Progress slider has no initial value")
+      return
+    }
     logSliderValue("initial", value: initialValue)
-    let initialPosition = extractCurrentPosition(from: initialValue)
+
+    guard let baselineValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0) else {
+      XCTFail("Progress slider did not advance before seeking")
+      return
+    }
+    logSliderValue("baseline", value: baselineValue)
 
     // When: Seek to a new position via the slider
-    let slider = app.sliders.matching(identifier: "Progress Slider").firstMatch
+    guard let initialPosition = extractCurrentPosition(from: baselineValue),
+          let durationString = baselineValue.components(separatedBy: " of ").last,
+          let totalDuration = extractCurrentPosition(from: durationString),
+          totalDuration > 0 else {
+      XCTFail("Could not parse baseline position and duration from slider")
+      return
+    }
+
+    let currentRatio = max(0.0, min(1.0, initialPosition / totalDuration))
+    let lowTarget = 0.2
+    let highTarget = 0.8
+    let targetNormalized =
+      abs(currentRatio - lowTarget) > abs(currentRatio - highTarget)
+      ? lowTarget
+      : highTarget
+    let targetPosition = totalDuration * targetNormalized
+    let expectedDelta = abs(targetPosition - initialPosition)
+    let minimumDelta = max(0.4, min(2.0, expectedDelta * 0.6))
+
+    guard let slider = progressSlider() else {
+      XCTFail("Progress slider not found in expanded player")
+      return
+    }
     XCTAssertTrue(slider.waitForExistence(timeout: adaptiveShortTimeout))
 
-    // Seek to 50% position
-    logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to 50%")
-    let preSeekValue = getSliderValue()
+    let targetPercent = Int((targetNormalized * 100).rounded())
+    logBreadcrumb("testSeekingUpdatesPositionImmediately: seek to \(targetPercent)%")
+    let preSeekValue = getSliderValue() ?? baselineValue
     logSliderValue("pre-seek", value: preSeekValue)
-    slider.adjust(toNormalizedSliderPosition: 0.5)
+    slider.adjust(toNormalizedSliderPosition: targetNormalized)
 
     // Then: Wait for slider value to change and stabilize after seek (position must change significantly)
     let seekedValue = waitForUIStabilization(
       afterSeekingFrom: preSeekValue,
-      timeout: 3.0,  // Increased from 2.0s - allow more time for UI to update after seek
-      minimumDelta: 3.0,  // Reduced from 5.0s - more forgiving for ticker updates
-      stabilityWindow: 0.3  // Increased from 0.2s - ensure UI has stabilized
+      timeout: 3.0,
+      minimumDelta: minimumDelta,
+      stabilityWindow: 0.3
     )
     logSliderValue("seeked", value: seekedValue)
     XCTAssertNotNil(seekedValue, "Slider value should change after seek")
 
-    let seekedPosition = extractCurrentPosition(from: seekedValue)
-
-    // Verify position changed significantly (not just ticking)
-    if let initial = initialPosition, let seeked = seekedPosition {
-      let difference = abs(seeked - initial)
-      XCTAssertGreaterThanOrEqual(
-        difference,
-        3.0,  // Reduced from 5.0s to match waitForUIStabilization minimumDelta
-        "Seek should move position significantly (at least 3s), got \(difference)s change"
-      )
-    } else {
+    guard let seekedPosition = extractCurrentPosition(from: seekedValue) else {
       XCTFail("Could not parse seek position values")
+      return
     }
+    let positionDelta = abs(seekedPosition - targetPosition)
+    XCTAssertLessThan(
+      positionDelta,
+      totalDuration * 0.15,
+      "Seeked position \(seekedPosition)s should be close to \(targetPercent)% mark (\(targetPosition)s)"
+    )
 
     // Verify playback continues advancing after seek using predicate-based waiting
     logBreadcrumb("testSeekingUpdatesPositionImmediately: wait for advancement")
@@ -542,11 +569,11 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
 
     let finalPosition = extractCurrentPosition(from: finalValue)
 
-    if let seeked = seekedPosition, let final = finalPosition {
+    if let final = finalPosition {
       XCTAssertGreaterThan(
         final,
-        seeked,
-        "Position should continue advancing after seek from \(seeked)s to \(final)s"
+        seekedPosition,
+        "Position should continue advancing after seek from \(seekedPosition)s to \(final)s"
       )
     } else {
       XCTFail("Could not parse final position values")

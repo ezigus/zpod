@@ -22,7 +22,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #if canImport(DiscoverFeature)
   import DiscoverFeature
   import SearchDomain
-  import TestSupport
 #else
   // Fallback placeholder when DiscoverFeature module isn't linked
   struct DiscoverView: View {
@@ -426,9 +425,8 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
 
-    public init(podcastManager: PodcastManaging? = nil) {
-      // Use provided podcast manager or create a new one (for backward compatibility)
-      self.podcastManager = podcastManager ?? InMemoryPodcastManager()
+    public init(podcastManager: PodcastManaging) {
+      self.podcastManager = podcastManager
 
       // Create search index sources (empty for now, will be populated as content is added)
       let searchSources: [SearchIndexSource] = []
@@ -1112,10 +1110,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     }
   }
 
-  #Preview {
-    ContentView()
-      .modelContainer(for: Item.self, inMemory: true)
-  }
+  #if DEBUG
+    #Preview {
+      ContentView(podcastManager: PreviewPodcastManager())
+        .modelContainer(for: Item.self, inMemory: true)
+    }
+  #endif
 
 #else
 

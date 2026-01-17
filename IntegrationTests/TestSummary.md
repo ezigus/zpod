@@ -25,6 +25,11 @@
   - **Highlights**: Complete subscription workflow, folder/tag hierarchies, multi-level organization, search integration with organized content.
   - **Spec Coverage**: `spec.md` lines 114-235 (organization, folders, tags).
 
+- `PodcastPersistenceIntegrationTests.swift` (364 lines)
+  - **Purpose**: SwiftData-backed podcast persistence across app restarts (Issue 27.1).
+  - **Highlights**: Persistence across container recreation, in-memory isolation, organization persistence.
+  - **Spec Coverage**: `spec.md` (subscription persistence and organization scenarios).
+
 - `SiriIntentIntegrationTests.swift` (300 lines)
   - **Purpose**: Siri/CarPlay intent handling and data sharing (Issue 02.1.8.1).
   - **Highlights**: Snapshot persistence/decoding, fuzzy search ranking, temporal reference parsing, podcast-level search, resolver loading from app groups, identifier hand-off logic.
@@ -65,4 +70,3 @@
 - Need macOS/Xcode environment to execute SettingsDomain SwiftPM tests referenced by these suites; current Linux CI leg only performs syntax checks.
 - Future registry features (appearance, notifications, downloads) should gain mirrored integration tests after service migrations stabilize.
 - SiriIntentIntegrationTests verifies snapshot loading and search, but end-to-end Siri voice command testing requires CarPlay simulator on macOS.
-

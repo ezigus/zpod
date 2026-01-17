@@ -26,21 +26,9 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
 
   public func update(_ podcast: Podcast) {
     guard let existing = storage[podcast.id] else { return }
-    // Determine if the only intended change is subscription status
-    let sameExceptSubscription = (
-      existing.title == podcast.title &&
-      existing.author == podcast.author &&
-      existing.description == podcast.description &&
-      existing.artworkURL == podcast.artworkURL &&
-      existing.feedURL == podcast.feedURL &&
-      existing.categories == podcast.categories &&
-      existing.episodes == podcast.episodes &&
-      existing.dateAdded == podcast.dateAdded &&
-      existing.folderId == podcast.folderId &&
-      existing.tagIds == podcast.tagIds
-    )
-
-    let resolvedIsSubscribed = sameExceptSubscription ? podcast.isSubscribed : existing.isSubscribed
+    let resolvedIsSubscribed = podcast.isSubscribed != existing.isSubscribed
+      ? podcast.isSubscribed
+      : existing.isSubscribed
 
     // Preserve original added date; metadata updates should not alter it
     let merged = Podcast(
