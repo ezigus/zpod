@@ -324,14 +324,8 @@ is_system_test_bundle_failure_log() {
 
   local pattern
   for pattern in "${patterns[@]}"; do
-    if echo "$pattern" | grep -q "\\." ; then
-      if grep -Eqi "$pattern" "$log_path"; then
-        return 0
-      fi
-    else
-      if grep -qi "$pattern" "$log_path"; then
-        return 0
-      fi
+    if grep -Eqi "$pattern" "$log_path"; then
+      return 0
     fi
   done
   return 1
@@ -472,7 +466,7 @@ create_ephemeral_simulator() {
   local runtime_id
   while IFS= read -r runtime_id; do
     [[ -z "$runtime_id" ]] && continue
-    local name="zpod-temp-$(date +%s)"
+    local name="zpod-temp-$(date +%s)-$$-$RANDOM"
     local udid=""
     set +e
     udid=$(xcrun simctl create "$name" "$device_type" "$runtime_id" 2>&1)

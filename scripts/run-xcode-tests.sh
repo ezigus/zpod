@@ -417,6 +417,43 @@ run_ui_test_suites() {
   fi
 }
 
+retry_with_fresh_sim() {
+  local label="$1"
+  local reason="$2"
+  local runner="${3:-run_tests_once}"
+
+  if [[ "${retry_attempted:-0}" -ne 0 ]]; then
+    return 0
+  fi
+  retry_attempted=1
+
+  log_warn "${reason}; resetting CoreSimulator service..."
+  reset_core_simulator_service
+  if [[ -n "${temp_sim_udid:-}" ]]; then
+    cleanup_ephemeral_simulator "$temp_sim_udid"
+    temp_sim_udid=""
+  fi
+
+  log_warn "Retrying ${label} with a freshly created simulator..."
+  local new_udid=""
+  if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
+    temp_sim_udid="$new_udid"
+    log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
+    args=("${original_args[@]}")
+    local idx
+    for idx in "${!args[@]}"; do
+      if [[ "${args[$idx]}" == "-destination" ]]; then
+        args[$((idx + 1))]="id=${temp_sim_udid}"
+        break
+      fi
+    done
+    $runner
+    xc_status=$?
+  else
+    log_warn "Failed to provision a fresh simulator; keeping previous failure"
+  fi
+}
+
 print_section_header() {
   local title="$1"
   printf '================================\n%s\n================================\n' "$title"
@@ -2321,6 +2358,7 @@ test_app_target() {
 
   log_section "xcodebuild tests (${target})"
   local -a original_args=("${args[@]}")
+  local retry_attempted=0
   local timeout_seconds=""
   run_tests_once() {
     set +e
@@ -2338,73 +2376,13 @@ test_app_target() {
   run_tests_once
   local xc_status=$?
 
-  # Retry once on simulator boot failure by reselecting destination and rerunning.
   local temp_sim_udid=""
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure detected; reselecting destination and retrying once..."
-    select_destination "$WORKSPACE" "$resolved_scheme" "$PREFERRED_SIM"
-    resolved_destination="$SELECTED_DESTINATION"
-    args=("${original_args[@]}")
-    local idx
-    for idx in "${!args[@]}"; do
-      if [[ "${args[$idx]}" == "-destination" ]]; then
-        args[$((idx + 1))]="$resolved_destination"
-        break
-      fi
-    done
-    run_tests_once
-    xc_status=$?
-  fi
-
-  # If the retry still failed due to boot issues, reset CoreSimulator and create a fresh simulator once.
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure persists; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    log_warn "Retrying ${target} with a freshly created simulator..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${target} with simulator id=${temp_sim_udid}"
-      args=("${original_args[@]}")
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; keeping previous failure"
-    fi
+    retry_with_fresh_sim "$target" "Simulator boot failure detected" run_tests_once
   fi
 
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
-    log_warn "System-level test bundle failure detected; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    if [[ -n "$temp_sim_udid" ]]; then
-      cleanup_ephemeral_simulator "$temp_sim_udid"
-      temp_sim_udid=""
-    fi
-    log_warn "Retrying ${target} with a freshly created simulator..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${target} with simulator id=${temp_sim_udid}"
-      args=("${original_args[@]}")
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; keeping previous failure"
-    fi
+    retry_with_fresh_sim "$target" "System-level test bundle failure detected" run_tests_once
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
@@ -2835,6 +2813,8 @@ run_filtered_xcode_tests() {
 
   log_section "xcodebuild tests (${label})"
   local temp_sim_udid=""
+  local -a original_args=("${args[@]}")
+  local retry_attempted=0
   run_tests_once() {
     set +e
     local timeout_seconds
@@ -2853,51 +2833,11 @@ run_filtered_xcode_tests() {
   local xc_status=$?
 
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    log_warn "Simulator boot failure detected for ${label}; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    log_warn "Creating a fresh simulator and retrying once..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; skipping retry"
-    fi
+    retry_with_fresh_sim "$label" "Simulator boot failure detected" run_tests_once
   fi
 
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
-    log_warn "System-level test bundle failure detected for ${label}; resetting CoreSimulator service..."
-    reset_core_simulator_service
-    if [[ -n "$temp_sim_udid" ]]; then
-      cleanup_ephemeral_simulator "$temp_sim_udid"
-      temp_sim_udid=""
-    fi
-    log_warn "Creating a fresh simulator and retrying once..."
-    local new_udid=""
-    if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
-      temp_sim_udid="$new_udid"
-      log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
-      local idx
-      for idx in "${!args[@]}"; do
-        if [[ "${args[$idx]}" == "-destination" ]]; then
-          args[$((idx + 1))]="id=${temp_sim_udid}"
-          break
-        fi
-      done
-      run_tests_once
-      xc_status=$?
-    else
-      log_warn "Failed to provision a fresh simulator; skipping retry"
-    fi
+    retry_with_fresh_sim "$label" "System-level test bundle failure detected" run_tests_once
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
