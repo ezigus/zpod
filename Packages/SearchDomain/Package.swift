@@ -25,7 +25,6 @@ let package = Package(
       dependencies: [
         "CoreModels",
         "SharedUtilities",
-        "TestSupport",
       ],
       path: "Sources"
     ),

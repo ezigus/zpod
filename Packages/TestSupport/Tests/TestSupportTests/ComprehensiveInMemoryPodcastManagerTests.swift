@@ -317,14 +317,178 @@ final class ComprehensiveInMemoryPodcastManagerTests: XCTestCase {
         // Given: A podcast manager and concurrent tasks
         let podcast1 = MockPodcast.createSample(id: "concurrent-1")
         let podcast2 = MockPodcast.createSample(id: "concurrent-2")
-        
+
         // When: Adding podcasts concurrently (simulated with async)
         podcastManager.add(podcast1)
         podcastManager.add(podcast2)
-        
+
         // Then: Both should be present (note: actual thread safety not implemented yet)
         XCTAssertEqual(podcastManager.all().count, 2)
         XCTAssertNotNil(podcastManager.find(id: "concurrent-1"))
         XCTAssertNotNil(podcastManager.find(id: "concurrent-2"))
+    }
+
+    // MARK: - Playback Position Reset
+
+    func testResetAllPlaybackPositions_ResetsEpisodesAndRefreshesSnapshots() {
+        // Given: A manager with episodes and a spy refresher
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let basePodcast = MockPodcast.createSample(id: "reset-pod", title: "Reset Podcast")
+        let episodes = [
+            MockEpisode.createSample(id: "reset-ep-1", title: "Episode 1", podcastID: basePodcast.id, playbackPosition: 120),
+            MockEpisode.createSample(id: "reset-ep-2", title: "Episode 2", podcastID: basePodcast.id, playbackPosition: 45)
+        ]
+        let podcast = Podcast(
+            id: basePodcast.id,
+            title: basePodcast.title,
+            author: basePodcast.author,
+            description: basePodcast.description,
+            artworkURL: basePodcast.artworkURL,
+            feedURL: basePodcast.feedURL,
+            categories: basePodcast.categories,
+            episodes: episodes,
+            isSubscribed: basePodcast.isSubscribed,
+            dateAdded: basePodcast.dateAdded,
+            folderId: basePodcast.folderId,
+            tagIds: basePodcast.tagIds
+        )
+        manager.add(podcast)
+        spy.reset()
+
+        // When: Resetting playback positions
+        manager.resetAllPlaybackPositions()
+
+        // Then: Episodes should be reset and snapshots refreshed
+        guard let updated = manager.find(id: basePodcast.id) else {
+            XCTFail("Expected podcast after playback reset")
+            return
+        }
+        XCTAssertEqual(updated.episodes.count, 2)
+        XCTAssertTrue(updated.episodes.allSatisfy { $0.playbackPosition == 0 })
+        XCTAssertEqual(spy.refreshCallCount, 1, "Expected refreshAll() to be called after playback reset")
+    }
+
+    func testResetAllPlaybackPositions_NoEpisodes_DoesNotRefresh() {
+        // Given: A manager with no episode data
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let podcast = MockPodcast.createSample(id: "reset-empty")
+        manager.add(podcast)
+        spy.reset()
+
+        // When: Resetting playback positions
+        manager.resetAllPlaybackPositions()
+
+        // Then: No refresh should occur
+        XCTAssertEqual(spy.refreshCallCount, 0, "Expected refreshAll() NOT to be called when no episodes exist")
+    }
+
+    // MARK: - Siri Snapshot Refresh
+
+    func testSiriSnapshotRefresh_Add_CallsRefresher() {
+        // Given: A manager with a spy refresher
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let podcast = MockPodcast.createSample(id: "siri-test-1")
+
+        // When: Adding a podcast
+        manager.add(podcast)
+
+        // Then: Should trigger snapshot refresh
+        XCTAssertEqual(spy.refreshCallCount, 1, "Expected refreshAll() to be called after add()")
+    }
+
+    func testSiriSnapshotRefresh_Update_CallsRefresher() {
+        // Given: A manager with a spy refresher and an existing podcast
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let podcast = MockPodcast.createSample(id: "siri-test-2", title: "Original")
+        manager.add(podcast)
+        spy.reset() // Reset count after add
+
+        // When: Updating the podcast
+        let updated = Podcast(
+            id: "siri-test-2",
+            title: "Updated",
+            author: podcast.author,
+            description: podcast.description,
+            artworkURL: podcast.artworkURL,
+            feedURL: podcast.feedURL
+        )
+        manager.update(updated)
+
+        // Then: Should trigger snapshot refresh
+        XCTAssertEqual(spy.refreshCallCount, 1, "Expected refreshAll() to be called after update()")
+    }
+
+    func testSiriSnapshotRefresh_Remove_CallsRefresher() {
+        // Given: A manager with a spy refresher and an existing podcast
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let podcast = MockPodcast.createSample(id: "siri-test-3")
+        manager.add(podcast)
+        spy.reset() // Reset count after add
+
+        // When: Removing the podcast
+        manager.remove(id: "siri-test-3")
+
+        // Then: Should trigger snapshot refresh
+        XCTAssertEqual(spy.refreshCallCount, 1, "Expected refreshAll() to be called after remove()")
+    }
+
+    func testSiriSnapshotRefresh_AddDuplicate_DoesNotCallRefresher() {
+        // Given: A manager with a spy refresher and an existing podcast
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+        let podcast = MockPodcast.createSample(id: "siri-test-4")
+        manager.add(podcast)
+        spy.reset() // Reset count after initial add
+
+        // When: Adding a duplicate podcast
+        let duplicate = MockPodcast.createSample(id: "siri-test-4", title: "Duplicate")
+        manager.add(duplicate)
+
+        // Then: Should NOT trigger snapshot refresh (no change occurred)
+        XCTAssertEqual(spy.refreshCallCount, 0, "Expected refreshAll() NOT to be called when add is no-op")
+    }
+
+    func testSiriSnapshotRefresh_UpdateNonExistent_DoesNotCallRefresher() {
+        // Given: A manager with a spy refresher (empty)
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+
+        // When: Updating a non-existent podcast
+        let podcast = MockPodcast.createSample(id: "non-existent")
+        manager.update(podcast)
+
+        // Then: Should NOT trigger snapshot refresh (no change occurred)
+        XCTAssertEqual(spy.refreshCallCount, 0, "Expected refreshAll() NOT to be called when update is no-op")
+    }
+
+    func testSiriSnapshotRefresh_RemoveNonExistent_DoesNotCallRefresher() {
+        // Given: A manager with a spy refresher (empty)
+        let spy = SpySiriSnapshotRefresher()
+        let manager = InMemoryPodcastManager(siriSnapshotRefresher: spy)
+
+        // When: Removing a non-existent podcast
+        manager.remove(id: "non-existent")
+
+        // Then: Should NOT trigger snapshot refresh (no change occurred)
+        XCTAssertEqual(spy.refreshCallCount, 0, "Expected refreshAll() NOT to be called when remove is no-op")
+    }
+
+    func testSiriSnapshotRefresh_NilRefresher_DoesNotCrash() {
+        // Given: A manager without a refresher (default)
+        let manager = InMemoryPodcastManager()
+        let podcast = MockPodcast.createSample(id: "no-refresher")
+
+        // When: Performing mutations without a refresher
+        manager.add(podcast)
+        manager.update(podcast)
+        manager.remove(id: "no-refresher")
+
+        // Then: Operations complete and state reflects removal
+        XCTAssertTrue(manager.all().isEmpty, "Expected the podcast to be removed after mutations")
     }
 }

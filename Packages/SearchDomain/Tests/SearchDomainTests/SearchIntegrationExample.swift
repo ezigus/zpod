@@ -1,5 +1,6 @@
 import Foundation
 import CoreModels
+import SearchDomain
 import TestSupport
 import SharedUtilities
 

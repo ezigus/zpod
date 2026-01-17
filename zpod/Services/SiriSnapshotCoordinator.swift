@@ -3,9 +3,7 @@ import OSLog
 import CoreModels
 import SharedUtilities
 
-protocol SiriSnapshotRefreshing: Sendable {
-    func refreshAll()
-}
+// SiriSnapshotRefreshing protocol is now in CoreModels
 
 @available(iOS 14.0, *)
 struct SiriSnapshotCoordinator {
