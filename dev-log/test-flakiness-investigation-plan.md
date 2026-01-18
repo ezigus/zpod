@@ -245,22 +245,19 @@ missing bundleID for main bundle
 **Goal**: Reduce system-level crashes by 80% within 48 hours
 
 **Actions**:
-1. ✅ **Remove deprecated `PlaybackPositionUITests.swift`**
+1. ✅ **Quarantine deprecated `PlaybackPositionUITests.swift`**
    - Already replaced by `PlaybackPositionTickerTests` + `PlaybackPositionAVPlayerTests`
-   - No longer needed per file comment (deprecated since Issue #03.3.2.5)
-   - **Impact**: Eliminates primary source of "Early unexpected exit" crashes
+   - Keep file temporarily for traceability but skip by default (plan skip + XCTSkip unless explicitly enabled)
+   - **Impact**: Eliminates primary source of "Early unexpected exit" crashes while maintaining rollback visibility
 
 2. ✅ **Update `.xctestplan` to exclude deprecated file**
    - Remove from test discovery if not already excluded
    - Verify CI workflow not explicitly targeting this file
 
-3. ✅ **Add pre-flight check to CI**
+3. ✅ **Add pre-flight warning in harness for deprecated suites**
    ```bash
-   # Fail CI if deprecated tests still in tree
-   if grep -l "⚠️ DEPRECATED" zpodUITests/*.swift | grep -v "README"; then
-       echo "ERROR: Deprecated test files found in tree"
-       exit 1
-   fi
+   # Warn if deprecated suites exist or are not skipped in xctestplan
+   ./scripts/run-xcode-tests.sh  # emits warning when deprecated UI suites are present/not skipped
    ```
 
 4. 🔧 **Implement test runner health check**
@@ -276,7 +273,7 @@ missing bundleID for main bundle
 
 **Acceptance Criteria**:
 - Zero "Early unexpected exit" failures in next 20 CI runs
-- `PlaybackPositionUITests.swift` removed from codebase
+- `PlaybackPositionUITests.swift` quarantined (skipped in plan + XCTSkip) unless explicitly enabled
 - CI run failure rate drops below 10%
 
 ---
@@ -687,7 +684,7 @@ Create `docs/testing/flakiness-dashboard.md` (auto-updated daily):
 
 | Phase | Duration | Key Deliverable | Success Metric |
 |-------|----------|----------------|----------------|
-| **Phase 1** | 2 days | Remove deprecated test, add health checks | CI success >90% |
+| **Phase 1** | 2 days | Quarantine deprecated test, add health checks | CI success >90% |
 | **Phase 2A** | 5 days | Isolation protocol, base class | Zero state pollution |
 | **Phase 2B** | 8 days | Page objects for 5 screens | 50% tests migrated |
 | **Phase 2C** | 3 days | Unified wait API | Zero `Thread.sleep` |
@@ -702,7 +699,7 @@ Create `docs/testing/flakiness-dashboard.md` (auto-updated daily):
 ## Next Steps (Immediate)
 
 1. **Review this plan** with team (30 min)
-2. **Approve Phase 1 actions** (remove deprecated test)
+2. **Approve Phase 1 actions** (quarantine deprecated test)
 3. **Create tracking issue** (e.g., #02.7.4 - Test Architecture Overhaul)
 4. **Schedule Phase 1 implementation** (next 48 hours)
 5. **Set up monitoring** (flakiness dashboard, CI metrics)
@@ -730,7 +727,7 @@ Create `docs/testing/flakiness-dashboard.md` (auto-updated daily):
 
 1. **Should we pause new feature development** during Phase 2-3 refactoring? (Recommended: Yes, to avoid merge conflicts)
 
-2. **Should we delete `PlaybackPositionUITests` immediately** or gate behind feature flag for rollback? (Recommended: Delete immediately - already replaced, causing crashes)
+2. **Should we delete `PlaybackPositionUITests` after quarantine** or keep it temporarily for rollback? (Current: quarantine for traceability; plan to delete after watch period)
 
 3. **Should page object pattern be mandatory** or opt-in for new tests? (Recommended: Mandatory via linter rule)
 
@@ -742,4 +739,4 @@ Create `docs/testing/flakiness-dashboard.md` (auto-updated daily):
 
 **End of Investigation Plan**
 
-**Next Action**: Review and approve Phase 1 (remove deprecated test) to begin remediation.
+**Next Action**: Review and approve Phase 1 (quarantine deprecated test) to begin remediation.
