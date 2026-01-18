@@ -36,6 +36,16 @@ struct SiriSnapshotCoordinator {
         }
     }
 
+    /// Synchronous snapshot refresh for tests to avoid timing flakiness.
+    func refreshAllForTesting() {
+        let snapshots = makeSnapshots()
+        Self.persistSnapshots(
+            snapshots,
+            primarySuiteName: primarySuiteName,
+            devSuiteName: devSuiteName
+        )
+    }
+
     private func makeSnapshots() -> [SiriPodcastSnapshot] {
         let podcasts = podcastManager.all().filter { $0.isSubscribed }
         return podcasts

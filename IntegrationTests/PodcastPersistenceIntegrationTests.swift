@@ -387,7 +387,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
                 podcastManager: manager,
                 primarySuiteName: primarySuiteName,
                 devSuiteName: devSuiteName
-            ).refreshAll()
+            ).refreshAllForTesting()
 
             waitForSnapshots(inSuiteNamed: primarySuiteName)
             waitForSnapshots(inSuiteNamed: devSuiteName)
@@ -420,7 +420,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
                 podcastManager: manager,
                 primarySuiteName: primarySuiteName,
                 devSuiteName: devSuiteName
-            ).refreshAll()
+            ).refreshAllForTesting()
 
             waitForSnapshots(inSuiteNamed: primarySuiteName)
             waitForSnapshots(inSuiteNamed: devSuiteName)
