@@ -2694,6 +2694,38 @@ EOF
   return 1
 }
 
+run_sleep_lint() {
+  init_result_paths "lint" "sleep"
+  register_result_log "$RESULT_LOG"
+  log_section "Sleep usage lint (UI tests)"
+
+  # Search for Thread.sleep or usleep in UI test files
+  local violations=""
+  violations=$(grep -rn "Thread\.sleep\|usleep" "${REPO_ROOT}/zpodUITests/"*.swift 2>/dev/null | grep -v "// ALLOWED:" || true)
+
+  if [[ -n "$violations" ]]; then
+    log_warn "Found sleep usage in UI tests - prefer waitUntil() from UITestWait.swift"
+    echo "Sleep usage violations:" | tee "$RESULT_LOG"
+    echo "$violations" | tee -a "$RESULT_LOG"
+    echo "" | tee -a "$RESULT_LOG"
+    echo "Migration guide:" | tee -a "$RESULT_LOG"
+    echo "  • Thread.sleep() → element.waitUntil(.exists, timeout: X)" | tee -a "$RESULT_LOG"
+    echo "  • usleep() → element.waitUntil(.stable(), timeout: X)" | tee -a "$RESULT_LOG"
+    echo "" | tee -a "$RESULT_LOG"
+    echo "To allow intentional sleep (rare), add comment: // ALLOWED: reason" | tee -a "$RESULT_LOG"
+
+    local violation_count
+    violation_count=$(echo "$violations" | wc -l | tr -d ' ')
+    add_summary "lint" "sleep usage" "warn" "$RESULT_LOG" "" "" "" "" "${violation_count} violations"
+    return 0  # Warning, not error
+  fi
+
+  log_success "No sleep usage found in UI tests"
+  echo "✅ No Thread.sleep or usleep found (prefer waitUntil() helpers)" | tee "$RESULT_LOG"
+  add_summary "lint" "sleep usage" "success" "$RESULT_LOG" "" "" "" "" "clean"
+  return 0
+}
+
 run_testplan_check() {
   local suite="$1"
   local label="${suite:-default}"
@@ -3182,6 +3214,7 @@ fi
 
 if [[ $REQUESTED_LINT -eq 1 ]]; then
   execute_phase "Swift lint" "lint" run_swift_lint
+  execute_phase "Sleep usage lint" "lint" run_sleep_lint
   did_run_anything=1
 fi
 
@@ -3236,6 +3269,7 @@ run_ui_test_suites
 unset ZPOD_TEST_WITHOUT_BUILDING
 
 execute_phase "Swift lint" "lint" run_swift_lint
+execute_phase "Sleep usage lint" "lint" run_sleep_lint
 
 finalize_and_exit "$EXIT_STATUS"
 }
