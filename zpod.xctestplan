@@ -26,7 +26,10 @@
         "containerPath": "container:zpod.xcodeproj",
         "identifier": "786FD1262E22E617008CEE55",
         "name": "zpodUITests"
-      }
+      },
+      "skippedTests": [
+        "zpodUITests/PlaybackPositionUITests"
+      ]
     },
     {
       "target": {

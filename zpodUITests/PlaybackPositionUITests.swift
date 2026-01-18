@@ -37,6 +37,11 @@ final class PlaybackPositionUITests: XCTestCase, SmartUITesting {
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionUITests")
 
   override func setUpWithError() throws {
+    try super.setUpWithError()
+    // Deprecated suite; keep discoverable for short-term traceability but skip by default.
+    if ProcessInfo.processInfo.environment["UITEST_RUN_DEPRECATED"] != "1" {
+      throw XCTSkip("Deprecated: use PlaybackPositionTickerTests or PlaybackPositionAVPlayerTests (see docs/testing/PLAYBACK_TESTS.md)")
+    }
     continueAfterFailure = false
     disableWaitingForIdleIfNeeded()
   }
