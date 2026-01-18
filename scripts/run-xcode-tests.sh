@@ -745,5 +745,3 @@ summarize_syntax_log() {
     printf "%s" "${file_count} files checked"
   fi
 }
-
-su...
