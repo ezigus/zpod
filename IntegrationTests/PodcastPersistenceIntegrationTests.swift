@@ -2,6 +2,7 @@ import XCTest
 import SwiftData
 @testable import CoreModels
 @testable import zpod
+import SharedUtilities
 
 /// Integration tests for podcast persistence across app lifecycle.
 ///
@@ -356,13 +357,82 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
     // MARK: - Future Integration Tests (Placeholders)
 
     func testSiriSnapshotReflectsPersistentData() async throws {
-        // TODO: Implement when Siri snapshot generation is testable
-        // This test would verify that SiriSnapshotCoordinator
-        // correctly reads from SwiftDataPodcastManager
-        // and writes to App Group container
+        let primarySuiteName = "test.siri.primary.\(UUID().uuidString)"
+        let devSuiteName = "test.siri.dev.\(UUID().uuidString)"
 
-        // For now, this is a placeholder to document the requirement
-        // See Issues/27.1.2 for full Siri integration testing requirements
+        defer {
+            UserDefaults(suiteName: primarySuiteName)?.removePersistentDomain(forName: primarySuiteName)
+            UserDefaults(suiteName: devSuiteName)?.removePersistentDomain(forName: devSuiteName)
+        }
+
+        let podcast = Podcast(
+            id: "siri-test-podcast",
+            title: "Siri Snapshot Podcast",
+            author: "Test Author",
+            description: "Podcast used for Siri snapshot integration test",
+            feedURL: URL(string: "https://example.com/siri.xml")!,
+            isSubscribed: true
+        )
+
+        // Phase 1: Persist data and refresh snapshots.
+        do {
+            let schema = Schema([PodcastEntity.self])
+            let configuration = ModelConfiguration(url: persistentStoreURL)
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            let manager = makeManager(container: container)
+
+            manager.add(podcast)
+
+            SiriSnapshotCoordinator(
+                podcastManager: manager,
+                primarySuiteName: primarySuiteName,
+                devSuiteName: devSuiteName
+            ).refreshAllForTesting()
+
+            waitForSnapshots(inSuiteNamed: primarySuiteName)
+            waitForSnapshots(inSuiteNamed: devSuiteName)
+
+            let primaryDefaults = try XCTUnwrap(UserDefaults(suiteName: primarySuiteName))
+            let snapshots = try SiriMediaLibrary.load(from: primaryDefaults)
+            XCTAssertEqual(snapshots.count, 1)
+            XCTAssertEqual(snapshots.first?.id, podcast.id)
+            XCTAssertEqual(snapshots.first?.title, podcast.title)
+            // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
+            XCTAssertEqual(snapshots.first?.episodes.count, 0)
+
+            let devDefaults = try XCTUnwrap(UserDefaults(suiteName: devSuiteName))
+            let devSnapshots = try SiriMediaLibrary.load(from: devDefaults)
+            XCTAssertEqual(devSnapshots.count, 1)
+        }
+
+        // Clear snapshots so phase 2 proves a fresh refresh after restart.
+        UserDefaults(suiteName: primarySuiteName)?.removeObject(forKey: SiriMediaLibrary.storageKey)
+        UserDefaults(suiteName: devSuiteName)?.removeObject(forKey: SiriMediaLibrary.storageKey)
+
+        // Phase 2: Simulate restart by recreating the container and refreshing snapshots.
+        do {
+            let schema = Schema([PodcastEntity.self])
+            let configuration = ModelConfiguration(url: persistentStoreURL)
+            let container = try ModelContainer(for: schema, configurations: [configuration])
+            let manager = makeManager(container: container)
+
+            SiriSnapshotCoordinator(
+                podcastManager: manager,
+                primarySuiteName: primarySuiteName,
+                devSuiteName: devSuiteName
+            ).refreshAllForTesting()
+
+            waitForSnapshots(inSuiteNamed: primarySuiteName)
+            waitForSnapshots(inSuiteNamed: devSuiteName)
+
+            let primaryDefaults = try XCTUnwrap(UserDefaults(suiteName: primarySuiteName))
+            let snapshots = try SiriMediaLibrary.load(from: primaryDefaults)
+            XCTAssertEqual(snapshots.count, 1)
+            XCTAssertEqual(snapshots.first?.id, podcast.id)
+            XCTAssertEqual(snapshots.first?.title, podcast.title)
+            // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
+            XCTAssertEqual(snapshots.first?.episodes.count, 0)
+        }
     }
 
     func testCarPlayDependenciesAccessPersistentData() async throws {
@@ -372,5 +442,20 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // For now, this is a placeholder to document the requirement
         // See Issues/02.1.8 for CarPlay integration testing requirements
+    }
+}
+
+@available(iOS 17, macOS 14, watchOS 10, *)
+private extension PodcastPersistenceIntegrationTests {
+    func waitForSnapshots(inSuiteNamed suiteName: String, timeout: TimeInterval = 5.0) {
+        let predicate = NSPredicate { _, _ in
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                return false
+            }
+            return defaults.data(forKey: SiriMediaLibrary.storageKey) != nil
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        XCTAssertEqual(result, .completed, "Timed out waiting for Siri snapshots")
     }
 }
