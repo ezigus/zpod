@@ -64,60 +64,56 @@ This document outlines the UI testing approach for the main zpod application.
 - VoiceOver labels for mini-player transport controls and metadata
 - Tab bar buttons remain tappable while the mini-player is visible
 
-### Playback Position UI Tests (`PlaybackPositionUITests.swift`)
+### Playback Position (Ticker) UI Tests (`PlaybackPositionTickerTests.swift`)
 
-**Purpose**: Validate position ticking engine integration with UI layer
-
-**Specifications Covered**:
-
-- `spec/playback.md` - Timeline Advancement During Playback
-- `spec/playback.md` - Pausing Playback
-- `spec/playback.md` - Resuming Playback
-- `spec/playback.md` - Seeking to Position
-- `Issues/03.3.1-position-ticking-engine.md` - Position ticker acceptance criteria
-
-**Test Areas**:
-
-- Position advancement during playback (ticker integration)
-- Pause/resume position persistence
-- Seeking updates position immediately
-- Playback speed affects position advancement
-- Episode finish detection at duration
-
-**Test Coverage** (5 tests):
-
-1. `testExpandedPlayerProgressAdvancesDuringPlayback` - Verifies ticker advances position over time
-2. `testPausingStopsProgressAdvancement` - Confirms position freezes when paused
-3. `testResumingContinuesProgressAdvancement` - Validates position resumes from saved
-4. `testSeekingUpdatesPositionImmediately` - Ensures seek doesn't wait for next tick
-5. `testPlaybackSpeedAffectsProgressRate` - Confirms speed scaling works (0.8x-5.0x)
-
-**Note**: These tests validate the UI-layer integration of Issue 03.3.1 (Position Ticking Engine). The engine-layer unit tests (19 tests) are in `Packages/PlaybackEngine/Tests/EnhancedEpisodePlayerTickerTests.swift`.
-
-### Playback Edge-Case AVPlayer Tests (`PlaybackPositionAVPlayerTests.swift`)
-
-**Purpose**: Validate AVPlayer-specific edge cases from `spec/playback.md` beyond core position/seek tests.
+**Purpose**: Deterministic ticker-mode playback position validation (UI-facing behavior without AVPlayer variability).
 
 **Specifications Covered**:
 
-- `spec/playback.md` - Audio Interruption Handling
-- `spec/playback.md` - Playing an Episode with Custom Speed
-- `spec/playback.md` - Playback Error Handling
+- `spec/playback.md` — Timeline Advancement During Playback, Pausing, Resuming, Seeking
+- `Issues/03.3.1-position-ticking-engine.md` — Position ticker acceptance criteria
 
-**Test Areas**:
+**Test Areas** (7 tests):
 
-- Interruption handling (pause on interruption, resume when allowed) - ✅ Passing
-- Playback speed affects position advancement rate - ✅ Passing
-- Error UI for missing audio/network failure - ✅ Passing (accessible error message text + retry button now observable thanks to the error text accessibility improvements)
+1. `testExpandedPlayerProgressAdvancesDuringPlayback`
+2. `testPositionStopsAdvancingWhenPaused`
+3. `testPositionResumesAdvancingAfterPause`
+4. `testSeekingUpdatesPositionImmediately`
+5. `testMiniPlayerReflectsPlaybackState`
+6. `testSeekingWhilePausedUpdatesPosition`
+7. `testInitialPositionStartsAtZero`
 
-**Test Coverage** (4 tests, 4 passing):
+**Note**: Engine-level ticker coverage lives in `Packages/PlaybackEngine/Tests/EnhancedEpisodePlayerTickerTests.swift`.
 
-1. `testPlaybackSpeedChangesPositionRate` - ✅ Validates 2x speed advances position ~2x faster
-2. `testInterruptionPausesAndResumesPlayback` - ✅ Validates pause/resume on interruption notifications
-3. `testMissingAudioURLShowsErrorNoRetry` - ✅ Validates missing-audio message and no retry button
-4. `testNetworkErrorShowsRetryAndRecovers` - ✅ Validates network error message with retry button
+### Playback Position (AVPlayer Integration) UI Tests (`PlaybackPositionAVPlayerTests.swift`)
 
-**Note**: Edge-case tests complement core playback tests by validating scenarios like interruptions, errors, and playback speed. Issue 03.3.2.7 is now at 100% completion (10/10 tests).
+**Purpose**: Real AVPlayer integration, covering the same core flows plus error/interruption cases.
+
+**Specifications Covered**:
+
+- `spec/playback.md` — Timeline advancement, pause/resume, seek, speed scaling, interruptions, error handling
+- `Issues/03.3.2.7-playback-edge-cases.md` — AVPlayer error/interrupt handling
+
+**Test Areas** (10 tests):
+
+1. `testExpandedPlayerProgressAdvancesDuringPlayback`
+2. `testPositionStopsAdvancingWhenPaused`
+3. `testPositionResumesAdvancingAfterPause`
+4. `testSeekingUpdatesPositionImmediately`
+5. `testMiniPlayerReflectsPlaybackState`
+6. `testSeekingWhilePausedUpdatesPosition`
+7. `testMissingAudioURLShowsErrorNoRetry`
+8. `testNetworkErrorShowsRetryAndRecovers`
+9. `testInterruptionPausesAndResumesPlayback`
+10. `testPlaybackSpeedChangesPositionRate`
+
+**Note**: This suite is the source of truth for AVPlayer behavior; ticker suite remains the deterministic fast path.
+
+### Deprecated Playback Position UI Tests (`PlaybackPositionUITests.swift`)
+
+- Status: Deprecated and skipped by default (quarantined); retained temporarily for traceability.
+- Replaced by: `PlaybackPositionTickerTests.swift` (deterministic) and `PlaybackPositionAVPlayerTests.swift` (integration).
+- Guardrails: `zpod.xctestplan` marks the class skipped; `setUpWithError` throws `XCTSkip` unless `UITEST_RUN_DEPRECATED=1`.
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
