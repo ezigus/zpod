@@ -53,11 +53,6 @@ CURRENT_PHASE_RECORDED=0
 declare -a PHASE_DURATION_ENTRIES=()
 declare -a TEST_SUITE_TIMING_ENTRIES=()
 
-print_summary() {
-  # Minimal stub; detailed summary managed elsewhere for now.
-  :
-}
-
 register_result_log() {
   local path="$1"
   [[ -n "$path" ]] || return
@@ -750,3 +745,5 @@ summarize_syntax_log() {
     printf "%s" "${file_count} files checked"
   fi
 }
+
+su...
