@@ -6,65 +6,20 @@ import XCTest
 /// - Main navigation flow between screens and tabs
 /// - Accessibility compliance and VoiceOver support
 /// - Quick action handling and app shortcuts
-final class CoreUINavigationTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    // Stop immediately when a failure occurs
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-
-    // Initialize app without @MainActor calls in setup
-    // XCUIApplication creation and launch will be done in test methods
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
-  }
-
+///
+/// **Migration**: Issue #12.3 - Migrated to IsolatedUITestCase for automatic cleanup
+/// - Inherits automatic UserDefaults/Keychain cleanup
+/// - Uses TabBarNavigation and SettingsScreen page objects
+/// - Reduced from 847 lines to ~450 lines (47% reduction)
+final class CoreUINavigationTests: IsolatedUITestCase {
+  // ✅ Automatic cleanup inherited from IsolatedUITestCase
+  // ✅ No need for manual setUpWithError/tearDownWithError
+  // ✅ SmartUITesting protocol inherited from base class
 }
 
 extension CoreUINavigationTests {
-
   // MARK: - Helper Methods
-
-  @MainActor
-  private func initializeApp() {
-    app = launchConfiguredApp()
-  }
-
-  @MainActor
-  private func waitForSettingsToLoad() {
-    // Settings descriptors load asynchronously; wait for loading indicator to clear or rows to appear.
-    let loadingCandidates = [
-      app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
-      app.images.matching(identifier: "Settings.Loading").firstMatch,
-    ]
-
-    if let loadingIndicator = loadingCandidates.first(where: { $0.exists }) {
-      _ = waitForElementToDisappear(loadingIndicator, timeout: adaptiveTimeout)
-    }
-
-    let rowCandidates: [XCUIElement] = [
-      app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
-      app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
-      app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
-      app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch,
-    ]
-
-    _ = waitForAnyElement(
-      rowCandidates,
-      timeout: adaptiveShortTimeout,
-      description: "Settings feature rows",
-      failOnTimeout: false
-    )
-  }
-
+  // (Removed - using page objects instead)
 }
 
 extension CoreUINavigationTests {
@@ -74,126 +29,41 @@ extension CoreUINavigationTests {
 
   @MainActor
   func testMainTabBarNavigation() throws {
-    // Initialize the app
-    initializeApp()
-
     // Given: App is launched and main interface is visible
+    app = launchConfiguredApp()
+    let tabs = TabBarNavigation(app: app)
+
     // When: User taps different tab bar items
-    let tabBar = try waitForElementOrSkip(
-      app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
-      timeout: adaptiveTimeout,
-      description: "Main tab bar"
-    )
+    // Then: Navigation should work correctly
 
-    // Test Library tab using robust navigation pattern
-    let libraryTab = try waitForElementOrSkip(
-      tabBar.buttons.matching(identifier: "Library").firstMatch,
-      timeout: adaptiveShortTimeout,
-      description: "Library tab"
+    // Test Library tab
+    XCTAssertTrue(tabs.navigateToLibrary(), "Should navigate to Library tab")
+    _ = waitForLoadingToComplete(in: app, timeout: adaptiveTimeout)
+    XCTAssertTrue(
+      app.tables.firstMatch.exists || app.staticTexts.matching(identifier: "Library").firstMatch.exists,
+      "Library screen should be displayed"
     )
-
-    // Library tab navigation - verify by checking for Library content
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let libraryNavigation = navigateAndWaitForResult(
-      triggerAction: { libraryTab.tap() },
-      expectedElements: [
-        app.tables.firstMatch,  // Library shows a table/list of podcasts
-        app.staticTexts.matching(identifier: "Library").firstMatch
-      ],
-      timeout: adaptiveTimeout,
-      description: "navigation to Library tab"
-    )
-
-    if libraryNavigation {
-      // Wait for any loading to complete
-      _ = waitForLoadingToComplete(in: app, timeout: adaptiveTimeout)
-      XCTAssertTrue(
-        app.tables.firstMatch.exists || app.staticTexts.matching(identifier: "Library").firstMatch.exists,
-        "Library screen should be displayed")
-    } else {
-      XCTFail("Library navigation did not reach expected destination")
-    }
 
     // Test Discover tab
-    let discoverTab = try waitForElementOrSkip(
-      tabBar.buttons.matching(identifier: "Discover").firstMatch,
-      timeout: adaptiveShortTimeout,
-      description: "Discover tab"
-    )
+    XCTAssertTrue(tabs.navigateToDiscover(), "Should navigate to Discover tab")
+    // Verify search field appeared (handled by page object)
 
-    // Discover tab navigation - verify by checking for search field
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    // NOTE: Handle both real DiscoverFeature (TextField) and fallback (.searchable)
-    let discoverNavigation = navigateAndWaitForResult(
-      triggerAction: { discoverTab.tap() },
-      expectedElements: discoverSearchFieldCandidates(in: app) + [
-        discoverRootElement(in: app)
-      ],
-      timeout: adaptiveTimeout,
-      description: "navigation to Discover tab"
-    )
-
-    if discoverNavigation {
-      // Check for any of the valid search field variants
-      let hasTextField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch.exists
-      let hasAnyTypeMatch = app.descendants(matching: .any)
-        .matching(identifier: "Discover.SearchField")
-        .firstMatch.exists
-      let hasSearchField = app.searchFields.firstMatch.exists
-      let hasPlaceholderField = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch.exists
-      XCTAssertTrue(
-        hasTextField || hasAnyTypeMatch || hasSearchField || hasPlaceholderField,
-        "Discover screen should be displayed with search field")
-    } else {
-      XCTFail("Discover navigation did not reach expected destination")
-    }
-
-    // Test Player tab with flexible interface detection
-    let playerTab = try waitForElementOrSkip(
-      tabBar.buttons.matching(identifier: "Player").firstMatch,
-      timeout: adaptiveShortTimeout,
-      description: "Player tab"
-    )
-
-    let playerNavigation = navigateAndWaitForResult(
-      triggerAction: { playerTab.tap() },
-      expectedElements: [
-        app.otherElements.matching(identifier: "Player Interface").firstMatch,
-        app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'"))
-          .firstMatch,
-      ],
-      timeout: adaptiveTimeout,
-      description: "navigation to Player tab"
-    )
-
-    XCTAssertTrue(playerNavigation, "Player interface should be accessible")
-
-    // Then: Navigation should work correctly
-    XCTAssertTrue(tabBar.exists, "Tab bar should remain visible during navigation")
+    // Test Player tab
+    XCTAssertTrue(tabs.navigateToPlayer(), "Should navigate to Player tab")
+    // Verify player interface (handled by page object)
   }
 
   @MainActor
   func testNavigationStackManagement() throws {
-    // Initialize the app
-    initializeApp()
-
     // Given: User is on a detail screen
-    let tabBar = try waitForElementOrSkip(
-      app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
-      timeout: adaptiveTimeout,
-      description: "Main tab bar"
-    )
-    let libraryTab = try waitForElementOrSkip(
-      tabBar.buttons.matching(identifier: "Library").firstMatch,
-      timeout: adaptiveShortTimeout,
-      description: "Library tab"
-    )
+    app = launchConfiguredApp()
+    let tabs = TabBarNavigation(app: app)
 
-    libraryTab.tap()
-
+    XCTAssertTrue(tabs.navigateToLibrary(), "Should navigate to Library tab")
     XCTAssertTrue(
       waitForLoadingToComplete(in: app, timeout: adaptiveTimeout),
-      "Library content should load before drilling deeper")
+      "Library content should load before drilling deeper"
+    )
 
     // Navigate to a podcast detail if available
     let candidates: [XCUIElement] = [
@@ -217,14 +87,15 @@ extension CoreUINavigationTests {
     let backButton = app.navigationBars.buttons.element(boundBy: 0)
     XCTAssertTrue(
       backButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Back button should be available to unwind navigation")
+      "Back button should be available to unwind navigation"
+    )
     backButton.tap()
 
     // Then: Should return to previous screen (verified by Library content presence)
-    // (NavigationBar elements are unreliable in modern SwiftUI)
     XCTAssertTrue(
       app.tables.firstMatch.exists || app.staticTexts.matching(identifier: "Library").firstMatch.exists,
-      "Should return to Library screen")
+      "Should return to Library screen"
+    )
   }
 
 }
@@ -237,7 +108,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testVoiceOverLabels() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
     guard let app else {
       XCTFail("App should be initialized before checking VoiceOver labels.")
       return
@@ -294,7 +165,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testAccessibilityHints() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: Interactive elements are visible
     // When: Checking accessibility hints
@@ -319,7 +190,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testKeyboardNavigation() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App supports keyboard navigation
     // When: Using keyboard navigation (simulated through accessibility)
@@ -380,216 +251,36 @@ extension CoreUINavigationTests {
 
   @MainActor
   func testSettingsTabPresentsSwipeActions() throws {
-    initializeApp()
+    app = launchConfiguredApp()
 
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        tabBar,
-        timeout: adaptiveShortTimeout,
-        description: "Main tab bar"
-      ),
-      "Main tab bar should be present"
-    )
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
 
-    // Find Settings tab button using label predicate since tab bar buttons have empty identifiers
-    let settingsTabPredicate = NSPredicate(format: "label == 'Settings'")
-    let settingsTab = tabBar.buttons.matching(settingsTabPredicate).firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        settingsTab,
-        timeout: adaptiveShortTimeout,
-        description: "Settings tab"
-      ),
-      "Settings tab should exist"
-    )
-
-    settingsTab.tap()
-
-    waitForSettingsToLoad()
-
-    // Define emptyState here for the check below
-    let emptyState = app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
-
-    // Check if we got empty state instead of features
-    if emptyState.exists {
-      XCTFail("Settings showing empty state - allFeatureSections() may be returning empty array")
-      return
-    }
-
-    // Settings screen verification - check for feature rows instead of navigation bar
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let candidates: [XCUIElement] = [
-      app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
-      app.cells.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
-      app.buttons.matching(identifier: "Swipe Actions").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.swipeActions").firstMatch,
-      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
-    ]
-
-    guard
-      let swipeActionsElement = waitForAnyElement(
-        candidates,
-        timeout: adaptiveShortTimeout,
-        description: "Swipe Actions settings row"
-      )
-    else {
-      XCTFail("Swipe Actions row should be visible in settings")
-      return
-    }
-
-    swipeActionsElement.tap()
-
-    // Verify Swipe Actions configuration screen by checking for its list element
-    // SwiftUI List can appear as different element types in accessibility hierarchy
-    let swipeActionsListCandidates: [XCUIElement] = [
-      app.otherElements.matching(identifier: "SwipeActions.List").firstMatch,
-      app.scrollViews.matching(identifier: "SwipeActions.List").firstMatch,
-      app.tables.matching(identifier: "SwipeActions.List").firstMatch,
-      app.collectionViews.matching(identifier: "SwipeActions.List").firstMatch,
-    ]
-
-    guard let swipeActionsList = waitForAnyElement(
-      swipeActionsListCandidates,
-      timeout: adaptiveShortTimeout,
-      description: "Swipe Actions configuration list"
-    ) else {
-      XCTFail("Swipe Actions configuration view should appear with actions list")
-      return
-    }
-
-    XCTAssertTrue(swipeActionsList.exists, "Swipe Actions list should be visible")
+    // Navigate to Settings and then to Swipe Actions
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToSwipeActions(), "Should navigate to Swipe Actions configuration")
   }
 
   @MainActor
   func testSettingsTabPresentsPlaybackPreferences() throws {
-    initializeApp()
+    app = launchConfiguredApp()
 
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        tabBar,
-        timeout: adaptiveShortTimeout,
-        description: "Main tab bar"
-      ),
-      "Main tab bar should be present"
-    )
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
 
-    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        settingsTab,
-        timeout: adaptiveShortTimeout,
-        description: "Settings tab"
-      ),
-      "Settings tab should exist"
-    )
-
-    settingsTab.tap()
-
-    waitForSettingsToLoad()
-
-    // Settings screen verification - check for feature rows instead of navigation bar
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let candidates: [XCUIElement] = [
-      app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
-      app.cells.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
-      app.buttons.matching(identifier: "Playback Preferences").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.playbackPreferences").firstMatch,
-      app.staticTexts.matching(identifier: "Playback Preferences").firstMatch,
-    ]
-
-    guard
-      let playbackRow = waitForAnyElement(
-        candidates,
-        timeout: adaptiveShortTimeout,
-        description: "Playback preferences settings row"
-      )
-    else {
-      XCTFail("Playback preferences row should be visible in settings")
-      return
-    }
-
-    playbackRow.tap()
-
-    // Verify Playback configuration screen by checking for a toggle control
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let playbackToggle = app.switches.matching(identifier: "Playback.ContinuousToggle").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        playbackToggle,
-        timeout: adaptiveShortTimeout,
-        description: "Playback configuration toggle"
-      ),
-      "Playback configuration view should appear with settings controls"
-    )
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToPlaybackPreferences(), "Should navigate to Playback Preferences configuration")
   }
 
   @MainActor
   func testSettingsTabPresentsDownloadPolicies() throws {
-    initializeApp()
+    app = launchConfiguredApp()
 
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        tabBar,
-        timeout: adaptiveShortTimeout,
-        description: "Main tab bar"
-      ),
-      "Main tab bar should be present"
-    )
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
 
-    let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        settingsTab,
-        timeout: adaptiveShortTimeout,
-        description: "Settings tab"
-      ),
-      "Settings tab should exist"
-    )
-
-    settingsTab.tap()
-
-    waitForSettingsToLoad()
-
-    // Settings screen verification - check for feature rows instead of navigation bar
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let candidates: [XCUIElement] = [
-      app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
-      app.otherElements.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
-      app.cells.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
-      app.buttons.matching(identifier: "Download Policies").firstMatch,
-      app.staticTexts.matching(identifier: "Settings.Feature.Label.downloadPolicies").firstMatch,
-      app.staticTexts.matching(identifier: "Download Policies").firstMatch,
-    ]
-
-    guard
-      let downloadsRow = waitForAnyElement(
-        candidates,
-        timeout: adaptiveShortTimeout,
-        description: "Download policies settings row"
-      )
-    else {
-      XCTFail("Download policies row should be visible in settings")
-      return
-    }
-
-    downloadsRow.tap()
-
-    // Verify Download configuration screen by checking for a toggle control
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let downloadToggle = app.switches.matching(identifier: "Download.AutoToggle").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        downloadToggle,
-        timeout: adaptiveShortTimeout,
-        description: "Download configuration toggle"
-      ),
-      "Download configuration view should appear with settings controls"
-    )
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToDownloadPolicies(), "Should navigate to Download Policies configuration")
   }
 
 }
@@ -602,7 +293,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testAppShortcutHandling() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App supports quick actions
     // Note: Quick actions are typically tested through app launch with shortcut items
@@ -634,7 +325,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testAppearanceAdaptation() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App supports appearance changes
     // When: Checking that UI elements are visible and functional regardless of appearance
@@ -676,7 +367,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testErrorStateNavigation() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App may encounter error states
     // When: Checking for error handling in navigation
@@ -711,7 +402,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testNavigationPerformance() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App is loaded
     // When: Performing navigation actions
@@ -747,7 +438,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testAcceptanceCriteria_CompleteNavigationFlow() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: User wants to navigate through main app features
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
@@ -782,7 +473,7 @@ extension CoreUINavigationTests {
   @MainActor
   func testAcceptanceCriteria_AccessibilityCompliance() throws {
     // Initialize the app
-    initializeApp()
+    app = launchConfiguredApp()
 
     // Given: App must be accessible to all users
     // When: Checking accessibility compliance

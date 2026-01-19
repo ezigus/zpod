@@ -132,7 +132,19 @@ extension XCUIElement {
       // Delegates to UITestHelpers.waitForElementToDisappear()
       // (Uses predicate-based waiting for !exists)
       let effectiveTimeout = timeout ?? defaultShortTimeout()
-      return self.waitForElementToDisappear(timeout: effectiveTimeout)
+
+      // waitForElementToDisappear is a free function, not an instance method
+      if !self.exists { return true }
+
+      let predicate = NSPredicate { _, _ in
+        !self.exists
+      }
+
+      let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+      expectation.expectationDescription = "Wait for element to disappear"
+
+      let result = XCTWaiter().wait(for: [expectation], timeout: effectiveTimeout)
+      return result == .completed
     }
   }
 
@@ -211,58 +223,23 @@ extension XCUIElement {
   }
 }
 
-// MARK: - Migration Helpers
-
-extension XCUIElement {
-
-  /// **DEPRECATED**: Use `waitUntil(.exists)` instead.
-  ///
-  /// Migration:
-  /// ```swift
-  /// // Old
-  /// element.waitBriefly(timeout: 0.5)
-  ///
-  /// // New
-  /// element.waitUntil(.exists, timeout: 0.5)
-  /// ```
-  @available(*, deprecated, message: "Use waitUntil(.exists) instead")
-  @MainActor
-  public func waitBriefly(timeout: TimeInterval = 0.5) -> Bool {
-    return waitUntil(.exists, timeout: timeout)
-  }
-
-  /// **DEPRECATED**: Use `waitUntil(.exists)` instead.
-  ///
-  /// Migration:
-  /// ```swift
-  /// // Old
-  /// element.waitForPageLoad(timeout: 2.0)
-  ///
-  /// // New
-  /// element.waitUntil(.exists, timeout: 2.0)
-  /// ```
-  @available(*, deprecated, message: "Use waitUntil(.exists) instead")
-  @MainActor
-  public func waitForPageLoad(timeout: TimeInterval = 2.0) -> Bool {
-    return waitUntil(.exists, timeout: timeout)
-  }
-
-  /// **DEPRECATED**: Use `waitUntil(.stable())` instead.
-  ///
-  /// Migration:
-  /// ```swift
-  /// // Old
-  /// element.waitForAnimationComplete()
-  ///
-  /// // New
-  /// element.waitUntil(.stable(window: 0.3))
-  /// ```
-  @available(*, deprecated, message: "Use waitUntil(.stable(window: 0.3)) instead")
-  @MainActor
-  public func waitForAnimationComplete(
-    timeout: TimeInterval = 2.0,
-    stabilityWindow: TimeInterval = 0.3
-  ) -> Bool {
-    return waitUntil(.stable(window: stabilityWindow), timeout: timeout)
-  }
-}
+// MARK: - Migration Guide
+//
+// UITestWait provides a unified API to replace 14+ scattered wait methods.
+//
+// **Migration from existing helpers**:
+//
+// Old: element.waitBriefly(timeout: 0.5)
+// New: element.waitUntil(.exists, timeout: 0.5)
+//
+// Old: element.waitForPageLoad(timeout: 2.0)
+// New: element.waitUntil(.exists, timeout: 2.0)
+//
+// Old: element.waitForAnimationComplete()
+// New: element.waitUntil(.stable(window: 0.3))
+//
+// Old: waitForElementToDisappear(element, timeout: 5.0)
+// New: element.waitUntil(.disappeared, timeout: 5.0)
+//
+// **Note**: Existing helper methods remain available for backward compatibility.
+// Gradually migrate to the unified API as code is touched.
