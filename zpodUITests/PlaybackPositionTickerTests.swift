@@ -13,18 +13,13 @@ import XCTest
 /// Fast, deterministic execution (~20s per test), no audio hardware required.
 ///
 /// **CI Job**: UITests-PlaybackTicker
-final class PlaybackPositionTickerTests: XCTestCase, PlaybackPositionTestSupport {
+final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTestSupport {
 
-    nonisolated(unsafe) var app: XCUIApplication!
     static let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionTickerTests")
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        try super.setUpWithError()
         disableWaitingForIdleIfNeeded()
-    }
-
-    override func tearDownWithError() throws {
-        app = nil
     }
 
     @MainActor

@@ -77,6 +77,7 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **[UI Testing Advanced Patterns](docs/testing/UI_TESTING_ADVANCED_PATTERNS.md)** - Advanced XCUITest patterns, waiting strategies, element queries
 - **[Isolated UI Test Infrastructure](docs/testing/ISOLATED_UITEST_INFRASTRUCTURE.md)** - Direction on the shared `IsolatedUITestCase` base, page-object stack, and the swipe/core migration plan
 - **Phase 3 Core Tests Design**: `dev-log/12.3-phase-3-core-tests-design.md` - Details the page-object plan for the high-value core suites and how they interact with the shared infrastructure
+- **Phase 4 Playback Position Design**: `dev-log/12.3-phase-4-playback-position-design.md` - Lays out the intent and verification plan for migrating the playback position suites to the isolated base
 
 #### Core Principles (FIRST)
 

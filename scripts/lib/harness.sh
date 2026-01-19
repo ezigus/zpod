@@ -2439,6 +2439,11 @@ test_app_target() {
           add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "failed (from log)"
           update_exit_status "$xc_status"
           return "$xc_status"
+        elif grep -q "\\*\\* TEST FAILED \\*\\*" "$RESULT_LOG"; then
+          log_error "Tests failed (from log marker) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "0" "0" "failed (log marker)"
+          update_exit_status "$xc_status"
+          return "$xc_status"
         elif (( log_total > 0 && log_passed > 0 )); then
           log_success "Tests passed (from log) despite exit code $xc_status -> $RESULT_LOG"
           # Continue to add success summary below

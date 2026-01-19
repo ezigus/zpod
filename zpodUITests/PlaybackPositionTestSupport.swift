@@ -14,7 +14,7 @@ protocol PlaybackPositionTestSupport: SmartUITesting {
   static var logger: Logger { get }
 }
 
-extension PlaybackPositionTestSupport where Self: XCTestCase {
+extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
   // MARK: - Test Audio Helpers
   
