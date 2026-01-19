@@ -71,10 +71,11 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 
 **⚠️ IMPORTANT: Review these comprehensive testing resources before building or updating UI tests:**
 
-#### Testing Documentation
+-#### Testing Documentation
 
 - **[Accessibility Testing Best Practices](docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md)** - SwiftUI List row discovery, accessibility identifiers, UIKit fallback patterns
 - **[UI Testing Advanced Patterns](docs/testing/UI_TESTING_ADVANCED_PATTERNS.md)** - Advanced XCUITest patterns, waiting strategies, element queries
+- **[Isolated UI Test Infrastructure](docs/testing/ISOLATED_UITEST_INFRASTRUCTURE.md)** - Direction on the shared `IsolatedUITestCase` base, page-object stack, and the swipe/core migration plan
 
 #### Core Principles (FIRST)
 
