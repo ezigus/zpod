@@ -63,7 +63,7 @@ open class IsolatedUITestCase: XCTestCase, SmartUITesting {
   /// ```
   ///
   /// When `nil`, cleans up standard UserDefaults.
-  open var userDefaultsSuite: String? { nil }
+  nonisolated open var userDefaultsSuite: String? { nil }
 
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "IsolatedUITestCase")
 
@@ -125,7 +125,7 @@ open class IsolatedUITestCase: XCTestCase, SmartUITesting {
   ///
   /// Called automatically in `setUpWithError()`.
   /// Can be called manually if you need to reset state mid-test.
-  private func performPreTestCleanup() {
+  nonisolated private func performPreTestCleanup() {
     // Clear UserDefaults to prevent state pollution
     clearUserDefaults(suiteName: userDefaultsSuite)
 
@@ -144,7 +144,7 @@ open class IsolatedUITestCase: XCTestCase, SmartUITesting {
   /// Performs post-test cleanup to prepare for next test.
   ///
   /// Called automatically in `tearDownWithError()`.
-  private func performPostTestCleanup() {
+  nonisolated private func performPostTestCleanup() {
     // Clear UserDefaults to prevent pollution to next test
     clearUserDefaults(suiteName: userDefaultsSuite)
 
