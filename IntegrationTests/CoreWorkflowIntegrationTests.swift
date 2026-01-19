@@ -175,7 +175,7 @@ final class CoreWorkflowIntegrationTests: XCTestCase, @unchecked Sendable {
         ]
 
         for podcast in discoveredPodcasts {
-            try await workflowBuilder.addPodcast(
+            await workflowBuilder.addPodcast(
                 id: podcast.id,
                 title: podcast.title,
                 description: podcast.description,

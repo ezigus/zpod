@@ -559,8 +559,8 @@ class MockFileManagerService: FileManagerServicing {
   var downloadedFiles: [String] = []
   private let progressSubject = PassthroughSubject<DownloadProgress, Never>()
 
-  var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
-    progressSubject.eraseToAnyPublisher()
+  var downloadProgressPublisher: DownloadProgressPublisher {
+    DownloadProgressPublisher(publisher: progressSubject.eraseToAnyPublisher())
   }
 
   func downloadPath(for task: DownloadTask) -> String {

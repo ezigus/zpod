@@ -320,7 +320,6 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
         }
 
         #if os(iOS)
-        guard #available(iOS 14.0, *) else { return }
         SiriSnapshotCoordinator(podcastManager: self).refreshAll()
         #endif
     }

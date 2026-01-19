@@ -44,7 +44,7 @@ final class PreviewPodcastManager: PodcastManaging, @unchecked Sendable {
   }
 
   func remove(id: String) {
-    locked { storage.removeValue(forKey: id) }
+    _ = locked { storage.removeValue(forKey: id) }
   }
 
   func findByFolder(folderId: String) -> [Podcast] {

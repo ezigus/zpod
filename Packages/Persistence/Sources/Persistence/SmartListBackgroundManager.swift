@@ -199,8 +199,11 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
             object: nil,
             queue: .main
         ) { [weak self] notification in
+            let hasSmartEpisodeList = notification.object is SmartEpisodeListV2
             Task { @MainActor in
-                await self?.handleSmartListUpdate(notification)
+                if hasSmartEpisodeList {
+                    await self?.handleSmartListUpdate()
+                }
             }
         }
     }
@@ -213,11 +216,9 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
         )
     }
     
-    private func handleSmartListUpdate(_ notification: Notification) async {
+    private func handleSmartListUpdate() async {
         // Update UI state based on smart list changes
-        if notification.object is SmartEpisodeListV2 {
-            lastRefreshTime = Date()
-        }
+        lastRefreshTime = Date()
     }
 }
 

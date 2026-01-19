@@ -120,8 +120,10 @@
       )
 
       interfaceController.presentTemplate(alert, animated: true) { success, error in
-        if let error = error {
-          Self.logger.error("Failed to present episode options: \(error.localizedDescription)")
+        Task { @MainActor in
+          if let error = error {
+            Self.logger.error("Failed to present episode options: \(error.localizedDescription)")
+          }
         }
       }
     }
@@ -172,10 +174,12 @@
 
       let interaction = INInteraction(intent: intent, response: nil)
       interaction.donate { error in
-        if let error = error {
-          Self.logger.error("Failed to donate media intent: \(error.localizedDescription)")
-        } else {
-          Self.logger.info("Successfully donated playback intent for: \(episode.title)")
+        Task { @MainActor in
+          if let error = error {
+            Self.logger.error("Failed to donate media intent: \(error.localizedDescription)")
+          } else {
+            Self.logger.info("Successfully donated playback intent for: \(episode.title)")
+          }
         }
       }
     }

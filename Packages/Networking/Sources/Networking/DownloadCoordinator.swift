@@ -140,7 +140,7 @@ public class DownloadCoordinator {
   private func setupProgressTracking() async {
     #if canImport(Combine)
       // Monitor download progress and update task states
-      let publisher = await fileManagerService.downloadProgressPublisher
+      let publisher = (await fileManagerService.downloadProgressPublisher).publisher
       publisher
         .sink { [weak self] progress in
           self?.updateTaskProgress(progress)
@@ -301,10 +301,9 @@ public class DownloadCoordinator {
 /// Dummy implementation for testing/fallback
 private struct DummyFileManagerService: FileManagerServicing {
   #if canImport(Combine)
-    var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
+    var downloadProgressPublisher: DownloadProgressPublisher {
       get async {
-        // Explicitly type Empty to satisfy protocol's publisher Output type
-        Empty<DownloadProgress, Never>().eraseToAnyPublisher()
+        DownloadProgressPublisher(publisher: Empty<DownloadProgress, Never>().eraseToAnyPublisher())
       }
     }
   #endif

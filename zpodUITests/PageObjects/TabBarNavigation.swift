@@ -65,6 +65,11 @@ public struct TabBarNavigation: BaseScreen {
     tabBar.buttons.matching(identifier: "Discover").firstMatch
   }
 
+  /// Exposed Discover tab element for diagnostics or manual logging.
+  public var discoverTabElement: XCUIElement {
+    discoverTab
+  }
+
   /// Player tab button.
   private var playerTab: XCUIElement {
     tabBar.buttons.matching(identifier: "Player").firstMatch
