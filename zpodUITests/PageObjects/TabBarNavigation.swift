@@ -167,7 +167,7 @@ public struct TabBarNavigation: BaseScreen {
     guard tap(settingsTab) else { return false }
 
     // Wait for Settings to load (feature rows or loading indicator)
-    _ = waitForSettingsLoad()
+    guard waitForSettingsLoad() else { return false }
 
     // Verify Settings content appeared (feature rows or empty state)
     let settingsContent = [
@@ -187,19 +187,20 @@ public struct TabBarNavigation: BaseScreen {
   ///
   /// Settings descriptors load asynchronously. This waits for loading indicator
   /// to disappear or for rows to appear.
-  private func waitForSettingsLoad() {
-    // Wait for loading indicator to disappear
+  @discardableResult
+  private func waitForSettingsLoad() -> Bool {
+    // Wait for loading indicator to appear, then disappear if it shows up
     let loadingCandidates = [
       app.activityIndicators.matching(identifier: "Settings.Loading").firstMatch,
       app.otherElements.matching(identifier: "Settings.Loading").firstMatch,
       app.images.matching(identifier: "Settings.Loading").firstMatch
     ]
 
-    if let loadingIndicator = loadingCandidates.first(where: { $0.exists }) {
+    if let loadingIndicator = waitForAny(loadingCandidates, timeout: 1.0) {
       _ = loadingIndicator.waitUntil(.disappeared)
     }
 
-    // Wait for any feature row to appear
+    // Wait for any feature row or empty state to appear
     let rowCandidates: [XCUIElement] = [
       app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
@@ -208,6 +209,6 @@ public struct TabBarNavigation: BaseScreen {
       app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
     ]
 
-    _ = waitForAny(rowCandidates, timeout: 4.0)
+    return waitForAny(rowCandidates, timeout: 4.0) != nil
   }
 }

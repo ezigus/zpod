@@ -210,12 +210,13 @@ extension XCUIElement {
   /// - Throws: `XCTestError` if element not hittable within timeout
   @MainActor
   public func tapWhenReady(timeout: TimeInterval? = nil) throws {
+    let effectiveTimeout = timeout ?? defaultTimeout()
     guard waitUntil(.hittable, timeout: timeout) else {
       throw XCTestError(_nsError: NSError(
         domain: "UITestWait",
         code: 1,
         userInfo: [
-          NSLocalizedDescriptionKey: "Element '\(self.identifier)' not hittable within \(timeout ?? defaultTimeout())s"
+          NSLocalizedDescriptionKey: "Element '\(self.identifier)' not hittable within \(effectiveTimeout)s"
         ]
       ))
     }

@@ -78,27 +78,23 @@ extension BaseScreen {
     _ elements: [XCUIElement],
     timeout: TimeInterval? = nil
   ) -> XCUIElement? {
+    let effectiveTimeout = timeout ?? defaultTimeout()
+    let deadline = Date().addingTimeInterval(effectiveTimeout)
+
     // Fast path: something already exists
     if let existing = elements.first(where: { $0.exists }) {
       return existing
     }
 
-    // Wait using predicate
-    var foundElement: XCUIElement?
-    let effectiveTimeout = timeout ?? defaultTimeout()
-
-    let predicate = NSPredicate { _, _ in
-      for element in elements where element.exists {
-        foundElement = element
-        return true
+    // Poll until timeout
+    while Date() < deadline {
+      if let matching = elements.first(where: { $0.exists }) {
+        return matching
       }
-      return false
+      RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
     }
 
-    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-    let result = XCTWaiter.wait(for: [expectation], timeout: effectiveTimeout)
-
-    return result == .completed ? foundElement : nil
+    return nil
   }
 
   /// Tap element after verifying it's hittable.

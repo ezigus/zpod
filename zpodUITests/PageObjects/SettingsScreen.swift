@@ -181,25 +181,17 @@ public struct SettingsScreen: BaseScreen {
   /// - Parameter identifiers: Identifiers/labels to try (in order)
   /// - Returns: First matching element, or nil if none found
   private func findSettingsRow(identifiers: [String]) -> XCUIElement? {
+    var candidates: [XCUIElement] = []
     for identifier in identifiers {
-      // Try button
-      let button = app.buttons.matching(identifier: identifier).firstMatch
-      if button.exists { return button }
-
-      // Try otherElement
-      let other = app.otherElements.matching(identifier: identifier).firstMatch
-      if other.exists { return other }
-
-      // Try cell
-      let cell = app.cells.matching(identifier: identifier).firstMatch
-      if cell.exists { return cell }
-
-      // Try staticText
-      let text = app.staticTexts.matching(identifier: identifier).firstMatch
-      if text.exists { return text }
+      candidates += [
+        app.buttons.matching(identifier: identifier).firstMatch,
+        app.otherElements.matching(identifier: identifier).firstMatch,
+        app.cells.matching(identifier: identifier).firstMatch,
+        app.staticTexts.matching(identifier: identifier).firstMatch
+      ]
     }
 
-    return nil
+    return waitForAny(candidates)
   }
 
   /// Finds the Swipe Actions configuration list.

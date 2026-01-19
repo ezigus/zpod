@@ -2701,7 +2701,13 @@ run_sleep_lint() {
 
   # Search for Thread.sleep or usleep in UI test files
   local violations=""
-  violations=$(grep -rn "Thread\.sleep\|usleep" "${REPO_ROOT}/zpodUITests/"*.swift 2>/dev/null | grep -v "// ALLOWED:" || true)
+  violations=$(
+    rg -n --no-heading --color never "Thread\.sleep|usleep" "${REPO_ROOT}/zpodUITests" \
+      2>/dev/null || true
+  )
+  if [[ -n "$violations" ]]; then
+    violations=$(printf '%s\n' "$violations" | grep -v "// ALLOWED:" || true)
+  fi
 
   if [[ -n "$violations" ]]; then
     log_warn "Found sleep usage in UI tests - prefer waitUntil() from UITestWait.swift"
