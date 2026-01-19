@@ -76,6 +76,7 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **[Accessibility Testing Best Practices](docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md)** - SwiftUI List row discovery, accessibility identifiers, UIKit fallback patterns
 - **[UI Testing Advanced Patterns](docs/testing/UI_TESTING_ADVANCED_PATTERNS.md)** - Advanced XCUITest patterns, waiting strategies, element queries
 - **[Isolated UI Test Infrastructure](docs/testing/ISOLATED_UITEST_INFRASTRUCTURE.md)** - Direction on the shared `IsolatedUITestCase` base, page-object stack, and the swipe/core migration plan
+- **Phase 3 Core Tests Design**: `dev-log/12.3-phase-3-core-tests-design.md` - Details the page-object plan for the high-value core suites and how they interact with the shared infrastructure
 
 #### Core Principles (FIRST)
 

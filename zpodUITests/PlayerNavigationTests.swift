@@ -9,82 +9,38 @@ import XCTest
 /// - Episode Detail presence and structure
 ///
 /// Each test validates one specific navigation step with minimal setup.
-final class PlayerNavigationTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
+final class PlayerNavigationTests: IsolatedUITestCase {
 
   override func setUpWithError() throws {
-    continueAfterFailure = false
+    try super.setUpWithError()
     disableWaitingForIdleIfNeeded()
   }
 
-  override func tearDownWithError() throws {
-    app = nil
-  }
-
-  // MARK: - Helper Methods
+  // MARK: - Helpers
 
   @MainActor
-  private func launchApp() {
+  private func launchAndOpenLibrary() {
     app = launchConfiguredApp()
+    let tabs = TabBarNavigation(app: app)
+    XCTAssertTrue(tabs.navigateToLibrary(), "Library tab should be reachable after launch")
   }
 
-  /// Navigate to Library tab
   @MainActor
-  private func navigateToLibraryTab() {
-    let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
-    XCTAssertTrue(libraryTab.waitForExistence(timeout: adaptiveTimeout), "Library tab should exist")
-    libraryTab.tap()
+  @discardableResult
+  private func openEpisodeFromList() -> PlayerScreen {
+    let library = LibraryScreen(app: app)
+    XCTAssertTrue(library.selectEpisode("Episode-st-001"), "Episode should exist in the list")
+
+    let player = PlayerScreen(app: app)
+    XCTAssertTrue(player.waitForPlayerInterface(), "Player interface should appear after episode tap")
+    return player
   }
 
-  /// Navigate to a podcast from Library (assumes Library tab is active)
   @MainActor
-  private func navigateToPodcast(_ podcastIdentifier: String = "Podcast-swift-talk") {
-    // Wait for podcast container
-    guard
-      let podcastContainer = findContainerElement(in: app, identifier: "Podcast Cards Container")
-    else {
-      XCTFail("Could not find podcast cards container")
-      return
-    }
-    XCTAssertTrue(podcastContainer.exists, "Podcast container should exist")
-
-    // Wait for specific podcast
-    let podcastButton = app.buttons[podcastIdentifier]
-    XCTAssertTrue(
-      podcastButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Podcast '\(podcastIdentifier)' should exist")
-    podcastButton.tap()
-  }
-
-  /// Navigate to an episode from episode list (assumes episode list is active)
-  @MainActor
-  private func navigateToEpisode(_ episodeIdentifier: String = "Episode-st-001") {
-    // Wait for episode list
-    guard let episodeList = findContainerElement(in: app, identifier: "Episode List View") else {
-      XCTFail("Could not find episode list container")
-      return
-    }
-    XCTAssertTrue(episodeList.exists, "Episode list should exist")
-
-    // Wait for specific episode
-    let episodeButton = app.buttons.matching(identifier: episodeIdentifier).firstMatch
-    XCTAssertTrue(
-      episodeButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Episode '\(episodeIdentifier)' should exist")
-    episodeButton.tap()
-  }
-
-  /// Wait for episode detail to load (flexible detection)
-  @MainActor
-  private func waitForEpisodeDetail() -> Bool {
-    // Use waitUntil to check for any play button variant
-    waitUntil(timeout: adaptiveShortTimeout) {
-      let playButtons = self.app.buttons.matching(
-        NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
-      )
-      return playButtons.count > 0
-    }
+  private func openEpisodeList() {
+    let library = LibraryScreen(app: app)
+    XCTAssertTrue(library.waitForLibraryContent(), "Library content should load")
+    XCTAssertTrue(library.selectPodcast("Podcast-swift-talk"), "Podcast should be selectable")
   }
 
   // MARK: - Navigation Tests
@@ -92,41 +48,29 @@ final class PlayerNavigationTests: XCTestCase, SmartUITesting {
   /// Test: Navigate from Library to podcast detail
   @MainActor
   func testNavigateFromLibraryToPodcast() throws {
-    launchApp()
-    navigateToLibraryTab()
-    navigateToPodcast()
-
-    // Verify we're on the episode list
-    let episodeList = findContainerElement(in: app, identifier: "Episode List View")
-    XCTAssertNotNil(episodeList, "Episode list should be visible after navigating to podcast")
+    launchAndOpenLibrary()
+    let library = LibraryScreen(app: app)
+    XCTAssertTrue(library.waitForLibraryContent(), "Library content should load")
+    XCTAssertTrue(library.selectPodcast("Podcast-swift-talk"), "Podcast should be selectable")
+    XCTAssertTrue(library.waitForEpisodeList(), "Episode list should appear after selecting a podcast")
   }
 
   /// Test: Navigate to episode detail
   @MainActor
   func testNavigateToEpisodeDetail() throws {
-    launchApp()
-    navigateToLibraryTab()
-    navigateToPodcast()
-    navigateToEpisode()
-
-    XCTAssertTrue(waitForEpisodeDetail(), "Episode detail should load")
+    launchAndOpenLibrary()
+    openEpisodeList()
+    openEpisodeFromList()
   }
 
   /// Test: Episode detail has play button
   @MainActor
   func testEpisodeDetailHasPlayButton() throws {
-    launchApp()
-    navigateToLibraryTab()
-    navigateToPodcast()
-    navigateToEpisode()
+    launchAndOpenLibrary()
+    openEpisodeList()
+    let player = openEpisodeFromList()
 
-    XCTAssertTrue(waitForEpisodeDetail(), "Episode detail should load")
-
-    // Verify play button is present
-    let playButton = app.buttons.matching(
-      NSPredicate(format: "label CONTAINS[c] 'play' OR identifier CONTAINS[c] 'play'")
-    ).firstMatch
-    XCTAssertTrue(
-      playButton.waitForExistence(timeout: adaptiveShortTimeout), "Play button should exist")
+    let playButton = player.waitForPlayButton(timeout: adaptiveShortTimeout)
+    XCTAssertNotNil(playButton, "Play button should be present in the player interface")
   }
 }

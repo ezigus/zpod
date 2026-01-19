@@ -7,20 +7,11 @@ import XCTest
 /// - CarPlay player interface verification (simulated)
 /// - Apple Watch playback controls (simulated)
 /// - Bluetooth and external control handling
-final class PlaybackUITests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
+final class PlaybackUITests: IsolatedUITestCase {
 
   override func setUpWithError() throws {
-    continueAfterFailure = false
+    try super.setUpWithError()
     disableWaitingForIdleIfNeeded()
-
-    // Initialize app without @MainActor calls in setup
-    // XCUIApplication creation and launch will be done in test methods
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
   }
 
 }
@@ -39,154 +30,45 @@ extension PlaybackUITests {
       return
     }
 
-    // Navigate to player interface for testing
-    let tabBar = waitForAnyElement(
-      [
-        app.tabBars.matching(identifier: "Main Tab Bar").firstMatch,
-        app.tabBars.firstMatch,
-      ],
-      timeout: adaptiveTimeout,
-      description: "Main Tab Bar",
-      failOnTimeout: true
-    )
-    guard let tabBar else {
-      XCTFail("Main Tab Bar did not appear")
-      return
-    }
-    let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
-    guard
-      waitForElement(
-        playerTab,
-        timeout: adaptiveShortTimeout,
-        description: "Player tab"
-      )
-    else { return }
-    if playerTab.exists {
-      let initialTapMethod: String
-      if playerTab.isHittable {
-        initialTapMethod = "direct"
-        playerTab.tap()
-      } else {
-        initialTapMethod = "coordinate"
-        let coordinate = playerTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        coordinate.tap()
-      }
-
-      let tabSelectedPredicate = NSPredicate(format: "isSelected == true")
-      var tabSwitchResult = XCTWaiter().wait(
-        for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: playerTab)],
-        timeout: adaptiveShortTimeout
-      )
-      if tabSwitchResult != .completed {
-        let retryTapMethod = playerTab.isHittable ? "direct" : "coordinate"
-        if playerTab.isHittable {
-          playerTab.tap()
-        } else {
-          let coordinate = playerTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-          coordinate.tap()
-        }
-        tabSwitchResult = XCTWaiter().wait(
-          for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: playerTab)],
-          timeout: adaptiveShortTimeout
-        )
-        if tabSwitchResult != .completed {
-          XCTFail(
-            "Player tab did not become selected after \(initialTapMethod) tap and \(retryTapMethod) retry"
-          )
-        }
-      }
-
-      let _ = waitForAnyElement(
-        playerInterfaceCandidates(in: app),
-        timeout: adaptiveTimeout,
-        description: "Player interface readiness",
-        failOnTimeout: false
-      )
-    }
+    let tabs = TabBarNavigation(app: app)
+    XCTAssertTrue(tabs.navigateToPlayer(), "Player tab should become selected after launch")
   }
 
   @MainActor
   private func startPlaybackFromLibraryQuickPlay() {
     app = launchConfiguredApp()
 
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
-    if libraryTab.waitForExistence(timeout: adaptiveShortTimeout) {
-      libraryTab.tap()
-    }
+    let tabs = TabBarNavigation(app: app)
+    XCTAssertTrue(tabs.navigateToLibrary(), "Library tab should become available")
 
-    let libraryLoaded = waitForContentToLoad(
-      containerIdentifier: "Podcast Cards Container",
-      timeout: adaptiveTimeout
-    )
-    guard libraryLoaded else {
-      XCTFail("Library content failed to load")
-      return
-    }
-
-    let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
-    guard
-      waitForElement(
-        podcastButton,
-        timeout: adaptiveTimeout,
-        description: "Podcast swift-talk"
-      )
-    else { return }
-    podcastButton.tap()
-
-    let episodeListLoaded = waitForContentToLoad(
-      containerIdentifier: "Episode List View",
-      itemIdentifiers: ["Episode-st-001"],
-      timeout: adaptiveTimeout
-    )
-    guard episodeListLoaded else {
-      XCTFail("Episode list failed to load")
-      return
-    }
+    let library = LibraryScreen(app: app)
+    XCTAssertTrue(library.waitForLibraryContent(), "Library content should load")
+    XCTAssertTrue(library.selectPodcast("Podcast-swift-talk"), "Podcast should be selectable")
+    XCTAssertTrue(library.waitForEpisodeList(), "Episode list should appear")
 
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+
+    let player = PlayerScreen(app: app)
+    XCTAssertTrue(
+      player.waitForPlayerInterface(),
+      "Player interface should appear after quick play"
+    )
   }
 
   @MainActor
   private func existsByIdOrLabel(_ text: String) -> Bool {
-    let q = NSPredicate(format: "identifier == %@ OR label == %@", text, text)
-    return app.descendants(matching: .any).matching(q).firstMatch.exists
+    PlayerScreen(app: app).exists(identifierOrLabel: text)
   }
 
   @MainActor
   @discardableResult
-  private func requirePlayerInterface() throws -> XCUIElement {
-    // Verify player interface by checking for Speed Control button
-    // (NavigationBar and container elements are unreliable in modern SwiftUI)
-    let speedControl = speedControlButton(in: app)
-    try waitForElementOrSkip(
-      speedControl,
-      timeout: adaptiveTimeout,
-      description: "Player interface (Speed Control)"
+  private func requirePlayerInterface() throws -> PlayerScreen {
+    let player = PlayerScreen(app: app)
+    XCTAssertTrue(
+      player.waitForPlayerInterface(),
+      "Player interface should be available when required"
     )
-    return speedControl
-  }
-
-  @MainActor
-  private func speedControlButton(in app: XCUIApplication) -> XCUIElement {
-    let button = app.buttons.matching(identifier: "Speed Control").firstMatch
-    if button.exists {
-      return button
-    }
-    return app.descendants(matching: .any)
-      .matching(identifier: "Speed Control")
-      .firstMatch
-  }
-
-  @MainActor
-  private func playerInterfaceCandidates(in app: XCUIApplication) -> [XCUIElement] {
-    [
-      speedControlButton(in: app),
-      app.otherElements.matching(identifier: "Player Interface").firstMatch,
-      app.sliders.matching(identifier: "Progress Slider").firstMatch,
-      app.staticTexts.matching(identifier: "Episode Title").firstMatch,
-      app.staticTexts.matching(identifier: "Podcast Title").firstMatch,
-    ]
+    return player
   }
 
 }

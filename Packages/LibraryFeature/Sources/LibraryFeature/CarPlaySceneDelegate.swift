@@ -39,15 +39,6 @@
       setupRootTemplate()
     }
 
-    public func templateApplicationScene(
-      _ templateApplicationScene: CPTemplateApplicationScene,
-      didDisconnect interfaceController: CPInterfaceController
-    ) {
-      Self.logger.info("CarPlay interface disconnected")
-      self.interfaceController = nil
-      self.episodeListControllers.removeAll()
-    }
-
     // MARK: - Template Setup
 
     private func setupRootTemplate() {
@@ -133,6 +124,17 @@
       controller.setInterfaceController(interfaceController)
       episodeListControllers[podcast.id] = controller
       return controller
+    }
+  }
+
+  extension CarPlaySceneDelegate {
+    public func templateApplicationScene(
+      _ templateApplicationScene: CPTemplateApplicationScene,
+      didDisconnect interfaceController: CPInterfaceController
+    ) {
+      Self.logger.info("CarPlay interface disconnected")
+      self.interfaceController = nil
+      self.episodeListControllers.removeAll()
     }
   }
 

@@ -17,9 +17,17 @@ public struct DownloadProgress: Sendable {
 }
 
 /// Protocol for file management operations
+public struct DownloadProgressPublisher: @unchecked Sendable {
+    public let publisher: AnyPublisher<DownloadProgress, Never>
+
+    public init(publisher: AnyPublisher<DownloadProgress, Never>) {
+        self.publisher = publisher
+    }
+}
+
 public protocol FileManagerServicing: Sendable {
     #if canImport(Combine)
-    var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> { get async }
+    var downloadProgressPublisher: DownloadProgressPublisher { get async }
     #endif
     func downloadPath(for task: DownloadTask) async -> String
     func createDownloadDirectory(for task: DownloadTask) async throws
@@ -39,9 +47,9 @@ public actor FileManagerService: @preconcurrency FileManagerServicing {
     private let baseDownloadsPath: URL
     
     #if canImport(Combine)
-    public var downloadProgressPublisher: AnyPublisher<DownloadProgress, Never> {
+    public var downloadProgressPublisher: DownloadProgressPublisher {
         get async {
-            return progressSubject.eraseToAnyPublisher()
+            DownloadProgressPublisher(publisher: progressSubject.eraseToAnyPublisher())
         }
     }
     #endif

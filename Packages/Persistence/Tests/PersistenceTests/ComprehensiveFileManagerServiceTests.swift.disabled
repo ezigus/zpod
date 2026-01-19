@@ -201,7 +201,7 @@ final class ComprehensiveFileManagerServiceTests: XCTestCase {
     func testDownloadProgressPublisher_Available() async {
         // Given: FileManagerService
         // When: Getting download progress publisher
-        let publisher = await fileManagerService.downloadProgressPublisher
+        let publisher = (await fileManagerService.downloadProgressPublisher).publisher
         
         // Then: Publisher should be available
         XCTAssertNotNil(publisher, "Download progress publisher should be available")
@@ -213,7 +213,7 @@ final class ComprehensiveFileManagerServiceTests: XCTestCase {
         var receivedProgress: [DownloadProgress] = []
         
         // When: Subscribing to progress and starting download
-        let publisher = await fileManagerService.downloadProgressPublisher
+        let publisher = (await fileManagerService.downloadProgressPublisher).publisher
         publisher
             .sink { progress in
                 receivedProgress.append(progress)

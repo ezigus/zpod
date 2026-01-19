@@ -10,23 +10,15 @@ import XCTest
 ///
 /// - Note: Type body length rule disabled due to comprehensive test coverage
 // swiftlint:disable:next type_body_length
-final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
+final class ContentDiscoveryUITests: IsolatedUITestCase {
 
-  nonisolated(unsafe) var app: XCUIApplication!
   private var discoverDiagnosticsEnabled: Bool {
     ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
   }
 
   override func setUpWithError() throws {
-    continueAfterFailure = false
+    try super.setUpWithError()
     disableWaitingForIdleIfNeeded()
-
-    // Initialize app without @MainActor calls in setup
-    // XCUIApplication creation and launch will be done in test methods
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
   }
 
   // MARK: - Helper Methods
@@ -35,64 +27,20 @@ final class ContentDiscoveryUITests: XCTestCase, SmartUITesting {
   private func initializeApp() {
     app = launchConfiguredApp()
 
-    // Wait for the main tab bar to be available
-    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    XCTAssertTrue(
-      waitForElement(
-        tabBar, timeout: adaptiveTimeout, description: "Main tab bar"),
-      "Main tab bar should be available after app launch")
-
-    // Navigate to discovery interface for testing
-    let discoverTab = tabBar.buttons.matching(identifier: "Discover").firstMatch
-    XCTAssertTrue(discoverTab.exists, "Discover tab should exist")
-    logDiscoverDiagnostics("pre-tap", app: app, discoverTab: discoverTab)
-
-    // Try coordinate-based tap if button isn't responding
-    if discoverTab.isHittable {
-      discoverTab.tap()
-    } else {
-      // Force tap using coordinate
-      let coordinate = discoverTab.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-      coordinate.tap()
-    }
-
-    // Wait for tab selection to complete (tab should have .selected trait)
-    // This synchronization step prevents race conditions where we query for
-    // search field before SwiftUI finishes the tab transition animation.
-    let tabSelectedPredicate = NSPredicate(format: "isSelected == true")
-    var tabSwitchResult = XCTWaiter().wait(
-      for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
-      timeout: adaptiveShortTimeout
-    )
-    if tabSwitchResult != .completed {
-      // Fallback: tap again if first tap didn't register
-      discoverTab.tap()
-      tabSwitchResult = XCTWaiter().wait(
-        for: [XCTNSPredicateExpectation(predicate: tabSelectedPredicate, object: discoverTab)],
-        timeout: adaptiveShortTimeout
-      )
-    }
-    logDiscoverDiagnostics("post-tap", app: app, discoverTab: discoverTab)
-
-    let discoverRoot = discoverRootElement(in: app)
-    _ = waitForElement(
-      discoverRoot,
-      timeout: adaptiveShortTimeout,
-      description: "Discover root marker"
-    )
-
-    // Wait for discover screen to load fully by checking for search field
-    // (NavigationBar elements are unreliable in modern SwiftUI)
-    let searchField = discoverSearchField(in: app, probeTimeout: 0.5, finalTimeout: adaptiveShortTimeout)
-    var searchFieldAppeared = searchField.waitForExistence(timeout: adaptiveTimeout)
-    if !searchFieldAppeared {
-      discoverTab.tap()
-      searchFieldAppeared = searchField.waitForExistence(timeout: adaptiveTimeout)
-    }
+    let tabs = TabBarNavigation(app: app)
+    let discoverTab = tabs.discoverTabElement
+    logDiscoverDiagnostics("pre-navigation", app: app, discoverTab: discoverTab)
 
     XCTAssertTrue(
-      searchFieldAppeared,
-      "Discover screen should load after tapping tab"
+      tabs.navigateToDiscover(),
+      "Discover tab should become selected after launch"
+    )
+
+    logDiscoverDiagnostics("post-navigation", app: app, discoverTab: discoverTab)
+
+    XCTAssertTrue(
+      DiscoverScreen(app: app).discoverTabReady(timeout: adaptiveTimeout),
+      "Discover search screen should finish loading"
     )
   }
 
