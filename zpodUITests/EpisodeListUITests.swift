@@ -14,7 +14,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testNavigationToPodcastEpisodeList() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: The app is launched and we navigate to Library tab
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
@@ -102,7 +102,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEpisodeListDisplaysEpisodes() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I navigate to a podcast's episode list
     navigateToPodcastEpisodes("swift-talk")
@@ -145,7 +145,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEpisodeListScrolling() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I'm viewing an episode list with multiple episodes
     navigateToPodcastEpisodes("swift-talk")
@@ -183,7 +183,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEpisodeDetailNavigation() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I'm viewing an episode list
     navigateToPodcastEpisodes("swift-talk")
@@ -243,7 +243,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEpisodeStatusIndicators() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I'm viewing an episode list
     navigateToPodcastEpisodes("swift-talk")
@@ -266,7 +266,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEmptyEpisodeListState() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I navigate to a podcast with episodes (for now, just verify the basic navigation works)
     navigateToPodcastEpisodes("swift-talk")
@@ -285,7 +285,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testPullToRefreshFunctionality() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: App is launched and we navigate to episode list
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
@@ -356,7 +356,7 @@ final class EpisodeListUITests: IsolatedUITestCase {
   @MainActor
   func testEpisodeListAccessibility() throws {
     // Initialize the app
-    app = launchConfiguredApp()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
 
     // Given: I navigate to episode list
     navigateToPodcastEpisodes("swift-talk")
@@ -416,11 +416,6 @@ final class EpisodeListUITests: IsolatedUITestCase {
   }
 
   // MARK: - Helper Methods
-
-  @MainActor
-  private func initializeApp() {
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_USE_SIMPLE_EPISODE_LIST": "1"])
-  }
 
   @MainActor
   private func navigateToPodcastEpisodes(_ podcastId: String) {
