@@ -78,6 +78,7 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **[Isolated UI Test Infrastructure](docs/testing/ISOLATED_UITEST_INFRASTRUCTURE.md)** - Direction on the shared `IsolatedUITestCase` base, page-object stack, and the swipe/core migration plan
 - **Phase 3 Core Tests Design**: `dev-log/12.3-phase-3-core-tests-design.md` - Details the page-object plan for the high-value core suites and how they interact with the shared infrastructure
 - **Phase 4 Playback Position Design**: `dev-log/12.3-phase-4-playback-position-design.md` - Lays out the intent and verification plan for migrating the playback position suites to the isolated base
+- **Phase 5 Remaining Tests Design**: `dev-log/12.3-phase-5-remaining-tests-design.md` - Final phase migrating remaining player, feature, and snapshot tests to complete the migration plan
 
 #### Core Principles (FIRST)
 
