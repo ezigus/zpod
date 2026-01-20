@@ -202,7 +202,7 @@ log_oslog_debug() {
     return
   fi
   local last="${ZPOD_OSLOG_LAST:-5m}"
-  local predicate="${ZPOD_OSLOG_PREDICATE:-subsystem == \"us.zig.zpod\" && (category == \"PlaybackStateCoordinator\" || category == \"ExpandedPlayerViewModel\" || category == \"PlaybackPositionUITests\")}"
+  local predicate="${ZPOD_OSLOG_PREDICATE:-subsystem == \"us.zig.zpod\" && (category == \"PlaybackStateCoordinator\" || category == \"ExpandedPlayerViewModel\")}"
   log_section "OSLog debug (${target})"
   log_info "OSLog window: ${last}"
   log_info "OSLog predicate: ${predicate}"
