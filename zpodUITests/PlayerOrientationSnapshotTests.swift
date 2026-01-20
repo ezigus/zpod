@@ -8,29 +8,17 @@ import XCTest
 /// - Landscape right orientation
 ///
 /// Screenshots are attached to test results for visual regression comparison.
-final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-  }
+final class PlayerOrientationSnapshotTests: IsolatedUITestCase {
 
   override func tearDownWithError() throws {
-    // Reset orientation back to portrait
+    // Reset orientation back to portrait before base class cleanup
     Task { @MainActor in
       XCUIDevice.shared.orientation = .portrait
     }
-    app = nil
+    try super.tearDownWithError()
   }
 
   // MARK: - Helper Methods
-
-  @MainActor
-  private func launchApp() {
-    app = launchConfiguredApp()
-  }
 
   /// Navigate to Library tab
   @MainActor
@@ -95,7 +83,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
   /// Test: Episode detail in portrait orientation
   @MainActor
   func testEpisodeDetailPortraitOrientation() throws {
-    launchApp()
+    app = launchConfiguredApp()
 
     // Explicitly set portrait orientation
     XCUIDevice.shared.orientation = .portrait
@@ -117,7 +105,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
   /// Test: Episode detail in landscape left orientation
   @MainActor
   func testEpisodeDetailLandscapeLeftOrientation() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     navigateToEpisode()
@@ -147,7 +135,7 @@ final class PlayerOrientationSnapshotTests: XCTestCase, SmartUITesting {
   /// Test: Episode detail in landscape right orientation
   @MainActor
   func testEpisodeDetailLandscapeRightOrientation() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     navigateToEpisode()

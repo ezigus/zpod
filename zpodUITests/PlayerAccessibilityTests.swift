@@ -5,31 +5,9 @@ import XCTest
 /// Validates Issue 03.1.1.4 acceptance criteria:
 /// - VoiceOver labels/hints for mini/expanded player controls.
 /// - Dynamic Type scaling at accessibility sizes.
-final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
-  }
+final class PlayerAccessibilityTests: IsolatedUITestCase {
 
   // MARK: - Helpers
-
-  @MainActor
-  private func launchApp(
-    environmentOverrides: [String: String] = [:],
-    launchArguments: [String] = []
-  ) {
-    app = launchConfiguredApp(
-      environmentOverrides: environmentOverrides,
-      launchArguments: launchArguments
-    )
-  }
 
   @MainActor
   private func navigateToLibraryTab() {
@@ -117,7 +95,7 @@ final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testExpandedPlayerAccessibilityLabels() throws {
-    launchApp()
+    app = launchConfiguredApp()
     startPlaybackFromQuickPlay()
     openExpandedPlayer()
 
@@ -171,7 +149,7 @@ final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testDynamicTypeAccessibilitySizeKeepsMiniPlayerVisible() throws {
-    launchApp(launchArguments: [
+    app = launchConfiguredApp(launchArguments: [
       "-UIPreferredContentSizeCategoryName",
       "UICTContentSizeCategoryAccessibilityXXXL",
     ])
@@ -196,7 +174,7 @@ final class PlayerAccessibilityTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testDynamicTypeAccessibilitySizeKeepsExpandedPlayerVisible() throws {
-    launchApp(
+    app = launchConfiguredApp(
       environmentOverrides: ["UITEST_FORCE_EXPANDED_PLAYER": "1"],
       launchArguments: [
         "-UIPreferredContentSizeCategoryName",
