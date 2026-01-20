@@ -17,7 +17,7 @@ import XCTest
 /// Protocol for test classes that need environmental isolation
 protocol TestEnvironmentIsolation {
   /// Clears UserDefaults to prevent state pollution
-  func clearUserDefaults(suiteName: String?)
+  func clearUserDefaults(suiteName: String?, appBundleIdentifier: String)
 
   /// Clears all keychain items for test isolation
   func clearKeychain()
@@ -48,8 +48,10 @@ extension XCTestCase: TestEnvironmentIsolation {
   /// }
   /// ```
   ///
-  /// - Parameter suiteName: Optional suite name (nil = standard UserDefaults)
-  func clearUserDefaults(suiteName: String? = nil) {
+  /// - Parameters:
+  ///   - suiteName: Optional suite name (nil = standard UserDefaults)
+  ///   - appBundleIdentifier: App bundle ID to clear from standard defaults (default: "us.zig.zpod")
+  func clearUserDefaults(suiteName: String? = nil, appBundleIdentifier: String = "us.zig.zpod") {
     let defaults: UserDefaults
     if let suiteName = suiteName {
       guard let suiteDefaults = UserDefaults(suiteName: suiteName) else {
@@ -61,10 +63,14 @@ extension XCTestCase: TestEnvironmentIsolation {
       defaults.removePersistentDomain(forName: suiteName)
     } else {
       defaults = UserDefaults.standard
-      // For standard defaults, remove the bundle's domain
-      if let bundleID = Bundle.main.bundleIdentifier {
-        defaults.removePersistentDomain(forName: bundleID)
+      // Guard against empty bundle ID to prevent no-op or undefined behavior
+      guard !appBundleIdentifier.isEmpty else {
+        print("⚠️ clearUserDefaults called with empty appBundleIdentifier, skipping")
+        return
       }
+      // Use explicit app bundle ID - Bundle.main in UI tests refers to
+      // the test runner bundle, not the app under test
+      defaults.removePersistentDomain(forName: appBundleIdentifier)
     }
 
     // Force synchronization

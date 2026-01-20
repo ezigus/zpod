@@ -109,11 +109,10 @@ This document outlines the UI testing approach for the main zpod application.
 
 **Note**: This suite is the source of truth for AVPlayer behavior; ticker suite remains the deterministic fast path.
 
-### Deprecated Playback Position UI Tests (`PlaybackPositionUITests.swift`)
+### Retired Playback Position UI Tests (`PlaybackPositionUITests.swift`)
 
-- Status: Deprecated and skipped by default (quarantined); retained temporarily for traceability.
-- Replaced by: `PlaybackPositionTickerTests.swift` (deterministic) and `PlaybackPositionAVPlayerTests.swift` (integration).
-- Guardrails: `zpod.xctestplan` marks the class skipped; `setUpWithError` throws `XCTSkip` unless `UITEST_RUN_DEPRECATED=1`.
+- Status: Deprecated and deleted after the dual-mode suites proved reliable. Focus future work on the ticker/AVPlayer classes.
+- Replaced by: `PlaybackPositionTickerTests.swift` (deterministic) and `PlaybackPositionAVPlayerTests.swift` (integration). The helpers moved into `PlaybackPositionTestSupport.swift`.
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 

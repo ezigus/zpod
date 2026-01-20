@@ -30,9 +30,8 @@ import XCTest
 ///
 /// - Note: Type body length rule disabled due to comprehensive test coverage
 // swiftlint:disable:next type_body_length
-final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSupport {
+final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionTestSupport {
 
-    nonisolated(unsafe) var app: XCUIApplication!
     static let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionAVPlayerTests")
 
     // MARK: - AVPlayer-Specific Timeouts
@@ -41,14 +40,14 @@ final class PlaybackPositionAVPlayerTests: XCTestCase, PlaybackPositionTestSuppo
     private let avplayerTimeout: TimeInterval = 10.0
 
     override func setUpWithError() throws {
-        continueAfterFailure = false
+        try super.setUpWithError()
         disableWaitingForIdleIfNeeded()
         validateTestAudioExists()
     }
 
     override func tearDownWithError() throws {
         cleanupAudioLaunchEnvironment()
-        app = nil
+        try super.tearDownWithError()
     }
 
     @MainActor

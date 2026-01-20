@@ -55,7 +55,7 @@ Playback position tests validate that the UI correctly reflects playback state (
 | `PlaybackPositionTestSupport.swift` | Shared protocol with navigation/assertion helpers | ~570 | N/A |
 | `PlaybackPositionTickerTests.swift` | Ticker mode tests (7 core tests) | ~390 | Ticker |
 | `PlaybackPositionAVPlayerTests.swift` | AVPlayer mode tests (6 core + 4 edge-case tests) | ~990 | AVPlayer |
-| `PlaybackPositionUITests.swift` | **DEPRECATED** - Original tests | ~300 | Ticker (implicit) |
+| `PlaybackPositionUITests.swift` | **REMOVED** (legacy suite deleted after ticker/AVPlayer split) | n/a | retired |
 
 ### Test Scenarios (Both Suites)
 
