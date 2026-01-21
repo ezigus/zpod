@@ -59,8 +59,6 @@ extension XCTestCase: TestEnvironmentIsolation {
         return
       }
       defaults = suiteDefaults
-      // Use removePersistentDomain for efficient suite clearing (Apple recommended)
-      defaults.removePersistentDomain(forName: suiteName)
     } else {
       defaults = UserDefaults.standard
       // Guard against empty bundle ID to prevent no-op or undefined behavior
@@ -68,15 +66,22 @@ extension XCTestCase: TestEnvironmentIsolation {
         print("⚠️ clearUserDefaults called with empty appBundleIdentifier, skipping")
         return
       }
-      // Use explicit app bundle ID - Bundle.main in UI tests refers to
-      // the test runner bundle, not the app under test
-      defaults.removePersistentDomain(forName: appBundleIdentifier)
+    }
+
+    // CRITICAL: Use key-by-key removal instead of removePersistentDomain
+    // removePersistentDomain can corrupt the UserDefaults database, causing
+    // CFBundleGetIdentifier to crash during UIKit initialization (Issue #12.3 Phase 5)
+    // This happens because the test runner tries to initialize its own UserDefaults
+    // during UIApplicationMainPreparations, and a corrupt domain causes nil derefs.
+    let dictionary = defaults.dictionaryRepresentation()
+    for key in dictionary.keys {
+      defaults.removeObject(forKey: key)
     }
 
     // Force synchronization
     defaults.synchronize()
 
-    print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? "")")
+    print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? "") (\(dictionary.count) keys removed)")
   }
 
   /// Clears app-specific keychain items to ensure test isolation
