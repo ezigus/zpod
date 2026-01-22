@@ -28,10 +28,29 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
   ///   - ext: File extension (default: "m4a", can use "aiff")
   /// - Returns: file:// URL to the audio file, or nil if not found
   nonisolated func testAudioURL(named name: String, extension ext: String = "m4a") -> URL? {
-    Bundle(for: type(of: self)).url(
-      forResource: name,
-      withExtension: ext
-    )
+    let bundle = Bundle(for: type(of: self))
+
+    if let topLevel = bundle.url(forResource: name, withExtension: ext) {
+      return topLevel
+    }
+
+    let subdirectories = [
+      "TestResources/Audio",
+      "Audio",
+      "TestResources"
+    ]
+
+    for subdirectory in subdirectories {
+      if let candidate = bundle.url(
+        forResource: name,
+        withExtension: ext,
+        subdirectory: subdirectory
+      ) {
+        return candidate
+      }
+    }
+
+    return nil
   }
   
   /// Copies test audio files to /tmp directory and returns environment variables.

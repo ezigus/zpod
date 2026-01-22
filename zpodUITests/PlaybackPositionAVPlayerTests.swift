@@ -17,18 +17,7 @@
 
 import OSLog
 import XCTest
-/// UI tests for playback position using the AVPlayer engine (real audio).
-///
-/// These tests validate the full audio pipeline integration:
-/// AVPlayer → EnhancedEpisodePlayer → UI
-///
-/// **Critical Difference from Ticker Tests**:
-/// - Position updates come from AVPlayer's periodic time observer
-/// - Longer timeouts account for buffering and network latency
-/// - Tolerances increased for real-time playback jitter
-/// - Validates production audio path end-to-end
-///
-/// - Note: Type body length rule disabled due to comprehensive test coverage
+
 // swiftlint:disable:next type_body_length
 final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionTestSupport {
 

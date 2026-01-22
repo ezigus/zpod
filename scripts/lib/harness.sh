@@ -2707,7 +2707,8 @@ run_sleep_lint() {
   # Search for Thread.sleep or usleep in UI test files
   local violations=""
   violations=$(
-    rg -n --no-heading --color never "Thread\.sleep|usleep" "${REPO_ROOT}/zpodUITests" \
+    rg -n --no-heading --color never "Thread\.sleep\(|usleep\(" "${REPO_ROOT}/zpodUITests" \
+      --glob '!*.md' \
       2>/dev/null || true
   )
   if [[ -n "$violations" ]]; then
