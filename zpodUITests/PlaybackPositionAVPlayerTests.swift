@@ -865,9 +865,14 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
 
         // CI runners have lower performance - use relaxed threshold
         // Local development maintains strict threshold for catching real issues
-        // Pattern consistent with UITestWait.swift, BaseScreen.swift, UITestHelpers.swift
-        let isCI = ProcessInfo.processInfo.environment["CI"] != nil
+        // Check multiple environment variables for reliability (GitHub Actions sets both)
+        let ciEnvVar = ProcessInfo.processInfo.environment["CI"]
+        let githubActionsVar = ProcessInfo.processInfo.environment["GITHUB_ACTIONS"]
+        let isCI = ciEnvVar != nil || githubActionsVar != nil
         let speedThreshold: Double = isCI ? 1.5 : 1.7
+
+        // Debug: Log CI detection for troubleshooting
+        XCTContext.runActivity(named: "CI Detection: isCI=\(isCI), CI=\(ciEnvVar ?? "nil"), GITHUB_ACTIONS=\(githubActionsVar ?? "nil")") { _ in }
 
         // Compute and log measurements before assertion
         let ratio = fastDelta / baselineDelta
