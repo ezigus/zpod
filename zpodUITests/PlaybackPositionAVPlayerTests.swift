@@ -52,6 +52,13 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         env["UITEST_INITIAL_TAB"] = "player"
         env["UITEST_AUDIO_VARIANT"] = audioVariant
 
+        // Pass CI flag through to app so timing thresholds can be adjusted
+        // Checked in the test process, passed to app via launch environment
+        if ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil {
+            env["UITEST_CI_MODE"] = "1"
+        }
+
         environmentOverrides.forEach { key, value in
             env[key] = value
         }
@@ -809,12 +816,17 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
 
         let fastWindow: TimeInterval = 1.0
 
-        let fastRateConfirmed = waitForState(timeout: 2.0, pollInterval: 0.1, description: "fast rate confirmation") {
+        // CI-aware thresholds: looser in CI due to performance variability
+        let isCI = app.launchEnvironment["UITEST_CI_MODE"] == "1"
+        let rateConfirmTimeout: TimeInterval = isCI ? 5.0 : 2.0
+        let rateConfirmThreshold: Double = isCI ? 1.5 : 1.8
+
+        let fastRateConfirmed = waitForState(timeout: rateConfirmTimeout, pollInterval: 0.1, description: "fast rate confirmation") {
             guard let text = audioDebugOverlayLabel(for: overlay),
                   let rate = audioDebugEngineRate(from: text) else {
                 return false
             }
-            return rate >= 1.8
+            return rate >= rateConfirmThreshold
         }
 
         if !fastRateConfirmed {
@@ -863,11 +875,12 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         XCTContext.runActivity(named: "Fast window: target=\(String(format: "%.1f", fastWindow))s, actual=\(String(format: "%.3f", actualFastElapsed))s") { _ in }
         XCTContext.runActivity(named: "Fast delta: \(String(format: "%.3f", fastDelta))s") { _ in }
 
-        // Use 1.5x threshold for reliability across all environments
-        // This accommodates CI runner performance variability while still proving
-        // that 2.0x speed works (significantly faster than 1.0x baseline)
-        // Local runs achieve 1.8x-1.95x, CI achieves 1.5x-1.6x
-        let speedThreshold: Double = 1.5
+        // Environment-specific thresholds via app launch environment
+        // Local: Strict threshold (1.7x) catches regressions during development
+        // CI: Relaxed threshold (1.5x) accommodates GitHub Actions runner variability
+        // Both prove 2.0x playback works (significantly faster than 1.0x baseline)
+        let isCI_threshold = app.launchEnvironment["UITEST_CI_MODE"] == "1"
+        let speedThreshold: Double = isCI_threshold ? 1.5 : 1.7
 
         // Compute and log measurements before assertion
         let ratio = fastDelta / baselineDelta
@@ -879,18 +892,18 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         XCTContext.runActivity(named: "Measurements") { _ in
             XCTContext.runActivity(named: "Baseline: \(String(format: "%.3f", baselineDelta))s over \(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
             XCTContext.runActivity(named: "Fast: \(String(format: "%.3f", fastDelta))s over \(String(format: "%.3f", actualFastElapsed))s") { _ in }
-            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold 1.5x)") { _ in }
+            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold \(String(format: "%.1f", speedThreshold))x, CI=\(isCI_threshold))") { _ in }
             XCTContext.runActivity(named: "Pass? \(passSummary)") { _ in }
         }
 
         // Assert: Position should advance ~2x faster at 2.0x speed
-        // Using 1.5x threshold (rather than 2.0x) to account for:
+        // Using environment-specific thresholds (1.7x local, 1.5x CI) to account for:
         // - AVPlayer buffering delays
         // - UI update cycle latency
         // - Test timing measurement variance
         // - CI runner performance variability
-        // Real-world observation: 1.8x-1.95x typical locally, 1.5x-1.6x in CI
-        // The 1.5x threshold proves the feature works while remaining reliable
+        // Real-world observation: 1.8x-2.5x typical locally, 1.5x-1.6x in CI
+        // Local 1.7x catches regressions, CI 1.5x accommodates runner variability
         XCTAssertGreaterThan(
             fastDelta,
             baselineDelta * speedThreshold,
