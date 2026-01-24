@@ -34,7 +34,10 @@ let package = Package(
         "CoreModels",
         "SharedUtilities",
       ],
-      path: "Tests"
+      path: "Tests",
+      resources: [
+        .copy("FeedParsingTests/Fixtures")
+      ]
     ),
   ]
 )
