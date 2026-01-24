@@ -608,7 +608,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testInterruptionPausesAndResumesPlayback() throws {
         try XCTSkipIf(
-            ProcessInfo.processInfo.environment["CI"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
             "AVPlayer interruption requires real audio hardware - CI tests UI only"
         )
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
