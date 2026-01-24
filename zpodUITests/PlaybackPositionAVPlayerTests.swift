@@ -53,8 +53,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         env["UITEST_AUDIO_VARIANT"] = audioVariant
 
         // Pass CI flag through to app so timing thresholds can be adjusted
-        // GitHub Actions sets CI=true; pass it to the app for threshold adjustments
-        if ProcessInfo.processInfo.environment["CI"] != nil {
+        // GitHub Actions sets GITHUB_ACTIONS=true; pass it to the app for threshold adjustments
+        if ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil {
             env["UITEST_CI_MODE"] = "1"
         }
 
@@ -219,7 +219,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testSeekingUpdatesPositionImmediately() throws {
         try XCTSkipIf(
-            ProcessInfo.processInfo.environment["CI"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
             "AVPlayer seek accuracy requires real audio hardware - CI tests UI only"
         )
         logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): launch app")
@@ -302,7 +302,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testSeekingUpdatesPositionImmediately_CI() throws {
         try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["CI"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
             "CI-only test for UI interaction verification"
         )
 
@@ -668,7 +668,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testInterruptionPausesAndResumesPlayback_CI() throws {
         try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["CI"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
             "CI-only test for UI interaction verification"
         )
 
