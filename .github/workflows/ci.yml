@@ -328,6 +328,9 @@ jobs:
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
 
+      - name: Cleanup old zpod simulators from previous runs
+        run: ./scripts/ci/cleanup-all-zpod-simulators.sh
+
       - name: Provision unit-test simulator & derived data
         id: unit-sim
         run: |
@@ -579,6 +582,9 @@ jobs:
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
+
+      - name: Cleanup old zpod simulators from previous runs
+        run: ./scripts/ci/cleanup-all-zpod-simulators.sh
 
       - name: Provision integration simulator & derived data
         id: integration-sim
@@ -849,6 +855,9 @@ jobs:
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
+
+      - name: Cleanup old zpod simulators from previous runs
+        run: ./scripts/ci/cleanup-all-zpod-simulators.sh
 
       - name: Provision dedicated simulator & derived data
         id: provision-sim
@@ -1132,6 +1141,9 @@ jobs:
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
+
+      - name: Cleanup old zpod simulators from previous runs
+        run: ./scripts/ci/cleanup-all-zpod-simulators.sh
 
       - name: Provision dedicated simulator & derived data
         id: provision-sim
@@ -1437,6 +1449,9 @@ jobs:
           if [ $(xcrun simctl list runtimes | grep -c "iOS ") -eq 0 ]; then
             echo "⚠️ No iOS CoreSimulator runtimes available after download attempts. Proceeding with generic simulator fallback."
           fi
+
+      - name: Cleanup old zpod simulators from previous runs
+        run: ./scripts/ci/cleanup-all-zpod-simulators.sh
 
       - name: Provision dedicated simulator & derived data
         id: provision-sim
