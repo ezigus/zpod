@@ -6,25 +6,9 @@ import XCTest
 /// - Mini-player persists across tab switches and navigation changes.
 /// - Quick play from Library triggers playback and mini-player visibility.
 /// - VoiceOver labels are present on mini-player controls.
-final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
-  }
+final class MiniPlayerPersistenceTests: IsolatedUITestCase {
 
   // MARK: - Helpers
-
-  @MainActor
-  private func launchApp() {
-    app = launchConfiguredApp()
-  }
 
   @MainActor
   private func navigateToLibraryTab() {
@@ -71,7 +55,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testMiniPlayerPersistsAcrossTabSwitches() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
@@ -109,7 +93,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testMiniPlayerKeepsTabBarTappable() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
@@ -155,7 +139,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testMiniPlayerPersistsAcrossNavigation() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
@@ -192,7 +176,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testQuickPlayShowsMiniPlayerWithoutLeavingEpisodeList() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
@@ -213,7 +197,7 @@ final class MiniPlayerPersistenceTests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testMiniPlayerAccessibilityLabels() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")

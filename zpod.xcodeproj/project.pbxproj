@@ -43,6 +43,12 @@
 		F1111111111111111111111C /* SearchDomain in Frameworks */ = {isa = PBXBuildFile; productRef = 32049ED8E56C433DB7220A50 /* SearchDomain */; };
 		F1111111111111111111111D /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
 		F9314B82C43C4A67918A0EB3 /* zpodLib in Frameworks */ = {isa = PBXBuildFile; productRef = 786D3A082E57371F005A436B /* zpodLib */; };
+		4221E8D131E945E99256E701 /* test-episode-short.m4a in Resources */ = {isa = PBXBuildFile; fileRef = F0C61AFCBEFC4D609BB908F6 /* test-episode-short.m4a */; };
+		77D03A3D51DE405C856D6F86 /* test-episode-medium.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 2261C61DC40C4B03B4694E3E /* test-episode-medium.m4a */; };
+		B9BD6498D29E4BAC80C22BAF /* test-episode-long.m4a in Resources */ = {isa = PBXBuildFile; fileRef = D2CFBB9A25B54ABA88C1E80E /* test-episode-long.m4a */; };
+		584B9727A4194E9599C1B7ED /* test-episode-short.aiff in Resources */ = {isa = PBXBuildFile; fileRef = E0935397F4E843D8BC948B92 /* test-episode-short.aiff */; };
+		40885B3866DC45C9902A735B /* test-episode-medium.aiff in Resources */ = {isa = PBXBuildFile; fileRef = A0E3D10F437E44D4857C4080 /* test-episode-medium.aiff */; };
+		EADA16F3E8AC4C6BB1941C86 /* test-episode-long.aiff in Resources */ = {isa = PBXBuildFile; fileRef = F59254081ED344A49493273B /* test-episode-long.aiff */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +99,12 @@
 		78BF3E152E575000001DB480 /* dev-log.issue11.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.log"; sourceTree = "<group>"; };
 		78BF3E162E575000001DB480 /* dev-log.issue11.1-rename.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.1-rename.log"; sourceTree = "<group>"; };
 		78BF3E172E575000001DB480 /* dev-log.issue11.5-refactor.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = "dev-log.issue11.5-refactor.log"; sourceTree = "<group>"; };
+		F0C61AFCBEFC4D609BB908F6 /* test-episode-short.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-short.m4a; path = "zpodUITests/TestResources/Audio/test-episode-short.m4a"; sourceTree = "<group>"; };
+		2261C61DC40C4B03B4694E3E /* test-episode-medium.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-medium.m4a; path = "zpodUITests/TestResources/Audio/test-episode-medium.m4a"; sourceTree = "<group>"; };
+		D2CFBB9A25B54ABA88C1E80E /* test-episode-long.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-long.m4a; path = "zpodUITests/TestResources/Audio/test-episode-long.m4a"; sourceTree = "<group>"; };
+		E0935397F4E843D8BC948B92 /* test-episode-short.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-short.aiff; path = "zpodUITests/TestResources/Audio/test-episode-short.aiff"; sourceTree = "<group>"; };
+		A0E3D10F437E44D4857C4080 /* test-episode-medium.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-medium.aiff; path = "zpodUITests/TestResources/Audio/test-episode-medium.aiff"; sourceTree = "<group>"; };
+		F59254081ED344A49493273B /* test-episode-long.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = test-episode-long.aiff; path = "zpodUITests/TestResources/Audio/test-episode-long.aiff"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -512,6 +524,12 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4221E8D131E945E99256E701 /* test-episode-short.m4a in Resources */,
+				77D03A3D51DE405C856D6F86 /* test-episode-medium.m4a in Resources */,
+				B9BD6498D29E4BAC80C22BAF /* test-episode-long.m4a in Resources */,
+				584B9727A4194E9599C1B7ED /* test-episode-short.aiff in Resources */,
+				40885B3866DC45C9902A735B /* test-episode-medium.aiff in Resources */,
+				EADA16F3E8AC4C6BB1941C86 /* test-episode-long.aiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,25 +3,9 @@ import XCTest
 /// UI tests for player playback interactions.
 ///
 /// Validates quick play and mini-player interactions against Issue 03.1.1.1.
-final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
-
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
-  }
+final class PlayerPlaybackInteractionTests: IsolatedUITestCase {
 
   // MARK: - Helper Methods
-
-  @MainActor
-  private func launchApp() {
-    app = launchConfiguredApp()
-  }
 
   /// Navigate to Library tab
   @MainActor
@@ -67,7 +51,7 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
   /// Test: Quick play starts playback and shows mini-player controls
   @MainActor
   func testQuickPlayStartsPlayback() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
 
@@ -91,7 +75,7 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
   /// Test: Mini-player remains visible after navigating back to the podcast list
   @MainActor
   func testMiniPlayerAppearsAfterPlayback() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
 
@@ -120,7 +104,7 @@ final class PlayerPlaybackInteractionTests: XCTestCase, SmartUITesting {
   /// Test: Tapping mini-player expands to full player
   @MainActor
   func testMiniPlayerExpandsToFullPlayer() throws {
-    launchApp()
+    app = launchConfiguredApp()
     navigateToLibraryTab()
     navigateToPodcast()
 

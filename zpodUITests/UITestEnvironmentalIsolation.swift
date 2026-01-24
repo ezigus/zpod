@@ -53,14 +53,15 @@ extension XCTestCase: TestEnvironmentIsolation {
   ///   - appBundleIdentifier: App bundle ID to clear from standard defaults (default: "us.zig.zpod")
   func clearUserDefaults(suiteName: String? = nil, appBundleIdentifier: String = "us.zig.zpod") {
     let defaults: UserDefaults
+    let domainName: String
+    
     if let suiteName = suiteName {
       guard let suiteDefaults = UserDefaults(suiteName: suiteName) else {
         print("⚠️ Unable to access UserDefaults suite '\(suiteName)'")
         return
       }
       defaults = suiteDefaults
-      // Use removePersistentDomain for efficient suite clearing (Apple recommended)
-      defaults.removePersistentDomain(forName: suiteName)
+      domainName = suiteName
     } else {
       defaults = UserDefaults.standard
       // Guard against empty bundle ID to prevent no-op or undefined behavior
@@ -68,15 +69,32 @@ extension XCTestCase: TestEnvironmentIsolation {
         print("⚠️ clearUserDefaults called with empty appBundleIdentifier, skipping")
         return
       }
-      // Use explicit app bundle ID - Bundle.main in UI tests refers to
-      // the test runner bundle, not the app under test
-      defaults.removePersistentDomain(forName: appBundleIdentifier)
+      domainName = appBundleIdentifier
+    }
+
+    // CRITICAL: Use key-by-key removal of ONLY the persistent domain
+    // We must NOT use dictionaryRepresentation() because it merges ALL domains
+    // (persistent, global, volatile, registration) - clearing global keys breaks
+    // simulator state and causes CI flakiness (Issue #12.3 Phase 5)
+    // 
+    // We also cannot use removePersistentDomain() because it can corrupt the
+    // UserDefaults database, causing CFBundleGetIdentifier crashes during UIKit
+    // initialization when the test runner tries to create its own UserDefaults.
+    //
+    // Solution: Get ONLY the persistent domain keys and remove them individually
+    guard let persistentDomain = defaults.persistentDomain(forName: domainName) else {
+      print("✅ Cleared UserDefaults (suite: \(domainName)) (no persistent keys found)")
+      return
+    }
+    
+    for key in persistentDomain.keys {
+      defaults.removeObject(forKey: key)
     }
 
     // Force synchronization
     defaults.synchronize()
 
-    print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? "")")
+    print("✅ Cleared UserDefaults\(suiteName.map { " (suite: \($0))" } ?? " (bundle: \(domainName))") (\(persistentDomain.count) keys removed)")
   }
 
   /// Clears app-specific keychain items to ensure test isolation

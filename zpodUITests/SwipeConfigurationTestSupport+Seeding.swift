@@ -66,7 +66,7 @@ extension SwipeConfigurationTestCase {
         configurationPersisted = true
         break
       }
-      Thread.sleep(forTimeInterval: 0.1)  // Brief wait between checks
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))  // Brief wait between checks
     }
 
     // If persisted to defaults, wait briefly for UI to reflect the state

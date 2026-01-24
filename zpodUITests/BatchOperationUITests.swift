@@ -7,23 +7,7 @@
 
 import XCTest
 
-final class BatchOperationUITests: XCTestCase, SmartUITesting {
-  nonisolated(unsafe) var app: XCUIApplication!
-
-  override func setUpWithError() throws {
-    continueAfterFailure = false
-    disableWaitingForIdleIfNeeded()
-    // XCUIApplication setup is performed inside each test via initializeApp()
-  }
-
-  override func tearDownWithError() throws {
-    app = nil
-  }
-
-  @MainActor
-  private func initializeApp() {
-    app = launchConfiguredApp()
-  }
+final class BatchOperationUITests: IsolatedUITestCase {
 
   @MainActor
   func testLaunchConfiguredApp_WithForcedOverlayDoesNotWait() throws {
@@ -63,7 +47,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
   @MainActor
   func testBasicNavigationToEpisodeList() throws {
     // Given: The app is launched
-    initializeApp()
+    app = launchConfiguredApp()
 
     // When: I navigate to Library and then to an episode list
     let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
@@ -100,7 +84,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
 
   @MainActor
   func testWaitForBatchOverlayDismissal_WhenOverlayMissing_ReturnsNotPresent() throws {
-    initializeApp()
+    app = launchConfiguredApp()
 
     let result = waitForBatchOverlayDismissalIfNeeded(
       in: app,
@@ -185,7 +169,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
   @MainActor
   func testEnterMultiSelectMode() throws {
     // Given: The app is launched and showing episode list
-    initializeApp()
+    app = launchConfiguredApp()
     navigateToEpisodeList()
 
     // When: I try to enter multi-select mode
@@ -219,7 +203,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     print("🎯 Starting mark episodes as played test...")
 
     // Given: Navigate to episode list
-    initializeApp()
+    app = launchConfiguredApp()
     navigateToEpisodeList()
 
     // When: I try to enter multi-select mode - check availability using helper waits
@@ -311,7 +295,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     print("🔽 Starting batch download test...")
 
     // Given: Navigate to episode list and enter multi-select mode
-    initializeApp()
+    app = launchConfiguredApp()
     navigateToEpisodeList()
 
     guard
@@ -387,7 +371,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     print("🎯 Starting criteria-based selection test...")
 
     // Given: Navigate to episode list and enter multi-select mode
-    initializeApp()
+    app = launchConfiguredApp()
     navigateToEpisodeList()
 
     guard
@@ -450,7 +434,7 @@ final class BatchOperationUITests: XCTestCase, SmartUITesting {
     print("❌ Starting batch operation cancellation test...")
 
     // Given: Start a batch operation
-    initializeApp()
+    app = launchConfiguredApp()
     navigateToEpisodeList()
 
     // This test verifies that operations can be cancelled
