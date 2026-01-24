@@ -2342,11 +2342,6 @@ test_app_target() {
       ;;
   esac
 
-  # Add CI environment flag to enable test variants that only verify UI (not AVPlayer behavior)
-  if [[ -n "${CI:-}" ]]; then
-    args+=(-testEnvironment UITEST_CI_MODE=1)
-  fi
-
   log_section "xcodebuild tests (${target})"
   local -a original_args=("${args[@]}")
   local retry_attempted=0
