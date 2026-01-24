@@ -242,6 +242,18 @@ jobs:
             ln -sf zpod.debug.dylib "$APP_DIR/zpod"
           fi
 
+          # Verify .xctestrun files are present before packaging
+          XCTESTRUN_FILES=$(find "$HOST_ROOT" -name "*.xctestrun" -type f 2>/dev/null)
+          if [ -z "$XCTESTRUN_FILES" ]; then
+            echo "❌ ERROR: Build did not produce .xctestrun files!"
+            echo "   These are required for test-without-building"
+            echo "   Contents of HOST_ROOT:"
+            ls -laR "$HOST_ROOT" | head -50
+            exit 1
+          fi
+          echo "✅ .xctestrun files found:"
+          echo "$XCTESTRUN_FILES"
+
           mkdir -p artifacts
           tar -czf artifacts/host-app.tar.gz -C "$HOST_ROOT" .
 
@@ -251,6 +263,12 @@ jobs:
           echo "Generated artifact checksum:"
           cat host-app.tar.gz.sha256
           cd ..
+
+          # Diagnostic: verify artifact contents
+          echo "📦 Artifact contents (first 30 entries):"
+          tar -tzf artifacts/host-app.tar.gz | head -30
+          echo "📦 .xctestrun files in artifact:"
+          tar -tzf artifacts/host-app.tar.gz | grep ".xctestrun" || echo "  (none found - WARNING)"
 
       - name: Upload Host App Artifact
         uses: actions/upload-artifact@v4

@@ -67,4 +67,15 @@ if [[ ! -f "$HOST_DIR/zpod.app/zpod" ]]; then
   exit 1
 fi
 
+# Verify .xctestrun files exist (required for test-without-building)
+XCTESTRUN_COUNT=$(find "$DERIVED_PATH" -name "*.xctestrun" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$XCTESTRUN_COUNT" -eq 0 ]]; then
+  echo "❌ ERROR: No .xctestrun files found after restoration!" >&2
+  echo "   test-without-building requires these files." >&2
+  echo "   Contents of DerivedData:" >&2
+  ls -la "$DERIVED_PATH" || true
+  exit 1
+fi
+echo "✅ Found $XCTESTRUN_COUNT .xctestrun file(s)"
+
 echo "✅ Derived data restored to $DERIVED_PATH"

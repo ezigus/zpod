@@ -14,6 +14,39 @@ protocol PlaybackPositionTestSupport: SmartUITesting {
   static var logger: Logger { get }
 }
 
+// MARK: - Audio Environment Caching
+
+/// Static cache for audio launch environment to avoid redundant file copying.
+/// This cache is shared across all test instances to improve CI performance.
+///
+/// Thread-safety is guaranteed by NSLock, so @unchecked Sendable is appropriate.
+private final class AudioEnvironmentCache: @unchecked Sendable {
+  static let shared = AudioEnvironmentCache()
+  private let lock = NSLock()
+  private var cachedEnvironment: [String: String]?
+
+  private init() {}
+
+  func getOrCreate(_ factory: () -> [String: String]) -> [String: String] {
+    lock.lock()
+    defer { lock.unlock() }
+
+    if let cached = cachedEnvironment {
+      return cached
+    }
+
+    let environment = factory()
+    cachedEnvironment = environment
+    return environment
+  }
+
+  func invalidate() {
+    lock.lock()
+    defer { lock.unlock() }
+    cachedEnvironment = nil
+  }
+}
+
 extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
   // MARK: - Test Audio Helpers
@@ -68,59 +101,65 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
   ///
   /// **Cleanup**: Call `cleanupAudioLaunchEnvironment()` in tearDown when needed.
   ///
+  /// **Performance**: Audio files are copied once per test bundle execution and cached.
+  /// Subsequent calls return the cached environment to avoid redundant I/O.
+  ///
   /// - Returns: Dictionary of environment variables to merge into launchEnvironment
   func audioLaunchEnvironment() -> [String: String] {
-    let fileManager = FileManager.default
-    var env: [String: String] = [:]
-    var failures: [String] = []
-    
-    // Use /tmp directory (accessible on simulator to both test runner and app)
-    let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
-    
-    // Create directory if needed
-    do {
-      try fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
-    } catch {
-      XCTFail("Failed to create audio directory at \(audioDir.path): \(error.localizedDescription)")
+    // Return cached environment if available (avoid redundant file copying)
+    return AudioEnvironmentCache.shared.getOrCreate { [self] in
+      let fileManager = FileManager.default
+      var env: [String: String] = [:]
+      var failures: [String] = []
+
+      // Use /tmp directory (accessible on simulator to both test runner and app)
+      let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
+
+      // Create directory if needed
+      do {
+        try fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
+      } catch {
+        XCTFail("Failed to create audio directory at \(audioDir.path): \(error.localizedDescription)")
+        return env
+      }
+
+      // Copy each audio file from test bundle to /tmp
+      let audioFiles: [(name: String, envKey: String)] = [
+        ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
+        ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
+        ("test-episode-long", "UITEST_AUDIO_LONG_PATH")
+      ]
+
+      for (name, envKey) in audioFiles {
+        guard let sourceURL = testAudioURL(named: name) else {
+          failures.append("\(name).m4a missing from test bundle")
+          XCTFail("Missing audio file in test bundle: \(name).m4a")
+          continue
+        }
+
+        let destURL = audioDir.appendingPathComponent("\(name).m4a")
+
+        // Always recopy to ensure fresh files (remove existing first)
+        try? fileManager.removeItem(at: destURL)
+
+        do {
+          try fileManager.copyItem(at: sourceURL, to: destURL)
+          Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
+        } catch {
+          failures.append("\(name).m4a copy failed: \(error.localizedDescription)")
+          XCTFail("Failed to copy \(name).m4a to temp directory: \(error.localizedDescription)")
+          continue
+        }
+
+        env[envKey] = destURL.path
+      }
+
+      if !failures.isEmpty {
+        XCTFail("Audio environment incomplete: \(failures.joined(separator: "; "))")
+      }
+      Self.logger.debug("Audio environment configured (cached for reuse): \(env.keys.joined(separator: ", "), privacy: .public)")
       return env
     }
-    
-    // Copy each audio file from test bundle to /tmp
-    let audioFiles: [(name: String, envKey: String)] = [
-      ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
-      ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
-      ("test-episode-long", "UITEST_AUDIO_LONG_PATH")
-    ]
-    
-    for (name, envKey) in audioFiles {
-      guard let sourceURL = testAudioURL(named: name) else {
-        failures.append("\(name).m4a missing from test bundle")
-        XCTFail("Missing audio file in test bundle: \(name).m4a")
-        continue
-      }
-      
-      let destURL = audioDir.appendingPathComponent("\(name).m4a")
-      
-      // Always recopy to ensure fresh files (remove existing first)
-      try? fileManager.removeItem(at: destURL)
-      
-      do {
-        try fileManager.copyItem(at: sourceURL, to: destURL)
-        Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
-      } catch {
-        failures.append("\(name).m4a copy failed: \(error.localizedDescription)")
-        XCTFail("Failed to copy \(name).m4a to temp directory: \(error.localizedDescription)")
-        continue
-      }
-      
-      env[envKey] = destURL.path
-    }
-
-    if !failures.isEmpty {
-      XCTFail("Audio environment incomplete: \(failures.joined(separator: "; "))")
-    }
-    Self.logger.debug("Audio environment configured: \(env.keys.joined(separator: ", "), privacy: .public)")
-    return env
   }
 
   nonisolated func cleanupAudioLaunchEnvironment() {
@@ -128,6 +167,8 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
     guard FileManager.default.fileExists(atPath: audioDir.path) else { return }
     do {
       try FileManager.default.removeItem(at: audioDir)
+      // Invalidate cache since files are removed
+      AudioEnvironmentCache.shared.invalidate()
     } catch {
       let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionTestSupport")
       logger.debug("Test audio cleanup failed: \(error.localizedDescription, privacy: .public)")
