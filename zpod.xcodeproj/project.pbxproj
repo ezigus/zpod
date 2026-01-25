@@ -18,6 +18,7 @@
 		78AB4F5C2EF74DEB00A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5B2EF74DEB00A4E648 /* SwiftLensTestSupport */; };
 		78AB4F5E2EF74F8800A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5D2EF74F8800A4E648 /* SwiftLensTestSupport */; };
 		78AB4F602EF74F9700A4E648 /* SwiftLensTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 78AB4F5F2EF74F9700A4E648 /* SwiftLensTestSupport */; };
+		78C0C2292EBC2F6D000CB820 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 517390C5CD214EF2939E0057 /* Persistence */; };
 		78C0C21A2EBC2F6D000CB820 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		78C0C21B2EBC2F6D000CB820 /* SharedUtilities in Frameworks */ = {isa = PBXBuildFile; productRef = 9ABCDEF0123456789ABCDEFA /* SharedUtilities */; };
 		78C0C21C2EBC2F6D000CB820 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
@@ -193,6 +194,7 @@
 				F1111111111111111111111A /* LibraryFeature in Frameworks */,
 				78AB4F5A2EF74DEB00A4E648 /* SwiftLens in Frameworks */,
 				F1111111111111111111111B /* CoreModels in Frameworks */,
+				78C0C2292EBC2F6D000CB820 /* Persistence in Frameworks */,
 				F1111111111111111111111C /* SearchDomain in Frameworks */,
 				F1111111111111111111111D /* DiscoverFeature in Frameworks */,
 				D4E5F60718293A4B5C6D7E8F /* SharedUtilities in Frameworks */,
@@ -366,6 +368,7 @@
 				786D3A082E57371F005A436B /* zpodLib */,
 				F1234567890ABC12345DEFGH /* LibraryFeature */,
 				320A8153AF4645E1BFE862F9 /* CoreModels */,
+				517390C5CD214EF2939E0057 /* Persistence */,
 				32049ED8E56C433DB7220A50 /* SearchDomain */,
 				885611E8E8644D078AC31FA4 /* DiscoverFeature */,
 				9ABCDEF0123456789ABCDEFA /* SharedUtilities */,

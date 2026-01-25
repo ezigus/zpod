@@ -1,6 +1,7 @@
 import XCTest
 import SwiftData
 @testable import CoreModels
+@testable import Persistence
 @testable import zpod
 import SharedUtilities
 
@@ -26,8 +27,8 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         func refreshAll() {}
     }
 
-    private func makeManager(container: ModelContainer) -> SwiftDataPodcastManager {
-        SwiftDataPodcastManager(
+    private func makeManager(container: ModelContainer) -> SwiftDataPodcastRepository {
+        SwiftDataPodcastRepository(
             modelContainer: container,
             siriSnapshotRefresher: siriSnapshotRefresher
         )
@@ -438,7 +439,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
     func testCarPlayDependenciesAccessPersistentData() async throws {
         // TODO: Implement when CarPlay dependencies are testable
         // This test would verify that CarPlayDependencyRegistry
-        // correctly accesses SwiftDataPodcastManager
+        // correctly accesses SwiftDataPodcastRepository
 
         // For now, this is a placeholder to document the requirement
         // See Issues/02.1.8 for CarPlay integration testing requirements

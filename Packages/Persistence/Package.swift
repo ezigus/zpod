@@ -15,6 +15,7 @@ let package = Package(
     .package(path: "../CoreModels"),
     .package(path: "../SharedUtilities"),
     .package(path: "../CombineSupport"),
+    .package(path: "../TestSupport"),
   ],
   targets: [
     .target(
@@ -28,7 +29,10 @@ let package = Package(
     ),
     .testTarget(
       name: "PersistenceTests",
-      dependencies: ["Persistence"]
+      dependencies: [
+        "Persistence",
+        .product(name: "TestSupport", package: "TestSupport"),
+      ]
     ),
   ]
 )

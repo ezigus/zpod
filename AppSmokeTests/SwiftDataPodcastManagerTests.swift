@@ -3,9 +3,9 @@ import SwiftData
 import TestSupport
 import Foundation
 @testable import CoreModels
-@testable import zpod
+@testable import Persistence
 
-/// Comprehensive unit tests for SwiftDataPodcastManager.
+/// Comprehensive unit tests for SwiftDataPodcastRepository (app smoke coverage).
 ///
 /// **Specifications Covered**
 /// - `Issues/27.1-podcast-persistence-architecture.md` — Persistent podcast storage with SwiftData
@@ -18,12 +18,12 @@ import Foundation
 /// - Domain/entity conversion logic
 /// - Data persistence across updates
 @available(iOS 17, macOS 14, watchOS 10, *)
-final class SwiftDataPodcastManagerTests: XCTestCase {
+final class SwiftDataPodcastRepositoryAppTests: XCTestCase {
 
     // MARK: - Properties
 
     private var modelContainer: ModelContainer!
-    private var manager: SwiftDataPodcastManager!
+    private var manager: SwiftDataPodcastRepository!
 
     // MARK: - Setup & Teardown
 
@@ -34,7 +34,7 @@ final class SwiftDataPodcastManagerTests: XCTestCase {
         let schema = Schema([PodcastEntity.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
-        manager = SwiftDataPodcastManager(
+        manager = SwiftDataPodcastRepository(
             modelContainer: modelContainer,
             siriSnapshotRefresher: NoopSiriSnapshotRefresher()
         )
@@ -677,7 +677,7 @@ final class SwiftDataPodcastManagerTests: XCTestCase {
     func testSiriRefreshInvokedOnAddUpdateRemove() {
         // Given: A manager configured with a refresh spy
         let refresher = SiriSnapshotRefresherSpy()
-        let manager = SwiftDataPodcastManager(
+        let manager = SwiftDataPodcastRepository(
             modelContainer: modelContainer,
             siriSnapshotRefresher: refresher
         )

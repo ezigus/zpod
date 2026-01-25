@@ -6,7 +6,7 @@ exposes the expected cross-package APIs.
 ## Coverage
 - Confirms CoreModels types (e.g. `Podcast`) are reachable via `zpodLib` re-exports.
 - Verifies SharedUtilities helpers are accessible and behave as expected (`SharedError`).
-- Exercises `SwiftDataPodcastManager` CRUD, organization queries, and Siri refresh hooks (Issue 27.1).
+- Exercises `SwiftDataPodcastRepository` CRUD, organization queries, and Siri refresh hooks (Issue 27.1).
 
 ## Gaps
 - All behavioural tests live in the individual package test suites.

@@ -95,8 +95,10 @@ struct ZpodApp: App {
 
   #if canImport(LibraryFeature)
     @available(iOS 17, *)
-    private static let sharedPodcastManager: SwiftDataPodcastManager = {
-      SwiftDataPodcastManager(modelContainer: sharedModelContainer)
+    private static let sharedPodcastRepository: SwiftDataPodcastRepository = {
+      let repository = SwiftDataPodcastRepository(modelContainer: sharedModelContainer)
+      repository.setSiriSnapshotRefresher(SiriSnapshotCoordinator(podcastManager: repository))
+      return repository
     }()
   #endif
 
@@ -106,7 +108,7 @@ struct ZpodApp: App {
         if ProcessInfo.processInfo.environment["UITEST_USE_LIBRARY_PLACEHOLDER"] == "1" {
           UITestLibraryPlaceholderView()
         } else {
-          ContentView(podcastManager: Self.sharedPodcastManager)
+          ContentView(podcastManager: Self.sharedPodcastRepository)
             .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
               handlePlayEpisodeActivity(userActivity)
             }
@@ -129,20 +131,20 @@ struct ZpodApp: App {
 
     #if canImport(LibraryFeature)
       // Reset all episode playback positions to ensure clean state between tests
-      Self.sharedPodcastManager.resetAllPlaybackPositions()
+      Self.sharedPodcastRepository.resetAllPlaybackPositions()
       print("🧪 UI Test: Reset all episode playback positions to 0")
     #endif
   }
 
   private func configureCarPlayDependencies() {
     #if canImport(CarPlay)
-      CarPlayDependencyRegistry.configure(podcastManager: Self.sharedPodcastManager)
+      CarPlayDependencyRegistry.configure(podcastManager: Self.sharedPodcastRepository)
     #endif
   }
 
   private func configureSiriSnapshots() {
     guard #available(iOS 14.0, *) else { return }
-    SiriSnapshotCoordinator(podcastManager: Self.sharedPodcastManager).refreshAll()
+    SiriSnapshotCoordinator(podcastManager: Self.sharedPodcastRepository).refreshAll()
   }
 
   private func disableHardwareKeyboard() {
@@ -230,7 +232,7 @@ struct ZpodApp: App {
 
     /// Searches for an episode by ID across all subscribed podcasts
     private func findEpisode(byId episodeId: String) -> Episode? {
-      let podcasts = Self.sharedPodcastManager.all()
+      let podcasts = Self.sharedPodcastRepository.all()
       for podcast in podcasts {
         if let episode = podcast.episodes.first(where: { $0.id == episodeId }) {
           return episode  // Early exit when found

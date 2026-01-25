@@ -1,74 +1,53 @@
 import Foundation
 import SwiftData
 import CoreModels
-import SharedUtilities
 import OSLog
 
-/// Persistent manager for podcast library using SwiftData.
+/// SwiftData-backed repository for podcasts.
 ///
-/// This class provides thread-safe podcast storage with automatic persistence to SQLite.
-/// It implements the `PodcastManaging` protocol with SwiftData-backed operations.
-///
-/// ## Usage
-/// ```swift
-/// let container = try ModelContainer(for: PodcastEntity.self)
-/// let manager = SwiftDataPodcastManager(modelContainer: container)
-///
-/// // Add a podcast
-/// manager.add(podcast)
-///
-/// // Fetch all podcasts
-/// let podcasts = manager.all()
-/// ```
-///
-/// ## Thread Safety
-/// Operations are synchronized using a serial queue to ensure thread-safe access to the ModelContext.
-///
-/// @unchecked Sendable: ModelContext access is protected by serialQueue.
+/// This package-scoped implementation replaces the app-target `SwiftDataPodcastManager`.
+/// It keeps synchronous APIs required by `PodcastManaging` and uses a serial queue to
+/// ensure thread-safe access to the SwiftData `ModelContext`.
 @available(iOS 17, macOS 14, watchOS 10, *)
-public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable {
+public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Sendable {
     private let modelContainer: ModelContainer
     private let modelContext: ModelContext
     private let serialQueue: DispatchQueue
-    private let logger = Logger(subsystem: "us.zig.zpod", category: "SwiftDataPodcastManager")
-    private let siriSnapshotRefresher: SiriSnapshotRefreshing?
+    private let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "SwiftDataPodcastRepository")
+    private var siriSnapshotRefresher: SiriSnapshotRefreshing?
+    private let saveHandler: () throws -> Void
 
-    /// Creates a new podcast manager.
-    ///
-    /// - Parameter modelContainer: SwiftData model container (must include PodcastEntity schema)
     public convenience init(modelContainer: ModelContainer) {
-        self.init(modelContainer: modelContainer, siriSnapshotRefresher: nil)
+        self.init(modelContainer: modelContainer, siriSnapshotRefresher: nil, saveHandler: nil)
     }
 
-    init(
+    public init(
         modelContainer: ModelContainer,
-        siriSnapshotRefresher: SiriSnapshotRefreshing?
+        siriSnapshotRefresher: SiriSnapshotRefreshing?,
+        saveHandler: (() throws -> Void)? = nil
     ) {
         self.modelContainer = modelContainer
-        let queue = DispatchQueue(label: "us.zig.zpod.SwiftDataPodcastManager")
+        let queue = DispatchQueue(label: "us.zig.zpod.SwiftDataPodcastRepository")
         self.serialQueue = queue
+
         var context: ModelContext?
         queue.sync {
             context = ModelContext(modelContainer)
         }
         guard let context else {
-            fatalError("Failed to create ModelContext on SwiftDataPodcastManager queue.")
+            fatalError("Failed to create ModelContext on SwiftDataPodcastRepository queue.")
         }
         self.modelContext = context
         self.siriSnapshotRefresher = siriSnapshotRefresher
-        logger.info("SwiftDataPodcastManager initialized")
+        self.saveHandler = saveHandler ?? { try context.save() }
     }
 
-    // MARK: - PodcastManaging Protocol
+    // MARK: - PodcastManaging
 
     public func all() -> [Podcast] {
         serialQueue.sync {
             let descriptor = FetchDescriptor<PodcastEntity>()
-            guard let entities = try? modelContext.fetch(descriptor) else {
-                logger.error("Failed to fetch all podcasts")
-                return []
-            }
-            return entities.map { $0.toDomain() }
+            return (try? modelContext.fetch(descriptor))?.map { $0.toDomain() } ?? []
         }
     }
 
@@ -76,35 +55,23 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
         serialQueue.sync {
             let predicate = #Predicate<PodcastEntity> { $0.id == id }
             let descriptor = FetchDescriptor(predicate: predicate)
-            guard let entity = try? modelContext.fetch(descriptor).first else {
-                return nil
-            }
+            guard let entity = try? modelContext.fetch(descriptor).first else { return nil }
             return entity.toDomain()
         }
     }
 
     public func add(_ podcast: Podcast) {
         let didSave = serialQueue.sync { () -> Bool in
-            // Check if already exists (enforce uniqueness at repository level)
-            let predicate = #Predicate<PodcastEntity> { $0.id == podcast.id }
-            let descriptor = FetchDescriptor(predicate: predicate)
-            if (try? modelContext.fetch(descriptor).first) != nil {
-                logger.warning("Attempted to add podcast with duplicate ID: \(podcast.id, privacy: .public)")
+            if fetchEntity(id: podcast.id) != nil {
+                logger.warning("Duplicate podcast add ignored: \(podcast.id, privacy: .public)")
                 return false
             }
 
             let entity = PodcastEntity.fromDomain(podcast)
             modelContext.insert(entity)
-
-            do {
-                try modelContext.save()
-                logger.info("Added podcast: \(podcast.title, privacy: .public)")
-                return true
-            } catch {
-                logger.error("Failed to add podcast \(podcast.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                return false
-            }
+            return saveContext()
         }
+
         if didSave {
             refreshSiriSnapshotsIfNeeded()
         }
@@ -113,22 +80,15 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
     public func update(_ podcast: Podcast) {
         let didSave = serialQueue.sync { () -> Bool in
             guard let entity = fetchEntity(id: podcast.id) else {
-                logger.warning("Attempted to update non-existent podcast: \(podcast.id, privacy: .public)")
+                logger.warning("Update ignored for missing podcast: \(podcast.id, privacy: .public)")
                 return false
             }
 
-            let resolvedPodcast = makePodcast(from: podcast, entity: entity)
-            entity.updateFrom(resolvedPodcast)
-
-            do {
-                try modelContext.save()
-                logger.info("Updated podcast: \(podcast.title, privacy: .public)")
-                return true
-            } catch {
-                logger.error("Failed to update podcast \(podcast.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                return false
-            }
+            let resolved = makePodcast(from: podcast, entity: entity)
+            entity.updateFrom(resolved)
+            return saveContext()
         }
+
         if didSave {
             refreshSiriSnapshotsIfNeeded()
         }
@@ -137,27 +97,18 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
     public func remove(id: String) {
         let didSave = serialQueue.sync { () -> Bool in
             guard let entity = fetchEntity(id: id) else {
-                logger.warning("Attempted to remove non-existent podcast: \(id, privacy: .public)")
+                logger.warning("Remove ignored for missing podcast: \(id, privacy: .public)")
                 return false
             }
 
             modelContext.delete(entity)
-
-            do {
-                try modelContext.save()
-                logger.info("Removed podcast: \(id, privacy: .public)")
-                return true
-            } catch {
-                logger.error("Failed to remove podcast \(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                return false
-            }
+            return saveContext()
         }
+
         if didSave {
             refreshSiriSnapshotsIfNeeded()
         }
     }
-
-    // MARK: - Organization Filtering
 
     public func findByFolder(folderId: String) -> [Podcast] {
         serialQueue.sync {
@@ -167,44 +118,31 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
 
     public func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] {
         serialQueue.sync {
-            // Get direct podcasts in this folder
             var podcasts = fetchByFolderUnlocked(folderId: folderId)
-
-            // Get podcasts from all descendant folders
             let descendants = folderManager.getDescendants(of: folderId)
             for descendant in descendants {
                 podcasts.append(contentsOf: fetchByFolderUnlocked(folderId: descendant.id))
             }
-
             return podcasts
         }
     }
 
     public func findByTag(tagId: String) -> [Podcast] {
         serialQueue.sync {
-            let entities = fetchAllEntities(errorMessage: "Failed to fetch podcasts by tag: \(tagId)")
-            return entities
-                .filter { $0.tagIds.contains(tagId) }
-                .map { $0.toDomain() }
+            let all = fetchAllEntities(errorMessage: "Failed to fetch podcasts by tag: \(tagId)")
+            return all.filter { $0.tagIds.contains(tagId) }.map { $0.toDomain() }
         }
     }
 
     public func findUnorganized() -> [Podcast] {
         serialQueue.sync {
-            let entities = fetchAllEntities(errorMessage: "Failed to fetch unorganized podcasts")
-            return entities
-                .filter { $0.folderId == nil && $0.tagIds.isEmpty }
-                .map { $0.toDomain() }
+            let all = fetchAllEntities(errorMessage: "Failed to fetch unorganized podcasts")
+            return all.filter { $0.folderId == nil && $0.tagIds.isEmpty }.map { $0.toDomain() }
         }
     }
 
-    // MARK: - Test Utilities
-
     /// Resets all episode playback positions to 0 across all podcasts.
-    /// Used by UI tests to ensure clean state between test runs.
-    ///
-    /// - Note: This method updates episodes in memory only (not persisted to SwiftData).
-    ///   Episodes are transient in the current implementation.
+    /// Episodes remain transient; this is used by UI tests to ensure clean state.
     public func resetAllPlaybackPositions() {
         let didSave = serialQueue.sync { () -> Bool in
             let entities = fetchAllEntities(errorMessage: "Failed to fetch podcasts for playback reset")
@@ -228,15 +166,9 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
             }
 
             guard didUpdate else { return false }
-
-            do {
-                try modelContext.save()
-                return true
-            } catch {
-                logger.error("Failed to reset playback positions: \(error.localizedDescription, privacy: .public)")
-                return false
-            }
+            return saveContext()
         }
+
         if didSave {
             refreshSiriSnapshotsIfNeeded()
             logger.info("Reset all episode playback positions to 0 for UI tests")
@@ -245,13 +177,17 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
         }
     }
 
+    // MARK: - Configuration
+
+    /// Allows attaching a refresher after initialization (used by app-layer DI).
+    public func setSiriSnapshotRefresher(_ refresher: SiriSnapshotRefreshing?) {
+        serialQueue.sync {
+            self.siriSnapshotRefresher = refresher
+        }
+    }
+
     // MARK: - Private Helpers
 
-    /// Fetches a PodcastEntity by ID from SwiftData.
-    ///
-    /// - Parameter id: Podcast ID
-    /// - Returns: PodcastEntity if found, nil otherwise
-    /// - Warning: Must be called from within serialQueue.sync
     private func fetchEntity(id: String) -> PodcastEntity? {
         let predicate = #Predicate<PodcastEntity> { $0.id == id }
         let descriptor = FetchDescriptor(predicate: predicate)
@@ -261,11 +197,8 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
     private func fetchByFolderUnlocked(folderId: String) -> [Podcast] {
         let predicate = #Predicate<PodcastEntity> { $0.folderId == folderId }
         let descriptor = FetchDescriptor(predicate: predicate)
-        let entities = fetchEntities(
-            descriptor,
-            errorMessage: "Failed to fetch podcasts by folder: \(folderId)"
-        )
-        return entities.map { $0.toDomain() }
+        return fetchEntities(descriptor, errorMessage: "Failed to fetch podcasts by folder: \(folderId)")
+            .map { $0.toDomain() }
     }
 
     private func fetchAllEntities(errorMessage: String) -> [PodcastEntity] {
@@ -313,14 +246,18 @@ public final class SwiftDataPodcastManager: PodcastManaging, @unchecked Sendable
         return existing.isSubscribed
     }
 
-    private func refreshSiriSnapshotsIfNeeded() {
-        if let refresher = siriSnapshotRefresher {
-            refresher.refreshAll()
-            return
+    private func saveContext() -> Bool {
+        do {
+            try saveHandler()
+            return true
+        } catch {
+            logger.error("Failed to save context: \(error.localizedDescription, privacy: .public)")
+            modelContext.rollback()
+            return false
         }
+    }
 
-        #if os(iOS)
-        SiriSnapshotCoordinator(podcastManager: self).refreshAll()
-        #endif
+    private func refreshSiriSnapshotsIfNeeded() {
+        siriSnapshotRefresher?.refreshAll()
     }
 }
