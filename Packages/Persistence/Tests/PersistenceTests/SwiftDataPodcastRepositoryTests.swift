@@ -369,7 +369,13 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         episodes: [Episode] = [],
         dateAdded: Date = Date()
     ) -> Podcast {
-        Podcast(
+        let normalizedEpisodes = episodes.map { episode -> Episode in
+            var copy = episode
+            copy.podcastID = id
+            copy.podcastTitle = title
+            return copy
+        }
+        return Podcast(
             id: id,
             title: title,
             author: "Author",
@@ -377,7 +383,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             artworkURL: URL(string: "https://example.com/artwork.jpg"),
             feedURL: URL(string: "https://example.com/feed.xml")!,
             categories: ["Technology"],
-            episodes: episodes,
+            episodes: normalizedEpisodes,
             isSubscribed: isSubscribed,
             dateAdded: dateAdded,
             folderId: folderId,
@@ -387,6 +393,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
     private static func makeEpisode(
         id: String,
+        podcastID: String = "test-podcast",
         title: String = "Test Episode",
         playbackPosition: Int = 0,
         isPlayed: Bool = false,
@@ -397,7 +404,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         Episode(
             id: id,
             title: title,
-            podcastID: "test-podcast",
+            podcastID: podcastID,
             podcastTitle: "Test Podcast",
             playbackPosition: playbackPosition,
             isPlayed: isPlayed,
