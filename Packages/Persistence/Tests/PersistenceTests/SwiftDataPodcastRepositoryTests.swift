@@ -119,6 +119,68 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.title, podcast.title, "Duplicate add should not overwrite existing data")
     }
 
+    func testSuccessfulAddTriggersRefresh() {
+        let refresher = SiriSnapshotRefresherSpy()
+        repository = SwiftDataPodcastRepository(
+            modelContainer: modelContainer,
+            siriSnapshotRefresher: refresher
+        )
+
+        let podcast = Self.makePodcast(id: "siri-add")
+        repository.add(podcast)
+
+        XCTAssertEqual(refresher.refreshCount, 1, "Successful add should trigger Siri refresh")
+        XCTAssertNotNil(repository.find(id: podcast.id), "Podcast should be persisted")
+    }
+
+    func testSuccessfulUpdateTriggersRefresh() {
+        let refresher = SiriSnapshotRefresherSpy()
+        repository = SwiftDataPodcastRepository(
+            modelContainer: modelContainer,
+            siriSnapshotRefresher: refresher
+        )
+
+        let podcast = Self.makePodcast(id: "siri-update", title: "Original")
+        repository.add(podcast)
+        XCTAssertEqual(refresher.refreshCount, 1, "Initial add should trigger refresh")
+
+        let updated = Podcast(
+            id: podcast.id,
+            title: "Updated Title",
+            author: podcast.author,
+            description: podcast.description,
+            artworkURL: podcast.artworkURL,
+            feedURL: podcast.feedURL,
+            categories: podcast.categories,
+            episodes: podcast.episodes,
+            isSubscribed: true,
+            dateAdded: podcast.dateAdded,
+            folderId: podcast.folderId,
+            tagIds: podcast.tagIds
+        )
+        repository.update(updated)
+
+        XCTAssertEqual(refresher.refreshCount, 2, "Successful update should trigger Siri refresh")
+        XCTAssertEqual(repository.find(id: podcast.id)?.title, "Updated Title")
+    }
+
+    func testSuccessfulRemoveTriggersRefresh() {
+        let refresher = SiriSnapshotRefresherSpy()
+        repository = SwiftDataPodcastRepository(
+            modelContainer: modelContainer,
+            siriSnapshotRefresher: refresher
+        )
+
+        let podcast = Self.makePodcast(id: "siri-remove")
+        repository.add(podcast)
+        XCTAssertEqual(refresher.refreshCount, 1, "Initial add should trigger refresh")
+
+        repository.remove(id: podcast.id)
+
+        XCTAssertEqual(refresher.refreshCount, 2, "Successful remove should trigger Siri refresh")
+        XCTAssertNil(repository.find(id: podcast.id), "Podcast should be removed")
+    }
+
     func testSaveFailureDoesNotRefreshSiri() {
         enum SaveError: Error { case simulated }
         let refresher = SiriSnapshotRefresherSpy()
