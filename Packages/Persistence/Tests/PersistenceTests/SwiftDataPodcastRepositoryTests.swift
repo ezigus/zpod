@@ -343,6 +343,21 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.episodes.first { $0.id == "ep-failed" }?.downloadStatus, .failed)
     }
 
+    func testInvalidFeedURLSkipsCorruptedRows() throws {
+        let context = ModelContext(modelContainer)
+        let badEntity = PodcastEntity(
+            id: "bad-feed",
+            title: "Bad Feed",
+            feedURLString: "",
+            isSubscribed: true
+        )
+        context.insert(badEntity)
+        try context.save()
+
+        let all = repository.all()
+        XCTAssertTrue(all.isEmpty, "Corrupted feed rows should be skipped, not crash")
+    }
+
     // MARK: - Helpers
 
     private static func makePodcast(

@@ -31,7 +31,7 @@ final class SwiftDataPodcastRepositoryAppTests: XCTestCase {
         try await super.setUp()
 
         // Create in-memory container for isolated testing
-        let schema = Schema([PodcastEntity.self])
+        let schema = Schema([PodcastEntity.self, EpisodeEntity.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         manager = SwiftDataPodcastRepository(

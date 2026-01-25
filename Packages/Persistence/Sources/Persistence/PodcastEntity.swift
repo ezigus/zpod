@@ -51,16 +51,21 @@ public final class PodcastEntity {
 
 @available(iOS 17, macOS 14, watchOS 10, *)
 extension PodcastEntity {
-    /// Convert to domain model (force unwraps feedURL - use with caution)
-    /// Prefer `toDomainSafe()` for production code.
+    /// Convert to domain model.
+    /// Falls back to a placeholder URL if the stored feedURL is invalid.
+    /// Prefer `toDomainSafe()` for production code paths to skip corrupted rows.
     public func toDomain(episodes: [Episode] = []) -> Podcast {
-        Podcast(
+        if let podcast = toDomainSafe(episodes: episodes) {
+            return podcast
+        }
+
+        return Podcast(
             id: id,
             title: title,
             author: author,
             description: podcastDescription,
             artworkURL: artworkURLString.flatMap { URL(string: $0) },
-            feedURL: URL(string: feedURLString)!,  // Force unwrap - data should be validated on insert
+            feedURL: URL(string: "about:blank")!,  // Corrupted feed URL fallback
             categories: categories,
             episodes: episodes,
             isSubscribed: isSubscribed,
