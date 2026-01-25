@@ -343,6 +343,33 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.episodes.first { $0.id == "ep-failed" }?.downloadStatus, .failed)
     }
 
+    func testUpdateReconcilesEpisodesAndPreservesUserState() {
+        let originalEpisodes = [
+            Self.makeEpisode(id: "ep-1", title: "Old Title", playbackPosition: 50, isPlayed: true)
+        ]
+        let podcast = Self.makePodcast(id: "update-episodes", episodes: originalEpisodes)
+        repository.add(podcast)
+
+        let updatedEpisodes = [
+            Self.makeEpisode(id: "ep-1", title: "New Title", playbackPosition: 0),  // metadata change only
+            Self.makeEpisode(id: "ep-2", title: "New Episode")
+        ]
+        let updated = Self.makePodcast(id: podcast.id, episodes: updatedEpisodes)
+
+        repository.update(updated)
+
+        let found = repository.find(id: podcast.id)
+        XCTAssertEqual(found?.episodes.count, 2)
+
+        let ep1 = found?.episodes.first { $0.id == "ep-1" }
+        XCTAssertEqual(ep1?.title, "New Title")
+        XCTAssertEqual(ep1?.playbackPosition, 50, "User state should be preserved on update")
+        XCTAssertEqual(ep1?.isPlayed, true)
+
+        let ep2 = found?.episodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(ep2?.title, "New Episode")
+    }
+
     func testInvalidFeedURLSkipsCorruptedRows() throws {
         let context = ModelContext(modelContainer)
         let badEntity = PodcastEntity(

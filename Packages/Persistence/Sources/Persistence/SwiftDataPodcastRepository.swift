@@ -100,6 +100,20 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
             let resolved = makePodcast(from: podcast, entity: entity)
             entity.updateFrom(resolved)
+
+            // Upsert episodes: preserve user state on existing rows, insert new episodes.
+            let existingEpisodes = fetchEpisodeEntitiesUnlocked(forPodcastId: podcast.id)
+            var existingById = Dictionary(uniqueKeysWithValues: existingEpisodes.map { ($0.id, $0) })
+
+            for episode in podcast.episodes {
+                if let existing = existingById.removeValue(forKey: episode.id) {
+                    existing.updateMetadataFrom(episode)
+                } else {
+                    let episodeEntity = EpisodeEntity.fromDomain(episode, podcastId: podcast.id)
+                    modelContext.insert(episodeEntity)
+                }
+            }
+
             return saveContext()
         }
 
