@@ -135,6 +135,29 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertEqual(podcast.episodes[0].duration, 2730) // 45*60 + 30 = 2730 seconds
     }
 
+    func testIgnoresInvalidDuration() throws {
+        let xml = """
+        <?xml version="1.0"?>
+        <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+          <channel>
+            <title>Test Podcast</title>
+            <item>
+              <title>Episode 1</title>
+              <guid>ep-001</guid>
+              <enclosure url="https://example.com/ep1.mp3" type="audio/mpeg"/>
+              <itunes:duration>01:XX:00</itunes:duration>
+            </item>
+          </channel>
+        </rss>
+        """
+        let data = xml.data(using: .utf8)!
+        let feedURL = URL(string: "https://example.com/feed.xml")!
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL)
+
+        XCTAssertEqual(podcast.episodes.count, 1)
+        XCTAssertNil(podcast.episodes[0].duration)
+    }
+
     // MARK: - Date Parsing
 
     func testParsesRFC822Date() throws {
@@ -195,7 +218,7 @@ final class RSSFeedParserTests: XCTestCase {
 
     // MARK: - Missing Enclosure
 
-    func testSkipsEpisodeWithoutEnclosure() throws {
+    func testKeepsEpisodeWithoutEnclosure() throws {
         let xml = """
         <?xml version="1.0"?>
         <rss version="2.0">
@@ -223,10 +246,32 @@ final class RSSFeedParserTests: XCTestCase {
         let feedURL = URL(string: "https://example.com/feed.xml")!
         let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL)
 
-        // Should only have 2 episodes (ep-001 and ep-003), skipping ep-002 without enclosure
-        XCTAssertEqual(podcast.episodes.count, 2)
-        XCTAssertEqual(podcast.episodes[0].id, "ep-001")
-        XCTAssertEqual(podcast.episodes[1].id, "ep-003")
+        XCTAssertEqual(podcast.episodes.count, 3)
+        XCTAssertEqual(podcast.episodes[1].id, "ep-002")
+        XCTAssertNil(podcast.episodes[1].audioURL)
+    }
+
+    func testPreservesDescriptionWithInlineHTML() throws {
+        let xml = """
+        <?xml version="1.0"?>
+        <rss version="2.0">
+          <channel>
+            <title>Test Podcast</title>
+            <item>
+              <title>Episode 1</title>
+              <guid>ep-001</guid>
+              <enclosure url="https://example.com/ep1.mp3" type="audio/mpeg"/>
+              <description>Intro <b>bold</b> end</description>
+            </item>
+          </channel>
+        </rss>
+        """
+        let data = xml.data(using: .utf8)!
+        let feedURL = URL(string: "https://example.com/feed.xml")!
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL)
+
+        XCTAssertEqual(podcast.episodes.count, 1)
+        XCTAssertEqual(podcast.episodes[0].description, "Intro bold end")
     }
 
     // MARK: - iTunes Summary vs Description
@@ -409,8 +454,8 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertEqual(podcast.artworkURL?.absoluteString, "https://example.com/artwork.jpg")
         XCTAssertTrue(podcast.categories.contains("Technology"))
 
-        // Should have 2 valid episodes (3rd item has no enclosure)
-        XCTAssertEqual(podcast.episodes.count, 2)
+        // Should have 3 episodes; the third has no enclosure and should be kept with nil audioURL
+        XCTAssertEqual(podcast.episodes.count, 3)
 
         // Episode 1 verification
         let ep1 = podcast.episodes[0]
@@ -430,6 +475,13 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertEqual(ep2.duration, 5400)
         XCTAssertEqual(ep2.description, "We go deep on the topic.")
         XCTAssertNil(ep2.artworkURL) // No episode-specific artwork
+
+        // Episode 3 (no enclosure) verification
+        let ep3 = podcast.episodes[2]
+        XCTAssertEqual(ep3.id, "bonus-001")
+        XCTAssertEqual(ep3.title, "Bonus: Text-only post")
+        XCTAssertNil(ep3.audioURL)
+        XCTAssertEqual(ep3.description, "This is just a blog post, no audio.")
     }
 
     // MARK: - Edge Cases

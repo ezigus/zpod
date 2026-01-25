@@ -45,9 +45,8 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
 
     // MARK: - Parser State
 
-    private var currentElement: String = ""
-    private var currentText: String = ""
     private var elementStack: [String] = []
+    private var textStack: [String] = []
 
     // MARK: - Podcast-level building
 
@@ -62,6 +61,7 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
     private var episodes: [EpisodeBuilder] = []
     private var currentEpisode: EpisodeBuilder?
     private var isInItem: Bool = false
+    private var feedURL: URL?
 
     // MARK: - Public API
 
@@ -77,6 +77,7 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
     /// Parse RSS feed from data
     public static func parseFeed(from data: Data, feedURL: URL) throws -> Podcast {
         let parser = RSSFeedParser()
+        parser.feedURL = feedURL
 
         let xmlParser = XMLParser(data: data)
         xmlParser.delegate = parser
@@ -106,11 +107,10 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
 
     /// Convert episode builders to Episode models
     private func buildEpisodes(podcastID: String, podcastTitle: String) -> [Episode] {
-        return episodes.compactMap { builder in
-            // Skip episodes without audio URL (can't play them)
-            guard let audioURL = builder.audioURL else {
-                Logger.warning("Skipping episode '\(builder.title)' - no audio URL")
-                return nil
+        return episodes.map { builder in
+            let audioURL = builder.audioURL
+            if audioURL == nil {
+                Logger.warning("Episode '\(builder.title)' missing audio URL")
             }
 
             // Generate ID from guid or fallback
@@ -135,8 +135,10 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
 
     /// Generate episode ID from title and pubDate
     private func generateEpisodeID(title: String, pubDate: Date?) -> String {
+        let feed = feedURL?.absoluteString ?? ""
         let dateString = pubDate?.timeIntervalSince1970.description ?? ""
-        return "\(title)-\(dateString)".hashValue.description
+        let base = "\(feed)|\(title)|\(dateString)"
+        return StableHasher.hash(base)
     }
 
     /// Parse duration from string (supports both seconds and HH:MM:SS formats)
@@ -149,7 +151,12 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
         }
 
         // Format 2: HH:MM:SS or MM:SS
-        let components = trimmed.split(separator: ":").compactMap { Int($0) }
+        let parts = trimmed.split(separator: ":")
+        let componentOptions = parts.map { Int($0) }
+        guard componentOptions.allSatisfy({ $0 != nil }) else {
+            return nil
+        }
+        let components = componentOptions.compactMap { $0 }
 
         switch components.count {
         case 3: // HH:MM:SS
@@ -196,9 +203,8 @@ extension RSSFeedParser: XMLParserDelegate {
                        qualifiedName qName: String?,
                        attributes attributeDict: [String: String] = [:]) {
 
-        currentElement = elementName
-        currentText = ""
         elementStack.append(elementName)
+        textStack.append("")
 
         switch elementName.lowercased() {
         case "item":
@@ -235,7 +241,8 @@ extension RSSFeedParser: XMLParserDelegate {
     }
 
     public func parser(_ parser: XMLParser, foundCharacters string: String) {
-        currentText += string
+        guard !textStack.isEmpty else { return }
+        textStack[textStack.count - 1] += string
     }
 
     public func parser(_ parser: XMLParser,
@@ -243,8 +250,9 @@ extension RSSFeedParser: XMLParserDelegate {
                        namespaceURI: String?,
                        qualifiedName qName: String?) {
 
+        let collectedText = textStack.popLast() ?? ""
         elementStack.removeLast()
-        let trimmedText = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = collectedText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if isInItem {
             // Inside <item> - episode-level data
@@ -306,8 +314,10 @@ extension RSSFeedParser: XMLParserDelegate {
             }
         }
 
-        currentText = ""
-        currentElement = ""
+        // Preserve mixed-content text by propagating to the parent element buffer
+        if let lastIndex = textStack.indices.last {
+            textStack[lastIndex] += collectedText
+        }
     }
 }
 
@@ -320,4 +330,19 @@ private extension DateFormatter {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
+
+}
+
+// MARK: - Stable Hashing
+
+private enum StableHasher {
+    static func hash(_ string: String) -> String {
+        var hash: UInt64 = 0xcbf29ce484222325 // FNV-1a offset basis
+        let prime: UInt64 = 0x00000100000001B3
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= prime
+        }
+        return String(hash)
+    }
 }
