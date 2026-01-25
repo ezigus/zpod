@@ -252,6 +252,33 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertNil(podcast.episodes[1].audioURL)
     }
 
+    func testLogsWarningForMissingEnclosure() throws {
+        let xml = """
+        <?xml version="1.0"?>
+        <rss version="2.0">
+          <channel>
+            <title>Test Podcast</title>
+            <item>
+              <title>Episode Without Audio</title>
+              <guid>ep-010</guid>
+              <description>No enclosure present in this item.</description>
+            </item>
+          </channel>
+        </rss>
+        """
+        let warnings = WarningRecorder()
+        let data = xml.data(using: .utf8)!
+        let feedURL = URL(string: "https://example.com/feed.xml")!
+
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL) { @Sendable warning in
+            warnings.append(warning)
+        }
+
+        XCTAssertEqual(podcast.episodes.count, 1)
+        XCTAssertNil(podcast.episodes[0].audioURL)
+        XCTAssertTrue(warnings.values.contains { $0.contains("missing audio URL") && $0.contains("Episode Without Audio") })
+    }
+
     func testPreservesDescriptionWithInlineHTML() throws {
         let xml = """
         <?xml version="1.0"?>
@@ -515,6 +542,34 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertEqual(second.duration, 7285)
     }
 
+    func testParsesRealTalkShowSampleFeed() throws {
+        guard let fixtureURL = Bundle.module.url(
+            forResource: "the-talk-show-feed-sample",
+            withExtension: "xml",
+            subdirectory: "Fixtures"
+        ) else {
+            return XCTFail("Missing fixture: the-talk-show-feed-sample.xml")
+        }
+        let data = try Data(contentsOf: fixtureURL)
+        let feedURL = URL(string: "https://daringfireball.net/thetalkshow/rss")!
+
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL)
+
+        XCTAssertEqual(podcast.title, "The Talk Show With John Gruber")
+        XCTAssertEqual(podcast.author, "John Gruber")
+        XCTAssertEqual(podcast.episodes.count, 2)
+
+        let first = podcast.episodes[0]
+        XCTAssertEqual(first.id, "https://daringfireball.net/thetalkshow/2025/12/31/ep-438")
+        XCTAssertEqual(first.audioURL?.absoluteString, "https://traffic.libsyn.com/secure/daringfireball/thetalkshow-438-rene-ritchie.mp3")
+        XCTAssertEqual(first.duration, 9721)
+
+        let second = podcast.episodes[1]
+        XCTAssertEqual(second.id, "https://daringfireball.net/thetalkshow/2025/12/24/ep-437")
+        XCTAssertEqual(second.audioURL?.absoluteString, "https://traffic.libsyn.com/secure/daringfireball/thetalkshow-437-quinn-nelson.mp3")
+        XCTAssertEqual(second.duration, 8932)
+    }
+
     // MARK: - Edge Cases
 
     func testLogsInvalidEnclosureURLWithoutCrashing() throws {
@@ -543,6 +598,34 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertNil(podcast.episodes[0].audioURL)
         XCTAssertTrue(warnings.values.contains { $0.contains("invalid audio URL") && $0.contains("ht!tp://bad url") })
         XCTAssertFalse(warnings.values.contains { $0.contains("missing audio URL") })
+    }
+
+    func testKeepsFirstValidEnclosureWhenLaterIsInvalid() throws {
+        let xml = """
+        <?xml version="1.0"?>
+        <rss version="2.0">
+          <channel>
+            <title>Test Podcast</title>
+            <item>
+              <title>Episode 1</title>
+              <guid>ep-001</guid>
+              <enclosure url="https://example.com/ep1.mp3" type="audio/mpeg"/>
+              <enclosure url="ht!tp://bad url" type="audio/mpeg"/>
+            </item>
+          </channel>
+        </rss>
+        """
+        let warnings = WarningRecorder()
+        let data = xml.data(using: .utf8)!
+        let feedURL = URL(string: "https://example.com/feed.xml")!
+
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL) { @Sendable warning in
+            warnings.append(warning)
+        }
+
+        XCTAssertEqual(podcast.episodes.count, 1)
+        XCTAssertEqual(podcast.episodes[0].audioURL?.absoluteString, "https://example.com/ep1.mp3")
+        XCTAssertTrue(warnings.values.isEmpty)
     }
 
     func testHandlesEmptyFeed() throws {
