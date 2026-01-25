@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>Accidental Tech Podcast</title>
+    <description>Three nerds discussing tech, Apple, programming, and loosely related matters.</description>
+    <itunes:author>Marco Arment, Casey Liss, John Siracusa</itunes:author>
+    <item>
+      <title>675: Open, Retrieve, Expand, Load</title>
+      <guid isPermaLink="false">c1hrwkrnejz3b1do</guid>
+      <pubDate>Thu, 22 Jan 2026 20:21:59 +0000</pubDate>
+      <description>&lt;ul&gt;
+&lt;li&gt;Pre-show: Snowpocalypse is coming for Casey&lt;/li&gt;
+&lt;li&gt;🗣️ New &lt;a href=&quot;https://atp.fm/join&quot;&gt;ATP Member&amp;#8217;s&lt;/a&gt; Special: &lt;a href=&quot;https://atp.fm/atp-tier-list-automotive-logos&quot;&gt;ATP Tier List: Automotive Logos&lt;/a&gt; 🗣️&lt;/li&gt;
+&lt;li&gt;Follow-up:
+
+&lt;ul&gt;
+&lt;li&gt;We&amp;#8217;ll talk TCL/Sony next week!
+
+&lt;ul&gt;
+&lt;…</description>
+      <enclosure url="https://atp.fm/audio/c1hrwkrnejz3b1do/atp675.mp3" length="121016235" type="audio/mpeg"/>
+      <itunes:duration>02:06:03</itunes:duration>
+    </item>
+    <item>
+      <title>674: A Reliable, Boring Partner</title>
+      <guid isPermaLink="false">mmlultngwkhmalls</guid>
+      <pubDate>Fri, 16 Jan 2026 20:32:36 +0000</pubDate>
+      <description>&lt;ul&gt;
+&lt;li&gt;Pre-show: Casey&amp;#8217;s dreams were squashed
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https://store.ui.com/us/en/products/utr&quot;&gt;Ubiquiti Travel Router&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://www.verizon.com/support/verizon-jetpack-mifi-8800l/&quot;&gt;Verizon Jetpack&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;https://www.amazon.com/dp/B0CKY7NBJ2/tag=m…</description>
+      <enclosure url="https://atp.fm/audio/mmlultngwkhmalls/atp674.mp3" length="117110708" type="audio/mpeg"/>
+      <itunes:duration>02:01:25</itunes:duration>
+    </item>
+  </channel>
+</rss>

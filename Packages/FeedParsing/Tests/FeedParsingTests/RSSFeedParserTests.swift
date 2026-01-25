@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import FeedParsing
 import CoreModels
@@ -484,7 +485,65 @@ final class RSSFeedParserTests: XCTestCase {
         XCTAssertEqual(ep3.description, "This is just a blog post, no audio.")
     }
 
+    // MARK: - Real Feed Fixtures
+
+    func testParsesRealATPSampleFeed() throws {
+        guard let fixtureURL = Bundle.module.url(
+            forResource: "atp-feed-sample",
+            withExtension: "xml",
+            subdirectory: "Fixtures"
+        ) else {
+            return XCTFail("Missing fixture: atp-feed-sample.xml")
+        }
+        let data = try Data(contentsOf: fixtureURL)
+        let feedURL = URL(string: "https://atp.fm/episodes?format=rss")!
+
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL)
+
+        XCTAssertEqual(podcast.title, "Accidental Tech Podcast")
+        XCTAssertEqual(podcast.author, "Marco Arment, Casey Liss, John Siracusa")
+        XCTAssertEqual(podcast.episodes.count, 2)
+
+        let first = podcast.episodes[0]
+        XCTAssertEqual(first.id, "c1hrwkrnejz3b1do")
+        XCTAssertEqual(first.audioURL?.absoluteString, "https://atp.fm/audio/c1hrwkrnejz3b1do/atp675.mp3")
+        XCTAssertEqual(first.duration, 7563)
+
+        let second = podcast.episodes[1]
+        XCTAssertEqual(second.id, "mmlultngwkhmalls")
+        XCTAssertEqual(second.audioURL?.absoluteString, "https://atp.fm/audio/mmlultngwkhmalls/atp674.mp3")
+        XCTAssertEqual(second.duration, 7285)
+    }
+
     // MARK: - Edge Cases
+
+    func testLogsInvalidEnclosureURLWithoutCrashing() throws {
+        let xml = """
+        <?xml version="1.0"?>
+        <rss version="2.0">
+          <channel>
+            <title>Test Podcast</title>
+            <item>
+              <title>Episode 1</title>
+              <guid>ep-001</guid>
+              <enclosure url="ht!tp://bad url" type="audio/mpeg"/>
+            </item>
+          </channel>
+        </rss>
+        """
+        let warnings = WarningRecorder()
+        let data = xml.data(using: .utf8)!
+        let feedURL = URL(string: "https://example.com/feed.xml")!
+
+        let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: feedURL) { @Sendable warning in
+            warnings.append(warning)
+        }
+
+        XCTAssertEqual(podcast.episodes.count, 1)
+        XCTAssertNil(podcast.episodes[0].audioURL)
+        XCTAssertTrue(warnings.values.contains { $0.contains("invalid audio URL") && $0.contains("ht!tp://bad url") })
+        XCTAssertFalse(warnings.values.contains { $0.contains("missing audio URL") })
+    }
 
     func testHandlesEmptyFeed() throws {
         let xml = """
@@ -572,5 +631,23 @@ final class RSSFeedParserTests: XCTestCase {
 
         XCTAssertTrue(podcast.categories.contains("Technology"))
         XCTAssertTrue(podcast.categories.contains("Business"))
+    }
+}
+
+private final class WarningRecorder: @unchecked Sendable {
+    private var storage: [String] = []
+    private let lock = NSLock()
+
+    func append(_ warning: String) {
+        lock.lock()
+        storage.append(warning)
+        lock.unlock()
+    }
+
+    var values: [String] {
+        lock.lock()
+        let result = storage
+        lock.unlock()
+        return result
     }
 }
