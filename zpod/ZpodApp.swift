@@ -68,7 +68,7 @@ struct ZpodApp: App {
         do {
           let config = ModelConfiguration(isStoredInMemoryOnly: true)
           let container = try ModelContainer(
-            for: LibraryFeature.Item.self, PodcastEntity.self,
+            for: LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self,
             configurations: config
           )
           print("✅ UI Test: Successfully created in-memory ModelContainer")
@@ -80,7 +80,7 @@ struct ZpodApp: App {
       } else {
         print("📱 Production mode - creating persistent ModelContainer")
         do {
-          let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self])
+          let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self])
           let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
           let container = try ModelContainer(for: schema, configurations: [config])
           print("✅ Production: Successfully created persistent ModelContainer")

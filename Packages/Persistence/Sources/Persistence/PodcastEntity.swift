@@ -51,6 +51,8 @@ public final class PodcastEntity {
 
 @available(iOS 17, macOS 14, watchOS 10, *)
 extension PodcastEntity {
+    /// Convert to domain model (force unwraps feedURL - use with caution)
+    /// Prefer `toDomainSafe()` for production code.
     public func toDomain(episodes: [Episode] = []) -> Podcast {
         Podcast(
             id: id,
@@ -58,7 +60,32 @@ extension PodcastEntity {
             author: author,
             description: podcastDescription,
             artworkURL: artworkURLString.flatMap { URL(string: $0) },
-            feedURL: URL(string: feedURLString)!,
+            feedURL: URL(string: feedURLString)!,  // Force unwrap - data should be validated on insert
+            categories: categories,
+            episodes: episodes,
+            isSubscribed: isSubscribed,
+            dateAdded: dateAdded,
+            folderId: folderId,
+            tagIds: tagIds
+        )
+    }
+
+    /// Safe conversion that returns nil if feedURL is invalid
+    /// Use this in repository queries where data corruption is possible.
+    public func toDomainSafe(episodes: [Episode] = []) -> Podcast? {
+        guard let feedURL = URL(string: feedURLString) else {
+            // Log corruption but don't crash - skip this entity
+            print("⚠️ PodcastEntity.toDomainSafe: Invalid feedURL for podcast \(id): \(feedURLString)")
+            return nil
+        }
+
+        return Podcast(
+            id: id,
+            title: title,
+            author: author,
+            description: podcastDescription,
+            artworkURL: artworkURLString.flatMap { URL(string: $0) },
+            feedURL: feedURL,
             categories: categories,
             episodes: episodes,
             isSubscribed: isSubscribed,
