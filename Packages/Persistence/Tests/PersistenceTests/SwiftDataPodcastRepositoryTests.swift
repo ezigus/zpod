@@ -150,7 +150,10 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             }
         }
 
-        group.wait()
+        let result = group.wait(timeout: .now() + .seconds(5))
+        if result == .timedOut {
+            return XCTFail("Timed out waiting for concurrent adds; potential deadlock in add()")
+        }
         let allIds = Set(repository.all().map(\.id))
         XCTAssertEqual(allIds.count, 20)
         XCTAssertTrue(allIds.contains("concurrent-0"))

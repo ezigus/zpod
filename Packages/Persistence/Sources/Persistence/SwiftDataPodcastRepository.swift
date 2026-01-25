@@ -258,6 +258,7 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     }
 
     private func refreshSiriSnapshotsIfNeeded() {
-        siriSnapshotRefresher?.refreshAll()
+        let refresher = serialQueue.sync { siriSnapshotRefresher }
+        refresher?.refreshAll()
     }
 }
