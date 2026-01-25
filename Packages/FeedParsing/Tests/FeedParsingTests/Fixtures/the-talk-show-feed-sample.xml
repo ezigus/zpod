@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>The Talk Show With John Gruber</title>
+    <description>John Gruber interviews guests about Apple, technology, and culture.</description>
+    <itunes:author>John Gruber</itunes:author>
+    <item>
+      <title>438: '2025 Year in Review', With Rene Ritchie</title>
+      <guid isPermaLink="false">https://daringfireball.net/thetalkshow/2025/12/31/ep-438</guid>
+      <pubDate>Wed, 31 Dec 2025 16:37:58 EDT</pubDate>
+      <description>A look back at Apple's 2025, with special guest Rene Ritchie.</description>
+      <enclosure url="https://traffic.libsyn.com/secure/daringfireball/thetalkshow-438-rene-ritchie.mp3" length="78034706" type="audio/mpeg"/>
+      <itunes:duration>02:42:01</itunes:duration>
+    </item>
+    <item>
+      <title>437: 'A Naughty Citizen', With Quinn Nelson</title>
+      <guid isPermaLink="false">https://daringfireball.net/thetalkshow/2025/12/24/ep-437</guid>
+      <pubDate>Wed, 24 Dec 2025 19:36:43 EDT</pubDate>
+      <description>Holiday special with Quinn Nelson on iPad, Apple leadership, and more.</description>
+      <enclosure url="https://traffic.libsyn.com/secure/daringfireball/thetalkshow-437-quinn-nelson.mp3" length="71722432" type="audio/mpeg"/>
+      <itunes:duration>02:28:52</itunes:duration>
+    </item>
+  </channel>
+</rss>

@@ -242,10 +242,11 @@ extension RSSFeedParser: XMLParserDelegate {
             // CRITICAL: Extract audio URL from attributes
             if isInItem, let urlString = attributeDict["url"] {
                 if let url = URL(string: urlString) {
-                    currentEpisode?.audioURL = url
+                    if currentEpisode?.audioURL == nil {
+                        currentEpisode?.audioURL = url
+                    }
                     currentEpisode?.invalidAudioURLString = nil
-                } else {
-                    currentEpisode?.audioURL = nil
+                } else if currentEpisode?.audioURL == nil {
                     currentEpisode?.invalidAudioURLString = urlString
                 }
             }
