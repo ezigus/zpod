@@ -36,6 +36,7 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
         var guid: String?
         var title: String = ""
         var audioURL: URL?
+        var invalidAudioURLString: String?
         var pubDate: Date?
         var duration: TimeInterval?
         var description: String = ""
@@ -44,6 +45,8 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
     }
 
     // MARK: - Parser State
+
+    private let logWarning: @Sendable (String) -> Void
 
     private var elementStack: [String] = []
     private var textStack: [String] = []
@@ -65,6 +68,17 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
 
     // MARK: - Public API
 
+    public override convenience init() {
+        self.init(logWarning: { @Sendable message in
+            Logger.warning(message)
+        })
+    }
+
+    public init(logWarning: @escaping @Sendable (String) -> Void) {
+        self.logWarning = logWarning
+        super.init()
+    }
+
     /// Parse RSS feed from URL
     #if !os(Linux)
     @available(macOS 12.0, *)
@@ -76,7 +90,14 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
 
     /// Parse RSS feed from data
     public static func parseFeed(from data: Data, feedURL: URL) throws -> Podcast {
-        let parser = RSSFeedParser()
+        return try parseFeed(from: data, feedURL: feedURL, logWarning: { @Sendable message in
+            Logger.warning(message)
+        })
+    }
+
+    /// Parse RSS feed from data with a custom warning logger (testing)
+    public static func parseFeed(from data: Data, feedURL: URL, logWarning: @escaping @Sendable (String) -> Void) throws -> Podcast {
+        let parser = RSSFeedParser(logWarning: logWarning)
         parser.feedURL = feedURL
 
         let xmlParser = XMLParser(data: data)
@@ -108,9 +129,14 @@ public final class RSSFeedParser: NSObject, @unchecked Sendable {
     /// Convert episode builders to Episode models
     private func buildEpisodes(podcastID: String, podcastTitle: String) -> [Episode] {
         return episodes.map { builder in
+            let episodeTitle = builder.title.isEmpty ? "Untitled Episode" : builder.title
             let audioURL = builder.audioURL
             if audioURL == nil {
-                Logger.warning("Episode '\(builder.title)' missing audio URL")
+                if let invalidAudioURL = builder.invalidAudioURLString, !invalidAudioURL.isEmpty {
+                    logWarning("Episode '\(episodeTitle)' has invalid audio URL: \(invalidAudioURL)")
+                } else {
+                    logWarning("Episode '\(episodeTitle)' missing audio URL")
+                }
             }
 
             // Generate ID from guid or fallback
@@ -214,9 +240,14 @@ extension RSSFeedParser: XMLParserDelegate {
 
         case "enclosure":
             // CRITICAL: Extract audio URL from attributes
-            if isInItem, let urlString = attributeDict["url"],
-               let url = URL(string: urlString) {
-                currentEpisode?.audioURL = url
+            if isInItem, let urlString = attributeDict["url"] {
+                if let url = URL(string: urlString) {
+                    currentEpisode?.audioURL = url
+                    currentEpisode?.invalidAudioURLString = nil
+                } else {
+                    currentEpisode?.audioURL = nil
+                    currentEpisode?.invalidAudioURLString = urlString
+                }
             }
 
         case "itunes:image":
