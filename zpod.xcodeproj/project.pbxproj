@@ -113,6 +113,12 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				TestSummary.md,
+				"TestResources/Audio/test-episode-long.m4a",
+				"TestResources/Audio/test-episode-medium.m4a",
+				"TestResources/Audio/test-episode-short.m4a",
+				"TestResources/Audio/test-episode-long.aiff",
+				"TestResources/Audio/test-episode-medium.aiff",
+				"TestResources/Audio/test-episode-short.aiff",
 			);
 			target = 786FD1262E22E617008CEE55 /* zpodUITests */;
 		};

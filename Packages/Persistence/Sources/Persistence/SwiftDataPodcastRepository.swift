@@ -47,7 +47,12 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     public func all() -> [Podcast] {
         serialQueue.sync {
             let descriptor = FetchDescriptor<PodcastEntity>()
-            return (try? modelContext.fetch(descriptor))?.map { $0.toDomain() } ?? []
+            guard let entities = try? modelContext.fetch(descriptor) else { return [] }
+
+            return entities.compactMap { entity in
+                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+                return entity.toDomainSafe(episodes: episodes)
+            }
         }
     }
 
@@ -56,7 +61,9 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
             let predicate = #Predicate<PodcastEntity> { $0.id == id }
             let descriptor = FetchDescriptor(predicate: predicate)
             guard let entity = try? modelContext.fetch(descriptor).first else { return nil }
-            return entity.toDomain()
+
+            let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+            return entity.toDomainSafe(episodes: episodes)
         }
     }
 
@@ -69,6 +76,13 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
             let entity = PodcastEntity.fromDomain(podcast)
             modelContext.insert(entity)
+
+            // Persist episodes
+            for episode in podcast.episodes {
+                let episodeEntity = EpisodeEntity.fromDomain(episode, podcastId: podcast.id)
+                modelContext.insert(episodeEntity)
+            }
+
             return saveContext()
         }
 
@@ -86,6 +100,20 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
             let resolved = makePodcast(from: podcast, entity: entity)
             entity.updateFrom(resolved)
+
+            // Upsert episodes: preserve user state on existing rows, insert new episodes.
+            let existingEpisodes = fetchEpisodeEntitiesUnlocked(forPodcastId: podcast.id)
+            var existingById = Dictionary(uniqueKeysWithValues: existingEpisodes.map { ($0.id, $0) })
+
+            for episode in podcast.episodes {
+                if let existing = existingById.removeValue(forKey: episode.id) {
+                    existing.updateMetadataFrom(episode)
+                } else {
+                    let episodeEntity = EpisodeEntity.fromDomain(episode, podcastId: podcast.id)
+                    modelContext.insert(episodeEntity)
+                }
+            }
+
             return saveContext()
         }
 
@@ -99,6 +127,12 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
             guard let entity = fetchEntity(id: id) else {
                 logger.warning("Remove ignored for missing podcast: \(id, privacy: .public)")
                 return false
+            }
+
+            // Cascade delete all episodes for this podcast
+            let episodeEntities = fetchEpisodeEntitiesUnlocked(forPodcastId: id)
+            for episodeEntity in episodeEntities {
+                modelContext.delete(episodeEntity)
             }
 
             modelContext.delete(entity)
@@ -130,38 +164,33 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     public func findByTag(tagId: String) -> [Podcast] {
         serialQueue.sync {
             let all = fetchAllEntities(errorMessage: "Failed to fetch podcasts by tag: \(tagId)")
-            return all.filter { $0.tagIds.contains(tagId) }.map { $0.toDomain() }
+            return all.filter { $0.tagIds.contains(tagId) }.compactMap { entity in
+                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+                return entity.toDomainSafe(episodes: episodes)
+            }
         }
     }
 
     public func findUnorganized() -> [Podcast] {
         serialQueue.sync {
             let all = fetchAllEntities(errorMessage: "Failed to fetch unorganized podcasts")
-            return all.filter { $0.folderId == nil && $0.tagIds.isEmpty }.map { $0.toDomain() }
+            return all.filter { $0.folderId == nil && $0.tagIds.isEmpty }.compactMap { entity in
+                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+                return entity.toDomainSafe(episodes: episodes)
+            }
         }
     }
 
     /// Resets all episode playback positions to 0 across all podcasts.
-    /// Episodes remain transient; this is used by UI tests to ensure clean state.
+    /// Operates on persisted episodes (Issue 27.1.1.1).
     public func resetAllPlaybackPositions() {
         let didSave = serialQueue.sync { () -> Bool in
-            let entities = fetchAllEntities(errorMessage: "Failed to fetch podcasts for playback reset")
-            guard !entities.isEmpty else { return false }
+            let allEpisodes = fetchAllEpisodeEntitiesUnlocked()
+            guard !allEpisodes.isEmpty else { return false }
 
             var didUpdate = false
-            for entity in entities {
-                let podcast = entity.toDomain()
-                guard !podcast.episodes.isEmpty else { continue }
-
-                let resetEpisodes = podcast.episodes.map { episode in
-                    episode.withPlaybackPosition(0)
-                }
-                let resolvedPodcast = makePodcast(
-                    from: podcast,
-                    entity: entity,
-                    episodes: resetEpisodes
-                )
-                entity.updateFrom(resolvedPodcast)
+            for entity in allEpisodes where entity.playbackPosition != 0 {
+                entity.playbackPosition = 0
                 didUpdate = true
             }
 
@@ -171,9 +200,9 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
         if didSave {
             refreshSiriSnapshotsIfNeeded()
-            logger.info("Reset all episode playback positions to 0 for UI tests")
+            logger.info("Reset all episode playback positions to 0")
         } else {
-            logger.info("Skipped playback reset (no persisted episodes)")
+            logger.info("Skipped playback reset (no episodes with playback position)")
         }
     }
 
@@ -198,7 +227,10 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
         let predicate = #Predicate<PodcastEntity> { $0.folderId == folderId }
         let descriptor = FetchDescriptor(predicate: predicate)
         return fetchEntities(descriptor, errorMessage: "Failed to fetch podcasts by folder: \(folderId)")
-            .map { $0.toDomain() }
+            .compactMap { entity in
+                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+                return entity.toDomainSafe(episodes: episodes)
+            }
     }
 
     private func fetchAllEntities(errorMessage: String) -> [PodcastEntity] {
@@ -260,5 +292,28 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     private func refreshSiriSnapshotsIfNeeded() {
         let refresher = serialQueue.sync { siriSnapshotRefresher }
         refresher?.refreshAll()
+    }
+
+    // MARK: - Episode Helpers
+
+    /// Fetch episodes for a podcast (must be called within serialQueue.sync)
+    private func fetchEpisodesUnlocked(forPodcastId podcastId: String) -> [Episode] {
+        let predicate = #Predicate<EpisodeEntity> { $0.podcastId == podcastId }
+        let descriptor = FetchDescriptor(predicate: predicate)
+        guard let entities = try? modelContext.fetch(descriptor) else { return [] }
+        return entities.map { $0.toDomain() }
+    }
+
+    /// Fetch episode entities for a podcast (must be called within serialQueue.sync)
+    private func fetchEpisodeEntitiesUnlocked(forPodcastId podcastId: String) -> [EpisodeEntity] {
+        let predicate = #Predicate<EpisodeEntity> { $0.podcastId == podcastId }
+        let descriptor = FetchDescriptor(predicate: predicate)
+        return (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    /// Fetch all episode entities (must be called within serialQueue.sync)
+    private func fetchAllEpisodeEntitiesUnlocked() -> [EpisodeEntity] {
+        let descriptor = FetchDescriptor<EpisodeEntity>()
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 }

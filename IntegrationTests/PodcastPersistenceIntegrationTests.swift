@@ -20,6 +20,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
     // MARK: - Properties
 
+    private let persistenceSchema = Schema([PodcastEntity.self, EpisodeEntity.self])
     private var persistentStoreURL: URL!
     private let siriSnapshotRefresher = NoopSiriSnapshotRefresher()
 
@@ -66,7 +67,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         // Phase 1: Add podcast with persistent container
         do {
             // Given: A persistent container with a podcast
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -98,7 +99,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         // Phase 2: Destroy container and create new one (simulates app restart)
         do {
             // Given: New container pointing to same persistent store
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -121,10 +122,73 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         }
     }
 
+    func testEpisodesPersistAcrossContainerRecreation() async throws {
+        let podcastId = "persist-episodes"
+        let episodeId = "episode-1"
+
+        // Phase 1: Add podcast with episodes
+        do {
+            let configuration = ModelConfiguration(url: persistentStoreURL)
+            let container = try ModelContainer(for: persistenceSchema, configurations: [configuration])
+            let manager = makeManager(container: container)
+
+            let episodes = [
+                Episode(
+                    id: episodeId,
+                    title: "Persisted Episode",
+                    podcastID: podcastId,
+                    podcastTitle: "Persistent Podcast",
+                    playbackPosition: 321,
+                    isPlayed: true,
+                    downloadStatus: .downloaded,
+                    isFavorited: true
+                )
+            ]
+            let podcast = Podcast(
+                id: podcastId,
+                title: "Persistent Podcast",
+                author: "Test Author",
+                description: "Should survive restart",
+                artworkURL: URL(string: "https://example.com/artwork.jpg"),
+                feedURL: URL(string: "https://example.com/feed.xml")!,
+                categories: ["Technology", "Science"],
+                episodes: episodes,
+                isSubscribed: true,
+                dateAdded: Date(),
+                folderId: "test-folder",
+                tagIds: ["tag-1", "tag-2"]
+            )
+
+            manager.add(podcast)
+
+            let found = manager.find(id: podcastId)
+            XCTAssertEqual(found?.episodes.count, 1)
+            XCTAssertEqual(found?.episodes.first?.id, episodeId)
+            XCTAssertEqual(found?.episodes.first?.playbackPosition, 321)
+            XCTAssertEqual(found?.episodes.first?.isFavorited, true)
+        }
+
+        // Phase 2: Verify episodes after container recreation
+        do {
+            let configuration = ModelConfiguration(url: persistentStoreURL)
+            let container = try ModelContainer(for: persistenceSchema, configurations: [configuration])
+            let manager = makeManager(container: container)
+
+            let found = manager.find(id: podcastId)
+            XCTAssertNotNil(found, "Podcast should persist across container recreation")
+            XCTAssertEqual(found?.episodes.count, 1, "Episodes should persist across restart")
+            let episode = found?.episodes.first
+            XCTAssertEqual(episode?.id, episodeId)
+            XCTAssertEqual(episode?.playbackPosition, 321)
+            XCTAssertEqual(episode?.isFavorited, true)
+            XCTAssertEqual(episode?.downloadStatus, .downloaded)
+        }
+    }
+
     func testMultiplePodcastsPersistCorrectly() async throws {
         // Phase 1: Add multiple podcasts
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -147,7 +211,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 2: Verify all persisted
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -177,7 +241,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 1: Add and update podcast
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -210,7 +274,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 2: Verify updates persisted
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -230,7 +294,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
     func testDeletesPersistCorrectly() async throws {
         // Phase 1: Add and delete podcast
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -249,7 +313,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 2: Verify deletion persisted
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -272,7 +336,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         // Phase 1: Add podcast with in-memory container
         do {
             // Given: In-memory container
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -295,7 +359,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         // Phase 2: New in-memory container should be empty
         do {
             // Given: New in-memory container
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -314,7 +378,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
     func testOrganizationPersistsCorrectly() async throws {
         // Phase 1: Add organized podcasts
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -332,7 +396,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 2: Verify organization persisted
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -377,7 +441,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 1: Persist data and refresh snapshots.
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
@@ -412,7 +476,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
         // Phase 2: Simulate restart by recreating the container and refreshing snapshots.
         do {
-            let schema = Schema([PodcastEntity.self])
+            let schema = persistenceSchema
             let configuration = ModelConfiguration(url: persistentStoreURL)
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)

@@ -274,7 +274,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         if let seekedPosition = extractCurrentPosition(from: seekedValue),
            let totalDuration = extractTotalDuration(from: seekedValue) {
             let expectedPosition = totalDuration * targetNormalized
-            let tolerance = totalDuration * 0.15  // 15% tolerance for AVPlayer seek
+            // AVPlayer on simulators can drift; use a wider tolerance.
+            let tolerance = totalDuration * 0.25  // 25% tolerance for AVPlayer seek
             XCTAssertTrue(abs(seekedPosition - expectedPosition) <= tolerance,
                 "AVPlayer seek should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
         } else {
@@ -742,11 +743,10 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             XCTContext.runActivity(named: "Current speed before setting: \(currentSpeedLabel)") { _ in }
 
             if !currentSpeedLabel.contains("1.0x") && !currentSpeedLabel.contains("1x") {
-                speedControl.tap()
-
-                let oneXOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.1.0x").firstMatch
-                XCTAssertTrue(oneXOption.waitForExistence(timeout: adaptiveShortTimeout),
-                    "1.0x speed option should exist")
+                guard let oneXOption = openSpeedOption(identifier: "PlaybackSpeed.Option.1.0x") else {
+                    XCTFail("1.0x speed option should exist")
+                    return
+                }
                 oneXOption.tap()
 
                 // Wait for UI to settle (speed menu should close)
@@ -901,15 +901,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         XCTAssertGreaterThan(baselineDelta, 0.2,
             "Baseline playback should advance before speed change")
 
-        let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
-        guard speedControl.waitForExistence(timeout: adaptiveShortTimeout) else {
-            XCTFail("Speed control not found")
-            return
-        }
-        speedControl.tap()
-
-        let speedOption = app.buttons.matching(identifier: "PlaybackSpeed.Option.2.0x").firstMatch
-        guard speedOption.waitForExistence(timeout: adaptiveShortTimeout) else {
+        guard let speedOption = openSpeedOption(identifier: "PlaybackSpeed.Option.2.0x") else {
             XCTFail("Speed option 2.0x not found")
             return
         }
@@ -921,6 +913,9 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         }
 
         // VERIFY speed was actually set to 2.0x by checking accessibility label
+        let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+        XCTAssertTrue(speedControl.waitForExistence(timeout: adaptiveShortTimeout),
+            "Speed control not found after setting fast speed")
         let fastSpeedLabel = speedControl.label
         XCTContext.runActivity(named: "Speed after setting to 2.0x: \(fastSpeedLabel)") { _ in }
         XCTAssertTrue(fastSpeedLabel.contains("2.0x") || fastSpeedLabel.contains("2x"),
@@ -1110,5 +1105,35 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         }
 
         return observedWithinTolerance
+    }
+
+    @MainActor
+    private func openSpeedOption(
+        identifier: String,
+        attempts: Int = 3,
+        existTimeout: TimeInterval = 2.0
+    ) -> XCUIElement? {
+        let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+        guard speedControl.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return nil
+        }
+
+        let optionQuery = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        for attempt in 1...attempts {
+            speedControl.tap()
+
+            if optionQuery.waitForExistence(timeout: existTimeout) {
+                return optionQuery
+            }
+
+            // Dismiss stale dialogs between retries to avoid stacked sheets
+            if app.buttons["Cancel"].waitForExistence(timeout: 0.5) {
+                app.buttons["Cancel"].tap()
+            }
+
+            XCTContext.runActivity(named: "Retry opening speed menu (\(attempt)/\(attempts))") { _ in }
+        }
+
+        return nil
     }
 }

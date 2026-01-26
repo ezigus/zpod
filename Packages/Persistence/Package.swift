@@ -32,6 +32,14 @@ let package = Package(
       dependencies: [
         "Persistence",
         .product(name: "TestSupport", package: "TestSupport"),
+      ],
+      exclude: [
+        "ComprehensiveFileManagerServiceTests.swift.disabled",
+        "ComprehensiveSettingsRepositoryTests.swift.disabled",
+        "ComprehensiveStoragePolicyEvaluatorTests.swift.disabled",
+        "ComprehensiveUserDefaultsRepositoriesTests.swift.disabled",
+        "Issue04DownloadTests.swift.disabled",
+        "Issue10UpdateFrequencyTests.swift.disabled",
       ]
     ),
   ]

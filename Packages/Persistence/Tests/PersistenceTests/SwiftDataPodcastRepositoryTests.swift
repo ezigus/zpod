@@ -13,7 +13,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
 
-        let schema = Schema([PodcastEntity.self])
+        let schema = Schema([PodcastEntity.self, EpisodeEntity.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         repository = SwiftDataPodcastRepository(modelContainer: modelContainer)
@@ -222,6 +222,169 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertTrue(allIds.contains("concurrent-19"))
     }
 
+    // MARK: - Episode Persistence Tests
+
+    func testAddPersistsEpisodes() {
+        let episodes = [
+            Self.makeEpisode(id: "ep-1", title: "Episode 1"),
+            Self.makeEpisode(id: "ep-2", title: "Episode 2"),
+            Self.makeEpisode(id: "ep-3", title: "Episode 3")
+        ]
+        let podcast = Self.makePodcast(id: "podcast-with-episodes", title: "Test Podcast", episodes: episodes)
+
+        repository.add(podcast)
+
+        let found = repository.find(id: podcast.id)
+        XCTAssertNotNil(found, "Podcast should be persisted")
+        XCTAssertEqual(found?.episodes.count, 3, "All episodes should be persisted")
+
+        let episodeIds = found?.episodes.map { $0.id }.sorted()
+        XCTAssertEqual(episodeIds, ["ep-1", "ep-2", "ep-3"])
+
+        let ep1 = found?.episodes.first { $0.id == "ep-1" }
+        XCTAssertEqual(ep1?.title, "Episode 1")
+    }
+
+    func testFindHydratesEpisodes() {
+        let episodes = [
+            Self.makeEpisode(id: "ep-1", title: "Episode 1", playbackPosition: 100),
+            Self.makeEpisode(id: "ep-2", title: "Episode 2", isFavorited: true)
+        ]
+        let podcast = Self.makePodcast(id: "hydrate-test", episodes: episodes)
+
+        repository.add(podcast)
+        let found = repository.find(id: podcast.id)
+
+        XCTAssertNotNil(found)
+        XCTAssertEqual(found?.episodes.count, 2)
+
+        let ep1 = found?.episodes.first { $0.id == "ep-1" }
+        XCTAssertEqual(ep1?.playbackPosition, 100, "Episode state should be restored")
+
+        let ep2 = found?.episodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(ep2?.isFavorited, true, "Episode state should be restored")
+    }
+
+    func testAllHydratesEpisodes() {
+        let episodes1 = [Self.makeEpisode(id: "ep-1-1"), Self.makeEpisode(id: "ep-1-2")]
+        let episodes2 = [Self.makeEpisode(id: "ep-2-1")]
+
+        repository.add(Self.makePodcast(id: "p1", episodes: episodes1))
+        repository.add(Self.makePodcast(id: "p2", episodes: episodes2))
+
+        let all = repository.all()
+        XCTAssertEqual(all.count, 2)
+
+        let p1 = all.first { $0.id == "p1" }
+        XCTAssertEqual(p1?.episodes.count, 2)
+
+        let p2 = all.first { $0.id == "p2" }
+        XCTAssertEqual(p2?.episodes.count, 1)
+    }
+
+    func testRemoveCascadeDeletesEpisodes() {
+        let episodes = [
+            Self.makeEpisode(id: "ep-del-1"),
+            Self.makeEpisode(id: "ep-del-2")
+        ]
+        let podcast = Self.makePodcast(id: "delete-cascade", episodes: episodes)
+
+        repository.add(podcast)
+        XCTAssertEqual(repository.find(id: podcast.id)?.episodes.count, 2, "Episodes should be persisted")
+
+        repository.remove(id: podcast.id)
+
+        XCTAssertNil(repository.find(id: podcast.id), "Podcast should be removed")
+        // Episodes should be cascade deleted (verified indirectly - no orphaned episodes remain)
+    }
+
+    func testResetAllPlaybackPositionsUsesPersistedEpisodes() {
+        let episodes1 = [
+            Self.makeEpisode(id: "ep-1-1", playbackPosition: 1000),
+            Self.makeEpisode(id: "ep-1-2", playbackPosition: 2000)
+        ]
+        let episodes2 = [
+            Self.makeEpisode(id: "ep-2-1", playbackPosition: 500)
+        ]
+
+        repository.add(Self.makePodcast(id: "p1", episodes: episodes1))
+        repository.add(Self.makePodcast(id: "p2", episodes: episodes2))
+
+        // Verify playback positions are set
+        var p1 = repository.find(id: "p1")
+        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 1000)
+        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 2000)
+
+        // Reset all playback positions
+        repository.resetAllPlaybackPositions()
+
+        // Verify all positions reset to 0
+        p1 = repository.find(id: "p1")
+        let p2 = repository.find(id: "p2")
+
+        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 0)
+        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 0)
+        XCTAssertEqual(p2?.episodes.first { $0.id == "ep-2-1" }?.playbackPosition, 0)
+    }
+
+    func testEpisodeDownloadStatusPersists() {
+        let episodes = [
+            Self.makeEpisode(id: "ep-downloaded", downloadStatus: .downloaded),
+            Self.makeEpisode(id: "ep-downloading", downloadStatus: .downloading),
+            Self.makeEpisode(id: "ep-failed", downloadStatus: .failed)
+        ]
+        let podcast = Self.makePodcast(id: "download-status-test", episodes: episodes)
+
+        repository.add(podcast)
+        let found = repository.find(id: podcast.id)
+
+        XCTAssertEqual(found?.episodes.first { $0.id == "ep-downloaded" }?.downloadStatus, .downloaded)
+        XCTAssertEqual(found?.episodes.first { $0.id == "ep-downloading" }?.downloadStatus, .downloading)
+        XCTAssertEqual(found?.episodes.first { $0.id == "ep-failed" }?.downloadStatus, .failed)
+    }
+
+    func testUpdateReconcilesEpisodesAndPreservesUserState() {
+        let originalEpisodes = [
+            Self.makeEpisode(id: "ep-1", title: "Old Title", playbackPosition: 50, isPlayed: true)
+        ]
+        let podcast = Self.makePodcast(id: "update-episodes", episodes: originalEpisodes)
+        repository.add(podcast)
+
+        let updatedEpisodes = [
+            Self.makeEpisode(id: "ep-1", title: "New Title", playbackPosition: 0),  // metadata change only
+            Self.makeEpisode(id: "ep-2", title: "New Episode")
+        ]
+        let updated = Self.makePodcast(id: podcast.id, episodes: updatedEpisodes)
+
+        repository.update(updated)
+
+        let found = repository.find(id: podcast.id)
+        XCTAssertEqual(found?.episodes.count, 2)
+
+        let ep1 = found?.episodes.first { $0.id == "ep-1" }
+        XCTAssertEqual(ep1?.title, "New Title")
+        XCTAssertEqual(ep1?.playbackPosition, 50, "User state should be preserved on update")
+        XCTAssertEqual(ep1?.isPlayed, true)
+
+        let ep2 = found?.episodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(ep2?.title, "New Episode")
+    }
+
+    func testInvalidFeedURLSkipsCorruptedRows() throws {
+        let context = ModelContext(modelContainer)
+        let badEntity = PodcastEntity(
+            id: "bad-feed",
+            title: "Bad Feed",
+            feedURLString: "",
+            isSubscribed: true
+        )
+        context.insert(badEntity)
+        try context.save()
+
+        let all = repository.all()
+        XCTAssertTrue(all.isEmpty, "Corrupted feed rows should be skipped, not crash")
+    }
+
     // MARK: - Helpers
 
     private static func makePodcast(
@@ -230,9 +393,16 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         isSubscribed: Bool = true,
         folderId: String? = nil,
         tagIds: [String] = [],
+        episodes: [Episode] = [],
         dateAdded: Date = Date()
     ) -> Podcast {
-        Podcast(
+        let normalizedEpisodes = episodes.map { episode -> Episode in
+            var copy = episode
+            copy.podcastID = id
+            copy.podcastTitle = title
+            return copy
+        }
+        return Podcast(
             id: id,
             title: title,
             author: "Author",
@@ -240,11 +410,34 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             artworkURL: URL(string: "https://example.com/artwork.jpg"),
             feedURL: URL(string: "https://example.com/feed.xml")!,
             categories: ["Technology"],
-            episodes: [],
+            episodes: normalizedEpisodes,
             isSubscribed: isSubscribed,
             dateAdded: dateAdded,
             folderId: folderId,
             tagIds: tagIds
+        )
+    }
+
+    private static func makeEpisode(
+        id: String,
+        podcastID: String = "test-podcast",
+        title: String = "Test Episode",
+        playbackPosition: Int = 0,
+        isPlayed: Bool = false,
+        downloadStatus: EpisodeDownloadStatus = .notDownloaded,
+        isFavorited: Bool = false,
+        isBookmarked: Bool = false
+    ) -> Episode {
+        Episode(
+            id: id,
+            title: title,
+            podcastID: podcastID,
+            podcastTitle: "Test Podcast",
+            playbackPosition: playbackPosition,
+            isPlayed: isPlayed,
+            downloadStatus: downloadStatus,
+            isFavorited: isFavorited,
+            isBookmarked: isBookmarked
         )
     }
 
