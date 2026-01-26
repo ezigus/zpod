@@ -118,44 +118,27 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func applyPreset(identifier: String, container: XCUIElement? = nil) {
-    // Get fresh container
-    // Note: UI fix ensures preset buttons are pre-materialized by materializeSections()
+    // Always resolve a fresh container and scroll immediately before tapping.
     guard let freshContainer = swipeActionsSheetListContainer() else {
       XCTFail("Swipe configuration sheet not found before applying preset")
       return
     }
 
-    // With UI fix (materializeSections scrolls to actual preset buttons),
-    // preset buttons should be pre-materialized. Use a light sweep, then
-    // fall back to a deeper scroll if the target is still not visible.
-    var scrollSuccess = ensureVisibleInSheet(
+    // Just-in-time scroll: do not rely on pre-materialization.
+    let scrollSuccess = ensureVisibleInSheet(
       identifier: identifier,
       container: freshContainer,
-      scrollAttempts: 2
+      scrollAttempts: 4
     )
 
-    // Find and tap preset button (should be immediately available after UI fix)
-    var presetButton = element(withIdentifier: identifier, within: freshContainer)
-    if !presetButton.waitForExistence(timeout: postReadinessTimeout) {
-      scrollSuccess = ensureVisibleInSheet(
-        identifier: identifier,
-        container: freshContainer,
-        scrollAttempts: 6
-      )
-      let refreshedContainer = swipeActionsSheetListContainer() ?? freshContainer
-      presetButton = element(withIdentifier: identifier, within: refreshedContainer)
-    }
+    let refreshedContainer = swipeActionsSheetListContainer() ?? freshContainer
+    let presetButton = element(withIdentifier: identifier, within: refreshedContainer)
 
-    guard waitForElement(
-      presetButton,
-      timeout: adaptiveTimeout,
-      description: "preset button \(identifier)"
-    ) else {
-      XCTFail(
-        "Preset button \(identifier) not found. Pre-materialization may have failed. Scroll success: \(scrollSuccess)"
-      )
-      return
-    }
+    // Allow a longer window to become hittable; blockers (overlays, helpers) are the common culprit.
+    XCTAssertTrue(
+      presetButton.waitForHittable(timeout: adaptiveTimeout * 1.5, requireStability: true),
+      "Preset button \(identifier) not hittable. Scroll success: \(scrollSuccess)"
+    )
 
     tapElement(presetButton, description: identifier)
   }

@@ -7,6 +7,8 @@
 
 This guide documents the test infrastructure designed to prevent flaky test failures. The implementation follows a **deterministic, no-retry philosophy**: "UI elements appear immediately or not at all - if element isn't there, fix the root cause instead of retrying."
 
+**SwiftUI List rule (approved pattern)**: Always perform a *just-in-time scroll* immediately before interaction. Pre-materializing sections alone is insufficient—SwiftUI unmaterializes rows when scrolled away. Scroll directly to the target and tap right after. Avoid lingering overlays or helper views that can occlude targets.
+
 The infrastructure addresses three main categories of test flakiness:
 
 1. **Timing/Synchronization Issues** (70% of failures) - Deterministic waits (not retries)

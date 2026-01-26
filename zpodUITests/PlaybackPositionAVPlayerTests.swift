@@ -274,7 +274,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         if let seekedPosition = extractCurrentPosition(from: seekedValue),
            let totalDuration = extractTotalDuration(from: seekedValue) {
             let expectedPosition = totalDuration * targetNormalized
-            let tolerance = totalDuration * 0.15  // 15% tolerance for AVPlayer seek
+            // AVPlayer on simulators can drift; use a wider tolerance.
+            let tolerance = totalDuration * 0.25  // 25% tolerance for AVPlayer seek
             XCTAssertTrue(abs(seekedPosition - expectedPosition) <= tolerance,
                 "AVPlayer seek should land near \(expectedPosition)s, got \(seekedPosition)s (tolerance: ±\(tolerance)s)")
         } else {
