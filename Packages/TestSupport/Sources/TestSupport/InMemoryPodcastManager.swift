@@ -37,6 +37,22 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       ? podcast.isSubscribed
       : existing.isSubscribed
 
+    // Upsert episodes: preserve user state for existing, insert new, drop removed.
+    let existingById = Dictionary(uniqueKeysWithValues: existing.episodes.map { ($0.id, $0) })
+    let mergedEpisodes = podcast.episodes.map { incoming -> Episode in
+      guard let current = existingById[incoming.id] else { return incoming }
+      var merged = incoming
+      merged.playbackPosition = current.playbackPosition
+      merged.isPlayed = current.isPlayed
+      merged.downloadStatus = current.downloadStatus
+      merged.isFavorited = current.isFavorited
+      merged.isBookmarked = current.isBookmarked
+      merged.isArchived = current.isArchived
+      merged.rating = current.rating
+      merged.dateAdded = current.dateAdded
+      return merged
+    }
+
     // Preserve original added date; metadata updates should not alter it
     let merged = Podcast(
       id: podcast.id,
@@ -46,7 +62,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       artworkURL: podcast.artworkURL,
       feedURL: podcast.feedURL,
       categories: podcast.categories,
-      episodes: podcast.episodes,
+      episodes: mergedEpisodes,
       isSubscribed: resolvedIsSubscribed,
       dateAdded: existing.dateAdded,
       folderId: podcast.folderId,

@@ -2,18 +2,15 @@ import Foundation
 import CoreModels
 
 public enum MockPodcast {
-    public static func createSample(id: String = "pod-1", title: String = "Sample Podcast") -> Podcast {
-        Podcast(
-            id: id, 
-            title: title,
-            author: "Sample Author",
-            description: "Sample podcast description",
-            artworkURL: URL(string: "https://example.com/artwork.jpg"),
-            feedURL: URL(string: "https://example.com/feed.xml")!
-        )
-    }
-    
-    public static func createWithFolder(id: String = "pod-1", title: String = "Sample Podcast", folderId: String) -> Podcast {
+    public static func createSample(
+        id: String = "pod-1",
+        title: String = "Sample Podcast",
+        episodes: [Episode] = [],
+        isSubscribed: Bool = false,
+        dateAdded: Date = Date(),
+        folderId: String? = nil,
+        tagIds: [String] = []
+    ) -> Podcast {
         Podcast(
             id: id,
             title: title,
@@ -21,45 +18,129 @@ public enum MockPodcast {
             description: "Sample podcast description",
             artworkURL: URL(string: "https://example.com/artwork.jpg"),
             feedURL: URL(string: "https://example.com/feed.xml")!,
-            folderId: folderId
-        )
-    }
-    
-    public static func createWithTags(id: String = "pod-1", title: String = "Sample Podcast", tagIds: [String]) -> Podcast {
-        Podcast(
-            id: id,
-            title: title,
-            author: "Sample Author",
-            description: "Sample podcast description",
-            artworkURL: URL(string: "https://example.com/artwork.jpg"),
-            feedURL: URL(string: "https://example.com/feed.xml")!,
+            episodes: normalizeEpisodes(episodes, podcastId: id, podcastTitle: title),
+            isSubscribed: isSubscribed,
+            dateAdded: dateAdded,
+            folderId: folderId,
             tagIds: tagIds
         )
     }
     
-    public static func createUnicode(id: String = "pod-unicode", title: String = "🎧 Programação em Swift 📱") -> Podcast {
+    public static func createWithFolder(
+        id: String = "pod-1",
+        title: String = "Sample Podcast",
+        folderId: String,
+        episodes: [Episode] = []
+    ) -> Podcast {
+        createSample(id: id, title: title, episodes: episodes, folderId: folderId)
+    }
+    
+    public static func createWithTags(
+        id: String = "pod-1",
+        title: String = "Sample Podcast",
+        tagIds: [String],
+        episodes: [Episode] = []
+    ) -> Podcast {
+        createSample(id: id, title: title, episodes: episodes, tagIds: tagIds)
+    }
+    
+    public static func createUnicode(
+        id: String = "pod-unicode",
+        title: String = "🎧 Programação em Swift 📱",
+        episodes: [Episode] = []
+    ) -> Podcast {
         Podcast(
             id: id,
             title: title,
             author: "João da Silva 🇧🇷",
             description: "Podcast sobre programação Swift em português with émojis 🚀",
             artworkURL: URL(string: "https://example.com/artwork-unicode.jpg"),
-            feedURL: URL(string: "https://example.com/feed-unicode.xml")!
+            feedURL: URL(string: "https://example.com/feed-unicode.xml")!,
+            episodes: normalizeEpisodes(episodes, podcastId: id, podcastTitle: title)
         )
+    }
+    
+    private static func normalizeEpisodes(_ episodes: [Episode], podcastId: String, podcastTitle: String) -> [Episode] {
+        episodes.map { episode in
+            var copy = episode
+            copy.podcastID = podcastId
+            copy.podcastTitle = podcastTitle
+            return copy
+        }
     }
 }
 
 public enum MockEpisode {
-    public static func createSample(id: String = "ep-1", title: String = "Sample Episode", podcastID: String? = nil, playbackPosition: Int = 0, isPlayed: Bool = false) -> Episode {
-        Episode(id: id, title: title, podcastID: podcastID, playbackPosition: playbackPosition, isPlayed: isPlayed)
-    }
-    
-    public static func createWithDuration(id: String = "ep-1", title: String = "Sample Episode", duration: TimeInterval = 3600.0) -> Episode {
-        Episode(id: id, title: title, duration: duration)
-    }
-    
-    public static func createUnicode(id: String = "ep-unicode", title: String = "🎵 Episódio especial", podcastID: String? = nil) -> Episode {
+    public static func create(
+        id: String = "ep-1",
+        title: String = "Test Episode",
+        podcastID: String? = nil,
+        podcastTitle: String = "Test Podcast",
+        playbackPosition: Int = 0,
+        isPlayed: Bool = false,
+        pubDate: Date? = nil,
+        duration: TimeInterval? = nil,
+        description: String? = nil,
+        audioURL: URL? = nil,
+        artworkURL: URL? = nil,
+        downloadStatus: EpisodeDownloadStatus = .notDownloaded,
+        isFavorited: Bool = false,
+        isBookmarked: Bool = false,
+        isArchived: Bool = false,
+        rating: Int? = nil,
+        dateAdded: Date = Date()
+    ) -> Episode {
         Episode(
+            id: id,
+            title: title,
+            podcastID: podcastID,
+            podcastTitle: podcastTitle,
+            playbackPosition: playbackPosition,
+            isPlayed: isPlayed,
+            pubDate: pubDate,
+            duration: duration,
+            description: description,
+            audioURL: audioURL,
+            artworkURL: artworkURL,
+            downloadStatus: downloadStatus,
+            isFavorited: isFavorited,
+            isBookmarked: isBookmarked,
+            isArchived: isArchived,
+            rating: rating,
+            dateAdded: dateAdded
+        )
+    }
+
+    public static func createSample(
+        id: String = "ep-1",
+        title: String = "Sample Episode",
+        podcastID: String? = nil,
+        playbackPosition: Int = 0,
+        isPlayed: Bool = false
+    ) -> Episode {
+        create(
+            id: id,
+            title: title,
+            podcastID: podcastID,
+            playbackPosition: playbackPosition,
+            isPlayed: isPlayed
+        )
+    }
+    
+    public static func createWithDuration(
+        id: String = "ep-1",
+        title: String = "Sample Episode",
+        duration: TimeInterval = 3600.0
+    ) -> Episode {
+        create(id: id, title: title, duration: duration)
+    }
+    
+    public static func createUnicode(
+        id: String = "ep-unicode",
+        title: String = "🎵 Episódio especial",
+        podcastID: String? = nil
+    ) -> Episode {
+        create(
             id: id,
             title: title,
             podcastID: podcastID,
