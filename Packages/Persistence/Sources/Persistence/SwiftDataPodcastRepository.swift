@@ -301,7 +301,7 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
         let predicate = #Predicate<EpisodeEntity> { $0.podcastId == podcastId }
         let descriptor = FetchDescriptor(predicate: predicate)
         guard let entities = try? modelContext.fetch(descriptor) else { return [] }
-        return entities.map { $0.toDomain() }
+        return entities.map { $0.toDomainSafe() }
     }
 
     /// Fetch episode entities for a podcast (must be called within serialQueue.sync)

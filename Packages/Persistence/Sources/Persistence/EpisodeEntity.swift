@@ -70,7 +70,8 @@ public final class EpisodeEntity {
 @available(iOS 17, macOS 14, watchOS 10, *)
 extension EpisodeEntity {
     /// Convert entity to domain model with corruption logging.
-    /// Prefer this variant when data integrity may be in question.
+    /// Identical to `toDomain()` but emits warnings for invalid data.
+    /// Prefer this variant when data corruption visibility is important.
     public func toDomainSafe() -> Episode {
         if EpisodeDownloadStatus(rawValue: downloadStatus) == nil {
             Self.logger.warning("Invalid downloadStatus \(self.downloadStatus, privacy: .public) for episode \(self.id, privacy: .public)")
@@ -133,7 +134,7 @@ extension EpisodeEntity {
         )
     }
 
-    /// Update entity from domain model (preserves user state when desired)
+    /// Update entity from domain model (full state update)
     public func updateFrom(_ episode: Episode) {
         // Full state update: used when caller intends to overwrite user state (e.g., persistence restore)
         self.title = episode.title

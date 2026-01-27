@@ -385,7 +385,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertTrue(all.isEmpty, "Corrupted feed rows should be skipped, not crash")
     }
 
-    func testEpisodesUseSafeConversion() {
+    func testEpisodesUseSafeConversion() throws {
         // Store an episode with invalid downloadStatus to ensure hydration remains safe
         let context = ModelContext(modelContainer)
         let podcast = PodcastEntity(
