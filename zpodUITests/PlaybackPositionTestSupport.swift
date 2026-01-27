@@ -27,7 +27,7 @@ private final class AudioEnvironmentCache: @unchecked Sendable {
 
   private init() {}
 
-  func getOrCreate(_ factory: () -> [String: String]) -> [String: String] {
+  func getOrCreate(_ factory: () -> [String: String]?) -> [String: String]? {
     lock.lock()
     defer { lock.unlock() }
 
@@ -35,7 +35,8 @@ private final class AudioEnvironmentCache: @unchecked Sendable {
       return cached
     }
 
-    let environment = factory()
+    guard let environment = factory() else { return nil }
+
     cachedEnvironment = environment
     return environment
   }
@@ -104,26 +105,22 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
   /// **Performance**: Audio files are copied once per test bundle execution and cached.
   /// Subsequent calls return the cached environment to avoid redundant I/O.
   ///
-  /// - Returns: Dictionary of environment variables to merge into launchEnvironment
-  func audioLaunchEnvironment() -> [String: String] {
-    // Return cached environment if available (avoid redundant file copying)
-    return AudioEnvironmentCache.shared.getOrCreate { [self] in
+  /// - Returns: Dictionary of environment variables to merge into launchEnvironment, or `nil` if setup failed
+  func audioLaunchEnvironment() -> [String: String]? {
+    guard let env = AudioEnvironmentCache.shared.getOrCreate({ [self] in
       let fileManager = FileManager.default
       var env: [String: String] = [:]
       var failures: [String] = []
 
-      // Use /tmp directory (accessible on simulator to both test runner and app)
       let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
 
-      // Create directory if needed
       do {
         try fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
       } catch {
         XCTFail("Failed to create audio directory at \(audioDir.path): \(error.localizedDescription)")
-        return env
+        return nil
       }
 
-      // Copy each audio file from test bundle to /tmp
       let audioFiles: [(name: String, envKey: String)] = [
         ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
         ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
@@ -137,16 +134,22 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
           continue
         }
 
-        let destURL = audioDir.appendingPathComponent("\(name).m4a")
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
+          let message = "\(name).m4a missing at resolved path: \(sourceURL.path)"
+          failures.append(message)
+          XCTFail(message)
+          continue
+        }
 
-        // Always recopy to ensure fresh files (remove existing first)
+        let destURL = audioDir.appendingPathComponent("\(name).m4a")
         try? fileManager.removeItem(at: destURL)
 
         do {
           try fileManager.copyItem(at: sourceURL, to: destURL)
           Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
         } catch {
-          failures.append("\(name).m4a copy failed: \(error.localizedDescription)")
+          let message = "\(name).m4a copy failed: \(error.localizedDescription) (source: \(sourceURL.path))"
+          failures.append(message)
           XCTFail("Failed to copy \(name).m4a to temp directory: \(error.localizedDescription)")
           continue
         }
@@ -154,12 +157,19 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
         env[envKey] = destURL.path
       }
 
-      if !failures.isEmpty {
-        XCTFail("Audio environment incomplete: \(failures.joined(separator: "; "))")
+      guard failures.isEmpty else {
+        Self.logger.error("Audio environment incomplete: \(failures.joined(separator: "; "), privacy: .public)")
+        return nil
       }
+
       Self.logger.debug("Audio environment configured (cached for reuse): \(env.keys.joined(separator: ", "), privacy: .public)")
       return env
+    }) else {
+      XCTFail("Audio environment could not be prepared; see previous errors.")
+      return nil
     }
+
+    return env
   }
 
   nonisolated func cleanupAudioLaunchEnvironment() {

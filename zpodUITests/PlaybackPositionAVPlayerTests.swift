@@ -44,7 +44,9 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         environmentOverrides: [String: String] = [:],
         audioVariant: String = "long"  // Default: 20s audio for buffering tests
     ) {
-        let audioEnv = audioLaunchEnvironment()
+        guard let audioEnv = audioLaunchEnvironment() else {
+            return
+        }
 
         var env = audioEnv
         env["UITEST_POSITION_DEBUG"] = "1"
@@ -986,8 +988,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         // Local: Strict threshold (1.7x) catches regressions during development
         // CI: Relaxed threshold (1.5x) accommodates GitHub Actions runner variability
         // Both prove 2.0x playback works (significantly faster than 1.0x baseline)
-        let isCI_threshold = app.launchEnvironment["UITEST_CI_MODE"] == "1"
-        let speedThreshold: Double = isCI_threshold ? 1.5 : 1.7
+        let isCIMode = app.launchEnvironment["UITEST_CI_MODE"] == "1"
+        let speedThreshold: Double = isCIMode ? 1.5 : 1.7
 
         // Compute and log measurements before assertion
         let ratio = fastDelta / baselineDelta
@@ -999,7 +1001,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         XCTContext.runActivity(named: "Measurements") { _ in
             XCTContext.runActivity(named: "Baseline: \(String(format: "%.3f", baselineDelta))s over \(String(format: "%.3f", actualBaselineElapsed))s") { _ in }
             XCTContext.runActivity(named: "Fast: \(String(format: "%.3f", fastDelta))s over \(String(format: "%.3f", actualFastElapsed))s") { _ in }
-            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold \(String(format: "%.1f", speedThreshold))x, CI=\(isCI_threshold))") { _ in }
+            XCTContext.runActivity(named: "Ratio: \(String(format: "%.2f", ratio))x (threshold \(String(format: "%.1f", speedThreshold))x, CI=\(isCIMode))") { _ in }
             XCTContext.runActivity(named: "Pass? \(passSummary)") { _ in }
         }
 

@@ -275,11 +275,11 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         let all = repository.all()
         XCTAssertEqual(all.count, 2)
 
-        let p1 = all.first { $0.id == "p1" }
-        XCTAssertEqual(p1?.episodes.count, 2)
+        let firstPodcast = all.first { $0.id == "p1" }
+        XCTAssertEqual(firstPodcast?.episodes.count, 2)
 
-        let p2 = all.first { $0.id == "p2" }
-        XCTAssertEqual(p2?.episodes.count, 1)
+        let secondPodcast = all.first { $0.id == "p2" }
+        XCTAssertEqual(secondPodcast?.episodes.count, 1)
     }
 
     func testRemoveCascadeDeletesEpisodes() {
@@ -311,20 +311,20 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         repository.add(Self.makePodcast(id: "p2", episodes: episodes2))
 
         // Verify playback positions are set
-        var p1 = repository.find(id: "p1")
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 1000)
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 2000)
+        var firstPodcast = repository.find(id: "p1")
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 1000)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 2000)
 
         // Reset all playback positions
         repository.resetAllPlaybackPositions()
 
         // Verify all positions reset to 0
-        p1 = repository.find(id: "p1")
-        let p2 = repository.find(id: "p2")
+        firstPodcast = repository.find(id: "p1")
+        let secondPodcast = repository.find(id: "p2")
 
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 0)
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 0)
-        XCTAssertEqual(p2?.episodes.first { $0.id == "ep-2-1" }?.playbackPosition, 0)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 0)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 0)
+        XCTAssertEqual(secondPodcast?.episodes.first { $0.id == "ep-2-1" }?.playbackPosition, 0)
     }
 
     func testEpisodeDownloadStatusPersists() {
