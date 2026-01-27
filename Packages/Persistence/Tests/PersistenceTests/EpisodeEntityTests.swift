@@ -92,6 +92,35 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertEqual(entity.dateAdded, originalDate, "dateAdded should not change on update")
     }
 
+    func testToDomainSafeLogsInvalidValuesButReturnsEpisode() {
+        // Invalid downloadStatus and URLs should not crash and should log
+        let entity = EpisodeEntity(
+            id: "bad-episode",
+            podcastId: "pod-1",
+            title: "Bad",
+            podcastTitle: "Pod",
+            episodeDescription: nil,
+            audioURLString: "not a url",
+            artworkURLString: "also bad",
+            pubDate: nil,
+            duration: nil,
+            playbackPosition: 0,
+            isPlayed: false,
+            downloadStatus: "nonsense",
+            isFavorited: false,
+            isBookmarked: false,
+            isArchived: false,
+            rating: nil,
+            dateAdded: Date(timeIntervalSince1970: 1)
+        )
+
+        let episode = entity.toDomainSafe()
+
+        XCTAssertEqual(episode.downloadStatus, .notDownloaded, "Invalid raw value should default safely")
+        XCTAssertNil(episode.audioURL)
+        XCTAssertNil(episode.artworkURL)
+    }
+
     func testUpdateMetadataOnlyPreservesUserState() {
         let entity = EpisodeEntity(
             id: "ep-1",

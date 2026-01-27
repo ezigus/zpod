@@ -1,11 +1,13 @@
 import Foundation
 import SwiftData
 import CoreModels
+import OSLog
 
 /// SwiftData entity for persisting podcast episodes
 @available(iOS 17, macOS 14, watchOS 10, *)
 @Model
 public final class EpisodeEntity {
+    private static let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "EpisodeEntity")
     @Attribute(.unique) public var id: String
     public var podcastId: String  // Foreign key to podcast
     public var title: String
@@ -67,6 +69,24 @@ public final class EpisodeEntity {
 
 @available(iOS 17, macOS 14, watchOS 10, *)
 extension EpisodeEntity {
+    /// Convert entity to domain model with corruption logging.
+    /// Prefer this variant when data integrity may be in question.
+    public func toDomainSafe() -> Episode {
+        if EpisodeDownloadStatus(rawValue: downloadStatus) == nil {
+            Self.logger.warning("Invalid downloadStatus \(self.downloadStatus, privacy: .public) for episode \(self.id, privacy: .public)")
+        }
+
+        if let audioURLString, URL(string: audioURLString) == nil {
+            Self.logger.warning("Invalid audioURL \(audioURLString, privacy: .public) for episode \(self.id, privacy: .public)")
+        }
+
+        if let artworkURLString, URL(string: artworkURLString) == nil {
+            Self.logger.warning("Invalid artworkURL \(artworkURLString, privacy: .public) for episode \(self.id, privacy: .public)")
+        }
+
+        return toDomain()
+    }
+
     /// Convert entity to domain model
     public func toDomain() -> Episode {
         Episode(
@@ -113,8 +133,9 @@ extension EpisodeEntity {
         )
     }
 
-    /// Update entity from domain model (preserves user state)
+    /// Update entity from domain model (preserves user state when desired)
     public func updateFrom(_ episode: Episode) {
+        // Full state update: used when caller intends to overwrite user state (e.g., persistence restore)
         self.title = episode.title
         self.podcastTitle = episode.podcastTitle
         self.episodeDescription = episode.description
@@ -132,7 +153,7 @@ extension EpisodeEntity {
         // Note: dateAdded is NOT updated (preserves original add date)
     }
 
-    /// Update only metadata fields, preserving user state
+    /// Update only metadata fields, preserving user state (playback, flags, downloads)
     public func updateMetadataFrom(_ episode: Episode) {
         self.title = episode.title
         self.podcastTitle = episode.podcastTitle
