@@ -67,15 +67,17 @@ public final class EpisodeEntity {
 
 // MARK: - Domain Conversion
 
-@available(iOS 17, macOS 14, watchOS 10, *)
-extension EpisodeEntity {
-    /// Convert entity to domain model with corruption logging.
-    /// Identical to `toDomain()` but emits warnings for invalid data.
-    /// Prefer this variant when data corruption visibility is important.
-    public func toDomainSafe() -> Episode {
-        if EpisodeDownloadStatus(rawValue: downloadStatus) == nil {
-            Self.logger.warning("Invalid downloadStatus \(self.downloadStatus, privacy: .public) for episode \(self.id, privacy: .public)")
-        }
+    @available(iOS 17, macOS 14, watchOS 10, *)
+    extension EpisodeEntity {
+        /// Convert entity to domain model with corruption logging.
+        ///
+        /// Always returns an `Episode`; never throws or returns `nil`.
+        /// Use this variant when you want visibility into malformed rows without
+        /// crashing or dropping them.
+        public func toDomainSafe() -> Episode {
+            if EpisodeDownloadStatus(rawValue: downloadStatus) == nil {
+                Self.logger.warning("Invalid downloadStatus \(self.downloadStatus, privacy: .public) for episode \(self.id, privacy: .public)")
+            }
 
         if let audioURLString, URL(string: audioURLString) == nil {
             Self.logger.warning("Invalid audioURL \(audioURLString, privacy: .public) for episode \(self.id, privacy: .public)")
@@ -134,12 +136,13 @@ extension EpisodeEntity {
         )
     }
 
-    /// Update entity from domain model (full state update)
-    public func updateFrom(_ episode: Episode) {
-        // Full state update: used when caller intends to overwrite user state (e.g., persistence restore)
-        self.title = episode.title
-        self.podcastTitle = episode.podcastTitle
-        self.episodeDescription = episode.description
+        /// Update entity from domain model (full state update except dateAdded)
+        public func updateFrom(_ episode: Episode) {
+            // Full state update: used when caller intends to overwrite user state (e.g., persistence restore).
+            // dateAdded is intentionally preserved to keep original add timestamp.
+            self.title = episode.title
+            self.podcastTitle = episode.podcastTitle
+            self.episodeDescription = episode.description
         self.audioURLString = episode.audioURL?.absoluteString
         self.artworkURLString = episode.artworkURL?.absoluteString
         self.pubDate = episode.pubDate

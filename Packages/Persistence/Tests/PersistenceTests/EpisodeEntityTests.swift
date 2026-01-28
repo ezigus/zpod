@@ -104,8 +104,8 @@ final class EpisodeEntityTests: XCTestCase {
             title: "Bad",
             podcastTitle: "Pod",
             episodeDescription: nil,
-            audioURLString: "not a url",
-            artworkURLString: "also bad",
+            audioURLString: "http:// bad.com",
+            artworkURLString: "ht!tp://bad url",
             pubDate: nil,
             duration: nil,
             playbackPosition: 0,
@@ -122,7 +122,8 @@ final class EpisodeEntityTests: XCTestCase {
 
         XCTAssertEqual(episode.downloadStatus, .notDownloaded, "Invalid raw value should default safely")
         XCTAssertEqual(episode.id, "bad-episode")
-        // URLs may still parse as relative; the safety guarantee is logging + non-crashing conversion.
+        XCTAssertNil(episode.audioURL)
+        XCTAssertNil(episode.artworkURL)
     }
 
     func testUpdateMetadataOnlyPreservesUserState() {

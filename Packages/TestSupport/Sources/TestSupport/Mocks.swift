@@ -6,7 +6,7 @@ public enum MockPodcast {
         id: String = "pod-1",
         title: String = "Sample Podcast",
         episodes: [Episode] = [],
-        isSubscribed: Bool = false,
+        isSubscribed: Bool = true,
         dateAdded: Date = Date(),
         folderId: String? = nil,
         tagIds: [String] = []
@@ -60,6 +60,8 @@ public enum MockPodcast {
         )
     }
     
+    /// Episodes passed into `createSample` are normalized so their `podcastID`/`podcastTitle`
+    /// always match the containing podcast, overriding any values already set on the episodes.
     private static func normalizeEpisodes(_ episodes: [Episode], podcastId: String, podcastTitle: String) -> [Episode] {
         episodes.map { episode in
             var copy = episode

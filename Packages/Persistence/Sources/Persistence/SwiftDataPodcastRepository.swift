@@ -123,6 +123,11 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
                 }
             }
 
+            // Delete episodes that are no longer present in the incoming podcast
+            for removed in existingById.values {
+                modelContext.delete(removed)
+            }
+
             return saveContext()
         }
 
@@ -309,8 +314,13 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     private func fetchEpisodesUnlocked(forPodcastId podcastId: String) -> [Episode] {
         let predicate = #Predicate<EpisodeEntity> { $0.podcastId == podcastId }
         let descriptor = FetchDescriptor(predicate: predicate)
-        guard let entities = try? modelContext.fetch(descriptor) else { return [] }
-        return entities.map { $0.toDomainSafe() }
+        do {
+            let entities = try modelContext.fetch(descriptor)
+            return entities.map { $0.toDomainSafe() }
+        } catch {
+            logger.error("Failed to fetch episodes for podcast \(podcastId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     /// Fetch episode entities for a podcast (must be called within serialQueue.sync)

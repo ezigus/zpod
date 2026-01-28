@@ -370,6 +370,30 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(ep2?.title, "New Episode")
     }
 
+    func testUpdateRemovesMissingEpisodes() {
+        let original = MockPodcast.createSample(
+            id: "remove-episodes",
+            title: "Remove Episodes",
+            episodes: [
+                MockEpisode.create(id: "ep-1", title: "Keep"),
+                MockEpisode.create(id: "ep-2", title: "Remove")
+            ]
+        )
+        repository.add(original)
+
+        let updated = MockPodcast.createSample(
+            id: original.id,
+            title: original.title,
+            episodes: [
+                MockEpisode.create(id: "ep-1", title: "Keep")
+            ]
+        )
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.map(\.id).sorted(), ["ep-1"])
+    }
+
     func testInvalidFeedURLSkipsCorruptedRows() throws {
         let context = ModelContext(modelContainer)
         let badEntity = PodcastEntity(
