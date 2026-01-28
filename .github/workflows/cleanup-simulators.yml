@@ -6,9 +6,10 @@ on:
       cleanup_mode:
         description: 'Cleanup mode'
         required: true
-        default: 'unavailable'
+        default: 'status-only'
         type: choice
         options:
+          - status-only
           - unavailable
           - all-zpod
           - all
@@ -87,6 +88,7 @@ jobs:
           xcrun simctl list devices | grep -E "zpod-|--" | head -50 || echo "(none found)"
 
       - name: Shutdown all running simulators
+        if: inputs.cleanup_mode != 'status-only'
         run: |
           echo "Shutting down all running simulators..."
           xcrun simctl shutdown all 2>/dev/null || true
@@ -139,6 +141,7 @@ jobs:
           echo "Done."
 
       - name: Count simulators after cleanup
+        if: inputs.cleanup_mode != 'status-only'
         id: after
         run: |
           echo ""
@@ -178,7 +181,26 @@ jobs:
           echo "zpod_count=$ZPOD" >> "$GITHUB_OUTPUT"
           echo "zpod-* simulators: $ZPOD"
 
-      - name: Summary
+      - name: Summary (status-only)
+        if: inputs.cleanup_mode == 'status-only'
+        run: |
+          echo ""
+          echo "============================================"
+          echo "         SIMULATOR STATUS REPORT"
+          echo "============================================"
+          echo ""
+          echo "Mode: status-only (no cleanup performed)"
+          echo ""
+          echo "  Total simulators:       ${{ steps.before.outputs.total_count }}"
+          echo "  Available:              ${{ steps.before.outputs.available_count }}"
+          echo "  Unavailable:            ${{ steps.before.outputs.unavailable_count }}"
+          echo "  Booted:                 ${{ steps.before.outputs.booted_count }}"
+          echo "  zpod-* simulators:      ${{ steps.before.outputs.zpod_count }}"
+          echo ""
+          echo "============================================"
+
+      - name: Summary (cleanup)
+        if: inputs.cleanup_mode != 'status-only'
         run: |
           echo ""
           echo "============================================"
