@@ -1,13 +1,13 @@
 import Foundation
 import SwiftData
 import CoreModels
+import OSLog
 
 /// SwiftData persistent model for `Podcast`.
-///
-/// Episodes are intentionally not persisted in this initial package migration.
 @available(iOS 17, macOS 14, watchOS 10, *)
 @Model
 public final class PodcastEntity {
+    private static let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "PodcastEntity")
     @Attribute(.unique) public var id: String
     public var title: String
     public var author: String?
@@ -80,7 +80,7 @@ extension PodcastEntity {
     public func toDomainSafe(episodes: [Episode] = []) -> Podcast? {
         guard let feedURL = URL(string: feedURLString) else {
             // Log corruption but don't crash - skip this entity
-            print("⚠️ PodcastEntity.toDomainSafe: Invalid feedURL for podcast \(id): \(feedURLString)")
+            Self.logger.warning("Invalid feedURL for podcast \(self.id, privacy: .public): \(self.feedURLString, privacy: .public)")
             return nil
         }
 
