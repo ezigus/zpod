@@ -94,17 +94,18 @@ final class SwipeActionManagementTests: SwipeConfigurationTestCase {
     waitForSectionMaterialization(timeout: postReadinessTimeout)
 
     if let container = swipeActionsSheetListContainer() {
-      _ = ensureVisibleInSheet(
+      let scrolled = ensureVisibleInSheet(
         identifier: "SwipeActions.Add.Trailing",
         container: container,
-        scrollAttempts: 4
+        scrollAttempts: 6
       )
+      XCTAssertTrue(scrolled, "Could not scroll sheet to materialize trailing add action button")
     }
     let trailingAddButton = element(withIdentifier: "SwipeActions.Add.Trailing")
     XCTAssertTrue(
       waitForElement(
         trailingAddButton,
-        timeout: postReadinessTimeout,
+        timeout: adaptiveTimeout,
         description: "Trailing add action button"
       ),
       "Trailing add action button should remain visible when under the limit"
