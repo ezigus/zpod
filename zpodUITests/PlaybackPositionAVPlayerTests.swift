@@ -926,7 +926,9 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         let fastWindow: TimeInterval = 1.0
 
         // CI-aware thresholds: looser in CI due to performance variability
-        let isCI = app.launchEnvironment["UITEST_CI_MODE"] == "1"
+        // Use ProcessInfo.processInfo.environment["CI"] - GitHub Actions sets CI=true automatically
+        // Note: app.launchEnvironment["UITEST_CI_MODE"] doesn't work after app.launch()
+        let isCI = ProcessInfo.processInfo.environment["CI"] != nil
         let rateConfirmTimeout: TimeInterval = isCI ? 5.0 : 2.0
         let rateConfirmThreshold: Double = isCI ? 1.5 : 1.8
 
