@@ -926,15 +926,10 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         let fastWindow: TimeInterval = 1.0
 
         // CI-aware thresholds: looser in CI due to performance variability
-        // Check both CI and GITHUB_ACTIONS for maximum compatibility
-        // (CI is standard, GITHUB_ACTIONS is proven to work at line 59)
-        let ciValue = ProcessInfo.processInfo.environment["CI"]
-        let ghActionsValue = ProcessInfo.processInfo.environment["GITHUB_ACTIONS"]
-        let isCI = ciValue != nil || ghActionsValue != nil
-        print("🔍 CI Detection: CI='\(ciValue ?? "nil")', GITHUB_ACTIONS='\(ghActionsValue ?? "nil")', isCI=\(isCI)")
+        // UITEST_CI_MODE is set in launchApp() when GITHUB_ACTIONS is detected (lines 59-61)
+        let isCI = app.launchEnvironment["UITEST_CI_MODE"] == "1"
         let rateConfirmTimeout: TimeInterval = isCI ? 5.0 : 2.0
         let rateConfirmThreshold: Double = isCI ? 1.5 : 1.8
-        print("🔍 Using timeout: \(rateConfirmTimeout)s, threshold: \(rateConfirmThreshold)")
 
         let fastRateConfirmed = waitForState(timeout: rateConfirmTimeout, pollInterval: 0.1, description: "fast rate confirmation") {
             guard let text = audioDebugOverlayLabel(for: overlay),
