@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-01-30 — Mini player playback state race (intent)
+
+- **Observed failure**: `PlaybackPositionAVPlayerTests.testMiniPlayerReflectsPlaybackState` timed out at 10:02 ET with message "Mini player should show pause button when AVPlayer is playing".
+- **Repro**: Fails intermittently in suite; passes 4/4 when run alone.
+- **Hypothesis**: `startPlaybackFromPlayerTab()` returns after the mini player becomes visible but before AVPlayer transitions to `.playing`, so the Pause button identifier isn't present when the test asserts.
+- **Planned fix**: In `PlaybackPositionTestSupport.startPlaybackFromPlayerTab()`, keep the mini-player wait but add a second wait for `"Mini Player Pause"` using `adaptiveShortTimeout`, logging diagnostics if `"Mini Player Play"` remains visible; return false on failure.
+- **Success criteria**: Target test passes 5/5 consecutive runs; full `PlaybackPositionAVPlayerTests` suite remains green.
+
+---
+
+## 2026-01-30 — Implementation & verification
+
+- Updated `startPlaybackFromPlayerTab()` to block until the `"Mini Player Pause"` button appears after the mini player becomes visible, logging whether `"Mini Player Play"` is still present before failing.
+- Rationale: align helper semantics with "playback started" and eliminate the race where visibility precedes `state.isPlaying == true`.
+- Verification: `./scripts/run-xcode-tests.sh -t zpodUITests/PlaybackPositionAVPlayerTests/testMiniPlayerReflectsPlaybackState` passed (16:42–16:44 ET). Artifacts: `TestResults/TestResults_20260130_164250_test_zpodUITests-PlaybackPositionAVPlayerTests-testMiniPlayerReflectsPlaybackState.xcresult` and `.log`.
+- Next: run the full `PlaybackPositionAVPlayerTests` suite to confirm no regressions.
+
+---
+
 ## 2026-01-18 — Execution plan (quarantine deprecated suite + harness guardrails)
 
 **Intent (before code)**: stop system-level crashes by quarantining the deprecated playback suite, prove coverage lives in the replacement suites, and add guardrails so deprecated UI tests cannot silently re-enter the plan.

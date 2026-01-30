@@ -308,6 +308,16 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       return false
     }
 
+    logBreadcrumb("startPlaybackFromPlayerTab: confirming playback started")
+    let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+    guard pauseButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      let playButtonVisible = app.buttons.matching(identifier: "Mini Player Play").firstMatch.exists
+      logBreadcrumb("startPlaybackFromPlayerTab: Pause button missing; Play visible: \(playButtonVisible)")
+      XCTFail("Playback did not start; expected Pause button after mini player appeared")
+      return false
+    }
+
+    logBreadcrumb("startPlaybackFromPlayerTab: playback confirmed")
     return true
   }
 
