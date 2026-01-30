@@ -268,6 +268,16 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       return false
     }
 
+    logBreadcrumb("startPlayback: confirming playback started")
+    let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+    guard pauseButton.waitForExistence(timeout: adaptiveTimeout) else {
+      let playButtonVisible = app.buttons.matching(identifier: "Mini Player Play").firstMatch.exists
+      logBreadcrumb("startPlayback: Pause button missing; Play visible: \(playButtonVisible)")
+      XCTFail("Playback did not start; expected Pause button after mini player appeared")
+      return false
+    }
+
+    logBreadcrumb("startPlayback: playback confirmed")
     return true
   }
 
@@ -310,7 +320,7 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
     logBreadcrumb("startPlaybackFromPlayerTab: confirming playback started")
     let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
-    guard pauseButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+    guard pauseButton.waitForExistence(timeout: adaptiveTimeout) else {
       let playButtonVisible = app.buttons.matching(identifier: "Mini Player Play").firstMatch.exists
       logBreadcrumb("startPlaybackFromPlayerTab: Pause button missing; Play visible: \(playButtonVisible)")
       XCTFail("Playback did not start; expected Pause button after mini player appeared")

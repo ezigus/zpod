@@ -20,6 +20,8 @@
 ## 2026-01-30 — Implementation & verification
 
 - Updated `startPlaybackFromPlayerTab()` to block until the `"Mini Player Pause"` button appears after the mini player becomes visible, logging whether `"Mini Player Play"` is still present before failing.
+- Also hardened `startPlayback()` (quick-play path) with the same pause-button confirmation.
+- Both helpers now use `adaptiveTimeout` for the playback confirmation to allow slower AVPlayer startup under buffering/cold start.
 - Rationale: align helper semantics with "playback started" and eliminate the race where visibility precedes `state.isPlaying == true`.
 - Verification: `./scripts/run-xcode-tests.sh -t zpodUITests/PlaybackPositionAVPlayerTests/testMiniPlayerReflectsPlaybackState` passed (16:42–16:44 ET). Artifacts: `TestResults/TestResults_20260130_164250_test_zpodUITests-PlaybackPositionAVPlayerTests-testMiniPlayerReflectsPlaybackState.xcresult` and `.log`.
 - Next: run the full `PlaybackPositionAVPlayerTests` suite to confirm no regressions.
