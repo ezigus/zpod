@@ -928,9 +928,12 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         // CI-aware thresholds: looser in CI due to performance variability
         // Use ProcessInfo.processInfo.environment["CI"] - GitHub Actions sets CI=true automatically
         // Note: app.launchEnvironment["UITEST_CI_MODE"] doesn't work after app.launch()
-        let isCI = ProcessInfo.processInfo.environment["CI"] != nil
+        let ciEnvValue = ProcessInfo.processInfo.environment["CI"]
+        let isCI = ciEnvValue != nil
+        print("🔍 CI Detection: CI env = '\(ciEnvValue ?? "nil")', isCI = \(isCI)")
         let rateConfirmTimeout: TimeInterval = isCI ? 5.0 : 2.0
         let rateConfirmThreshold: Double = isCI ? 1.5 : 1.8
+        print("🔍 Using timeout: \(rateConfirmTimeout)s, threshold: \(rateConfirmThreshold)")
 
         let fastRateConfirmed = waitForState(timeout: rateConfirmTimeout, pollInterval: 0.1, description: "fast rate confirmation") {
             guard let text = audioDebugOverlayLabel(for: overlay),
