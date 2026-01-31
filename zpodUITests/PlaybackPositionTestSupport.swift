@@ -223,9 +223,14 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       case "test-episode-short":
         return ["test-episode-medium", "test-episode-long"]
       case "test-episode-medium":
-        return ["test-episode-long", "test-episode-short"]
+        // Prefer equal-or-longer durations; never fall back to shorter audio because
+        // mid/long variants are required to keep playback alive during navigation.
+        return ["test-episode-long"]
       default:
-        return ["test-episode-medium", "test-episode-short"]
+        // "test-episode-long" should only degrade to medium (15s) to avoid premature
+        // playback completion; falling back to short (6s) caused AVPlayer tests to
+        // end before assertions, producing missing pause button / rate measurements.
+        return ["test-episode-medium"]
       }
     }()
 
