@@ -295,7 +295,13 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         repository.remove(id: podcast.id)
 
         XCTAssertNil(repository.find(id: podcast.id), "Podcast should be removed")
-        // Episodes should be cascade deleted (verified indirectly - no orphaned episodes remain)
+
+        // Verify no orphan EpisodeEntity rows remain by querying the database directly
+        // This catches orphans that repository.all() would miss (since orphans have no parent podcast)
+        let context = ModelContext(modelContainer)
+        let descriptor = FetchDescriptor<EpisodeEntity>()
+        let orphanCount = (try? context.fetch(descriptor).count) ?? -1
+        XCTAssertEqual(orphanCount, 0, "No orphan EpisodeEntity rows should remain after cascade delete")
     }
 
     func testResetAllPlaybackPositionsUsesPersistedEpisodes() {
@@ -433,6 +439,33 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
         let found = repository.find(id: "pod-safe")
         XCTAssertEqual(found?.episodes.first?.downloadStatus, .notDownloaded)
+    }
+
+    func testEpisodeIndexSourceReturnsPersistedEpisodes() {
+        // Given: Repository with podcasts containing episodes
+        let episodes1 = [
+            MockEpisode.create(id: "ep-search-1", title: "Episode 1"),
+            MockEpisode.create(id: "ep-search-2", title: "Episode 2")
+        ]
+        let episodes2 = [
+            MockEpisode.create(id: "ep-search-3", title: "Episode 3")
+        ]
+
+        let podcast1 = MockPodcast.createSample(id: "podcast-1", title: "Podcast 1", episodes: episodes1)
+        let podcast2 = MockPodcast.createSample(id: "podcast-2", title: "Podcast 2", episodes: episodes2)
+
+        repository.add(podcast1)
+        repository.add(podcast2)
+
+        // When: Using repository with EpisodeIndexSource (simulating search indexing)
+        let allPodcasts = repository.all()
+        let allEpisodes = allPodcasts.flatMap { $0.episodes }
+
+        // Then: Should return all persisted episodes (verifies hydration for search)
+        XCTAssertEqual(allEpisodes.count, 3, "EpisodeIndexSource.documents() depends on all() returning episodes")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-1" }, "Should find episode 1")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-2" }, "Should find episode 2")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-3" }, "Should find episode 3")
     }
 
     private final class SiriSnapshotRefresherSpy: SiriSnapshotRefreshing, @unchecked Sendable {
