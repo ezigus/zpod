@@ -23,6 +23,7 @@ final class EpisodeEntityTests: XCTestCase {
 
         XCTAssertEqual(converted.id, episode.id)
         XCTAssertEqual(converted.title, episode.title)
+        XCTAssertEqual(converted.podcastID, episode.podcastID)
         XCTAssertEqual(converted.playbackPosition, episode.playbackPosition)
         XCTAssertEqual(converted.downloadStatus, episode.downloadStatus)
         XCTAssertEqual(converted.isFavorited, episode.isFavorited)
@@ -55,6 +56,7 @@ final class EpisodeEntityTests: XCTestCase {
 
         XCTAssertEqual(converted.id, episode.id)
         XCTAssertEqual(converted.title, episode.title)
+        XCTAssertEqual(converted.podcastID, episode.podcastID)
         XCTAssertEqual(converted.podcastTitle, episode.podcastTitle)
         XCTAssertEqual(converted.playbackPosition, episode.playbackPosition)
         XCTAssertEqual(converted.isPlayed, episode.isPlayed)
