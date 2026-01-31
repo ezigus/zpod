@@ -215,26 +215,17 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
     }
   }
 
-  /// Resolve an audio source URL, allowing fallbacks if the primary asset is missing.
-  /// Primary reason: avoid suite timeouts when a single variant is absent from the bundle.
+  /// Resolve an audio source URL.
+  /// Strategy: always prefer the longest clip so playback stays alive during long UI flows,
+  /// regardless of which variant the caller requested. This avoids early EOF that previously
+  /// caused missing pause buttons and slow-rate confirmations in AVPlayer tests.
   nonisolated private func resolveAudioSource(for name: String) -> (url: URL, resolvedName: String)? {
-    let fallbacks: [String] = {
-      switch name {
-      case "test-episode-short":
-        return ["test-episode-medium", "test-episode-long"]
-      case "test-episode-medium":
-        // Prefer equal-or-longer durations; never fall back to shorter audio because
-        // mid/long variants are required to keep playback alive during navigation.
-        return ["test-episode-long"]
-      default:
-        // "test-episode-long" should only degrade to medium (15s) to avoid premature
-        // playback completion; falling back to short (6s) caused AVPlayer tests to
-        // end before assertions, producing missing pause button / rate measurements.
-        return ["test-episode-medium"]
-      }
-    }()
+    let candidates = [
+      "test-episode-long",   // best: 20s
+      "test-episode-medium", // fallback: 15s
+      "test-episode-short"   // last resort: 6s
+    ]
 
-    let candidates = [name] + fallbacks
     for candidate in candidates {
       if let url = testAudioURL(named: candidate),
          FileManager.default.fileExists(atPath: url.path) {
