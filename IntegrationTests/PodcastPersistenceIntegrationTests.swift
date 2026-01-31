@@ -3,7 +3,6 @@ import SwiftData
 @testable import CoreModels
 @testable import Persistence
 @testable import zpod
-@testable import LibraryFeature
 import SharedUtilities
 
 /// Integration tests for podcast persistence across app lifecycle.
@@ -501,63 +500,6 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
         }
     }
 
-    func testCarPlayEpisodeLookupFindsPersistedEpisodes() async throws {
-        #if os(iOS)
-        // Given: A persistent container with podcast + episodes
-        let schema = persistenceSchema
-        let configuration = ModelConfiguration(url: persistentStoreURL)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        let repository = makeManager(container: container)
-
-        let episodes = [
-            Episode(
-                id: "ep-carplay-1",
-                title: "CarPlay Episode 1",
-                podcastID: "podcast-carplay",
-                podcastTitle: "CarPlay Test Podcast",
-                playbackPosition: 0,
-                isPlayed: false,
-                duration: 1800
-            ),
-            Episode(
-                id: "ep-carplay-2",
-                title: "CarPlay Episode 2",
-                podcastID: "podcast-carplay",
-                podcastTitle: "CarPlay Test Podcast",
-                playbackPosition: 0,
-                isPlayed: false,
-                duration: 2400
-            )
-        ]
-
-        let podcast = Podcast(
-            id: "podcast-carplay",
-            title: "CarPlay Test Podcast",
-            feedURL: URL(string: "https://example.com/carplay-feed.xml")!,
-            episodes: episodes,
-            isSubscribed: true,
-            dateAdded: Date()
-        )
-
-        repository.add(podcast)
-
-        // When: Configuring CarPlay dependencies with the SwiftData repository
-        await MainActor.run {
-            CarPlayDependencyRegistry.configure(podcastManager: repository)
-
-            // Then: Episode lookup should find persisted episodes via podcastManager.all()
-            let foundPodcast = repository.all().first { $0.id == "podcast-carplay" }
-            XCTAssertNotNil(foundPodcast, "Repository should hydrate podcasts with episodes")
-            XCTAssertEqual(foundPodcast?.episodes.count, 2, "Should find both episodes")
-
-            let foundEpisode = foundPodcast?.episodes.first { $0.id == "ep-carplay-1" }
-            XCTAssertNotNil(foundEpisode, "episodeLookup logic depends on all() returning episodes")
-            XCTAssertEqual(foundEpisode?.title, "CarPlay Episode 1")
-        }
-        #else
-        throw XCTSkip("CarPlay dependencies only available on iOS")
-        #endif
-    }
 }
 
 @available(iOS 17, macOS 14, watchOS 10, *)

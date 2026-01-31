@@ -296,10 +296,12 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
         XCTAssertNil(repository.find(id: podcast.id), "Podcast should be removed")
 
-        // Verify no orphan episodes remain by checking total episode count across all podcasts
-        let allPodcasts = repository.all()
-        let totalEpisodes = allPodcasts.flatMap { $0.episodes }.count
-        XCTAssertEqual(totalEpisodes, 0, "All episodes should be cascade deleted, no orphans should remain")
+        // Verify no orphan EpisodeEntity rows remain by querying the database directly
+        // This catches orphans that repository.all() would miss (since orphans have no parent podcast)
+        let context = ModelContext(modelContainer)
+        let descriptor = FetchDescriptor<EpisodeEntity>()
+        let orphanCount = (try? context.fetch(descriptor).count) ?? -1
+        XCTAssertEqual(orphanCount, 0, "No orphan EpisodeEntity rows should remain after cascade delete")
     }
 
     func testResetAllPlaybackPositionsUsesPersistedEpisodes() {
