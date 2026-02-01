@@ -198,4 +198,60 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertNil(converted.rating)
     }
 
+    func testHasUserStateCoversAllStatefulFlags() {
+        let entity = EpisodeEntity(
+            id: "ep-state",
+            podcastId: "pod-1",
+            title: "Stateful",
+            podcastTitle: "Podcast",
+            playbackPosition: 0,
+            isPlayed: false,
+            downloadStatus: EpisodeDownloadStatus.downloaded.rawValue,
+            isFavorited: false,
+            isBookmarked: false,
+            isArchived: false,
+            rating: nil,
+            dateAdded: Date()
+        )
+
+        XCTAssertTrue(entity.hasUserState, "Downloaded episodes should be treated as having user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
+        entity.playbackPosition = 10
+        XCTAssertTrue(entity.hasUserState, "Playback position > 0 is user state")
+
+        entity.playbackPosition = 0
+        entity.downloadStatus = EpisodeDownloadStatus.downloading.rawValue
+        XCTAssertTrue(entity.hasUserState, "Downloading should be treated as user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.paused.rawValue
+        XCTAssertTrue(entity.hasUserState, "Paused download should be treated as user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.failed.rawValue
+        XCTAssertTrue(entity.hasUserState, "Failed download still reflects user intent")
+
+        entity.playbackPosition = 0
+        entity.isPlayed = true
+        XCTAssertTrue(entity.hasUserState, "Played flag counts as user state")
+
+        entity.isPlayed = false
+        entity.isFavorited = true
+        XCTAssertTrue(entity.hasUserState, "Favorited counts as user state")
+
+        entity.isFavorited = false
+        entity.isBookmarked = true
+        XCTAssertTrue(entity.hasUserState, "Bookmarked counts as user state")
+
+        entity.isBookmarked = false
+        entity.isArchived = true
+        XCTAssertTrue(entity.hasUserState, "Archived counts as user state")
+
+        entity.isArchived = false
+        entity.rating = 4
+        XCTAssertTrue(entity.hasUserState, "Rating counts as user state")
+
+        entity.rating = nil
+        entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
+        XCTAssertFalse(entity.hasUserState, "Stateless episodes should return false")
+    }
 }

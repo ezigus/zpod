@@ -1,5 +1,8 @@
 import Foundation
 import CoreModels
+#if canImport(XCTest)
+import XCTest
+#endif
 
 // MARK: - Podcast Extensions for Testing
 
@@ -57,3 +60,21 @@ extension InMemoryPodcastManager {
         return all().filter { $0.isSubscribed }
     }
 }
+
+#if canImport(XCTest)
+/// Fails fast when a sync-sensitive test accidentally uses the in-memory manager,
+/// which does NOT preserve user state during updates.
+public func XCTFailIfUsingInMemoryPodcastManagerForSync(
+    _ manager: PodcastManaging,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) {
+    if manager is InMemoryPodcastManager {
+        XCTFail(
+            "Sync-sensitive tests must use SwiftDataPodcastRepository (InMemoryPodcastManager drops user state).",
+            file: file,
+            line: line
+        )
+    }
+}
+#endif

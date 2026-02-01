@@ -31,27 +31,37 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     siriSnapshotRefresher?.refreshAll()
   }
 
+  /// Updates an existing podcast with new data.
+  ///
+  /// **LIMITATION**: This test double does NOT implement the same sync semantics as
+  /// `SwiftDataPodcastRepository`. Specifically:
+  /// - Episodes are replaced wholesale from the incoming podcast (no upsert logic)
+  /// - Episode user state (playback position, favorites, downloads) is NOT preserved
+  /// - Episodes removed from feed but with user state are NOT kept as orphans
+  ///
+  /// This simplified behavior is intentional for a test double used in tests that don't
+  /// require full sync semantics. Tests validating feed refresh and episode sync should
+  /// use `SwiftDataPodcastRepository` directly.
+  ///
+  /// See Issue 27.1.1.2 and `SwiftDataPodcastRepositoryTests` for proper sync behavior.
   public func update(_ podcast: Podcast) {
     guard let existing = storage[podcast.id] else { return }
     let resolvedIsSubscribed = podcast.isSubscribed != existing.isSubscribed
       ? podcast.isSubscribed
       : existing.isSubscribed
 
-    // Upsert episodes: preserve user state for existing, insert new, drop removed.
-    let existingById = Dictionary(uniqueKeysWithValues: existing.episodes.map { ($0.id, $0) })
-    let mergedEpisodes = podcast.episodes.map { incoming -> Episode in
-      guard let current = existingById[incoming.id] else { return incoming }
-      var merged = incoming
-      merged.playbackPosition = current.playbackPosition
-      merged.isPlayed = current.isPlayed
-      merged.downloadStatus = current.downloadStatus
-      merged.isFavorited = current.isFavorited
-      merged.isBookmarked = current.isBookmarked
-      merged.isArchived = current.isArchived
-      merged.rating = current.rating
-      merged.dateAdded = current.dateAdded
-      return merged
+    #if DEBUG
+    // Guardrail: this test double drops user state when episodes disappear; nudge callers toward the real repository for sync-sensitive tests.
+    let existingIDs = Set(existing.episodes.map(\.id))
+    let incomingIDs = Set(podcast.episodes.map(\.id))
+    let removedIDs = existingIDs.subtracting(incomingIDs)
+    if !removedIDs.isEmpty {
+      print(
+        "⚠️ InMemoryPodcastManager.update: \(removedIDs.count) episodes will be dropped without preserving user state. " +
+        "Use SwiftDataPodcastRepository for sync-sensitive tests. Removed IDs: \(removedIDs.joined(separator: ", "))"
+      )
     }
+    #endif
 
     // Preserve original added date; metadata updates should not alter it
     let merged = Podcast(
@@ -62,7 +72,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
       artworkURL: podcast.artworkURL,
       feedURL: podcast.feedURL,
       categories: podcast.categories,
-      episodes: mergedEpisodes,
+      episodes: podcast.episodes,
       isSubscribed: resolvedIsSubscribed,
       dateAdded: existing.dateAdded,
       folderId: podcast.folderId,

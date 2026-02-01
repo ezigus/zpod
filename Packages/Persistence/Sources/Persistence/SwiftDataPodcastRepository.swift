@@ -123,8 +123,12 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
                 }
             }
 
-            // Delete episodes that are no longer present in the incoming podcast
+            // Delete episodes that are no longer present in the incoming podcast (only if no user state)
             for removed in existingById.values {
+                if removed.hasUserState {
+                    logger.debug("Keeping orphaned episode with user state: \(removed.id, privacy: .public)")
+                    continue
+                }
                 modelContext.delete(removed)
             }
 

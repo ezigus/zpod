@@ -26,6 +26,17 @@ public final class EpisodeEntity {
     public var rating: Int?
     public var dateAdded: Date
 
+    /// Whether this episode contains user-generated state that must be preserved
+    public var hasUserState: Bool {
+        playbackPosition > 0 ||
+        isPlayed ||
+        isFavorited ||
+        isBookmarked ||
+        downloadStatus != EpisodeDownloadStatus.notDownloaded.rawValue ||
+        isArchived ||
+        rating != nil
+    }
+
     public init(
         id: String,
         podcastId: String,
