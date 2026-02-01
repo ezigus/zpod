@@ -1169,6 +1169,12 @@ jobs:
       - name: Cleanup old zpod simulators from previous runs
         run: ./scripts/ci/cleanup-all-zpod-simulators.sh
 
+      - name: Download host app artifact from preflight
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
+
       - name: Provision dedicated simulator & derived data
         id: provision-sim
         run: |
@@ -1476,6 +1482,12 @@ jobs:
 
       - name: Cleanup old zpod simulators from previous runs
         run: ./scripts/ci/cleanup-all-zpod-simulators.sh
+
+      - name: Download host app artifact from preflight
+        uses: actions/download-artifact@v4
+        with:
+          name: host-app
+          path: host-app
 
       - name: Provision dedicated simulator & derived data
         id: provision-sim
