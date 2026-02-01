@@ -27,7 +27,7 @@ private final class AudioEnvironmentCache: @unchecked Sendable {
 
   private init() {}
 
-  func getOrCreate(_ factory: () -> [String: String]) -> [String: String] {
+  func getOrCreate(_ factory: () -> [String: String]?) -> [String: String]? {
     lock.lock()
     defer { lock.unlock() }
 
@@ -35,7 +35,8 @@ private final class AudioEnvironmentCache: @unchecked Sendable {
       return cached
     }
 
-    let environment = factory()
+    guard let environment = factory() else { return nil }
+
     cachedEnvironment = environment
     return environment
   }
@@ -104,26 +105,22 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
   /// **Performance**: Audio files are copied once per test bundle execution and cached.
   /// Subsequent calls return the cached environment to avoid redundant I/O.
   ///
-  /// - Returns: Dictionary of environment variables to merge into launchEnvironment
-  func audioLaunchEnvironment() -> [String: String] {
-    // Return cached environment if available (avoid redundant file copying)
-    return AudioEnvironmentCache.shared.getOrCreate { [self] in
+  /// - Returns: Dictionary of environment variables to merge into launchEnvironment, or `nil` if setup failed
+  func audioLaunchEnvironment() -> [String: String]? {
+    guard let env = AudioEnvironmentCache.shared.getOrCreate({ [self] in
       let fileManager = FileManager.default
       var env: [String: String] = [:]
       var failures: [String] = []
 
-      // Use /tmp directory (accessible on simulator to both test runner and app)
       let audioDir = URL(fileURLWithPath: "/tmp/zpod-uitest-audio")
 
-      // Create directory if needed
       do {
         try fileManager.createDirectory(at: audioDir, withIntermediateDirectories: true)
       } catch {
         XCTFail("Failed to create audio directory at \(audioDir.path): \(error.localizedDescription)")
-        return env
+        return nil
       }
 
-      // Copy each audio file from test bundle to /tmp
       let audioFiles: [(name: String, envKey: String)] = [
         ("test-episode-short", "UITEST_AUDIO_SHORT_PATH"),
         ("test-episode-medium", "UITEST_AUDIO_MEDIUM_PATH"),
@@ -131,22 +128,25 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       ]
 
       for (name, envKey) in audioFiles {
-        guard let sourceURL = testAudioURL(named: name) else {
-          failures.append("\(name).m4a missing from test bundle")
+        guard let (sourceURL, resolvedName) = resolveAudioSource(for: name) else {
+          failures.append("\(name).m4a missing from test bundle (no fallback available)")
           XCTFail("Missing audio file in test bundle: \(name).m4a")
           continue
         }
 
         let destURL = audioDir.appendingPathComponent("\(name).m4a")
-
-        // Always recopy to ensure fresh files (remove existing first)
         try? fileManager.removeItem(at: destURL)
 
         do {
           try fileManager.copyItem(at: sourceURL, to: destURL)
-          Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
+          if resolvedName != name {
+            Self.logger.warning("Audio fallback: \(name, privacy: .public) using \(resolvedName, privacy: .public); copied to \(destURL.path, privacy: .public)")
+          } else {
+            Self.logger.debug("Copied test audio: \(name, privacy: .public).m4a -> \(destURL.path, privacy: .public)")
+          }
         } catch {
-          failures.append("\(name).m4a copy failed: \(error.localizedDescription)")
+          let message = "\(name).m4a copy failed: \(error.localizedDescription) (source: \(sourceURL.path))"
+          failures.append(message)
           XCTFail("Failed to copy \(name).m4a to temp directory: \(error.localizedDescription)")
           continue
         }
@@ -154,12 +154,19 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
         env[envKey] = destURL.path
       }
 
-      if !failures.isEmpty {
-        XCTFail("Audio environment incomplete: \(failures.joined(separator: "; "))")
+      guard failures.isEmpty else {
+        Self.logger.error("Audio environment incomplete: \(failures.joined(separator: "; "), privacy: .public)")
+        return nil
       }
+
       Self.logger.debug("Audio environment configured (cached for reuse): \(env.keys.joined(separator: ", "), privacy: .public)")
       return env
+    }) else {
+      XCTFail("Audio environment could not be prepared; see previous errors.")
+      return nil
     }
+
+    return env
   }
 
   nonisolated func cleanupAudioLaunchEnvironment() {
@@ -187,19 +194,45 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
     ]
     
     for (name, ext) in files {
-      guard testAudioURL(named: name, extension: ext) != nil else {
+      guard let (url, resolvedName) = resolveAudioSource(for: name),
+            FileManager.default.fileExists(atPath: url.path) else {
         XCTFail("""
-          ❌ Missing required test audio file: \(name).\(ext)
-          
-          Expected location: TestResources/Audio/ in zpodUITests bundle
-          
-          Fix: Ensure files are added to Xcode project with:
-          - Folder references (blue folder icon, not yellow)
-          - Target membership: zpodUITests only
-          """)
+        ❌ Missing required test audio file: \(name).\(ext)
+
+        Expected location: TestResources/Audio/ in zpodUITests bundle
+
+        Fix: Ensure files are added to Xcode project with:
+        - Folder references (blue folder icon, not yellow)
+        - Target membership: zpodUITests only
+        """)
         return
       }
+
+      if resolvedName != name {
+        Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionTestSupport")
+          .warning("validateTestAudioExists: \(name).\(ext) missing; will fall back to \(resolvedName).m4a")
+      }
     }
+  }
+
+  /// Resolve an audio source URL.
+  /// Strategy: always prefer the longest clip so playback stays alive during long UI flows,
+  /// regardless of which variant the caller requested. This avoids early EOF that previously
+  /// caused missing pause buttons and slow-rate confirmations in AVPlayer tests.
+  nonisolated private func resolveAudioSource(for name: String) -> (url: URL, resolvedName: String)? {
+    let candidates = [
+      "test-episode-long",   // best: 20s
+      "test-episode-medium", // fallback: 15s
+      "test-episode-short"   // last resort: 6s
+    ]
+
+    for candidate in candidates {
+      if let url = testAudioURL(named: candidate),
+         FileManager.default.fileExists(atPath: url.path) {
+        return (url, candidate)
+      }
+    }
+    return nil
   }
 
   // MARK: - Navigation Helpers
@@ -258,6 +291,16 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       return false
     }
 
+    logBreadcrumb("startPlayback: confirming playback started")
+    let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+    guard pauseButton.waitForExistence(timeout: adaptiveTimeout) else {
+      let playButtonVisible = app.buttons.matching(identifier: "Mini Player Play").firstMatch.exists
+      logBreadcrumb("startPlayback: Pause button missing; Play visible: \(playButtonVisible)")
+      XCTFail("Playback did not start; expected Pause button after mini player appeared")
+      return false
+    }
+
+    logBreadcrumb("startPlayback: playback confirmed")
     return true
   }
 
@@ -298,6 +341,16 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       return false
     }
 
+    logBreadcrumb("startPlaybackFromPlayerTab: confirming playback started")
+    let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+    guard pauseButton.waitForExistence(timeout: adaptiveTimeout) else {
+      let playButtonVisible = app.buttons.matching(identifier: "Mini Player Play").firstMatch.exists
+      logBreadcrumb("startPlaybackFromPlayerTab: Pause button missing; Play visible: \(playButtonVisible)")
+      XCTFail("Playback did not start; expected Pause button after mini player appeared")
+      return false
+    }
+
+    logBreadcrumb("startPlaybackFromPlayerTab: playback confirmed")
     return true
   }
 

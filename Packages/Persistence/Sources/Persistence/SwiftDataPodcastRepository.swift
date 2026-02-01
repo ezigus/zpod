@@ -8,6 +8,10 @@ import OSLog
 /// This package-scoped implementation replaces the app-target `SwiftDataPodcastManager`.
 /// It keeps synchronous APIs required by `PodcastManaging` and uses a serial queue to
 /// ensure thread-safe access to the SwiftData `ModelContext`.
+///
+/// NOTE: Episode hydration currently performs per-podcast queries (N+1). This is
+/// acceptable for the current scale (< 100 podcasts). If performance regresses,
+/// batch-fetch episodes grouped by podcastId (track as Issue 27.1.1.4).
 @available(iOS 17, macOS 14, watchOS 10, *)
 public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Sendable {
     private let modelContainer: ModelContainer
@@ -47,12 +51,12 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     public func all() -> [Podcast] {
         serialQueue.sync {
             let descriptor = FetchDescriptor<PodcastEntity>()
-            guard let entities = try? modelContext.fetch(descriptor) else { return [] }
-
-            return entities.compactMap { entity in
-                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
-                return entity.toDomainSafe(episodes: episodes)
+            guard let entities = try? modelContext.fetch(descriptor) else {
+                logger.error("Failed to fetch all podcasts")
+                return []
             }
+
+            return entities.compactMap(hydratePodcast)
         }
     }
 
@@ -60,10 +64,15 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
         serialQueue.sync {
             let predicate = #Predicate<PodcastEntity> { $0.id == id }
             let descriptor = FetchDescriptor(predicate: predicate)
-            guard let entity = try? modelContext.fetch(descriptor).first else { return nil }
-
-            let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
-            return entity.toDomainSafe(episodes: episodes)
+            let entity: PodcastEntity?
+            do {
+                entity = try modelContext.fetch(descriptor).first
+            } catch {
+                logger.error("Failed to fetch podcast \(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+            guard let entity else { return nil }
+            return hydratePodcast(entity)
         }
     }
 
@@ -173,20 +182,18 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     public func findByTag(tagId: String) -> [Podcast] {
         serialQueue.sync {
             let all = fetchAllEntities(errorMessage: "Failed to fetch podcasts by tag: \(tagId)")
-            return all.filter { $0.tagIds.contains(tagId) }.compactMap { entity in
-                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
-                return entity.toDomainSafe(episodes: episodes)
-            }
+            return all
+                .filter { $0.tagIds.contains(tagId) }
+                .compactMap(hydratePodcast)
         }
     }
 
     public func findUnorganized() -> [Podcast] {
         serialQueue.sync {
             let all = fetchAllEntities(errorMessage: "Failed to fetch unorganized podcasts")
-            return all.filter { $0.folderId == nil && $0.tagIds.isEmpty }.compactMap { entity in
-                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
-                return entity.toDomainSafe(episodes: episodes)
-            }
+            return all
+                .filter { $0.folderId == nil && $0.tagIds.isEmpty }
+                .compactMap(hydratePodcast)
         }
     }
 
@@ -232,14 +239,16 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
         return try? modelContext.fetch(descriptor).first
     }
 
+    private func hydratePodcast(_ entity: PodcastEntity) -> Podcast? {
+        let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
+        return entity.toDomainSafe(episodes: episodes)
+    }
+
     private func fetchByFolderUnlocked(folderId: String) -> [Podcast] {
         let predicate = #Predicate<PodcastEntity> { $0.folderId == folderId }
         let descriptor = FetchDescriptor(predicate: predicate)
         return fetchEntities(descriptor, errorMessage: "Failed to fetch podcasts by folder: \(folderId)")
-            .compactMap { entity in
-                let episodes = fetchEpisodesUnlocked(forPodcastId: entity.id)
-                return entity.toDomainSafe(episodes: episodes)
-            }
+            .compactMap(hydratePodcast)
     }
 
     private func fetchAllEntities(errorMessage: String) -> [PodcastEntity] {
@@ -309,8 +318,13 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
     private func fetchEpisodesUnlocked(forPodcastId podcastId: String) -> [Episode] {
         let predicate = #Predicate<EpisodeEntity> { $0.podcastId == podcastId }
         let descriptor = FetchDescriptor(predicate: predicate)
-        guard let entities = try? modelContext.fetch(descriptor) else { return [] }
-        return entities.map { $0.toDomain() }
+        do {
+            let entities = try modelContext.fetch(descriptor)
+            return entities.map { $0.toDomainSafe() }
+        } catch {
+            logger.error("Failed to fetch episodes for podcast \(podcastId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
     }
 
     /// Fetch episode entities for a podcast (must be called within serialQueue.sync)

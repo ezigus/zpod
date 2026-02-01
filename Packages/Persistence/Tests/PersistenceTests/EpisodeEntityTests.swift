@@ -1,6 +1,7 @@
 import XCTest
 @testable import CoreModels
 @testable import Persistence
+@testable import TestSupport
 
 @available(iOS 17, macOS 14, watchOS 10, *)
 final class EpisodeEntityTests: XCTestCase {
@@ -8,9 +9,10 @@ final class EpisodeEntityTests: XCTestCase {
     // MARK: - Domain Conversion Tests
 
     func testDomainConversionRoundTrip() {
-        let episode = makeEpisode(
+        let episode = MockEpisode.create(
             id: "ep-1",
             title: "Test Episode",
+            podcastID: "podcast-1",
             playbackPosition: 1234,
             downloadStatus: .downloaded,
             isFavorited: true
@@ -21,6 +23,7 @@ final class EpisodeEntityTests: XCTestCase {
 
         XCTAssertEqual(converted.id, episode.id)
         XCTAssertEqual(converted.title, episode.title)
+        XCTAssertEqual(converted.podcastID, episode.podcastID)
         XCTAssertEqual(converted.playbackPosition, episode.playbackPosition)
         XCTAssertEqual(converted.downloadStatus, episode.downloadStatus)
         XCTAssertEqual(converted.isFavorited, episode.isFavorited)
@@ -28,9 +31,10 @@ final class EpisodeEntityTests: XCTestCase {
     }
 
     func testDomainConversionPreservesAllFields() {
-        let episode = makeEpisode(
+        let episode = MockEpisode.create(
             id: "ep-full",
             title: "Full Episode",
+            podcastID: "podcast-1",
             podcastTitle: "Test Podcast",
             playbackPosition: 5000,
             isPlayed: true,
@@ -52,6 +56,7 @@ final class EpisodeEntityTests: XCTestCase {
 
         XCTAssertEqual(converted.id, episode.id)
         XCTAssertEqual(converted.title, episode.title)
+        XCTAssertEqual(converted.podcastID, episode.podcastID)
         XCTAssertEqual(converted.podcastTitle, episode.podcastTitle)
         XCTAssertEqual(converted.playbackPosition, episode.playbackPosition)
         XCTAssertEqual(converted.isPlayed, episode.isPlayed)
@@ -78,9 +83,10 @@ final class EpisodeEntityTests: XCTestCase {
             dateAdded: originalDate
         )
 
-        let updated = makeEpisode(
+        let updated = MockEpisode.create(
             id: "ep-1",
             title: "Updated Title",
+            podcastID: "podcast-1",
             playbackPosition: 999,
             dateAdded: Date()  // Different date
         )
@@ -90,6 +96,36 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertEqual(entity.title, "Updated Title")
         XCTAssertEqual(entity.playbackPosition, 999)
         XCTAssertEqual(entity.dateAdded, originalDate, "dateAdded should not change on update")
+    }
+
+    func testToDomainSafeLogsInvalidValuesButReturnsEpisode() {
+        // Invalid downloadStatus and URLs should not crash and should log
+        let entity = EpisodeEntity(
+            id: "bad-episode",
+            podcastId: "pod-1",
+            title: "Bad",
+            podcastTitle: "Pod",
+            episodeDescription: nil,
+            audioURLString: "http:// bad.com",
+            artworkURLString: "ht!tp://bad url",
+            pubDate: nil,
+            duration: nil,
+            playbackPosition: 0,
+            isPlayed: false,
+            downloadStatus: "nonsense",
+            isFavorited: false,
+            isBookmarked: false,
+            isArchived: false,
+            rating: nil,
+            dateAdded: Date(timeIntervalSince1970: 1)
+        )
+
+        let episode = entity.toDomainSafe()
+
+        XCTAssertEqual(episode.downloadStatus, .notDownloaded, "Invalid raw value should default safely")
+        XCTAssertEqual(episode.id, "bad-episode")
+        XCTAssertNil(episode.audioURL)
+        XCTAssertNil(episode.artworkURL)
     }
 
     func testUpdateMetadataOnlyPreservesUserState() {
@@ -104,9 +140,10 @@ final class EpisodeEntityTests: XCTestCase {
             isFavorited: true
         )
 
-        let updated = makeEpisode(
+        let updated = MockEpisode.create(
             id: "ep-1",
             title: "Updated Title",
+            podcastID: "podcast-1",
             playbackPosition: 0,  // Should NOT be updated
             isPlayed: false,  // Should NOT be updated
             description: "New description",
@@ -128,7 +165,7 @@ final class EpisodeEntityTests: XCTestCase {
 
     func testDownloadStatusConversion() {
         for status in EpisodeDownloadStatus.allCases {
-            let episode = makeEpisode(id: "ep-\(status)", downloadStatus: status)
+            let episode = MockEpisode.create(id: "ep-\(status)", podcastID: "podcast-1", downloadStatus: status)
             let entity = EpisodeEntity.fromDomain(episode, podcastId: "podcast-1")
             let converted = entity.toDomain()
 
@@ -138,9 +175,10 @@ final class EpisodeEntityTests: XCTestCase {
     }
 
     func testNilOptionalFields() {
-        let episode = makeEpisode(
+        let episode = MockEpisode.create(
             id: "ep-minimal",
             title: "Minimal Episode",
+            podcastID: "podcast-1",
             pubDate: nil,
             duration: nil,
             description: nil,
@@ -215,46 +253,5 @@ final class EpisodeEntityTests: XCTestCase {
         entity.rating = nil
         entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
         XCTAssertFalse(entity.hasUserState, "Stateless episodes should return false")
-    }
-
-    // MARK: - Helpers
-
-    private func makeEpisode(
-        id: String,
-        title: String = "Test Episode",
-        podcastTitle: String = "Test Podcast",
-        playbackPosition: Int = 0,
-        isPlayed: Bool = false,
-        pubDate: Date? = nil,
-        duration: TimeInterval? = nil,
-        description: String? = nil,
-        audioURL: URL? = nil,
-        artworkURL: URL? = nil,
-        downloadStatus: EpisodeDownloadStatus = .notDownloaded,
-        isFavorited: Bool = false,
-        isBookmarked: Bool = false,
-        isArchived: Bool = false,
-        rating: Int? = nil,
-        dateAdded: Date = Date()
-    ) -> Episode {
-        Episode(
-            id: id,
-            title: title,
-            podcastID: "podcast-1",
-            podcastTitle: podcastTitle,
-            playbackPosition: playbackPosition,
-            isPlayed: isPlayed,
-            pubDate: pubDate,
-            duration: duration,
-            description: description,
-            audioURL: audioURL,
-            artworkURL: artworkURL,
-            downloadStatus: downloadStatus,
-            isFavorited: isFavorited,
-            isBookmarked: isBookmarked,
-            isArchived: isArchived,
-            rating: rating,
-            dateAdded: dateAdded
-        )
     }
 }

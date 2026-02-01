@@ -1,0 +1,219 @@
+name: Cleanup Simulators
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup_mode:
+        description: 'Cleanup mode'
+        required: true
+        default: 'status-only'
+        type: choice
+        options:
+          - status-only
+          - unavailable
+          - all-zpod
+          - all
+
+jobs:
+  cleanup:
+    name: Cleanup Simulators
+    runs-on: macos-15
+    steps:
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Count simulators before cleanup
+        id: before
+        run: |
+          echo "=== Simulator Status Before Cleanup ==="
+          echo ""
+
+          # Count total devices
+          TOTAL=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(len(devs) for devs in devices.values())
+          print(count)
+          ")
+          echo "total_count=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "Total simulators: $TOTAL"
+
+          # Count available devices
+          AVAILABLE=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if d.get('isAvailable'))
+          print(count)
+          ")
+          echo "available_count=$AVAILABLE" >> "$GITHUB_OUTPUT"
+          echo "Available simulators: $AVAILABLE"
+
+          # Count unavailable devices
+          UNAVAILABLE=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if not d.get('isAvailable'))
+          print(count)
+          ")
+          echo "unavailable_count=$UNAVAILABLE" >> "$GITHUB_OUTPUT"
+          echo "Unavailable simulators: $UNAVAILABLE"
+
+          # Count booted devices
+          BOOTED=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if d.get('state') == 'Booted')
+          print(count)
+          ")
+          echo "booted_count=$BOOTED" >> "$GITHUB_OUTPUT"
+          echo "Booted simulators: $BOOTED"
+
+          # Count zpod-* devices
+          ZPOD=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if d.get('name', '').startswith('zpod-'))
+          print(count)
+          ")
+          echo "zpod_count=$ZPOD" >> "$GITHUB_OUTPUT"
+          echo "zpod-* simulators: $ZPOD"
+
+          echo ""
+          echo "=== Detailed zpod-* Simulators ==="
+          xcrun simctl list devices | grep -E "zpod-|--" | head -50 || echo "(none found)"
+
+      - name: Shutdown all running simulators
+        if: inputs.cleanup_mode != 'status-only'
+        run: |
+          echo "Shutting down all running simulators..."
+          xcrun simctl shutdown all 2>/dev/null || true
+          sleep 2
+
+      - name: Run cleanup (unavailable)
+        if: inputs.cleanup_mode == 'unavailable'
+        run: |
+          echo "=== Deleting Unavailable Simulators ==="
+          xcrun simctl delete unavailable
+          echo "Done."
+
+      - name: Run cleanup (all-zpod)
+        if: inputs.cleanup_mode == 'all-zpod'
+        run: |
+          echo "=== Deleting All zpod-* Simulators ==="
+
+          # Get list of zpod-* simulator UDIDs
+          UDIDS=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          for devs in devices.values():
+              for d in devs:
+                  if d.get('name', '').startswith('zpod-'):
+                      print(d['udid'])
+          ")
+
+          if [ -z "$UDIDS" ]; then
+            echo "No zpod-* simulators found."
+          else
+            echo "Deleting simulators:"
+            echo "$UDIDS" | while read -r udid; do
+              if [ -n "$udid" ]; then
+                name=$(xcrun simctl list devices | grep "$udid" | head -1)
+                echo "  Deleting: $name"
+                xcrun simctl delete "$udid" 2>/dev/null || echo "    (already deleted or unavailable)"
+              fi
+            done
+          fi
+
+          echo "Done."
+
+      - name: Run cleanup (all)
+        if: inputs.cleanup_mode == 'all'
+        run: |
+          echo "=== Deleting ALL Simulators ==="
+          echo "WARNING: This will delete all simulators. Xcode will recreate defaults on next launch."
+          xcrun simctl delete all
+          echo "Done."
+
+      - name: Count simulators after cleanup
+        if: inputs.cleanup_mode != 'status-only'
+        id: after
+        run: |
+          echo ""
+          echo "=== Simulator Status After Cleanup ==="
+          echo ""
+
+          # Count total devices
+          TOTAL=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(len(devs) for devs in devices.values())
+          print(count)
+          ")
+          echo "total_count=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "Total simulators: $TOTAL"
+
+          # Count available devices
+          AVAILABLE=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if d.get('isAvailable'))
+          print(count)
+          ")
+          echo "available_count=$AVAILABLE" >> "$GITHUB_OUTPUT"
+          echo "Available simulators: $AVAILABLE"
+
+          # Count zpod-* devices
+          ZPOD=$(xcrun simctl list devices -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          devices = data.get('devices', {})
+          count = sum(1 for devs in devices.values() for d in devs if d.get('name', '').startswith('zpod-'))
+          print(count)
+          ")
+          echo "zpod_count=$ZPOD" >> "$GITHUB_OUTPUT"
+          echo "zpod-* simulators: $ZPOD"
+
+      - name: Summary (status-only)
+        if: inputs.cleanup_mode == 'status-only'
+        run: |
+          echo ""
+          echo "============================================"
+          echo "         SIMULATOR STATUS REPORT"
+          echo "============================================"
+          echo ""
+          echo "Mode: status-only (no cleanup performed)"
+          echo ""
+          echo "  Total simulators:       ${{ steps.before.outputs.total_count }}"
+          echo "  Available:              ${{ steps.before.outputs.available_count }}"
+          echo "  Unavailable:            ${{ steps.before.outputs.unavailable_count }}"
+          echo "  Booted:                 ${{ steps.before.outputs.booted_count }}"
+          echo "  zpod-* simulators:      ${{ steps.before.outputs.zpod_count }}"
+          echo ""
+          echo "============================================"
+
+      - name: Summary (cleanup)
+        if: inputs.cleanup_mode != 'status-only'
+        run: |
+          echo ""
+          echo "============================================"
+          echo "           CLEANUP SUMMARY"
+          echo "============================================"
+          echo ""
+          echo "Cleanup mode: ${{ inputs.cleanup_mode }}"
+          echo ""
+          echo "                    Before    After    Removed"
+          echo "  Total:            ${{ steps.before.outputs.total_count }}        ${{ steps.after.outputs.total_count }}        $((${{ steps.before.outputs.total_count }} - ${{ steps.after.outputs.total_count }}))"
+          echo "  Available:        ${{ steps.before.outputs.available_count }}        ${{ steps.after.outputs.available_count }}        $((${{ steps.before.outputs.available_count }} - ${{ steps.after.outputs.available_count }}))"
+          echo "  Unavailable:      ${{ steps.before.outputs.unavailable_count }}        -        -"
+          echo "  Booted:           ${{ steps.before.outputs.booted_count }}        -        -"
+          echo "  zpod-*:           ${{ steps.before.outputs.zpod_count }}        ${{ steps.after.outputs.zpod_count }}        $((${{ steps.before.outputs.zpod_count }} - ${{ steps.after.outputs.zpod_count }}))"
+          echo ""
+          echo "============================================"

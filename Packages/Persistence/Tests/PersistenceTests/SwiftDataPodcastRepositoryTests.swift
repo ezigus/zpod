@@ -27,7 +27,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     }
 
     func testAddAndFindPersistsPodcast() {
-        let podcast = Self.makePodcast(id: "repo-1", title: "Repository Test")
+        let podcast = MockPodcast.createSample(id: "repo-1", title: "Repository Test")
         repository.add(podcast)
 
         let found = repository.find(id: podcast.id)
@@ -37,7 +37,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
     func testUpdatePreservesDateAddedAndHonorsSubscriptionChange() {
         let originalDate = Date(timeIntervalSince1970: 1234)
-        let podcast = Self.makePodcast(id: "update-1", title: "Original", isSubscribed: true, dateAdded: originalDate)
+        let podcast = MockPodcast.createSample(id: "update-1", title: "Original", episodes: [], isSubscribed: true, dateAdded: originalDate)
         repository.add(podcast)
 
         let updated = Podcast(
@@ -68,7 +68,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     }
 
     func testRemoveDeletesPodcast() {
-        let podcast = Self.makePodcast(id: "delete-me")
+        let podcast = MockPodcast.createSample(id: "delete-me")
         repository.add(podcast)
         XCTAssertNotNil(repository.find(id: podcast.id))
 
@@ -79,10 +79,10 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     }
 
     func testOrganizationQueries() {
-        repository.add(Self.makePodcast(id: "f1", folderId: "folder-1"))
-        repository.add(Self.makePodcast(id: "f2", folderId: "folder-2"))
-        repository.add(Self.makePodcast(id: "t1", tagIds: ["tag-1"]))
-        repository.add(Self.makePodcast(id: "u1"))
+        repository.add(MockPodcast.createWithFolder(id: "f1", title: "F1", folderId: "folder-1"))
+        repository.add(MockPodcast.createWithFolder(id: "f2", title: "F2", folderId: "folder-2"))
+        repository.add(MockPodcast.createWithTags(id: "t1", title: "T1", tagIds: ["tag-1"]))
+        repository.add(MockPodcast.createSample(id: "u1", title: "Unorganized"))
 
         let folder = repository.findByFolder(folderId: "folder-1")
         XCTAssertEqual(folder.map(\.id), ["f1"])
@@ -102,9 +102,9 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         try folderManager.add(Folder(id: "child", name: "Child", parentId: "root"))
         try folderManager.add(Folder(id: "grand", name: "Grand", parentId: "child"))
 
-        repository.add(Self.makePodcast(id: "root-pod", folderId: "root"))
-        repository.add(Self.makePodcast(id: "child-pod", folderId: "child"))
-        repository.add(Self.makePodcast(id: "grand-pod", folderId: "grand"))
+        repository.add(MockPodcast.createWithFolder(id: "root-pod", title: "Root", folderId: "root"))
+        repository.add(MockPodcast.createWithFolder(id: "child-pod", title: "Child", folderId: "child"))
+        repository.add(MockPodcast.createWithFolder(id: "grand-pod", title: "Grand", folderId: "grand"))
 
         let results = repository.findByFolderRecursive(folderId: "root", folderManager: folderManager)
         let ids = Set(results.map(\.id))
@@ -112,9 +112,9 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     }
 
     func testDuplicateAddIsIgnored() {
-        let podcast = Self.makePodcast(id: "dup")
+        let podcast = MockPodcast.createSample(id: "dup")
         repository.add(podcast)
-        repository.add(Self.makePodcast(id: "dup", title: "Different Title"))
+        repository.add(MockPodcast.createSample(id: "dup", title: "Different Title"))
 
         let found = repository.find(id: "dup")
         XCTAssertEqual(found?.title, podcast.title, "Duplicate add should not overwrite existing data")
@@ -127,7 +127,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             siriSnapshotRefresher: refresher
         )
 
-        let podcast = Self.makePodcast(id: "siri-add")
+        let podcast = MockPodcast.createSample(id: "siri-add")
         repository.add(podcast)
 
         XCTAssertEqual(refresher.refreshCount, 1, "Successful add should trigger Siri refresh")
@@ -141,7 +141,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             siriSnapshotRefresher: refresher
         )
 
-        let podcast = Self.makePodcast(id: "siri-update", title: "Original")
+        let podcast = MockPodcast.createSample(id: "siri-update", title: "Original")
         repository.add(podcast)
         XCTAssertEqual(refresher.refreshCount, 1, "Initial add should trigger refresh")
 
@@ -172,7 +172,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             siriSnapshotRefresher: refresher
         )
 
-        let podcast = Self.makePodcast(id: "siri-remove")
+        let podcast = MockPodcast.createSample(id: "siri-remove")
         repository.add(podcast)
         XCTAssertEqual(refresher.refreshCount, 1, "Initial add should trigger refresh")
 
@@ -192,7 +192,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             saveHandler: { throw SaveError.simulated }
         )
 
-        let podcast = Self.makePodcast(id: "fail-save")
+        let podcast = MockPodcast.createSample(id: "fail-save")
         repository.add(podcast)
 
         XCTAssertEqual(refresher.refreshCount, 0, "Siri refresh should not run on failed save")
@@ -207,7 +207,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         for index in 0..<20 {
             group.enter()
             DispatchQueue.global().async {
-                let podcast = Self.makePodcast(id: "concurrent-\(index)")
+                let podcast = MockPodcast.createSample(id: "concurrent-\(index)")
                 repo.add(podcast)
                 group.leave()
             }
@@ -227,11 +227,11 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
     func testAddPersistsEpisodes() {
         let episodes = [
-            Self.makeEpisode(id: "ep-1", title: "Episode 1"),
-            Self.makeEpisode(id: "ep-2", title: "Episode 2"),
-            Self.makeEpisode(id: "ep-3", title: "Episode 3")
+            MockEpisode.create(id: "ep-1", title: "Episode 1"),
+            MockEpisode.create(id: "ep-2", title: "Episode 2"),
+            MockEpisode.create(id: "ep-3", title: "Episode 3")
         ]
-        let podcast = Self.makePodcast(id: "podcast-with-episodes", title: "Test Podcast", episodes: episodes)
+        let podcast = MockPodcast.createSample(id: "podcast-with-episodes", title: "Test Podcast", episodes: episodes)
 
         repository.add(podcast)
 
@@ -248,10 +248,10 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
     func testFindHydratesEpisodes() {
         let episodes = [
-            Self.makeEpisode(id: "ep-1", title: "Episode 1", playbackPosition: 100),
-            Self.makeEpisode(id: "ep-2", title: "Episode 2", isFavorited: true)
+            MockEpisode.create(id: "ep-1", title: "Episode 1", playbackPosition: 100),
+            MockEpisode.create(id: "ep-2", title: "Episode 2", isFavorited: true)
         ]
-        let podcast = Self.makePodcast(id: "hydrate-test", episodes: episodes)
+        let podcast = MockPodcast.createSample(id: "hydrate-test", title: "Test Podcast", episodes: episodes)
 
         repository.add(podcast)
         let found = repository.find(id: podcast.id)
@@ -267,28 +267,28 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
     }
 
     func testAllHydratesEpisodes() {
-        let episodes1 = [Self.makeEpisode(id: "ep-1-1"), Self.makeEpisode(id: "ep-1-2")]
-        let episodes2 = [Self.makeEpisode(id: "ep-2-1")]
+        let episodes1 = [MockEpisode.create(id: "ep-1-1"), MockEpisode.create(id: "ep-1-2")]
+        let episodes2 = [MockEpisode.create(id: "ep-2-1")]
 
-        repository.add(Self.makePodcast(id: "p1", episodes: episodes1))
-        repository.add(Self.makePodcast(id: "p2", episodes: episodes2))
+        repository.add(MockPodcast.createSample(id: "p1", title: "P1", episodes: episodes1))
+        repository.add(MockPodcast.createSample(id: "p2", title: "P2", episodes: episodes2))
 
         let all = repository.all()
         XCTAssertEqual(all.count, 2)
 
-        let p1 = all.first { $0.id == "p1" }
-        XCTAssertEqual(p1?.episodes.count, 2)
+        let firstPodcast = all.first { $0.id == "p1" }
+        XCTAssertEqual(firstPodcast?.episodes.count, 2)
 
-        let p2 = all.first { $0.id == "p2" }
-        XCTAssertEqual(p2?.episodes.count, 1)
+        let secondPodcast = all.first { $0.id == "p2" }
+        XCTAssertEqual(secondPodcast?.episodes.count, 1)
     }
 
     func testRemoveCascadeDeletesEpisodes() {
         let episodes = [
-            Self.makeEpisode(id: "ep-del-1"),
-            Self.makeEpisode(id: "ep-del-2")
+            MockEpisode.create(id: "ep-del-1"),
+            MockEpisode.create(id: "ep-del-2")
         ]
-        let podcast = Self.makePodcast(id: "delete-cascade", episodes: episodes)
+        let podcast = MockPodcast.createSample(id: "delete-cascade", title: "Delete", episodes: episodes)
 
         repository.add(podcast)
         XCTAssertEqual(repository.find(id: podcast.id)?.episodes.count, 2, "Episodes should be persisted")
@@ -296,45 +296,51 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         repository.remove(id: podcast.id)
 
         XCTAssertNil(repository.find(id: podcast.id), "Podcast should be removed")
-        // Episodes should be cascade deleted (verified indirectly - no orphaned episodes remain)
+
+        // Verify no orphan EpisodeEntity rows remain by querying the database directly
+        // This catches orphans that repository.all() would miss (since orphans have no parent podcast)
+        let context = ModelContext(modelContainer)
+        let descriptor = FetchDescriptor<EpisodeEntity>()
+        let orphanCount = (try? context.fetch(descriptor).count) ?? -1
+        XCTAssertEqual(orphanCount, 0, "No orphan EpisodeEntity rows should remain after cascade delete")
     }
 
     func testResetAllPlaybackPositionsUsesPersistedEpisodes() {
         let episodes1 = [
-            Self.makeEpisode(id: "ep-1-1", playbackPosition: 1000),
-            Self.makeEpisode(id: "ep-1-2", playbackPosition: 2000)
+            MockEpisode.create(id: "ep-1-1", playbackPosition: 1000),
+            MockEpisode.create(id: "ep-1-2", playbackPosition: 2000)
         ]
         let episodes2 = [
-            Self.makeEpisode(id: "ep-2-1", playbackPosition: 500)
+            MockEpisode.create(id: "ep-2-1", playbackPosition: 500)
         ]
 
-        repository.add(Self.makePodcast(id: "p1", episodes: episodes1))
-        repository.add(Self.makePodcast(id: "p2", episodes: episodes2))
+        repository.add(MockPodcast.createSample(id: "p1", title: "P1", episodes: episodes1))
+        repository.add(MockPodcast.createSample(id: "p2", title: "P2", episodes: episodes2))
 
         // Verify playback positions are set
-        var p1 = repository.find(id: "p1")
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 1000)
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 2000)
+        var firstPodcast = repository.find(id: "p1")
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 1000)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 2000)
 
         // Reset all playback positions
         repository.resetAllPlaybackPositions()
 
         // Verify all positions reset to 0
-        p1 = repository.find(id: "p1")
-        let p2 = repository.find(id: "p2")
+        firstPodcast = repository.find(id: "p1")
+        let secondPodcast = repository.find(id: "p2")
 
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 0)
-        XCTAssertEqual(p1?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 0)
-        XCTAssertEqual(p2?.episodes.first { $0.id == "ep-2-1" }?.playbackPosition, 0)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-1" }?.playbackPosition, 0)
+        XCTAssertEqual(firstPodcast?.episodes.first { $0.id == "ep-1-2" }?.playbackPosition, 0)
+        XCTAssertEqual(secondPodcast?.episodes.first { $0.id == "ep-2-1" }?.playbackPosition, 0)
     }
 
     func testEpisodeDownloadStatusPersists() {
         let episodes = [
-            Self.makeEpisode(id: "ep-downloaded", downloadStatus: .downloaded),
-            Self.makeEpisode(id: "ep-downloading", downloadStatus: .downloading),
-            Self.makeEpisode(id: "ep-failed", downloadStatus: .failed)
+            MockEpisode.create(id: "ep-downloaded", downloadStatus: .downloaded),
+            MockEpisode.create(id: "ep-downloading", downloadStatus: .downloading),
+            MockEpisode.create(id: "ep-failed", downloadStatus: .failed)
         ]
-        let podcast = Self.makePodcast(id: "download-status-test", episodes: episodes)
+        let podcast = MockPodcast.createSample(id: "download-status-test", title: "Download", episodes: episodes)
 
         repository.add(podcast)
         let found = repository.find(id: podcast.id)
@@ -346,16 +352,16 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
     func testUpdateReconcilesEpisodesAndPreservesUserState() {
         let originalEpisodes = [
-            Self.makeEpisode(id: "ep-1", title: "Old Title", playbackPosition: 50, isPlayed: true)
+            MockEpisode.create(id: "ep-1", title: "Old Title", playbackPosition: 50, isPlayed: true)
         ]
-        let podcast = Self.makePodcast(id: "update-episodes", episodes: originalEpisodes)
+        let podcast = MockPodcast.createSample(id: "update-episodes", title: "Update Episodes", episodes: originalEpisodes)
         repository.add(podcast)
 
         let updatedEpisodes = [
-            Self.makeEpisode(id: "ep-1", title: "New Title", playbackPosition: 0),  // metadata change only
-            Self.makeEpisode(id: "ep-2", title: "New Episode")
+            MockEpisode.create(id: "ep-1", title: "New Title", playbackPosition: 0),  // metadata change only
+            MockEpisode.create(id: "ep-2", title: "New Episode")
         ]
-        let updated = Self.makePodcast(id: podcast.id, episodes: updatedEpisodes)
+        let updated = MockPodcast.createSample(id: podcast.id, title: podcast.title, episodes: updatedEpisodes)
 
         repository.update(updated)
 
@@ -640,7 +646,58 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertTrue(all.isEmpty, "Corrupted feed rows should be skipped, not crash")
     }
 
-    // MARK: - Helpers
+    func testEpisodesUseSafeConversion() throws {
+        // Store an episode with invalid downloadStatus to ensure hydration remains safe
+        let context = ModelContext(modelContainer)
+        let podcast = PodcastEntity(
+            id: "pod-safe",
+            title: "Safe",
+            feedURLString: "https://example.com/feed.xml",
+            isSubscribed: true
+        )
+        context.insert(podcast)
+
+        let badEpisode = EpisodeEntity(
+            id: "ep-safe",
+            podcastId: "pod-safe",
+            title: "Bad Episode",
+            podcastTitle: "Safe",
+            downloadStatus: "bogus",
+            dateAdded: Date()
+        )
+        context.insert(badEpisode)
+        try context.save()
+
+        let found = repository.find(id: "pod-safe")
+        XCTAssertEqual(found?.episodes.first?.downloadStatus, .notDownloaded)
+    }
+
+    func testEpisodeIndexSourceReturnsPersistedEpisodes() {
+        // Given: Repository with podcasts containing episodes
+        let episodes1 = [
+            MockEpisode.create(id: "ep-search-1", title: "Episode 1"),
+            MockEpisode.create(id: "ep-search-2", title: "Episode 2")
+        ]
+        let episodes2 = [
+            MockEpisode.create(id: "ep-search-3", title: "Episode 3")
+        ]
+
+        let podcast1 = MockPodcast.createSample(id: "podcast-1", title: "Podcast 1", episodes: episodes1)
+        let podcast2 = MockPodcast.createSample(id: "podcast-2", title: "Podcast 2", episodes: episodes2)
+
+        repository.add(podcast1)
+        repository.add(podcast2)
+
+        // When: Using repository with EpisodeIndexSource (simulating search indexing)
+        let allPodcasts = repository.all()
+        let allEpisodes = allPodcasts.flatMap { $0.episodes }
+
+        // Then: Should return all persisted episodes (verifies hydration for search)
+        XCTAssertEqual(allEpisodes.count, 3, "EpisodeIndexSource.documents() depends on all() returning episodes")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-1" }, "Should find episode 1")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-2" }, "Should find episode 2")
+        XCTAssertTrue(allEpisodes.contains { $0.id == "ep-search-3" }, "Should find episode 3")
+    }
 
     private static func makePodcast(
         id: String = UUID().uuidString,
