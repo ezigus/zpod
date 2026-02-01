@@ -468,6 +468,60 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.episodes.first?.downloadStatus, .downloaded)
     }
 
+    func testSyncKeepsDownloadingEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-downloading",
+            title: "Downloading Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-downloading", title: "Downloading", downloadStatus: .downloading)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.downloadStatus, .downloading)
+    }
+
+    func testSyncKeepsPausedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-paused",
+            title: "Paused Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-paused", title: "Paused", downloadStatus: .paused)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.downloadStatus, .paused)
+    }
+
+    func testSyncKeepsFailedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-failed",
+            title: "Failed Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-failed", title: "Failed", downloadStatus: .failed)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.downloadStatus, .failed)
+    }
+
     func testSyncKeepsFavoritedEpisode() {
         let original = Self.makePodcast(
             id: "sync-keep-favorited",

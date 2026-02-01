@@ -30,7 +30,7 @@ public final class EpisodeEntity {
         isPlayed ||
         isFavorited ||
         isBookmarked ||
-        downloadStatus == EpisodeDownloadStatus.downloaded.rawValue ||
+        downloadStatus != EpisodeDownloadStatus.notDownloaded.rawValue ||
         isArchived ||
         rating != nil
     }

@@ -183,6 +183,16 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertTrue(entity.hasUserState, "Playback position > 0 is user state")
 
         entity.playbackPosition = 0
+        entity.downloadStatus = EpisodeDownloadStatus.downloading.rawValue
+        XCTAssertTrue(entity.hasUserState, "Downloading should be treated as user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.paused.rawValue
+        XCTAssertTrue(entity.hasUserState, "Paused download should be treated as user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.failed.rawValue
+        XCTAssertTrue(entity.hasUserState, "Failed download still reflects user intent")
+
+        entity.playbackPosition = 0
         entity.isPlayed = true
         XCTAssertTrue(entity.hasUserState, "Played flag counts as user state")
 
@@ -203,6 +213,7 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertTrue(entity.hasUserState, "Rating counts as user state")
 
         entity.rating = nil
+        entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
         XCTAssertFalse(entity.hasUserState, "Stateless episodes should return false")
     }
 
