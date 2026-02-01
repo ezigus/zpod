@@ -17,6 +17,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         repository = SwiftDataPodcastRepository(modelContainer: modelContainer)
+        XCTFailIfUsingInMemoryPodcastManagerForSync(repository)
     }
 
     override func tearDown() async throws {
@@ -503,6 +504,42 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.episodes.first?.isBookmarked, true)
     }
 
+    func testSyncKeepsArchivedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-archived",
+            title: "Archived Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-archived", title: "Archived", isArchived: true)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.isArchived, true)
+    }
+
+    func testSyncKeepsRatedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-rated",
+            title: "Rated Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-rated", title: "Rated", rating: 5)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.rating, 5)
+    }
+
     func testSyncMixedScenarioDeletesOnlyStale() {
         let original = Self.makePodcast(
             id: "sync-mixed",
@@ -512,7 +549,9 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
                 Self.makeEpisode(id: "ep-stale", title: "Stale No State"),
                 Self.makeEpisode(id: "ep-orphan-played", title: "Orphan Played", isPlayed: true),
                 Self.makeEpisode(id: "ep-orphan-position", title: "Orphan Position", playbackPosition: 60),
-                Self.makeEpisode(id: "ep-orphan-downloaded", title: "Orphan Downloaded", downloadStatus: .downloaded)
+                Self.makeEpisode(id: "ep-orphan-downloaded", title: "Orphan Downloaded", downloadStatus: .downloaded),
+                Self.makeEpisode(id: "ep-orphan-archived", title: "Orphan Archived", isArchived: true),
+                Self.makeEpisode(id: "ep-orphan-rated", title: "Orphan Rated", rating: 4)
             ]
         )
         repository.add(original)
@@ -528,7 +567,7 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
 
         let found = repository.find(id: original.id)
         let ids = Set(found?.episodes.map { $0.id } ?? [])
-        XCTAssertEqual(ids, ["ep-keep-in-feed", "ep-orphan-played", "ep-orphan-position", "ep-orphan-downloaded"])
+        XCTAssertEqual(ids, ["ep-keep-in-feed", "ep-orphan-played", "ep-orphan-position", "ep-orphan-downloaded", "ep-orphan-archived", "ep-orphan-rated"])
         XCTAssertFalse(ids.contains("ep-stale"), "Stale episode without user state should be deleted")
     }
 
@@ -588,7 +627,9 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         isPlayed: Bool = false,
         downloadStatus: EpisodeDownloadStatus = .notDownloaded,
         isFavorited: Bool = false,
-        isBookmarked: Bool = false
+        isBookmarked: Bool = false,
+        isArchived: Bool = false,
+        rating: Int? = nil
     ) -> Episode {
         Episode(
             id: id,
@@ -599,7 +640,9 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
             isPlayed: isPlayed,
             downloadStatus: downloadStatus,
             isFavorited: isFavorited,
-            isBookmarked: isBookmarked
+            isBookmarked: isBookmarked,
+            isArchived: isArchived,
+            rating: rating
         )
     }
 
