@@ -181,6 +181,14 @@ This document outlines the key features and functionalities of the Podcast Addic
 - **When:** Launches app.
 - **Then:** Only downloaded episodes are shown; online features disabled.
 
+#### Feed Refresh Preserves User State
+- **Given:** Episodes for a subscribed podcast have user state (playback position, played, downloaded, favorited, bookmarked, archived, or rating).
+- **And:** A feed refresh returns an updated episode list where some prior episodes are missing.
+- **When:** The app reconciles episodes during the podcast update.
+- **Then:** Episodes with user state remain preserved even if absent from the refreshed feed.
+- **And:** Episodes without user state that are missing from the feed are deleted.
+- **And:** New feed episodes are inserted and existing ones have their metadata updated without clearing user state.
+
 ---
 
 ## Customization and Personalization

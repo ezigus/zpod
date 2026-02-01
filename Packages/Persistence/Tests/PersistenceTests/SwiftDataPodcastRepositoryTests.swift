@@ -370,6 +370,168 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(ep2?.title, "New Episode")
     }
 
+    func testUpdateRemovesMissingEpisodesWithoutUserState() {
+        let originalEpisodes = [
+            Self.makeEpisode(id: "ep-1", title: "Keep"),
+            Self.makeEpisode(id: "ep-2", title: "Remove")
+        ]
+        let original = Self.makePodcast(id: "remove-episodes", episodes: originalEpisodes)
+        repository.add(original)
+
+        let updated = Self.makePodcast(
+            id: original.id,
+            title: original.title,
+            episodes: [
+                Self.makeEpisode(id: "ep-1", title: "Keep")
+            ]
+        )
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.map { $0.id }.sorted(), ["ep-1"])
+    }
+
+    func testSyncDeletesStaleEpisodesWithoutUserState() {
+        let originalEpisodes = [
+            Self.makeEpisode(id: "ep-keep", title: "Keep"),
+            Self.makeEpisode(id: "ep-stale", title: "Stale", playbackPosition: 0, isPlayed: false, isFavorited: false)
+        ]
+        let original = Self.makePodcast(id: "sync-delete-stale", title: "Stale Episode Test", episodes: originalEpisodes)
+        repository.add(original)
+
+        let updated = Self.makePodcast(
+            id: original.id,
+            title: original.title,
+            episodes: [
+                Self.makeEpisode(id: "ep-keep", title: "Keep")
+            ]
+        )
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.map { $0.id }.sorted(), ["ep-keep"])
+    }
+
+    func testSyncKeepsEpisodeWithPlaybackPosition() {
+        let original = Self.makePodcast(
+            id: "sync-keep-playback",
+            title: "Playback Position Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-orphan", title: "Orphaned", playbackPosition: 120)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.id, "ep-orphan")
+        XCTAssertEqual(found?.episodes.first?.playbackPosition, 120)
+    }
+
+    func testSyncKeepsPlayedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-played",
+            title: "Played Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-played", title: "Played", isPlayed: true)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.isPlayed, true)
+    }
+
+    func testSyncKeepsDownloadedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-downloaded",
+            title: "Downloaded Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-downloaded", title: "Downloaded", downloadStatus: .downloaded)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.downloadStatus, .downloaded)
+    }
+
+    func testSyncKeepsFavoritedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-favorited",
+            title: "Favorited Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-favorited", title: "Favorited", isFavorited: true)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.isFavorited, true)
+    }
+
+    func testSyncKeepsBookmarkedEpisode() {
+        let original = Self.makePodcast(
+            id: "sync-keep-bookmarked",
+            title: "Bookmarked Episode Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-bookmarked", title: "Bookmarked", isBookmarked: true)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        XCTAssertEqual(found?.episodes.count, 1)
+        XCTAssertEqual(found?.episodes.first?.isBookmarked, true)
+    }
+
+    func testSyncMixedScenarioDeletesOnlyStale() {
+        let original = Self.makePodcast(
+            id: "sync-mixed",
+            title: "Mixed Scenario Test",
+            episodes: [
+                Self.makeEpisode(id: "ep-keep-in-feed", title: "In Feed"),
+                Self.makeEpisode(id: "ep-stale", title: "Stale No State"),
+                Self.makeEpisode(id: "ep-orphan-played", title: "Orphan Played", isPlayed: true),
+                Self.makeEpisode(id: "ep-orphan-position", title: "Orphan Position", playbackPosition: 60),
+                Self.makeEpisode(id: "ep-orphan-downloaded", title: "Orphan Downloaded", downloadStatus: .downloaded)
+            ]
+        )
+        repository.add(original)
+
+        let updated = Self.makePodcast(
+            id: original.id,
+            title: original.title,
+            episodes: [
+                Self.makeEpisode(id: "ep-keep-in-feed", title: "In Feed Updated")
+            ]
+        )
+        repository.update(updated)
+
+        let found = repository.find(id: original.id)
+        let ids = Set(found?.episodes.map { $0.id } ?? [])
+        XCTAssertEqual(ids, ["ep-keep-in-feed", "ep-orphan-played", "ep-orphan-position", "ep-orphan-downloaded"])
+        XCTAssertFalse(ids.contains("ep-stale"), "Stale episode without user state should be deleted")
+    }
+
     func testInvalidFeedURLSkipsCorruptedRows() throws {
         let context = ModelContext(modelContainer)
         let badEntity = PodcastEntity(

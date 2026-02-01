@@ -160,6 +160,52 @@ final class EpisodeEntityTests: XCTestCase {
         XCTAssertNil(converted.rating)
     }
 
+    func testHasUserStateCoversAllStatefulFlags() {
+        let entity = EpisodeEntity(
+            id: "ep-state",
+            podcastId: "pod-1",
+            title: "Stateful",
+            podcastTitle: "Podcast",
+            playbackPosition: 0,
+            isPlayed: false,
+            downloadStatus: EpisodeDownloadStatus.downloaded.rawValue,
+            isFavorited: false,
+            isBookmarked: false,
+            isArchived: false,
+            rating: nil,
+            dateAdded: Date()
+        )
+
+        XCTAssertTrue(entity.hasUserState, "Downloaded episodes should be treated as having user state")
+
+        entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
+        entity.playbackPosition = 10
+        XCTAssertTrue(entity.hasUserState, "Playback position > 0 is user state")
+
+        entity.playbackPosition = 0
+        entity.isPlayed = true
+        XCTAssertTrue(entity.hasUserState, "Played flag counts as user state")
+
+        entity.isPlayed = false
+        entity.isFavorited = true
+        XCTAssertTrue(entity.hasUserState, "Favorited counts as user state")
+
+        entity.isFavorited = false
+        entity.isBookmarked = true
+        XCTAssertTrue(entity.hasUserState, "Bookmarked counts as user state")
+
+        entity.isBookmarked = false
+        entity.isArchived = true
+        XCTAssertTrue(entity.hasUserState, "Archived counts as user state")
+
+        entity.isArchived = false
+        entity.rating = 4
+        XCTAssertTrue(entity.hasUserState, "Rating counts as user state")
+
+        entity.rating = nil
+        XCTAssertFalse(entity.hasUserState, "Stateless episodes should return false")
+    }
+
     // MARK: - Helpers
 
     private func makeEpisode(
