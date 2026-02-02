@@ -26,6 +26,9 @@ public class DownloadCoordinator {
   private let maxRetryCount = 3
   private let retryDelays: [TimeInterval] = [5, 15, 60]  // Exponential backoff
 
+  /// Maps episode IDs to their local file URLs for completed downloads
+  private var completedDownloads: [String: URL] = [:]
+
   public init(
     queueManager: DownloadQueueManaging? = nil,
     fileManagerService: FileManagerServicing? = nil,
@@ -122,6 +125,17 @@ public class DownloadCoordinator {
     }
   }
 
+  /// Get local file URL for a downloaded episode
+  /// Returns nil if episode is not downloaded or file doesn't exist
+  public func localFileURL(for episodeId: String) -> URL? {
+    return completedDownloads[episodeId]
+  }
+
+  /// Check if episode has been downloaded
+  public func isDownloaded(episodeId: String) -> Bool {
+    return completedDownloads[episodeId] != nil
+  }
+
   // MARK: - Private Implementation
 
   private func setupDownloadProcessing() {
@@ -176,6 +190,22 @@ public class DownloadCoordinator {
       // Download completed
       downloadInfo = downloadInfo.withState(.completed)
       downloadInfo.progress = 1.0
+
+      // Stash local file path for offline playback
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        let filePath = await self.fileManagerService.downloadPath(for: downloadInfo.task)
+        let fileURL = URL(fileURLWithPath: filePath)
+
+        // Verify file actually exists before caching
+        let exists = await self.fileManagerService.fileExists(for: downloadInfo.task)
+        if exists {
+          self.completedDownloads[downloadInfo.task.episodeId] = fileURL
+          Logger.info("Cached local file for episode \(downloadInfo.task.episodeId): \(filePath)")
+        } else {
+          Logger.warning("Download reported complete but file doesn't exist: \(filePath)")
+        }
+      }
     } else {
       // Progress update
       downloadInfo.progress = progress.progress
@@ -234,6 +264,9 @@ public class DownloadCoordinator {
         if let task = queueManager.getCurrentQueue().first(where: { $0.episodeId == episodeId }) {
           do {
             try await fileManagerService.deleteDownloadedFile(for: task)
+            // Remove from local file cache
+            completedDownloads.removeValue(forKey: episodeId)
+            Logger.info("Removed local file cache for episode: \(episodeId)")
           } catch {
             Logger.error("Failed to delete file for episode \(episodeId): \(error)")
           }

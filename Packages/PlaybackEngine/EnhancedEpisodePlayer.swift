@@ -70,6 +70,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private let episodeStateManager: EpisodeStateManager
   private let playbackSettings: PlaybackSettings
   private let chapterResolver: ((Episode, TimeInterval) -> [Chapter])?
+  private let localFileProvider: (@Sendable (String) -> URL?)?
 
   private(set) var currentEpisode: Episode?
   private(set) var currentDuration: TimeInterval = 0
@@ -121,7 +122,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
-    audioEngine: AVPlayerPlaybackEngine? = nil
+    audioEngine: AVPlayerPlaybackEngine? = nil,
+    localFileProvider: (@Sendable (String) -> URL?)? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
@@ -129,6 +131,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     self.playbackSpeed = playbackSettings.defaultSpeed
     self.tickerFactory = { ticker ?? TimerTicker() }
     self.audioEngine = audioEngine
+    self.localFileProvider = localFileProvider
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
@@ -140,13 +143,15 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     playbackSettings: PlaybackSettings = PlaybackSettings(),
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
-    ticker: Ticker? = nil
+    ticker: Ticker? = nil,
+    localFileProvider: (@Sendable (String) -> URL?)? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
     self.chapterResolver = chapterResolver
     self.playbackSpeed = playbackSettings.defaultSpeed
     self.tickerFactory = { ticker ?? TimerTicker() }
+    self.localFileProvider = localFileProvider
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
@@ -187,11 +192,25 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
       }
 
       if audioEngine != nil, let audioURL = episode.audioURL {
-        // Production mode: Use actual audio playback
-        if isDebugAudio {
-          NSLog("[TestAudio] Starting audio engine playback with URL: %@", audioURL.absoluteString)
+        // Check for local file first (offline playback)
+        let playbackURL: URL
+        if let localFile = localFileProvider?(episode.id) {
+          playbackURL = localFile
+          if isDebugAudio {
+            NSLog("[TestAudio] Using local file for playback: %@", localFile.absoluteString)
+          }
+        } else {
+          playbackURL = audioURL
+          if isDebugAudio {
+            NSLog("[TestAudio] Streaming from remote URL: %@", audioURL.absoluteString)
+          }
         }
-        startAudioEnginePlayback(url: audioURL)
+
+        // Production mode: Use actual audio playback (local or streaming)
+        if isDebugAudio {
+          NSLog("[TestAudio] Starting audio engine playback with URL: %@", playbackURL.absoluteString)
+        }
+        startAudioEnginePlayback(url: playbackURL)
       } else if audioEngine != nil && episode.audioURL == nil {
         // Error: audio engine provided but no URL
       if isDebugAudio {
