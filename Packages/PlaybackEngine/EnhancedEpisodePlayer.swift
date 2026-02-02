@@ -70,7 +70,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private let episodeStateManager: EpisodeStateManager
   private let playbackSettings: PlaybackSettings
   private let chapterResolver: ((Episode, TimeInterval) -> [Chapter])?
-  private let localFileProvider: (@Sendable (String) -> URL?)?
+  private let localFileProvider: ((String) -> URL?)?
 
   private(set) var currentEpisode: Episode?
   private(set) var currentDuration: TimeInterval = 0
@@ -123,7 +123,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
     audioEngine: AVPlayerPlaybackEngine? = nil,
-    localFileProvider: (@Sendable (String) -> URL?)? = nil
+    localFileProvider: ((String) -> URL?)? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
@@ -144,7 +144,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
-    localFileProvider: (@Sendable (String) -> URL?)? = nil
+    localFileProvider: ((String) -> URL?)? = nil
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()

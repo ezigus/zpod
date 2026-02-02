@@ -160,9 +160,11 @@ public enum CarPlayDependencyRegistry {
       let useAudioEngine = disableFlag != "1"
 
       // Local file provider for offline playback
-      let localFileProvider: @Sendable (String) -> URL? = { episodeId in
-        // Use DownloadCoordinatorBridge to check for local files
-        return DownloadCoordinatorBridge.shared.localFileURL(for: episodeId)
+      // Note: Captured eagerly since DownloadCoordinatorBridge.shared is @MainActor
+      let downloadBridge = DownloadCoordinatorBridge.shared
+      let localFileProvider: (String) -> URL? = { [downloadBridge] episodeId in
+        // Access is safe because we're calling from MainActor context (player is @MainActor)
+        return downloadBridge.localFileURL(for: episodeId)
       }
 
       if useAudioEngine {
@@ -183,8 +185,9 @@ public enum CarPlayDependencyRegistry {
       }
     #else
       // Non-iOS platforms: no audio engine, but still provide local file support
-      let localFileProvider: @Sendable (String) -> URL? = { episodeId in
-        return DownloadCoordinatorBridge.shared.localFileURL(for: episodeId)
+      let downloadBridge = DownloadCoordinatorBridge.shared
+      let localFileProvider: (String) -> URL? = { [downloadBridge] episodeId in
+        return downloadBridge.localFileURL(for: episodeId)
       }
       let playback = EnhancedEpisodePlayer(localFileProvider: localFileProvider)
       let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
