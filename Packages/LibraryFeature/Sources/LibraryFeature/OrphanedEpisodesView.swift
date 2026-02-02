@@ -1,6 +1,8 @@
 import CoreModels
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 struct OrphanedEpisodesView: View {
   @StateObject private var viewModel: OrphanedEpisodesViewModel
@@ -143,15 +145,29 @@ struct OrphanedEpisodesView: View {
     action: @escaping () -> Void,
     trailingPadding: CGFloat = 0
   ) -> some View {
-    QuickPlayButtonUIKit(
-      episode: episode,
-      trailingPadding: trailingPadding,
-      action: action
-    )
+    #if canImport(UIKit)
+      QuickPlayButtonUIKit(
+        episode: episode,
+        trailingPadding: trailingPadding,
+        action: action
+      )
+    #else
+      Button(action: action) {
+        Image(systemName: episode.isInProgress ? "play.fill" : "play.circle")
+          .foregroundStyle(.primary)
+          .font(.title3)
+      }
+      .buttonStyle(.borderless)
+      .padding(.trailing, trailingPadding)
+      .accessibilityIdentifier("Orphaned.Row.\(episode.id).Play")
+      .accessibilityLabel("Play \(episode.title)")
+      .accessibilityHint("Resume playback from the last position")
+    #endif
   }
 }
 
 // MARK: - UIKit bridge for reliable accessibility in List rows
+#if canImport(UIKit)
 
 private struct QuickPlayButtonUIKit: UIViewRepresentable {
   typealias UIViewType = UIView
@@ -210,3 +226,4 @@ private struct QuickPlayButtonUIKit: UIViewRepresentable {
     button.setImage(image, for: .normal)
   }
 }
+#endif
