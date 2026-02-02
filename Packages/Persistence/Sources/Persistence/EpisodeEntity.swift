@@ -25,6 +25,8 @@ public final class EpisodeEntity {
     public var isArchived: Bool
     public var rating: Int?
     public var dateAdded: Date
+    public var isOrphaned: Bool
+    public var dateOrphaned: Date?
 
     /// Whether this episode contains user-generated state that must be preserved
     public var hasUserState: Bool {
@@ -54,7 +56,9 @@ public final class EpisodeEntity {
         isBookmarked: Bool = false,
         isArchived: Bool = false,
         rating: Int? = nil,
-        dateAdded: Date = Date()
+        dateAdded: Date = Date(),
+        isOrphaned: Bool = false,
+        dateOrphaned: Date? = nil
     ) {
         self.id = id
         self.podcastId = podcastId
@@ -73,6 +77,8 @@ public final class EpisodeEntity {
         self.isArchived = isArchived
         self.rating = rating
         self.dateAdded = dateAdded
+        self.isOrphaned = isOrphaned
+        self.dateOrphaned = dateOrphaned
     }
 }
 
@@ -120,7 +126,9 @@ public final class EpisodeEntity {
             isBookmarked: isBookmarked,
             isArchived: isArchived,
             rating: rating,
-            dateAdded: dateAdded
+            dateAdded: dateAdded,
+            isOrphaned: isOrphaned,
+            dateOrphaned: dateOrphaned
         )
     }
 
@@ -143,7 +151,9 @@ public final class EpisodeEntity {
             isBookmarked: episode.isBookmarked,
             isArchived: episode.isArchived,
             rating: episode.rating,
-            dateAdded: episode.dateAdded
+            dateAdded: episode.dateAdded,
+            isOrphaned: episode.isOrphaned,
+            dateOrphaned: episode.dateOrphaned
         )
     }
 
@@ -165,6 +175,8 @@ public final class EpisodeEntity {
         self.isBookmarked = episode.isBookmarked
         self.isArchived = episode.isArchived
         self.rating = episode.rating
+        self.isOrphaned = episode.isOrphaned
+        self.dateOrphaned = episode.dateOrphaned
         // Note: dateAdded is NOT updated (preserves original add date)
     }
 

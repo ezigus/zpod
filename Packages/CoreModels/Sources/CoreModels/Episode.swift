@@ -39,6 +39,8 @@ public struct Episode: Codable, Equatable, Sendable, Identifiable {
     public var isArchived: Bool
     public var rating: Int? // 1-5 star rating, nil if unrated
     public var dateAdded: Date
+    public var isOrphaned: Bool
+    public var dateOrphaned: Date?
 
     public init(
         id: String, 
@@ -57,7 +59,9 @@ public struct Episode: Codable, Equatable, Sendable, Identifiable {
         isBookmarked: Bool = false,
         isArchived: Bool = false,
         rating: Int? = nil,
-        dateAdded: Date = Date()
+        dateAdded: Date = Date(),
+        isOrphaned: Bool = false,
+        dateOrphaned: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -76,6 +80,8 @@ public struct Episode: Codable, Equatable, Sendable, Identifiable {
         self.isArchived = isArchived
         self.rating = rating
         self.dateAdded = dateAdded
+        self.isOrphaned = isOrphaned
+        self.dateOrphaned = dateOrphaned
     }
 
     public func withPlaybackPosition(_ position: Int) -> Episode {

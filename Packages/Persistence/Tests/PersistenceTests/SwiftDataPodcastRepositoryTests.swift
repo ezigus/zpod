@@ -600,6 +600,100 @@ final class SwiftDataPodcastRepositoryTests: XCTestCase {
         XCTAssertEqual(found?.episodes.first?.rating, 5)
     }
 
+    func testRemovedEpisodeWithUserStateIsMarkedOrphaned() {
+        let original = Self.makePodcast(
+            id: "orphan-mark",
+            title: "Orphan Mark",
+            episodes: [
+                Self.makeEpisode(id: "ep-orphan", title: "Keep", playbackPosition: 30)
+            ]
+        )
+        repository.add(original)
+
+        // Remove from feed; should be marked orphaned, not deleted
+        let updated = Self.makePodcast(id: original.id, title: original.title, episodes: [])
+        repository.update(updated)
+
+        let orphans = repository.fetchOrphanedEpisodes()
+        XCTAssertEqual(orphans.map(\.id), ["ep-orphan"])
+        XCTAssertTrue(orphans.first?.isOrphaned ?? false)
+    }
+
+    func testOrphanClearsWhenEpisodeReappearsInFeed() {
+        let original = Self.makePodcast(
+            id: "orphan-clear",
+            title: "Orphan Clear",
+            episodes: [
+                Self.makeEpisode(id: "ep-orphan", title: "Keep", playbackPosition: 30)
+            ]
+        )
+        repository.add(original)
+
+        repository.update(Self.makePodcast(id: original.id, title: original.title, episodes: []))
+        XCTAssertEqual(repository.fetchOrphanedEpisodes().count, 1)
+
+        // Episode reappears
+        let reintroduced = Self.makePodcast(
+            id: original.id,
+            title: original.title,
+            episodes: [Self.makeEpisode(id: "ep-orphan", title: "Back")]
+        )
+        repository.update(reintroduced)
+
+        let refreshed = repository.find(id: original.id)
+        XCTAssertEqual(refreshed?.episodes.first?.isOrphaned, false)
+        XCTAssertTrue(repository.fetchOrphanedEpisodes().isEmpty)
+    }
+
+    func testDeleteSingleOrphanedEpisode() {
+        let original = Self.makePodcast(
+            id: "orphan-delete-one",
+            title: "Orphan Delete",
+            episodes: [
+                Self.makeEpisode(id: "ep-orphan", title: "Keep", playbackPosition: 30)
+            ]
+        )
+        repository.add(original)
+        repository.update(Self.makePodcast(id: original.id, title: original.title, episodes: []))
+
+        XCTAssertEqual(repository.fetchOrphanedEpisodes().count, 1)
+        XCTAssertTrue(repository.deleteOrphanedEpisode(id: "ep-orphan"))
+        XCTAssertTrue(repository.fetchOrphanedEpisodes().isEmpty)
+    }
+
+    func testDeleteAllOrphanedEpisodes() {
+        let original = Self.makePodcast(
+            id: "orphan-delete-all",
+            title: "Orphan Delete All",
+            episodes: [
+                Self.makeEpisode(id: "ep-o1", title: "One", playbackPosition: 10),
+                Self.makeEpisode(id: "ep-o2", title: "Two", isFavorited: true)
+            ]
+        )
+        repository.add(original)
+        repository.update(Self.makePodcast(id: original.id, title: original.title, episodes: []))
+        XCTAssertEqual(repository.fetchOrphanedEpisodes().count, 2)
+
+        let removed = repository.deleteAllOrphanedEpisodes()
+        XCTAssertEqual(removed, 2)
+        XCTAssertTrue(repository.fetchOrphanedEpisodes().isEmpty)
+    }
+
+    func testUnsubscribeStillDeletesAllEpisodes() {
+        let podcast = Self.makePodcast(
+            id: "unsubscribe-delete",
+            title: "Unsub Delete",
+            episodes: [
+                Self.makeEpisode(id: "ep-stateful", title: "Stateful", playbackPosition: 40)
+            ]
+        )
+        repository.add(podcast)
+        repository.remove(id: podcast.id)
+
+        XCTAssertNil(repository.find(id: podcast.id))
+        XCTAssertTrue(repository.fetchOrphanedEpisodes().isEmpty)
+    }
+
     func testSyncMixedScenarioDeletesOnlyStale() {
         let original = Self.makePodcast(
             id: "sync-mixed",
