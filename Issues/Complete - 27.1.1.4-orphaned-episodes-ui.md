@@ -4,7 +4,7 @@
 Low
 
 ## Status
-Open
+Complete
 
 ## Description
 Implement a UI section to display and manage "orphaned" episodes—episodes that have been removed from podcast RSS feeds but were preserved because they contain user state (playback position, downloads, favorites, bookmarks, archived status, or ratings).
@@ -19,16 +19,16 @@ From Issue 27.1.1.2 Known Limitations:
 > Future enhancement: UI to manage orphaned episodes (e.g., "Archived Episodes" section).
 
 ## Acceptance Criteria
-- [ ] Users can view a list of orphaned episodes (episodes with user state that are no longer in the feed)
-- [ ] Orphaned episodes section accessible from Library or Settings
-- [ ] Each orphaned episode shows:
+- [x] Users can view a list of orphaned episodes (episodes with user state that are no longer in the feed)
+- [x] Orphaned episodes section accessible from Library or Settings
+- [x] Each orphaned episode shows:
   - Episode title and podcast name
   - User state indicators (playback progress, downloaded, favorited, etc.)
   - Reason for preservation (e.g., "Has playback progress", "Downloaded")
-- [ ] Users can manually delete individual orphaned episodes
-- [ ] Users can bulk-delete all orphaned episodes (with confirmation)
-- [ ] Users can play orphaned episodes (if audio URL still valid)
-- [ ] Clear empty state when no orphaned episodes exist
+- [x] Users can manually delete individual orphaned episodes
+- [x] Users can bulk-delete all orphaned episodes (with confirmation)
+- [x] Users can play orphaned episodes (if audio URL still valid)
+- [x] Clear empty state when no orphaned episodes exist
 
 ## Implementation Approach
 
@@ -130,6 +130,36 @@ let predicate = #Predicate<EpisodeEntity> { $0.isOrphaned && $0.hasUserState }
 └─────────────────────────────────────┘
 ```
 
+## Completion Summary
+
+**Completed**: 2026-02-02
+**PR**: #388
+
+### Implementation Highlights
+- Added `isOrphaned: Bool` property to `EpisodeEntity` and `Episode` model
+- Implemented `fetchOrphanedEpisodes()` in `SwiftDataPodcastRepository`
+- Created `OrphanedEpisodesView` and `OrphanedEpisodesViewModel` in LibraryFeature package
+- Added Settings › Storage navigation entry with badge showing orphan count
+- Implemented per-episode and bulk delete operations with confirmation
+- Added comprehensive test coverage:
+  - Unit tests in `OrphanedEpisodesViewModelTests`
+  - Persistence tests in `SwiftDataPodcastRepositoryTests`
+  - UI tests in `OrphanedEpisodesUITests`
+  - Integration tests in `OrphanedEpisodesIntegrationTests`
+
+### UI Features
+- Badge on Settings › Storage showing orphan count
+- List view with episode metadata (title, podcast, preserved state)
+- Swipe-to-delete for individual episodes
+- "Delete All" button with confirmation alert
+- Empty state when no orphaned episodes exist
+- Test seeding support via `UITEST_SEED_ORPHANED_EPISODES` environment variable
+
+### Testing Infrastructure
+- UI test seeding helper `seedOrphanedEpisode()` in ZpodApp
+- Integration test support in `SwiftDataPodcastRepository`
+- Page object pattern used in `SettingsScreen` for navigation
+
 ## Notes
-- Consider periodic notification if orphaned episodes exceed a threshold (e.g., "You have 50+ orphaned episodes taking up space")
-- Audio playback may fail if publisher removed the audio file—handle gracefully with error message
+- Consider periodic notification if orphaned episodes exceed a threshold (e.g., "You have 50+ orphaned episodes taking up space") - deferred
+- Audio playback may fail if publisher removed the audio file—handle gracefully with error message - existing error handling sufficient
