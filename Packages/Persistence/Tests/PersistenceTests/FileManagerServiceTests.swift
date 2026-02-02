@@ -26,7 +26,7 @@ final class FileManagerServiceTests: XCTestCase {
         // - URLSession (for real downloads)
         // - baseDownloadsPath (for testability)
         // For now, we'll use the standard initializer
-        service = try await FileManagerService()
+        service = await FileManagerService.create()
     }
 
     override func tearDown() async throws {

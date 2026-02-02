@@ -250,7 +250,7 @@ final class BasicPersistenceTests: XCTestCase {
     func testFileManagerService_Creation() async throws {
         // Given: FileManagerService constructor
         // When: Creating service
-        let service = try await FileManagerService()
+        let service = await FileManagerService.create()
         
         // Then: Should create without throwing
         XCTAssertNotNil(service, "FileManagerService should be created successfully")
@@ -258,7 +258,7 @@ final class BasicPersistenceTests: XCTestCase {
     
     func testDownloadPath_Generation() async throws {
         // Given: FileManagerService and a download task
-        let service = try await FileManagerService()
+        let service = await FileManagerService.create()
         let task = DownloadTask(
             id: "test-task",
             episodeId: "episode-123",

@@ -16,7 +16,7 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        service = try await FileManagerService()
+        service = await FileManagerService.create()
     }
 
     override func tearDown() async throws {
