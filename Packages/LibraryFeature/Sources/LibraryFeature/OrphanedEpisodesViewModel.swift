@@ -1,5 +1,6 @@
 import CoreModels
 import Foundation
+import PlaybackEngine
 import SharedUtilities
 
 @MainActor
@@ -8,9 +9,32 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
   @Published public private(set) var isLoading = false
   @Published public var showDeleteAllConfirmation = false
   private let podcastManager: any PodcastManaging
+  private let injectedPlaybackCoordinator: EpisodePlaybackCoordinating?
+  private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
+    if let injectedPlaybackCoordinator {
+      return injectedPlaybackCoordinator
+    }
+    return EpisodePlaybackCoordinator(
+      playbackService: PlaybackEnvironment.playbackService,
+      episodeLookup: { [weak self] id in
+        guard let self else { return nil }
+        return self.episodes.first(where: { $0.id == id })
+      },
+      episodeUpdateHandler: { [weak self] updated in
+        guard let self else { return }
+        if let index = self.episodes.firstIndex(where: { $0.id == updated.id }) {
+          self.episodes[index] = updated
+        }
+      }
+    )
+  }()
 
-  public init(podcastManager: any PodcastManaging) {
+  public init(
+    podcastManager: any PodcastManaging,
+    playbackCoordinator: EpisodePlaybackCoordinating? = nil
+  ) {
     self.podcastManager = podcastManager
+    self.injectedPlaybackCoordinator = playbackCoordinator
   }
 
   public func load() async {
@@ -21,31 +45,29 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
   }
 
   public func delete(_ episode: Episode) async {
-    _ = await withCheckedContinuation { continuation in
-      Task.detached {
-        let removed = self.podcastManager.deleteOrphanedEpisode(id: episode.id)
-        continuation.resume(returning: removed)
-      }
-    }
+    let manager = podcastManager
+    _ = await Task.detached {
+      manager.deleteOrphanedEpisode(id: episode.id)
+    }.value
     await load()
   }
 
   public func deleteAll() async {
-    _ = await withCheckedContinuation { continuation in
-      Task.detached {
-        let count = self.podcastManager.deleteAllOrphanedEpisodes()
-        continuation.resume(returning: count)
-      }
-    }
+    let manager = podcastManager
+    _ = await Task.detached {
+      manager.deleteAllOrphanedEpisodes()
+    }.value
     await load()
   }
 
+  public func quickPlayEpisode(_ episode: Episode) async {
+    await playbackCoordinator.quickPlayEpisode(episode)
+  }
+
   private func fetch() async -> [Episode] {
-    await withCheckedContinuation { continuation in
-      Task.detached {
-        let items = self.podcastManager.fetchOrphanedEpisodes()
-        continuation.resume(returning: items)
-      }
-    }
+    let manager = podcastManager
+    return await Task.detached {
+      manager.fetchOrphanedEpisodes()
+    }.value
   }
 }

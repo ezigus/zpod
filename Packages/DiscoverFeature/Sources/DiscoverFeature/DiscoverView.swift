@@ -521,11 +521,11 @@ private final class MockPodcastManager: PodcastManaging, @unchecked Sendable {
     func update(_ podcast: Podcast) { }
     func remove(id: String) { }
     func findByFolder(folderId: String) -> [Podcast] { [] }
-  func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] { [] }
-  func findByTag(tagId: String) -> [Podcast] { [] }
-  func findUnorganized() -> [Podcast] { [] }
-  func fetchOrphanedEpisodes() -> [Episode] { [] }
-  func deleteOrphanedEpisode(id: String) -> Bool { false }
-  func deleteAllOrphanedEpisodes() -> Int { 0 }
+    func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast] { [] }
+    func findByTag(tagId: String) -> [Podcast] { [] }
+    func findUnorganized() -> [Podcast] { [] }
+    func fetchOrphanedEpisodes() -> [Episode] { [] }
+    func deleteOrphanedEpisode(id: String) -> Bool { false }
+    func deleteAllOrphanedEpisodes() -> Int { 0 }
 }
 #endif

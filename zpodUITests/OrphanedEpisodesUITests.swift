@@ -45,10 +45,14 @@ final class OrphanedEpisodesUITests: IsolatedUITestCase {
         description: "Seeded orphan row ep-1"
       )
     )
+    let playButton = app.descendants(matching: .any).matching(identifier: "Orphaned.Row.ep-1.Play").firstMatch
+    XCTAssertTrue(playButton.waitForExistence(timeout: 5))
     XCTAssertTrue(app.buttons.matching(identifier: "Orphaned.DeleteAll").firstMatch.exists)
 
     app.buttons.matching(identifier: "Orphaned.DeleteAll").firstMatch.tap()
-    app.buttons.matching(identifier: "Orphaned.DeleteAllConfirm").firstMatch.tap()
+    let confirmButton = app.buttons.matching(identifier: "Orphaned.DeleteAllConfirm").firstMatch
+    XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
+    confirmButton.tap()
 
     let empty = app.otherElements.matching(identifier: "Orphaned.EmptyState").firstMatch
     let emptyLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "No Orphaned Episodes"))

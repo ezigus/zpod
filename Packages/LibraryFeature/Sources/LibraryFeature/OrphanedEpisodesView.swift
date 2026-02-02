@@ -1,5 +1,6 @@
 import CoreModels
 import SwiftUI
+import UIKit
 
 struct OrphanedEpisodesView: View {
   @StateObject private var viewModel: OrphanedEpisodesViewModel
@@ -11,16 +12,26 @@ struct OrphanedEpisodesView: View {
   var body: some View {
     List {
       ForEach(viewModel.episodes, id: \.id) { episode in
-        row(for: episode)
-          .swipeActions {
-            Button(role: .destructive) {
-              Task { await viewModel.delete(episode) }
-            } label: {
-              Label("Delete", systemImage: "trash")
-            }
-            .accessibilityIdentifier("Orphaned.Row.\(episode.id).Delete")
+        let quickPlayAction = {
+          let _: Task<Void, Never> = Task {
+            await viewModel.quickPlayEpisode(episode)
           }
-          .accessibilityIdentifier("Orphaned.Row.\(episode.id)")
+        }
+        row(for: episode)
+          .padding(.trailing, 44) // leave space for trailing quick play control
+          .overlay(alignment: .trailing) {
+            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
+          }
+        .contentShape(Rectangle())
+        .swipeActions {
+          Button(role: .destructive) {
+            Task { await viewModel.delete(episode) }
+          } label: {
+            Label("Delete", systemImage: "trash")
+          }
+          .accessibilityIdentifier("Orphaned.Row.\(episode.id).Delete")
+        }
+        .accessibilityIdentifier("Orphaned.Row.\(episode.id)")
       }
     }
     .accessibilityIdentifier("Orphaned.List")
@@ -124,5 +135,78 @@ struct OrphanedEpisodesView: View {
       description: { Text("Episodes you kept with progress or downloads but removed from feeds will appear here.") }
     )
     .accessibilityIdentifier("Orphaned.EmptyState")
+  }
+
+  @ViewBuilder
+  private func quickPlayButton(
+    for episode: Episode,
+    action: @escaping () -> Void,
+    trailingPadding: CGFloat = 0
+  ) -> some View {
+    QuickPlayButtonUIKit(
+      episode: episode,
+      trailingPadding: trailingPadding,
+      action: action
+    )
+  }
+}
+
+// MARK: - UIKit bridge for reliable accessibility in List rows
+
+private struct QuickPlayButtonUIKit: UIViewRepresentable {
+  typealias UIViewType = UIView
+  let episode: Episode
+  let trailingPadding: CGFloat
+  let action: () -> Void
+
+  final class Coordinator {
+    var action: () -> Void
+
+    init(action: @escaping () -> Void) {
+      self.action = action
+    }
+
+    @objc func tapped() {
+      action()
+    }
+  }
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(action: action)
+  }
+
+  func makeUIView(context: Context) -> UIView {
+    let button = UIButton(type: .system)
+    button.translatesAutoresizingMaskIntoConstraints = false
+    button.addTarget(context.coordinator, action: #selector(Coordinator.tapped), for: .touchUpInside)
+    button.accessibilityIdentifier = "Orphaned.Row.\(episode.id).Play"
+    button.accessibilityLabel = "Play \(episode.title)"
+    button.accessibilityHint = "Resume playback from the last position"
+    button.tintColor = .label
+    button.setContentCompressionResistancePriority(.required, for: .horizontal)
+    updateImage(on: button)
+
+    let container = UIView()
+    container.addSubview(button)
+    NSLayoutConstraint.activate([
+      button.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      button.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -trailingPadding),
+      button.widthAnchor.constraint(equalToConstant: 32),
+      button.heightAnchor.constraint(equalToConstant: 32),
+      container.heightAnchor.constraint(greaterThanOrEqualTo: button.heightAnchor)
+    ])
+    return container
+  }
+
+  func updateUIView(_ uiView: UIView, context: Context) {
+    guard let button = uiView.subviews.compactMap({ $0 as? UIButton }).first else { return }
+    context.coordinator.action = action
+    updateImage(on: button)
+  }
+
+  private func updateImage(on button: UIButton) {
+    let name = episode.isInProgress ? "play.fill" : "play.circle"
+    let image = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .medium))
+    button.setImage(image, for: .normal)
   }
 }
