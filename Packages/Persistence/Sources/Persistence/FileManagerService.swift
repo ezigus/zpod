@@ -50,7 +50,7 @@ public actor FileManagerService: NSObject, @preconcurrency FileManagerServicing,
     private var activeDownloads: [Int: DownloadTask] = [:] // Maps URLSessionTask.taskIdentifier -> DownloadTask
 
     /// Background completion handler set by AppDelegate
-    public var backgroundCompletionHandler: (() -> Void)?
+    public var backgroundCompletionHandler: (@Sendable () -> Void)?
 
     #if canImport(Combine)
     public var downloadProgressPublisher: DownloadProgressPublisher {
