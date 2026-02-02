@@ -189,6 +189,14 @@ This document outlines the key features and functionalities of the Podcast Addic
 - **And:** Episodes without user state that are missing from the feed are deleted.
 - **And:** New feed episodes are inserted and existing ones have their metadata updated without clearing user state.
 
+#### Users Can View and Manage Orphaned Episodes
+- **Given:** Some episodes were removed from their podcast feeds but were preserved because they contain user state (playback progress, downloads, favorites, bookmarks, archived, or rating).
+- **When:** The user navigates to Settings › Storage › Orphaned Episodes.
+- **Then:** The app shows a list of orphaned episodes with title, podcast name, and badges indicating why they were preserved.
+- **And:** The user can delete individual orphaned episodes or bulk-delete all (with confirmation).
+- **And:** The user can attempt to play an orphaned episode if its audio URL is still valid.
+- **And:** An empty state is shown when no orphaned episodes exist.
+
 ---
 
 ## Customization and Personalization

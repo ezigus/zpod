@@ -69,6 +69,10 @@ private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Senda
     func findUnorganized() -> [Podcast] {
         storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
     }
+
+    func fetchOrphanedEpisodes() -> [Episode] { [] }
+    func deleteOrphanedEpisode(id: String) -> Bool { false }
+    func deleteAllOrphanedEpisodes() -> Int { 0 }
 }
 
 private enum PlaceholderPodcastData {

@@ -10,6 +10,20 @@ struct SettingsHomeView: View {
   var body: some View {
     NavigationStack {
       List {
+        Section("Storage") {
+          NavigationLink {
+            OrphanedEpisodesView(
+              viewModel: OrphanedEpisodesViewModel(
+                podcastManager: PlaybackEnvironment.podcastManager
+              )
+            )
+          } label: {
+            Label("Orphaned Episodes", systemImage: "tray.full")
+              .accessibilityIdentifier("Settings.Orphaned.Label")
+          }
+          .accessibilityIdentifier("Settings.Orphaned")
+        }
+
         ForEach(sections) { section in
           Section(section.title ?? "General") {
             ForEach(section.descriptors, id: \.id) { descriptor in
@@ -25,6 +39,7 @@ struct SettingsHomeView: View {
       .platformInsetGroupedListStyle()
       .overlay {
         overlayContent()
+          .allowsHitTesting(false)
       }
       .navigationTitle("Settings")
 #if os(iOS)

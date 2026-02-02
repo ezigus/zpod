@@ -255,4 +255,7 @@ private final class EmptyPodcastManager: PodcastManaging {
   }
   func findByTag(tagId: String) -> [Podcast] { [] }
   func findUnorganized() -> [Podcast] { [] }
+  func fetchOrphanedEpisodes() -> [Episode] { [] }
+  func deleteOrphanedEpisode(id: String) -> Bool { false }
+  func deleteAllOrphanedEpisodes() -> Int { 0 }
 }

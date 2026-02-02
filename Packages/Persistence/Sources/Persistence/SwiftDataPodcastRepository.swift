@@ -117,6 +117,10 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
             for episode in podcast.episodes {
                 if let existing = existingById.removeValue(forKey: episode.id) {
                     existing.updateMetadataFrom(episode)
+                    if existing.isOrphaned {
+                        existing.isOrphaned = false
+                        existing.dateOrphaned = nil
+                    }
                 } else {
                     let episodeEntity = EpisodeEntity.fromDomain(episode, podcastId: podcast.id)
                     modelContext.insert(episodeEntity)
@@ -126,6 +130,8 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
             // Delete episodes that are no longer present in the incoming podcast (only if no user state)
             for removed in existingById.values {
                 if removed.hasUserState {
+                    removed.isOrphaned = true
+                    removed.dateOrphaned = Date()
                     logger.debug("Keeping orphaned episode with user state: \(removed.id, privacy: .public)")
                     continue
                 }
@@ -194,6 +200,44 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
             return all
                 .filter { $0.folderId == nil && $0.tagIds.isEmpty }
                 .compactMap(hydratePodcast)
+        }
+    }
+
+    // MARK: - Orphaned Episodes
+
+    public func fetchOrphanedEpisodes() -> [Episode] {
+        serialQueue.sync {
+            let predicate = #Predicate<EpisodeEntity> { $0.isOrphaned == true }
+            let descriptor = FetchDescriptor(predicate: predicate)
+            guard let entities = try? modelContext.fetch(descriptor) else {
+                logger.error("Failed to fetch orphaned episodes")
+                return []
+            }
+            return entities.map { $0.toDomainSafe() }
+        }
+    }
+
+    public func deleteOrphanedEpisode(id: String) -> Bool {
+        serialQueue.sync {
+            let predicate = #Predicate<EpisodeEntity> { $0.id == id && $0.isOrphaned == true }
+            let descriptor = FetchDescriptor(predicate: predicate)
+            guard let entity = try? modelContext.fetch(descriptor).first else { return false }
+            modelContext.delete(entity)
+            return saveContext()
+        }
+    }
+
+    /// Deletes all orphaned episodes. Returns the number of rows removed.
+    @discardableResult
+    public func deleteAllOrphanedEpisodes() -> Int {
+        serialQueue.sync {
+            let predicate = #Predicate<EpisodeEntity> { $0.isOrphaned == true }
+            let descriptor = FetchDescriptor(predicate: predicate)
+            guard let entities = try? modelContext.fetch(descriptor) else { return 0 }
+            for entity in entities {
+                modelContext.delete(entity)
+            }
+            return saveContext() ? entities.count : 0
         }
     }
 

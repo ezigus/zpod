@@ -114,6 +114,15 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty }
   }
 
+  // MARK: - Orphaned Episodes (not supported in in-memory double)
+
+  public func fetchOrphanedEpisodes() -> [Episode] { [] }
+
+  public func deleteOrphanedEpisode(id: String) -> Bool { false }
+
+  @discardableResult
+  public func deleteAllOrphanedEpisodes() -> Int { 0 }
+
   // MARK: - Test Utilities
 
   /// Resets all episode playback positions to 0 across all podcasts.

@@ -254,4 +254,31 @@ final class EpisodeEntityTests: XCTestCase {
         entity.downloadStatus = EpisodeDownloadStatus.notDownloaded.rawValue
         XCTAssertFalse(entity.hasUserState, "Stateless episodes should return false")
     }
+
+    func testOrphanedDefaultsFalseAndDateNil() {
+        let entity = EpisodeEntity(
+            id: "orphan-default",
+            podcastId: "pod",
+            title: "Title",
+            podcastTitle: "Pod"
+        )
+
+        XCTAssertFalse(entity.isOrphaned)
+        XCTAssertNil(entity.dateOrphaned)
+    }
+
+    func testOrphanedFlagRoundTripsToDomain() {
+        let entity = EpisodeEntity(
+            id: "orphaned",
+            podcastId: "pod",
+            title: "Title",
+            podcastTitle: "Pod",
+            isOrphaned: true,
+            dateOrphaned: Date(timeIntervalSince1970: 123)
+        )
+
+        let episode = entity.toDomain()
+        XCTAssertTrue(episode.isOrphaned)
+        XCTAssertEqual(episode.dateOrphaned?.timeIntervalSince1970 ?? -1, 123, accuracy: 0.5)
+    }
 }

@@ -10,4 +10,7 @@ public protocol PodcastManaging: Sendable {
     func findByFolderRecursive(folderId: String, folderManager: FolderManaging) -> [Podcast]
     func findByTag(tagId: String) -> [Podcast]
     func findUnorganized() -> [Podcast]
+    func fetchOrphanedEpisodes() -> [Episode]
+    func deleteOrphanedEpisode(id: String) -> Bool
+    @discardableResult func deleteAllOrphanedEpisodes() -> Int
 }
