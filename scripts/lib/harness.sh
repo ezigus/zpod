@@ -514,6 +514,13 @@ finalize_and_exit() {
     fi
   fi
   SUMMARY_PRINTED=1
+  if [[ -n "${START_TIME:-}" ]]; then
+    local end_time elapsed formatted
+    end_time=$(date +%s)
+    elapsed=$((end_time - START_TIME))
+    formatted=$(printf '%02d:%02d:%02d' $((elapsed/3600)) $(((elapsed%3600)/60)) $((elapsed%60)))
+    log_time "run-xcode-tests finished in ${formatted} (exit ${EXIT_STATUS})"
+  fi
   exit "$code"
 }
 
@@ -2293,6 +2300,13 @@ test_app_target() {
     return 0
   fi
 
+  if ! boot_simulator_destination "$resolved_destination" "$target"; then
+    local boot_status=$?
+    add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
+    update_exit_status "$boot_status"
+    return "$boot_status"
+  fi
+
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
@@ -2807,6 +2821,13 @@ run_filtered_xcode_tests() {
     return 2
   fi
 
+  if ! boot_simulator_destination "$resolved_destination" "$label"; then
+    local boot_status=$?
+    add_summary "test" "${label}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
+    update_exit_status "$boot_status"
+    return "$boot_status"
+  fi
+
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
@@ -3119,6 +3140,7 @@ harness_main() {
 # Start timer for entire script execution
 START_TIME=$(date +%s)
 START_TIME_HUMAN=$(date "+%Y-%m-%d %H:%M:%S %Z")
+log_time "run-xcode-tests start (${START_TIME_HUMAN})"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

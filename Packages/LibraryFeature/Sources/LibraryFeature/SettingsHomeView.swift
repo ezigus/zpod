@@ -6,6 +6,7 @@ struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
   @State private var sections: [FeatureConfigurationSection] = []
   @State private var isLoading = true
+  @State private var orphanedCount: Int = 0
 
   var body: some View {
     NavigationStack {
@@ -20,6 +21,7 @@ struct SettingsHomeView: View {
           } label: {
             Label("Orphaned Episodes", systemImage: "tray.full")
               .accessibilityIdentifier("Settings.Orphaned.Label")
+              .badge(orphanedCount)
           }
           .accessibilityIdentifier("Settings.Orphaned")
         }
@@ -46,8 +48,14 @@ struct SettingsHomeView: View {
       .navigationBarTitleDisplayMode(.inline)
 #endif
       .navigationBarAccessibilityIdentifier("Settings")
-      .task { await loadDescriptors() }
-      .refreshable { await loadDescriptors() }
+      .task {
+        await loadDescriptors()
+        await refreshOrphanedCount()
+      }
+      .refreshable {
+        await loadDescriptors()
+        await refreshOrphanedCount()
+      }
     }
   }
 
@@ -74,6 +82,11 @@ struct SettingsHomeView: View {
       )
       .accessibilityIdentifier("Settings.EmptyState")
     }
+  }
+
+  @MainActor
+  private func refreshOrphanedCount() async {
+    orphanedCount = PlaybackEnvironment.podcastManager.fetchOrphanedEpisodes().count
   }
 
 }

@@ -25,6 +25,11 @@ log_info() {
   printf "%b\n" "${__LOG_BLUE}ℹ️  ${*}${__LOG_RESET}"
 }
 
+log_time() {
+  # Timestamped info line for duration tracing
+  printf "%b\n" "${__LOG_BLUE}⏱️  $(date '+%H:%M:%S') - ${*}${__LOG_RESET}"
+}
+
 log_success() {
   printf "%b\n" "${__LOG_GREEN}✅ ${*}${__LOG_RESET}"
 }

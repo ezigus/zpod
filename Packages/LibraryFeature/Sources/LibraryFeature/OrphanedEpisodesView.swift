@@ -22,7 +22,9 @@ struct OrphanedEpisodesView: View {
         row(for: episode)
           .padding(.trailing, 44) // leave space for trailing quick play control
           .overlay(alignment: .trailing) {
-            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
+            if episode.audioURL != nil {
+              quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
+            }
           }
         .contentShape(Rectangle())
         .swipeActions {
