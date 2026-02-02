@@ -107,6 +107,33 @@ final class OrphanedEpisodesUITests: IsolatedUITestCase {
     XCTAssertTrue(row2.waitForExistence(timeout: 6))
   }
 
+  @MainActor
+  func testSettingsBadgeShowsOrphanCount() {
+    let seed = seedOrphanedEpisodesPayload([
+      OrphanSeed(id: "ep-1", title: "Badge One", podcastTitle: "BadgePod", reason: "Progress"),
+      OrphanSeed(id: "ep-2", title: "Badge Two", podcastTitle: "BadgePod", reason: "Downloaded")
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: UITestLaunchConfiguration.orphanedEpisodes(seedBase64: seed))
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+
+    let rowCandidates: [XCUIElement] = [
+      app.buttons.matching(identifier: "Settings.Orphaned").firstMatch,
+      app.cells.matching(identifier: "Settings.Orphaned").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Orphaned").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.Orphaned").firstMatch
+    ]
+    guard let row = waitForAnyElement(rowCandidates, timeout: 8, description: "Orphaned settings row") else {
+      XCTFail("Orphaned Episodes row not found")
+      return
+    }
+
+    let badge = row.descendants(matching: .staticText).matching(NSPredicate(format: "label == %@", "2")).firstMatch
+    XCTAssertTrue(badge.waitForExistence(timeout: 6), "Badge count should reflect seeded orphan count")
+  }
+
   // MARK: - Seeding
 
   private struct OrphanSeed {
