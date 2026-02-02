@@ -158,21 +158,35 @@ public enum CarPlayDependencyRegistry {
     #if os(iOS)
       let disableFlag = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] ?? ""
       let useAudioEngine = disableFlag != "1"
+
+      // Local file provider for offline playback
+      let localFileProvider: @Sendable (String) -> URL? = { episodeId in
+        // Use DownloadCoordinatorBridge to check for local files
+        return DownloadCoordinatorBridge.shared.localFileURL(for: episodeId)
+      }
+
       if useAudioEngine {
         let audioEngine = AVPlayerPlaybackEngine()
-        let playback = EnhancedEpisodePlayer(audioEngine: audioEngine)
+        let playback = EnhancedEpisodePlayer(
+          audioEngine: audioEngine,
+          localFileProvider: localFileProvider
+        )
         let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
         let alertPresenter = PlaybackAlertPresenter()
         return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)
       } else {
         // UI test mode: use ticker-based playback for deterministic timing
-        let playback = EnhancedEpisodePlayer()
+        let playback = EnhancedEpisodePlayer(localFileProvider: localFileProvider)
         let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
         let alertPresenter = PlaybackAlertPresenter()
         return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)
       }
     #else
-      let playback = EnhancedEpisodePlayer()
+      // Non-iOS platforms: no audio engine, but still provide local file support
+      let localFileProvider: @Sendable (String) -> URL? = { episodeId in
+        return DownloadCoordinatorBridge.shared.localFileURL(for: episodeId)
+      }
+      let playback = EnhancedEpisodePlayer(localFileProvider: localFileProvider)
       let queueCoordinator = CarPlayPlaybackCoordinator(playbackService: playback)
       let alertPresenter = PlaybackAlertPresenter()
       return setupDependencies(podcastManager, playback, queueCoordinator, alertPresenter)

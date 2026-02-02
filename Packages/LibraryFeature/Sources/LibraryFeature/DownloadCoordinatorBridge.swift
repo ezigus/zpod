@@ -1,5 +1,6 @@
 import CombineSupport
 import CoreModels
+import Foundation
 import Networking
 
 @MainActor
@@ -34,5 +35,15 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
 
     public func enqueueEpisode(_ episode: Episode) {
         coordinator.addDownload(for: episode)
+    }
+
+    /// Get local file URL for a downloaded episode (for offline playback)
+    public func localFileURL(for episodeId: String) -> URL? {
+        return coordinator.localFileURL(for: episodeId)
+    }
+
+    /// Check if episode has been downloaded
+    public func isDownloaded(episodeId: String) -> Bool {
+        return coordinator.isDownloaded(episodeId: episodeId)
     }
 }
