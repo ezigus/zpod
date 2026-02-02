@@ -1,0 +1,82 @@
+import XCTest
+
+final class OrphanedEpisodesUITests: IsolatedUITestCase {
+
+  @MainActor
+  func testNavigateAndSeeEmptyState() {
+    app = launchConfiguredApp()
+
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToOrphanedEpisodes(), "Should navigate to Orphaned Episodes")
+
+    let emptyState = app.otherElements.matching(identifier: "Orphaned.EmptyState").firstMatch
+    let emptyLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "No Orphaned Episodes"))
+      .firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement(
+        [emptyState, emptyLabel],
+        timeout: 6,
+        description: "Orphaned empty state"
+      )
+    )
+  }
+
+  @MainActor
+  func testListShowsOrphansAndAllowsDeleteAll() {
+    let seed = seedOrphanedEpisodesPayload([
+      OrphanSeed(id: "ep-1", title: "Orphan One", podcastTitle: "Pod A", reason: "Progress"),
+      OrphanSeed(id: "ep-2", title: "Orphan Two", podcastTitle: "Pod B", reason: "Downloaded")
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: UITestLaunchConfiguration.orphanedEpisodes(seedBase64: seed))
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToOrphanedEpisodes())
+
+    let row1 = app.otherElements.matching(identifier: "Orphaned.Row.ep-1").firstMatch
+    let row1Title = app.staticTexts.matching(NSPredicate(format: "label == %@", "Orphan One")).firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement(
+        [row1, row1Title],
+        timeout: 8,
+        description: "Seeded orphan row ep-1"
+      )
+    )
+    XCTAssertTrue(app.buttons.matching(identifier: "Orphaned.DeleteAll").firstMatch.exists)
+
+    app.buttons.matching(identifier: "Orphaned.DeleteAll").firstMatch.tap()
+    app.buttons.matching(identifier: "Orphaned.DeleteAllConfirm").firstMatch.tap()
+
+    let empty = app.otherElements.matching(identifier: "Orphaned.EmptyState").firstMatch
+    let emptyLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "No Orphaned Episodes"))
+      .firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement([empty, emptyLabel], timeout: 8, description: "Empty state after delete all")
+    )
+  }
+
+  // MARK: - Seeding
+
+  private struct OrphanSeed {
+    let id: String
+    let title: String
+    let podcastTitle: String
+    let reason: String
+  }
+
+  private func seedOrphanedEpisodesPayload(_ seeds: [OrphanSeed]) -> String {
+    let payload = seeds.map { seed in
+      [
+        "id": seed.id,
+        "title": seed.title,
+        "podcastTitle": seed.podcastTitle,
+        "reason": seed.reason
+      ]
+    }
+    let data = try! JSONSerialization.data(withJSONObject: payload, options: [])
+    return data.base64EncodedString()
+  }
+}

@@ -8,6 +8,7 @@
 import SharedUtilities
 import SwiftUI
 import UIKit
+import CoreModels
 
 #if canImport(LibraryFeature)
   import SwiftData
@@ -30,6 +31,7 @@ struct ZpodApp: App {
 
     // Reset playback state for UI tests to ensure clean state between tests
     resetPlaybackStateForUITests()
+    seedOrphanedEpisodesForUITests()
     
     // Diagnostic: Check if audio environment variables are present
     let env = ProcessInfo.processInfo.environment
@@ -134,6 +136,125 @@ struct ZpodApp: App {
       Self.sharedPodcastRepository.resetAllPlaybackPositions()
       print("🧪 UI Test: Reset all episode playback positions to 0")
     #endif
+  }
+
+  private func seedOrphanedEpisodesForUITests() {
+    guard ProcessInfo.processInfo.environment["UITEST_SEEDED_ORPHANED_EPISODES_B64"] != nil else {
+      return
+    }
+    guard #available(iOS 17, *), ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1" else {
+      return
+    }
+
+    let key = "UITEST_SEEDED_ORPHANED_EPISODES_B64"
+    guard
+      let payload = ProcessInfo.processInfo.environment[key],
+      let data = Data(base64Encoded: payload),
+      let rawArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+    else {
+      print("🧪 UI Test: Failed to decode orphaned episode seed payload")
+      return
+    }
+
+    let episodes: [Episode] = rawArray.compactMap { dict in
+      guard let id = dict["id"] as? String,
+        let title = dict["title"] as? String,
+        let podcastTitle = dict["podcastTitle"] as? String
+      else { return nil }
+
+      let reason = (dict["reason"] as? String) ?? "progress"
+      var playbackPosition = 0
+      var downloadStatus: EpisodeDownloadStatus = .notDownloaded
+      var isFavorited = false
+      var isBookmarked = false
+      var isArchived = false
+      var isPlayed = false
+      var rating: Int? = nil
+
+      switch reason.lowercased() {
+      case "progress":
+        playbackPosition = 30
+      case "downloaded":
+        downloadStatus = .downloaded
+      case "downloading":
+        downloadStatus = .downloading
+      case "paused":
+        downloadStatus = .paused
+      case "failed":
+        downloadStatus = .failed
+      case "favorited":
+        isFavorited = true
+      case "bookmarked":
+        isBookmarked = true
+      case "archived":
+        isArchived = true
+      case "played":
+        isPlayed = true
+      case "rated":
+        rating = 4
+      default:
+        playbackPosition = 20
+      }
+
+      return Episode(
+        id: id,
+        title: title,
+        podcastID: "uitest-orphan-pod",
+        podcastTitle: podcastTitle,
+        playbackPosition: playbackPosition,
+        isPlayed: isPlayed,
+        pubDate: Date(),
+        duration: 1800,
+        description: nil,
+        audioURL: URL(string: "https://example.com/audio/\(id).mp3"),
+        artworkURL: nil,
+        downloadStatus: downloadStatus,
+        isFavorited: isFavorited,
+        isBookmarked: isBookmarked,
+        isArchived: isArchived,
+        rating: rating,
+        dateAdded: Date(),
+        isOrphaned: false,
+        dateOrphaned: nil
+      )
+    }
+
+    guard !episodes.isEmpty else {
+      print("🧪 UI Test: No orphaned episodes decoded from seed")
+      return
+    }
+
+    // Insert via repository then remove from feed to mark orphaned using production logic.
+    let podcast = Podcast(
+      id: "uitest-orphan-pod",
+      title: "UITest Orphaned",
+      author: "UITest",
+      description: "Seeded orphaned episodes",
+      artworkURL: nil,
+      feedURL: URL(string: "https://example.com/uitest-orphan.xml")!,
+      categories: [],
+      episodes: episodes,
+      isSubscribed: true,
+      dateAdded: Date()
+    )
+
+    ZpodApp.sharedPodcastRepository.add(podcast)
+    ZpodApp.sharedPodcastRepository.update(
+      Podcast(
+        id: podcast.id,
+        title: podcast.title,
+        author: podcast.author,
+        description: podcast.description,
+        artworkURL: podcast.artworkURL,
+        feedURL: podcast.feedURL,
+        categories: podcast.categories,
+        episodes: [],
+        isSubscribed: podcast.isSubscribed,
+        dateAdded: podcast.dateAdded
+      )
+    )
+
+    print("🧪 UI Test: Seeded \(episodes.count) orphaned episodes")
   }
 
   private func configureCarPlayDependencies() {

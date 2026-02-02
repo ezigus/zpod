@@ -10,21 +10,23 @@ struct OrphanedEpisodesView: View {
 
   var body: some View {
     List {
+      ForEach(viewModel.episodes, id: \.id) { episode in
+        row(for: episode)
+          .swipeActions {
+            Button(role: .destructive) {
+              Task { await viewModel.delete(episode) }
+            } label: {
+              Label("Delete", systemImage: "trash")
+            }
+            .accessibilityIdentifier("Orphaned.Row.\(episode.id).Delete")
+          }
+          .accessibilityIdentifier("Orphaned.Row.\(episode.id)")
+      }
+    }
+    .accessibilityIdentifier("Orphaned.List")
+    .overlay {
       if viewModel.episodes.isEmpty && !viewModel.isLoading {
         emptyState
-      } else {
-        ForEach(viewModel.episodes, id: \.id) { episode in
-          row(for: episode)
-            .swipeActions {
-              Button(role: .destructive) {
-                Task { await viewModel.delete(episode) }
-              } label: {
-                Label("Delete", systemImage: "trash")
-              }
-              .accessibilityIdentifier("Orphaned.Row.\(episode.id).Delete")
-            }
-            .accessibilityIdentifier("Orphaned.Row.\(episode.id)")
-        }
       }
     }
     .overlay {
@@ -50,9 +52,14 @@ struct OrphanedEpisodesView: View {
       titleVisibility: .visible
     ) {
       Button("Delete All", role: .destructive) {
+        viewModel.showDeleteAllConfirmation = false
         Task { await viewModel.deleteAll() }
       }
-      Button("Cancel", role: .cancel) {}
+      .accessibilityIdentifier("Orphaned.DeleteAllConfirm")
+      Button("Cancel", role: .cancel) {
+        viewModel.showDeleteAllConfirmation = false
+      }
+        .accessibilityIdentifier("Orphaned.DeleteAllCancel")
     }
     .task {
       await viewModel.load()

@@ -39,6 +39,7 @@ struct SettingsHomeView: View {
       .platformInsetGroupedListStyle()
       .overlay {
         overlayContent()
+          .allowsHitTesting(false)
       }
       .navigationTitle("Settings")
 #if os(iOS)

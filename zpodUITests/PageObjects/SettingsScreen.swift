@@ -94,6 +94,16 @@ public struct SettingsScreen: BaseScreen {
     )
   }
 
+  private var orphanedEpisodesRow: XCUIElement? {
+    findSettingsRow(
+      identifiers: [
+        "Settings.Orphaned",
+        "Settings.Orphaned.Label",
+        "Orphaned Episodes"
+      ]
+    )
+  }
+
   // MARK: - Navigation Actions
 
   /// Navigate to Swipe Actions configuration.
@@ -163,6 +173,26 @@ public struct SettingsScreen: BaseScreen {
     // Verify Playback configuration screen appeared
     let playbackToggle = app.switches.matching(identifier: "Playback.ContinuousToggle").firstMatch
     return wait(for: playbackToggle, until: .exists)
+  }
+
+  /// Navigate to Orphaned Episodes list.
+  @discardableResult
+  public func navigateToOrphanedEpisodes() -> Bool {
+    guard let row = orphanedEpisodesRow else { return false }
+    guard tap(row) else { return false }
+
+    let listCandidates: [XCUIElement] = [
+      app.tables.matching(identifier: "Orphaned.List").firstMatch,
+      app.collectionViews.matching(identifier: "Orphaned.List").firstMatch,
+      app.scrollViews.matching(identifier: "Orphaned.List").firstMatch,
+      app.otherElements.matching(identifier: "Orphaned.List").firstMatch
+    ]
+    let empty = app.otherElements.matching(identifier: "Orphaned.EmptyState").firstMatch
+    let title = app.navigationBars["Orphaned Episodes"].firstMatch
+    let titleLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Orphaned Episodes"))
+      .firstMatch
+
+    return waitForAny(listCandidates + [empty, title, titleLabel]) != nil
   }
 
   // MARK: - Helpers

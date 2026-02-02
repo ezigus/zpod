@@ -71,6 +71,13 @@ public enum UITestLaunchConfiguration {
     "UITEST_SLIDER_OPACITY": "0.1",
   ]
 
+  /// Orphaned episodes seed helper.
+  public static func orphanedEpisodes(seedBase64: String) -> [String: String] {
+    var env = base
+    env["UITEST_SEEDED_ORPHANED_EPISODES_B64"] = seedBase64
+    return env
+  }
+
   // MARK: - Playback Configurations
 
   /// Ticker-based playback (fast, deterministic, no audio).

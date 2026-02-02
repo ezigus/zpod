@@ -70,6 +70,10 @@ final class PreviewPodcastManager: PodcastManaging, @unchecked Sendable {
     locked { storage.values.filter { $0.folderId == nil && $0.tagIds.isEmpty } }
   }
 
+  func fetchOrphanedEpisodes() -> [Episode] { [] }
+  func deleteOrphanedEpisode(id: String) -> Bool { false }
+  func deleteAllOrphanedEpisodes() -> Int { 0 }
+
   private func locked<T>(_ body: () -> T) -> T {
     lock.lock()
     defer { lock.unlock() }
