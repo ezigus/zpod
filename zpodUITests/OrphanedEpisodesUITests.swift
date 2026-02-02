@@ -62,6 +62,51 @@ final class OrphanedEpisodesUITests: IsolatedUITestCase {
     )
   }
 
+  @MainActor
+  func testSwipeToDeleteSingleOrphan() {
+    let seed = seedOrphanedEpisodesPayload([
+      OrphanSeed(id: "ep-1", title: "Orphan One", podcastTitle: "Pod A", reason: "Progress"),
+      OrphanSeed(id: "ep-2", title: "Orphan Two", podcastTitle: "Pod B", reason: "Downloaded")
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: UITestLaunchConfiguration.orphanedEpisodes(seedBase64: seed))
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToOrphanedEpisodes())
+
+    let row1 = app.otherElements.matching(identifier: "Orphaned.Row.ep-1").firstMatch
+    XCTAssertTrue(row1.waitForExistence(timeout: 8))
+
+    let progressBadge = app.descendants(matching: .any).matching(identifier: "Orphaned.Row.ep-1.Reason.Progress").firstMatch
+    let progressLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Progress")).firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement(
+        [progressBadge, progressLabel],
+        timeout: 8,
+        description: "Progress badge"
+      )
+    )
+    let downloadedBadge = app.descendants(matching: .any).matching(identifier: "Orphaned.Row.ep-2.Reason.Downloaded").firstMatch
+    let downloadedLabel = app.staticTexts.matching(NSPredicate(format: "label == %@", "Downloaded")).firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement(
+        [downloadedBadge, downloadedLabel],
+        timeout: 8,
+        description: "Downloaded badge"
+      )
+    )
+
+    row1.swipeLeft()
+    let deleteButton = app.buttons.matching(identifier: "Orphaned.Row.ep-1.Delete").firstMatch
+    XCTAssertTrue(deleteButton.waitForExistence(timeout: 4))
+    deleteButton.tap()
+
+    XCTAssertTrue(waitForElementToDisappear(row1, timeout: 6))
+    let row2 = app.otherElements.matching(identifier: "Orphaned.Row.ep-2").firstMatch
+    XCTAssertTrue(row2.waitForExistence(timeout: 6))
+  }
+
   // MARK: - Seeding
 
   private struct OrphanSeed {
