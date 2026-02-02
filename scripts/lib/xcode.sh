@@ -335,12 +335,18 @@ latest_ios_runtime_id() {
   command_exists xcrun || return 1
   command_exists python3 || return 1
 
-  local runtime_id=""
+  local simctl_json runtime_id status=0
+  simctl_json="$(xcrun simctl list runtimes -j 2>/dev/null || true)"
+  [[ -z "$simctl_json" ]] && return 1
+
   set +e
-  runtime_id=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
-import json, sys
+  runtime_id=$(SIMCTL_RUNTIMES_JSON="$simctl_json" python3 - <<'PY'
+import json, os, sys
+data_str = os.environ.get("SIMCTL_RUNTIMES_JSON", "")
+if not data_str:
+  sys.exit(1)
 try:
-  data = json.load(sys.stdin)
+  data = json.loads(data_str)
 except Exception:
   sys.exit(1)
 runtimes = [
@@ -362,7 +368,7 @@ runtimes = sorted(runtimes, key=version_key, reverse=True)
 print(runtimes[0].get("identifier", ""))
 PY
 )
-  local status=$?
+  status=$?
   set -e
   (( status == 0 )) || return 1
   [[ -n "$runtime_id" ]] || return 1
@@ -373,12 +379,18 @@ list_ios_runtime_ids() {
   command_exists xcrun || return 1
   command_exists python3 || return 1
 
-  local output
+  local simctl_json output status=0
+  simctl_json="$(xcrun simctl list runtimes -j 2>/dev/null || true)"
+  [[ -z "$simctl_json" ]] && return 1
+
   set +e
-  output=$(xcrun simctl list runtimes -j 2>/dev/null | python3 - <<'PY'
-import json, sys
+  output=$(SIMCTL_RUNTIMES_JSON="$simctl_json" python3 - <<'PY'
+import json, os, sys
+data_str = os.environ.get("SIMCTL_RUNTIMES_JSON", "")
+if not data_str:
+  sys.exit(1)
 try:
-  data = json.load(sys.stdin)
+  data = json.loads(data_str)
 except Exception:
   sys.exit(1)
 runtimes = [
@@ -403,7 +415,7 @@ for rt in runtimes:
     print(ident)
 PY
 )
-  local status=$?
+  status=$?
   set -e
   (( status == 0 )) || return 1
   printf "%s" "$output"
@@ -429,13 +441,20 @@ pick_device_type_identifier() {
   encoded_names="${encoded_names%|}"
 
   local identifier=""
+  local devicetypes_json status=0
+  devicetypes_json="$(xcrun simctl list devicetypes -j 2>/dev/null || true)"
+  [[ -z "$devicetypes_json" ]] && return 1
+
   set +e
-  identifier=$(xcrun simctl list devicetypes -j 2>/dev/null | python3 - "$encoded_names" <<'PY'
-import json, sys
+  identifier=$(SIMCTL_DEVICETYPES_JSON="$devicetypes_json" python3 - "$encoded_names" <<'PY'
+import json, os, sys
 
 preferred = sys.argv[1].split("|")
+data_str = os.environ.get("SIMCTL_DEVICETYPES_JSON", "")
+if not data_str:
+  sys.exit(1)
 try:
-  data = json.load(sys.stdin)
+  data = json.loads(data_str)
 except Exception:
   sys.exit(1)
 
@@ -449,7 +468,7 @@ for name in preferred:
 sys.exit(1)
 PY
 )
-  local status=$?
+  status=$?
   set -e
   (( status == 0 )) || return 1
   [[ -n "$identifier" ]] || return 1
@@ -489,6 +508,179 @@ cleanup_ephemeral_simulator() {
   xcrun simctl shutdown "$udid" >/dev/null 2>&1
   xcrun simctl delete "$udid" >/dev/null 2>&1
   set -e
+}
+
+_udid_for_destination() {
+  local destination="$1"
+  if [[ -z "$destination" ]]; then
+    return 1
+  fi
+
+  if [[ "$destination" == *"id="* ]]; then
+    local id="${destination#*id=}"
+    id="${id%%,*}"
+    if [[ -n "$id" ]]; then
+      printf "%s" "$id"
+      return 0
+    fi
+  fi
+
+  local name os
+  name="${destination#*name=}"
+  name="${name%%,*}"
+  os="${destination#*,OS=}"
+  os="${os%%,*}"
+
+  if [[ -z "$name" || -z "$os" ]]; then
+    return 1
+  fi
+
+  command_exists xcrun || return 1
+  command_exists python3 || return 1
+
+  local simctl_json
+  simctl_json="$(xcrun simctl list devices --json 2>/dev/null || true)"
+  [[ -z "$simctl_json" ]] && return 1
+
+  local udid=""
+  set +e
+  udid=$(SIMCTL_DEVICES_JSON="$simctl_json" python3 - "$name" "$os" <<'PY'
+import json, os, sys
+
+name = sys.argv[1]
+os_version = sys.argv[2]
+data_str = os.environ.get("SIMCTL_DEVICES_JSON", "")
+if not data_str:
+  sys.exit(1)
+
+try:
+  data = json.loads(data_str)
+except Exception:
+  sys.exit(1)
+
+for runtime, devices in data.get("devices", {}).items():
+  if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
+    continue
+  runtime_suffix = runtime.rsplit(".", 1)[-1]
+  if runtime_suffix.startswith("iOS-"):
+    runtime_suffix = runtime_suffix.split("iOS-", 1)[1]
+  runtime_os = runtime_suffix.replace("-", ".")
+  if runtime_os != os_version:
+    continue
+  for dev in devices:
+    if dev.get("isAvailable") and dev.get("name") == name:
+      udid = dev.get("udid")
+      if udid:
+        print(udid)
+        sys.exit(0)
+sys.exit(1)
+PY
+)
+  local status=$?
+  set -e
+  if (( status == 0 )) && [[ -n "$udid" ]]; then
+    printf "%s" "$udid"
+    return 0
+  fi
+  return 1
+}
+
+boot_simulator_destination() {
+  local destination="$1"
+  local label="${2:-}"
+
+  if [[ -z "$destination" ]]; then
+    return 0
+  fi
+  if [[ "$destination" == generic/platform=iOS\ Simulator* ]]; then
+    return 0
+  fi
+  if ! command_exists xcrun; then
+    log_warn "xcrun unavailable; skipping simulator preboot"
+    return 0
+  fi
+
+  local boot_timeout=""
+  if [[ -n "${ZPOD_SIM_BOOT_TIMEOUT_SECONDS+x}" ]]; then
+    boot_timeout="$ZPOD_SIM_BOOT_TIMEOUT_SECONDS"
+  else
+    boot_timeout=180
+  fi
+
+  local udid
+  if ! udid="$(_udid_for_destination "$destination")"; then
+    log_warn "Could not resolve simulator UDID for destination '${destination}'; skipping preboot"
+    return 0
+  fi
+
+  local start_ts elapsed formatted boot_status=0
+  start_ts=$(date +%s)
+  local bootstatus_supports_timeout=0
+  if xcrun simctl help bootstatus 2>/dev/null | grep -q -- "-t"; then
+    bootstatus_supports_timeout=1
+  fi
+
+  if [[ -n "$boot_timeout" && "$boot_timeout" != "0" ]]; then
+    log_info "▶️  Booting simulator ${udid}${label:+ (${label})} with timeout ${boot_timeout}s"
+  else
+    log_info "▶️  Booting simulator ${udid}${label:+ (${label})} (no boot timeout)"
+  fi
+
+  set +e
+  xcrun simctl boot "$udid" >/dev/null 2>&1
+  set -e
+
+  if (( bootstatus_supports_timeout == 1 )); then
+    set +e
+    if [[ -n "$boot_timeout" && "$boot_timeout" != "0" ]]; then
+      xcrun simctl bootstatus "$udid" -b -t "$boot_timeout" >/dev/null
+    else
+      xcrun simctl bootstatus "$udid" -b >/dev/null
+    fi
+    boot_status=$?
+    set -e
+  else
+    if [[ -n "$boot_timeout" && "$boot_timeout" != "0" ]]; then
+      local deadline=$(( start_ts + boot_timeout ))
+      local boot_pid=0
+      set +e
+      xcrun simctl bootstatus "$udid" -b >/dev/null &
+      boot_pid=$!
+      set -e
+      while kill -0 "$boot_pid" >/dev/null 2>&1; do
+        if (( $(date +%s) >= deadline )); then
+          boot_status=124
+          kill -TERM "$boot_pid" >/dev/null 2>&1 || true
+          sleep 1
+          kill -KILL "$boot_pid" >/dev/null 2>&1 || true
+          break
+        fi
+        sleep 2
+      done
+      if (( boot_status == 0 )); then
+        set +e
+        wait "$boot_pid"
+        boot_status=$?
+        set -e
+      fi
+    else
+      set +e
+      xcrun simctl bootstatus "$udid" -b >/dev/null
+      boot_status=$?
+      set -e
+    fi
+  fi
+
+  elapsed=$(( $(date +%s) - start_ts ))
+  formatted=$(printf '%02d:%02d:%02d' $((elapsed/3600)) $(((elapsed%3600)/60)) $((elapsed%60)))
+
+  if (( boot_status == 0 )); then
+    log_time "Simulator ready in ${formatted}${label:+ (${label})}"
+    return 0
+  fi
+
+  log_error "Simulator boot timed out after ${formatted}${label:+ (${label})}"
+  return 124
 }
 
 xcodebuild_wrapper() {

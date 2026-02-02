@@ -2300,6 +2300,13 @@ test_app_target() {
     return 0
   fi
 
+  if ! boot_simulator_destination "$resolved_destination" "$target"; then
+    local boot_status=$?
+    add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
+    update_exit_status "$boot_status"
+    return "$boot_status"
+  fi
+
   local -a args=(
     -workspace "$WORKSPACE"
     -scheme "$resolved_scheme"
@@ -2812,6 +2819,13 @@ run_filtered_xcode_tests() {
     add_summary "test" "${label}" "error" "" "" "" "" "" "failed (no simulator runtime)"
     update_exit_status 2
     return 2
+  fi
+
+  if ! boot_simulator_destination "$resolved_destination" "$label"; then
+    local boot_status=$?
+    add_summary "test" "${label}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
+    update_exit_status "$boot_status"
+    return "$boot_status"
   fi
 
   local -a args=(
