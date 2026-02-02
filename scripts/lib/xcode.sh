@@ -494,6 +494,8 @@ cleanup_ephemeral_simulator() {
 xcodebuild_wrapper() {
   local -a args=("$@")
   log_info "xcodebuild ${args[*]}"
+  local xb_start ts_elapsed formatted_elapsed
+  xb_start=$(date +%s)
   
   # UI tests can hang indefinitely waiting for app to idle or during diagnostic collection.
   # Use a configurable watchdog timeout via ZPOD_XCODEBUILD_TIMEOUT_SECONDS (seconds).
@@ -508,7 +510,11 @@ xcodebuild_wrapper() {
 
   if [[ -z "$timeout_seconds" || "$timeout_seconds" == "0" ]]; then
     xcodebuild "${args[@]}"
-    return $?
+    local exit_code=$?
+    ts_elapsed=$(( $(date +%s) - xb_start ))
+    formatted_elapsed=$(printf '%02d:%02d:%02d' $((ts_elapsed/3600)) $(((ts_elapsed%3600)/60)) $((ts_elapsed%60)))
+    log_time "xcodebuild completed in ${formatted_elapsed} (no watchdog)"
+    return $exit_code
   fi
   local xcodebuild_pid
   
@@ -545,6 +551,9 @@ xcodebuild_wrapper() {
       trap - INT  # Remove trap
       wait "$xcodebuild_pid"
       local exit_code=$?
+      ts_elapsed=$(( $(date +%s) - xb_start ))
+      formatted_elapsed=$(printf '%02d:%02d:%02d' $((ts_elapsed/3600)) $(((ts_elapsed%3600)/60)) $((ts_elapsed%60)))
+      log_time "xcodebuild completed in ${formatted_elapsed}"
       return $exit_code
     fi
     
@@ -556,6 +565,9 @@ xcodebuild_wrapper() {
   log_error "xcodebuild timed out after ${timeout_seconds}s - killing process tree"
   cleanup_xcodebuild
   trap - INT  # Remove trap
+  ts_elapsed=$(( $(date +%s) - xb_start ))
+  formatted_elapsed=$(printf '%02d:%02d:%02d' $((ts_elapsed/3600)) $(((ts_elapsed%3600)/60)) $((ts_elapsed%60)))
+  log_time "xcodebuild terminated after ${formatted_elapsed} (timeout)"
   
   return 124  # Standard timeout exit code
 }
