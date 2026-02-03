@@ -195,11 +195,30 @@ public class DownloadCoordinator {
     guard var downloadInfo = queueManager.getTask(id: progress.taskId) else { return }
 
     switch progress.state {
-    case .failed, .cancelled:
+    case .failed:
       handleDownloadFailure(
         downloadInfo.task,
         error: .unknown(progress.error ?? "Download failed")
       )
+      return
+
+    case .cancelled:
+      downloadInfo = downloadInfo.withState(.cancelled)
+      downloadInfo.progress = 0
+      if let inMemoryQueue = queueManager as? InMemoryDownloadQueueManager {
+        inMemoryQueue.upsert(downloadInfo)
+      } else {
+        queueManager.removeFromQueue(taskId: downloadInfo.task.id)
+        queueManager.addToQueue(downloadInfo.task)
+      }
+      if let refreshed = queueManager.getTask(id: downloadInfo.task.id) {
+        emitProgress(for: refreshed, statusOverride: .failed, message: "Cancelled")
+      } else {
+        emitProgress(forEpisodeID: downloadInfo.task.episodeId, fraction: 0, status: .failed, message: "Cancelled")
+      }
+      // After a cancel, allow the next pending download to start.
+      let queue = queueManager.getCurrentQueue()
+      Task { await processPendingDownloads(queue) }
       return
 
     case .completed:

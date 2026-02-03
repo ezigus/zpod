@@ -5,8 +5,6 @@ import Persistence
 import CoreModels
 
 /// Live RSS feed download verification.
-/// Skips unless `ZPOD_REAL_FEEDS` env var is provided (comma-separated feed URLs).
-@MainActor
 final class DownloadRealFeedTests: XCTestCase {
   private var downloadsRoot: URL!
   private var cancellables = Set<AnyCancellable>()

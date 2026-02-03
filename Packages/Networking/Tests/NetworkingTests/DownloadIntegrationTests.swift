@@ -4,7 +4,6 @@ import Combine
 import CoreModels
 import Persistence
 
-@MainActor
 final class DownloadIntegrationTests: XCTestCase {
   private var downloadsRoot: URL!
   private var cancellables = Set<AnyCancellable>()
