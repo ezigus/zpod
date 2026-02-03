@@ -9,18 +9,18 @@ final class DownloadIntegrationTests: XCTestCase {
   private var downloadsRoot: URL!
   private var cancellables = Set<AnyCancellable>()
 
-  override func setUp() async throws {
-    try await super.setUp()
+  override func setUp() {
+    super.setUp()
     downloadsRoot = FileManager.default.temporaryDirectory
       .appendingPathComponent("DownloadIntegration-\(UUID().uuidString)", isDirectory: true)
-    try FileManager.default.createDirectory(at: downloadsRoot, withIntermediateDirectories: true)
+    try? FileManager.default.createDirectory(at: downloadsRoot, withIntermediateDirectories: true)
   }
 
-  override func tearDown() async throws {
+  override func tearDown() {
     cancellables.removeAll()
     try? FileManager.default.removeItem(at: downloadsRoot)
     downloadsRoot = nil
-    try await super.tearDown()
+    super.tearDown()
   }
 
   func testCoordinatorDownloadsAndCachesLocalFile() async throws {
