@@ -249,16 +249,27 @@ final class BasicPersistenceTests: XCTestCase {
     
     func testFileManagerService_Creation() async throws {
         // Given: FileManagerService constructor
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Basic-\(UUID().uuidString)", isDirectory: true)
         // When: Creating service
-        let service = await FileManagerService.create()
+        let service = try FileManagerService(
+            baseDownloadsPath: base,
+            configuration: .ephemeral
+        )
         
         // Then: Should create without throwing
         XCTAssertNotNil(service, "FileManagerService should be created successfully")
+        try? FileManager.default.removeItem(at: base)
     }
     
     func testDownloadPath_Generation() async throws {
         // Given: FileManagerService and a download task
-        let service = await FileManagerService.create()
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Basic-\(UUID().uuidString)", isDirectory: true)
+        let service = try FileManagerService(
+            baseDownloadsPath: base,
+            configuration: .ephemeral
+        )
         let task = DownloadTask(
             id: "test-task",
             episodeId: "episode-123",
@@ -274,6 +285,7 @@ final class BasicPersistenceTests: XCTestCase {
         XCTAssertFalse(path.isEmpty, "Download path should not be empty")
         XCTAssertTrue(path.contains(task.podcastId), "Path should contain podcast ID")
         XCTAssertTrue(path.contains(task.episodeId), "Path should contain episode ID")
+        try? FileManager.default.removeItem(at: base)
     }
     
     // MARK: - Storage Policy Evaluator Tests

@@ -2,264 +2,244 @@ import XCTest
 @testable import Persistence
 import CoreModels
 import Foundation
+import Combine
 
-/// Tests for FileManagerService real URLSession download implementation (TDD)
-/// These tests define the contract for transitioning from simulation to real downloads
-///
-/// Test Strategy:
-/// - Start with failing tests that define desired behavior
-/// - Implement FileManagerService changes to make tests pass
-/// - Each test focuses on ONE behavior (FIRST principles: Fast, Independent, Repeatable, Self-validating, Timely)
+private final class ChunkedURLProtocol: URLProtocol {
+  nonisolated(unsafe) static var chunks: [Data] = []
+  nonisolated(unsafe) static var statusCode: Int = 200
+  nonisolated(unsafe) static var error: Error?
+
+  override class func canInit(with request: URLRequest) -> Bool { true }
+  override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+  override func startLoading() {
+    if let error = Self.error {
+      client?.urlProtocol(self, didFailWithError: error)
+      return
+    }
+
+    let totalLength = Self.chunks.reduce(0) { $0 + $1.count }
+    let response = HTTPURLResponse(
+      url: request.url ?? URL(string: "https://example.com")!,
+      statusCode: Self.statusCode,
+      httpVersion: "HTTP/1.1",
+      headerFields: ["Content-Length": "\(totalLength)"]
+    )!
+    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+
+    for chunk in Self.chunks {
+      client?.urlProtocol(self, didLoad: chunk)
+    }
+    client?.urlProtocolDidFinishLoading(self)
+  }
+
+  override func stopLoading() { /* no-op */ }
+
+  static func reset() {
+    chunks = []
+    statusCode = 200
+    error = nil
+  }
+}
+
 final class FileManagerServiceRealDownloadTests: XCTestCase {
 
-    private var service: FileManagerService!
+  private var service: FileManagerService!
+  private var downloadsRoot: URL!
+  private var cancellables = Set<AnyCancellable>()
 
-    override func setUp() async throws {
-        try await super.setUp()
-        service = await FileManagerService.create()
-    }
+  override func setUp() async throws {
+    try await super.setUp()
+    downloadsRoot = FileManager.default.temporaryDirectory
+      .appendingPathComponent("RealDownload-\(UUID().uuidString)", isDirectory: true)
+    ChunkedURLProtocol.reset()
+    let config = URLSessionConfiguration.ephemeral
+    config.protocolClasses = [ChunkedURLProtocol.self]
+    service = try FileManagerService(
+      baseDownloadsPath: downloadsRoot,
+      configuration: config
+    )
+  }
 
-    override func tearDown() async throws {
-        service = nil
-        try await super.tearDown()
-    }
+  override func tearDown() async throws {
+    cancellables.removeAll()
+    try? FileManager.default.removeItem(at: downloadsRoot)
+    service = nil
+    ChunkedURLProtocol.reset()
+    try await super.tearDown()
+  }
 
-    // MARK: - Basic File Management Tests (These should already pass)
+  // MARK: - Basic File Management
 
-    /// Test: downloadPath returns expected format
-    func testDownloadPathFormat() async throws {
-        // Given: A download task
-        let task = makeTestTask(episodeId: "ep-1", podcastId: "pod-1")
+  func testDownloadPathFormat() async throws {
+    let task = makeTestTask(episodeId: "ep-1", podcastId: "pod-1")
+    let path = await service.downloadPath(for: task)
+    XCTAssertTrue(path.contains("Downloads/pod-1/ep-1.mp3"))
+  }
 
-        // When: Getting download path
-        let path = await service.downloadPath(for: task)
+  func testFileExistsReturnsFalseForNonExistent() async throws {
+    let task = makeTestTask(episodeId: "ep-2", podcastId: "pod-2")
+    let exists = await service.fileExists(for: task)
+    XCTAssertFalse(exists)
+  }
 
-        // Then: Path should follow convention: Downloads/{podcastId}/{episodeId}.mp3
-        XCTAssertTrue(path.contains("Downloads/pod-1/ep-1.mp3"),
-                     "Path should follow Downloads/{podcastId}/{episodeId}.mp3 convention")
-    }
+  func testCreateDownloadDirectoryCreatesStructure() async throws {
+    let task = makeTestTask(episodeId: "ep-3", podcastId: "pod-3")
+    try await service.createDownloadDirectory(for: task)
+    let path = await service.downloadPath(for: task)
+    let dirPath = (path as NSString).deletingLastPathComponent
+    XCTAssertTrue(FileManager.default.fileExists(atPath: dirPath))
+    try? FileManager.default.removeItem(atPath: dirPath)
+  }
 
-    /// Test: fileExists returns false for non-existent file
-    func testFileExistsReturnsFalseForNonExistent() async throws {
-        // Given: A task with no downloaded file
-        let task = makeTestTask(episodeId: "ep-2", podcastId: "pod-2")
+  // MARK: - URLSession-backed behavior
 
-        // When: Checking if file exists
-        let exists = await service.fileExists(for: task)
+  func testStartDownloadWithRealURLSession() async throws {
+    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+      episodeId: "real-ep-1",
+      podcastId: "real-pod-1",
+      size: 1024
+    )
 
-        // Then: Should be false
-        XCTAssertFalse(exists, "File should not exist for new download task")
-    }
-
-    /// Test: createDownloadDirectory creates directory structure
-    func testCreateDownloadDirectoryCreatesStructure() async throws {
-        // Given: A download task
-        let task = makeTestTask(episodeId: "ep-3", podcastId: "pod-3")
-
-        // When: Creating download directory
-        try await service.createDownloadDirectory(for: task)
-
-        // Then: Directory should exist
-        let path = await service.downloadPath(for: task)
-        let dirPath = (path as NSString).deletingLastPathComponent
-        let exists = FileManager.default.fileExists(atPath: dirPath)
-
-        XCTAssertTrue(exists, "Download directory should be created")
-
-        // Cleanup
-        try? FileManager.default.removeItem(atPath: dirPath)
-    }
-
-    // MARK: - Tests Requiring Real URLSession Implementation (Will fail initially - TDD)
-
-    /// Test: startDownload with real URLSession downloads actual file
-    /// Status: FAILING (currently uses simulation)
-    /// Expected after implementation: Downloads file from URL to disk
-    func testStartDownloadWithRealURLSession() async throws {
-        // Mark as expected failure during TDD phase
-        // Once URLSession implementation is complete, remove this and test should pass
-
-        throw XCTSkip("Test will pass once URLSession implementation replaces simulation")
-
-        /*
-        // Given: A download task with real audio URL
-        let task = makeTestTask(
-            episodeId: "real-ep-1",
-            podcastId: "real-pod-1",
-            audioURL: URL(string: "https://httpbin.org/bytes/1024")! // Small test file
-        )
-
-        // When: Starting the download
-        try await service.startDownload(task)
-
-        // Wait for download to complete (real network call)
-        try await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-
-        // Then: File should exist
-        let exists = await service.fileExists(for: task)
-        XCTAssertTrue(exists, "File should exist after download completes")
-
-        // Cleanup
-        try await service.deleteDownloadedFile(for: task)
-        */
-    }
-
-    /// Test: Download progress publisher emits real progress (not simulated)
-    /// Status: FAILING (currently emits simulated progress)
-    /// Expected after implementation: Emits URLSession's actual download progress
-    func testDownloadProgressPublisherEmitsRealProgress() async throws {
-        throw XCTSkip("Test will pass once URLSession delegate emits real progress")
-
-        /*
-        // Given: A download task
-        let task = makeTestTask(episodeId: "progress-ep", podcastId: "progress-pod")
-
-        var progressValues: [Double] = []
-        let expectation = XCTestExpectation(description: "Progress updates")
-        expectation.expectedFulfillmentCount = 3
-
-        // Subscribe to progress
-        let progressPublisher = await service.downloadProgressPublisher
-        let cancellable = progressPublisher.publisher.sink { progress in
-            if progress.taskId == task.id {
-                progressValues.append(progress.progress)
-                expectation.fulfill()
-            }
+    let completion = expectation(description: "download completes")
+    (await service.downloadProgressPublisher).publisher
+      .sink { progress in
+        if progress.taskId == task.id, progress.state == .completed {
+          completion.fulfill()
         }
+      }
+      .store(in: &cancellables)
 
-        // When: Starting download
-        try await service.startDownload(task)
+    try await service.startDownload(task)
+    await fulfillment(of: [completion], timeout: 2.0)
 
-        // Then: Should receive progress updates
-        await fulfillment(of: [expectation], timeout: 10.0)
+    let finalPath = await service.downloadPath(for: task)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: finalPath))
+    let data = try Data(contentsOf: URL(fileURLWithPath: finalPath))
+    XCTAssertEqual(data, expectedData)
+    try? FileManager.default.removeItem(at: sourceURL)
+  }
 
-        // Progress should increase monotonically
-        for i in 1..<progressValues.count {
-            XCTAssertGreaterThanOrEqual(progressValues[i], progressValues[i-1],
-                                       "Progress should increase or stay same")
+  func testDownloadProgressPublisherEmitsRealProgress() async throws {
+    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+      episodeId: "progress-ep",
+      podcastId: "progress-pod",
+      size: 600
+    )
+
+    let expectation = expectation(description: "completion progress")
+    var observed: [Double] = []
+
+    (await service.downloadProgressPublisher).publisher
+      .sink { progress in
+        guard progress.taskId == task.id else { return }
+        observed.append(progress.progress)
+        if progress.state == .completed {
+          expectation.fulfill()
         }
+      }
+      .store(in: &cancellables)
 
-        cancellable.cancel()
-        */
-    }
+    try await service.startDownload(task)
+    await fulfillment(of: [expectation], timeout: 2.0)
 
-    /// Test: Canceling download stops URLSession task
-    /// Status: FAILING (cancelDownload is stub)
-    /// Expected after implementation: Stops active URLSessionDownloadTask
-    func testCancelDownloadStopsURLSessionTask() async throws {
-        throw XCTSkip("Test will pass once cancelDownload implements URLSession cancellation")
+    XCTAssertGreaterThanOrEqual(observed.max() ?? 0, 1.0)
+    let finalPath = await service.downloadPath(for: task)
+    let data = try Data(contentsOf: URL(fileURLWithPath: finalPath))
+    XCTAssertEqual(data, expectedData)
+    try? FileManager.default.removeItem(at: sourceURL)
+  }
 
-        /*
-        // Given: An in-progress download
-        let task = makeTestTask(episodeId: "cancel-ep", podcastId: "cancel-pod")
+  func testCancelDownloadStopsURLSessionTask() async throws {
+    ChunkedURLProtocol.chunks = [Data(repeating: 0xAA, count: 1024)]
+    let task = makeTestTask(
+      episodeId: "cancel-ep",
+      podcastId: "cancel-pod",
+      audioURL: URL(string: "https://example.com/cancel.mp3")!
+    )
 
-        // Start download
-        try await service.startDownload(task)
-
-        // Let it progress a bit
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-
-        // When: Canceling the download
-        await service.cancelDownload(taskId: task.id)
-
-        // Wait for cancellation to take effect
-        try await Task.sleep(nanoseconds: 200_000_000) // 0.2s
-
-        // Then: File should not exist (or be incomplete)
-        let exists = await service.fileExists(for: task)
-        XCTAssertFalse(exists, "File should not exist after cancellation")
-        */
-    }
-
-    /// Test: File size matches downloaded content
-    /// Status: FAILING (no real file downloaded yet)
-    /// Expected after implementation: Returns actual file size
-    func testFileSizeMatchesDownloadedContent() async throws {
-        throw XCTSkip("Test will pass once real downloads are implemented")
-
-        /*
-        // Given: A downloaded file of known size (1KB)
-        let task = makeTestTask(
-            episodeId: "size-ep",
-            podcastId: "size-pod",
-            audioURL: URL(string: "https://httpbin.org/bytes/1024")!
-        )
-
-        // Download the file
-        try await service.startDownload(task)
-        try await Task.sleep(nanoseconds: 5_000_000_000) // 5s
-
-        // When: Getting file size
-        let size = await service.getFileSize(for: task)
-
-        // Then: Should be 1024 bytes
-        XCTAssertEqual(size, 1024, "File size should match downloaded content (1KB)")
-
-        // Cleanup
-        try await service.deleteDownloadedFile(for: task)
-        */
-    }
-
-    /// Test: Background URLSession configuration
-    /// Status: FAILING (not using background session yet)
-    /// Expected after implementation: Uses background URLSession with identifier
-    func testUsesBackgroundURLSessionConfiguration() async throws {
-        throw XCTSkip("Test will pass once background URLSession is configured")
-
-        /*
-        // This test verifies internal implementation details
-        // In real implementation, we'd check:
-        // - URLSession.configuration.identifier == "us.zig.zpod.background-downloads"
-        // - URLSession.configuration allows background transfers
-
-        // For now, we rely on integration tests and manual verification
-        // This test serves as documentation of the requirement
-        */
-    }
-
-    /// Test: Network error results in failed state (not simulation)
-    /// Status: FAILING (simulation doesn't simulate real network errors)
-    /// Expected after implementation: URLSession errors propagate correctly
-    func testNetworkErrorResultsInFailedState() async throws {
-        throw XCTSkip("Test will pass once real URLSession error handling is implemented")
-
-        /*
-        // Given: A task with invalid URL that will fail
-        let task = makeTestTask(
-            episodeId: "error-ep",
-            podcastId: "error-pod",
-            audioURL: URL(string: "https://invalid-domain-that-does-not-exist-12345.com/file.mp3")!
-        )
-
-        // When/Then: Starting download should throw network error
-        do {
-            try await service.startDownload(task)
-            // Wait for error
-            try await Task.sleep(nanoseconds: 3_000_000_000) // 3s
-            XCTFail("Expected network error to be thrown")
-        } catch {
-            // Expected error
-            XCTAssertNotNil(error, "Should throw network error")
+    let cancelled = expectation(description: "cancelled")
+    (await service.downloadProgressPublisher).publisher
+      .sink { progress in
+        if progress.taskId == task.id, progress.state == .cancelled {
+          cancelled.fulfill()
         }
-        */
-    }
+      }
+      .store(in: &cancellables)
 
-    // MARK: - Helper Methods
+    try await service.startDownload(task)
+    await service.cancelDownload(taskId: task.id)
+    await fulfillment(of: [cancelled], timeout: 1.0)
+  }
 
-    private func makeTestTask(
-        episodeId: String,
-        podcastId: String,
-        audioURL: URL = URL(string: "https://example.com/test.mp3")!
-    ) -> DownloadTask {
-        return DownloadTask(
-            id: UUID().uuidString,
-            episodeId: episodeId,
-            podcastId: podcastId,
-            audioURL: audioURL,
-            title: "Test Episode \(episodeId)",
-            estimatedSize: 1024 * 1024, // 1MB
-            priority: .normal,
-            retryCount: 0
-        )
+  func testFileSizeMatchesDownloadedContent() async throws {
+    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+      episodeId: "size-ep",
+      podcastId: "size-pod",
+      size: 2048
+    )
+
+    try await service.startDownload(task)
+    let size = await service.getFileSize(for: task)
+    XCTAssertEqual(size, Int64(expectedData.count))
+    try? FileManager.default.removeItem(at: sourceURL)
+  }
+
+  func testNetworkErrorResultsInFailedState() async throws {
+    let missingURL = URL(string: "file:///tmp/nonexistent-\(UUID().uuidString).mp3")!
+    let task = makeTestTask(
+      episodeId: "error-ep",
+      podcastId: "error-pod",
+      audioURL: missingURL
+    )
+
+    await XCTAssertThrowsErrorAsync(try await service.startDownload(task))
+  }
+
+  // MARK: - Helpers
+
+  private func makeTestTask(
+    episodeId: String,
+    podcastId: String,
+    audioURL: URL = URL(string: "https://example.com/test.mp3")!
+  ) -> DownloadTask {
+    DownloadTask(
+      episodeId: episodeId,
+      podcastId: podcastId,
+      audioURL: audioURL,
+      title: "Test Episode"
+    )
+  }
+
+  private func makeLocalFileTask(
+    episodeId: String,
+    podcastId: String,
+    size: Int
+  ) throws -> (DownloadTask, URL, Data) {
+    let data = Data(repeating: 0x5A, count: size)
+    let sourceURL = downloadsRoot.appendingPathComponent("\(episodeId)-source.mp3")
+    try data.write(to: sourceURL)
+    let task = makeTestTask(
+      episodeId: episodeId,
+      podcastId: podcastId,
+      audioURL: sourceURL
+    )
+    return (task, sourceURL, data)
+  }
+
+  /// Minimal async variant of XCTAssertThrowsError for compatibility with Swift 6 async tests.
+  private func XCTAssertThrowsErrorAsync<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> String = "",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ errorHandler: (Error) -> Void = { _ in }
+  ) async {
+    do {
+      _ = try await expression()
+      XCTFail(message(), file: file, line: line)
+    } catch {
+      errorHandler(error)
     }
+  }
 }

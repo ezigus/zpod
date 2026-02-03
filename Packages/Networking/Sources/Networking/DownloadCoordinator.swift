@@ -35,7 +35,13 @@ public class DownloadCoordinator {
     autoProcessingEnabled: Bool = false
   ) {
     self.queueManager = queueManager ?? InMemoryDownloadQueueManager()
-    self.fileManagerService = fileManagerService ?? DummyFileManagerService()
+    if let fileManagerService {
+      self.fileManagerService = fileManagerService
+    } else if let realService = try? FileManagerService() {
+      self.fileManagerService = realService
+    } else {
+      self.fileManagerService = DummyFileManagerService()
+    }
     self.storagePolicyEvaluator = StoragePolicyEvaluator()
     self.autoDownloadService = AutoDownloadService(queueManager: self.queueManager)
     self.autoProcessingEnabled = autoProcessingEnabled
@@ -54,10 +60,11 @@ public class DownloadCoordinator {
   /// Add manual download task
   public func addDownload(for episode: Episode, priority: Int = 5) {
     let priorityEnum: DownloadPriority = priority <= 2 ? .low : priority >= 4 ? .high : .normal
+    let podcastId = episode.podcastID ?? episode.id
     let task = DownloadTask(
       id: "manual_\(episode.id)_\(Date().timeIntervalSince1970)",
       episodeId: episode.id,
-      podcastId: episode.id,  // Episodes don't have separate podcastId in the current model
+      podcastId: podcastId,
       audioURL: episode.audioURL ?? URL(string: "https://example.com/default.mp3")!,
       title: episode.title,
       estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) },  // Rough estimate
@@ -156,6 +163,7 @@ public class DownloadCoordinator {
       // Monitor download progress and update task states
       let publisher = (await fileManagerService.downloadProgressPublisher).publisher
       publisher
+        .receive(on: DispatchQueue.main)
         .sink { [weak self] progress in
           self?.updateTaskProgress(progress)
         }
@@ -186,33 +194,48 @@ public class DownloadCoordinator {
   private func updateTaskProgress(_ progress: Persistence.DownloadProgress) {
     guard var downloadInfo = queueManager.getTask(id: progress.taskId) else { return }
 
-    if progress.progress >= 1.0 {
-      // Download completed
+    switch progress.state {
+    case .failed, .cancelled:
+      handleDownloadFailure(
+        downloadInfo.task,
+        error: .unknown(progress.error ?? "Download failed")
+      )
+      return
+
+    case .completed:
       downloadInfo = downloadInfo.withState(.completed)
       downloadInfo.progress = 1.0
 
       // Stash local file path for offline playback
       Task { @MainActor [weak self] in
         guard let self else { return }
-        let filePath = await self.fileManagerService.downloadPath(for: downloadInfo.task)
-        let fileURL = URL(fileURLWithPath: filePath)
 
-        // Verify file actually exists before caching
-        let exists = await self.fileManagerService.fileExists(for: downloadInfo.task)
-        if exists {
-          self.completedDownloads[downloadInfo.task.episodeId] = fileURL
-          Logger.info("Cached local file for episode \(downloadInfo.task.episodeId): \(filePath)")
+        if let localURL = progress.localFileURL {
+          self.completedDownloads[downloadInfo.task.episodeId] = localURL
+          Logger.info("Cached local file for episode \(downloadInfo.task.episodeId): \(localURL.path)")
         } else {
-          Logger.warning("Download reported complete but file doesn't exist: \(filePath)")
+          let filePath = await self.fileManagerService.downloadPath(for: downloadInfo.task)
+          let fileURL = URL(fileURLWithPath: filePath)
+          let exists = await self.fileManagerService.fileExists(for: downloadInfo.task)
+          if exists {
+            self.completedDownloads[downloadInfo.task.episodeId] = fileURL
+            Logger.info("Cached local file for episode \(downloadInfo.task.episodeId): \(filePath)")
+          } else {
+            Logger.warning("Download reported complete but file doesn't exist: \(filePath)")
+          }
         }
       }
-    } else {
-      // Progress update
+
+    default:
       downloadInfo.progress = progress.progress
     }
 
-    queueManager.removeFromQueue(taskId: downloadInfo.task.id)
-    queueManager.addToQueue(downloadInfo.task)
+    if let inMemoryQueue = queueManager as? InMemoryDownloadQueueManager {
+      inMemoryQueue.upsert(downloadInfo)
+    } else {
+      queueManager.removeFromQueue(taskId: downloadInfo.task.id)
+      queueManager.addToQueue(downloadInfo.task)
+    }
 
     // If completed, check for next pending download
     if downloadInfo.state == .completed {

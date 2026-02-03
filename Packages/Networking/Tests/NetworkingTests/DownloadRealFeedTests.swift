@@ -1,0 +1,165 @@
+import XCTest
+import Combine
+@testable import Networking
+import Persistence
+import CoreModels
+
+/// Live RSS feed download verification.
+/// Skips unless `ZPOD_REAL_FEEDS` env var is provided (comma-separated feed URLs).
+@MainActor
+final class DownloadRealFeedTests: XCTestCase {
+  private var downloadsRoot: URL!
+  private var cancellables = Set<AnyCancellable>()
+
+  override func setUp() async throws {
+    try await super.setUp()
+    downloadsRoot = FileManager.default.temporaryDirectory
+      .appendingPathComponent("RealFeed-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: downloadsRoot, withIntermediateDirectories: true)
+  }
+
+  override func tearDown() async throws {
+    cancellables.removeAll()
+    try? FileManager.default.removeItem(at: downloadsRoot)
+    downloadsRoot = nil
+    try await super.tearDown()
+  }
+
+  func testDownloadsFirstEnclosureFromFeeds() async throws {
+    let envFeeds = ProcessInfo.processInfo.environment["ZPOD_REAL_FEEDS"]
+    let skipFlag = ProcessInfo.processInfo.environment["ZPOD_SKIP_LIVE_FEEDS"] == "1"
+    if skipFlag {
+      throw XCTSkip("ZPOD_SKIP_LIVE_FEEDS=1; skipping live download test")
+    }
+
+    let feedsString = envFeeds?.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let feedsString, !feedsString.isEmpty else {
+      throw XCTSkip("Set ZPOD_REAL_FEEDS to run live feed downloads")
+    }
+
+    let feedURLs = feedsString
+      .split(separator: ",")
+      .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+      .compactMap(URL.init(string:))
+
+    XCTAssertFalse(feedURLs.isEmpty, "No valid feed URLs provided")
+
+    let maxBytesEnv = ProcessInfo.processInfo.environment["ZPOD_MAX_FEED_BYTES"]
+    let maxBytes = Int64(maxBytesEnv ?? "") ?? 25 * 1_024 * 1_024
+
+    let fileManagerService = try FileManagerService(
+      baseDownloadsPath: downloadsRoot,
+      configuration: URLSessionConfiguration.ephemeral
+    )
+    let queueManager = InMemoryDownloadQueueManager()
+    let coordinator = DownloadCoordinator(
+      queueManager: queueManager,
+      fileManagerService: fileManagerService,
+      autoProcessingEnabled: true
+    )
+
+    for feedURL in feedURLs {
+      let xmlData = try await fetchData(from: feedURL)
+      let enclosures = enclosureURLs(in: xmlData)
+      guard let enclosureURL = try await pickEnclosure(from: enclosures, maxBytes: maxBytes) else {
+        XCTFail("No suitable enclosure found for feed \(feedURL)")
+        continue
+      }
+
+      let episodeID = UUID().uuidString
+      let episode = Episode(
+        id: episodeID,
+        title: "Live Feed Episode",
+        podcastID: feedURL.absoluteString,
+        podcastTitle: "Live Feed",
+        audioURL: enclosureURL,
+        downloadStatus: .notDownloaded
+      )
+
+      let completed = expectation(description: "download completes for \(feedURL)")
+      coordinator.episodeProgressPublisher
+        .sink { update in
+          if update.episodeID == episode.id, update.status == .completed {
+            completed.fulfill()
+          }
+        }
+        .store(in: &cancellables)
+
+      coordinator.addDownload(for: episode, priority: 5)
+      await fulfillment(of: [completed], timeout: 240.0)
+
+      let localURL = coordinator.localFileURL(for: episode.id)
+      XCTAssertNotNil(localURL, "Missing local file for \(feedURL)")
+      if let localURL {
+        XCTAssertTrue(FileManager.default.fileExists(atPath: localURL.path))
+        let size = try FileManager.default.attributesOfItem(atPath: localURL.path)[.size] as? Int64 ?? 0
+        XCTAssertGreaterThan(size, 0, "Downloaded file is empty for \(feedURL)")
+      }
+    }
+  }
+
+  // MARK: - Helpers
+
+  private func fetchData(from url: URL) async throws -> Data {
+    let (data, response) = try await URLSession.shared.data(from: url)
+    if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+      throw NSError(domain: "DownloadRealFeedTests", code: http.statusCode, userInfo: [
+        NSLocalizedDescriptionKey: "HTTP \(http.statusCode) for \(url)"
+      ])
+    }
+    return data
+  }
+
+  private func enclosureURLs(in data: Data) -> [URL] {
+    let parser = XMLParser(data: data)
+    let delegate = EnclosureParserDelegate()
+    parser.delegate = delegate
+    parser.parse()
+    return delegate.enclosureURLs
+  }
+
+  private func pickEnclosure(from urls: [URL], maxBytes: Int64) async throws -> URL? {
+    for url in urls {
+      if let size = try await headContentLength(url: url) {
+        if size <= maxBytes { return url }
+        continue
+      } else {
+        // Unknown size: try the first unknown-sized enclosure
+        return url
+      }
+    }
+    return nil
+  }
+
+  private func headContentLength(url: URL) async throws -> Int64? {
+    var request = URLRequest(url: url)
+    request.httpMethod = "HEAD"
+    request.timeoutInterval = 30
+    let (data, response) = try await URLSession.shared.data(for: request)
+    guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+      return nil
+    }
+    if let lengthStr = http.value(forHTTPHeaderField: "Content-Length"), let length = Int64(lengthStr) {
+      return length
+    }
+    // Some servers don't send content-length for HEAD; fall back to body length if present
+    return Int64(data.count)
+  }
+}
+
+private final class EnclosureParserDelegate: NSObject, XMLParserDelegate {
+  private(set) var enclosureURLs: [URL] = []
+
+  func parser(
+    _ parser: XMLParser,
+    didStartElement elementName: String,
+    namespaceURI: String?,
+    qualifiedName qName: String?,
+    attributes attributeDict: [String: String] = [:]
+  ) {
+    if elementName.lowercased() == "enclosure", let urlString = attributeDict["url"],
+       let url = URL(string: urlString) {
+      enclosureURLs.append(url)
+    }
+  }
+}
