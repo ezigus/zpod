@@ -32,14 +32,19 @@ final class DownloadRealFeedTests: XCTestCase {
       throw XCTSkip("ZPOD_SKIP_LIVE_FEEDS=1; skipping live download test")
     }
 
-    let feedsString = envFeeds?.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let feedsString, !feedsString.isEmpty else {
-      throw XCTSkip("Set ZPOD_REAL_FEEDS to run live feed downloads")
-    }
+    let defaultFeeds = [
+      "https://feeds.npr.org/510289/podcast.xml",
+      "https://feeds.simplecast.com/l2i9YnTd"
+    ]
 
-    let feedURLs = feedsString
-      .split(separator: ",")
-      .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+    let feedsString = envFeeds?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let chosenFeeds: [String] =
+      (feedsString?.isEmpty == false)
+      ? feedsString!.split(separator: ",").map(String.init)
+      : defaultFeeds
+
+    let feedURLs = chosenFeeds
+      .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
       .compactMap(URL.init(string:))
 
     XCTAssertFalse(feedURLs.isEmpty, "No valid feed URLs provided")
