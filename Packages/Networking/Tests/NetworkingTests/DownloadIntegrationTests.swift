@@ -1,5 +1,5 @@
 import XCTest
-import Combine
+@preconcurrency import Combine
 @testable import Networking
 import CoreModels
 import Persistence
@@ -22,17 +22,21 @@ final class DownloadIntegrationTests: XCTestCase {
     super.tearDown()
   }
 
+  @MainActor
   func testCoordinatorDownloadsAndCachesLocalFile() async throws {
     let fileManagerService = try FileManagerService(
       baseDownloadsPath: downloadsRoot,
       configuration: URLSessionConfiguration.ephemeral
     )
-    let queueManager = InMemoryDownloadQueueManager()
-    let coordinator = DownloadCoordinator(
-      queueManager: queueManager,
-      fileManagerService: fileManagerService,
-      autoProcessingEnabled: true
-    )
+    let (_, coordinator) = await MainActor.run { () -> (InMemoryDownloadQueueManager, DownloadCoordinator) in
+      let qm = InMemoryDownloadQueueManager()
+      let coord = DownloadCoordinator(
+        queueManager: qm,
+        fileManagerService: fileManagerService,
+        autoProcessingEnabled: true
+      )
+      return (qm, coord)
+    }
 
     let sourceData = Data(repeating: 0x7A, count: 1_024)
     let sourceURL = downloadsRoot.appendingPathComponent("source.mp3")
@@ -48,18 +52,20 @@ final class DownloadIntegrationTests: XCTestCase {
     )
 
     let completed = expectation(description: "download completes")
-    coordinator.episodeProgressPublisher
-      .sink { update in
-        if update.episodeID == episode.id, update.status == .completed {
-          completed.fulfill()
+    await MainActor.run {
+      coordinator.episodeProgressPublisher
+        .sink { update in
+          if update.episodeID == episode.id, update.status == .completed {
+            completed.fulfill()
+          }
         }
-      }
-      .store(in: &cancellables)
+        .store(in: &cancellables)
+    }
 
-    coordinator.addDownload(for: episode, priority: 5)
+    await MainActor.run { coordinator.addDownload(for: episode, priority: 5) }
     await fulfillment(of: [completed], timeout: 2.0)
 
-    let localURL = coordinator.localFileURL(for: episode.id)
+    let localURL = await MainActor.run { coordinator.localFileURL(for: episode.id) }
     XCTAssertNotNil(localURL)
     if let localURL {
       XCTAssertTrue(FileManager.default.fileExists(atPath: localURL.path))

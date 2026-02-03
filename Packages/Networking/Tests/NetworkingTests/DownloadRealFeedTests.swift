@@ -1,5 +1,5 @@
 import XCTest
-import Combine
+@preconcurrency import Combine
 @testable import Networking
 import Persistence
 import CoreModels
@@ -23,11 +23,12 @@ final class DownloadRealFeedTests: XCTestCase {
     super.tearDown()
   }
 
+  @MainActor
   func testDownloadsFirstEnclosureFromFeeds() async throws {
     let envFeeds = ProcessInfo.processInfo.environment["ZPOD_REAL_FEEDS"]
-    let skipFlag = ProcessInfo.processInfo.environment["ZPOD_SKIP_LIVE_FEEDS"] == "1"
-    if skipFlag {
-      throw XCTSkip("ZPOD_SKIP_LIVE_FEEDS=1; skipping live download test")
+    let runLiveFeeds = ProcessInfo.processInfo.environment["ZPOD_RUN_LIVE_FEEDS"] == "1"
+    if !runLiveFeeds {
+      throw XCTSkip("Set ZPOD_RUN_LIVE_FEEDS=1 to exercise live feed downloads")
     }
 
     let defaultFeeds = [
@@ -54,12 +55,15 @@ final class DownloadRealFeedTests: XCTestCase {
       baseDownloadsPath: downloadsRoot,
       configuration: URLSessionConfiguration.ephemeral
     )
-    let queueManager = InMemoryDownloadQueueManager()
-    let coordinator = DownloadCoordinator(
-      queueManager: queueManager,
-      fileManagerService: fileManagerService,
-      autoProcessingEnabled: true
-    )
+    let (_, coordinator) = await MainActor.run { () -> (InMemoryDownloadQueueManager, DownloadCoordinator) in
+      let qm = InMemoryDownloadQueueManager()
+      let coord = DownloadCoordinator(
+        queueManager: qm,
+        fileManagerService: fileManagerService,
+        autoProcessingEnabled: true
+      )
+      return (qm, coord)
+    }
 
     for feedURL in feedURLs {
       let xmlData = try await fetchData(from: feedURL)
@@ -80,18 +84,20 @@ final class DownloadRealFeedTests: XCTestCase {
       )
 
       let completed = expectation(description: "download completes for \(feedURL)")
-      coordinator.episodeProgressPublisher
-        .sink { update in
-          if update.episodeID == episode.id, update.status == .completed {
-            completed.fulfill()
+      await MainActor.run {
+        coordinator.episodeProgressPublisher
+          .sink { update in
+            if update.episodeID == episode.id, update.status == .completed {
+              completed.fulfill()
+            }
           }
-        }
-        .store(in: &cancellables)
+          .store(in: &cancellables)
+      }
 
-      coordinator.addDownload(for: episode, priority: 5)
+      await MainActor.run { coordinator.addDownload(for: episode, priority: 5) }
       await fulfillment(of: [completed], timeout: 240.0)
 
-      let localURL = coordinator.localFileURL(for: episode.id)
+      let localURL = await MainActor.run { coordinator.localFileURL(for: episode.id) }
       XCTAssertNotNil(localURL, "Missing local file for \(feedURL)")
       if let localURL {
         XCTAssertTrue(FileManager.default.fileExists(atPath: localURL.path))
@@ -103,7 +109,7 @@ final class DownloadRealFeedTests: XCTestCase {
 
   // MARK: - Helpers
 
-  private func fetchData(from url: URL) async throws -> Data {
+  @MainActor private func fetchData(from url: URL) async throws -> Data {
     let (data, response) = try await URLSession.shared.data(from: url)
     if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
       throw NSError(domain: "DownloadRealFeedTests", code: http.statusCode, userInfo: [
@@ -113,7 +119,7 @@ final class DownloadRealFeedTests: XCTestCase {
     return data
   }
 
-  private func enclosureURLs(in data: Data) -> [URL] {
+  @MainActor private func enclosureURLs(in data: Data) -> [URL] {
     let parser = XMLParser(data: data)
     let delegate = EnclosureParserDelegate()
     parser.delegate = delegate
@@ -121,7 +127,7 @@ final class DownloadRealFeedTests: XCTestCase {
     return delegate.enclosureURLs
   }
 
-  private func pickEnclosure(from urls: [URL], maxBytes: Int64) async throws -> URL? {
+  @MainActor private func pickEnclosure(from urls: [URL], maxBytes: Int64) async throws -> URL? {
     for url in urls {
       if let size = try await headContentLength(url: url) {
         if size <= maxBytes { return url }
@@ -134,7 +140,7 @@ final class DownloadRealFeedTests: XCTestCase {
     return nil
   }
 
-  private func headContentLength(url: URL) async throws -> Int64? {
+  @MainActor private func headContentLength(url: URL) async throws -> Int64? {
     var request = URLRequest(url: url)
     request.httpMethod = "HEAD"
     request.timeoutInterval = 30
