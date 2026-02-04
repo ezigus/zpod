@@ -15,6 +15,7 @@ public struct StorageManagementView: View {
             // Total Storage Summary Section
             Section {
                 StorageSummaryRow(stats: viewModel.storageStats)
+                    .accessibilityIdentifier("Storage.Summary")
             } header: {
                 Text("Total Storage Used")
             }
@@ -24,6 +25,7 @@ public struct StorageManagementView: View {
                 Section {
                     ForEach(viewModel.storageStats.podcastBreakdown) { podcastInfo in
                         PodcastStorageRow(info: podcastInfo)
+                            .accessibilityIdentifier("Storage.Podcast.\(podcastInfo.id)")
                     }
                 } header: {
                     Text("By Podcast")
@@ -41,11 +43,13 @@ public struct StorageManagementView: View {
                             Text("Delete All Downloads")
                         }
                     }
+                    .accessibilityIdentifier("Storage.DeleteAll")
                 } footer: {
                     Text("This will delete all downloaded episodes and free up \(viewModel.storageStats.formattedTotal).")
                 }
             }
         }
+        .accessibilityIdentifier("Storage.List")
         .navigationTitle("Manage Storage")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.large)
@@ -64,6 +68,7 @@ public struct StorageManagementView: View {
 
                     ProgressView()
                         .scaleEffect(1.5)
+                        .accessibilityIdentifier("Storage.Loading")
                 }
             }
         }
@@ -71,9 +76,11 @@ public struct StorageManagementView: View {
             Button("OK") {
                 viewModel.errorMessage = nil
             }
+            .accessibilityIdentifier("Storage.Error.OK")
         } message: {
             if let error = viewModel.errorMessage {
                 Text(error)
+                    .accessibilityIdentifier("Storage.Error.Message")
             }
         }
         .confirmationDialog(
@@ -108,14 +115,17 @@ private struct StorageSummaryRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stats.formattedTotal)
                         .font(.title.bold())
+                        .accessibilityIdentifier("Storage.Summary.TotalSize")
                     Text("\(stats.totalEpisodes) episode\(stats.totalEpisodes == 1 ? "" : "s")")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                        .accessibilityIdentifier("Storage.Summary.EpisodeCount")
                 }
             }
 
             if stats.totalGigabytes > 0.1 {
                 StorageBar(stats: stats)
+                    .accessibilityIdentifier("Storage.Summary.Bar")
             }
         }
         .padding(.vertical, 4)
@@ -184,10 +194,12 @@ private struct PodcastStorageRow: View {
                 Text(info.podcastTitle)
                     .font(.body)
                     .lineLimit(1)
+                    .accessibilityIdentifier("Storage.Podcast.\(info.id).Title")
 
                 Text("\(info.episodeCount) episode\(info.episodeCount == 1 ? "" : "s") • \(info.formattedSize)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                    .accessibilityIdentifier("Storage.Podcast.\(info.id).Details")
             }
 
             Spacer()
@@ -196,6 +208,7 @@ private struct PodcastStorageRow: View {
             Text(info.formattedSize)
                 .font(.callout.monospacedDigit())
                 .foregroundColor(.secondary)
+                .accessibilityIdentifier("Storage.Podcast.\(info.id).Size")
         }
         .padding(.vertical, 4)
     }
