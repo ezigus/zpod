@@ -22,6 +22,20 @@ public enum NetworkQuality: Sendable, Equatable {
     case unknown
 }
 
+/// Protocol for network monitoring to enable testing
+@available(iOS 12.0, macOS 10.14, *)
+public protocol NetworkMonitoring: Sendable {
+    var currentStatus: NetworkStatus { get }
+    var currentQuality: NetworkQuality { get }
+    var statusPublisher: AnyPublisher<NetworkStatus, Never> { get }
+    var qualityPublisher: AnyPublisher<NetworkQuality, Never> { get }
+    var isConnected: Bool { get }
+    var canStream: Bool { get }
+
+    func start()
+    func stop()
+}
+
 /// Monitors network reachability and publishes status changes
 ///
 /// **Purpose**: Detect when network goes offline/online to enable smart playback behavior
@@ -48,7 +62,7 @@ public enum NetworkQuality: Sendable, Equatable {
 ///
 /// **Issue**: #28.1.4 - Network Monitoring and Adaptation
 @available(iOS 12.0, macOS 10.14, *)
-public final class NetworkMonitor: @unchecked Sendable {
+public final class NetworkMonitor: NetworkMonitoring, @unchecked Sendable {
 
     // MARK: - Public Properties
 
