@@ -47,7 +47,9 @@ public struct StorageManagementView: View {
             }
         }
         .navigationTitle("Manage Storage")
+#if os(iOS)
         .navigationBarTitleDisplayMode(.large)
+#endif
         .task {
             await viewModel.calculateStorage()
         }
@@ -56,10 +58,13 @@ public struct StorageManagementView: View {
         }
         .overlay {
             if viewModel.isLoading {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(uiColor: .systemBackground).opacity(0.8))
+                ZStack {
+                    Color.gray.opacity(0.2)
+                        .ignoresSafeArea()
+
+                    ProgressView()
+                        .scaleEffect(1.5)
+                }
             }
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
