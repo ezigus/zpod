@@ -143,6 +143,55 @@ public class DownloadCoordinator {
     return completedDownloads[episodeId] != nil
   }
 
+  /// Get all downloaded episode IDs
+  public func getAllDownloadedEpisodeIds() -> [String] {
+    return Array(completedDownloads.keys)
+  }
+
+  /// Delete a downloaded episode file
+  /// - Parameter episodeId: The ID of the episode to delete
+  /// - Throws: If file deletion fails
+  public func deleteDownloadedEpisode(episodeId: String) async throws {
+    guard let localURL = completedDownloads[episodeId] else {
+      // Episode not downloaded, nothing to delete
+      return
+    }
+
+    // Remove from completedDownloads first
+    completedDownloads.removeValue(forKey: episodeId)
+
+    // Delete the physical file
+    try await fileManagerService.deleteDownloadedFile(for: DownloadTask(
+      episodeId: episodeId,
+      podcastId: "", // Empty since we're just deleting
+      audioURL: localURL, // URL doesn't matter for deletion, only episodeId is used
+      title: ""
+    ))
+
+    Logger.info("Deleted downloaded episode: \(episodeId)")
+  }
+
+  /// Delete all downloaded episodes
+  /// - Returns: Number of episodes deleted
+  @discardableResult
+  public func deleteAllDownloads() async throws -> Int {
+    let episodeIds = getAllDownloadedEpisodeIds()
+    var deletedCount = 0
+
+    for episodeId in episodeIds {
+      do {
+        try await deleteDownloadedEpisode(episodeId: episodeId)
+        deletedCount += 1
+      } catch {
+        Logger.error("Failed to delete episode \(episodeId): \(error)")
+        // Continue with other episodes even if one fails
+      }
+    }
+
+    Logger.info("Deleted \(deletedCount) of \(episodeIds.count) downloaded episodes")
+    return deletedCount
+  }
+
   // MARK: - Private Implementation
 
   private func setupDownloadProcessing() {

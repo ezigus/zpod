@@ -46,4 +46,20 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
     public func isDownloaded(episodeId: String) -> Bool {
         return coordinator.isDownloaded(episodeId: episodeId)
     }
+
+    /// Get all downloaded episode IDs
+    public func getAllDownloadedEpisodeIds() -> [String] {
+        return coordinator.getAllDownloadedEpisodeIds()
+    }
+
+    /// Delete a downloaded episode
+    public func deleteDownloadedEpisode(episodeId: String) async throws {
+        try await coordinator.deleteDownloadedEpisode(episodeId: episodeId)
+    }
+
+    /// Delete all downloaded episodes
+    @discardableResult
+    public func deleteAllDownloads() async throws -> Int {
+        return try await coordinator.deleteAllDownloads()
+    }
 }
