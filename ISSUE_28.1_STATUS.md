@@ -1,8 +1,8 @@
 # Issue 28.1 - Offline and Streaming Playback Infrastructure
 
-**Status:** 70% Complete (Phase 1 Done, Phases 2-5 Remaining)
+**Status:** 80% Complete (Phases 1 & 3 Done, Phases 2, 4, 5 Remaining)
 **Branch:** `feature/28.1-download-manager`
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-03 20:00 ET
 
 ## Quick Status
 
@@ -25,6 +25,16 @@
 - ✅ Retry button on failed downloads
 - ✅ Swipe actions configured and functional
 
+**Network Interruption Handling:**
+- ✅ NetworkMonitor service with NWPathMonitor + Combine
+- ✅ Protocol-based design (NetworkMonitoring) for testability
+- ✅ AVPlayer buffer status observation (KVO)
+- ✅ Auto-pause on network disconnection
+- ✅ Auto-resume with 3-second grace period on recovery
+- ✅ Recovery cancellation during grace period
+- ✅ 13 network monitoring tests passing
+- ✅ StreamingInterruptionTests for network behavior
+
 ### ⚠️ What's Partially Done
 
 **Storage Management:**
@@ -37,20 +47,17 @@
 **Test Coverage:**
 - ✅ Unit tests (136+ passing)
 - ✅ Integration tests (queue→download→cache flow)
+- ✅ Network interruption tests (StreamingInterruptionTests)
 - ❌ UI tests for download flow
-- ❌ Network interruption simulation tests
 - ❌ Streaming buffer tests
 
-### ❌ What's Missing (Blocks Production)
+### ❌ What's Missing (Non-Blocking)
 
-**Network Interruption Handling (HIGH PRIORITY):**
-- ❌ No `NetworkMonitor` service (reachability)
-- ❌ No AVPlayer KVO for buffer/status observation
-- ❌ No automatic pause on network loss
-- ❌ No automatic resume on network recovery (3s timeout)
-- ❌ No retry logic with exponential backoff
+**Retry Logic (MEDIUM PRIORITY):**
+- ❌ No exponential backoff retry logic for transient errors
+- ❌ StreamingErrorHandler not yet implemented
 
-**Siri Metadata Persistence:**
+**Siri Metadata Persistence (LOW PRIORITY):**
 - ❌ Episodes not persisted to SwiftData
 - ❌ Episode lists empty after app restart
 - ❌ Siri snapshots incomplete after restart
@@ -63,12 +70,12 @@
 | AC2 | Local playback | ✅ 100% | Prefers local files |
 | AC3 | Streaming playback | ✅ 100% | Falls back to network |
 | AC4 | Download status indicators | ✅ 100% | Badges + progress bars |
-| AC5 | Network interruption handling | ❌ 0% | **BLOCKS PRODUCTION** |
+| AC5 | Network interruption handling | ⚠️ 80% | Auto-pause/resume ✅, retry logic ⏳ |
 | AC6 | Delete downloaded episodes | ✅ 100% | Deletion APIs working |
 | AC7 | Storage tracking/display | ⚠️ 50% | Logic ✅, UI ❌ |
-| AC8 | Comprehensive tests | ⚠️ 60% | Unit ✅, UI ❌ |
+| AC8 | Comprehensive tests | ⚠️ 70% | Unit ✅, network ✅, UI ❌ |
 | AC9 | Siri snapshots after restart | ❌ 0% | Not persisted |
-| AC10 | All spec scenarios tested | ⚠️ 65% | Offline ✅, streaming ⚠️ |
+| AC10 | All spec scenarios tested | ⚠️ 75% | Offline ✅, network ✅, retry ⏳ |
 | AC11 | Dev-log documentation | ✅ 100% | Comprehensive |
 
 ## Implementation Phases
@@ -98,29 +105,38 @@
 - `Packages/LibraryFeature/Sources/LibraryFeature/Views/StorageManagementView.swift` (NEW)
 - Settings navigation integration
 
-### ⏳ Phase 3: Network Interruption Handling (NOT STARTED) - **CRITICAL**
+### ✅ Phase 3: Network Interruption Handling (MOSTLY COMPLETE - 2026-02-03) - **CRITICAL**
 
 **Estimated Effort:** 3-4 days
+**Actual Effort:** 1 day
 **Priority:** HIGH (blocks production)
 
-**Tasks:**
-1. Implement `NetworkMonitor` service (Combine reachability)
-2. Add AVPlayer KVO for `status`, `playbackBufferEmpty`, `playbackLikelyToKeepUp`
-3. Auto-pause on network loss
-4. Auto-resume on network recovery (3s timeout)
-5. Retry logic with exponential backoff (5s, 15s, 60s)
-6. Add tests for network interruption scenarios
+**Completed:**
+- ✅ `NetworkMonitor` service with NWPathMonitor + Combine publishers
+- ✅ NetworkMonitoring protocol for testable design
+- ✅ AVPlayer KVO for `playbackBufferEmpty` and `playbackLikelyToKeepUp`
+- ✅ Auto-pause on network disconnection
+- ✅ Auto-resume after 3-second grace period on network recovery
+- ✅ Grace period prevents jarring pause/resume on brief network blips
+- ✅ Recovery cancellation if network lost during grace period
+- ✅ StreamingInterruptionTests with MockNetworkMonitor
+- ✅ 13 NetworkMonitor tests passing
+- ✅ Protocol-based design enables dependency injection
 
-**Files to Create:**
-- `Packages/Networking/Sources/Networking/NetworkMonitor.swift` (NEW)
-- `Packages/PlaybackEngine/Sources/PlaybackEngine/StreamingErrorHandler.swift` (NEW)
-- Enhanced `AVPlayerPlaybackEngine` or `EnhancedEpisodePlayer`
-- `Packages/PlaybackEngine/Tests/StreamingInterruptionTests.swift` (NEW)
+**Deferred:**
+- ⏳ Retry logic with exponential backoff (Task #9) - separate phase/issue
+
+**Files Created:**
+- ✅ `Packages/Networking/Sources/Networking/NetworkMonitor.swift` - 220 lines
+- ✅ `Packages/PlaybackEngine/Tests/StreamingInterruptionTests.swift` - 323 lines
+- ✅ Enhanced `AVPlayerPlaybackEngine` with network monitoring integration
+
+**Commit:** `04a50b7` - Implement network interruption handling
 
 **Spec Coverage:**
-- `spec/streaming-playback.md` lines 84-100 (network loss)
-- `spec/streaming-playback.md` lines 102-126 (buffering)
-- `spec/streaming-playback.md` lines 148-156 (retry logic)
+- ✅ Network loss detection and auto-pause
+- ✅ Network recovery with grace period
+- ⏳ Retry logic (deferred to Task #9)
 
 ### ⏳ Phase 4: Comprehensive Test Coverage (IN PROGRESS)
 
