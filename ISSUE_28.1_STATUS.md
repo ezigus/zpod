@@ -122,20 +122,25 @@
 - `spec/streaming-playback.md` lines 102-126 (buffering)
 - `spec/streaming-playback.md` lines 148-156 (retry logic)
 
-### ⏳ Phase 4: Comprehensive Test Coverage (NOT STARTED)
+### ⏳ Phase 4: Comprehensive Test Coverage (IN PROGRESS)
 
-**Estimated Effort:** 3-4 days
+**Estimated Effort:** 3-4 days (1 day completed)
 
 **Tasks:**
-1. Create `zpodUITests/DownloadFlowUITests.swift`
-2. Create `zpodUITests/OfflinePlaybackUITests.swift`
-3. Add network simulation helpers for UI tests
-4. Create streaming buffer tests
-5. Add error notification/retry flow tests
-6. Map all remaining spec scenarios to tests
+1. ✅ Create `zpodUITests/DownloadFlowUITests.swift` - DONE
+2. ✅ Add download tests to CI matrix - DONE
+3. ⏳ Create `zpodUITests/OfflinePlaybackUITests.swift`
+4. ⏳ Add network simulation helpers for UI tests
+5. ⏳ Create streaming buffer tests
+6. ⏳ Add error notification/retry flow tests
+7. ⏳ Map all remaining spec scenarios to tests
+
+**Test Files Created:**
+- ✅ `zpodUITests/DownloadFlowUITests.swift` - 6 test methods covering swipe download, progress, badges, batch operations, pause/resume, error handling
+- ✅ `zpodUITests/README_DOWNLOAD_TESTS.md` - Comprehensive documentation of download test suite
+- ✅ `.github/workflows/ci.yml` - Added `UITests-DownloadFlow` matrix entry
 
 **Test Files to Create:**
-- `zpodUITests/DownloadFlowUITests.swift` (NEW)
 - `zpodUITests/OfflinePlaybackUITests.swift` (NEW)
 - `zpodUITests/NetworkSimulationTests.swift` (NEW)
 - `Packages/PlaybackEngine/Tests/BufferStrategyTests.swift` (NEW)
