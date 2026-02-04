@@ -54,6 +54,16 @@ public final class AVPlayerPlaybackEngine {
         }
     }
 
+    // MARK: - Error Handling
+
+    /// Streaming error handler with exponential backoff retry logic
+    /// When provided, automatically retries streaming failures with 5s, 15s, 60s delays
+    public var streamingErrorHandler: (any StreamingErrorHandling)? {
+        didSet {
+            setupErrorHandling()
+        }
+    }
+
     // MARK: - Public Properties
     
     /// Current playback position in seconds
@@ -162,6 +172,34 @@ public final class AVPlayerPlaybackEngine {
                     self?.handleNetworkStatusChange(status)
                 }
             }
+    }
+
+    // MARK: - Error Handling
+
+    /// Set up error handling with retry logic
+    private func setupErrorHandling() {
+        guard let handler = streamingErrorHandler else { return }
+
+        // Configure retry callback
+        if var mutableHandler = handler as? StreamingErrorHandler {
+            mutableHandler.onRetry = { [weak self] in
+                await self?.retryCurrentPlayback()
+            }
+        }
+    }
+
+    /// Retry playback with the last known URL and position
+    private func retryCurrentPlayback() async {
+        guard let url = currentURL else {
+            Self.logger.error("Cannot retry playback - no URL stored")
+            return
+        }
+
+        let position = currentPosition
+        Self.logger.info("Retrying playback from \(url) at position \(position)")
+
+        // Reset player state and attempt playback again
+        play(from: url, startPosition: position, rate: player?.rate ?? 1.0)
     }
 
     /// Handle network status changes with automatic pause/resume
@@ -403,10 +441,32 @@ public final class AVPlayerPlaybackEngine {
                         Logger.error("[TestAudio][Error] AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
                     }
 
-                    self.onError?(playbackError)
+                    // Attempt retry if error handler is available and error is retryable
+                    if let errorHandler = self.streamingErrorHandler,
+                       let error = nsError,
+                       StreamingErrorHandler.isRetryableError(error) {
+                        Self.logger.info("Detected retryable error, attempting recovery")
+
+                        Task {
+                            let didScheduleRetry = await errorHandler.handleError(error)
+                            if !didScheduleRetry {
+                                // Retry limit exceeded - notify error callback
+                                Self.logger.error("Retry limit exceeded, notifying error callback")
+                                await MainActor.run {
+                                    self.onError?(playbackError)
+                                }
+                            }
+                        }
+                    } else {
+                        // Non-retryable error or no error handler - notify immediately
+                        self.onError?(playbackError)
+                    }
 
                 case .readyToPlay:
                     Logger.debug("AVPlayer ready to play")
+
+                    // Reset retry state on successful playback
+                    self.streamingErrorHandler?.reset()
 
                     // Additional diagnostic for tests
                     if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
@@ -576,6 +636,9 @@ public final class AVPlayerPlaybackEngine {
         networkRecoveryTask?.cancel()
         networkRecoveryTask = nil
         wasPlayingBeforeNetworkLoss = false
+
+        // Cancel any pending retry
+        streamingErrorHandler?.cancelRetry()
 
         // Stop and release player
         player?.pause()
