@@ -227,12 +227,12 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     }
     
     private func downloadEpisode(_ operation: EpisodeOperation) async throws -> EpisodeOperation {
-        guard downloadManager != nil else {
+        guard let downloadManager else {
             throw BatchOperationError.operationNotSupported(.download)
         }
-        
-        // Simulate download operation
-        try await Task.sleep(nanoseconds: 500_000_000) // 500ms simulation
+
+        // Initiate actual download via download manager
+        try await downloadManager.downloadEpisode(operation.episodeID)
         return operation.withStatus(.completed)
     }
     

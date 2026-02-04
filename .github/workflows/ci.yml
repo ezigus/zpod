@@ -836,6 +836,8 @@ jobs:
             tests: zpodUITests/PlaybackUITests
           - name: UITests-BatchOperations
             tests: zpodUITests/BatchOperationUITests
+          - name: UITests-DownloadFlow
+            tests: zpodUITests/DownloadFlowUITests
     steps:
       - name: Checkout
         uses: actions/checkout@v4

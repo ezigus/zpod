@@ -125,6 +125,15 @@ public final class InMemoryDownloadQueueManager: DownloadQueueManaging {
     public func getTask(id: String) -> DownloadInfo? {
         return tasks[id]
     }
+
+    /// Update or insert a DownloadInfo while preserving ordering.
+    func upsert(_ info: DownloadInfo) {
+        tasks[info.task.id] = info
+        if !queueOrder.contains(info.task.id) {
+            queueOrder.append(info.task.id)
+        }
+        publishQueueUpdate()
+    }
     
     // MARK: - Private Methods
     
