@@ -72,7 +72,14 @@ public struct StorageManagementView: View {
                 }
             }
         }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+        .alert("Error", isPresented: Binding<Bool>(
+            get: { viewModel.errorMessage != nil },
+            set: { newValue in
+                if !newValue {
+                    viewModel.errorMessage = nil
+                }
+            }
+        )) {
             Button("OK") {
                 viewModel.errorMessage = nil
             }
@@ -111,6 +118,7 @@ private struct StorageSummaryRow: View {
                 Image(systemName: "square.stack.3d.up.fill")
                     .foregroundColor(.blue)
                     .font(.title2)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stats.formattedTotal)
@@ -129,6 +137,7 @@ private struct StorageSummaryRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -188,6 +197,7 @@ private struct PodcastStorageRow: View {
             Image(systemName: "waveform.circle.fill")
                 .font(.title2)
                 .foregroundColor(.blue)
+                .accessibilityHidden(true)
 
             // Podcast Info
             VStack(alignment: .leading, spacing: 4) {
@@ -211,6 +221,7 @@ private struct PodcastStorageRow: View {
                 .accessibilityIdentifier("Storage.Podcast.\(info.id).Size")
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
     }
 }
 

@@ -104,6 +104,19 @@ public struct SettingsScreen: BaseScreen {
     )
   }
 
+  /// Manage Storage settings row.
+  ///
+  /// **Fallback chain**: Tries 4 element types to handle SwiftUI hierarchy variations.
+  private var manageStorageRow: XCUIElement? {
+    findSettingsRow(
+      identifiers: [
+        "Settings.ManageStorage",
+        "Settings.ManageStorage.Label",
+        "Manage Storage"
+      ]
+    )
+  }
+
   // MARK: - Navigation Actions
 
   /// Navigate to Swipe Actions configuration.
@@ -193,6 +206,36 @@ public struct SettingsScreen: BaseScreen {
       .firstMatch
 
     return waitForAny(listCandidates + [empty, title, titleLabel]) != nil
+  }
+
+  /// Navigate to Storage Management screen.
+  ///
+  /// **Steps**:
+  /// 1. Find Manage Storage row (using fallback chain)
+  /// 2. Tap row
+  /// 3. Verify Storage screen appeared (by checking for Storage.Summary or nav title)
+  ///
+  /// - Returns: True if navigation succeeded
+  @discardableResult
+  public func navigateToStorageManagement() -> Bool {
+    guard let row = manageStorageRow else {
+      return false
+    }
+
+    guard tap(row) else {
+      return false
+    }
+
+    // Verify Storage Management screen appeared
+    // Try multiple element types for Storage.Summary row
+    let summaryCandidates: [XCUIElement] = [
+      app.otherElements.matching(identifier: "Storage.Summary").firstMatch,
+      app.cells.matching(identifier: "Storage.Summary").firstMatch,
+      app.staticTexts.matching(identifier: "Storage.Summary.TotalSize").firstMatch
+    ]
+    let title = app.navigationBars["Manage Storage"].firstMatch
+
+    return waitForAny(summaryCandidates + [title]) != nil
   }
 
   // MARK: - Helpers

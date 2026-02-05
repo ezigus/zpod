@@ -2,6 +2,7 @@ import CombineSupport
 import CoreModels
 import Foundation
 import Networking
+import SharedUtilities
 
 @MainActor
 public final class DownloadCoordinatorBridge: DownloadProgressProviding, EpisodeDownloadEnqueuing {
@@ -61,5 +62,43 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
     @discardableResult
     public func deleteAllDownloads() async throws -> Int {
         return try await coordinator.deleteAllDownloads()
+    }
+
+    /// Seed completed downloads for UI tests using a comma-separated list.
+    /// Supports optional podcast prefix: "podcastA:ep1,podcastB:ep2".
+    /// No-op outside UI test environment (guarded by env var check in caller).
+    public func seedDownloadsForUITests(from envValue: String) async {
+        let entries: [(podcastId: String, episodeId: String)] = envValue
+            .split(separator: ",")
+            .map { token in
+                let parts = token.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+                if parts.count == 2 {
+                    return (podcastId: String(parts[0]), episodeId: String(parts[1]))
+                } else {
+                    return (podcastId: "uitest-podcast", episodeId: String(token))
+                }
+            }
+
+        do {
+            try await coordinator.seedCompletedDownloads(entries)
+            Logger.info("✅ UI Test: Download seeding completed (\(entries.count) episodes)")
+        } catch {
+            Logger.error("❌ UI Test: Download seeding failed: \(error)")
+        }
+    }
+
+    /// Seed downloads from UITEST_DOWNLOADED_EPISODES if present. No-op outside UITest.
+    /// Runs asynchronously - StorageManagementViewModel uses fallback stats for deterministic UI.
+    public func ensureUITestSeededFromEnvIfNeeded() async {
+        guard let env = ProcessInfo.processInfo.environment["UITEST_DOWNLOADED_EPISODES"],
+              !env.isEmpty
+        else {
+            // No env var = not a UI test, skip silently
+            return
+        }
+
+        Logger.info("🧪 UI Test: Seeding downloads from env: \(env)")
+        await seedDownloadsForUITests(from: env)
+        Logger.info("✅ UI Test: Download seeding completed")
     }
 }

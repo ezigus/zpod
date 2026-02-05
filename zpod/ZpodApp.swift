@@ -29,6 +29,13 @@ struct ZpodApp: App {
     configureSiriSnapshots()
     configureCarPlayDependencies()
 
+    // Seed UI test data asynchronously (StorageManagementViewModel uses fallback stats for deterministic UI)
+    #if canImport(LibraryFeature)
+      Task { @MainActor in
+        await DownloadCoordinatorBridge.shared.ensureUITestSeededFromEnvIfNeeded()
+      }
+    #endif
+
     // Reset playback state for UI tests to ensure clean state between tests
     resetPlaybackStateForUITests()
     seedOrphanedEpisodesForUITests()
@@ -386,4 +393,5 @@ struct ZpodApp: App {
       }
     }
   }
+
 }
