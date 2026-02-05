@@ -59,9 +59,30 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
     }
 
     /// Delete all downloaded episodes
+    ///
+    /// **UI Test Support**: When `UITEST_FAIL_DELETE=1` is set, this method
+    /// throws a simulated error to test error handling UI.
     @discardableResult
     public func deleteAllDownloads() async throws -> Int {
+        // UI Test: Simulate delete failure when env var is set
+        if ProcessInfo.processInfo.environment["UITEST_FAIL_DELETE"] == "1" {
+            Logger.info("🧪 UI Test: Simulating delete failure (UITEST_FAIL_DELETE=1)")
+            throw DownloadBridgeError.simulatedDeleteFailure
+        }
+
         return try await coordinator.deleteAllDownloads()
+    }
+
+    /// Errors specific to the download bridge layer
+    public enum DownloadBridgeError: LocalizedError {
+        case simulatedDeleteFailure
+
+        public var errorDescription: String? {
+            switch self {
+            case .simulatedDeleteFailure:
+                return "Simulated delete failure for UI testing"
+            }
+        }
     }
 
     /// Seed completed downloads for UI tests using a comma-separated list.

@@ -444,17 +444,11 @@ final class StorageManagementUITests: IsolatedUITestCase {
     ///
     /// **Spec**: storage-management.md - "Show error on delete failure"
     ///
-    /// **Given**: App configured to fail delete operations
+    /// **Given**: App configured to fail delete operations (UITEST_FAIL_DELETE=1)
     /// **When**: User attempts to delete all
     /// **Then**: Error alert is displayed
-    ///
-    /// **Note**: This test requires `UITEST_FAIL_DELETE` to be implemented in the app
-    /// to simulate delete failures. Currently skipped until infrastructure is added.
     @MainActor
     func testErrorAlertDisplays() throws {
-        // Skip until UITEST_FAIL_DELETE is implemented in DownloadCoordinator
-        throw XCTSkip("UITEST_FAIL_DELETE infrastructure not yet implemented - requires error simulation in DownloadCoordinator")
-
         // Given: App configured to fail deletions
         app = launchConfiguredApp(environmentOverrides: [
             "UITEST_DOWNLOADED_EPISODES": "episode-1",
@@ -477,17 +471,32 @@ final class StorageManagementUITests: IsolatedUITestCase {
             if deleteConfirmButton.waitForExistence(timeout: adaptiveShortTimeout) {
                 deleteConfirmButton.tap()
 
-                // Wait for error to appear
-                sleep(2)
+                // Then: Error alert should appear
+                // SwiftUI .alert presents as a system alert with title "Error"
+                let errorAlert = app.alerts["Error"].firstMatch
 
-                // Then: Error alert or message should appear
-                let errorAlert = app.alerts.firstMatch
-                let errorMessage = app.staticTexts.matching(identifier: "Storage.Error.Message").firstMatch
-
-                let errorPresent = errorAlert.exists || errorMessage.exists
                 XCTAssertTrue(
-                    errorPresent,
+                    errorAlert.waitForExistence(timeout: adaptiveTimeout),
                     "Error alert should appear when deletion fails"
+                )
+
+                // Verify alert has an OK button to dismiss
+                let okButton = errorAlert.buttons.matching(
+                    NSPredicate(format: "label CONTAINS[c] %@", "ok")
+                ).firstMatch
+
+                XCTAssertTrue(
+                    okButton.exists,
+                    "Error alert should have OK button"
+                )
+
+                // Dismiss the alert
+                okButton.tap()
+
+                // Verify alert is dismissed
+                XCTAssertFalse(
+                    errorAlert.exists,
+                    "Error alert should dismiss after tapping OK"
                 )
             } else {
                 throw XCTSkip("Delete confirmation not available in this build")
