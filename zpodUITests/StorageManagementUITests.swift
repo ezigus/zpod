@@ -237,52 +237,33 @@ final class StorageManagementUITests: IsolatedUITestCase {
 
         deleteAllButton.tap()
 
-        // Then: Confirmation dialog should appear (iOS action sheet)
-        // Look for common confirmation dialog patterns - check buttons and sheets
-        let deletePredicate = NSPredicate(format: "label CONTAINS[c] %@", "delete")
-        var deleteConfirmButton = app.buttons.matching(deletePredicate).firstMatch
-
-        // If not found as a regular button, check in sheets
-        if !deleteConfirmButton.waitForExistence(timeout: adaptiveShortTimeout) {
-            deleteConfirmButton = app.sheets.buttons.matching(deletePredicate).firstMatch
-        }
+        // Then: Confirmation alert should appear with both buttons
+        let confirmAlert = app.alerts["Delete All Downloads?"].firstMatch
 
         XCTAssertTrue(
-            deleteConfirmButton.waitForExistence(timeout: adaptiveShortTimeout),
-            "Delete confirmation button should appear in dialog"
+            confirmAlert.waitForExistence(timeout: adaptiveShortTimeout),
+            "Confirmation alert should appear"
         )
 
-        // Cancel button should also exist in the action sheet
-        // iOS confirmationDialog may render Cancel button differently across iOS versions
-        // On iOS 17+, the Cancel button may appear in alerts, sheets, or as a standalone element
-        let cancelPredicate = NSPredicate(format: "label CONTAINS[c] %@", "cancel")
-        let exactCancelPredicate = NSPredicate(format: "label == %@", "Cancel")
-
-        // Try multiple approaches to find the Cancel button
-        let cancelCandidates: [XCUIElement] = [
-            app.buttons.matching(cancelPredicate).firstMatch,
-            app.buttons.matching(exactCancelPredicate).firstMatch,
-            app.sheets.buttons.matching(cancelPredicate).firstMatch,
-            app.sheets.buttons.matching(exactCancelPredicate).firstMatch,
-            app.alerts.buttons.matching(cancelPredicate).firstMatch,
-            app.alerts.buttons.matching(exactCancelPredicate).firstMatch,
-            // iOS may render as scrollView button in action sheets
-            app.scrollViews.buttons.matching(cancelPredicate).firstMatch,
-            app.scrollViews.buttons.matching(exactCancelPredicate).firstMatch
-        ]
-
-        let cancelFound = cancelCandidates.contains { $0.waitForExistence(timeout: 1) }
-
-        // If Cancel button not found, the dialog should still be dismissible
-        // This verifies the dialog appeared (delete button was found) even if Cancel rendering varies
-        if !cancelFound {
-            // Dialog is present (we found delete button), Cancel may just be styled differently
-            // This is acceptable - the core functionality (confirmation dialog) works
-            print("Note: Cancel button not found with standard queries - iOS may render it differently")
+        // Verify Delete button exists
+        let deleteConfirmButton = confirmAlert.buttons.matching(identifier: "Storage.DeleteConfirm.Delete").firstMatch
+        if !deleteConfirmButton.exists {
+            // Fallback to label-based search
+            let deleteByLabel = confirmAlert.buttons.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "delete")
+            ).firstMatch
+            XCTAssertTrue(deleteByLabel.exists, "Delete confirmation button should exist")
         }
 
-        // Pass the test - the important thing is the confirmation dialog appeared with delete option
-        // Cancel button rendering varies by iOS version
+        // Verify Cancel button exists
+        let cancelButton = confirmAlert.buttons.matching(identifier: "Storage.DeleteConfirm.Cancel").firstMatch
+        if !cancelButton.exists {
+            // Fallback to label-based search
+            let cancelByLabel = confirmAlert.buttons.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "cancel")
+            ).firstMatch
+            XCTAssertTrue(cancelByLabel.exists, "Cancel button should exist in confirmation alert")
+        }
     }
 
     /// Test: Delete all can be cancelled
@@ -307,71 +288,32 @@ final class StorageManagementUITests: IsolatedUITestCase {
         _ = deleteAllButton.waitForExistence(timeout: adaptiveTimeout)
         deleteAllButton.tap()
 
-        // When: User dismisses the confirmation dialog
-        // iOS action sheets can be dismissed by:
-        // 1. Tapping the Cancel button (if accessible)
-        // 2. Tapping outside the dialog (on the dimmed background)
-        // 3. Swiping down on the dialog
-        let cancelPredicate = NSPredicate(format: "label CONTAINS[c] %@", "cancel")
-        let exactCancelPredicate = NSPredicate(format: "label == %@", "Cancel")
+        // When: User taps Cancel in the confirmation alert
+        // Using alert instead of confirmationDialog provides accessible buttons
+        let cancelButton = app.alerts.buttons.matching(identifier: "Storage.DeleteConfirm.Cancel").firstMatch
 
-        // Try to find Cancel button with multiple approaches
-        let cancelCandidates: [XCUIElement] = [
-            app.buttons.matching(cancelPredicate).firstMatch,
-            app.buttons.matching(exactCancelPredicate).firstMatch,
-            app.sheets.buttons.matching(cancelPredicate).firstMatch,
-            app.alerts.buttons.matching(cancelPredicate).firstMatch,
-            app.scrollViews.buttons.matching(cancelPredicate).firstMatch
-        ]
-
-        var dismissed = false
-
-        if let cancelButton = cancelCandidates.first(where: { $0.waitForExistence(timeout: 1) }) {
-            cancelButton.tap()
-            dismissed = true
-        } else {
-            // Try multiple dismissal approaches
-            // 1. Swipe down on the action sheet
-            let startPoint = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-            let endPoint = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
-            startPoint.press(forDuration: 0.1, thenDragTo: endPoint)
-            sleep(1)
-
-            // Check if dismissed
-            let deleteBtn = app.buttons.matching(
-                NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "delete", "all")
+        // Fallback to label-based search if identifier not found
+        if !cancelButton.waitForExistence(timeout: adaptiveShortTimeout) {
+            let cancelByLabel = app.alerts.buttons.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "cancel")
             ).firstMatch
 
-            if !deleteBtn.exists {
-                dismissed = true
-            } else {
-                // 2. Try tapping the dimmed background area at the very top
-                let topArea = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05))
-                topArea.tap()
-                sleep(1)
-
-                if !deleteBtn.exists {
-                    dismissed = true
-                }
-            }
+            XCTAssertTrue(
+                cancelByLabel.waitForExistence(timeout: adaptiveShortTimeout),
+                "Cancel button should exist in confirmation alert"
+            )
+            cancelByLabel.tap()
+        } else {
+            cancelButton.tap()
         }
 
-        // Then: Verify dialog dismissal and downloads remain
+        // Then: Verify alert is dismissed
         sleep(1) // Wait for animation
 
-        let deleteConfirmButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "delete", "all")
-        ).firstMatch
-
-        // If we couldn't dismiss programmatically, skip the test
-        // The core functionality (confirmation appears) is verified by testDeleteAllShowsConfirmation
-        if deleteConfirmButton.exists && !dismissed {
-            throw XCTSkip("Could not dismiss confirmation dialog programmatically - iOS action sheet Cancel button not accessible")
-        }
-
+        let confirmAlert = app.alerts["Delete All Downloads?"].firstMatch
         XCTAssertFalse(
-            deleteConfirmButton.exists,
-            "Confirmation dialog should be dismissed"
+            confirmAlert.exists,
+            "Confirmation alert should be dismissed after Cancel"
         )
 
         // Then: Storage summary still shows downloads
@@ -406,17 +348,26 @@ final class StorageManagementUITests: IsolatedUITestCase {
         _ = deleteAllButton.waitForExistence(timeout: adaptiveTimeout)
         deleteAllButton.tap()
 
-        // When: User confirms deletion
-        let deleteConfirmButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "delete", "all")
-        ).firstMatch
+        // When: User confirms deletion in the alert
+        let confirmAlert = app.alerts["Delete All Downloads?"].firstMatch
 
         XCTAssertTrue(
-            deleteConfirmButton.waitForExistence(timeout: adaptiveShortTimeout),
-            "Delete confirmation button should exist"
+            confirmAlert.waitForExistence(timeout: adaptiveShortTimeout),
+            "Confirmation alert should appear"
         )
 
-        deleteConfirmButton.tap()
+        // Find and tap the Delete button
+        let deleteConfirmButton = confirmAlert.buttons.matching(identifier: "Storage.DeleteConfirm.Delete").firstMatch
+        if deleteConfirmButton.exists {
+            deleteConfirmButton.tap()
+        } else {
+            // Fallback to label-based search
+            let deleteByLabel = confirmAlert.buttons.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "delete")
+            ).firstMatch
+            XCTAssertTrue(deleteByLabel.exists, "Delete confirmation button should exist")
+            deleteByLabel.tap()
+        }
 
         // Then: Wait for deletion to complete
         sleep(2)

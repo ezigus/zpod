@@ -90,17 +90,18 @@ public struct StorageManagementView: View {
                     .accessibilityIdentifier("Storage.Error.Message")
             }
         }
-        .confirmationDialog(
+        .alert(
             "Delete All Downloads?",
-            isPresented: $showingDeleteAllConfirmation,
-            titleVisibility: .visible
+            isPresented: $showingDeleteAllConfirmation
         ) {
+            Button("Cancel", role: .cancel) {}
+                .accessibilityIdentifier("Storage.DeleteConfirm.Cancel")
             Button("Delete All", role: .destructive) {
                 Task {
                     await viewModel.deleteAllDownloads()
                 }
             }
-            Button("Cancel", role: .cancel) {}
+            .accessibilityIdentifier("Storage.DeleteConfirm.Delete")
         } message: {
             Text("This will delete all \(viewModel.storageStats.totalEpisodes) downloaded episodes and free up \(viewModel.storageStats.formattedTotal). This action cannot be undone.")
         }
