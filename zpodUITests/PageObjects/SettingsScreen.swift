@@ -149,6 +149,10 @@ public struct SettingsScreen: BaseScreen {
   /// 2. Tap row
   /// 3. Verify Download toggle appeared
   ///
+  /// **Known Issue**: Download Policies is in Settings section 5. SwiftUI lazy lists
+  /// don't materialize elements until scrolled into view. This method may fail if
+  /// the element isn't visible. See testSettingsTabPresentsDownloadPolicies skip.
+  ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToDownloadPolicies() -> Bool {
@@ -250,6 +254,10 @@ public struct SettingsScreen: BaseScreen {
   /// 2. OtherElement with identifier
   /// 3. Cell with identifier
   /// 4. StaticText with identifier
+  ///
+  /// **Limitation**: Settings list has many sections. Elements in later sections
+  /// (e.g., downloadPolicies in section 5) may not be materialized until scrolled
+  /// into view. This method does NOT currently scroll.
   ///
   /// - Parameter identifiers: Identifiers/labels to try (in order)
   /// - Returns: First matching element, or nil if none found
