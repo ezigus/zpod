@@ -143,6 +143,53 @@ public class DownloadCoordinator {
     return completedDownloads[episodeId] != nil
   }
 
+  /// Get all downloaded episode IDs
+  public func getAllDownloadedEpisodeIds() -> [String] {
+    return Array(completedDownloads.keys)
+  }
+
+  /// Delete a downloaded episode file
+  /// - Parameter episodeId: The ID of the episode to delete
+  /// - Throws: If file deletion fails
+  public func deleteDownloadedEpisode(episodeId: String) async throws {
+    guard let localURL = completedDownloads[episodeId] else {
+      // Episode not downloaded, nothing to delete
+      return
+    }
+
+    // Delete the physical file using the stored path to avoid mismatched podcast IDs
+    do {
+      try FileManager.default.removeItem(at: localURL)
+      completedDownloads.removeValue(forKey: episodeId)
+    } catch {
+      Logger.error("Failed to delete downloaded episode \(episodeId) at \(localURL.path): \(error)")
+      throw error
+    }
+
+    Logger.info("Deleted downloaded episode: \(episodeId)")
+  }
+
+  /// Delete all downloaded episodes
+  /// - Returns: Number of episodes deleted
+  @discardableResult
+  public func deleteAllDownloads() async throws -> Int {
+    let episodeIds = getAllDownloadedEpisodeIds()
+    var deletedCount = 0
+
+    for episodeId in episodeIds {
+      do {
+        try await deleteDownloadedEpisode(episodeId: episodeId)
+        deletedCount += 1
+      } catch {
+        Logger.error("Failed to delete episode \(episodeId): \(error)")
+        // Continue with other episodes even if one fails
+      }
+    }
+
+    Logger.info("Deleted \(deletedCount) of \(episodeIds.count) downloaded episodes")
+    return deletedCount
+  }
+
   // MARK: - Private Implementation
 
   private func setupDownloadProcessing() {
@@ -368,6 +415,39 @@ public class DownloadCoordinator {
         return .completed
       case .failed, .cancelled:
         return .failed
+      }
+    }
+  #endif
+
+  // MARK: - UI Test Support
+
+  #if DEBUG
+    /// Seed completed downloads for UI tests using provided tuples.
+    /// Each entry creates a placeholder file and caches it as completed.
+    @MainActor
+    public func seedCompletedDownloads(
+      _ entries: [(podcastId: String, episodeId: String)],
+      seedData: Data = Data([0x00])
+    ) async throws {
+      for entry in entries {
+        let task = DownloadTask(
+          episodeId: entry.episodeId,
+          podcastId: entry.podcastId,
+          audioURL: URL(string: "https://example.com/\(entry.episodeId).mp3")!,
+          title: "UITest \(entry.episodeId)"
+        )
+
+        try await fileManagerService.createDownloadDirectory(for: task)
+        let path = await fileManagerService.downloadPath(for: task)
+        let url = URL(fileURLWithPath: path)
+
+        if !FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path) {
+          try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+        try seedData.write(to: url, options: .atomic)
+
+        completedDownloads[entry.episodeId] = url
       }
     }
   #endif

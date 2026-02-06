@@ -243,6 +243,10 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
                 item.accessibilityLabel = resolvedTitle
             }
 
+            if (item.accessibilityIdentifier ?? "").isEmpty {
+                item.accessibilityIdentifier = resolvedTitle
+            }
+
             if (item.accessibilityHint ?? "").isEmpty {
                 item.accessibilityHint = "Opens \(resolvedTitle)"
             }

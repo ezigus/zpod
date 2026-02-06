@@ -13,6 +13,14 @@ struct SettingsHomeView: View {
       List {
         Section("Storage") {
           NavigationLink {
+            StorageManagementView()
+          } label: {
+            Label("Manage Storage", systemImage: "square.stack.3d.up")
+              .accessibilityIdentifier("Settings.ManageStorage.Label")
+          }
+          .accessibilityIdentifier("Settings.ManageStorage")
+
+          NavigationLink {
             OrphanedEpisodesView(
               viewModel: OrphanedEpisodesViewModel(
                 podcastManager: PlaybackEnvironment.podcastManager
@@ -38,6 +46,7 @@ struct SettingsHomeView: View {
           }
         }
       }
+      .accessibilityIdentifier("Settings.Content")
       .platformInsetGroupedListStyle()
       .overlay {
         overlayContent()

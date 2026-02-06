@@ -1,6 +1,8 @@
 #if os(iOS)
 import AVFoundation
+import Combine
 import Foundation
+import Networking
 import OSLog
 import SharedUtilities
 
@@ -37,7 +39,31 @@ public final class AVPlayerPlaybackEngine {
 
     /// Called when an error occurs (network failure, invalid URL, etc.)
     public var onError: ((PlaybackError) -> Void)?
-    
+
+    /// Called when buffer status changes (buffer empty, likely to keep up)
+    /// - Parameter isBuffering: true when buffering, false when ready to play
+    public var onBufferStatusChanged: ((Bool) -> Void)?
+
+    // MARK: - Network Monitoring
+
+    /// Network monitor for detecting connection status changes
+    /// When provided, enables automatic pause on network loss and resume on recovery
+    public var networkMonitor: (any NetworkMonitoring)? {
+        didSet {
+            setupNetworkMonitoring()
+        }
+    }
+
+    // MARK: - Error Handling
+
+    /// Streaming error handler with exponential backoff retry logic
+    /// When provided, automatically retries streaming failures with 5s, 15s, 60s delays
+    public var streamingErrorHandler: (any StreamingErrorHandling)? {
+        didSet {
+            setupErrorHandling()
+        }
+    }
+
     // MARK: - Public Properties
     
     /// Current playback position in seconds
@@ -82,11 +108,19 @@ public final class AVPlayerPlaybackEngine {
     private var playerItem: AVPlayerItem?
     private var timeObserver: Any?
     private var statusObserver: NSKeyValueObservation?
+    private var bufferEmptyObserver: NSKeyValueObservation?
+    private var bufferKeepUpObserver: NSKeyValueObservation?
     private var didFinishObserver: NSObjectProtocol?
     private var failureObserver: NSObjectProtocol?
     private var currentURL: URL?
     private var lastStatus: AVPlayerItem.Status?
     private var lastErrorDescription: String?
+    private var isBuffering: Bool = false
+
+    // Network monitoring
+    private var networkStatusCancellable: AnyCancellable?
+    private var networkRecoveryTask: Task<Void, Never>?
+    private var wasPlayingBeforeNetworkLoss: Bool = false
     
     private let timeObserverInterval: TimeInterval = 0.5
     
@@ -104,7 +138,10 @@ public final class AVPlayerPlaybackEngine {
         subsystem: "us.zig.zpod",
         category: "AVPlayerPlaybackEngine"
     )
-    
+
+    /// Grace period before auto-resuming playback after network recovery
+    private let networkRecoveryGracePeriod: TimeInterval = 3.0
+
     deinit {
         // Cleanup must be called synchronously to ensure proper deallocation
         // We use assumeIsolated to assert we're on the main actor (which should
@@ -113,7 +150,112 @@ public final class AVPlayerPlaybackEngine {
             cleanupSync()
         }
     }
-    
+
+    // MARK: - Network Monitoring
+
+    /// Set up network status monitoring for automatic pause/resume behavior
+    private func setupNetworkMonitoring() {
+        // Cancel any existing subscription
+        networkStatusCancellable?.cancel()
+        networkStatusCancellable = nil
+
+        // Cancel any pending recovery task
+        networkRecoveryTask?.cancel()
+        networkRecoveryTask = nil
+
+        guard let monitor = networkMonitor else { return }
+
+        // Subscribe to network status changes
+        networkStatusCancellable = monitor.statusPublisher
+            .sink { [weak self] status in
+                Task { @MainActor [weak self] in
+                    self?.handleNetworkStatusChange(status)
+                }
+            }
+    }
+
+    // MARK: - Error Handling
+
+    /// Set up error handling with retry logic
+    private func setupErrorHandling() {
+        guard let handler = streamingErrorHandler else { return }
+
+        // Configure retry callback
+        if let retryCapableHandler = handler as? StreamingErrorHandler {
+            retryCapableHandler.onRetry = { [weak self] in
+                await self?.retryCurrentPlayback()
+            }
+        } else {
+            Self.logger.warning(
+                "Configured streamingErrorHandler (\(type(of: handler))) does not expose retry callbacks; playback retries will be disabled."
+            )
+        }
+    }
+
+    /// Retry playback with the last known URL and position
+    private func retryCurrentPlayback() async {
+        guard let url = currentURL else {
+            Self.logger.error("Cannot retry playback - no URL stored")
+            return
+        }
+
+        let position = currentPosition
+        Self.logger.info("Retrying playback from \(url) at position \(position)")
+
+        // Reset player state and attempt playback again
+        play(from: url, startPosition: position, rate: player?.rate ?? 1.0)
+    }
+
+    /// Handle network status changes with automatic pause/resume
+    private func handleNetworkStatusChange(_ status: NetworkStatus) {
+        switch status {
+        case .disconnected:
+            // Network lost - auto-pause if currently playing
+            if isPlaying {
+                Self.logger.warning("Network disconnected - auto-pausing playback")
+                wasPlayingBeforeNetworkLoss = true
+                pause()
+
+                // Cancel any pending recovery task
+                networkRecoveryTask?.cancel()
+                networkRecoveryTask = nil
+            }
+
+        case .connected:
+            // Network recovered - schedule auto-resume if we were playing before
+            if wasPlayingBeforeNetworkLoss {
+                Self.logger.info("Network reconnected - scheduling auto-resume after \(self.networkRecoveryGracePeriod)s grace period")
+
+                // Cancel any existing recovery task
+                networkRecoveryTask?.cancel()
+
+                // Schedule auto-resume after grace period
+                networkRecoveryTask = Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+
+                    do {
+                        // Wait for grace period
+                        try await Task.sleep(nanoseconds: UInt64(self.networkRecoveryGracePeriod * 1_000_000_000))
+
+                        // Only resume if still needed and not cancelled
+                        if self.wasPlayingBeforeNetworkLoss, !Task.isCancelled {
+                            Self.logger.info("Auto-resuming playback after network recovery")
+                            self.player?.play()
+                            self.wasPlayingBeforeNetworkLoss = false
+                        }
+                    } catch {
+                        // Task was cancelled - normal behavior
+                        Self.logger.debug("Network recovery task cancelled")
+                    }
+                }
+            }
+
+        case .unknown:
+            // Unknown status - don't take action
+            break
+        }
+    }
+
     // MARK: - Public Methods
     
     /// Start playback from a URL at the given position and rate.
@@ -158,7 +300,10 @@ public final class AVPlayerPlaybackEngine {
         // Observe player item status for errors
         observePlayerStatus()
         observePlayerItemFailure()
-        
+
+        // Observe buffer status for network handling
+        observeBufferStatus()
+
         // Observe playback completion
         observePlaybackCompletion()
         
@@ -300,10 +445,32 @@ public final class AVPlayerPlaybackEngine {
                         Logger.error("[TestAudio][Error] AVPlayerItem FAILED: \(error?.localizedDescription ?? "Unknown error")")
                     }
 
-                    self.onError?(playbackError)
+                    // Attempt retry if error handler is available and error is retryable
+                    if let errorHandler = self.streamingErrorHandler,
+                       let error = nsError,
+                       StreamingErrorHandler.isRetryableError(error) {
+                        Self.logger.info("Detected retryable error, attempting recovery")
+
+                        Task {
+                            let didScheduleRetry = await errorHandler.handleError(error)
+                            if !didScheduleRetry {
+                                // Retry limit exceeded - notify error callback
+                                Self.logger.error("Retry limit exceeded, notifying error callback")
+                                await MainActor.run {
+                                    self.onError?(playbackError)
+                                }
+                            }
+                        }
+                    } else {
+                        // Non-retryable error or no error handler - notify immediately
+                        self.onError?(playbackError)
+                    }
 
                 case .readyToPlay:
                     Logger.debug("AVPlayer ready to play")
+
+                    // Reset retry state on successful playback
+                    self.streamingErrorHandler?.reset()
 
                     // Additional diagnostic for tests
                     if ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1" {
@@ -320,9 +487,58 @@ public final class AVPlayerPlaybackEngine {
         }
     }
     
+    /// Observe buffer status to detect stalled playback
+    ///
+    /// Monitors:
+    /// - `playbackBufferEmpty`: true when buffer runs out (playback stalls)
+    /// - `playbackLikelyToKeepUp`: true when buffer has enough data to resume
+    ///
+    /// Calls `onBufferStatusChanged` callback when buffer state changes.
+    private func observeBufferStatus() {
+        guard let playerItem = playerItem else { return }
+
+        // Observe when buffer runs empty (playback stalls)
+        bufferEmptyObserver = playerItem.observe(
+            \.isPlaybackBufferEmpty,
+            options: [.new]
+        ) { [weak self] item, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+
+                let isEmpty = item.isPlaybackBufferEmpty
+                Self.logger.info("Buffer empty: \(isEmpty)")
+
+                // Update buffering state
+                if isEmpty && !self.isBuffering {
+                    self.isBuffering = true
+                    self.onBufferStatusChanged?(true)
+                }
+            }
+        }
+
+        // Observe when buffer is likely to keep up (ready to resume)
+        bufferKeepUpObserver = playerItem.observe(
+            \.isPlaybackLikelyToKeepUp,
+            options: [.new]
+        ) { [weak self] item, _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+
+                let likelyToKeepUp = item.isPlaybackLikelyToKeepUp
+                Self.logger.info("Likely to keep up: \(likelyToKeepUp)")
+
+                // Update buffering state
+                if likelyToKeepUp && self.isBuffering {
+                    self.isBuffering = false
+                    self.onBufferStatusChanged?(false)
+                }
+            }
+        }
+    }
+
     private func observePlaybackCompletion() {
         guard let playerItem = playerItem else { return }
-        
+
         didFinishObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: playerItem,
@@ -397,11 +613,17 @@ public final class AVPlayerPlaybackEngine {
             player?.removeTimeObserver(timeObserver)
             self.timeObserver = nil
         }
-        
+
         // Remove status observer
         statusObserver?.invalidate()
         statusObserver = nil
-        
+
+        // Remove buffer observers
+        bufferEmptyObserver?.invalidate()
+        bufferEmptyObserver = nil
+        bufferKeepUpObserver?.invalidate()
+        bufferKeepUpObserver = nil
+
         // Remove completion observer
         if let didFinishObserver = didFinishObserver {
             NotificationCenter.default.removeObserver(didFinishObserver)
@@ -411,7 +633,17 @@ public final class AVPlayerPlaybackEngine {
             NotificationCenter.default.removeObserver(failureObserver)
             self.failureObserver = nil
         }
-        
+
+        // Cancel network monitoring
+        networkStatusCancellable?.cancel()
+        networkStatusCancellable = nil
+        networkRecoveryTask?.cancel()
+        networkRecoveryTask = nil
+        wasPlayingBeforeNetworkLoss = false
+
+        // Cancel any pending retry
+        streamingErrorHandler?.cancelRetry()
+
         // Stop and release player
         player?.pause()
         player = nil

@@ -104,6 +104,19 @@ public struct SettingsScreen: BaseScreen {
     )
   }
 
+  /// Manage Storage settings row.
+  ///
+  /// **Fallback chain**: Tries 4 element types to handle SwiftUI hierarchy variations.
+  private var manageStorageRow: XCUIElement? {
+    findSettingsRow(
+      identifiers: [
+        "Settings.ManageStorage",
+        "Settings.ManageStorage.Label",
+        "Manage Storage"
+      ]
+    )
+  }
+
   // MARK: - Navigation Actions
 
   /// Navigate to Swipe Actions configuration.
@@ -135,6 +148,10 @@ public struct SettingsScreen: BaseScreen {
   /// 1. Find Download Policies row
   /// 2. Tap row
   /// 3. Verify Download toggle appeared
+  ///
+  /// **Known Issue**: Download Policies is in Settings section 5. SwiftUI lazy lists
+  /// don't materialize elements until scrolled into view. This method may fail if
+  /// the element isn't visible. See testSettingsTabPresentsDownloadPolicies skip.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
@@ -195,6 +212,36 @@ public struct SettingsScreen: BaseScreen {
     return waitForAny(listCandidates + [empty, title, titleLabel]) != nil
   }
 
+  /// Navigate to Storage Management screen.
+  ///
+  /// **Steps**:
+  /// 1. Find Manage Storage row (using fallback chain)
+  /// 2. Tap row
+  /// 3. Verify Storage screen appeared (by checking for Storage.Summary or nav title)
+  ///
+  /// - Returns: True if navigation succeeded
+  @discardableResult
+  public func navigateToStorageManagement() -> Bool {
+    guard let row = manageStorageRow else {
+      return false
+    }
+
+    guard tap(row) else {
+      return false
+    }
+
+    // Verify Storage Management screen appeared
+    // Try multiple element types for Storage.Summary row
+    let summaryCandidates: [XCUIElement] = [
+      app.otherElements.matching(identifier: "Storage.Summary").firstMatch,
+      app.cells.matching(identifier: "Storage.Summary").firstMatch,
+      app.staticTexts.matching(identifier: "Storage.Summary.TotalSize").firstMatch
+    ]
+    let title = app.navigationBars["Manage Storage"].firstMatch
+
+    return waitForAny(summaryCandidates + [title]) != nil
+  }
+
   // MARK: - Helpers
 
   /// Finds a settings row using multiple identifier/label fallbacks.
@@ -207,6 +254,10 @@ public struct SettingsScreen: BaseScreen {
   /// 2. OtherElement with identifier
   /// 3. Cell with identifier
   /// 4. StaticText with identifier
+  ///
+  /// **Limitation**: Settings list has many sections. Elements in later sections
+  /// (e.g., downloadPolicies in section 5) may not be materialized until scrolled
+  /// into view. This method does NOT currently scroll.
   ///
   /// - Parameter identifiers: Identifiers/labels to try (in order)
   /// - Returns: First matching element, or nil if none found

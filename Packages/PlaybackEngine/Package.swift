@@ -16,6 +16,7 @@ let package = Package(
   ],
   dependencies: [
     .package(path: "../CoreModels"),
+    .package(path: "../Networking"),
     .package(path: "../SharedUtilities"),
     .package(path: "../CombineSupport"),
     .package(path: "../TestSupport"),
@@ -26,6 +27,7 @@ let package = Package(
       dependencies: [
         "CoreModels",
         "CombineSupport",
+        "Networking",
         "SharedUtilities"
       ],
       path: ".",
@@ -36,6 +38,7 @@ let package = Package(
       dependencies: [
         "PlaybackEngine",
         "CoreModels",
+        "Networking",
         "SharedUtilities",
         "CombineSupport",
         "TestSupport",
