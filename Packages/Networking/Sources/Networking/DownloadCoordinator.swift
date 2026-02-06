@@ -157,16 +157,14 @@ public class DownloadCoordinator {
       return
     }
 
-    // Remove from completedDownloads first
-    completedDownloads.removeValue(forKey: episodeId)
-
-    // Delete the physical file
-    try await fileManagerService.deleteDownloadedFile(for: DownloadTask(
-      episodeId: episodeId,
-      podcastId: "", // Empty since we're just deleting
-      audioURL: localURL, // URL doesn't matter for deletion, only episodeId is used
-      title: ""
-    ))
+    // Delete the physical file using the stored path to avoid mismatched podcast IDs
+    do {
+      try FileManager.default.removeItem(at: localURL)
+      completedDownloads.removeValue(forKey: episodeId)
+    } catch {
+      Logger.error("Failed to delete downloaded episode \(episodeId) at \(localURL.path): \(error)")
+      throw error
+    }
 
     Logger.info("Deleted downloaded episode: \(episodeId)")
   }
@@ -417,6 +415,39 @@ public class DownloadCoordinator {
         return .completed
       case .failed, .cancelled:
         return .failed
+      }
+    }
+  #endif
+
+  // MARK: - UI Test Support
+
+  #if DEBUG
+    /// Seed completed downloads for UI tests using provided tuples.
+    /// Each entry creates a placeholder file and caches it as completed.
+    @MainActor
+    public func seedCompletedDownloads(
+      _ entries: [(podcastId: String, episodeId: String)],
+      seedData: Data = Data([0x00])
+    ) async throws {
+      for entry in entries {
+        let task = DownloadTask(
+          episodeId: entry.episodeId,
+          podcastId: entry.podcastId,
+          audioURL: URL(string: "https://example.com/\(entry.episodeId).mp3")!,
+          title: "UITest \(entry.episodeId)"
+        )
+
+        try await fileManagerService.createDownloadDirectory(for: task)
+        let path = await fileManagerService.downloadPath(for: task)
+        let url = URL(fileURLWithPath: path)
+
+        if !FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path) {
+          try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+        try seedData.write(to: url, options: .atomic)
+
+        completedDownloads[entry.episodeId] = url
       }
     }
   #endif

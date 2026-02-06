@@ -181,10 +181,14 @@ public final class AVPlayerPlaybackEngine {
         guard let handler = streamingErrorHandler else { return }
 
         // Configure retry callback
-        if var mutableHandler = handler as? StreamingErrorHandler {
-            mutableHandler.onRetry = { [weak self] in
+        if let retryCapableHandler = handler as? StreamingErrorHandler {
+            retryCapableHandler.onRetry = { [weak self] in
                 await self?.retryCurrentPlayback()
             }
+        } else {
+            Self.logger.warning(
+                "Configured streamingErrorHandler (\(type(of: handler))) does not expose retry callbacks; playback retries will be disabled."
+            )
         }
     }
 

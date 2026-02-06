@@ -55,8 +55,6 @@ final class StreamingInterruptionTests: XCTestCase {
         // Wait briefly for playback to start (async AVPlayer setup)
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
 
-        let wasPlayingBefore = engine.isPlaying
-
         // When: Network is lost
         networkMonitor.simulateNetworkLoss()
 

@@ -300,6 +300,10 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           item.accessibilityLabel = resolvedTitle
         }
 
+        if (item.accessibilityIdentifier ?? "").isEmpty {
+          item.accessibilityIdentifier = resolvedTitle
+        }
+
         if (item.accessibilityHint ?? "").isEmpty {
           item.accessibilityHint = "Opens \(resolvedTitle)"
         }

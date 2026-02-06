@@ -7,6 +7,12 @@
 //
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+#if canImport(CFNetwork)
+import CFNetwork
+#endif
 import Combine
 import OSLog
 
@@ -104,39 +110,40 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
     /// - Parameter error: The error that occurred
     /// - Returns: True if retry scheduled, false if retry limit exceeded
     public func handleError(_ error: Error) async -> Bool {
-        let shouldRetry = stateQueue.sync { () -> Bool in
-            guard _retryAttempt < maxRetries else {
-                logger.error("Retry limit exceeded (\(self.maxRetries) attempts), marking as failed")
-                retryStateSubject.send(.failed)
-                return false
+        let result: (shouldRetry: Bool, attempt: Int?, stateToSend: RetryState?) = stateQueue.sync {
+            if _retryAttempt >= maxRetries {
+                return (false, nil, .failed)
             }
-
             _retryAttempt += 1
-            retryStateSubject.send(.retrying(attempt: _retryAttempt))
-            return true
+            return (true, _retryAttempt, .retrying(attempt: _retryAttempt))
         }
 
-        guard shouldRetry else {
+        if let state = result.stateToSend {
+            retryStateSubject.send(state)
+        }
+
+        guard result.shouldRetry, let attempt = result.attempt else {
             return false
         }
 
-        let delay = retryDelays[_retryAttempt - 1]
-        logger.info("Scheduling retry attempt \(self._retryAttempt) after \(delay) seconds")
+        let delay = retryDelays[min(attempt - 1, retryDelays.count - 1)]
+        logger.info("Scheduling retry attempt \(attempt) after \(delay) seconds")
+
+        // Cancel any previously scheduled retry before scheduling a new one
+        retryTask?.cancel()
 
         // Schedule retry with exponential backoff using injected delay provider
         retryTask = Task { @MainActor in
             do {
                 try await self.delayProvider.delay(seconds: delay)
 
-                // Check if retry was cancelled
                 guard !Task.isCancelled else {
-                    self.logger.info("Retry attempt \(self._retryAttempt) was cancelled")
+                    self.logger.info("Retry attempt \(attempt) was cancelled")
                     return
                 }
 
-                self.logger.info("Executing retry attempt \(self._retryAttempt)")
+                self.logger.info("Executing retry attempt \(attempt)")
                 await self.onRetry?()
-
             } catch {
                 self.logger.error("Retry delay interrupted: \(error.localizedDescription)")
             }
@@ -149,9 +156,8 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
     public func reset() {
         stateQueue.sync {
             _retryAttempt = 0
-            retryStateSubject.send(.idle)
         }
-
+        retryStateSubject.send(.idle)
         cancelRetry()
         logger.info("Retry state reset")
     }
@@ -196,7 +202,9 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
         }
 
         // HTTP errors (status codes)
-        if let httpResponse = nsError.userInfo[NSURLErrorFailingURLPeerTrustErrorKey] as? HTTPURLResponse {
+        if let httpResponse = nsError.userInfo["NSURLErrorFailingURLResponseErrorKey"] as? HTTPURLResponse
+            ?? nsError.userInfo["NSErrorFailingURLResponseKey"] as? HTTPURLResponse
+        {
             let statusCode = httpResponse.statusCode
 
             // Retry server errors (5xx)

@@ -46,6 +46,7 @@ struct SettingsHomeView: View {
           }
         }
       }
+      .accessibilityIdentifier("Settings.Content")
       .platformInsetGroupedListStyle()
       .overlay {
         overlayContent()

@@ -130,12 +130,9 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             networkRecoveryButton.tap()
 
             // Then: After grace period (3s), playback should resume
-            // Wait for grace period plus buffer
-            sleep(4)
-
             let pauseButton = app.buttons.matching(identifier: "Player.PauseButton").firstMatch
             XCTAssertTrue(
-                pauseButton.exists,
+                pauseButton.waitForExistence(timeout: adaptiveTimeout),
                 "Pause button should appear after auto-resume"
             )
         }

@@ -40,22 +40,18 @@
 **Storage Management:**
 - ✅ Storage policy evaluation logic exists
 - ✅ File size tracking APIs available
-- ❌ No UI to view total storage used
-- ❌ No per-podcast storage breakdown
-- ❌ No "Manage Storage" settings screen
+- ✅ "Manage Storage" settings screen with summary + per-podcast breakdown
+- ✅ Delete-all flow implemented
+- ⚠️ Per-podcast delete still pending
 
 **Test Coverage:**
 - ✅ Unit tests (136+ passing)
 - ✅ Integration tests (queue→download→cache flow)
 - ✅ Network interruption tests (StreamingInterruptionTests)
-- ❌ UI tests for download flow
-- ❌ Streaming buffer tests
+- ✅ UI tests for download flow / storage / streaming interruptions
+- ⚠️ Streaming buffer edge cases still limited
 
-### ❌ What's Missing (Non-Blocking)
-
-**Retry Logic (MEDIUM PRIORITY):**
-- ❌ No exponential backoff retry logic for transient errors
-- ❌ StreamingErrorHandler not yet implemented
+### ⚠️ What's Missing (Non-Blocking)
 
 **Siri Metadata Persistence (LOW PRIORITY):**
 - ❌ Episodes not persisted to SwiftData
@@ -70,12 +66,12 @@
 | AC2 | Local playback | ✅ 100% | Prefers local files |
 | AC3 | Streaming playback | ✅ 100% | Falls back to network |
 | AC4 | Download status indicators | ✅ 100% | Badges + progress bars |
-| AC5 | Network interruption handling | ⚠️ 80% | Auto-pause/resume ✅, retry logic ⏳ |
+| AC5 | Network interruption handling | ✅ 100% | Auto-pause/resume + retries |
 | AC6 | Delete downloaded episodes | ✅ 100% | Deletion APIs working |
-| AC7 | Storage tracking/display | ⚠️ 50% | Logic ✅, UI ❌ |
-| AC8 | Comprehensive tests | ⚠️ 70% | Unit ✅, network ✅, UI ❌ |
+| AC7 | Storage tracking/display | ⚠️ 80% | Summary UI ✅, per-podcast delete ⏳ |
+| AC8 | Comprehensive tests | ⚠️ 85% | Unit/integration/UI ✅, buffer edges ⏳ |
 | AC9 | Siri snapshots after restart | ❌ 0% | Not persisted |
-| AC10 | All spec scenarios tested | ⚠️ 75% | Offline ✅, network ✅, retry ⏳ |
+| AC10 | All spec scenarios tested | ⚠️ 80% | Offline/streaming/interruption ✅, buffer edges ⏳ |
 | AC11 | Dev-log documentation | ✅ 100% | Comprehensive |
 
 ## Implementation Phases
