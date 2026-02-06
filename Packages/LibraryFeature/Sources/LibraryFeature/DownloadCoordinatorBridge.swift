@@ -85,6 +85,9 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
         }
     }
 
+    // MARK: - UI Test Support
+
+    #if DEBUG
     /// Seed completed downloads for UI tests using a comma-separated list.
     /// Supports optional podcast prefix: "podcastA:ep1,podcastB:ep2".
     /// No-op outside UI test environment (guarded by env var check in caller).
@@ -122,4 +125,10 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
         await seedDownloadsForUITests(from: env)
         Logger.info("✅ UI Test: Download seeding completed")
     }
+    #else
+    /// No-op in release builds - UI test seeding only available in DEBUG
+    public func ensureUITestSeededFromEnvIfNeeded() async {
+        // No-op in release builds
+    }
+    #endif
 }
