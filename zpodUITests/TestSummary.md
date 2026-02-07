@@ -132,6 +132,48 @@ This document outlines the UI testing approach for the main zpod application.
 - Filter and sort controls
 - Content recommendation displays
 
+### Offline Playback UI Tests (`OfflinePlaybackUITests.swift`)
+
+**Purpose**: Harden offline-playback UI assertions around deterministic seeding, row discoverability, and player reachability.
+
+**Specifications Covered**:
+
+- `spec/offline-playback.md` — downloaded playback, badge visibility, offline fallback behavior
+- `Issues/28.1.9 - UI Test Hardening for Offline & Streaming Playback` — hardening scope
+
+**Test Areas**:
+
+- Downloaded-row detection via stable row identifier (`Episode-<id>`)
+- Download status detection via row-scoped status identifier (`Episode-<id>-DownloadStatus`) with SwiftUI label fallback
+- Player-surface reachability after episode selection (detail path + Player tab fallback)
+- Graceful issue-traceable skips for blocked scenarios
+
+**Current Blocked Scenarios**:
+
+- `testDeletedDownloadRevertsToStreaming` → blocked by `Issue 28.1.10 (#395)` (`SwipeAction.delete`)
+- `testNonDownloadedEpisodeFailsOffline` → blocked by `Issue 03.3.4 (#269)` (`PlaybackError` accessibility surface)
+
+### Streaming Interruption UI Tests (`StreamingInterruptionUITests.swift`)
+
+**Purpose**: Harden streaming interruption UI tests so hook-dependent behavior either validates via test controls or skips with traceable blockers.
+
+**Specifications Covered**:
+
+- `spec/streaming-playback.md` — auto-pause/resume, buffering, poor-network adaptation
+- `Issues/28.1.9 - UI Test Hardening for Offline & Streaming Playback` — hardening scope
+
+**Test Areas**:
+
+- Player-tab deterministic setup for simulation scenarios
+- Hook button discovery using identifier + label fallback (`TestHook.*`)
+- State transitions validated with wait helpers (`waitUntil`) and no fixed sleeps
+- Graceful issue-traceable skips when simulation hooks or transitions are unavailable
+
+**Current Blocked Scenarios**:
+
+- Hook/transition behavior still blocked by `Issue 28.1.11 (#396)` (simulation integration gaps)
+- Error-message/retry visibility blocked by `Issue 03.3.4 (#269)` (`PlaybackError` accessibility surface)
+
 ### Swipe Configuration UI Tests
 
 **Purpose**: Validate the configurable swipe gesture workflow, ensure presets/haptics remain correct, and verify seeded swipe execution in the episode list.
