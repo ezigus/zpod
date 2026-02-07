@@ -18,8 +18,9 @@ import XCTest
 ///
 /// **Issue**: #28.1 - Phase 4: Test Infrastructure
 ///
-/// **Status**: ACTIVE - Badge tests use Episode-<id>-DownloadStatus identifier
-/// seeded via UITEST_DOWNLOADED_EPISODES env override.
+/// **Status**: ACTIVE - Badge tests prefer row-scoped
+/// Episode-<id>-DownloadStatus identifiers seeded via UITEST_DOWNLOADED_EPISODES.
+/// Fallback checks use the row label when SwiftUI combines status children.
 /// testNonDownloadedEpisodeFailsOffline skipped until PlaybackError surface exists.
 final class OfflinePlaybackUITests: IsolatedUITestCase {
 
@@ -51,8 +52,10 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
         XCTAssertTrue(downloadedEpisode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         // Verify downloaded badge is present (row-scoped identifier)
-        let downloadedBadge = downloadStatusIndicator(for: "st-001")
-        XCTAssertTrue(downloadedBadge.waitForExistence(timeout: adaptiveShortTimeout))
+        XCTAssertTrue(
+            isDownloadedStatusVisible(for: "st-001"),
+            "Downloaded status should be visible for seeded episode"
+        )
 
         // When: User taps to play the episode
         downloadedEpisode.tap()
@@ -140,8 +143,10 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
         XCTAssertTrue(firstEpisode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         // Then: Downloaded badge should be visible
-        let downloadedBadge = downloadStatusIndicator(for: "st-001")
-        XCTAssertTrue(downloadedBadge.waitForExistence(timeout: adaptiveShortTimeout))
+        XCTAssertTrue(
+            isDownloadedStatusVisible(for: "st-001"),
+            "Downloaded status should be visible for seeded episode"
+        )
     }
 
     /// Test: Non-downloaded episodes show "Not Downloaded" or streaming indicator
@@ -164,6 +169,12 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
         // Then: Downloaded badge should NOT be visible
         let downloadedBadge = downloadStatusIndicator(for: "st-001")
         XCTAssertFalse(downloadedBadge.waitForExistence(timeout: adaptiveShortTimeout))
+        let episodeRow = app.buttons.matching(identifier: "Episode-st-001").firstMatch
+        XCTAssertTrue(episodeRow.waitForExistence(timeout: adaptiveShortTimeout))
+        XCTAssertFalse(
+            episodeRow.label.localizedCaseInsensitiveContains("downloaded"),
+            "Episode row should not advertise downloaded status when not seeded"
+        )
     }
 
     // MARK: - Offline/Online Mode Transition Tests
@@ -225,7 +236,7 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
 
         // Verify downloaded badge exists
         var downloadedBadge = downloadStatusIndicator(for: "st-001")
-        XCTAssertTrue(downloadedBadge.waitForExistence(timeout: adaptiveShortTimeout))
+        XCTAssertTrue(isDownloadedStatusVisible(for: "st-001"))
 
         // When: User deletes the download
         // (Swipe to reveal delete action)
@@ -277,14 +288,26 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
 
     @MainActor
     private func downloadStatusIndicator(for episodeId: String) -> XCUIElement {
-        // The episode row uses .accessibilityElement(children: .combine), so the badge's
-        // accessibilityLabel("Downloaded") is merged into the row button's combined label.
-        // Query the button whose label contains "Downloaded" to confirm badge presence.
-        let predicate = NSPredicate(
-            format: "identifier == %@ AND label CONTAINS[c] %@",
-            "Episode-\(episodeId)", "Downloaded"
-        )
-        return app.buttons.matching(predicate).firstMatch
+        app.descendants(matching: .any)
+            .matching(identifier: "Episode-\(episodeId)-DownloadStatus")
+            .firstMatch
+    }
+
+    @MainActor
+    private func isDownloadedStatusVisible(for episodeId: String) -> Bool {
+        let rowScopedIndicator = downloadStatusIndicator(for: episodeId)
+        if rowScopedIndicator.waitForExistence(timeout: adaptiveShortTimeout) {
+            return true
+        }
+
+        // SwiftUI may flatten status children in some list snapshots.
+        let fallbackRow = app.buttons.matching(
+            NSPredicate(
+                format: "identifier == %@ AND label CONTAINS[c] %@",
+                "Episode-\(episodeId)", "Downloaded"
+            )
+        ).firstMatch
+        return fallbackRow.waitForExistence(timeout: adaptiveShortTimeout)
     }
 
     @MainActor

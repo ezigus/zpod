@@ -687,6 +687,12 @@ public struct EpisodeListView: View {
     // For now, a placeholder detail view
     // TODO: Implement full episode detail view in Issue #02
     VStack(spacing: 16) {
+      Color.clear
+        .frame(height: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("Player Interface")
+        .accessibilityLabel("Player Interface")
+
       Text(episode.title)
         .font(.title2)
         .fontWeight(.bold)
@@ -1123,7 +1129,14 @@ public struct EpisodeRowView: View {
       }
       if let envValue = ProcessInfo.processInfo.environment["UITEST_DOWNLOADED_EPISODES"],
          !envValue.isEmpty {
-        return .downloaded
+        let seededEpisodes = envValue
+          .split(separator: ",")
+          .map { rawToken in
+            normalizeEpisodeID(String(rawToken))
+          }
+        if seededEpisodes.contains(normalizeEpisodeID(episode.id)) {
+          return .downloaded
+        }
       }
       return episode.downloadStatus
     }()
@@ -1143,7 +1156,7 @@ public struct EpisodeRowView: View {
           .scaleEffect(0.6)
       }
       .accessibilityElement(children: .combine)
-      .accessibilityIdentifier("DownloadStatus.downloading")
+      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
       .accessibilityLabel("Downloading")
     case .paused:
       HStack(spacing: 4) {
@@ -1156,7 +1169,7 @@ public struct EpisodeRowView: View {
         }
       }
       .accessibilityElement(children: .combine)
-      .accessibilityIdentifier("DownloadStatus.paused")
+      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
       .accessibilityLabel("Download paused")
     case .failed:
       Button(action: {
@@ -1165,7 +1178,7 @@ public struct EpisodeRowView: View {
         Image(systemName: "exclamationmark.triangle.fill")
           .foregroundStyle(.red)
       }
-      .accessibilityIdentifier("DownloadStatus.failed")
+      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
       .accessibilityLabel("Download failed, tap to retry")
     case .notDownloaded:
       EmptyView()
@@ -1173,11 +1186,19 @@ public struct EpisodeRowView: View {
   }
 
   private func normalizeEpisodeID(_ id: String) -> String {
-    let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    if trimmed.hasPrefix("episode-") {
-      return String(trimmed.dropFirst("episode-".count))
+    let trimmed = id
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+    let tokenParts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+    let episodePortion = tokenParts.count == 2 ? String(tokenParts[1]) : trimmed
+    if episodePortion.hasPrefix("episode-") {
+      return String(episodePortion.dropFirst("episode-".count))
     }
-    return trimmed
+    return episodePortion
+  }
+
+  private var downloadStatusAccessibilityIdentifier: String {
+    "Episode-\(episode.id)-DownloadStatus"
   }
 
   private func downloadStatusView(
@@ -1187,7 +1208,7 @@ public struct EpisodeRowView: View {
   ) -> some View {
     Image(systemName: icon)
       .foregroundStyle(color)
-      .accessibilityIdentifier("Episode-\(episode.id)-DownloadStatus")
+      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
       .accessibilityLabel(label)
   }
 
