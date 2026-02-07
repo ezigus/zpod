@@ -562,9 +562,6 @@ private struct BatchOverlayObservation {
       app.staticTexts.matching(identifier: "Complete").firstMatch,
       app.staticTexts.matching(identifier: "Completed").firstMatch,
       app.staticTexts.matching(identifier: "Batch Operation").firstMatch,
-      app.buttons.matching(identifier: "Pause").firstMatch,
-      app.buttons.matching(identifier: "Resume").firstMatch,
-      app.buttons.matching(identifier: "Cancel").firstMatch,
     ]
   }
 
