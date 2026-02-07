@@ -138,8 +138,8 @@ This document outlines the UI testing approach for the main zpod application.
 
 **Specifications Covered**:
 
-- `spec/offline-playback.md` — downloaded playback, badge visibility, offline fallback behavior
-- `Issues/28.1.9 - UI Test Hardening for Offline & Streaming Playback` — hardening scope
+- `zpod/spec/offline-playback.md` — downloaded playback, badge visibility, offline fallback behavior
+- `Issues/28.1.9-ui-test-hardening-offline-streaming-playback.md` — hardening scope
 
 **Test Areas**:
 
@@ -159,8 +159,8 @@ This document outlines the UI testing approach for the main zpod application.
 
 **Specifications Covered**:
 
-- `spec/streaming-playback.md` — auto-pause/resume, buffering, poor-network adaptation
-- `Issues/28.1.9 - UI Test Hardening for Offline & Streaming Playback` — hardening scope
+- `zpod/spec/streaming-playback.md` — auto-pause/resume, buffering, poor-network adaptation
+- `Issues/28.1.9-ui-test-hardening-offline-streaming-playback.md` — hardening scope
 
 **Test Areas**:
 

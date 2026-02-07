@@ -43,7 +43,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         // Navigate directly to the Player tab which hosts the real
         // EpisodeDetailView (with test hook controls), not the placeholder
         // detail view used by the episode list's NavigationLink.
-        _ = try openPlayerForSimulation(environmentOverrides: [
+        _ = openPlayerForSimulation(environmentOverrides: [
             "UITEST_NETWORK_SIMULATION": "1"
         ])
 
@@ -110,7 +110,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     @MainActor
     func testAutoResumeOnNetworkRecovery() throws {
         // Given: App with playback simulation enabled on Player tab
-        _ = try openPlayerForSimulation(environmentOverrides: [
+        _ = openPlayerForSimulation(environmentOverrides: [
             "UITEST_NETWORK_SIMULATION": "1"
         ])
         let simulationControls = try simulationControlsContainer()
@@ -173,7 +173,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     @MainActor
     func testBufferIndicatorAppears() throws {
         // Given: App with buffer simulation enabled on Player tab
-        _ = try openPlayerForSimulation(environmentOverrides: [
+        _ = openPlayerForSimulation(environmentOverrides: [
             "UITEST_BUFFER_SIMULATION": "1"
         ])
 
@@ -214,7 +214,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     @MainActor
     func testBufferIndicatorDisappears() throws {
         // Given: App with buffer simulation enabled on Player tab
-        _ = try openPlayerForSimulation(environmentOverrides: [
+        _ = openPlayerForSimulation(environmentOverrides: [
             "UITEST_BUFFER_SIMULATION": "1"
         ])
 
@@ -303,7 +303,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     @MainActor
     func testPlaybackAdaptsToPoorNetwork() throws {
         // Given: App with network simulation enabled on Player tab
-        let playerView = try openPlayerForSimulation(environmentOverrides: [
+        let playerView = openPlayerForSimulation(environmentOverrides: [
             "UITEST_NETWORK_SIMULATION": "1"
         ])
 
@@ -318,7 +318,25 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         }
         poorNetworkButton.tap()
 
-        // Then: Playback surface should remain available
+        // Then: poor network should surface buffering state without hard failure
+        let bufferIndicator = app.activityIndicators.matching(identifier: "Player.BufferIndicator").firstMatch
+        let bufferLabel = app.staticTexts.matching(identifier: "Player.BufferingLabel").firstMatch
+        guard waitUntil(
+            timeout: adaptiveTimeout,
+            pollInterval: 0.1,
+            description: "buffering state appears after poor network simulation",
+            condition: {
+                bufferIndicator.exists || bufferLabel.exists
+            }
+        ) else {
+            throw XCTSkip("Poor-network simulation did not surface buffering state — Issue 28.1.11 (#396)")
+        }
+
+        XCTAssertFalse(
+            app.alerts.firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
+            "No playback error alert should appear while adapting to poor network"
+        )
+
         guard waitUntil(
             timeout: adaptiveTimeout,
             pollInterval: 0.1,
@@ -327,7 +345,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 playerView.exists
             }
         ) else {
-            throw XCTSkip("Unable to verify poor-network adaptation — Issue 28.1.11 (#396)")
+            XCTFail("Player view should remain visible while adapting to poor network")
+            return
         }
     }
 
@@ -378,17 +397,19 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     @MainActor
     @discardableResult
-    private func openPlayerForSimulation(environmentOverrides: [String: String]) throws -> XCUIElement {
+    private func openPlayerForSimulation(environmentOverrides: [String: String]) -> XCUIElement {
         app = launchConfiguredApp(environmentOverrides: environmentOverrides)
         let tabs = TabBarNavigation(app: app)
-        guard tabs.navigateToPlayer() else {
-            throw XCTSkip("Could not navigate to Player tab for simulation — Issue 28.1.11 (#396)")
-        }
+        XCTAssertTrue(
+            tabs.navigateToPlayer(),
+            "Could not navigate to Player tab for simulation"
+        )
 
         let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        guard playerView.waitForExistence(timeout: adaptiveTimeout) else {
-            throw XCTSkip("Player interface not reachable in simulation mode — Issue 28.1.11 (#396)")
-        }
+        XCTAssertTrue(
+            playerView.waitForExistence(timeout: adaptiveTimeout),
+            "Player interface not reachable in simulation mode"
+        )
         return playerView
     }
 
