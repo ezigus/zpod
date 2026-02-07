@@ -863,13 +863,32 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         ),
       ]
 
+      let downloadedEnv = env["UITEST_DOWNLOADED_EPISODES"] ?? ""
+      let downloadedTokens: Set<String> = {
+        if downloadedEnv.isEmpty { return [] }
+        let tokens = downloadedEnv.split(separator: ",").map { token -> String in
+          let parts = token.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+          return parts.count == 2 ? String(parts[1]) : String(token)
+        }
+        return Set(tokens.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+      }()
+
+      let episodes = sampleEpisodes.map { episode -> Episode in
+        var mutable = episode
+        if downloadedTokens.contains(episode.id.lowercased()) ||
+          downloadedTokens.contains("episode-\(episode.id.lowercased())") {
+          mutable.downloadStatus = .downloaded
+        }
+        return mutable
+      }
+
       return Podcast(
         id: id,
         title: title,
         author: "Sample Author",
         description: "Sample podcast for UI testing with batch operations",
         feedURL: URL(string: "https://example.com/feed.rss")!,
-        episodes: sampleEpisodes,
+        episodes: episodes,
         dateAdded: Date()
       )
     }

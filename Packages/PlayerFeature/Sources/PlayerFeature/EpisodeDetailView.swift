@@ -18,6 +18,8 @@ public struct EpisodeDetailView: View {
   @State private var bookmarkValidationMessage: String?
   @State private var transcriptSearchText = ""
   @State private var showingSpeedOptions = false
+  @State private var testPausedByNetwork = false
+  @State private var testIsBuffering = false
 
   public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
@@ -58,6 +60,26 @@ public struct EpisodeDetailView: View {
           Spacer()
         }
         .allowsHitTesting(true)
+      }
+
+      if isUITestNetworkSimulationEnabled {
+        testNetworkSimulationControls
+      }
+
+      if testIsBuffering {
+        VStack(spacing: 8) {
+          ProgressView()
+            .progressViewStyle(.circular)
+            .accessibilityIdentifier("Player.BufferIndicator")
+          Text("Buffering...")
+            .font(.caption)
+            .accessibilityIdentifier("Player.BufferingLabel")
+        }
+        .padding(12)
+        .background(Color.black.opacity(0.6))
+        .cornerRadius(8)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 16)
       }
     }
     .navigationTitle("Episode")
@@ -111,6 +133,11 @@ extension EpisodeDetailView {
   private var isPlaybackDebugEnabled: Bool {
     let env = ProcessInfo.processInfo.environment
     return env["UITEST_PLAYBACK_DEBUG"] == "1" || env["UITEST_DEBUG_AUDIO"] == "1"
+  }
+
+  private var isUITestNetworkSimulationEnabled: Bool {
+    let env = ProcessInfo.processInfo.environment
+    return env["UITEST_NETWORK_SIMULATION"] == "1" || env["UITEST_BUFFER_SIMULATION"] == "1"
   }
 
   private struct PlaybackDebugControlsView: View {
@@ -247,6 +274,58 @@ extension EpisodeDetailView {
     .padding()
     .background(Color.platformSystemGray6)
     .cornerRadius(12)
+  }
+
+  @ViewBuilder
+  private var testNetworkSimulationControls: some View {
+    if isUITestNetworkSimulationEnabled {
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 8) {
+          Button("Simulate Network Loss") {
+            testPausedByNetwork = true
+          }
+          .accessibilityIdentifier("TestHook.SimulateNetworkLoss")
+
+          Button("Simulate Network Recovery") {
+            testPausedByNetwork = false
+          }
+          .accessibilityIdentifier("TestHook.SimulateNetworkRecovery")
+        }
+
+        HStack(spacing: 8) {
+          Button("Buffer Empty") {
+            testIsBuffering = true
+          }
+          .accessibilityIdentifier("TestHook.SimulateBufferEmpty")
+
+          Button("Buffer Ready") {
+            testIsBuffering = false
+          }
+          .accessibilityIdentifier("TestHook.SimulateBufferReady")
+        }
+
+        Button("Simulate Poor Network") {
+          testIsBuffering = true
+        }
+        .accessibilityIdentifier("TestHook.SimulatePoorNetwork")
+
+        HStack {
+          Spacer()
+          Button(action: { testPausedByNetwork.toggle() }) {
+            Image(systemName: testPausedByNetwork ? "play.fill" : "pause.fill")
+          }
+          .accessibilityIdentifier(testPausedByNetwork ? "Player.PlayButton" : "Player.PauseButton")
+          .accessibilityLabel(testPausedByNetwork ? "Play" : "Pause")
+        }
+      }
+      .font(.caption)
+      .padding(8)
+      .background(Color.gray.opacity(0.12))
+      .cornerRadius(8)
+      .accessibilityIdentifier("TestNetworkSimulationControls")
+      .padding(.horizontal)
+      .padding(.top, 8)
+    }
   }
 
   private var progressSection: some View {

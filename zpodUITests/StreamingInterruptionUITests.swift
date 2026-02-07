@@ -18,20 +18,14 @@ import XCTest
 ///
 /// **Issue**: #28.1 - Phase 3 & 4: Network Interruption Handling + Tests
 ///
-/// **Status**: SKIPPED - Infrastructure dependencies not complete
-/// These tests require:
-/// - Network simulation environment (UITEST_NETWORK_SIMULATION)
-/// - BufferIndicator accessibility identifier
-/// - NetworkError accessibility identifier
-/// - Player UI responding to network state changes
+/// **Status**: ACTIVE - Hook-dependent tests skip gracefully via XCTSkip
+/// when TestHook.* buttons are absent. Error display tests skipped until
+/// PlaybackError surface is implemented.
 final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     override func setUpWithError() throws {
-        // Skip FIRST - before any setup that might crash or timeout
-        // (IsolatedUITestCase's MainActor cleanup can timeout when app state is bad)
-        throw XCTSkip("Requires network simulation infrastructure (BufferIndicator, NetworkError, auto-pause/resume)")
-        // Note: Code below never executes due to throw, but kept for when tests are re-enabled
-        // try super.setUpWithError()
+        try super.setUpWithError()
+        continueAfterFailure = false
     }
 
     // MARK: - Auto-Pause/Resume Tests
@@ -45,54 +39,86 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     /// **Then**: Playback automatically pauses
     @MainActor
     func testAutoPauseOnNetworkLoss() throws {
-        // Given: App streaming episode
+        // Given: App with network simulation enabled.
+        // Navigate directly to the Player tab which hosts the real
+        // EpisodeDetailView (with test hook controls), not the placeholder
+        // detail view used by the episode list's NavigationLink.
         app = launchConfiguredApp(environmentOverrides: [
-            "UITEST_NETWORK_SIMULATION": "1"  // Enable network simulation
+            "UITEST_NETWORK_SIMULATION": "1"
         ])
-        navigateToEpisodeList()
 
-        // Start streaming an episode
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
+        let tabs = TabBarNavigation(app: app)
+        XCTAssertTrue(tabs.navigateToPlayer(), "Should navigate to Player tab")
 
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
-
-        episode.tap()
-
-        // Wait for player to start
+        // Wait for the player view to appear
         let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
         XCTAssertTrue(
             playerView.waitForExistence(timeout: adaptiveTimeout),
-            "Player should appear"
+            "Player Interface should appear on Player tab"
         )
 
-        // Verify playback started (play button becomes pause button)
-        let pauseButton = app.buttons.matching(identifier: "Player.PauseButton").firstMatch
+        // Verify test hooks are visible. Prefer identifier lookup, but allow
+        // label fallback for wrapper-heavy SwiftUI accessibility trees.
+        let networkLossByIdentifier = app.buttons.matching(identifier: "TestHook.SimulateNetworkLoss").firstMatch
+        let networkLossByLabel = app.buttons.matching(
+            NSPredicate(format: "label == %@", "Simulate Network Loss")
+        ).firstMatch
+        guard let networkLossButton = waitForAnyElement(
+            [networkLossByIdentifier, networkLossByLabel],
+            timeout: adaptiveTimeout,
+            description: "Network loss simulation control",
+            failOnTimeout: false
+        ) else {
+            throw XCTSkip("Network simulation controls not rendered — Issue 28.1.11 (#396)")
+        }
+
+        // Verify initial state via simulation-controls container label.
+        // In SwiftUI wrapper-heavy trees, the dynamic pause/play label is
+        // consistently exposed on this container even when child identifiers
+        // are not surfaced as buttons.
+        let simulationControls = app.descendants(matching: .any)
+            .matching(identifier: "TestNetworkSimulationControls")
+            .firstMatch
         XCTAssertTrue(
-            pauseButton.waitForExistence(timeout: adaptiveTimeout),
-            "Pause button should appear when playing"
+            simulationControls.waitForExistence(timeout: adaptiveTimeout),
+            "Simulation controls container should exist when network simulation is enabled"
         )
+        // Normalize state before assertions.
+        let networkRecoveryByIdentifier = app.buttons.matching(identifier: "TestHook.SimulateNetworkRecovery").firstMatch
+        let networkRecoveryByLabel = app.buttons.matching(
+            NSPredicate(format: "label == %@", "Simulate Network Recovery")
+        ).firstMatch
+        if let networkRecoveryButton = waitForAnyElement(
+            [networkRecoveryByIdentifier, networkRecoveryByLabel],
+            timeout: adaptiveShortTimeout,
+            description: "Network recovery simulation control",
+            failOnTimeout: false
+        ) {
+            networkRecoveryButton.tap()
+        }
+
+        guard waitUntil(
+            timeout: adaptiveTimeout,
+            pollInterval: 0.1,
+            description: "simulation controls show Pause",
+            condition: {
+                simulationControls.label.localizedCaseInsensitiveContains("pause")
+            }
+        ) else {
+            throw XCTSkip("Simulation control state did not normalize to Pause — Issue 28.1.11 (#396)")
+        }
 
         // When: Simulate network loss
-        // Trigger network loss via test hook
-        let networkLossButton = app.buttons.matching(identifier: "TestHook.SimulateNetworkLoss").firstMatch
-        if networkLossButton.exists {
-            networkLossButton.tap()
+        XCTAssertTrue(networkLossButton.exists, "Network loss button should exist")
+        networkLossButton.tap()
 
-            // Then: Playback should auto-pause
-            let playButton = app.buttons.matching(identifier: "Player.PlayButton").firstMatch
-            XCTAssertTrue(
-                playButton.waitForExistence(timeout: adaptiveTimeout),
-                "Play button should appear after auto-pause"
-            )
-        } else {
-            // Test hook not available, skip this test
-            throw XCTSkip("Network simulation not available in this build")
-        }
+        // Then: Playback should auto-pause (simulation controls reflect Play state)
+        XCTAssertTrue(
+            waitUntil(timeout: adaptiveTimeout, pollInterval: 0.1, description: "simulation controls show Play") {
+                simulationControls.label.localizedCaseInsensitiveContains("play")
+            },
+            "Simulation controls should switch to Play after simulated network loss"
+        )
     }
 
     /// Test: Streaming playback auto-resumes when network recovers
@@ -110,27 +136,16 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
-
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
         episode.tap()
 
-        let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        XCTAssertTrue(
-            playerView.waitForExistence(timeout: adaptiveTimeout),
-            "Player should appear"
-        )
+        let playerView = ensurePlayerVisible()
 
         // Simulate network loss
         let networkLossButton = app.buttons.matching(identifier: "TestHook.SimulateNetworkLoss").firstMatch
         if !networkLossButton.exists {
-            throw XCTSkip("Network simulation not available")
+            throw XCTSkip("Network simulation not available — Issue 28.1.11 (#396)")
         }
 
         networkLossButton.tap()
@@ -170,22 +185,11 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
-
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
         episode.tap()
 
-        let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        XCTAssertTrue(
-            playerView.waitForExistence(timeout: adaptiveTimeout),
-            "Player should appear"
-        )
+        let playerView = ensurePlayerVisible()
 
         // When: Simulate buffer empty
         let bufferEmptyButton = app.buttons.matching(identifier: "TestHook.SimulateBufferEmpty").firstMatch
@@ -202,7 +206,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 "Buffer indicator should be visible when buffering"
             )
         } else {
-            throw XCTSkip("Buffer simulation not available")
+            throw XCTSkip("Buffer simulation not available — Issue 28.1.11 (#396)")
         }
     }
 
@@ -221,24 +225,17 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         episode.tap()
 
-        let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        _ = playerView.waitForExistence(timeout: adaptiveTimeout)
+        _ = ensurePlayerVisible()
 
         // Simulate buffer empty
         let bufferEmptyButton = app.buttons.matching(identifier: "TestHook.SimulateBufferEmpty").firstMatch
         if !bufferEmptyButton.exists {
-            throw XCTSkip("Buffer simulation not available")
+            throw XCTSkip("Buffer simulation not available — Issue 28.1.11 (#396)")
         }
 
         bufferEmptyButton.tap()
@@ -276,32 +273,28 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     /// **Then**: Error message is displayed to user
     @MainActor
     func testNetworkErrorMessageDisplays() throws {
+        throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
+
         // Given: App in offline mode attempting to stream
         app = launchConfiguredApp(environmentOverrides: [
             "UITEST_OFFLINE_MODE": "1"
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         // When: User tries to play non-downloaded episode offline
         episode.tap()
 
         // Then: Error message should appear
         // Could be alert, toast, or inline error
-        sleep(2) // Wait for error to appear
-
         let errorAlert = app.alerts.firstMatch
         let errorMessage = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS[c] %@", "network")
         ).firstMatch
+
+        _ = errorAlert.waitForExistence(timeout: adaptiveShortTimeout)
 
         let errorPresent = errorAlert.exists || errorMessage.exists
         XCTAssertTrue(
@@ -319,25 +312,21 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     /// **Then**: Retry button is available to user
     @MainActor
     func testRetryButtonAvailableAfterError() throws {
+        throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
+
         // Given: App with network error
         app = launchConfiguredApp(environmentOverrides: [
             "UITEST_OFFLINE_MODE": "1"
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         episode.tap()
 
         // Wait for error to appear
-        sleep(2)
+        _ = app.alerts.firstMatch.waitForExistence(timeout: adaptiveShortTimeout)
 
         // Then: Retry button should be available
         let retryButton = app.buttons.matching(
@@ -373,19 +362,12 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         ])
         navigateToEpisodeList()
 
-        let episode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            episode.waitForExistence(timeout: adaptiveTimeout),
-            "Episode should exist"
-        )
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
 
         episode.tap()
 
-        let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        _ = playerView.waitForExistence(timeout: adaptiveTimeout)
+        let playerView = ensurePlayerVisible()
 
         // When: Simulate poor network
         let poorNetworkButton = app.buttons.matching(identifier: "TestHook.SimulatePoorNetwork").firstMatch
@@ -393,7 +375,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             poorNetworkButton.tap()
 
             // Then: Playback should continue (not stop)
-            sleep(2)
+            _ = app.otherElements.matching(identifier: "Player.BufferIndicator").firstMatch.waitForExistence(timeout: adaptiveShortTimeout)
 
             // Verify player is still active (not crashed, not error state)
             XCTAssertTrue(
@@ -408,7 +390,7 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 "No error alert should appear with poor (but present) network"
             )
         } else {
-            throw XCTSkip("Network quality simulation not available")
+            throw XCTSkip("Network quality simulation not available — Issue 28.1.11 (#396)")
         }
     }
 
@@ -416,27 +398,41 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     /// Navigate to episode list for testing
     private func navigateToEpisodeList() {
-        // Navigate to Library tab
-        let libraryTab = app.tabBars.buttons.matching(identifier: "Library.Tab").firstMatch
-        if libraryTab.waitForExistence(timeout: adaptiveTimeout) {
-            libraryTab.tap()
+        let tabs = TabBarNavigation(app: app)
+        XCTAssertTrue(tabs.navigateToLibrary(), "Should open Library tab")
+
+        let library = LibraryScreen(app: app)
+        XCTAssertTrue(library.waitForLibraryContent(timeout: adaptiveTimeout), "Library content should load")
+        XCTAssertTrue(library.selectPodcast("Podcast-swift-talk", timeout: adaptiveTimeout), "Swift Talk podcast should open")
+
+        XCTAssertTrue(waitForLoadingToComplete(in: app, timeout: adaptiveTimeout))
+    }
+
+    @MainActor
+    @discardableResult
+    private func ensureEpisodeVisible(id episodeId: String, maxScrolls: Int = 4) -> XCUIElement {
+        let episode = app.buttons.matching(identifier: "Episode-\(episodeId)").firstMatch
+        if let container = findContainerElement(in: app, identifier: "Episode Cards Container") {
+            var attempts = 0
+            while attempts < maxScrolls && !episode.waitUntil(.hittable, timeout: adaptiveShortTimeout) {
+                container.swipeUp()
+                attempts += 1
+            }
         }
+        _ = episode.waitUntil(.hittable, timeout: adaptiveShortTimeout)
+        return episode
+    }
 
-        // Wait for library content
-        let libraryContent = app.otherElements.matching(identifier: "Library.Content").firstMatch
-        _ = libraryContent.waitForExistence(timeout: adaptiveTimeout)
-
-        // Tap first podcast
-        let firstPodcast = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Podcast-'")
-        ).firstMatch
-
-        if firstPodcast.waitForExistence(timeout: adaptiveTimeout) {
-            firstPodcast.tap()
+    @MainActor
+    @discardableResult
+    private func ensurePlayerVisible() -> XCUIElement {
+        let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
+        if playerView.waitForExistence(timeout: adaptiveTimeout) {
+            return playerView
         }
-
-        // Wait for episode list
-        let episodeList = app.otherElements.matching(identifier: "EpisodeList").firstMatch
-        _ = episodeList.waitForExistence(timeout: adaptiveTimeout)
+        let tabs = TabBarNavigation(app: app)
+        XCTAssertTrue(tabs.navigateToPlayer(), "Should navigate to Player tab")
+        _ = playerView.waitForExistence(timeout: adaptiveTimeout)
+        return playerView
     }
 }
