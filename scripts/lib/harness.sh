@@ -2385,6 +2385,14 @@ test_app_target() {
     retry_with_fresh_sim "$target" "System-level test bundle failure detected" run_tests_once
   fi
 
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$target" "Early test bootstrap crash detected" run_tests_once
+  fi
+
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$target" "Test runner restarted after unexpected exit" run_tests_once
+  fi
+
   cleanup_ephemeral_simulator "$temp_sim_udid"
   log_oslog_debug "$target"
 
@@ -2845,13 +2853,30 @@ run_filtered_xcode_tests() {
     use_test_without_building=1
   fi
 
+  local includes_app_smoke=0
+  if [[ $integration_run -eq 0 ]]; then
+    local selected_filter
+    for selected_filter in "${filters[@]}"; do
+      if [[ "$selected_filter" == AppSmokeTests* ]]; then
+        includes_app_smoke=1
+        break
+      fi
+    done
+  fi
+
   if [[ $clean_flag -eq 1 && $use_test_without_building -eq 0 ]]; then
     args+=(clean)
   fi
 
-  if [[ $use_test_without_building -eq 1 ]]; then
+  # NOTE: AppSmoke is unstable under test-without-building on Xcode 26.2/iOS 26.1
+  # (early unexpected exit + signal kill before completion). Force build+test for
+  # AppSmoke filters while preserving test-without-building for the heavier suites.
+  if [[ $use_test_without_building -eq 1 && $includes_app_smoke -eq 0 ]]; then
     args+=(test-without-building)
   else
+    if [[ $use_test_without_building -eq 1 && $includes_app_smoke -eq 1 ]]; then
+      log_warn "Forcing build+test for AppSmoke filters (test-without-building is flaky on current runtime)"
+    fi
     args+=(build test)
   fi
 
@@ -2889,6 +2914,14 @@ run_filtered_xcode_tests() {
 
   if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
     retry_with_fresh_sim "$label" "System-level test bundle failure detected" run_tests_once
+  fi
+
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$label" "Early test bootstrap crash detected" run_tests_once
+  fi
+
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
+    retry_with_fresh_sim "$label" "Test runner restarted after unexpected exit" run_tests_once
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
@@ -3295,12 +3328,17 @@ REQUESTED_CLEAN=0
 # Tests run instantly against artifacts from build-for-testing
 export ZPOD_TEST_WITHOUT_BUILDING=1
 if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; then
-  unset ZPOD_TEST_WITHOUT_BUILDING
+  unset ZPOD_TEST_WITHOUT_BUILDING || true
   finalize_and_exit "$EXIT_STATUS"
 fi
 execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
-run_ui_test_suites
-unset ZPOD_TEST_WITHOUT_BUILDING
+local ui_suite_status=0
+run_ui_test_suites || ui_suite_status=$?
+if (( ui_suite_status != 0 )); then
+  log_warn "UI suite orchestration exited with status ${ui_suite_status}; continuing to lint"
+  update_exit_status "$ui_suite_status"
+fi
+unset ZPOD_TEST_WITHOUT_BUILDING || true
 
 execute_phase "Swift lint" "lint" run_swift_lint
 execute_phase "Sleep usage lint" "lint" run_sleep_lint

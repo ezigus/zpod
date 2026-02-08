@@ -24,6 +24,7 @@ public struct SwipeActionCallbacks {
   public let toggleFavorite: (Episode) -> Void
   public let toggleArchive: (Episode) -> Void
   public let deleteEpisode: (Episode) async -> Void
+  public let deleteDownload: (Episode) -> Void
   public let shareEpisode: (Episode) -> Void
 
   public init(
@@ -35,6 +36,7 @@ public struct SwipeActionCallbacks {
     toggleFavorite: @escaping (Episode) -> Void = { _ in },
     toggleArchive: @escaping (Episode) -> Void = { _ in },
     deleteEpisode: @escaping (Episode) async -> Void = { _ in },
+    deleteDownload: @escaping (Episode) -> Void = { _ in },
     shareEpisode: @escaping (Episode) -> Void = { _ in }
   ) {
     self.quickPlay = quickPlay
@@ -45,6 +47,7 @@ public struct SwipeActionCallbacks {
     self.toggleFavorite = toggleFavorite
     self.toggleArchive = toggleArchive
     self.deleteEpisode = deleteEpisode
+    self.deleteDownload = deleteDownload
     self.shareEpisode = shareEpisode
   }
 }
@@ -102,6 +105,8 @@ public final class SwipeActionHandler: SwipeActionHandling {
       Task {
         await callbacks.deleteEpisode(episode)
       }
+    case .deleteDownload:
+      callbacks.deleteDownload(episode)
     case .share:
       callbacks.shareEpisode(episode)
     }

@@ -263,6 +263,7 @@ extension SwipeConfigurationTestCase {
     case "Favorite": return "favorite"
     case "Archive": return "archive"
     case "Delete": return "delete"
+    case "Delete Download": return "deleteDownload"
     case "Share": return "share"
     default: return nil
     }

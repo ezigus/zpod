@@ -92,6 +92,9 @@ public final class EpisodeListViewModel: ObservableObject {
       deleteEpisode: { [weak self] episode in
         await self?.deleteEpisode(episode)
       },
+      deleteDownload: { [weak self] episode in
+        self?.requestDeleteDownload(for: episode)
+      },
       shareEpisode: { [weak self] episode in
         self?.prepareShare(for: episode)
       }
@@ -145,6 +148,9 @@ public final class EpisodeListViewModel: ObservableObject {
   @Published public var showingSelectionCriteriaSheet = false
   @Published public var pendingPlaylistEpisode: Episode?
   @Published public var pendingShareEpisode: Episode?
+  @Published public var pendingDeleteDownloadEpisode: Episode?
+  @Published public var showingDeleteDownloadConfirmation = false
+  @Published public internal(set) var deletedDownloadEpisodeIDs: Set<String> = []
 
   @Published public private(set) var downloadProgressByEpisodeID: [String: EpisodeDownloadProgressUpdate] = [:]
   @Published public private(set) var bannerState: EpisodeListBannerState?
@@ -162,7 +168,9 @@ public final class EpisodeListViewModel: ObservableObject {
   private var cancellables = Set<AnyCancellable>()
   internal var allEpisodes: [Episode] = []
   internal var hasSeededUITestOverlay = false
-  private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
+  // internal so all ViewModel extension files (+BatchOperations, +DownloadManagement, etc.)
+  // share a single logger rather than redeclaring per file.
+  internal static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListViewModel")
   internal let overlayLogger = Logger(subsystem: "us.zig.zpod", category: "UITestOverlay")
   
   // MARK: - Coordinators
@@ -433,6 +441,27 @@ public final class EpisodeListViewModel: ObservableObject {
 
   private func prepareShare(for episode: Episode) {
     pendingShareEpisode = episode
+  }
+
+  // MARK: - Delete Download Confirmation
+
+  func requestDeleteDownload(for episode: Episode) {
+    pendingDeleteDownloadEpisode = episode
+    showingDeleteDownloadConfirmation = true
+  }
+
+  public func confirmDeleteDownload() {
+    guard let episode = pendingDeleteDownloadEpisode else { return }
+    showingDeleteDownloadConfirmation = false
+    pendingDeleteDownloadEpisode = nil
+    Task { @MainActor in
+      await deleteDownloadForEpisode(episode)
+    }
+  }
+
+  public func cancelDeleteDownload() {
+    pendingDeleteDownloadEpisode = nil
+    showingDeleteDownloadConfirmation = false
   }
 
   private func updateBatchOperation(_ batchOperation: BatchOperation) {
