@@ -331,6 +331,37 @@ is_system_test_bundle_failure_log() {
   return 1
 }
 
+is_early_test_bootstrap_failure_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+
+  local -a patterns=(
+    "Early unexpected exit, operation never finished bootstrapping"
+    "Test crashed with signal kill while preparing to run tests"
+    "operation never finished bootstrapping - no restart will be attempted"
+  )
+
+  local pattern
+  for pattern in "${patterns[@]}"; do
+    if grep -Eqi "$pattern" "$log_path"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_test_runner_restart_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+  grep -Eqi "Restarting after unexpected exit, crash, or test timeout" "$log_path"
+}
+
+has_explicit_test_case_failures_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+  grep -Eqi "Test Case '.+' failed" "$log_path"
+}
+
 latest_ios_runtime_id() {
   command_exists xcrun || return 1
   command_exists python3 || return 1

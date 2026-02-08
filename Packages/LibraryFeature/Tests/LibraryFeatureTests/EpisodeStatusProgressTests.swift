@@ -239,6 +239,54 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertNotNil(bannerState.retry)
         XCTAssertEqual(bannerState.subtitle, "2 succeeded • 1 failed")
     }
+
+    // MARK: - Delete Download Tests
+
+    func testDeleteDownloadCallsManagerAndRevertsStatus() async throws {
+        // Given: ep-2 is downloaded
+        let episode = podcast.episodes[1]
+        XCTAssertEqual(episode.downloadStatus, .downloaded)
+
+        // When: delete download
+        await viewModel.deleteDownloadForEpisode(episode)
+
+        // Then: manager was called
+        XCTAssertEqual(downloadManager.deletedDownloadEpisodes, ["ep-2"])
+
+        // Then: episode status reverted
+        let updated = viewModel.filteredEpisodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(updated?.downloadStatus, .notDownloaded)
+
+        // Then: tracked in deletedDownloadEpisodeIDs
+        XCTAssertTrue(viewModel.deletedDownloadEpisodeIDs.contains("ep-2"))
+    }
+
+    func testDeleteDownloadSkipsNonDownloadedEpisode() async throws {
+        // Given: ep-1 is not downloaded
+        let episode = podcast.episodes[0]
+        XCTAssertEqual(episode.downloadStatus, .notDownloaded)
+
+        // When: attempt delete download
+        await viewModel.deleteDownloadForEpisode(episode)
+
+        // Then: manager was NOT called
+        XCTAssertTrue(downloadManager.deletedDownloadEpisodes.isEmpty)
+        XCTAssertTrue(viewModel.deletedDownloadEpisodeIDs.isEmpty)
+    }
+
+    func testDeleteDownloadDoesNotRevertStatusWhenManagerThrows() async throws {
+        // Given: ep-2 is downloaded and manager fails delete
+        let episode = podcast.episodes[1]
+        downloadManager.shouldThrowOnDelete = true
+
+        // When: delete download
+        await viewModel.deleteDownloadForEpisode(episode)
+
+        // Then: episode status remains downloaded
+        let updated = viewModel.filteredEpisodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(updated?.downloadStatus, .downloaded)
+        XCTAssertFalse(viewModel.deletedDownloadEpisodeIDs.contains("ep-2"))
+    }
 }
 
 // MARK: - Mocks
@@ -248,21 +296,30 @@ private final class MockDownloadManager: DownloadManaging {
     private(set) var pausedEpisodes: [String] = []
     private(set) var resumedEpisodes: [String] = []
     private(set) var downloadRequests: [String] = []
-    
+    private(set) var deletedDownloadEpisodes: [String] = []
+    var shouldThrowOnDelete = false
+
     func downloadEpisode(_ episodeID: String) async throws {
         downloadRequests.append(episodeID)
     }
-    
+
     func cancelDownload(_ episodeID: String) async {
         // no-op for test
     }
-    
+
     func pauseDownload(_ episodeID: String) async {
         pausedEpisodes.append(episodeID)
     }
-    
+
     func resumeDownload(_ episodeID: String) async {
         resumedEpisodes.append(episodeID)
+    }
+
+    func deleteDownloadedEpisode(episodeId: String) async throws {
+        deletedDownloadEpisodes.append(episodeId)
+        if shouldThrowOnDelete {
+            throw NSError(domain: "MockDownloadManager", code: 1)
+        }
     }
 }
 

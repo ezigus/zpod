@@ -78,4 +78,11 @@ if [[ "$XCTESTRUN_COUNT" -eq 0 ]]; then
 fi
 echo "✅ Found $XCTESTRUN_COUNT .xctestrun file(s)"
 
+# Mark this derived data as artifact-restored so the harness can choose the
+# safest execution mode for AppSmoke (avoids module cache/PCH path mismatches
+# when rebuilding against a different derived data root).
+RESTORE_MARKER="$DERIVED_PATH/.zpod-restored-host-artifact"
+date -u +"%Y-%m-%dT%H:%M:%SZ" > "$RESTORE_MARKER"
+echo "✅ Wrote restore marker: $RESTORE_MARKER"
+
 echo "✅ Derived data restored to $DERIVED_PATH"

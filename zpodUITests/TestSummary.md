@@ -148,9 +148,18 @@ This document outlines the UI testing approach for the main zpod application.
 - Player-surface reachability after episode selection (detail path + Player tab fallback)
 - Graceful issue-traceable skips for blocked scenarios
 
+**Test Areas (7 tests)**:
+
+1. `testPlayDownloadedEpisodeFromLocalStorage` — plays downloaded episode offline from local storage
+2. `testNonDownloadedEpisodeFailsOffline` — **SKIPPED** pending PlaybackError surface (Issue 03.3.4 #269)
+3. `testDownloadedEpisodeShowsBadge` — downloaded badge visible for seeded episodes
+4. `testNonDownloadedEpisodeShowsStreamIndicator` — no badge for non-downloaded episodes
+5. `testGracefulTransitionToOfflineMode` — app stability on network loss
+6. `testDeletedDownloadRevertsToStreaming` — swipe Delete Download removes badge (Issue 28.1.10)
+7. `testDeleteDownloadHiddenForNonDownloadedEpisode` — Delete Download action hidden for non-downloaded episodes (Issue 28.1.10)
+
 **Current Blocked Scenarios**:
 
-- `testDeletedDownloadRevertsToStreaming` → blocked by `Issue 28.1.10 (#395)` (`SwipeAction.delete`)
 - `testNonDownloadedEpisodeFailsOffline` → blocked by `Issue 03.3.4 (#269)` (`PlaybackError` accessibility surface)
 
 ### Streaming Interruption UI Tests (`StreamingInterruptionUITests.swift`)
