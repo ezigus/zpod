@@ -2868,13 +2868,28 @@ run_filtered_xcode_tests() {
     args+=(clean)
   fi
 
+  local restored_host_artifact=0
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]] \
+    && [[ -f "${ZPOD_DERIVED_DATA_PATH}/.zpod-restored-host-artifact" ]]; then
+    restored_host_artifact=1
+  fi
+
+  local force_app_smoke_build_test=0
+  if [[ $use_test_without_building -eq 1 && $includes_app_smoke -eq 1 ]]; then
+    if [[ $restored_host_artifact -eq 1 ]]; then
+      log_warn "Detected restored host-app artifact in derived data; keeping test-without-building for AppSmoke to avoid module cache mismatches"
+    else
+      force_app_smoke_build_test=1
+    fi
+  fi
+
   # NOTE: AppSmoke is unstable under test-without-building on Xcode 26.2/iOS 26.1
   # (early unexpected exit + signal kill before completion). Force build+test for
   # AppSmoke filters while preserving test-without-building for the heavier suites.
-  if [[ $use_test_without_building -eq 1 && $includes_app_smoke -eq 0 ]]; then
+  if [[ $use_test_without_building -eq 1 && $force_app_smoke_build_test -eq 0 ]]; then
     args+=(test-without-building)
   else
-    if [[ $use_test_without_building -eq 1 && $includes_app_smoke -eq 1 ]]; then
+    if [[ $force_app_smoke_build_test -eq 1 ]]; then
       log_warn "Forcing build+test for AppSmoke filters (test-without-building is flaky on current runtime)"
     fi
     args+=(build test)

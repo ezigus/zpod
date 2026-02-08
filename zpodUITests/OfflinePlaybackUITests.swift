@@ -218,6 +218,11 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
             deleteButton.waitForExistence(timeout: adaptiveTimeout),
             "Delete Download swipe action should appear for downloaded episode"
         )
+        XCTAssertEqual(
+            deleteButton.label,
+            "Delete Download",
+            "Delete Download swipe action should expose the correct VoiceOver label"
+        )
         deleteButton.tap()
 
         // Confirm deletion via the confirmation dialog
