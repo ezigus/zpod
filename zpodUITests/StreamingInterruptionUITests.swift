@@ -55,48 +55,29 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Network loss simulation control",
             timeout: adaptiveTimeout,
         ) else {
-            throw XCTSkip("Network simulation controls not rendered — Issue 28.1.11 (#396)")
+            XCTFail("Network simulation controls should render when UITEST_NETWORK_SIMULATION=1")
+            return
         }
 
-        // Verify initial state via simulation-controls container label.
-        // In SwiftUI wrapper-heavy trees, the dynamic pause/play label is
-        // consistently exposed on this container even when child identifiers
-        // are not surfaced as buttons.
-        let simulationControls = try simulationControlsContainer()
-        // Normalize state before assertions.
-        if let networkRecoveryButton = simulationControlButton(
-            identifier: "TestHook.SimulateNetworkRecovery",
-            label: "Simulate Network Recovery",
-            description: "Network recovery simulation control",
-            timeout: adaptiveShortTimeout,
-        ) {
-            networkRecoveryButton.tap()
-        }
-
-        guard waitUntil(
-            timeout: adaptiveTimeout,
-            pollInterval: 0.1,
-            description: "simulation controls show Pause",
-            condition: {
-                simulationControls.label.localizedCaseInsensitiveContains("pause")
-            }
-        ) else {
-            throw XCTSkip("Simulation control state did not normalize to Pause — Issue 28.1.11 (#396)")
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            XCTFail("Playback should be running before simulating network loss")
+            return
         }
 
         // When: Simulate network loss
         networkLossButton.tap()
 
-        // Then: Playback should auto-pause (simulation controls reflect Play state)
+        // Then: Playback should auto-pause (state reflects Play)
         guard waitUntil(
             timeout: adaptiveTimeout,
             pollInterval: 0.1,
-            description: "simulation controls show Play",
+            description: "playback controls show Play",
             condition: {
-                simulationControls.label.localizedCaseInsensitiveContains("play")
+                self.isPlaybackControlShowingPlay()
             }
         ) else {
-            throw XCTSkip("Auto-pause simulation transition unavailable — Issue 28.1.11 (#396)")
+            XCTFail("Expected playback controls to transition to Play after network loss")
+            return
         }
     }
 
@@ -113,7 +94,10 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         _ = openPlayerForSimulation(environmentOverrides: [
             "UITEST_NETWORK_SIMULATION": "1"
         ])
-        let simulationControls = try simulationControlsContainer()
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            XCTFail("Playback should be running before simulating network loss")
+            return
+        }
 
         // Simulate network loss
         guard let networkLossButton = simulationControlButton(
@@ -122,19 +106,21 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Network loss simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Network simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Network simulation controls should render when UITEST_NETWORK_SIMULATION=1")
+            return
         }
         networkLossButton.tap()
 
         guard waitUntil(
             timeout: adaptiveTimeout,
             pollInterval: 0.1,
-            description: "simulation controls show Play",
+            description: "playback controls show Play",
             condition: {
-                simulationControls.label.localizedCaseInsensitiveContains("play")
+                self.isPlaybackControlShowingPlay()
             }
         ) else {
-            throw XCTSkip("Auto-pause transition unavailable — Issue 28.1.11 (#396)")
+            XCTFail("Expected playback controls to transition to Play after network loss")
+            return
         }
 
         // When: Simulate network recovery
@@ -144,7 +130,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Network recovery simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Network recovery simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Network recovery simulation control should render when UITEST_NETWORK_SIMULATION=1")
+            return
         }
         networkRecoveryButton.tap()
 
@@ -152,12 +139,13 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         guard waitUntil(
             timeout: adaptiveTimeout,
             pollInterval: 0.1,
-            description: "simulation controls show Pause",
+            description: "playback controls show Pause",
             condition: {
-                simulationControls.label.localizedCaseInsensitiveContains("pause")
+                self.isPlaybackControlShowingPause()
             }
         ) else {
-            throw XCTSkip("Auto-resume transition unavailable — Issue 28.1.11 (#396)")
+            XCTFail("Expected playback controls to transition back to Pause after recovery")
+            return
         }
     }
 
@@ -184,7 +172,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Buffer empty simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Buffer simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Buffer simulation controls should render when UITEST_BUFFER_SIMULATION=1")
+            return
         }
         bufferEmptyButton.tap()
 
@@ -200,7 +189,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 bufferIndicator.exists || bufferLabel.exists
             }
         ) else {
-            throw XCTSkip("Buffer indicator did not appear after simulation — Issue 28.1.11 (#396)")
+            XCTFail("Buffer indicator should appear after buffer-empty simulation")
+            return
         }
     }
 
@@ -225,7 +215,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Buffer empty simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Buffer simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Buffer simulation controls should render when UITEST_BUFFER_SIMULATION=1")
+            return
         }
         bufferEmptyButton.tap()
         let bufferIndicator = app.activityIndicators.matching(identifier: "Player.BufferIndicator").firstMatch
@@ -238,7 +229,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 bufferIndicator.exists || bufferLabel.exists
             }
         ) else {
-            throw XCTSkip("Buffer indicator did not appear after empty transition — Issue 28.1.11 (#396)")
+            XCTFail("Buffer indicator should appear after buffer-empty simulation")
+            return
         }
 
         // When: Simulate buffer ready
@@ -248,7 +240,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Buffer ready simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Buffer ready simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Buffer-ready control should render when UITEST_BUFFER_SIMULATION=1")
+            return
         }
         bufferReadyButton.tap()
 
@@ -261,7 +254,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 !bufferIndicator.exists && !bufferLabel.exists
             }
         ) else {
-            throw XCTSkip("Buffer indicator did not clear after ready transition — Issue 28.1.11 (#396)")
+            XCTFail("Buffer indicator should clear after buffer-ready simulation")
+            return
         }
     }
 
@@ -314,7 +308,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "Poor network simulation control",
             timeout: adaptiveTimeout
         ) else {
-            throw XCTSkip("Network quality simulation not available — Issue 28.1.11 (#396)")
+            XCTFail("Poor-network simulation control should render when UITEST_NETWORK_SIMULATION=1")
+            return
         }
         poorNetworkButton.tap()
 
@@ -329,7 +324,8 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 bufferIndicator.exists || bufferLabel.exists
             }
         ) else {
-            throw XCTSkip("Poor-network simulation did not surface buffering state — Issue 28.1.11 (#396)")
+            XCTFail("Poor-network simulation should surface buffering state")
+            return
         }
 
         XCTAssertFalse(
@@ -414,17 +410,6 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     }
 
     @MainActor
-    private func simulationControlsContainer() throws -> XCUIElement {
-        let simulationControls = app.descendants(matching: .any)
-            .matching(identifier: "TestNetworkSimulationControls")
-            .firstMatch
-        guard simulationControls.waitForExistence(timeout: adaptiveTimeout) else {
-            throw XCTSkip("Simulation controls container not available — Issue 28.1.11 (#396)")
-        }
-        return simulationControls
-    }
-
-    @MainActor
     private func simulationControlButton(
         identifier: String,
         label: String,
@@ -440,6 +425,36 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             timeout: timeout,
             description: description,
             failOnTimeout: false
+        )
+    }
+
+    @MainActor
+    private func isPlaybackControlShowingPause() -> Bool {
+        app.buttons.matching(identifier: "Pause").firstMatch.exists
+    }
+
+    @MainActor
+    private func isPlaybackControlShowingPlay() -> Bool {
+        app.buttons.matching(identifier: "Play").firstMatch.exists
+    }
+
+    @MainActor
+    private func ensurePlaybackRunning(timeout: TimeInterval) -> Bool {
+        if isPlaybackControlShowingPause() {
+            return true
+        }
+
+        let playButton = app.buttons.matching(identifier: "Play").firstMatch
+        guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+            return false
+        }
+        playButton.tap()
+
+        return waitUntil(
+            timeout: timeout,
+            pollInterval: 0.1,
+            description: "playback controls show Pause after tapping Play",
+            condition: { self.isPlaybackControlShowingPause() }
         )
     }
 }
