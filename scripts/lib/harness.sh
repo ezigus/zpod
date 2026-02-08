@@ -2276,9 +2276,9 @@ test_app_target() {
     return
   fi
 
-  if [[ "$target" == "AppSmokeTests" ]]; then
+  if [[ "$target" == AppSmokeTests* ]]; then
     local clean_flag=$REQUESTED_CLEAN
-    run_filtered_xcode_tests "AppSmokeTests" "$clean_flag" "AppSmokeTests"
+    run_filtered_xcode_tests "AppSmokeTests" "$clean_flag" "$target"
     return
   fi
 

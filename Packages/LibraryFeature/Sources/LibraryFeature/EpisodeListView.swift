@@ -20,6 +20,18 @@ import SwiftUI
   import UIKit
 #endif
 
+private func normalizedEpisodeIDToken(_ id: String) -> String {
+  let trimmed = id
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+    .lowercased()
+  let tokenParts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+  let episodePortion = tokenParts.count == 2 ? String(tokenParts[1]) : trimmed
+  if episodePortion.hasPrefix("episode-") {
+    return String(episodePortion.dropFirst("episode-".count))
+  }
+  return episodePortion
+}
+
 /// Main episode list view that displays episodes for a given podcast with batch operation support
 public struct EpisodeListView: View {
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListView")
@@ -631,15 +643,7 @@ public struct EpisodeListView: View {
   }
 
   private func normalizeEpisodeIDForView(_ id: String) -> String {
-    let trimmed = id
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-    let tokenParts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-    let episodePortion = tokenParts.count == 2 ? String(tokenParts[1]) : trimmed
-    if episodePortion.hasPrefix("episode-") {
-      return String(episodePortion.dropFirst("episode-".count))
-    }
-    return episodePortion
+    normalizedEpisodeIDToken(id)
   }
 
   @ViewBuilder
@@ -1259,15 +1263,7 @@ public struct EpisodeRowView: View {
   }
 
   private func normalizeEpisodeID(_ id: String) -> String {
-    let trimmed = id
-      .trimmingCharacters(in: .whitespacesAndNewlines)
-      .lowercased()
-    let tokenParts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-    let episodePortion = tokenParts.count == 2 ? String(tokenParts[1]) : trimmed
-    if episodePortion.hasPrefix("episode-") {
-      return String(episodePortion.dropFirst("episode-".count))
-    }
-    return episodePortion
+    normalizedEpisodeIDToken(id)
   }
 
   private var downloadStatusAccessibilityIdentifier: String {

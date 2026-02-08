@@ -194,6 +194,23 @@ final class SwipeActionHandlerTests: XCTestCase {
     XCTAssertNotNil(deletedEpisode)
     XCTAssertEqual(deletedEpisode?.id, testEpisode.id)
   }
+
+  @MainActor
+  func testPerformDeleteDownloadAction() {
+    // Given: A delete download action
+    var deletedDownloadEpisode: Episode?
+
+    // When: Performing the action
+    let callbacks = SwipeActionCallbacks(deleteDownload: { episode in
+      deletedDownloadEpisode = episode
+    })
+
+    handler.performSwipeAction(.deleteDownload, for: testEpisode, callbacks: callbacks)
+
+    // Then: Delete download handler should be called
+    XCTAssertNotNil(deletedDownloadEpisode)
+    XCTAssertEqual(deletedDownloadEpisode?.id, testEpisode.id)
+  }
   
   @MainActor
   func testPerformShareAction() {

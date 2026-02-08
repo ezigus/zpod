@@ -273,6 +273,20 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertTrue(downloadManager.deletedDownloadEpisodes.isEmpty)
         XCTAssertTrue(viewModel.deletedDownloadEpisodeIDs.isEmpty)
     }
+
+    func testDeleteDownloadDoesNotRevertStatusWhenManagerThrows() async throws {
+        // Given: ep-2 is downloaded and manager fails delete
+        let episode = podcast.episodes[1]
+        downloadManager.shouldThrowOnDelete = true
+
+        // When: delete download
+        await viewModel.deleteDownloadForEpisode(episode)
+
+        // Then: episode status remains downloaded
+        let updated = viewModel.filteredEpisodes.first { $0.id == "ep-2" }
+        XCTAssertEqual(updated?.downloadStatus, .downloaded)
+        XCTAssertFalse(viewModel.deletedDownloadEpisodeIDs.contains("ep-2"))
+    }
 }
 
 // MARK: - Mocks
@@ -283,6 +297,7 @@ private final class MockDownloadManager: DownloadManaging {
     private(set) var resumedEpisodes: [String] = []
     private(set) var downloadRequests: [String] = []
     private(set) var deletedDownloadEpisodes: [String] = []
+    var shouldThrowOnDelete = false
 
     func downloadEpisode(_ episodeID: String) async throws {
         downloadRequests.append(episodeID)
@@ -302,6 +317,9 @@ private final class MockDownloadManager: DownloadManaging {
 
     func deleteDownloadedEpisode(episodeId: String) async throws {
         deletedDownloadEpisodes.append(episodeId)
+        if shouldThrowOnDelete {
+            throw NSError(domain: "MockDownloadManager", code: 1)
+        }
     }
 }
 

@@ -230,7 +230,7 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
 
         // Then: Downloaded badge should disappear
         let downloadBadge = downloadStatusIndicator(for: "st-001")
-        let badgeDisappeared = downloadBadge.waitForNonExistence(timeout: adaptiveTimeout)
+        let badgeDisappeared = downloadBadge.waitUntil(.disappeared, timeout: adaptiveTimeout)
         XCTAssertTrue(
             badgeDisappeared,
             "Downloaded badge should disappear after deleting download"
