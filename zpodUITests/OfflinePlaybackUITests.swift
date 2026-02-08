@@ -85,40 +85,6 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     func testNonDownloadedEpisodeFailsOffline() throws {
         // Offline error handling UI not yet implemented — tracked by Issue 03.3.4 (#269)
         throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
-
-        // Given: App in offline mode with non-downloaded episode
-        app = launchConfiguredApp(environmentOverrides: [
-            "UITEST_OFFLINE_MODE": "1"  // Simulate offline environment
-        ])
-        navigateToEpisodeList()
-
-        // Find non-downloaded episode (no downloaded badge)
-        let streamOnlyEpisode = app.buttons.matching(
-            NSPredicate(format: "identifier BEGINSWITH 'Episode-'")
-        ).firstMatch
-
-        XCTAssertTrue(
-            streamOnlyEpisode.waitForExistence(timeout: adaptiveTimeout),
-            "Stream-only episode should exist in list"
-        )
-
-        // When: User taps to play the episode
-        streamOnlyEpisode.tap()
-
-        // Then: Error or warning should appear
-        // Note: Actual behavior depends on app implementation
-        // Could be an alert, toast, or inline error message
-
-        let errorAlert = app.alerts.firstMatch
-        let playerErrorState = app.staticTexts.matching(identifier: "PlaybackError").firstMatch
-
-        _ = errorAlert.waitForExistence(timeout: adaptiveShortTimeout)
-
-        let errorPresent = errorAlert.exists || playerErrorState.exists
-        XCTAssertTrue(
-            errorPresent,
-            "Error should be shown when attempting to play non-downloaded episode offline"
-        )
     }
 
     // MARK: - Download Status Indicator Tests
@@ -224,37 +190,6 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     func testDeletedDownloadRevertsToStreaming() throws {
         // Swipe-to-delete download action not yet wired — tracked by Issue 28.1.10 (#395)
         throw XCTSkip("Requires SwipeAction.delete on episode rows — Issue 28.1.10 (#395)")
-
-        // Given: App with downloaded episode
-        app = launchConfiguredApp(environmentOverrides: [
-            "UITEST_DOWNLOADED_EPISODES": "swift-talk:st-001"
-        ])
-        navigateToEpisodeList()
-
-        let episode = ensureEpisodeVisible(id: "st-001")
-        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
-
-        // Verify downloaded badge exists
-        var downloadedBadge = downloadStatusIndicator(for: "st-001")
-        XCTAssertTrue(isDownloadedStatusVisible(for: "st-001"))
-
-        // When: User deletes the download
-        // (Swipe to reveal delete action)
-        episode.swipeLeft()
-
-        let deleteButton = app.buttons.matching(identifier: "SwipeAction.delete").firstMatch
-        if deleteButton.waitForExistence(timeout: adaptiveShortTimeout) {
-            deleteButton.tap()
-
-            // Confirm deletion if alert appears
-            let confirmButton = app.buttons.matching(identifier: "Confirm Delete").firstMatch
-            if confirmButton.waitForExistence(timeout: adaptiveShortTimeout) {
-                confirmButton.tap()
-            }
-        }
-
-        // Then: Downloaded badge should disappear
-        XCTAssertTrue(downloadedBadge.waitUntil(.disappeared, timeout: adaptiveTimeout))
     }
 
     // MARK: - Helper Methods
@@ -319,7 +254,10 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
         }
         let tabs = TabBarNavigation(app: app)
         XCTAssertTrue(tabs.navigateToPlayer(), "Should navigate to Player tab")
-        _ = playerView.waitForExistence(timeout: adaptiveTimeout)
+        XCTAssertTrue(
+            playerView.waitForExistence(timeout: adaptiveTimeout),
+            "Player interface should appear after navigating to Player tab"
+        )
         return playerView
     }
 }
