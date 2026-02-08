@@ -17,6 +17,7 @@ public enum SwipeActionType: String, Codable, CaseIterable, Sendable {
   case favorite
   case archive
   case delete
+  case deleteDownload
   case share
 
   /// Display name for the action
@@ -30,6 +31,7 @@ public enum SwipeActionType: String, Codable, CaseIterable, Sendable {
     case .favorite: return "Favorite"
     case .archive: return "Archive"
     case .delete: return "Delete"
+    case .deleteDownload: return "Delete Download"
     case .share: return "Share"
     }
   }
@@ -45,6 +47,7 @@ public enum SwipeActionType: String, Codable, CaseIterable, Sendable {
     case .favorite: return "star.fill"
     case .archive: return "archivebox.fill"
     case .delete: return "trash.fill"
+    case .deleteDownload: return "trash.circle.fill"
     case .share: return "square.and.arrow.up"
     }
   }
@@ -60,6 +63,7 @@ public enum SwipeActionType: String, Codable, CaseIterable, Sendable {
     case .favorite: return .yellow
     case .archive: return .purple
     case .delete: return .red
+    case .deleteDownload: return .red
     case .share: return .blue
     }
   }
@@ -67,7 +71,7 @@ public enum SwipeActionType: String, Codable, CaseIterable, Sendable {
   /// Whether this action is destructive
   public var isDestructive: Bool {
     switch self {
-    case .delete: return true
+    case .delete, .deleteDownload: return true
     default: return false
     }
   }
@@ -146,7 +150,7 @@ public struct SwipeActionSettings: Codable, Equatable, Sendable {
   /// Preset: Download-focused configuration
   public static let downloadFocused = SwipeActionSettings(
     leadingActions: [.download, .markPlayed],
-    trailingActions: [.archive, .delete],
+    trailingActions: [.deleteDownload, .archive, .delete],
     allowFullSwipeLeading: true,
     allowFullSwipeTrailing: false,
     hapticFeedbackEnabled: true

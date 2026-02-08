@@ -68,10 +68,10 @@ final class SwipeActionSettingsTests: XCTestCase {
         let settings = SwipeActionSettings.downloadFocused
         
         XCTAssertEqual(settings.leadingActions, [.download, .markPlayed])
-        XCTAssertEqual(settings.trailingActions, [.archive, .delete])
+        XCTAssertEqual(settings.trailingActions, [.deleteDownload, .archive, .delete])
         XCTAssertTrue(settings.hapticFeedbackEnabled)
     }
-    
+
     func testCustomSettings() {
         let settings = SwipeActionSettings(
             leadingActions: [.play, .download],

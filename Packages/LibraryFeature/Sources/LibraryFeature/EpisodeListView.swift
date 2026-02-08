@@ -176,6 +176,25 @@ public struct EpisodeListView: View {
         viewModel.clearPendingShare()
       }
     }
+    .confirmationDialog(
+      "Delete Download?",
+      isPresented: $viewModel.showingDeleteDownloadConfirmation,
+      titleVisibility: .visible
+    ) {
+      Button("Delete Download", role: .destructive) {
+        viewModel.confirmDeleteDownload()
+      }
+      .accessibilityIdentifier("DeleteDownload.Confirm")
+
+      Button("Cancel", role: .cancel) {
+        viewModel.cancelDeleteDownload()
+      }
+      .accessibilityIdentifier("DeleteDownload.Cancel")
+    } message: {
+      if let episode = viewModel.pendingDeleteDownloadEpisode {
+        Text("Remove the downloaded file for \"\(episode.title)\"? It will still be available for streaming.")
+      }
+    }
     .accessibilityIdentifier("Episode List View")
     .task {
       await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
@@ -476,7 +495,8 @@ public struct EpisodeListView: View {
             isSelected: viewModel.isEpisodeSelected(episode.id),
             isInMultiSelectMode: true,
             onSelectionToggle: { viewModel.toggleEpisodeSelection(episode) },
-            noteCount: viewModel.noteCounts[episode.id]
+            noteCount: viewModel.noteCounts[episode.id],
+            isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
           )
           .accessibilityIdentifier("Episode-\(episode.id)")
         } else {
@@ -506,7 +526,8 @@ public struct EpisodeListView: View {
               onQuickPlay: nil,
               isSelected: false,
               isInMultiSelectMode: false,
-              noteCount: viewModel.noteCounts[episode.id]
+              noteCount: viewModel.noteCounts[episode.id],
+              isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
             )
           }
           .overlay(alignment: .trailing) {
@@ -571,9 +592,54 @@ public struct EpisodeListView: View {
 
   @ViewBuilder
   private func swipeButtons(for actions: [SwipeActionType], episode: Episode) -> some View {
-    ForEach(actions, id: \.self) { action in
+    ForEach(actions.filter { shouldShowSwipeAction($0, for: episode) }, id: \.self) { action in
       swipeButton(for: action, episode: episode)
     }
+  }
+
+  private func shouldShowSwipeAction(_ action: SwipeActionType, for episode: Episode) -> Bool {
+    switch action {
+    case .deleteDownload:
+      return isEffectivelyDownloaded(episode)
+    default:
+      return true
+    }
+  }
+
+  private func isEffectivelyDownloaded(_ episode: Episode) -> Bool {
+    // If already deleted this session, not downloaded
+    if viewModel.deletedDownloadEpisodeIDs.contains(episode.id) {
+      return false
+    }
+    // Model truth
+    if episode.isDownloaded {
+      return true
+    }
+    // UI test env var override
+    if let envValue = ProcessInfo.processInfo.environment["UITEST_DOWNLOADED_EPISODES"],
+       !envValue.isEmpty {
+      let seededEpisodes = envValue
+        .split(separator: ",")
+        .map { rawToken in
+          normalizeEpisodeIDForView(String(rawToken))
+        }
+      if seededEpisodes.contains(normalizeEpisodeIDForView(episode.id)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private func normalizeEpisodeIDForView(_ id: String) -> String {
+    let trimmed = id
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+    let tokenParts = trimmed.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+    let episodePortion = tokenParts.count == 2 ? String(tokenParts[1]) : trimmed
+    if episodePortion.hasPrefix("episode-") {
+      return String(episodePortion.dropFirst("episode-".count))
+    }
+    return episodePortion
   }
 
   @ViewBuilder
@@ -854,6 +920,7 @@ public struct EpisodeRowView: View {
   let isInMultiSelectMode: Bool
   let onSelectionToggle: (() -> Void)?
   let noteCount: Int?
+  let isDownloadDeleted: Bool
 
   public init(
     episode: Episode,
@@ -868,7 +935,8 @@ public struct EpisodeRowView: View {
     isSelected: Bool = false,
     isInMultiSelectMode: Bool = false,
     onSelectionToggle: (() -> Void)? = nil,
-    noteCount: Int? = nil
+    noteCount: Int? = nil,
+    isDownloadDeleted: Bool = false
   ) {
     self.episode = episode
     self.downloadProgress = downloadProgress
@@ -883,6 +951,7 @@ public struct EpisodeRowView: View {
     self.isInMultiSelectMode = isInMultiSelectMode
     self.onSelectionToggle = onSelectionToggle
     self.noteCount = noteCount
+    self.isDownloadDeleted = isDownloadDeleted
   }
 
   public var body: some View {
@@ -1123,6 +1192,10 @@ public struct EpisodeRowView: View {
   @ViewBuilder
   private var downloadStatusIndicator: some View {
     let effectiveStatus: EpisodeDownloadStatus = {
+      // Skip env var override if download was explicitly deleted this session
+      if isDownloadDeleted {
+        return episode.downloadStatus
+      }
       // UITest override: treat listed episodes as downloaded for deterministic UI
       if episode.downloadStatus == .downloaded {
         return .downloaded

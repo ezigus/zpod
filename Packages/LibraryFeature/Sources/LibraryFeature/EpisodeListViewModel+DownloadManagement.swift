@@ -13,7 +13,21 @@ import Foundation
 
 @MainActor
 extension EpisodeListViewModel {
-  
+
+  /// Delete the local download for an episode, reverting it to streaming-only
+  public func deleteDownloadForEpisode(_ episode: Episode) async {
+    guard episode.isDownloaded || episode.downloadStatus == .downloaded else { return }
+    do {
+      try await downloadManager?.deleteDownloadedEpisode(episodeId: episode.id)
+    } catch {
+      Self.logger.error(
+        "Failed to delete download for episode \(episode.id): \(error, privacy: .public)")
+    }
+    let updated = episode.withDownloadStatus(.notDownloaded)
+    updateEpisode(updated)
+    deletedDownloadEpisodeIDs.insert(episode.id)
+  }
+
   /// Retry failed download for an episode
   public func retryEpisodeDownload(_ episode: Episode) {
     guard episode.downloadStatus == .failed else { return }

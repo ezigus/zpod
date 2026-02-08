@@ -183,16 +183,122 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     ///
     /// **Spec**: offline-playback.md - "Delete download reverts to streaming"
     ///
-    /// **Given**: Episode is downloaded
-    /// **When**: User deletes the download
-    /// **Then**: Episode badge changes from "Downloaded" to streaming indicator
+    /// **Given**: Episode is downloaded (seeded via env var)
+    /// **When**: User swipes left → taps Delete Download → confirms
+    /// **Then**: Episode download badge disappears
     @MainActor
     func testDeletedDownloadRevertsToStreaming() throws {
-        // Swipe-to-delete download action not yet wired — tracked by Issue 28.1.10 (#395)
-        throw XCTSkip("Requires SwipeAction.delete on episode rows — Issue 28.1.10 (#395)")
+        // Given: App with downloaded episode + swipe config with deleteDownload on trailing
+        let swipeConfig = swipeConfigurationPayload(
+            trailing: ["deleteDownload", "archive", "delete"]
+        )
+        app = launchConfiguredApp(environmentOverrides: [
+            "UITEST_DOWNLOADED_EPISODES": "swift-talk:st-001",
+            "UITEST_SEEDED_SWIPE_CONFIGURATION_B64": swipeConfig,
+            "UITEST_RESET_SWIPE_SETTINGS": "1",
+            "UITEST_DISABLE_DOWNLOAD_COORDINATOR": "1"
+        ])
+        navigateToEpisodeList()
+
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
+
+        // Verify downloaded badge is present before deletion
+        XCTAssertTrue(
+            isDownloadedStatusVisible(for: "st-001"),
+            "Downloaded status should be visible before deletion"
+        )
+
+        // When: Swipe left on the downloaded episode
+        episode.swipeLeft()
+
+        // Tap the Delete Download swipe action
+        let deleteButton = app.buttons.matching(identifier: "SwipeAction.deleteDownload").firstMatch
+        XCTAssertTrue(
+            deleteButton.waitForExistence(timeout: adaptiveTimeout),
+            "Delete Download swipe action should appear for downloaded episode"
+        )
+        deleteButton.tap()
+
+        // Confirm deletion via the confirmation dialog
+        let confirmButton = app.buttons.matching(identifier: "DeleteDownload.Confirm").firstMatch
+        XCTAssertTrue(
+            confirmButton.waitForExistence(timeout: adaptiveTimeout),
+            "Confirmation dialog should appear"
+        )
+        confirmButton.tap()
+
+        // Then: Downloaded badge should disappear
+        let downloadBadge = downloadStatusIndicator(for: "st-001")
+        let badgeDisappeared = downloadBadge.waitForNonExistence(timeout: adaptiveTimeout)
+        XCTAssertTrue(
+            badgeDisappeared,
+            "Downloaded badge should disappear after deleting download"
+        )
+    }
+
+    /// Test: Delete Download action is hidden for non-downloaded episodes
+    ///
+    /// **Given**: Episode is NOT downloaded
+    /// **When**: User swipes left on the episode
+    /// **Then**: Delete Download action does NOT appear
+    @MainActor
+    func testDeleteDownloadHiddenForNonDownloadedEpisode() throws {
+        // Given: App without downloaded episodes, swipe config with deleteDownload on trailing
+        let swipeConfig = swipeConfigurationPayload(
+            trailing: ["deleteDownload", "archive", "delete"]
+        )
+        app = launchConfiguredApp(environmentOverrides: [
+            "UITEST_SEEDED_SWIPE_CONFIGURATION_B64": swipeConfig,
+            "UITEST_RESET_SWIPE_SETTINGS": "1",
+            "UITEST_DISABLE_DOWNLOAD_COORDINATOR": "1"
+        ])
+        navigateToEpisodeList()
+
+        let episode = ensureEpisodeVisible(id: "st-001")
+        XCTAssertTrue(episode.waitUntil(.hittable, timeout: adaptiveTimeout))
+
+        // When: Swipe left on non-downloaded episode
+        episode.swipeLeft()
+
+        // Then: Delete Download action should NOT appear
+        let deleteButton = app.buttons.matching(identifier: "SwipeAction.deleteDownload").firstMatch
+        XCTAssertFalse(
+            deleteButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Delete Download should not appear for non-downloaded episode"
+        )
+
+        // But other trailing actions should still be visible
+        let archiveButton = app.buttons.matching(identifier: "SwipeAction.archive").firstMatch
+        XCTAssertTrue(
+            archiveButton.waitForExistence(timeout: adaptiveShortTimeout),
+            "Archive action should still appear"
+        )
     }
 
     // MARK: - Helper Methods
+
+    /// Build a base64-encoded swipe configuration payload for seeding
+    private func swipeConfigurationPayload(
+        leading: [String] = ["markPlayed"],
+        trailing: [String] = ["delete", "archive"]
+    ) -> String {
+        let payload: [String: Any] = [
+            "swipeActions": [
+                "leadingActions": leading,
+                "trailingActions": trailing,
+                "allowFullSwipeLeading": true,
+                "allowFullSwipeTrailing": false,
+                "hapticFeedbackEnabled": true
+            ],
+            "hapticStyle": "medium"
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+            XCTFail("Failed to encode swipe configuration payload")
+            return ""
+        }
+        return data.base64EncodedString()
+    }
 
     /// Navigate to episode list for testing
     private func navigateToEpisodeList() {
