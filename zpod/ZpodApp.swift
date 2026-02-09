@@ -59,6 +59,7 @@ struct ZpodApp: App {
       }
       if ProcessInfo.processInfo.environment["UITEST_NETWORK_SIMULATION"] == "1"
         || ProcessInfo.processInfo.environment["UITEST_BUFFER_SIMULATION"] == "1"
+        || ProcessInfo.processInfo.environment["UITEST_PLAYBACK_ERROR_SIMULATION"] == "1"
       {
         _ = NetworkSimulationOverlayManager.shared
       }

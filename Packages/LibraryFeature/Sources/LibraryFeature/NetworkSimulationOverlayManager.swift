@@ -13,10 +13,12 @@
     nonisolated(unsafe) private var appInitObserver: NSObjectProtocol?
     nonisolated(unsafe) private var networkSimulationObserver: NSObjectProtocol?
     nonisolated(unsafe) private var bufferSimulationObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var playbackErrorSimulationObserver: NSObjectProtocol?
     private weak var simulationController: (any NetworkSimulationControlling)?
 
     private init() {
-      guard isNetworkSimulationEnabled || isBufferSimulationEnabled else { return }
+      guard isNetworkSimulationEnabled || isBufferSimulationEnabled || isPlaybackErrorSimulationEnabled
+      else { return }
 
       appInitObserver = NotificationCenter.default.addObserver(
         forName: .appDidInitialize,
@@ -36,11 +38,15 @@
       if let bufferSimulationObserver {
         NotificationCenter.default.removeObserver(bufferSimulationObserver)
       }
+      if let playbackErrorSimulationObserver {
+        NotificationCenter.default.removeObserver(playbackErrorSimulationObserver)
+      }
       if let appInitObserver {
         NotificationCenter.default.removeObserver(appInitObserver)
       }
       networkSimulationObserver = nil
       bufferSimulationObserver = nil
+      playbackErrorSimulationObserver = nil
       appInitObserver = nil
     }
 
@@ -50,6 +56,10 @@
 
     private var isBufferSimulationEnabled: Bool {
       ProcessInfo.processInfo.environment["UITEST_BUFFER_SIMULATION"] == "1"
+    }
+
+    private var isPlaybackErrorSimulationEnabled: Bool {
+      ProcessInfo.processInfo.environment["UITEST_PLAYBACK_ERROR_SIMULATION"] == "1"
     }
 
     private func activateIfNeeded() {
@@ -90,6 +100,25 @@
           }
         }
       }
+
+      if isPlaybackErrorSimulationEnabled && playbackErrorSimulationObserver == nil {
+        playbackErrorSimulationObserver = NotificationCenter.default.addObserver(
+          forName: .playbackErrorSimulation,
+          object: nil,
+          queue: .main
+        ) { [weak self] notification in
+          guard
+            let rawType = notification.userInfo?[NetworkSimulationNotificationKey.playbackErrorType]
+              as? String,
+            let type = PlaybackErrorSimulationType(rawValue: rawType)
+          else {
+            return
+          }
+          Task { @MainActor [weak self] in
+            self?.handlePlaybackErrorSimulation(type)
+          }
+        }
+      }
     }
 
     private func currentSimulationController() -> (any NetworkSimulationControlling)? {
@@ -121,6 +150,14 @@
         controller.simulateBufferEmpty()
       case .ready:
         controller.simulateBufferReady()
+      }
+    }
+
+    private func handlePlaybackErrorSimulation(_ type: PlaybackErrorSimulationType) {
+      guard let controller = currentSimulationController() else { return }
+      switch type {
+      case .recoverableNetworkError:
+        controller.simulatePlaybackError()
       }
     }
   }

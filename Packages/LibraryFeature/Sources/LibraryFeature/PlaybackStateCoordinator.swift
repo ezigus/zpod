@@ -93,7 +93,7 @@ public final class PlaybackStateCoordinator {
         "resume state invalid; clearing episodeId=\(resumeState.episodeId) position=\(resumeState.position) duration=\(resumeState.duration)"
       )
       await settingsRepository.clearPlaybackResumeState()
-      presentAlert(for: .resumeStateExpired)
+      presentAlert(for: .resumeStateExpired, shouldPausePlayback: false)
       return
     }
 
@@ -148,7 +148,7 @@ public final class PlaybackStateCoordinator {
     _ error: PlaybackError,
     retryAction: (() -> Void)? = nil
   ) {
-    presentAlert(for: error, retryAction: retryAction)
+    presentAlert(for: error, retryAction: retryAction, shouldPausePlayback: true)
   }
 
   /// Cleanup resources
@@ -248,7 +248,8 @@ public final class PlaybackStateCoordinator {
       await persistCurrentState()
       presentAlert(
         for: error,
-        retryAction: makeRetryAction(for: episode, position: position, duration: duration)
+        retryAction: makeRetryAction(for: episode, position: position, duration: duration),
+        shouldPausePlayback: false
       )
     }
   }
@@ -278,11 +279,14 @@ public final class PlaybackStateCoordinator {
 
   private func presentAlert(
     for error: PlaybackError,
-    retryAction: (() -> Void)? = nil
+    retryAction: (() -> Void)? = nil,
+    shouldPausePlayback: Bool
   ) {
     Task { @MainActor [weak self] in
       guard let self else { return }
-      playbackService?.pause()
+      if shouldPausePlayback {
+        playbackService?.pause()
+      }
       guard let presenter = alertPresenter else { return }
       let descriptor = error.descriptor()
       var action: PlaybackAlertAction?

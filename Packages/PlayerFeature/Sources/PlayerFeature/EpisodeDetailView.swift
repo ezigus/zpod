@@ -60,7 +60,7 @@ public struct EpisodeDetailView: View {
         .allowsHitTesting(true)
       }
 
-      if isUITestNetworkSimulationEnabled {
+      if isAnyUITestSimulationEnabled {
         testNetworkSimulationControls
       }
 
@@ -133,9 +133,24 @@ extension EpisodeDetailView {
     return env["UITEST_PLAYBACK_DEBUG"] == "1" || env["UITEST_DEBUG_AUDIO"] == "1"
   }
 
-  private var isUITestNetworkSimulationEnabled: Bool {
+  private var isNetworkSimulationControlEnabled: Bool {
     let env = ProcessInfo.processInfo.environment
-    return env["UITEST_NETWORK_SIMULATION"] == "1" || env["UITEST_BUFFER_SIMULATION"] == "1"
+    return env["UITEST_NETWORK_SIMULATION"] == "1"
+  }
+
+  private var isBufferSimulationControlEnabled: Bool {
+    let env = ProcessInfo.processInfo.environment
+    return env["UITEST_BUFFER_SIMULATION"] == "1"
+  }
+
+  private var isPlaybackErrorSimulationEnabled: Bool {
+    let env = ProcessInfo.processInfo.environment
+    return env["UITEST_PLAYBACK_ERROR_SIMULATION"] == "1"
+  }
+
+  private var isAnyUITestSimulationEnabled: Bool {
+    isNetworkSimulationControlEnabled || isBufferSimulationControlEnabled
+      || isPlaybackErrorSimulationEnabled
   }
 
   private struct PlaybackDebugControlsView: View {
@@ -276,66 +291,84 @@ extension EpisodeDetailView {
 
   @ViewBuilder
   private var testNetworkSimulationControls: some View {
-    if isUITestNetworkSimulationEnabled {
+    if isAnyUITestSimulationEnabled {
       VStack(alignment: .leading, spacing: 8) {
-        HStack(spacing: 8) {
-          Button("Simulate Network Loss") {
+        if isNetworkSimulationControlEnabled {
+          HStack(spacing: 8) {
+            Button("Simulate Network Loss") {
+              NotificationCenter.default.post(
+                name: .networkSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.networkType: NetworkSimulationType.loss.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateNetworkLoss")
+
+            Button("Simulate Network Recovery") {
+              NotificationCenter.default.post(
+                name: .networkSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.networkType: NetworkSimulationType.recovery.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateNetworkRecovery")
+          }
+
+          Button("Simulate Poor Network") {
             NotificationCenter.default.post(
               name: .networkSimulation,
               object: nil,
               userInfo: [
-                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.loss.rawValue
+                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.poorQuality.rawValue
               ]
             )
           }
-          .accessibilityIdentifier("TestHook.SimulateNetworkLoss")
-
-          Button("Simulate Network Recovery") {
-            NotificationCenter.default.post(
-              name: .networkSimulation,
-              object: nil,
-              userInfo: [
-                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.recovery.rawValue
-              ]
-            )
-          }
-          .accessibilityIdentifier("TestHook.SimulateNetworkRecovery")
+          .accessibilityIdentifier("TestHook.SimulatePoorNetwork")
         }
 
-        HStack(spacing: 8) {
-          Button("Buffer Empty") {
+        if isBufferSimulationControlEnabled {
+          HStack(spacing: 8) {
+            Button("Buffer Empty") {
+              NotificationCenter.default.post(
+                name: .bufferSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.bufferType: BufferSimulationType.empty.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateBufferEmpty")
+
+            Button("Buffer Ready") {
+              NotificationCenter.default.post(
+                name: .bufferSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.bufferType: BufferSimulationType.ready.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateBufferReady")
+          }
+        }
+
+        if isPlaybackErrorSimulationEnabled {
+          Button("Simulate Playback Error") {
             NotificationCenter.default.post(
-              name: .bufferSimulation,
+              name: .playbackErrorSimulation,
               object: nil,
               userInfo: [
-                NetworkSimulationNotificationKey.bufferType: BufferSimulationType.empty.rawValue
+                NetworkSimulationNotificationKey.playbackErrorType:
+                  PlaybackErrorSimulationType.recoverableNetworkError.rawValue
               ]
             )
           }
-          .accessibilityIdentifier("TestHook.SimulateBufferEmpty")
-
-          Button("Buffer Ready") {
-            NotificationCenter.default.post(
-              name: .bufferSimulation,
-              object: nil,
-              userInfo: [
-                NetworkSimulationNotificationKey.bufferType: BufferSimulationType.ready.rawValue
-              ]
-            )
-          }
-          .accessibilityIdentifier("TestHook.SimulateBufferReady")
+          .accessibilityIdentifier("TestHook.SimulatePlaybackError")
         }
-
-        Button("Simulate Poor Network") {
-          NotificationCenter.default.post(
-            name: .networkSimulation,
-            object: nil,
-            userInfo: [
-              NetworkSimulationNotificationKey.networkType: NetworkSimulationType.poorQuality.rawValue
-            ]
-          )
-        }
-        .accessibilityIdentifier("TestHook.SimulatePoorNetwork")
 
         HStack {
           Text("Playback State")

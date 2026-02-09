@@ -339,6 +339,33 @@
       XCTAssertEqual(savedState?.position, position)
       XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
     }
+
+    @MainActor
+    func testFailedStateDoesNotPausePlaybackServiceBeforePresentingAlert() async throws {
+      mockPlaybackService.sendState(
+        .failed(testEpisode, position: 120, duration: 1800, error: .streamFailed)
+      )
+      try await Task.sleep(nanoseconds: 200_000_000)
+
+      XCTAssertEqual(
+        mockPlaybackService.pauseCallCount,
+        0,
+        "Coordinator should not emit an extra paused state after a failed playback state"
+      )
+      XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
+    }
+
+    @MainActor
+    func testReportPlaybackErrorStillPausesPlaybackService() async throws {
+      coordinator.reportPlaybackError(.networkError)
+      try await Task.sleep(nanoseconds: 50_000_000)
+
+      XCTAssertEqual(
+        mockPlaybackService.pauseCallCount,
+        1,
+        "Explicitly reported errors should pause playback before presenting alerts"
+      )
+    }
   }
 
   // MARK: - Mock Settings Repository
@@ -455,6 +482,7 @@
     var lastPlayedEpisode: Episode?
     var lastPlayedDuration: TimeInterval?
     var injectedStates: [EpisodePlaybackState] = []
+    var pauseCallCount = 0
 
     private let stateSubject = PassthroughSubject<EpisodePlaybackState, Never>()
 
@@ -469,7 +497,7 @@
     }
 
     func pause() {
-      // No-op for mock
+      pauseCallCount += 1
     }
 
     func sendState(_ state: EpisodePlaybackState) {

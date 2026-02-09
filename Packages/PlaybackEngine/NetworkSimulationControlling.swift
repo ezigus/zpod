@@ -16,4 +16,5 @@ public protocol NetworkSimulationControlling: AnyObject {
   func simulatePoorNetwork()
   func simulateBufferEmpty()
   func simulateBufferReady()
+  func simulatePlaybackError()
 }

@@ -818,6 +818,10 @@ extension EnhancedEpisodePlayer: NetworkSimulationControlling {
     setBufferSimulationActive(false)
   }
 
+  public func simulatePlaybackError() {
+    failPlayback(error: .networkError)
+  }
+
   private func resumePlaybackAfterSimulatedRecovery() {
     guard let episode = currentEpisode else { return }
     guard !isPlaying else { return }

@@ -11,12 +11,18 @@ public enum BufferSimulationType: String, Sendable {
   case ready
 }
 
+public enum PlaybackErrorSimulationType: String, Sendable {
+  case recoverableNetworkError
+}
+
 public enum NetworkSimulationNotificationKey {
   public static let networkType = "NetworkSimulation.Type"
   public static let bufferType = "BufferSimulation.Type"
+  public static let playbackErrorType = "PlaybackErrorSimulation.Type"
 }
 
 public extension Notification.Name {
   static let networkSimulation = Notification.Name("NetworkSimulation.StateChange")
   static let bufferSimulation = Notification.Name("BufferSimulation.StateChange")
+  static let playbackErrorSimulation = Notification.Name("PlaybackErrorSimulation.StateChange")
 }

@@ -297,11 +297,17 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         )
 
         XCTAssertFalse(
-            app.buttons.matching(identifier: "TestHook.SimulateBufferEmpty").firstMatch.exists,
+            simulationControlExists(
+                identifier: "TestHook.SimulateBufferEmpty",
+                label: "Buffer Empty"
+            ),
             "Buffer-empty control should not render when only UITEST_NETWORK_SIMULATION=1"
         )
         XCTAssertFalse(
-            app.buttons.matching(identifier: "TestHook.SimulateBufferReady").firstMatch.exists,
+            simulationControlExists(
+                identifier: "TestHook.SimulateBufferReady",
+                label: "Buffer Ready"
+            ),
             "Buffer-ready control should not render when only UITEST_NETWORK_SIMULATION=1"
         )
     }
@@ -333,15 +339,24 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         )
 
         XCTAssertFalse(
-            app.buttons.matching(identifier: "TestHook.SimulateNetworkLoss").firstMatch.exists,
+            simulationControlExists(
+                identifier: "TestHook.SimulateNetworkLoss",
+                label: "Simulate Network Loss"
+            ),
             "Network-loss control should not render when only UITEST_BUFFER_SIMULATION=1"
         )
         XCTAssertFalse(
-            app.buttons.matching(identifier: "TestHook.SimulateNetworkRecovery").firstMatch.exists,
+            simulationControlExists(
+                identifier: "TestHook.SimulateNetworkRecovery",
+                label: "Simulate Network Recovery"
+            ),
             "Network-recovery control should not render when only UITEST_BUFFER_SIMULATION=1"
         )
         XCTAssertFalse(
-            app.buttons.matching(identifier: "TestHook.SimulatePoorNetwork").firstMatch.exists,
+            simulationControlExists(
+                identifier: "TestHook.SimulatePoorNetwork",
+                label: "Simulate Poor Network"
+            ),
             "Poor-network control should not render when only UITEST_BUFFER_SIMULATION=1"
         )
     }
@@ -375,7 +390,19 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             failOnTimeout: false
         )
 
-        XCTAssertNotNil(errorSurface, "Error message surface should appear after injecting playback error")
+        if errorSurface != nil {
+            return
+        }
+
+        guard openExpandedPlayerFromMiniPlayer() else {
+            XCTFail("Error message surface should appear after injecting playback error")
+            return
+        }
+
+        XCTAssertTrue(
+            expandedErrorView.waitForExistence(timeout: adaptiveTimeout),
+            "Expanded player error surface should appear after injecting playback error"
+        )
     }
 
     /// Test: Retry button appears after network error
@@ -405,7 +432,19 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             failOnTimeout: false
         )
 
-        XCTAssertNotNil(retryButton, "Retry button should be available for recoverable playback error")
+        if retryButton != nil {
+            return
+        }
+
+        guard openExpandedPlayerFromMiniPlayer() else {
+            XCTFail("Retry button should be available for recoverable playback error")
+            return
+        }
+
+        XCTAssertTrue(
+            expandedRetry.waitForExistence(timeout: adaptiveTimeout),
+            "Expanded player retry button should be available for recoverable playback error"
+        )
     }
 
     // MARK: - Playback Quality Tests
@@ -552,6 +591,17 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     }
 
     @MainActor
+    private func simulationControlExists(identifier: String, label: String) -> Bool {
+        if app.buttons.matching(identifier: identifier).firstMatch.exists {
+            return true
+        }
+
+        return app.buttons.matching(
+            NSPredicate(format: "label == %@", label)
+        ).firstMatch.exists
+    }
+
+    @MainActor
     private func isPlaybackControlShowingPause() -> Bool {
         app.buttons.matching(identifier: "Pause").firstMatch.exists
     }
@@ -598,5 +648,27 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
 
         errorButton.tap()
         return true
+    }
+
+    @MainActor
+    private func openExpandedPlayerFromMiniPlayer() -> Bool {
+        let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
+        let expandedErrorView = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+        if expandedPlayer.exists || expandedErrorView.exists {
+            return true
+        }
+
+        let miniPlayer = miniPlayerElement(in: app)
+        guard miniPlayer.waitForExistence(timeout: adaptiveTimeout) else {
+            return false
+        }
+
+        miniPlayer.tap()
+
+        if expandedErrorView.waitForExistence(timeout: adaptiveTimeout) {
+            return true
+        }
+
+        return expandedPlayer.waitForExistence(timeout: adaptiveTimeout)
     }
 }
