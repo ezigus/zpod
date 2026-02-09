@@ -142,7 +142,7 @@
 1. ✅ Create `zpodUITests/DownloadFlowUITests.swift` - DONE
 2. ✅ Add download tests to CI matrix - DONE
 3. ⏳ Create `zpodUITests/OfflinePlaybackUITests.swift`
-4. ⏳ Add network simulation helpers for UI tests
+4. ✅ Add network simulation helpers for UI tests (Issue 28.1.11 / #396)
 5. ⏳ Create streaming buffer tests
 6. ⏳ Add error notification/retry flow tests
 7. ⏳ Map all remaining spec scenarios to tests

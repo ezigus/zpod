@@ -18,8 +18,6 @@ public struct EpisodeDetailView: View {
   @State private var bookmarkValidationMessage: String?
   @State private var transcriptSearchText = ""
   @State private var showingSpeedOptions = false
-  @State private var testPausedByNetwork = false
-  @State private var testIsBuffering = false
 
   public init(episode: Episode, playbackService: EpisodePlaybackService? = nil) {
     self.episode = episode
@@ -66,7 +64,7 @@ public struct EpisodeDetailView: View {
         testNetworkSimulationControls
       }
 
-      if testIsBuffering {
+      if viewModel.isBufferSimulationActive {
         VStack(spacing: 8) {
           ProgressView()
             .progressViewStyle(.circular)
@@ -282,40 +280,77 @@ extension EpisodeDetailView {
       VStack(alignment: .leading, spacing: 8) {
         HStack(spacing: 8) {
           Button("Simulate Network Loss") {
-            testPausedByNetwork = true
+            NotificationCenter.default.post(
+              name: .networkSimulation,
+              object: nil,
+              userInfo: [
+                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.loss.rawValue
+              ]
+            )
           }
           .accessibilityIdentifier("TestHook.SimulateNetworkLoss")
 
           Button("Simulate Network Recovery") {
-            testPausedByNetwork = false
+            NotificationCenter.default.post(
+              name: .networkSimulation,
+              object: nil,
+              userInfo: [
+                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.recovery.rawValue
+              ]
+            )
           }
           .accessibilityIdentifier("TestHook.SimulateNetworkRecovery")
         }
 
         HStack(spacing: 8) {
           Button("Buffer Empty") {
-            testIsBuffering = true
+            NotificationCenter.default.post(
+              name: .bufferSimulation,
+              object: nil,
+              userInfo: [
+                NetworkSimulationNotificationKey.bufferType: BufferSimulationType.empty.rawValue
+              ]
+            )
           }
           .accessibilityIdentifier("TestHook.SimulateBufferEmpty")
 
           Button("Buffer Ready") {
-            testIsBuffering = false
+            NotificationCenter.default.post(
+              name: .bufferSimulation,
+              object: nil,
+              userInfo: [
+                NetworkSimulationNotificationKey.bufferType: BufferSimulationType.ready.rawValue
+              ]
+            )
           }
           .accessibilityIdentifier("TestHook.SimulateBufferReady")
         }
 
         Button("Simulate Poor Network") {
-          testIsBuffering = true
+          NotificationCenter.default.post(
+            name: .networkSimulation,
+            object: nil,
+            userInfo: [
+              NetworkSimulationNotificationKey.networkType: NetworkSimulationType.poorQuality.rawValue
+            ]
+          )
         }
         .accessibilityIdentifier("TestHook.SimulatePoorNetwork")
 
         HStack {
-          Spacer()
-          Button(action: { testPausedByNetwork.toggle() }) {
-            Image(systemName: testPausedByNetwork ? "play.fill" : "pause.fill")
-          }
-          .accessibilityIdentifier(testPausedByNetwork ? "Player.PlayButton" : "Player.PauseButton")
-          .accessibilityLabel(testPausedByNetwork ? "Play" : "Pause")
+          Text("Playback State")
+            .font(.caption2)
+          Text(viewModel.isNetworkSimulationPaused ? "Play" : "Pause")
+            .font(.caption2.monospaced())
+            .fontWeight(.semibold)
+            .accessibilityIdentifier("TestHook.PlaybackState")
+            .accessibilityLabel(viewModel.isNetworkSimulationPaused ? "Play" : "Pause")
+          Spacer(minLength: 0)
+          Text(viewModel.isBufferSimulationActive ? "Buffering" : "Ready")
+            .font(.caption2.monospaced())
+            .fontWeight(.semibold)
+            .accessibilityIdentifier("TestHook.BufferState")
+            .accessibilityLabel(viewModel.isBufferSimulationActive ? "Buffering" : "Ready")
         }
       }
       .font(.caption)

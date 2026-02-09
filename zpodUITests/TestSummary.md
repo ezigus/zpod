@@ -164,7 +164,7 @@ This document outlines the UI testing approach for the main zpod application.
 
 ### Streaming Interruption UI Tests (`StreamingInterruptionUITests.swift`)
 
-**Purpose**: Harden streaming interruption UI tests so hook-dependent behavior either validates via test controls or skips with traceable blockers.
+**Purpose**: Validate streaming interruption behavior with environment-gated simulation hooks and keep non-hook blockers explicitly traceable.
 
 **Specifications Covered**:
 
@@ -176,11 +176,10 @@ This document outlines the UI testing approach for the main zpod application.
 - Player-tab deterministic setup for simulation scenarios
 - Hook button discovery using identifier + label fallback (`TestHook.*`)
 - State transitions validated with wait helpers (`waitUntil`) and no fixed sleeps
-- Graceful issue-traceable skips when simulation hooks or transitions are unavailable
+- Hook-driven transitions run as active assertions (auto-pause, auto-resume, buffering visibility)
 
 **Current Blocked Scenarios**:
 
-- Hook/transition behavior still blocked by `Issue 28.1.11 (#396)` (simulation integration gaps)
 - Error-message/retry visibility blocked by `Issue 03.3.4 (#269)` (`PlaybackError` accessibility surface)
 
 ### Swipe Configuration UI Tests

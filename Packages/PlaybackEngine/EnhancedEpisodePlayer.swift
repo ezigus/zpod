@@ -85,6 +85,9 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private let tickerFactory: () -> Ticker
   private var activeTicker: Ticker?
   private var lastPersistenceTime: TimeInterval = 0
+  private let simulationRecoveryGracePeriod: TimeInterval
+  private var simulationRecoveryTask: Task<Void, Never>?
+  private var wasPlayingBeforeSimulatedNetworkLoss = false
   
   #if os(iOS)
   private let audioEngine: AVPlayerPlaybackEngine?
@@ -92,6 +95,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   #if canImport(Combine)
     private let stateSubject: CurrentValueSubject<EpisodePlaybackState, Never>
+    private let networkSimulationPausedSubject: CurrentValueSubject<Bool, Never>
+    private let bufferSimulationSubject: CurrentValueSubject<Bool, Never>
     public var statePublisher: AnyPublisher<EpisodePlaybackState, Never> {
       stateSubject.eraseToAnyPublisher()
     }
@@ -123,7 +128,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
     audioEngine: AVPlayerPlaybackEngine? = nil,
-    localFileProvider: ((String) -> URL?)? = nil
+    localFileProvider: ((String) -> URL?)? = nil,
+    simulationRecoveryGracePeriod: TimeInterval = 3.0
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
@@ -132,9 +138,12 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     self.tickerFactory = { ticker ?? TimerTicker() }
     self.audioEngine = audioEngine
     self.localFileProvider = localFileProvider
+    self.simulationRecoveryGracePeriod = max(0, simulationRecoveryGracePeriod)
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
+      self.networkSimulationPausedSubject = CurrentValueSubject(false)
+      self.bufferSimulationSubject = CurrentValueSubject(false)
     #endif
   }
 
@@ -144,7 +153,8 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
-    localFileProvider: ((String) -> URL?)? = nil
+    localFileProvider: ((String) -> URL?)? = nil,
+    simulationRecoveryGracePeriod: TimeInterval = 3.0
   ) {
     self.playbackSettings = playbackSettings
     self.episodeStateManager = stateManager ?? InMemoryEpisodeStateManager()
@@ -152,14 +162,18 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     self.playbackSpeed = playbackSettings.defaultSpeed
     self.tickerFactory = { ticker ?? TimerTicker() }
     self.localFileProvider = localFileProvider
+    self.simulationRecoveryGracePeriod = max(0, simulationRecoveryGracePeriod)
 
     #if canImport(Combine)
       self.stateSubject = CurrentValueSubject(.idle(Constants.placeholderEpisode))
+      self.networkSimulationPausedSubject = CurrentValueSubject(false)
+      self.bufferSimulationSubject = CurrentValueSubject(false)
     #endif
   }
   #endif
 
   deinit {
+    simulationRecoveryTask?.cancel()
     activeTicker?.cancel()  // Ensure no lingering timer
     #if os(iOS)
       audioEngine?.stop()  // Clean up audio resources
@@ -169,6 +183,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   // MARK: - EpisodePlaybackService
 
   public func play(episode: Episode, duration maybeDuration: TimeInterval?) {
+    cancelSimulationRecoveryTask()
+    wasPlayingBeforeSimulatedNetworkLoss = false
+    setNetworkSimulationPaused(false)
+    setBufferSimulationActive(false)
     currentEpisode = episode
     currentDuration = resolveDuration(for: episode, override: maybeDuration)
     currentPosition = clampPosition(TimeInterval(episode.playbackPosition))
@@ -306,6 +324,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   public func failPlayback(error: PlaybackError = .streamFailed) {
     guard let episode = currentEpisode else { return }
+    cancelSimulationRecoveryTask()
+    wasPlayingBeforeSimulatedNetworkLoss = false
+    setNetworkSimulationPaused(false)
+    setBufferSimulationActive(false)
     logPlaybackError(error, for: episode)
     isPlaying = false
     stopTicker()  // Stop position advancement
@@ -446,6 +468,27 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     min(max(speed, Constants.minimumSpeed), Constants.maximumSpeed)
   }
 
+  private func cancelSimulationRecoveryTask() {
+    simulationRecoveryTask?.cancel()
+    simulationRecoveryTask = nil
+  }
+
+  private func setNetworkSimulationPaused(_ isPaused: Bool) {
+    #if canImport(Combine)
+      if networkSimulationPausedSubject.value != isPaused {
+        networkSimulationPausedSubject.send(isPaused)
+      }
+    #endif
+  }
+
+  private func setBufferSimulationActive(_ isBuffering: Bool) {
+    #if canImport(Combine)
+      if bufferSimulationSubject.value != isBuffering {
+        bufferSimulationSubject.send(isBuffering)
+      }
+    #endif
+  }
+
   @discardableResult
   private func persistPlaybackPosition() -> Episode {
     guard var episode = currentEpisode else { return Constants.placeholderEpisode }
@@ -475,6 +518,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   }
 
   private func finishPlayback(markPlayed: Bool) {
+    cancelSimulationRecoveryTask()
+    wasPlayingBeforeSimulatedNetworkLoss = false
+    setNetworkSimulationPaused(false)
+    setBufferSimulationActive(false)
     isPlaying = false
     stopTicker()  // Stop position advancement
     #if os(iOS)
@@ -709,6 +756,99 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     activeTicker?.cancel()
     activeTicker = nil
   }
+}
+
+extension EnhancedEpisodePlayer: NetworkSimulationControlling {
+  #if canImport(Combine)
+    public var networkSimulationPausedPublisher: AnyPublisher<Bool, Never> {
+      networkSimulationPausedSubject.eraseToAnyPublisher()
+    }
+
+    public var bufferSimulationPublisher: AnyPublisher<Bool, Never> {
+      bufferSimulationSubject.eraseToAnyPublisher()
+    }
+  #endif
+
+  public func simulateNetworkLoss() {
+    cancelSimulationRecoveryTask()
+
+    guard currentEpisode != nil else { return }
+
+    if isPlaying {
+      wasPlayingBeforeSimulatedNetworkLoss = true
+      pause()
+    } else {
+      wasPlayingBeforeSimulatedNetworkLoss = false
+    }
+
+    setNetworkSimulationPaused(true)
+  }
+
+  public func simulateNetworkRecovery() {
+    guard currentEpisode != nil else { return }
+    guard wasPlayingBeforeSimulatedNetworkLoss else {
+      setNetworkSimulationPaused(false)
+      return
+    }
+
+    cancelSimulationRecoveryTask()
+    simulationRecoveryTask = Task { @MainActor [weak self] in
+      guard let self else { return }
+      do {
+        try await Task.sleep(for: .seconds(self.simulationRecoveryGracePeriod))
+        guard !Task.isCancelled, self.wasPlayingBeforeSimulatedNetworkLoss else { return }
+        self.resumePlaybackAfterSimulatedRecovery()
+        self.wasPlayingBeforeSimulatedNetworkLoss = false
+        self.setNetworkSimulationPaused(false)
+      } catch {
+        // Task cancellation is expected when a new simulation event replaces recovery.
+      }
+    }
+  }
+
+  public func simulatePoorNetwork() {
+    setBufferSimulationActive(true)
+  }
+
+  public func simulateBufferEmpty() {
+    setBufferSimulationActive(true)
+  }
+
+  public func simulateBufferReady() {
+    setBufferSimulationActive(false)
+  }
+
+  private func resumePlaybackAfterSimulatedRecovery() {
+    guard let episode = currentEpisode else { return }
+    guard !isPlaying else { return }
+
+    isPlaying = true
+    #if os(iOS)
+      if audioEngine != nil {
+        guard let playbackURL = playbackURLForCurrentEpisode(episode) else {
+          isPlaying = false
+          failPlayback(error: .missingAudioURL)
+          return
+        }
+        startAudioEnginePlayback(url: playbackURL)
+      } else {
+        startTicker()
+      }
+    #else
+      startTicker()
+    #endif
+
+    emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
+  }
+
+  #if os(iOS)
+    private func playbackURLForCurrentEpisode(_ episode: Episode) -> URL? {
+      if let localFile = localFileProvider?(episode.id) {
+        return localFile
+      }
+      return episode.audioURL
+    }
+  #endif
 }
 
 extension EnhancedEpisodePlayer: EpisodePlaybackStateInjecting {

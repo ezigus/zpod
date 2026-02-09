@@ -15,6 +15,8 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var formattedCurrentTime = "0:00"
   @Published public var formattedDuration = "0:00"
   @Published public var playbackSpeed: Float = 1.0
+  @Published public var isNetworkSimulationPaused = false
+  @Published public var isBufferSimulationActive = false
   @Published public var chapters: [Chapter] = []
   @Published public var currentChapter: Chapter?
 
@@ -79,6 +81,7 @@ public class EpisodeDetailViewModel: ObservableObject {
     // Use provided repository or create default
     self.annotationRepository = annotationRepository ?? UserDefaultsEpisodeAnnotationRepository()
     observePlaybackState()
+    observeSimulationState()
   }
 
   public func loadEpisode(_ episode: Episode) {
@@ -393,6 +396,30 @@ public class EpisodeDetailViewModel: ObservableObject {
         }
       }
       .store(in: &cancellables)
+  }
+
+  private func observeSimulationState() {
+    guard let simulationController = playbackService as? any NetworkSimulationControlling else {
+      return
+    }
+
+    #if canImport(Combine)
+      simulationController.networkSimulationPausedPublisher
+        .sink { [weak self] isPaused in
+          Task { @MainActor in
+            self?.isNetworkSimulationPaused = isPaused
+          }
+        }
+        .store(in: &cancellables)
+
+      simulationController.bufferSimulationPublisher
+        .sink { [weak self] isBuffering in
+          Task { @MainActor in
+            self?.isBufferSimulationActive = isBuffering
+          }
+        }
+        .store(in: &cancellables)
+    #endif
   }
 
   private func updateUIFromCurrentState() {

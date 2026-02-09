@@ -57,6 +57,11 @@ struct ZpodApp: App {
       if ProcessInfo.processInfo.environment["UITEST_SWIPE_DEBUG"] == "1" {
         _ = SwipeDebugOverlayManager.shared  // Creates observer immediately (sync)
       }
+      if ProcessInfo.processInfo.environment["UITEST_NETWORK_SIMULATION"] == "1"
+        || ProcessInfo.processInfo.environment["UITEST_BUFFER_SIMULATION"] == "1"
+      {
+        _ = NetworkSimulationOverlayManager.shared
+      }
     #endif
 
     // Always post initialization notification - debug tools can listen if needed
