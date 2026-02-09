@@ -341,7 +341,7 @@
     }
 
     @MainActor
-    func testFailedStateDoesNotPausePlaybackServiceBeforePresentingAlert() async throws {
+    func testFailedStateCallsPauseToStopAudioButDoesNotEmitSecondPausedState() async throws {
       mockPlaybackService.sendState(
         .failed(testEpisode, position: 120, duration: 1800, error: .streamFailed)
       )
@@ -349,8 +349,8 @@
 
       XCTAssertEqual(
         mockPlaybackService.pauseCallCount,
-        0,
-        "Coordinator should not emit an extra paused state after a failed playback state"
+        1,
+        "Coordinator should call pause() once to stop audio when entering failed state"
       )
       XCTAssertEqual(alertPresenter.currentAlert?.descriptor.title, "Playback Failed")
     }

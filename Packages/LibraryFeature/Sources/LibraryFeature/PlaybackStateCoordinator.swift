@@ -246,6 +246,9 @@ public final class PlaybackStateCoordinator {
       currentDuration = duration
       isPlaying = false
       await persistCurrentState()
+      // Pause playback service to stop any ongoing audio/network activity.
+      // Don't do this through presentAlert to avoid double state emissions.
+      playbackService?.pause()
       presentAlert(
         for: error,
         retryAction: makeRetryAction(for: episode, position: position, duration: duration),
