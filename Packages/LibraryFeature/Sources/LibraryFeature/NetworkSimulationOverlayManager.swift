@@ -23,7 +23,7 @@
         object: nil,
         queue: .main
       ) { [weak self] _ in
-        MainActor.assumeIsolated {
+        Task { @MainActor [weak self] in
           self?.activateIfNeeded()
         }
       }
@@ -53,11 +53,7 @@
     }
 
     private func activateIfNeeded() {
-      if simulationController == nil {
-        simulationController = PlaybackEnvironment.playbackService as? any NetworkSimulationControlling
-      }
-
-      guard let controller = simulationController else { return }
+      _ = currentSimulationController()
 
       if isNetworkSimulationEnabled && networkSimulationObserver == nil {
         networkSimulationObserver = NotificationCenter.default.addObserver(
@@ -71,8 +67,8 @@
           else {
             return
           }
-          MainActor.assumeIsolated {
-            self?.handleNetworkSimulation(type, controller: controller)
+          Task { @MainActor [weak self] in
+            self?.handleNetworkSimulation(type)
           }
         }
       }
@@ -89,17 +85,25 @@
           else {
             return
           }
-          MainActor.assumeIsolated {
-            self?.handleBufferSimulation(type, controller: controller)
+          Task { @MainActor [weak self] in
+            self?.handleBufferSimulation(type)
           }
         }
       }
     }
 
-    private func handleNetworkSimulation(
-      _ type: NetworkSimulationType,
-      controller: any NetworkSimulationControlling
-    ) {
+    private func currentSimulationController() -> (any NetworkSimulationControlling)? {
+      if let simulationController {
+        return simulationController
+      }
+
+      let controller = PlaybackEnvironment.playbackService as? any NetworkSimulationControlling
+      simulationController = controller
+      return controller
+    }
+
+    private func handleNetworkSimulation(_ type: NetworkSimulationType) {
+      guard let controller = currentSimulationController() else { return }
       switch type {
       case .loss:
         controller.simulateNetworkLoss()
@@ -110,10 +114,8 @@
       }
     }
 
-    private func handleBufferSimulation(
-      _ type: BufferSimulationType,
-      controller: any NetworkSimulationControlling
-    ) {
+    private func handleBufferSimulation(_ type: BufferSimulationType) {
+      guard let controller = currentSimulationController() else { return }
       switch type {
       case .empty:
         controller.simulateBufferEmpty()

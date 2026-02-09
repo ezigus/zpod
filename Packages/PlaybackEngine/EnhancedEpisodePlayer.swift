@@ -88,8 +88,6 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private let simulationRecoveryGracePeriod: TimeInterval
   private var simulationRecoveryTask: Task<Void, Never>?
   private var wasPlayingBeforeSimulatedNetworkLoss = false
-  private var isPausedBySimulatedNetworkLoss = false
-  private var isBufferingFromSimulation = false
   
   #if os(iOS)
   private let audioEngine: AVPlayerPlaybackEngine?
@@ -476,7 +474,6 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   }
 
   private func setNetworkSimulationPaused(_ isPaused: Bool) {
-    isPausedBySimulatedNetworkLoss = isPaused
     #if canImport(Combine)
       if networkSimulationPausedSubject.value != isPaused {
         networkSimulationPausedSubject.send(isPaused)
@@ -485,7 +482,6 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   }
 
   private func setBufferSimulationActive(_ isBuffering: Bool) {
-    isBufferingFromSimulation = isBuffering
     #if canImport(Combine)
       if bufferSimulationSubject.value != isBuffering {
         bufferSimulationSubject.send(isBuffering)
