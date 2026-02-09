@@ -259,6 +259,93 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         }
     }
 
+    // MARK: - Simulation Control Visibility
+
+    /// Test: Network simulation flag only exposes network controls
+    @MainActor
+    func testNetworkSimulationFlagShowsOnlyNetworkControls() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_NETWORK_SIMULATION": "1"
+        ])
+
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulateNetworkLoss",
+                label: "Simulate Network Loss",
+                description: "Network loss simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Network-loss control should render when UITEST_NETWORK_SIMULATION=1"
+        )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulateNetworkRecovery",
+                label: "Simulate Network Recovery",
+                description: "Network recovery simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Network-recovery control should render when UITEST_NETWORK_SIMULATION=1"
+        )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulatePoorNetwork",
+                label: "Simulate Poor Network",
+                description: "Poor network simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Poor-network control should render when UITEST_NETWORK_SIMULATION=1"
+        )
+
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "TestHook.SimulateBufferEmpty").firstMatch.exists,
+            "Buffer-empty control should not render when only UITEST_NETWORK_SIMULATION=1"
+        )
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "TestHook.SimulateBufferReady").firstMatch.exists,
+            "Buffer-ready control should not render when only UITEST_NETWORK_SIMULATION=1"
+        )
+    }
+
+    /// Test: Buffer simulation flag only exposes buffer controls
+    @MainActor
+    func testBufferSimulationFlagShowsOnlyBufferControls() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_BUFFER_SIMULATION": "1"
+        ])
+
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulateBufferEmpty",
+                label: "Buffer Empty",
+                description: "Buffer empty simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Buffer-empty control should render when UITEST_BUFFER_SIMULATION=1"
+        )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulateBufferReady",
+                label: "Buffer Ready",
+                description: "Buffer-ready simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Buffer-ready control should render when UITEST_BUFFER_SIMULATION=1"
+        )
+
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "TestHook.SimulateNetworkLoss").firstMatch.exists,
+            "Network-loss control should not render when only UITEST_BUFFER_SIMULATION=1"
+        )
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "TestHook.SimulateNetworkRecovery").firstMatch.exists,
+            "Network-recovery control should not render when only UITEST_BUFFER_SIMULATION=1"
+        )
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "TestHook.SimulatePoorNetwork").firstMatch.exists,
+            "Poor-network control should not render when only UITEST_BUFFER_SIMULATION=1"
+        )
+    }
+
     // MARK: - Network Error Message Tests
 
     /// Test: Network error message displays when stream fails
@@ -270,7 +357,25 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     /// **Then**: Error message is displayed to user
     @MainActor
     func testNetworkErrorMessageDisplays() throws {
-        throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_PLAYBACK_ERROR_SIMULATION": "1"
+        ])
+
+        guard injectPlaybackErrorViaSimulationHook() else {
+            XCTFail("Playback error simulation hook should inject an error")
+            return
+        }
+
+        let miniErrorMessage = app.staticTexts.matching(identifier: "MiniPlayer.ErrorMessage").firstMatch
+        let expandedErrorView = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+        let errorSurface = waitForAnyElement(
+            [miniErrorMessage, expandedErrorView],
+            timeout: adaptiveTimeout,
+            description: "playback error surface",
+            failOnTimeout: false
+        )
+
+        XCTAssertNotNil(errorSurface, "Error message surface should appear after injecting playback error")
     }
 
     /// Test: Retry button appears after network error
@@ -282,7 +387,25 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     /// **Then**: Retry button is available to user
     @MainActor
     func testRetryButtonAvailableAfterError() throws {
-        throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_PLAYBACK_ERROR_SIMULATION": "1"
+        ])
+
+        guard injectPlaybackErrorViaSimulationHook() else {
+            XCTFail("Playback error simulation hook should inject an error")
+            return
+        }
+
+        let miniRetry = app.buttons.matching(identifier: "MiniPlayer.RetryButton").firstMatch
+        let expandedRetry = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
+        let retryButton = waitForAnyElement(
+            [miniRetry, expandedRetry],
+            timeout: adaptiveTimeout,
+            description: "retry button for playback error",
+            failOnTimeout: false
+        )
+
+        XCTAssertNotNil(retryButton, "Retry button should be available for recoverable playback error")
     }
 
     // MARK: - Playback Quality Tests
@@ -456,5 +579,24 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             description: "playback controls show Pause after tapping Play",
             condition: { self.isPlaybackControlShowingPause() }
         )
+    }
+
+    @MainActor
+    private func injectPlaybackErrorViaSimulationHook() -> Bool {
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            return false
+        }
+
+        guard let errorButton = simulationControlButton(
+            identifier: "TestHook.SimulatePlaybackError",
+            label: "Simulate Playback Error",
+            description: "Playback-error simulation control",
+            timeout: adaptiveTimeout
+        ) else {
+            return false
+        }
+
+        errorButton.tap()
+        return true
     }
 }

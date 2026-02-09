@@ -99,4 +99,32 @@ final class EnhancedEpisodePlayerNetworkSimulationTests: XCTestCase {
     player.simulatePoorNetwork()
     XCTAssertEqual(bufferStates.last, true, "Poor network should publish buffering=true")
   }
+
+  func testSimulatedPlaybackErrorPublishesRecoverableFailedState() async throws {
+    let episode = Episode(id: "sim-error-1", title: "Recoverable Error", duration: 120)
+    var observedStates: [EpisodePlaybackState] = []
+
+    player.statePublisher
+      .sink { observedStates.append($0) }
+      .store(in: &cancellables)
+
+    player.play(episode: episode, duration: 120)
+    await ticker.tick(count: 1)
+
+    player.simulatePlaybackError()
+
+    guard let latestState = observedStates.last else {
+      XCTFail("Expected playback state after simulated playback error")
+      return
+    }
+
+    guard case .failed(_, _, _, let error) = latestState else {
+      XCTFail("Expected failed playback state after simulated playback error")
+      return
+    }
+
+    XCTAssertEqual(error, .networkError, "Simulated playback error should use recoverable networkError")
+    XCTAssertTrue(error.isRecoverable, "Simulated playback error must be recoverable for retry assertions")
+    XCTAssertFalse(player.isPlaying, "Player should stop playing when simulated playback error occurs")
+  }
 }
