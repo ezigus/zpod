@@ -18,9 +18,9 @@ import XCTest
 ///
 /// **Issue**: #28.1 - Phase 3 & 4: Network Interruption Handling + Tests
 ///
-/// **Status**: ACTIVE - Hook-dependent tests skip gracefully via XCTSkip
-/// when TestHook.* buttons are absent. Error display tests skipped until
-/// PlaybackError surface is implemented.
+/// **Status**: ACTIVE - Network/buffer simulation hooks are integrated
+/// (Issue 28.1.11 / #396 resolved). Hook-dependent scenarios run as
+/// active assertions; error display tests remain skipped under Issue 03.3.4.
 final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     override func setUpWithError() throws {
