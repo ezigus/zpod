@@ -19,8 +19,8 @@ import XCTest
 /// **Issue**: #28.1 - Phase 3 & 4: Network Interruption Handling + Tests
 ///
 /// **Status**: ACTIVE - Network/buffer simulation hooks are integrated
-/// (Issue 28.1.11 / #396 resolved). Hook-dependent scenarios run as
-/// active assertions; error display tests remain skipped under Issue 03.3.4.
+/// (Issue 28.1.11 / #396) and playback-error UI coverage is active
+/// (Issue 28.1.12 / #401). Hook-dependent scenarios run as active assertions.
 final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     override func setUpWithError() throws {
