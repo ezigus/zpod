@@ -60,6 +60,7 @@ struct ZpodApp: App {
       if ProcessInfo.processInfo.environment["UITEST_NETWORK_SIMULATION"] == "1"
         || ProcessInfo.processInfo.environment["UITEST_BUFFER_SIMULATION"] == "1"
         || ProcessInfo.processInfo.environment["UITEST_PLAYBACK_ERROR_SIMULATION"] == "1"
+        || ProcessInfo.processInfo.environment["UITEST_OFFLINE_MODE"] == "1"
       {
         _ = NetworkSimulationOverlayManager.shared
       }
@@ -110,9 +111,19 @@ struct ZpodApp: App {
 
   #if canImport(LibraryFeature)
     @available(iOS 17, *)
+    private static let sharedEpisodeSnapshotRepository: SwiftDataEpisodeSnapshotRepository = {
+      SwiftDataEpisodeSnapshotRepository(modelContainer: sharedModelContainer)
+    }()
+
+    @available(iOS 17, *)
     private static let sharedPodcastRepository: SwiftDataPodcastRepository = {
       let repository = SwiftDataPodcastRepository(modelContainer: sharedModelContainer)
-      repository.setSiriSnapshotRefresher(SiriSnapshotCoordinator(podcastManager: repository))
+      repository.setSiriSnapshotRefresher(
+        SiriSnapshotCoordinator(
+          podcastManager: repository,
+          episodeSnapshotProvider: sharedEpisodeSnapshotRepository
+        )
+      )
       return repository
     }()
   #endif
@@ -278,7 +289,10 @@ struct ZpodApp: App {
 
   private func configureSiriSnapshots() {
     guard #available(iOS 14.0, *) else { return }
-    SiriSnapshotCoordinator(podcastManager: Self.sharedPodcastRepository).refreshAll()
+    SiriSnapshotCoordinator(
+      podcastManager: Self.sharedPodcastRepository,
+      episodeSnapshotProvider: Self.sharedEpisodeSnapshotRepository
+    ).refreshAll()
   }
 
   private func disableHardwareKeyboard() {

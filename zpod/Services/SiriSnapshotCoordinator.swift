@@ -1,6 +1,7 @@
 import Foundation
 import OSLog
 import CoreModels
+import Persistence
 import SharedUtilities
 
 // SiriSnapshotRefreshing protocol is now in CoreModels
@@ -11,13 +12,16 @@ struct SiriSnapshotCoordinator {
     private let podcastManager: PodcastManaging
     private let primarySuiteName: String
     private let devSuiteName: String
+    private let episodeSnapshotProvider: EpisodeSnapshotProviding?
 
     init(
         podcastManager: PodcastManaging,
+        episodeSnapshotProvider: EpisodeSnapshotProviding? = nil,
         primarySuiteName: String = AppGroup.suiteName,
         devSuiteName: String = AppGroup.devSuiteName
     ) {
         self.podcastManager = podcastManager
+        self.episodeSnapshotProvider = episodeSnapshotProvider
         self.primarySuiteName = primarySuiteName
         self.devSuiteName = devSuiteName
     }
@@ -48,9 +52,25 @@ struct SiriSnapshotCoordinator {
 
     private func makeSnapshots() -> [SiriPodcastSnapshot] {
         let podcasts = podcastManager.all().filter { $0.isSubscribed }
+        let episodeMap = makeEpisodeMap(for: podcasts)
         return podcasts
-            .map(Self.makeSnapshot)
+            .map { Self.makeSnapshot(from: $0, cachedEpisodes: episodeMap[$0.id]) }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private func makeEpisodeMap(for podcasts: [Podcast]) -> [String: [Episode]] {
+        let episodeList: [Episode]
+        if let provider = episodeSnapshotProvider {
+            let subscribedIds = Set(podcasts.map { $0.id })
+            episodeList = provider.allEpisodes().filter { episode in
+                guard let podcastId = episode.podcastID else { return false }
+                return subscribedIds.contains(podcastId)
+            }
+        } else {
+            episodeList = podcasts.flatMap { $0.episodes }
+        }
+
+        return Dictionary(grouping: episodeList) { $0.podcastID ?? "" }
     }
 
     private static func persistSnapshots(
@@ -72,8 +92,9 @@ struct SiriSnapshotCoordinator {
         }
     }
 
-    private static func makeSnapshot(from podcast: Podcast) -> SiriPodcastSnapshot {
-        let episodes = podcast.episodes.map { episode in
+    private static func makeSnapshot(from podcast: Podcast, cachedEpisodes: [Episode]?) -> SiriPodcastSnapshot {
+        let sourceEpisodes = cachedEpisodes ?? podcast.episodes
+        let episodes = sourceEpisodes.map { episode in
             SiriEpisodeSnapshot(
                 id: episode.id,
                 title: episode.title,

@@ -430,12 +430,25 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             UserDefaults(suiteName: devSuiteName)?.removePersistentDomain(forName: devSuiteName)
         }
 
+        let episode = Episode(
+            id: "siri-episode-1",
+            title: "Episode 1 - Siri Metadata",
+            podcastID: "siri-test-podcast",
+            podcastTitle: "Siri Snapshot Podcast",
+            playbackPosition: 45,
+            isPlayed: true,
+            pubDate: Date(timeIntervalSince1970: 1_710_000_000),
+            duration: 1800,
+            downloadStatus: .downloaded
+        )
+
         let podcast = Podcast(
             id: "siri-test-podcast",
             title: "Siri Snapshot Podcast",
             author: "Test Author",
             description: "Podcast used for Siri snapshot integration test",
             feedURL: URL(string: "https://example.com/siri.xml")!,
+            episodes: [episode],
             isSubscribed: true
         )
 
@@ -448,8 +461,10 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
 
             manager.add(podcast)
 
+            let snapshotRepository = SwiftDataEpisodeSnapshotRepository(modelContainer: container)
             SiriSnapshotCoordinator(
                 podcastManager: manager,
+                episodeSnapshotProvider: snapshotRepository,
                 primarySuiteName: primarySuiteName,
                 devSuiteName: devSuiteName
             ).refreshAllForTesting()
@@ -462,8 +477,14 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             XCTAssertEqual(snapshots.count, 1)
             XCTAssertEqual(snapshots.first?.id, podcast.id)
             XCTAssertEqual(snapshots.first?.title, podcast.title)
-            // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
-            XCTAssertEqual(snapshots.first?.episodes.count, 0)
+            XCTAssertEqual(snapshots.first?.episodes.count, 1)
+            let siriEpisode = try XCTUnwrap(snapshots.first?.episodes.first)
+            XCTAssertEqual(siriEpisode.id, episode.id)
+            XCTAssertEqual(siriEpisode.title, episode.title)
+            XCTAssertEqual(siriEpisode.duration, episode.duration)
+            XCTAssertEqual(siriEpisode.playbackPosition, episode.playbackPosition)
+            XCTAssertEqual(siriEpisode.isPlayed, episode.isPlayed)
+            XCTAssertEqual(siriEpisode.publishedAt, episode.pubDate)
 
             let devDefaults = try XCTUnwrap(UserDefaults(suiteName: devSuiteName))
             let devSnapshots = try SiriMediaLibrary.load(from: devDefaults)
@@ -481,8 +502,10 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             let container = try ModelContainer(for: schema, configurations: [configuration])
             let manager = makeManager(container: container)
 
+            let snapshotRepository = SwiftDataEpisodeSnapshotRepository(modelContainer: container)
             SiriSnapshotCoordinator(
                 podcastManager: manager,
+                episodeSnapshotProvider: snapshotRepository,
                 primarySuiteName: primarySuiteName,
                 devSuiteName: devSuiteName
             ).refreshAllForTesting()
@@ -496,7 +519,7 @@ final class PodcastPersistenceIntegrationTests: XCTestCase {
             XCTAssertEqual(snapshots.first?.id, podcast.id)
             XCTAssertEqual(snapshots.first?.title, podcast.title)
             // Episodes are transient in SwiftData; snapshots only include podcast metadata until Issue 28.1.8.
-            XCTAssertEqual(snapshots.first?.episodes.count, 0)
+            XCTAssertEqual(snapshots.first?.episodes.count, 1)
         }
     }
 

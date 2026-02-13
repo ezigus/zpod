@@ -19,6 +19,19 @@ import XCTest
 ///
 /// **Issue**: #28.1 - Phase 4: Test Infrastructure
 final class DownloadFlowUITests: IsolatedUITestCase {
+  private let downloadSwipeSuite = "us.zig.zpod.download-flow-swipes"
+
+  private func launchDownloadSwipeApp(
+    additionalEnvironment: [String: String] = [:]
+  ) {
+    var environment = UITestLaunchConfiguration.swipeConfiguration(
+      suite: downloadSwipeSuite,
+      reset: true,
+      seededConfiguration: SwipeConfigurationSeeding.downloadFocused
+    )
+    additionalEnvironment.forEach { environment[$0] = $1 }
+    app = launchConfiguredApp(environmentOverrides: environment)
+  }
 
   // MARK: - Basic Download Flow Tests
 
@@ -31,12 +44,8 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// **Then**: Download status changes to "downloading" with progress indicator
   @MainActor
   func testSwipeToDownloadEpisode() throws {
-    // Skip: Requires swipe configuration with download action (not in default config)
-    // TODO: [Issue #28.1] Add swipe configuration seeding to enable this test
-    throw XCTSkip("Requires download action in swipe configuration (default is markPlayed/delete/archive)")
-
-    // Given: App is launched and episode list is visible
-    app = launchConfiguredApp()
+    // Given: App is launched with download-focused swipe configuration
+    launchDownloadSwipeApp()
     navigateToEpisodeList()
 
     // Find a non-downloaded episode (first episode in list)
@@ -48,7 +57,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     )
 
     // When: User swipes left to reveal download action
-    firstEpisode.swipeLeft()
+    firstEpisode.swipeRight()
 
     // Verify download button appears
     let downloadButton = app.buttons.matching(identifier: "SwipeAction.download").firstMatch
@@ -79,13 +88,9 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// **Then**: Progress bar and percentage are visible
   @MainActor
   func testDownloadProgressIndicatorDisplays() throws {
-    // Skip: Requires swipe configuration with download action (not in default config)
-    // TODO: [Issue #28.1] Add swipe configuration seeding to enable this test
-    throw XCTSkip("Requires download action in swipe configuration (default is markPlayed/delete/archive)")
-
-    // Given: App is launched
-    app = launchConfiguredApp(environmentOverrides: [
-      "UITEST_DOWNLOAD_SIMULATION_MODE": "1"  // Enable download simulation for testing
+    // Given: App is launched with download-focused swipe configuration and download simulation
+    launchDownloadSwipeApp(additionalEnvironment: [
+      "UITEST_DOWNLOAD_SIMULATION_MODE": "1"
     ])
     navigateToEpisodeList()
 
@@ -95,7 +100,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
 
     // Trigger download via swipe
-    firstEpisode.swipeLeft()
+    firstEpisode.swipeRight()
     let downloadButton = app.buttons.matching(identifier: "SwipeAction.download").firstMatch
     if downloadButton.waitForExistence(timeout: adaptiveShortTimeout) {
       downloadButton.tap()
@@ -122,9 +127,9 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// **Then**: Episode shows "downloaded" badge (filled checkmark)
   @MainActor
   func testDownloadedEpisodeShowsBadge() throws {
-    // Given: App is launched with pre-downloaded episode
-    app = launchConfiguredApp(environmentOverrides: [
-      "UITEST_PREDOWNLOAD_FIRST_EPISODE": "1"  // Test-only flag to simulate completed download
+    // Given: App is launched with pre-downloaded episode and download swipe config
+    launchDownloadSwipeApp(additionalEnvironment: [
+      "UITEST_PREDOWNLOAD_FIRST_EPISODE": "1"
     ])
     navigateToEpisodeList()
 
@@ -211,8 +216,8 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// **Then**: Download pauses and can be resumed
   @MainActor
   func testPauseAndResumeDownload() throws {
-    // Given: App is launched with download in progress
-    app = launchConfiguredApp(environmentOverrides: [
+    // Given: App is launched with download in progress (simulation + download swipes)
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_SIMULATION_MODE": "1"
     ])
     navigateToEpisodeList()
@@ -221,7 +226,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     let firstEpisode = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'")).firstMatch
     XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
 
-    firstEpisode.swipeLeft()
+    firstEpisode.swipeRight()
     let downloadButton = app.buttons.matching(identifier: "SwipeAction.download").firstMatch
     if downloadButton.waitForExistence(timeout: adaptiveShortTimeout) {
       downloadButton.tap()
@@ -261,8 +266,8 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// **Then**: Red warning icon and retry button are shown
   @MainActor
   func testFailedDownloadShowsRetryButton() throws {
-    // Given: App is launched with simulated download failure
-    app = launchConfiguredApp(environmentOverrides: [
+    // Given: App is launched with simulated download failure and download swipe config
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_SIMULATE_DOWNLOAD_FAILURE": "1"
     ])
     navigateToEpisodeList()

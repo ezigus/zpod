@@ -115,11 +115,13 @@ public struct MiniPlayerView: View {
         .font(.caption)
         .accessibilityHidden(true)
 
+      let miniPlayerErrorIdentifier =
+        error.accessibilityIdentifier ?? "MiniPlayer.ErrorMessage"
       Text(error.userMessage)
         .font(.caption)
         .foregroundColor(.secondary)
         .lineLimit(1)
-        .accessibilityIdentifier("MiniPlayer.ErrorMessage")
+        .accessibilityIdentifier(miniPlayerErrorIdentifier)
 
       if error.isRecoverable {
         Button {

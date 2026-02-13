@@ -73,14 +73,17 @@ public struct ExpandedPlayerView: View {
             .font(.title2.bold())
             .foregroundColor(.white)
 
-          Text(error.userMessage)
-            .font(.body)
-            .foregroundColor(.white.opacity(0.85))
-            .multilineTextAlignment(.center)
+      let expandedErrorIdentifier =
+        error.accessibilityIdentifier ?? "ExpandedPlayer.ErrorMessage"
+      Text(error.userMessage)
+        .font(.body)
+        .foregroundColor(.white.opacity(0.85))
+        .multilineTextAlignment(.center)
+        .accessibilityIdentifier(expandedErrorIdentifier)
         }
 
         // Retry button (if recoverable)
-        if error.isRecoverable {
+      if error.isRecoverable {
           Button {
             viewModel.retryPlayback()
           } label: {

@@ -8,11 +8,6 @@ public protocol PodcastRepository: Sendable {
     func loadPodcast(id: String) async throws -> Podcast?
 }
 
-public protocol EpisodeRepository: Sendable {
-    func saveEpisode(_ episode: Episode) async throws
-    func loadEpisode(id: String) async throws -> Episode?
-}
-
 public actor UserDefaultsPodcastRepository: PodcastRepository {
     private static let logger = Logger(subsystem: "us.zig.zpod", category: "UserDefaultsPodcastRepository")
     private let userDefaults: UserDefaults

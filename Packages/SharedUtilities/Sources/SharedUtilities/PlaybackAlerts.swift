@@ -5,8 +5,9 @@
 //  Shared playback alert descriptors and presenter infrastructure.
 //
 
-import Foundation
 import Combine
+import Foundation
+import OSLog
 
 // MARK: - Alert Descriptor & Style
 
@@ -51,15 +52,18 @@ public struct PlaybackAlertState: Identifiable {
   public let descriptor: PlaybackAlertDescriptor
   public let primaryAction: PlaybackAlertAction?
   public let secondaryAction: PlaybackAlertAction?
+  public let playbackError: PlaybackError?
 
   public init(
     descriptor: PlaybackAlertDescriptor,
     primaryAction: PlaybackAlertAction? = nil,
-    secondaryAction: PlaybackAlertAction? = nil
+    secondaryAction: PlaybackAlertAction? = nil,
+    playbackError: PlaybackError? = nil
   ) {
     self.descriptor = descriptor
     self.primaryAction = primaryAction
     self.secondaryAction = secondaryAction
+    self.playbackError = playbackError
   }
 }
 
@@ -74,13 +78,20 @@ public final class PlaybackAlertPresenter: ObservableObject {
   public func showAlert(
     _ descriptor: PlaybackAlertDescriptor,
     primaryAction: PlaybackAlertAction? = nil,
-    secondaryAction: PlaybackAlertAction? = nil
+    secondaryAction: PlaybackAlertAction? = nil,
+    playbackError: PlaybackError? = nil
   ) {
     currentAlert = PlaybackAlertState(
       descriptor: descriptor,
       primaryAction: primaryAction,
-      secondaryAction: secondaryAction
+      secondaryAction: secondaryAction,
+      playbackError: playbackError
     )
+    if let playbackError {
+      MainActorLogger.shared.info("showAlert invoked for playback error: \(playbackError.description)")
+    } else {
+      MainActorLogger.shared.info("showAlert invoked without playback error")
+    }
   }
 
   public func dismissAlert() {
@@ -173,6 +184,28 @@ public extension PlaybackError {
       return "Playback failed. Please try again."
     case .unknown(let message):
       return message ?? "An unknown error occurred"
+    }
+  }
+
+  /// Accessibility identifier exposing the `PlaybackError` type when rendered.
+  var accessibilityIdentifier: String? {
+    switch self {
+    case .missingAudioURL:
+      return "PlaybackError.missingAudioURL"
+    case .networkError:
+      return "PlaybackError.networkError"
+    case .timeout:
+      return "PlaybackError.timeout"
+    case .episodeUnavailable:
+      return "PlaybackError.episodeUnavailable"
+    case .resumeStateExpired:
+      return "PlaybackError.resumeStateExpired"
+    case .persistenceCorrupted:
+      return "PlaybackError.persistenceCorrupted"
+    case .streamFailed:
+      return "PlaybackError.streamFailed"
+    case .unknown:
+      return "PlaybackError.unknown"
     }
   }
 

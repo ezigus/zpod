@@ -234,6 +234,9 @@ These scenarios define how the app handles playback failures gracefully.
 - **Given:** User wants to control playback via voice or automation.
 - **When:** Configures Siri or iOS Shortcuts for playback actions.
 - **Then:** Can trigger playback actions (play latest, skip, rewind, etc.) via Siri or Shortcuts.
+- **Given:** The app restarted after the user had episodes available offline and persisted their metadata.
+- **When:** Siri is asked to "Play latest" immediately after launch (before any feed refresh).
+- **Then:** Siri snapshots already contain the latest episode metadata so playback starts without requiring a network fetch.
 
 ### Smart Episode Management
 - **Given:** User wants automated episode management.

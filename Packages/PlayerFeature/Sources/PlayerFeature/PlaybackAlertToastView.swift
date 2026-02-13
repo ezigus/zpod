@@ -19,10 +19,12 @@ struct PlaybackAlertToastView: View {
           Text(alert.descriptor.title)
             .font(.headline)
             .accessibilityIdentifier("Playback Alert Title")
+          let messageIdentifier =
+            alert.playbackError?.accessibilityIdentifier ?? "Playback Alert Message"
           Text(alert.descriptor.message)
             .font(.subheadline)
             .foregroundStyle(.secondary)
-            .accessibilityIdentifier("Playback Alert Message")
+            .accessibilityIdentifier(messageIdentifier)
         }
 
         Spacer()
@@ -61,7 +63,6 @@ struct PlaybackAlertToastView: View {
     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     .shadow(radius: 8, y: 4)
     .accessibilityIdentifier("Playback Alert Toast")
-    .accessibilityElement(children: .contain)
     .accessibilityLabel("\(alert.descriptor.title). \(alert.descriptor.message)")
   }
 
