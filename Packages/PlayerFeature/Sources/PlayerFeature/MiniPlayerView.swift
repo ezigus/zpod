@@ -22,26 +22,13 @@ public struct MiniPlayerView: View {
   public var body: some View {
     let state = viewModel.displayState
 
-    ZStack(alignment: .top) {
-      Group {
-        if state.isVisible, let episode = state.episode {
-          // Issue 03.3.4.2: Unified card layout with conditional content
-          miniPlayerCard(for: episode, state: state)
-        }
-      }
-      .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
-
-      if let alert = viewModel.playbackAlert {
-        PlaybackAlertToastView(
-          alert: alert,
-          onPrimary: viewModel.performPrimaryAlertAction,
-          onSecondary: viewModel.performSecondaryAlertAction,
-          onDismiss: viewModel.dismissAlert
-        )
-        .padding(.horizontal, 16)
-        .padding(.top, -8)
+    Group {
+      if state.isVisible, let episode = state.episode {
+        // Issue 03.3.4.2: Unified card layout with conditional content
+        miniPlayerCard(for: episode, state: state)
       }
     }
+    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
   }
 
   // MARK: - Subviews ---------------------------------------------------------
