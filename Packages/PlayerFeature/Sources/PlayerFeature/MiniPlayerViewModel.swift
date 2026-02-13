@@ -183,13 +183,16 @@ public final class MiniPlayerViewModel: ObservableObject {
       )
 
     case .paused(let episode, let position, let duration):
+      // Issue 03.3.4.2: Don't clear error on pause - errors persist until playback resumes
+      // The PlaybackStateCoordinator pauses after errors, so clearing here would lose the error state
+      let preservedError = displayState.error
       displayState = MiniPlayerDisplayState(
         isVisible: true,
         isPlaying: false,
         episode: episode,
         currentPosition: position,
         duration: duration,
-        error: nil  // Issue 03.3.4.2: Clear error on successful pause
+        error: preservedError
       )
 
     case .finished(let episode, let duration):
