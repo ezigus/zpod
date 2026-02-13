@@ -56,7 +56,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "First episode should exist in list"
     )
 
-    // When: User swipes left to reveal download action
+    // When: User swipes right to reveal download action (leading swipe)
     firstEpisode.swipeRight()
 
     // Verify download button appears
