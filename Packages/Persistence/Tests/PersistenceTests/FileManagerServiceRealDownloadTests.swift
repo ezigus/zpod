@@ -97,7 +97,7 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
   // MARK: - URLSession-backed behavior
 
   func testStartDownloadWithRealURLSession() async throws {
-    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+    let fixture = try makeLocalFileTask(
       episodeId: "real-ep-1",
       podcastId: "real-pod-1",
       size: 1024
@@ -106,24 +106,24 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
     let completion = expectation(description: "download completes")
     (await service.downloadProgressPublisher).publisher
       .sink { progress in
-        if progress.taskId == task.id, progress.state == .completed {
+        if progress.taskId == fixture.task.id, progress.state == .completed {
           completion.fulfill()
         }
       }
       .store(in: &cancellables)
 
-    try await service.startDownload(task)
+    try await service.startDownload(fixture.task)
     await fulfillment(of: [completion], timeout: 2.0)
 
-    let finalPath = await service.downloadPath(for: task)
+    let finalPath = await service.downloadPath(for: fixture.task)
     XCTAssertTrue(FileManager.default.fileExists(atPath: finalPath))
     let data = try Data(contentsOf: URL(fileURLWithPath: finalPath))
-    XCTAssertEqual(data, expectedData)
-    try? FileManager.default.removeItem(at: sourceURL)
+    XCTAssertEqual(data, fixture.data)
+    try? FileManager.default.removeItem(at: fixture.sourceURL)
   }
 
   func testDownloadProgressPublisherEmitsRealProgress() async throws {
-    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+    let fixture = try makeLocalFileTask(
       episodeId: "progress-ep",
       podcastId: "progress-pod",
       size: 600
@@ -134,7 +134,7 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
 
     (await service.downloadProgressPublisher).publisher
       .sink { progress in
-        guard progress.taskId == task.id else { return }
+        guard progress.taskId == fixture.task.id else { return }
         observed.append(progress.progress)
         if progress.state == .completed {
           expectation.fulfill()
@@ -142,14 +142,14 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
       }
       .store(in: &cancellables)
 
-    try await service.startDownload(task)
+    try await service.startDownload(fixture.task)
     await fulfillment(of: [expectation], timeout: 2.0)
 
     XCTAssertGreaterThanOrEqual(observed.max() ?? 0, 1.0)
-    let finalPath = await service.downloadPath(for: task)
+    let finalPath = await service.downloadPath(for: fixture.task)
     let data = try Data(contentsOf: URL(fileURLWithPath: finalPath))
-    XCTAssertEqual(data, expectedData)
-    try? FileManager.default.removeItem(at: sourceURL)
+    XCTAssertEqual(data, fixture.data)
+    try? FileManager.default.removeItem(at: fixture.sourceURL)
   }
 
   func testCancelDownloadStopsURLSessionTask() async throws {
@@ -175,16 +175,16 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
   }
 
   func testFileSizeMatchesDownloadedContent() async throws {
-    let (task, sourceURL, expectedData) = try makeLocalFileTask(
+    let fixture = try makeLocalFileTask(
       episodeId: "size-ep",
       podcastId: "size-pod",
       size: 2048
     )
 
-    try await service.startDownload(task)
-    let size = await service.getFileSize(for: task)
-    XCTAssertEqual(size, Int64(expectedData.count))
-    try? FileManager.default.removeItem(at: sourceURL)
+    try await service.startDownload(fixture.task)
+    let size = await service.getFileSize(for: fixture.task)
+    XCTAssertEqual(size, Int64(fixture.data.count))
+    try? FileManager.default.removeItem(at: fixture.sourceURL)
   }
 
   func testNetworkErrorResultsInFailedState() async throws {
@@ -213,11 +213,17 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
     )
   }
 
+  private struct LocalFileTaskFixture {
+    let task: DownloadTask
+    let sourceURL: URL
+    let data: Data
+  }
+
   private func makeLocalFileTask(
     episodeId: String,
     podcastId: String,
     size: Int
-  ) throws -> (DownloadTask, URL, Data) { // swiftlint:disable:this large_tuple
+  ) throws -> LocalFileTaskFixture {
     let data = Data(repeating: 0x5A, count: size)
     let sourceURL = downloadsRoot.appendingPathComponent("\(episodeId)-source.mp3")
     try data.write(to: sourceURL)
@@ -226,7 +232,7 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
       podcastId: podcastId,
       audioURL: sourceURL
     )
-    return (task, sourceURL, data)
+    return LocalFileTaskFixture(task: task, sourceURL: sourceURL, data: data)
   }
 
   /// Minimal async variant of XCTAssertThrowsError for compatibility with Swift 6 async tests.

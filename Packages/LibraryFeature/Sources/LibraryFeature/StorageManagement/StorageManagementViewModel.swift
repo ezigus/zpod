@@ -11,6 +11,14 @@ import SharedUtilities
 @Observable
 public final class StorageManagementViewModel {
 
+    // MARK: - Private Types
+
+    private struct PodcastStorageData {
+        var title: String
+        var episodeCount: Int
+        var bytes: Int64
+    }
+
     // MARK: - Published State
 
     public var storageStats: StorageStatistics = .empty
@@ -96,8 +104,7 @@ public final class StorageManagementViewModel {
         }
 
         var totalBytes: Int64 = 0
-        // swiftlint:disable:next large_tuple
-        var podcastStorage: [String: (title: String, episodeCount: Int, bytes: Int64)] = [:]
+        var podcastStorage: [String: PodcastStorageData] = [:]
 
         for episodeId in episodeIds {
             guard let localURL = downloadBridge.localFileURL(for: episodeId) else {
@@ -124,7 +131,7 @@ public final class StorageManagementViewModel {
                 } else {
                     // Use podcast ID as title for now
                     // In full implementation, we'd look up actual podcast title
-                    podcastStorage[podcastId] = (
+                    podcastStorage[podcastId] = PodcastStorageData(
                         title: "Podcast \(podcastId.prefix(8))",
                         episodeCount: 1,
                         bytes: fileSize
