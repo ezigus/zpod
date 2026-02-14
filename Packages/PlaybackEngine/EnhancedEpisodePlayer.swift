@@ -191,13 +191,36 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     currentDuration = resolveDuration(for: episode, override: maybeDuration)
     currentPosition = clampPosition(TimeInterval(episode.playbackPosition))
     playbackSpeed = clampSpeed(playbackSettings.defaultSpeed)
+
+    #if os(iOS)
+      // Offline simulation: immediately fail non-downloaded episodes when UITEST_OFFLINE_MODE is active.
+      // Check BEFORE emitting .playing to avoid a rapid .playing → .failed transition that
+      // Combine's receive(on:) can coalesce through async scheduling.
+      if ProcessInfo.processInfo.environment["UITEST_OFFLINE_MODE"] == "1"
+        && episode.downloadStatus != .downloaded
+      {
+        isPlaying = false
+        logPlaybackError(.networkError, for: episode)
+        let snapshot = persistPlaybackPosition()
+        emitState(
+          .failed(
+            snapshot,
+            position: currentPosition,
+            duration: currentDuration,
+            error: .networkError
+          )
+        )
+        return
+      }
+    #endif
+
     isPlaying = true
     lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
     chapters = resolveChapters(for: episode, duration: currentDuration)
     updateCurrentChapterIndex()
     persistPlaybackPosition()
     emitState(.playing(episodeSnapshot(), position: currentPosition, duration: currentDuration))
-    
+
     #if os(iOS)
       let isDebugAudio = ProcessInfo.processInfo.environment["UITEST_DEBUG_AUDIO"] == "1"
       // Check if audio engine is available and episode has audio URL

@@ -216,7 +216,8 @@ public final class ExpandedPlayerViewModel: ObservableObject {
       self.isPlaying = false
       self.currentPosition = position
       self.duration = duration
-      self.currentError = nil  // Issue 03.3.4.3: Clear error on pause
+      // Issue 03.3.4.3: Don't clear error on pause - errors persist until playback resumes
+      // The PlaybackStateCoordinator pauses after errors, so clearing here would lose the error state
       logPositionResetIfNeeded(previous: previousPosition, next: position, state: "paused")
 
     case .finished(let episode, let duration):

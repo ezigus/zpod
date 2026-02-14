@@ -65,7 +65,7 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
 
         // Verify no network error appears (since playing from local file)
         let networkError = app.staticTexts.matching(
-            identifier: "PlaybackError.networkUnavailable"
+            identifier: "PlaybackError.networkError"
         ).firstMatch
 
         XCTAssertFalse(
@@ -83,8 +83,44 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     /// **Then**: Error message appears indicating network required
     @MainActor
     func testNonDownloadedEpisodeFailsOffline() throws {
-        // Offline error handling UI not yet implemented — tracked by Issue 03.3.4 (#269)
-        throw XCTSkip("Requires PlaybackError accessibility surface — Issue 03.3.4 (#269)")
+        // Given: App launched offline with forced expanded player (has alert presentation wired)
+        // The expanded player uses a sample episode with default .notDownloaded status
+        app = launchConfiguredApp(environmentOverrides: [
+            "UITEST_OFFLINE_MODE": "1",
+            "UITEST_FORCE_EXPANDED_PLAYER": "1"
+        ])
+
+        // The expanded player should appear immediately with a Play button
+        let playButton = app.buttons.matching(identifier: "Play").firstMatch
+        XCTAssertTrue(
+            playButton.waitForExistence(timeout: adaptiveTimeout),
+            "Play button should be visible in expanded player"
+        )
+
+        // When: User taps Play button to trigger offline playback attempt
+        playButton.tap()
+
+        // Then: Network error alert should appear
+        // Note: The alert message Text has identifier based on playbackError?.accessibilityIdentifier,
+        // which should be "PlaybackError.networkError" for network errors
+        let errorMessage = app.staticTexts.matching(
+            identifier: "PlaybackError.networkError"
+        ).firstMatch
+
+        // If the error-specific identifier isn't found, fall back to checking for the error text content
+        if !errorMessage.waitForExistence(timeout: 2.0) {
+            // Fallback: Check for the generic playback alert with network error message
+            let alertWithError = app.staticTexts.containing(
+                NSPredicate(format: "label CONTAINS[c] 'connection' OR label CONTAINS[c] 'network' OR label CONTAINS[c] 'unable to load'")
+            ).firstMatch
+            XCTAssertTrue(
+                alertWithError.waitForExistence(timeout: adaptiveTimeout),
+                "Playback error alert with network/connection message should be visible when offline"
+            )
+        } else {
+            // Success: Found the element with the correct identifier
+            XCTAssertTrue(errorMessage.exists, "PlaybackError.networkError element should exist")
+        }
     }
 
     // MARK: - Download Status Indicator Tests
@@ -189,7 +225,8 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     @MainActor
     func testDeletedDownloadRevertsToStreaming() throws {
         // Given: App with downloaded episode + swipe config with deleteDownload on trailing
-        let swipeConfig = swipeConfigurationPayload(
+        let swipeConfig = SwipeConfigurationSeeding.custom(
+            leading: ["markPlayed"],
             trailing: ["deleteDownload", "archive", "delete"]
         )
         app = launchConfiguredApp(environmentOverrides: [
@@ -250,7 +287,8 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     @MainActor
     func testDeleteDownloadHiddenForNonDownloadedEpisode() throws {
         // Given: App without downloaded episodes, swipe config with deleteDownload on trailing
-        let swipeConfig = swipeConfigurationPayload(
+        let swipeConfig = SwipeConfigurationSeeding.custom(
+            leading: ["markPlayed"],
             trailing: ["deleteDownload", "archive", "delete"]
         )
         app = launchConfiguredApp(environmentOverrides: [
@@ -282,28 +320,6 @@ final class OfflinePlaybackUITests: IsolatedUITestCase {
     }
 
     // MARK: - Helper Methods
-
-    /// Build a base64-encoded swipe configuration payload for seeding
-    private func swipeConfigurationPayload(
-        leading: [String] = ["markPlayed"],
-        trailing: [String] = ["delete", "archive"]
-    ) -> String {
-        let payload: [String: Any] = [
-            "swipeActions": [
-                "leadingActions": leading,
-                "trailingActions": trailing,
-                "allowFullSwipeLeading": true,
-                "allowFullSwipeTrailing": false,
-                "hapticFeedbackEnabled": true
-            ],
-            "hapticStyle": "medium"
-        ]
-        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
-            XCTFail("Failed to encode swipe configuration payload")
-            return ""
-        }
-        return data.base64EncodedString()
-    }
 
     /// Navigate to episode list for testing
     private func navigateToEpisodeList() {

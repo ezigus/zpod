@@ -15,9 +15,13 @@
     nonisolated(unsafe) private var bufferSimulationObserver: NSObjectProtocol?
     nonisolated(unsafe) private var playbackErrorSimulationObserver: NSObjectProtocol?
     private weak var simulationController: (any NetworkSimulationControlling)?
+    private var offlineSimulationApplied = false
 
     private init() {
-      guard isNetworkSimulationEnabled || isBufferSimulationEnabled || isPlaybackErrorSimulationEnabled
+      guard isNetworkSimulationEnabled
+        || isBufferSimulationEnabled
+        || isPlaybackErrorSimulationEnabled
+        || isOfflineSimulationEnabled
       else { return }
 
       appInitObserver = NotificationCenter.default.addObserver(
@@ -54,6 +58,10 @@
       ProcessInfo.processInfo.environment["UITEST_NETWORK_SIMULATION"] == "1"
     }
 
+    private var isOfflineSimulationEnabled: Bool {
+      ProcessInfo.processInfo.environment["UITEST_OFFLINE_MODE"] == "1"
+    }
+
     private var isBufferSimulationEnabled: Bool {
       ProcessInfo.processInfo.environment["UITEST_BUFFER_SIMULATION"] == "1"
     }
@@ -64,6 +72,10 @@
 
     private func activateIfNeeded() {
       _ = currentSimulationController()
+
+      if isOfflineSimulationEnabled {
+        simulateOfflineMode()
+      }
 
       if isNetworkSimulationEnabled && networkSimulationObserver == nil {
         networkSimulationObserver = NotificationCenter.default.addObserver(
@@ -121,6 +133,8 @@
       }
     }
 
+    private var pendingNetworkSimulation: NetworkSimulationType?
+
     private func currentSimulationController() -> (any NetworkSimulationControlling)? {
       if let simulationController {
         return simulationController
@@ -128,11 +142,16 @@
 
       let controller = PlaybackEnvironment.playbackService as? any NetworkSimulationControlling
       simulationController = controller
+      applyPendingNetworkSimulationIfNeeded()
       return controller
     }
 
     private func handleNetworkSimulation(_ type: NetworkSimulationType) {
-      guard let controller = currentSimulationController() else { return }
+      guard let controller = currentSimulationController() else {
+        pendingNetworkSimulation = type
+        return
+      }
+      pendingNetworkSimulation = nil
       switch type {
       case .loss:
         controller.simulateNetworkLoss()
@@ -141,6 +160,18 @@
       case .poorQuality:
         controller.simulatePoorNetwork()
       }
+    }
+
+    private func applyPendingNetworkSimulationIfNeeded() {
+      guard let pending = pendingNetworkSimulation else { return }
+      pendingNetworkSimulation = nil
+      handleNetworkSimulation(pending)
+    }
+
+    private func simulateOfflineMode() {
+      guard !offlineSimulationApplied else { return }
+      handleNetworkSimulation(.loss)
+      offlineSimulationApplied = true
     }
 
     private func handleBufferSimulation(_ type: BufferSimulationType) {

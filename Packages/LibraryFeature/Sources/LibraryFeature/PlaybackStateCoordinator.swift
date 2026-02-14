@@ -296,7 +296,12 @@ public final class PlaybackStateCoordinator {
       if let retryAction {
         action = PlaybackAlertAction(title: "Retry", handler: retryAction)
       }
-      presenter.showAlert(descriptor, primaryAction: action)
+      Self.logger.info("Presenting playback alert for error: \(error.description, privacy: .public)")
+      presenter.showAlert(
+        descriptor,
+        primaryAction: action,
+        playbackError: error
+      )
     }
   }
 
