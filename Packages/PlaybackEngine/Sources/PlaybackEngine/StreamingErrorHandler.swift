@@ -57,6 +57,14 @@ public protocol StreamingErrorHandling: Sendable {
 /// **Issue**: #28.1 - Phase 3: Network Interruption Handling
 public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sendable {
 
+    // MARK: - Private Types
+
+    private struct RetryDecision {
+        let shouldRetry: Bool
+        let attempt: Int?
+        let stateToSend: RetryState?
+    }
+
     // MARK: - Properties
 
     private let logger = Logger(subsystem: "us.zig.zpod", category: "StreamingErrorHandler")
@@ -110,12 +118,12 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
     /// - Parameter error: The error that occurred
     /// - Returns: True if retry scheduled, false if retry limit exceeded
     public func handleError(_ error: Error) async -> Bool {
-        let result: (shouldRetry: Bool, attempt: Int?, stateToSend: RetryState?) = stateQueue.sync {
+        let result: RetryDecision = stateQueue.sync {
             if _retryAttempt >= maxRetries {
-                return (false, nil, .failed)
+                return RetryDecision(shouldRetry: false, attempt: nil, stateToSend: .failed)
             }
             _retryAttempt += 1
-            return (true, _retryAttempt, .retrying(attempt: _retryAttempt))
+            return RetryDecision(shouldRetry: true, attempt: _retryAttempt, stateToSend: .retrying(attempt: _retryAttempt))
         }
 
         if let state = result.stateToSend {

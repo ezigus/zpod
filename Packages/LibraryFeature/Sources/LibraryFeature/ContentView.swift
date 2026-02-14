@@ -745,6 +745,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
       }
 
+      // swiftlint:disable:next function_body_length
       private func createSamplePodcast(id: String, title: String) -> Podcast {
       // Read test audio URLs from environment variables (only set during UI tests)
       // In production, these will be nil and episodes will use placeholder URLs

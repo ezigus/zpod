@@ -56,13 +56,13 @@ final class DownloadRealFeedTests: XCTestCase {
       configuration: URLSessionConfiguration.ephemeral
     )
     let (_, coordinator) = await MainActor.run { () -> (InMemoryDownloadQueueManager, DownloadCoordinator) in
-      let qm = InMemoryDownloadQueueManager()
+      let queueManager = InMemoryDownloadQueueManager()
       let coord = DownloadCoordinator(
-        queueManager: qm,
+        queueManager: queueManager,
         fileManagerService: fileManagerService,
         autoProcessingEnabled: true
       )
-      return (qm, coord)
+      return (queueManager, coord)
     }
 
     for feedURL in feedURLs {
