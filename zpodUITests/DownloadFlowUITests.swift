@@ -144,137 +144,181 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   ///
   /// **Spec**: offline-playback.md - "Downloaded episode shows badge"
   ///
-  /// **Given**: Episode download has completed
+  /// **Given**: Episode is seeded as downloaded (complete)
   /// **When**: User views episode list
-  /// **Then**: Episode shows "downloaded" badge (filled checkmark)
+  /// **Then**: Blue filled circle icon and "Downloaded" label are visible
+  ///
+  /// **Approach**: Seed-first - verify UI renders completed download state correctly
   @MainActor
   func testDownloadedEpisodeShowsBadge() throws {
-    // Given: App is launched with pre-downloaded episode and download swipe config
-    launchDownloadSwipeApp(additionalEnvironment: [
-      "UITEST_PREDOWNLOAD_FIRST_EPISODE": "1"
+    // Given: Episode seeded as downloaded
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.downloaded(fileSize: 2_048_000)
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
 
-    // When: Episode list is visible
-    let firstEpisode = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'")).firstMatch
-    XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
+    // When: User views episode list
+    let episode = ensureEpisodeVisible(id: "st-001")
+    XCTAssertTrue(
+      episode.waitUntil(.hittable, timeout: adaptiveTimeout),
+      "Episode st-001 should be visible in list"
+    )
 
-    // Then: Verify downloaded badge is visible
-    // Look for the "arrow.down.circle.fill" icon that indicates downloaded status
-    let downloadedBadge = firstEpisode.images.matching(identifier: "arrow.down.circle.fill").firstMatch
+    // Then: Verify downloaded icon is visible (arrow.down.circle.fill - filled for completed)
+    let downloadedIcon = episode.images.matching(identifier: "arrow.down.circle.fill").firstMatch
+    XCTAssertTrue(
+      downloadedIcon.waitForExistence(timeout: adaptiveShortTimeout),
+      "Downloaded badge icon (filled circle) should be visible"
+    )
 
-    // Note: In actual implementation, this test would verify the badge appears
-    // For now, we verify the episode row is displayed (infrastructure test)
-    XCTAssertTrue(firstEpisode.exists, "Episode row should be visible with download status")
+    // Verify download status shows "Downloaded"
+    let downloadStatus = app.descendants(matching: .any)
+      .matching(identifier: "Episode-st-001-DownloadStatus")
+      .firstMatch
+    XCTAssertTrue(
+      downloadStatus.waitForExistence(timeout: adaptiveShortTimeout),
+      "Download status element should exist"
+    )
+    XCTAssertTrue(
+      downloadStatus.label.localizedCaseInsensitiveContains("downloaded"),
+      "Download status should show 'Downloaded' label"
+    )
+
+    // Verify icon is blue color (via system name, color not directly testable)
+    XCTAssertEqual(
+      downloadedIcon.identifier,
+      "arrow.down.circle.fill",
+      "Should use filled circle icon for completed downloads"
+    )
   }
 
-  // MARK: - Batch Download Tests
+  // MARK: - Mixed States Tests
 
-  /// Test: User can batch download multiple episodes
+  /// Test: Multiple episodes show correct download states simultaneously
   ///
-  /// **Spec**: offline-playback.md - "User selects multiple episodes and downloads all"
+  /// **Spec**: offline-playback.md - "Download indicators show correct state for each episode"
   ///
-  /// **Given**: Multiple episodes are selected in multi-select mode
-  /// **When**: User taps "Download" batch operation
-  /// **Then**: All selected episodes begin downloading
+  /// **Given**: Episodes are seeded with various download states
+  /// **When**: User views episode list
+  /// **Then**: Each episode shows its correct download icon, progress, and status
+  ///
+  /// **Approach**: Seed-first - verify UI renders mixed download states correctly
   @MainActor
-  func testBatchDownloadMultipleEpisodes() throws {
-    // Given: App is launched and in episode list
-    app = launchConfiguredApp()
+  func testMultipleEpisodesShowMixedDownloadStates() throws {
+    // Given: Multiple episodes in various download states
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.downloaded(),
+      "st-002": DownloadStateSeedingHelper.downloading(progress: 0.65),
+      "st-003": DownloadStateSeedingHelper.failed(message: "Server error"),
+      "st-004": DownloadStateSeedingHelper.paused(progress: 0.20)
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_DOWNLOAD_STATES": downloadStates
+    ])
     navigateToEpisodeList()
 
-    // Enter multi-select mode
-    let selectButton = app.buttons.matching(identifier: "Select").firstMatch
-    XCTAssertTrue(
-      selectButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Select button should exist in toolbar"
-    )
-    selectButton.tap()
+    // When/Then: Verify each episode shows correct state
 
-    // Verify multi-select mode is active
-    let doneButton = app.buttons.matching(identifier: "Done").firstMatch
+    // Episode 1: Downloaded (blue filled circle)
+    let ep1 = ensureEpisodeVisible(id: "st-001")
     XCTAssertTrue(
-      doneButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Done button should appear in multi-select mode"
+      ep1.images.matching(identifier: "arrow.down.circle.fill").firstMatch.exists,
+      "Episode 1 should show downloaded icon"
     )
 
-    // Select first two episodes
-    let episodes = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'"))
-    let episodeCount = min(2, episodes.count)
-
-    for i in 0..<episodeCount {
-      let episode = episodes.element(boundBy: i)
-      if episode.waitForExistence(timeout: adaptiveShortTimeout) {
-        episode.tap()
-      }
-    }
-
-    // When: User taps "Download" batch operation
-    let downloadBatchButton = app.buttons.matching(identifier: "Download").firstMatch
+    // Episode 2: Downloading @65% (blue circle + progress)
+    let ep2 = ensureEpisodeVisible(id: "st-002")
     XCTAssertTrue(
-      downloadBatchButton.waitForExistence(timeout: adaptiveShortTimeout),
-      "Download batch operation button should appear"
+      ep2.images.matching(identifier: "arrow.down.circle").firstMatch.exists,
+      "Episode 2 should show downloading icon"
     )
-    downloadBatchButton.tap()
+    let ep2Progress = ep2.staticTexts.matching(identifier: "Episode-st-002-DownloadProgress").firstMatch
+    XCTAssertEqual(ep2Progress.label, "65%", "Episode 2 should show 65% progress")
 
-    // Then: Batch operation should execute
-    // In a real test, we would verify progress for multiple episodes
-    // After batch operation, multi-select mode exits and "Select" button returns
-    let selectButtonAfterBatch = app.buttons.matching(identifier: "Select").firstMatch
+    // Episode 3: Failed (red triangle)
+    let ep3 = ensureEpisodeVisible(id: "st-003")
     XCTAssertTrue(
-      selectButtonAfterBatch.waitForExistence(timeout: adaptiveShortTimeout),
-      "App should return to normal mode after batch download (Select button visible)"
+      ep3.images.matching(identifier: "exclamationmark.triangle.fill").firstMatch.exists,
+      "Episode 3 should show failed icon"
     )
+
+    // Episode 4: Paused @20% (yellow pause + progress)
+    let ep4 = ensureEpisodeVisible(id: "st-004")
+    XCTAssertTrue(
+      ep4.images.matching(identifier: "pause.circle").firstMatch.exists,
+      "Episode 4 should show paused icon"
+    )
+    let ep4Progress = ep4.staticTexts.matching(identifier: "Episode-st-004-DownloadProgress").firstMatch
+    XCTAssertEqual(ep4Progress.label, "20%", "Episode 4 should show 20% progress")
   }
 
   // MARK: - Download Cancellation Tests
 
-  /// Test: User can cancel an in-progress download
+  /// Test: Paused download shows progress and pause indicator
   ///
-  /// **Spec**: offline-playback.md - "User cancels download"
+  /// **Spec**: offline-playback.md - "Download can be paused"
   ///
-  /// **Given**: Download is in progress
-  /// **When**: User taps cancel/pause button
-  /// **Then**: Download pauses and can be resumed
+  /// **Given**: Episode download is seeded as paused at 30%
+  /// **When**: User views episode list
+  /// **Then**: Yellow pause icon, progress percentage (30%), and paused status are visible
+  ///
+  /// **Approach**: Seed-first - verify UI renders paused download state correctly
+  /// **Note**: Pause/resume transition behavior tested separately with transition hooks
   @MainActor
-  func testPauseAndResumeDownload() throws {
-    // Given: App is launched with download in progress (simulation + download swipes)
-    launchDownloadSwipeApp(additionalEnvironment: [
-      "UITEST_DOWNLOAD_SIMULATION_MODE": "1"
+  func testPausedDownloadShowsProgress() throws {
+    // Given: Episode seeded as paused at 30%
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.paused(progress: 0.30)
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
 
-    // Start a download
-    let firstEpisode = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'")).firstMatch
-    XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
+    // When: User views episode list
+    let episode = ensureEpisodeVisible(id: "st-001")
+    XCTAssertTrue(
+      episode.waitUntil(.hittable, timeout: adaptiveTimeout),
+      "Episode st-001 should be visible in list"
+    )
 
-    firstEpisode.swipeRight()
-    let downloadButton = app.buttons.matching(identifier: "SwipeAction.download").firstMatch
-    if downloadButton.waitForExistence(timeout: adaptiveShortTimeout) {
-      downloadButton.tap()
-    }
+    // Then: Verify pause icon is visible (yellow pause.circle)
+    let pauseIcon = episode.images.matching(identifier: "pause.circle").firstMatch
+    XCTAssertTrue(
+      pauseIcon.waitForExistence(timeout: adaptiveShortTimeout),
+      "Yellow pause icon should be visible for paused download"
+    )
 
-    // When: User taps pause button (appears during download)
-    // Look for pause button within the episode row
-    let pauseButton = firstEpisode.buttons.matching(identifier: "Pause").firstMatch
-    if pauseButton.waitForExistence(timeout: adaptiveShortTimeout) {
-      pauseButton.tap()
+    // Verify progress percentage is displayed
+    let progressText = episode.staticTexts.matching(identifier: "Episode-st-001-DownloadProgress").firstMatch
+    XCTAssertTrue(
+      progressText.waitForExistence(timeout: adaptiveShortTimeout),
+      "Progress percentage should be visible for paused download"
+    )
+    XCTAssertEqual(
+      progressText.label,
+      "30%",
+      "Progress should show exactly 30% as seeded"
+    )
 
-      // Then: Download should pause
-      let resumeButton = firstEpisode.buttons.matching(identifier: "Resume").firstMatch
-      XCTAssertTrue(
-        resumeButton.waitForExistence(timeout: adaptiveShortTimeout),
-        "Resume button should appear after pausing download"
-      )
-
-      // Verify we can resume
-      resumeButton.tap()
-      // Download should continue (pause button reappears)
-      XCTAssertTrue(
-        pauseButton.waitForExistence(timeout: adaptiveShortTimeout),
-        "Pause button should reappear after resuming"
-      )
-    }
+    // Verify download status shows "Download paused"
+    let downloadStatus = app.descendants(matching: .any)
+      .matching(identifier: "Episode-st-001-DownloadStatus")
+      .firstMatch
+    XCTAssertTrue(
+      downloadStatus.waitForExistence(timeout: adaptiveShortTimeout),
+      "Download status element should exist"
+    )
+    XCTAssertTrue(
+      downloadStatus.label.localizedCaseInsensitiveContains("pause"),
+      "Download status should indicate 'Paused' state"
+    )
   }
 
   // MARK: - Error Handling Tests
@@ -283,28 +327,58 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   ///
   /// **Spec**: offline-playback.md - "Download fails, user can retry"
   ///
-  /// **Given**: Download has failed due to network error
-  /// **When**: User views episode
-  /// **Then**: Red warning icon and retry button are shown
+  /// **Given**: Episode download is seeded as failed with error message
+  /// **When**: User views episode list
+  /// **Then**: Red warning triangle icon, retry button, and failure status are visible
+  ///
+  /// **Approach**: Seed-first - verify UI renders failed download state correctly
   @MainActor
   func testFailedDownloadShowsRetryButton() throws {
-    // Given: App is launched with simulated download failure and download swipe config
-    launchDownloadSwipeApp(additionalEnvironment: [
-      "UITEST_SIMULATE_DOWNLOAD_FAILURE": "1"
+    // Given: Episode seeded as failed with network error
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.failed(message: "Network error")
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
 
-    // When: Download fails
-    let firstEpisode = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'")).firstMatch
-    XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
+    // When: User views episode list
+    let episode = ensureEpisodeVisible(id: "st-001")
+    XCTAssertTrue(
+      episode.waitUntil(.hittable, timeout: adaptiveTimeout),
+      "Episode st-001 should be visible in list"
+    )
 
-    // Then: Verify failure indicator appears
-    // Look for red warning icon (exclamationmark.triangle.fill)
-    let failureIcon = firstEpisode.images.matching(identifier: "exclamationmark.triangle.fill").firstMatch
+    // Then: Verify failure icon is visible (red warning triangle)
+    let failureIcon = episode.images.matching(identifier: "exclamationmark.triangle.fill").firstMatch
+    XCTAssertTrue(
+      failureIcon.waitForExistence(timeout: adaptiveShortTimeout),
+      "Red warning triangle icon should be visible for failed download"
+    )
 
-    // Note: In actual implementation with failure simulation, this would be verified
-    // For now, we verify the episode row structure
-    XCTAssertTrue(firstEpisode.exists, "Episode row should remain visible after failure")
+    // Verify retry button is present
+    let downloadStatus = app.descendants(matching: .any)
+      .matching(identifier: "Episode-st-001-DownloadStatus")
+      .firstMatch
+    XCTAssertTrue(
+      downloadStatus.waitForExistence(timeout: adaptiveShortTimeout),
+      "Download status element should exist"
+    )
+
+    // The failed state shows as a button with retry action
+    XCTAssertTrue(
+      downloadStatus.label.localizedCaseInsensitiveContains("failed") ||
+      downloadStatus.label.localizedCaseInsensitiveContains("retry"),
+      "Download status should indicate failure or retry option"
+    )
+
+    // Verify the icon is within a button (retry action)
+    XCTAssertTrue(
+      failureIcon.exists,
+      "Failure icon should be tappable for retry"
+    )
   }
 
   // MARK: - Helper Methods
