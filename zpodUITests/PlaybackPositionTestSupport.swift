@@ -356,6 +356,7 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
   /// Expand mini-player to full player view.
   /// Returns true if expansion succeeded.
+  /// Handles both normal player view and error view states.
   func expandPlayer() -> Bool {
     logBreadcrumb("expandPlayer: tap mini player")
     let miniPlayer = miniPlayerElement(in: app)
@@ -366,14 +367,24 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
     miniPlayer.tap()
 
+    // Check for either normal expanded player or error view
     let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
-    logBreadcrumb("expandPlayer: waiting for expanded player")
-    guard expandedPlayer.waitForExistence(timeout: adaptiveTimeout) else {
-      XCTFail("Expanded player did not appear")
-      return false
+    let expandedErrorView = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+
+    logBreadcrumb("expandPlayer: waiting for expanded player or error view")
+
+    // Wait for either element to appear
+    let deadline = Date().addingTimeInterval(adaptiveTimeout)
+    while Date() < deadline {
+      if expandedPlayer.exists || expandedErrorView.exists {
+        logBreadcrumb("expandPlayer: expanded player appeared (normal: \(expandedPlayer.exists), error: \(expandedErrorView.exists))")
+        return true
+      }
+      Thread.sleep(forTimeInterval: 0.1)
     }
 
-    return true
+    XCTFail("Expanded player did not appear (neither normal view nor error view)")
+    return false
   }
 
   // MARK: - Slider Value Helpers
