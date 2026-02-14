@@ -83,39 +83,61 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   ///
   /// **Spec**: offline-playback.md - "Download shows progress"
   ///
-  /// **Given**: Download has started
-  /// **When**: Download is in progress
-  /// **Then**: Progress bar and percentage are visible
+  /// **Given**: Episode is seeded as downloading at 45%
+  /// **When**: User views episode list
+  /// **Then**: Download icon, progress percentage (45%), and downloading status are visible
+  ///
+  /// **Approach**: Seed-first - no simulation needed, just verify UI renders seeded state correctly
   @MainActor
   func testDownloadProgressIndicatorDisplays() throws {
-    // Given: App is launched with download-focused swipe configuration and download simulation
-    launchDownloadSwipeApp(additionalEnvironment: [
-      "UITEST_DOWNLOAD_SIMULATION_MODE": "1"
+    // Given: Episode seeded as downloading at 45%
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.downloading(progress: 0.45)
+    ])
+
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
 
-    // When: Download is initiated
-    // Episodes appear as buttons in SwiftUI's accessibility tree
-    let firstEpisode = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Episode-'")).firstMatch
-    XCTAssertTrue(firstEpisode.waitForExistence(timeout: adaptiveTimeout), "Episode should exist")
+    // When: User views episode list (episode should be visible)
+    let episode = ensureEpisodeVisible(id: "st-001")
+    XCTAssertTrue(
+      episode.waitUntil(.hittable, timeout: adaptiveTimeout),
+      "Episode st-001 should be visible in list"
+    )
 
-    // Trigger download via swipe
-    firstEpisode.swipeRight()
-    let downloadButton = app.buttons.matching(identifier: "SwipeAction.download").firstMatch
-    if downloadButton.waitForExistence(timeout: adaptiveShortTimeout) {
-      downloadButton.tap()
-    }
+    // Then: Verify download icon is visible (arrow.down.circle for downloading state)
+    let downloadIcon = episode.images.matching(identifier: "arrow.down.circle").firstMatch
+    XCTAssertTrue(
+      downloadIcon.waitForExistence(timeout: adaptiveShortTimeout),
+      "Download icon should be visible for downloading episode"
+    )
 
-    // Then: Verify download status indicator appears
-    // Look for download-related UI elements (progress bar, downloading icon)
-    // Note: Actual implementation depends on EpisodeRowView's progress display
-    let downloadingIndicator = waitForAnyElement([
-      app.images.matching(identifier: "arrow.down.circle").firstMatch,
-      app.progressIndicators.firstMatch,
-      app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Downloading'")).firstMatch
-    ], timeout: adaptiveShortTimeout, description: "download indicator")
+    // Verify progress percentage is displayed
+    let progressText = episode.staticTexts.matching(identifier: "Episode-st-001-DownloadProgress").firstMatch
+    XCTAssertTrue(
+      progressText.waitForExistence(timeout: adaptiveShortTimeout),
+      "Progress percentage should be visible"
+    )
+    XCTAssertEqual(
+      progressText.label,
+      "45%",
+      "Progress should show exactly 45% as seeded"
+    )
 
-    XCTAssertNotNil(downloadingIndicator, "Download indicator should appear during download")
+    // Verify download status accessibility identifier
+    let downloadStatus = app.descendants(matching: .any)
+      .matching(identifier: "Episode-st-001-DownloadStatus")
+      .firstMatch
+    XCTAssertTrue(
+      downloadStatus.waitForExistence(timeout: adaptiveShortTimeout),
+      "Download status element should have correct accessibility identifier"
+    )
+    XCTAssertTrue(
+      downloadStatus.label.localizedCaseInsensitiveContains("downloading"),
+      "Download status should indicate 'Downloading' state"
+    )
   }
 
   /// Test: Downloaded episode shows completion badge
@@ -340,5 +362,21 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       app.buttons.matching(identifier: "Select").firstMatch,
       app.otherElements.matching(identifier: "Episode Cards Container").firstMatch
     ]
+  }
+
+  /// Ensure episode with given ID is visible, scrolling if necessary
+  @MainActor
+  @discardableResult
+  private func ensureEpisodeVisible(id episodeId: String, maxScrolls: Int = 4) -> XCUIElement {
+    let episode = app.buttons.matching(identifier: "Episode-\(episodeId)").firstMatch
+    if let container = findContainerElement(in: app, identifier: "Episode Cards Container") {
+      var attempts = 0
+      while attempts < maxScrolls && !episode.waitUntil(.hittable, timeout: adaptiveShortTimeout) {
+        container.swipeUp()
+        attempts += 1
+      }
+    }
+    _ = episode.waitUntil(.hittable, timeout: adaptiveShortTimeout)
+    return episode
   }
 }
