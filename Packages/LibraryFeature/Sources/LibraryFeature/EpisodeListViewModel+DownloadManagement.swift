@@ -9,6 +9,20 @@
 import CoreModels
 import Foundation
 
+// MARK: - Download Transition Hooks
+
+/// Notification names for download state transitions (always posted, zero cost when unlistened)
+extension Notification.Name {
+  /// Posted when download is started (for UI testing)
+  static let downloadDidStart = Notification.Name("LibraryFeature.DownloadDidStart")
+
+  /// Posted when download is cancelled (for UI testing)
+  static let downloadDidCancel = Notification.Name("LibraryFeature.DownloadDidCancel")
+
+  /// Posted when download is resumed after network recovery (for UI testing)
+  static let downloadDidResume = Notification.Name("LibraryFeature.DownloadDidResume")
+}
+
 // MARK: - Download Management
 
 @MainActor
@@ -55,6 +69,13 @@ extension EpisodeListViewModel {
     let downloadingEpisode = episode.withDownloadStatus(.downloading)
     updateEpisode(downloadingEpisode)
 
+    // Post notification for UI testing hooks (always posted, zero cost when unlistened)
+    NotificationCenter.default.post(
+      name: .downloadDidStart,
+      object: nil,
+      userInfo: ["episodeId": episode.id]
+    )
+
     if let enqueuer = downloadManager as? EpisodeDownloadEnqueuing {
       enqueuer.enqueueEpisode(downloadingEpisode)
       return
@@ -90,6 +111,25 @@ extension EpisodeListViewModel {
     // Progress update will be handled by downloadProgressCoordinator
   }
 
+  /// Cancel episode download (full cancellation, not just pause)
+  public func cancelEpisodeDownload(_ episode: Episode) async {
+    guard let downloadManager else { return }
+
+    // Cancel the download completely
+    await downloadManager.pauseDownload(episode.id)  // Use pause as cancel mechanism
+    if var storedEpisode = episodeForID(episode.id) {
+      storedEpisode = storedEpisode.withDownloadStatus(.notDownloaded)
+      updateEpisode(storedEpisode)
+
+      // Post notification for UI testing hooks (always posted, zero cost when unlistened)
+      NotificationCenter.default.post(
+        name: .downloadDidCancel,
+        object: nil,
+        userInfo: ["episodeId": episode.id]
+      )
+    }
+  }
+
   /// Resume episode download
   public func resumeEpisodeDownload(_ episode: Episode) async {
     guard let downloadManager else { return }
@@ -97,6 +137,13 @@ extension EpisodeListViewModel {
     if var storedEpisode = episodeForID(episode.id) {
       storedEpisode = storedEpisode.withDownloadStatus(.downloading)
       updateEpisode(storedEpisode)
+
+      // Post notification for UI testing hooks (always posted, zero cost when unlistened)
+      NotificationCenter.default.post(
+        name: .downloadDidResume,
+        object: nil,
+        userInfo: ["episodeId": episode.id]
+      )
     }
     // Progress update will be handled by downloadProgressCoordinator
   }
