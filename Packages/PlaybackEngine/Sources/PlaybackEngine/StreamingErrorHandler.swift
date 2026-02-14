@@ -110,6 +110,7 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
     /// - Parameter error: The error that occurred
     /// - Returns: True if retry scheduled, false if retry limit exceeded
     public func handleError(_ error: Error) async -> Bool {
+        // swiftlint:disable:next large_tuple
         let result: (shouldRetry: Bool, attempt: Int?, stateToSend: RetryState?) = stateQueue.sync {
             if _retryAttempt >= maxRetries {
                 return (false, nil, .failed)

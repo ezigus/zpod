@@ -9,7 +9,9 @@ private final class ChunkedURLProtocol: URLProtocol {
   nonisolated(unsafe) static var statusCode: Int = 200
   nonisolated(unsafe) static var error: Error?
 
+  // swiftlint:disable:next static_over_final_class
   override class func canInit(with request: URLRequest) -> Bool { true }
+  // swiftlint:disable:next static_over_final_class
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
   override func startLoading() {
@@ -215,7 +217,7 @@ final class FileManagerServiceRealDownloadTests: XCTestCase {
     episodeId: String,
     podcastId: String,
     size: Int
-  ) throws -> (DownloadTask, URL, Data) {
+  ) throws -> (DownloadTask, URL, Data) { // swiftlint:disable:this large_tuple
     let data = Data(repeating: 0x5A, count: size)
     let sourceURL = downloadsRoot.appendingPathComponent("\(episodeId)-source.mp3")
     try data.write(to: sourceURL)

@@ -99,8 +99,7 @@ struct OrphanedEpisodesView: View {
   @ViewBuilder
   private func badges(for episode: Episode) -> some View {
     let reasons = reasonBadges(for: episode)
-    if reasons.isEmpty { EmptyView() }
-    else {
+    if reasons.isEmpty { EmptyView() } else {
       HStack(spacing: 8) {
         ForEach(reasons, id: \.self) { reason in
           Text(reason)

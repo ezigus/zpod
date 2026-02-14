@@ -6,6 +6,7 @@ import Dispatch
 @testable import TestSupport
 
 @available(iOS 17, macOS 14, watchOS 10, *)
+// swiftlint:disable:next type_body_length
 final class SwiftDataPodcastRepositoryTests: XCTestCase {
     private var modelContainer: ModelContainer!
     private var repository: SwiftDataPodcastRepository!

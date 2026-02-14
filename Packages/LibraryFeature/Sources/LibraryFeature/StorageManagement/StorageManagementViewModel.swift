@@ -96,6 +96,7 @@ public final class StorageManagementViewModel {
         }
 
         var totalBytes: Int64 = 0
+        // swiftlint:disable:next large_tuple
         var podcastStorage: [String: (title: String, episodeCount: Int, bytes: Int64)] = [:]
 
         for episodeId in episodeIds {

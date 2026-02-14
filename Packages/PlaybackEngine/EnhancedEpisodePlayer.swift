@@ -47,6 +47,7 @@ public struct AudioDebugInfo: Equatable, Sendable {
 /// Enhanced playback engine that powers advanced controls for the episode detail surface and
 /// player-focused integration tests.
 @MainActor
+// swiftlint:disable:next type_body_length
 public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTransportControlling {
   private enum Constants {
     static let placeholderEpisode = Episode(id: "enhanced-placeholder", title: "Episode")
