@@ -57,8 +57,11 @@ public enum DownloadStateSeeding {
     public static func parseSeededStates() -> [String: SeededDownloadState] {
         guard let envValue = ProcessInfo.processInfo.environment[environmentKey],
               !envValue.isEmpty else {
+            print("🔍 [DownloadStateSeeding] No UITEST_DOWNLOAD_STATES environment variable")
             return [:]
         }
+
+        print("🔍 [DownloadStateSeeding] Found UITEST_DOWNLOAD_STATES: \(envValue.prefix(100))...")
 
         guard let jsonData = envValue.data(using: .utf8) else {
             print("⚠️ Failed to parse UITEST_DOWNLOAD_STATES: invalid UTF-8")
@@ -68,6 +71,7 @@ public enum DownloadStateSeeding {
         do {
             let decoder = JSONDecoder()
             let states = try decoder.decode([String: SeededDownloadState].self, from: jsonData)
+            print("🔍 [DownloadStateSeeding] Parsed \(states.count) states: \(states.keys.sorted())")
             return states
         } catch {
             print("⚠️ Failed to decode UITEST_DOWNLOAD_STATES: \(error)")
@@ -79,19 +83,25 @@ public enum DownloadStateSeeding {
     public static func state(for episodeId: String) -> SeededDownloadState? {
         let states = parseSeededStates()
 
+        print("🔍 [DownloadStateSeeding] Looking for episode ID: '\(episodeId)'")
+
         // Try exact match first
         if let state = states[episodeId] {
+            print("🔍 [DownloadStateSeeding] ✅ Found exact match for '\(episodeId)': \(state.status)")
             return state
         }
 
         // Try normalized match (handle podcast:episode format)
         let normalized = normalizeEpisodeId(episodeId)
+        print("🔍 [DownloadStateSeeding] Trying normalized: '\(normalized)'")
         for (key, value) in states {
             if normalizeEpisodeId(key) == normalized {
+                print("🔍 [DownloadStateSeeding] ✅ Found normalized match: '\(key)' -> '\(normalized)'")
                 return value
             }
         }
 
+        print("🔍 [DownloadStateSeeding] ❌ No match found for '\(episodeId)' (normalized: '\(normalized)')")
         return nil
     }
 

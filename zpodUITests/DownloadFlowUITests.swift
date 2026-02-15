@@ -95,7 +95,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "st-001": DownloadStateSeedingHelper.downloading(progress: 0.45)
     ])
 
-    app = launchConfiguredApp(environmentOverrides: [
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
@@ -152,7 +152,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "st-001": DownloadStateSeedingHelper.downloaded(fileSize: 2_048_000)
     ])
 
-    app = launchConfiguredApp(environmentOverrides: [
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
@@ -206,7 +206,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "st-004": DownloadStateSeedingHelper.paused(progress: 0.20)
     ])
 
-    app = launchConfiguredApp(environmentOverrides: [
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
@@ -287,7 +287,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "st-001": DownloadStateSeedingHelper.paused(progress: 0.30)
     ])
 
-    app = launchConfiguredApp(environmentOverrides: [
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
@@ -344,7 +344,7 @@ final class DownloadFlowUITests: IsolatedUITestCase {
       "st-001": DownloadStateSeedingHelper.failed(message: "Network error")
     ])
 
-    app = launchConfiguredApp(environmentOverrides: [
+    launchDownloadSwipeApp(additionalEnvironment: [
       "UITEST_DOWNLOAD_STATES": downloadStates
     ])
     navigateToEpisodeList()
