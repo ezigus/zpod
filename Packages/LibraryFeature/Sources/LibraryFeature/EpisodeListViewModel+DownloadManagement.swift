@@ -117,6 +117,7 @@ extension EpisodeListViewModel {
 
     // Cancel the download completely (deletes partial data and resets state)
     await downloadManager.cancelDownload(episode.id)
+    downloadProgressCoordinator.clearProgress(for: episode.id)
     if var storedEpisode = episodeForID(episode.id) {
       storedEpisode = storedEpisode.withDownloadStatus(.notDownloaded)
       updateEpisode(storedEpisode)

@@ -300,6 +300,15 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             ),
             "Poor-network control should render when UITEST_NETWORK_SIMULATION=1"
         )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SimulateWiFiToCellular",
+                label: "Simulate WiFi to Cellular",
+                description: "Network type switch simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "WiFi-to-cellular control should render when UITEST_NETWORK_SIMULATION=1"
+        )
 
         XCTAssertFalse(
             simulationControlExists(
@@ -342,6 +351,24 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             ),
             "Buffer-ready control should render when UITEST_BUFFER_SIMULATION=1"
         )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SeekWithinBuffer",
+                label: "Seek Within Buffer",
+                description: "Buffered seek simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Seek-within-buffer control should render when UITEST_BUFFER_SIMULATION=1"
+        )
+        XCTAssertNotNil(
+            simulationControlButton(
+                identifier: "TestHook.SeekOutsideBuffer",
+                label: "Seek Outside Buffer",
+                description: "Unbuffered seek simulation control",
+                timeout: adaptiveTimeout
+            ),
+            "Seek-outside-buffer control should render when UITEST_BUFFER_SIMULATION=1"
+        )
 
         XCTAssertFalse(
             simulationControlExists(
@@ -363,6 +390,13 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
                 label: "Simulate Poor Network"
             ),
             "Poor-network control should not render when only UITEST_BUFFER_SIMULATION=1"
+        )
+        XCTAssertFalse(
+            simulationControlExists(
+                identifier: "TestHook.SimulateWiFiToCellular",
+                label: "Simulate WiFi to Cellular"
+            ),
+            "WiFi-to-cellular control should not render when only UITEST_BUFFER_SIMULATION=1"
         )
     }
 
@@ -779,6 +813,262 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         )
     }
 
+    /// Test: Seeking within buffered content should not trigger buffering state
+    ///
+    /// **Spec**: streaming-playback.md - "Seeking while streaming (within buffered range)"
+    @MainActor
+    func testSeekWithinBufferedRangeKeepsPlaybackReady() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_BUFFER_SIMULATION": "1"
+        ])
+
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            XCTFail("Playback should be running before buffered seek")
+            return
+        }
+
+        guard let seekWithinButton = simulationControlButton(
+            identifier: "TestHook.SeekWithinBuffer",
+            label: "Seek Within Buffer",
+            description: "Seek within buffer simulation control",
+            timeout: adaptiveTimeout
+        ) else {
+            XCTFail("Seek-within-buffer control should render when UITEST_BUFFER_SIMULATION=1")
+            return
+        }
+
+        let bufferIndicator = app.activityIndicators.matching(identifier: "Player.BufferIndicator").firstMatch
+        let bufferingLabel = app.staticTexts.matching(identifier: "Player.BufferingLabel").firstMatch
+
+        seekWithinButton.tap()
+
+        let bufferingAppeared = waitUntil(
+            timeout: adaptiveShortTimeout,
+            pollInterval: 0.1,
+            description: "buffering indicator appears after buffered seek",
+            condition: { bufferIndicator.exists || bufferingLabel.exists }
+        )
+        XCTAssertFalse(
+            bufferingAppeared,
+            "Seeking within buffered range should not surface buffering"
+        )
+
+        XCTAssertTrue(
+            isPlaybackControlShowingPause() || isPlaybackControlShowingPlay(),
+            "Playback controls should remain available after buffered seek"
+        )
+    }
+
+    /// Test: Seeking outside buffered content should trigger buffering and then recover
+    ///
+    /// **Spec**: streaming-playback.md - "Seeking while streaming (outside buffered range)"
+    @MainActor
+    func testSeekOutsideBufferedRangeShowsBufferingThenRecovers() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_BUFFER_SIMULATION": "1"
+        ])
+
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            XCTFail("Playback should be running before unbuffered seek")
+            return
+        }
+
+        guard let seekOutsideButton = simulationControlButton(
+            identifier: "TestHook.SeekOutsideBuffer",
+            label: "Seek Outside Buffer",
+            description: "Seek outside buffer simulation control",
+            timeout: adaptiveTimeout
+        ) else {
+            XCTFail("Seek-outside-buffer control should render when UITEST_BUFFER_SIMULATION=1")
+            return
+        }
+
+        let bufferIndicator = app.activityIndicators.matching(identifier: "Player.BufferIndicator").firstMatch
+        let bufferingLabel = app.staticTexts.matching(identifier: "Player.BufferingLabel").firstMatch
+
+        seekOutsideButton.tap()
+
+        guard waitUntil(
+            timeout: adaptiveTimeout,
+            pollInterval: 0.1,
+            description: "buffering appears after unbuffered seek",
+            condition: { bufferIndicator.exists || bufferingLabel.exists }
+        ) else {
+            XCTFail("Seeking outside buffered range should surface buffering")
+            return
+        }
+
+        guard waitUntil(
+            timeout: adaptiveTimeout,
+            pollInterval: 0.1,
+            description: "buffering clears after unbuffered seek recovery",
+            condition: { !bufferIndicator.exists && !bufferingLabel.exists }
+        ) else {
+            XCTFail("Buffering should clear after unbuffered seek recovery")
+            return
+        }
+
+        XCTAssertTrue(
+            isPlaybackControlShowingPause() || isPlaybackControlShowingPlay(),
+            "Playback controls should remain available after buffering recovery"
+        )
+    }
+
+    /// Test: Streaming continues through network type changes (Wi-Fi → Cellular)
+    ///
+    /// **Spec**: streaming-playback.md - "Network type change continuity"
+    @MainActor
+    func testNetworkTypeChangeContinuesStreaming() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_NETWORK_SIMULATION": "1"
+        ])
+
+        guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
+            XCTFail("Playback should be running before network type switch")
+            return
+        }
+
+        guard let networkTypeSwitchButton = simulationControlButton(
+            identifier: "TestHook.SimulateWiFiToCellular",
+            label: "Simulate WiFi to Cellular",
+            description: "Network type switch simulation control",
+            timeout: adaptiveTimeout
+        ) else {
+            XCTFail("Network type switch control should render when UITEST_NETWORK_SIMULATION=1")
+            return
+        }
+
+        networkTypeSwitchButton.tap()
+
+        guard waitUntil(
+            timeout: adaptiveTimeout,
+            pollInterval: 0.1,
+            description: "playback remains active through network type switch",
+            condition: { self.isPlaybackControlShowingPause() }
+        ) else {
+            XCTFail("Playback should remain active during Wi-Fi to cellular transition")
+            return
+        }
+
+        let expandedErrorView = app.otherElements.matching(identifier: "ExpandedPlayer.ErrorView").firstMatch
+        XCTAssertFalse(
+            expandedErrorView.waitForExistence(timeout: adaptiveShortTimeout),
+            "Network type switch should not surface a playback error"
+        )
+    }
+
+    /// Test: Server errors surface recoverable network error UI
+    ///
+    /// **Spec**: streaming-playback.md - "Server errors (5xx) show retry path"
+    @MainActor
+    func testServerErrorShowsRecoverableErrorAndRetry() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_PLAYBACK_ERROR_SIMULATION": "1"
+        ])
+
+        guard injectPlaybackErrorViaSimulationHook(
+            identifier: "TestHook.SimulateServerError",
+            label: "Simulate Server Error (503)",
+            description: "Server error simulation control"
+        ) else {
+            XCTFail("Server-error simulation hook should inject a playback error")
+            return
+        }
+
+        guard openExpandedPlayerFromMiniPlayer() else {
+            XCTFail("Expanded player should be available after server error")
+            return
+        }
+
+        let recoverableErrorText = app.staticTexts.matching(identifier: "PlaybackError.networkError").firstMatch
+        XCTAssertTrue(
+            recoverableErrorText.waitForExistence(timeout: adaptiveTimeout),
+            "Server error should map to recoverable network error surface"
+        )
+
+        let expandedRetry = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
+        XCTAssertTrue(
+            expandedRetry.waitForExistence(timeout: adaptiveTimeout),
+            "Recoverable server errors should expose retry"
+        )
+    }
+
+    /// Test: 404 errors should not expose retry controls
+    ///
+    /// **Spec**: streaming-playback.md - "Not Found (404) no auto-retry path"
+    @MainActor
+    func testNotFoundErrorShowsNonRecoverableSurfaceWithoutRetry() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_PLAYBACK_ERROR_SIMULATION": "1"
+        ])
+
+        guard injectPlaybackErrorViaSimulationHook(
+            identifier: "TestHook.SimulateNotFoundError",
+            label: "Simulate Not Found (404)",
+            description: "404 error simulation control"
+        ) else {
+            XCTFail("404 simulation hook should inject a playback error")
+            return
+        }
+
+        guard openExpandedPlayerFromMiniPlayer() else {
+            XCTFail("Expanded player should be available after 404 error")
+            return
+        }
+
+        let unavailableErrorText = app.staticTexts.matching(identifier: "PlaybackError.episodeUnavailable")
+            .firstMatch
+        XCTAssertTrue(
+            unavailableErrorText.waitForExistence(timeout: adaptiveTimeout),
+            "404 should map to non-recoverable episodeUnavailable error surface"
+        )
+
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "MiniPlayer.RetryButton").firstMatch.exists,
+            "Mini player should not show retry for non-recoverable 404 errors"
+        )
+        XCTAssertFalse(
+            app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch.exists,
+            "Expanded player should not show retry for non-recoverable 404 errors"
+        )
+    }
+
+    /// Test: Timeout errors surface timeout-specific recoverable UI
+    ///
+    /// **Spec**: streaming-playback.md - "Timeout during streaming"
+    @MainActor
+    func testTimeoutErrorShowsTimeoutSurfaceAndRetry() throws {
+        _ = openPlayerForSimulation(environmentOverrides: [
+            "UITEST_PLAYBACK_ERROR_SIMULATION": "1"
+        ])
+
+        guard injectPlaybackErrorViaSimulationHook(
+            identifier: "TestHook.SimulateTimeoutError",
+            label: "Simulate Timeout Error",
+            description: "Timeout error simulation control"
+        ) else {
+            XCTFail("Timeout simulation hook should inject a playback error")
+            return
+        }
+
+        guard openExpandedPlayerFromMiniPlayer() else {
+            XCTFail("Expanded player should be available after timeout error")
+            return
+        }
+
+        let timeoutErrorText = app.staticTexts.matching(identifier: "PlaybackError.timeout").firstMatch
+        XCTAssertTrue(
+            timeoutErrorText.waitForExistence(timeout: adaptiveTimeout),
+            "Timeout simulation should map to timeout error surface"
+        )
+
+        let expandedRetry = app.buttons.matching(identifier: "ExpandedPlayer.RetryButton").firstMatch
+        XCTAssertTrue(
+            expandedRetry.waitForExistence(timeout: adaptiveTimeout),
+            "Timeout errors should expose retry controls"
+        )
+    }
+
     // MARK: - Helper Methods
 
     /// Navigate to episode list for testing
@@ -903,15 +1193,19 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     }
 
     @MainActor
-    private func injectPlaybackErrorViaSimulationHook() -> Bool {
+    private func injectPlaybackErrorViaSimulationHook(
+        identifier: String = "TestHook.SimulatePlaybackError",
+        label: String = "Simulate Playback Error",
+        description: String = "Playback-error simulation control"
+    ) -> Bool {
         guard ensurePlaybackRunning(timeout: adaptiveTimeout) else {
             return false
         }
 
         guard let errorButton = simulationControlButton(
-            identifier: "TestHook.SimulatePlaybackError",
-            label: "Simulate Playback Error",
-            description: "Playback-error simulation control",
+            identifier: identifier,
+            label: label,
+            description: description,
             timeout: adaptiveTimeout
         ) else {
             return false

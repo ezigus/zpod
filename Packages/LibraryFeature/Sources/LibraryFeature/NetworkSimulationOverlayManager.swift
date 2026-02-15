@@ -159,6 +159,8 @@
         controller.simulateNetworkRecovery()
       case .poorQuality:
         controller.simulatePoorNetwork()
+      case .wifiToCellular:
+        controller.simulateNetworkTypeChange()
       }
     }
 
@@ -181,6 +183,10 @@
         controller.simulateBufferEmpty()
       case .ready:
         controller.simulateBufferReady()
+      case .seekWithinBuffer:
+        controller.simulateSeekWithinBuffer()
+      case .seekOutsideBuffer:
+        controller.simulateSeekOutsideBuffer()
       }
     }
 
@@ -188,7 +194,13 @@
       guard let controller = currentSimulationController() else { return }
       switch type {
       case .recoverableNetworkError:
-        controller.simulatePlaybackError()
+        controller.simulatePlaybackError(.recoverableNetworkError)
+      case .serverError:
+        controller.simulatePlaybackError(.serverError)
+      case .notFound:
+        controller.simulatePlaybackError(.notFound)
+      case .timeout:
+        controller.simulatePlaybackError(.timeout)
       }
     }
   }

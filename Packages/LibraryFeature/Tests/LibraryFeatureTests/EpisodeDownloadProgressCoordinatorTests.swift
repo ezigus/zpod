@@ -198,6 +198,26 @@ final class EpisodeDownloadProgressCoordinatorTests: XCTestCase {
     // Then: Progress should be cleared
     XCTAssertNil(coordinator.downloadProgress(for: testEpisode.id))
   }
+
+  func testClearProgressRemovesTrackedEntryImmediately() async throws {
+    coordinator.startMonitoring()
+
+    let update = EpisodeDownloadProgressUpdate(
+      episodeID: testEpisode.id,
+      fractionCompleted: 0.33,
+      status: .downloading,
+      message: "Downloading"
+    )
+    mockProgressProvider.sendProgress(update)
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    XCTAssertNotNil(coordinator.downloadProgress(for: testEpisode.id))
+
+    coordinator.clearProgress(for: testEpisode.id)
+
+    XCTAssertNil(coordinator.downloadProgress(for: testEpisode.id))
+    XCTAssertTrue(coordinator.downloadProgressByEpisodeID.isEmpty)
+  }
   
   func testStopMonitoringStopsReceivingUpdates() async throws {
     // Given: A coordinator that was monitoring
