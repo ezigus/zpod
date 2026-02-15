@@ -111,12 +111,12 @@ extension EpisodeListViewModel {
     // Progress update will be handled by downloadProgressCoordinator
   }
 
-  /// Cancel episode download (full cancellation, not just pause)
+  /// Cancel episode download (full cancellation, deletes partial download)
   public func cancelEpisodeDownload(_ episode: Episode) async {
     guard let downloadManager else { return }
 
-    // Cancel the download completely
-    await downloadManager.pauseDownload(episode.id)  // Use pause as cancel mechanism
+    // Cancel the download completely (deletes partial data and resets state)
+    await downloadManager.cancelDownload(episode.id)
     if var storedEpisode = episodeForID(episode.id) {
       storedEpisode = storedEpisode.withDownloadStatus(.notDownloaded)
       updateEpisode(storedEpisode)
