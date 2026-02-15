@@ -8,6 +8,22 @@
 
 import Foundation
 
+/// Download state for seeding
+struct DownloadState: Codable {
+    let status: Status
+    let progress: Double?
+    let errorMessage: String?
+    let fileSize: Int64?
+
+    enum Status: String, Codable {
+        case downloaded
+        case downloading
+        case failed
+        case paused
+        case notDownloaded
+    }
+}
+
 /// Helper for creating download state seeding environment variables in UI tests
 enum DownloadStateSeedingHelper {
     /// Encode download states to JSON environment variable value
@@ -21,22 +37,6 @@ enum DownloadStateSeedingHelper {
         }
 
         return jsonString
-    }
-
-    /// Download state for seeding
-    struct DownloadState: Codable {
-        let status: Status
-        let progress: Double?
-        let errorMessage: String?
-        let fileSize: Int64?
-
-        enum Status: String, Codable {
-            case downloaded
-            case downloading
-            case failed
-            case paused
-            case notDownloaded
-        }
     }
 
     // MARK: - Convenience Constructors

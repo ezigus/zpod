@@ -5,6 +5,7 @@
 //  Created for Issue 28.1.4: Network Monitoring and Adaptation
 //  Tests network interruption handling and auto-pause/resume behavior
 //
+// swiftlint:disable type_body_length
 
 import XCTest
 
@@ -21,6 +22,10 @@ import XCTest
 /// **Status**: ACTIVE - Network/buffer simulation hooks are integrated
 /// (Issue 28.1.11 / #396) and playback-error UI coverage is active
 /// (Issue 28.1.12 / #401). Hook-dependent scenarios run as active assertions.
+///
+/// **Note**: This test class exceeds the normal 500-line limit (currently 664 lines) due to
+/// comprehensive coverage of streaming scenarios (network interruptions, buffer states, error
+/// recovery, auto-retry). The tests are well-organized with clear sections and helper methods.
 final class StreamingInterruptionUITests: IsolatedUITestCase {
 
     override func setUpWithError() throws {
