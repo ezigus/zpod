@@ -315,7 +315,44 @@ final class AVPlayerPlaybackEngineTests: XCTestCase {
     }
     
     // MARK: - Edge Case Tests
-    
+
+    /// **Scenario**: HTTP range-backed seek resumes from target position
+    /// **Given** a streaming episode
+    /// **When** seeking far ahead in the stream
+    /// **Then** playback resumes near the requested offset instead of restarting from zero
+    ///
+    /// Note: AVPlayer manages HTTP Range requests internally. This test validates
+    /// the observable contract expected from range support.
+    func testHTTPRangeResumeBehaviorAfterFarSeek() async throws {
+        let engine = AVPlayerPlaybackEngine()
+        let testURL = URL(string: "https://traffic.libsyn.com/secure/swifttalk/350-2024-12-09-gps-viewer-part-4.m4a")!
+
+        let startedExpectation = XCTestExpectation(description: "Playback started")
+        let seekExpectation = XCTestExpectation(description: "Far seek reached target range")
+        var sawStart = false
+
+        engine.onPositionUpdate = { position in
+            if !sawStart, position >= 0 {
+                sawStart = true
+                startedExpectation.fulfill()
+                return
+            }
+
+            if sawStart, position >= 110 {
+                seekExpectation.fulfill()
+            }
+        }
+
+        engine.play(from: testURL, startPosition: 0, rate: 1.0)
+        await fulfillment(of: [startedExpectation], timeout: 10.0)
+
+        engine.seek(to: 120.0)
+        await fulfillment(of: [seekExpectation], timeout: 10.0)
+        XCTAssertGreaterThanOrEqual(engine.currentPosition, 110)
+
+        engine.stop()
+    }
+
     func testSeekFromPositionWaitsForReady() async throws {
         // Given: Audio engine with start position
         let engine = AVPlayerPlaybackEngine()

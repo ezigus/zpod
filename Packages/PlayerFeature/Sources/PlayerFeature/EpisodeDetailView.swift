@@ -328,6 +328,18 @@ extension EpisodeDetailView {
             )
           }
           .accessibilityIdentifier("TestHook.SimulatePoorNetwork")
+
+          Button("Simulate WiFi to Cellular") {
+            NotificationCenter.default.post(
+              name: .networkSimulation,
+              object: nil,
+              userInfo: [
+                NetworkSimulationNotificationKey.networkType: NetworkSimulationType.wifiToCellular
+                  .rawValue
+              ]
+            )
+          }
+          .accessibilityIdentifier("TestHook.SimulateWiFiToCellular")
         }
 
         if isBufferSimulationControlEnabled {
@@ -354,20 +366,84 @@ extension EpisodeDetailView {
             }
             .accessibilityIdentifier("TestHook.SimulateBufferReady")
           }
+
+          HStack(spacing: 8) {
+            Button("Seek Within Buffer") {
+              NotificationCenter.default.post(
+                name: .bufferSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.bufferType:
+                    BufferSimulationType.seekWithinBuffer.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SeekWithinBuffer")
+
+            Button("Seek Outside Buffer") {
+              NotificationCenter.default.post(
+                name: .bufferSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.bufferType:
+                    BufferSimulationType.seekOutsideBuffer.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SeekOutsideBuffer")
+          }
         }
 
         if isPlaybackErrorSimulationEnabled {
-          Button("Simulate Playback Error") {
-            NotificationCenter.default.post(
-              name: .playbackErrorSimulation,
-              object: nil,
-              userInfo: [
-                NetworkSimulationNotificationKey.playbackErrorType:
-                  PlaybackErrorSimulationType.recoverableNetworkError.rawValue
-              ]
-            )
+          VStack(alignment: .leading, spacing: 6) {
+            Button("Simulate Playback Error") {
+              NotificationCenter.default.post(
+                name: .playbackErrorSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.playbackErrorType:
+                    PlaybackErrorSimulationType.recoverableNetworkError.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulatePlaybackError")
+
+            Button("Simulate Server Error (503)") {
+              NotificationCenter.default.post(
+                name: .playbackErrorSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.playbackErrorType:
+                    PlaybackErrorSimulationType.serverError.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateServerError")
+
+            Button("Simulate Not Found (404)") {
+              NotificationCenter.default.post(
+                name: .playbackErrorSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.playbackErrorType:
+                    PlaybackErrorSimulationType.notFound.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateNotFoundError")
+
+            Button("Simulate Timeout Error") {
+              NotificationCenter.default.post(
+                name: .playbackErrorSimulation,
+                object: nil,
+                userInfo: [
+                  NetworkSimulationNotificationKey.playbackErrorType:
+                    PlaybackErrorSimulationType.timeout.rawValue
+                ]
+              )
+            }
+            .accessibilityIdentifier("TestHook.SimulateTimeoutError")
           }
-          .accessibilityIdentifier("TestHook.SimulatePlaybackError")
         }
 
         HStack {

@@ -172,7 +172,7 @@ final class StreamingErrorHandlerTests: XCTestCase {
 
         // Verify delay was requested (but instant)
         XCTAssertEqual(delayProvider.delayCount, 1, "Should have requested one delay")
-        XCTAssertEqual(delayProvider.totalSecondsRequested, 5.0, "Should have requested 5s delay")
+        XCTAssertEqual(delayProvider.totalSecondsRequested, 2.0, "Should have requested 2s delay (first retry)")
     }
 
     // MARK: - Publisher Tests
@@ -239,16 +239,16 @@ final class StreamingErrorHandlerTests: XCTestCase {
         XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
     }
 
-    /// Test: Cannot find host errors are retryable
-    func testCannotFindHostIsRetryable() {
+    /// Test: Cannot find host errors are NOT retryable (DNS misconfiguration, fail fast)
+    func testCannotFindHostNotRetryable() {
         let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotFindHost)
-        XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
+        XCTAssertFalse(StreamingErrorHandler.isRetryableError(error))
     }
 
-    /// Test: Cannot connect to host errors are retryable
-    func testCannotConnectToHostIsRetryable() {
+    /// Test: Cannot connect to host errors are NOT retryable (server is down, fail fast)
+    func testCannotConnectToHostNotRetryable() {
         let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost)
-        XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
+        XCTAssertFalse(StreamingErrorHandler.isRetryableError(error))
     }
 
     /// Test: Network connection lost errors are retryable
@@ -257,16 +257,16 @@ final class StreamingErrorHandlerTests: XCTestCase {
         XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
     }
 
-    /// Test: DNS lookup failed errors are retryable
-    func testDNSLookupFailedIsRetryable() {
+    /// Test: DNS lookup failed errors are NOT retryable (DNS infrastructure problem, fail fast)
+    func testDNSLookupFailedNotRetryable() {
         let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorDNSLookupFailed)
-        XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
+        XCTAssertFalse(StreamingErrorHandler.isRetryableError(error))
     }
 
-    /// Test: Not connected to internet errors are retryable
-    func testNotConnectedToInternetIsRetryable() {
+    /// Test: Not connected to internet errors are NOT retryable (offline state handled by network monitor)
+    func testNotConnectedToInternetNotRetryable() {
         let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorNotConnectedToInternet)
-        XCTAssertTrue(StreamingErrorHandler.isRetryableError(error))
+        XCTAssertFalse(StreamingErrorHandler.isRetryableError(error))
     }
 
     /// Test: Unknown domain errors are not retryable

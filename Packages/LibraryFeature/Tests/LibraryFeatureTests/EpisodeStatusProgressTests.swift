@@ -143,6 +143,60 @@ final class EpisodeStatusProgressTests: XCTestCase {
         XCTAssertEqual(downloadManager.pausedEpisodes, ["ep-1"])
         XCTAssertEqual(downloadManager.resumedEpisodes, ["ep-1"])
     }
+
+    func testCancelDownloadForwardsToManagerResetsStateClearsProgressAndPostsNotification() async throws {
+        guard let baseEpisode = viewModel.filteredEpisodes.first(where: { $0.id == "ep-1" }) else {
+            return XCTFail("Episode missing")
+        }
+
+        let downloadingEpisode = baseEpisode.withDownloadStatus(.downloading)
+        viewModel.updateEpisode(downloadingEpisode)
+
+        let progressReady = expectation(description: "Progress tracked before cancellation")
+        let cancelNotification = expectation(description: "Cancellation notification posted")
+        var observedNotificationEpisodeID: String?
+        let observer = NotificationCenter.default.addObserver(
+            forName: .downloadDidCancel,
+            object: nil,
+            queue: .main
+        ) { notification in
+            observedNotificationEpisodeID = notification.userInfo?["episodeId"] as? String
+            cancelNotification.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        viewModel.$downloadProgressByEpisodeID
+            .dropFirst()
+            .sink { mapping in
+                if mapping["ep-1"] != nil {
+                    progressReady.fulfill()
+                }
+            }
+            .store(in: &cancellables)
+
+        progressProvider.send(
+            EpisodeDownloadProgressUpdate(
+                episodeID: "ep-1",
+                fractionCompleted: 0.42,
+                status: .downloading,
+                message: "Downloading"
+            )
+        )
+
+        await fulfillment(of: [progressReady], timeout: 1.0)
+        XCTAssertNotNil(viewModel.downloadProgress(for: "ep-1"))
+
+        await viewModel.cancelEpisodeDownload(downloadingEpisode)
+        await fulfillment(of: [cancelNotification], timeout: 1.0)
+
+        XCTAssertEqual(downloadManager.canceledEpisodes, ["ep-1"])
+        XCTAssertEqual(observedNotificationEpisodeID, "ep-1")
+        XCTAssertNil(viewModel.downloadProgress(for: "ep-1"))
+        XCTAssertEqual(
+            viewModel.filteredEpisodes.first(where: { $0.id == "ep-1" })?.downloadStatus,
+            .notDownloaded
+        )
+    }
     
     func testQuickPlayCompletionMarksEpisodeAsPlayedAndPersists() async throws {
         let completionExpectation = expectation(description: "Playback completion handled")
@@ -295,6 +349,7 @@ final class EpisodeStatusProgressTests: XCTestCase {
 private final class MockDownloadManager: DownloadManaging {
     private(set) var pausedEpisodes: [String] = []
     private(set) var resumedEpisodes: [String] = []
+    private(set) var canceledEpisodes: [String] = []
     private(set) var downloadRequests: [String] = []
     private(set) var deletedDownloadEpisodes: [String] = []
     var shouldThrowOnDelete = false
@@ -304,7 +359,7 @@ private final class MockDownloadManager: DownloadManaging {
     }
 
     func cancelDownload(_ episodeID: String) async {
-        // no-op for test
+        canceledEpisodes.append(episodeID)
     }
 
     func pauseDownload(_ episodeID: String) async {

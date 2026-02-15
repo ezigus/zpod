@@ -69,8 +69,10 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
 
     private let logger = Logger(subsystem: "us.zig.zpod", category: "StreamingErrorHandler")
 
-    /// Exponential backoff delays (in seconds)
-    private let retryDelays: [TimeInterval] = [5.0, 15.0, 60.0]
+    /// Exponential backoff delays (in seconds) for truly transient errors
+    /// Per spec: streaming-playback.md line 220
+    /// Fast retries appropriate for brief timeouts and connection drops
+    private let retryDelays: [TimeInterval] = [2.0, 5.0, 10.0]
 
     /// Maximum number of retry attempts
     private let maxRetries: Int = 3
@@ -181,29 +183,41 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
 
     /// Determine if an error is retryable
     ///
-    /// Retryable errors include:
-    /// - Network timeouts
-    /// - Connection failures
-    /// - Server unavailability (5xx errors)
+    /// **Only truly transient errors should retry.**
+    /// Offline state and permanent errors should be handled differently:
+    /// - Offline state → Network monitor will trigger recovery
+    /// - Permanent errors → Show error UI immediately
     ///
-    /// Non-retryable errors include:
-    /// - Invalid URLs
-    /// - Authentication failures (401, 403)
-    /// - Not found (404)
-    /// - Client errors (4xx except timeout)
+    /// Retryable errors (truly transient):
+    /// - Brief network timeouts (data delay, not offline)
+    /// - Transient connection loss (momentary drop)
+    /// - Server temporarily unavailable (5xx errors)
+    ///
+    /// Non-retryable errors (handled separately):
+    /// - **Offline state** (NSURLErrorNotConnectedToInternet) → Trigger offline UI, wait for network monitor
+    /// - **DNS/Host failures** (bad URL, server down) → Fail fast with clear error
+    /// - **Client errors** (401, 403, 404) → Permanent, show error immediately
     public static func isRetryableError(_ error: Error) -> Bool {
         let nsError = error as NSError
 
         // Network errors (domain NSURLErrorDomain)
         if nsError.domain == NSURLErrorDomain {
             switch nsError.code {
-            case NSURLErrorTimedOut,
-                 NSURLErrorCannotFindHost,
-                 NSURLErrorCannotConnectToHost,
-                 NSURLErrorNetworkConnectionLost,
-                 NSURLErrorDNSLookupFailed,
-                 NSURLErrorNotConnectedToInternet:
+            // ONLY truly transient errors - retry quickly
+            case NSURLErrorTimedOut,              // Brief data timeout (not offline)
+                 NSURLErrorNetworkConnectionLost: // Momentary connection drop
                 return true
+
+            // Offline state - should trigger network monitor, NOT retry
+            case NSURLErrorNotConnectedToInternet:
+                return false
+
+            // DNS/Host failures - usually permanent, NOT transient
+            case NSURLErrorCannotFindHost,     // Bad URL or DNS misconfiguration
+                 NSURLErrorCannotConnectToHost, // Server is down
+                 NSURLErrorDNSLookupFailed:     // DNS infrastructure problem
+                return false
+
             default:
                 return false
             }
@@ -215,12 +229,12 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
         {
             let statusCode = httpResponse.statusCode
 
-            // Retry server errors (5xx)
+            // Retry server errors (5xx) - server might recover
             if (500...599).contains(statusCode) {
                 return true
             }
 
-            // Don't retry client errors (4xx) except timeout
+            // Don't retry client errors (4xx) - these are permanent
             return false
         }
 
