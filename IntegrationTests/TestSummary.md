@@ -46,6 +46,11 @@
   - **Highlights**: Validates swipe settings are persisted and rehydrated.
   - **Spec Coverage**: `ui.md` swipe configuration scenarios (Issue 02.1.6.3).
 
+- `DownloadStateSeedingIntegrationTests.swift` (475 lines)
+  - **Purpose**: Contract coverage for deterministic download-state seeding (Issue 28.1.13 Option C).
+  - **Highlights**: Validates JSON encode/decode, environment parsing, episode ID normalization, and `DownloadStateSeeding.state(for:)` lookup behavior.
+  - **Spec Coverage**: `offline-playback.md` download status indicator scenarios and seeded-state rendering prerequisites.
+
 ### Other Integration Tests
 - `SimpleCoreIntegrationTests.swift` (140 lines)
   - **Purpose**: Smoke-test cross-package data flows without UI glue.
@@ -67,7 +72,7 @@
   - **Purpose**: Predictable RSS parsing fixture for integration tests.
 
 ## Coverage Summary
-- Total Integration Test Code: 2,906 lines across 13 Swift files (excludes TestSummary.md)
+- Total Integration Test Code: 3,784 lines across 16 Swift files (excludes TestSummary.md)
 - No SwiftLint suppressions required for integration test files
 
 ## Open Questions
