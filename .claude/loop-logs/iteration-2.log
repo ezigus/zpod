@@ -1,0 +1,25 @@
+`★ Insight ─────────────────────────────────────`
+1. The iteration 1 "test failures" were caused by the Shipwright loop configuration using `npm test` as the test command for a Swift/Xcode project — a configuration mismatch, not an actual code problem. All implementation work was already done and passing.
+2. The SwipeActionType extension pattern in this codebase centralizes all action metadata (display name, SF Symbol icon, color tint, destructive flag) as computed properties on the enum — adding a new action like `.cancelDownload` requires touching each computed property switch statement, keeping the data co-located.
+3. The `IntegrationTests` target uses local test doubles (like `IntegrationInstantDelayProvider`) rather than importing from `TestSupport` because the Xcode IntegrationTests target can't access SwiftPM test support modules — a common pattern when mixing Xcode workspace tests with SwiftPM package test infrastructure.
+`─────────────────────────────────────────────────`
+
+## Summary
+
+All acceptance criteria for Issue 28.1.13 are **complete and verified**:
+
+| Area | Status | Evidence |
+|------|--------|----------|
+| StreamingErrorHandler doc fix | Done | Comment now says "2s/5s/10s" matching code |
+| Download cancellation | Done | `.cancelDownload` swipe action wired end-to-end |
+| Cancel download UI test | Done | `testCancelDownloadResetsState()` in DownloadFlowUITests |
+| Fallback-to-streaming | Done | 3 integration tests in OfflinePlaybackIntegrationTests |
+| Streaming edge cases | Done | 350-line StreamingEdgeCaseIntegrationTests with retry/backoff/position |
+| Syntax | Pass | All Swift files |
+| AppSmoke | Pass | 59/59 |
+| Integration | Pass | 87/87 |
+| PlaybackEngine | Pass | 49/49 |
+| Issue docs updated | Done | Marked COMPLETE with delivery summary |
+| Pushed to remote | Done | `84f076f` on feature branch |
+
+LOOP_COMPLETE

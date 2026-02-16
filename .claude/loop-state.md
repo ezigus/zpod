@@ -32,16 +32,16 @@ The implementation plan is written to `dev-log/28.1.13-implementation-plan.md` a
 
 Historical context (lessons from previous pipelines):
 {"error":"intelligence_disabled","results":[]}"
-iteration: 0
+iteration: 1
 max_iterations: 20
 status: running
 test_cmd: "npm test"
 model: opus
 agents: 1
-started_at: 2026-02-16T15:31:08Z
-last_iteration_at: 2026-02-16T15:31:08Z
+started_at: 2026-02-16T17:01:02Z
+last_iteration_at: 2026-02-16T17:01:02Z
 consecutive_failures: 0
-total_commits: 0
+total_commits: 1
 audit_enabled: true
 audit_agent_enabled: true
 quality_gates_enabled: true
@@ -52,4 +52,8 @@ max_extensions: 3
 ---
 
 ## Log
+### Iteration 1 (2026-02-16T17:01:02Z)
+- 87 integration tests
+- 814 package tests
+- 59 AppSmoke tests
 
