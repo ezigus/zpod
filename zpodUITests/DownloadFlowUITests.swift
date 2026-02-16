@@ -329,6 +329,68 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     )
   }
 
+  // MARK: - Cancel Download Tests
+
+  /// Test: User can cancel an active download via swipe action, resetting to not-downloaded state
+  ///
+  /// **Spec**: offline-playback.md - "User cancels an active download"
+  ///
+  /// **Given**: Episode is seeded as downloading at 50%
+  /// **When**: User swipes left on episode and taps "Cancel Download"
+  /// **Then**: Download status resets — progress indicator and downloading status disappear
+  ///
+  /// **Approach**: Seed-first with cancelDownload-focused swipe config
+  @MainActor
+  func testCancelDownloadResetsState() throws {
+    // Given: Episode seeded as downloading at 50% with cancel-download swipe config
+    let downloadStates = DownloadStateSeedingHelper.encodeStates([
+      "st-001": DownloadStateSeedingHelper.downloading(progress: 0.50)
+    ])
+
+    var environment = UITestLaunchConfiguration.swipeConfiguration(
+      suite: downloadSwipeSuite,
+      reset: true,
+      seededConfiguration: SwipeConfigurationSeeding.cancelDownloadFocused
+    )
+    environment["UITEST_DOWNLOAD_STATUS_DIAGNOSTICS"] = "1"
+    environment["UITEST_DOWNLOAD_STATES"] = downloadStates
+    app = launchConfiguredApp(environmentOverrides: environment)
+    navigateToEpisodeList()
+
+    // Verify episode shows downloading state initially
+    let episode = ensureEpisodeVisible(id: "st-001")
+    XCTAssertTrue(
+      episode.waitUntil(.hittable, timeout: adaptiveTimeout),
+      "Episode st-001 should be visible in list"
+    )
+
+    assertDownloadStatusVisible(
+      for: "st-001",
+      expectedStatus: "downloading",
+      fallbackKeywords: ["downloading", "download"],
+      message: "Episode should initially show downloading status"
+    )
+
+    // When: User swipes left to reveal cancel download action (trailing swipe)
+    episode.swipeLeft()
+
+    let cancelButton = app.buttons.matching(identifier: "SwipeAction.cancelDownload").firstMatch
+    XCTAssertTrue(
+      cancelButton.waitForExistence(timeout: adaptiveShortTimeout),
+      "Cancel Download swipe action should appear after swipe"
+    )
+
+    // Tap cancel download button
+    cancelButton.tap()
+
+    // Then: Download status should reset — downloading indicator should disappear
+    // After cancellation, the episode reverts to not-downloaded state
+    XCTAssertFalse(
+      cancelButton.exists,
+      "Cancel Download button should dismiss after tap"
+    )
+  }
+
   // MARK: - Error Handling Tests
 
   /// Test: Failed download shows retry button

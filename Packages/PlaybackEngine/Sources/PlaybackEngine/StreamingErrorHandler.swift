@@ -45,10 +45,10 @@ public protocol StreamingErrorHandling: Sendable {
 
 /// Handles streaming errors with exponential backoff retry logic
 ///
-/// Retry schedule:
-/// - First retry: 5 seconds
-/// - Second retry: 15 seconds
-/// - Third retry: 60 seconds
+/// Retry schedule (per spec/streaming-playback.md):
+/// - First retry: 2 seconds
+/// - Second retry: 5 seconds
+/// - Third retry: 10 seconds
 /// - After 3 attempts: fail permanently
 ///
 /// **Testing**: Uses `DelayProvider` for deterministic testing (similar to `DeterministicTicker`).

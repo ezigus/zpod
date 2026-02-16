@@ -613,9 +613,20 @@ public struct EpisodeListView: View {
     switch action {
     case .deleteDownload:
       return isEffectivelyDownloaded(episode)
+    case .cancelDownload:
+      return isActivelyDownloading(episode)
     default:
       return true
     }
+  }
+
+  private func isActivelyDownloading(_ episode: Episode) -> Bool {
+    #if DEBUG
+    if let seededState = DownloadStateSeeding.state(for: episode.id) {
+      return seededState.status == .downloading || seededState.status == .paused
+    }
+    #endif
+    return episode.downloadStatus == .downloading || episode.downloadStatus == .paused
   }
 
   private func isEffectivelyDownloaded(_ episode: Episode) -> Bool {
