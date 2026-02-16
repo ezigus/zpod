@@ -1,0 +1,9 @@
+The background task notification just arrived for `baecb46` — I already analyzed its output above. The exit code 1 is from the **sleep usage lint** finding a pre-existing `Thread.sleep` in `PlaybackPositionTestSupport.swift:383` — not from any test failure caused by our changes.
+
+All actual tests passed with 0 failures:
+- 87 integration tests
+- 814 package tests
+- 59 AppSmoke tests
+- 23 UI test suites (all green)
+
+The commit (`771bc32`) is already pushed to `feat/-issue-28-1-13-final-acceptance-criteria-403`. No action needed on the lint warning — it's pre-existing and unrelated to Issue 28.1.13.

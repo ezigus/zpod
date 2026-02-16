@@ -1,0 +1,12 @@
+{
+  "goal": "[Issue 28.1.13] Final Acceptance Criteria Completion for Offline & Streaming",
+  "type": "feature",
+  "template": "feature-dev",
+  "branch": "feat/-issue-28-1-13-final-acceptance-criteria-403",
+  "issue": "#403",
+  "language": "unknown",
+  "test_cmd": "",
+  "labels": "",
+  "milestone": "",
+  "body": "## Description\n\nComplete the remaining acceptance criteria for Issue 28.1 (Offline and Streaming Playback Infrastructure). Core download, local playback, and streaming infrastructure are implemented and wired end-to-end. This issue tracks the final gaps in test coverage and metadata persistence.\n\n## Background\n\nStatic code review (2026-02-10) confirmed:\n- ✅ Manual download flows wired end-to-end (EpisodeListView → DownloadCoordinator)\n- ✅ Playback prefers local files, falls back to streaming (EnhancedEpisodePlayer + localFileProvider)\n- ✅ Network interruption handling tested (StreamingInterruptionUITests - 9 tests)\n- ✅ Download status/progress/deletion surfaced in UI (EpisodeRowView, StorageManagementView)\n- ❌ Siri snapshots rely on transient `podcastManager.all()` - episodes evaporate after restart\n- ❌ Some UI tests remain skipped pending dependencies\n\n## Acceptance Criteria\n\n### AC9: Siri Snapshots Include Episodes After Restart\n\n- [ ] Episode metadata persisted to SwiftData or JSON cache\n- [ ] `SiriSnapshotCoordinator` hydrates snapshots from persisted episodes\n- [ ] Integration test validates snapshots after restart\n- [ ] Spec updated with restart scenario\n\n**Tracked by:** Issue 28.1.8\n\n### AC10: All Spec Scenarios Have Corresponding Tests\n\n#### Offline Playback Coverage Gaps\n- [ ] Un-skip 5 download flow tests in `DownloadFlowUITests`\n- [ ] Add local playback verification test\n- [ ] Add fallback logic integration test\n- [ ] Un-skip offline error path in `OfflinePlaybackUITests`\n\n#### Streaming Playback Coverage Gaps  \n- [ ] Add seeking-to-unbuffered-position test\n- [ ] Add connection type change test\n- [ ] Add server error/404/timeout tests\n\n**Note:** Streaming already has 9 passing tests in `StreamingInterruptionUITests`.\n\n## Implementation Phases\n\n1. **Episode Metadata Persistence (AC9)** - 2-3 days\n2. **Un-skip Download Tests (AC10)** - 1-2 days  \n3. **Add Missing Streaming Tests (AC10)** - 1 day\n\n## Dependencies\n\n- Issue 28.1.8 (episode metadata persistence)\n- Issue 28.1 (parent)\n\n## Related Files\n\nSee issue file for complete details: `Issues/28.1.13-final-acceptance-criteria-completion.md`"
+}
