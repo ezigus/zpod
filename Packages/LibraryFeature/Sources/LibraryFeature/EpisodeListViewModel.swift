@@ -95,6 +95,11 @@ public final class EpisodeListViewModel: ObservableObject {
       deleteDownload: { [weak self] episode in
         self?.requestDeleteDownload(for: episode)
       },
+      cancelDownload: { [weak self] episode in
+        Task { [weak self] in
+          await self?.cancelEpisodeDownload(episode)
+        }
+      },
       shareEpisode: { [weak self] episode in
         self?.prepareShare(for: episode)
       }
