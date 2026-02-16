@@ -11,6 +11,7 @@
   @testable import CoreModels
   @testable import LibraryFeature
   @testable import PlaybackEngine
+  @testable import SharedUtilities
   @testable import TestSupport
 
   /// Integration tests for offline playback and fallback-to-streaming scenarios
@@ -190,13 +191,17 @@
     ///
     /// **Spec**: offline-playback.md - "Fallback to streaming when local file unavailable"
     ///
-    /// **Given**: EnhancedEpisodePlayer created with a localFileProvider that returns nil
+    /// **Given**: EnhancedEpisodePlayer with mock audio engine, localFileProvider returns nil
     /// **When**: play() is called for an episode with an audioURL
-    /// **Then**: Player enters playing state (uses streaming URL as fallback)
+    /// **Then**: Audio engine receives the streaming URL (not a local file URL)
     @MainActor
     func testLocalFileProviderFallbackToStreamingURL() async {
-      // Given: Player with localFileProvider that returns nil (no local file)
+      // Given: Player with mock audio engine and localFileProvider that returns nil
+      let mockEngine = URLCapturingAudioEngine()
+      let streamingURL = URL(string: "https://example.com/stream.mp3")!
+
       let player = EnhancedEpisodePlayer(
+        audioEngine: mockEngine,
         localFileProvider: { _ in nil }
       )
 
@@ -206,30 +211,38 @@
         podcastID: "test-podcast",
         pubDate: Date(),
         duration: 300,
-        audioURL: URL(string: "https://example.com/stream.mp3")!,
+        audioURL: streamingURL,
         downloadStatus: .notDownloaded
       )
 
       // When: Play the episode
       player.play(episode: episode, duration: 300)
 
-      // Then: Player should be playing (fell back to ticker/streaming path)
-      XCTAssertTrue(player.isPlaying, "Player should be playing after fallback to streaming URL")
-      XCTAssertEqual(player.currentPosition, 0.0, accuracy: 0.01, "Position should start at 0")
+      // Then: Audio engine should receive the streaming URL (fallback path)
+      XCTAssertEqual(mockEngine.playCallCount, 1, "Audio engine should be called exactly once")
+      XCTAssertEqual(
+        mockEngine.lastPlayedURL, streamingURL,
+        "Audio engine should receive streaming URL when local file is unavailable"
+      )
+      XCTAssertTrue(player.isPlaying, "Player should be playing")
     }
 
     /// Test: EnhancedEpisodePlayer uses local file when localFileProvider returns a URL
     ///
     /// **Spec**: offline-playback.md - "Downloaded episode uses local file for playback"
     ///
-    /// **Given**: EnhancedEpisodePlayer created with a localFileProvider that returns a file URL
+    /// **Given**: EnhancedEpisodePlayer with mock audio engine, localFileProvider returns file URL
     /// **When**: play() is called for an episode
-    /// **Then**: Player enters playing state (uses local file)
+    /// **Then**: Audio engine receives the local file URL (not the streaming URL)
     @MainActor
     func testDownloadedEpisodeUsesLocalFile() async {
-      // Given: Player with localFileProvider that returns a local file URL
+      // Given: Player with mock audio engine and localFileProvider that returns a local URL
+      let mockEngine = URLCapturingAudioEngine()
       let localURL = URL(fileURLWithPath: "/tmp/test-episode.mp3")
+      let streamingURL = URL(string: "https://example.com/stream.mp3")!
+
       let player = EnhancedEpisodePlayer(
+        audioEngine: mockEngine,
         localFileProvider: { episodeId in
           episodeId == "local-test-ep" ? localURL : nil
         }
@@ -241,29 +254,40 @@
         podcastID: "test-podcast",
         pubDate: Date(),
         duration: 300,
-        audioURL: URL(string: "https://example.com/stream.mp3")!,
+        audioURL: streamingURL,
         downloadStatus: .downloaded
       )
 
       // When: Play the episode
       player.play(episode: episode, duration: 300)
 
-      // Then: Player should be playing (uses local file path)
+      // Then: Audio engine should receive the local file URL (preferred over streaming)
+      XCTAssertEqual(mockEngine.playCallCount, 1, "Audio engine should be called exactly once")
+      XCTAssertEqual(
+        mockEngine.lastPlayedURL, localURL,
+        "Audio engine should receive local file URL when available, not streaming URL"
+      )
+      XCTAssertNotEqual(
+        mockEngine.lastPlayedURL, streamingURL,
+        "Audio engine should NOT receive streaming URL when local file is available"
+      )
       XCTAssertTrue(player.isPlaying, "Player should be playing from local file")
-      XCTAssertEqual(player.currentPosition, 0.0, accuracy: 0.01, "Position should start at 0")
     }
 
-    /// Test: Episode without audioURL and without local file fails gracefully
+    /// Test: Episode without audioURL and without local file fails with .missingAudioURL
     ///
     /// **Spec**: offline-playback.md - "Error when both offline and streaming unavailable"
     ///
-    /// **Given**: Episode has no audioURL and localFileProvider returns nil
+    /// **Given**: Episode has no audioURL and localFileProvider returns nil, audio engine provided
     /// **When**: play() is called
-    /// **Then**: Player handles the missing URL appropriately (ticker fallback path)
+    /// **Then**: Player enters failed state with .missingAudioURL, audio engine is NOT called
     @MainActor
     func testMissingBothSourcesHandledGracefully() async {
-      // Given: Player with localFileProvider returning nil, episode with no audioURL
+      // Given: Player with mock audio engine, localFileProvider returning nil, no audioURL
+      let mockEngine = URLCapturingAudioEngine()
+
       let player = EnhancedEpisodePlayer(
+        audioEngine: mockEngine,
         localFileProvider: { _ in nil }
       )
 
@@ -277,12 +301,52 @@
         downloadStatus: .notDownloaded
       )
 
-      // When: Play the episode (no audio engine in test, falls to ticker path)
+      // When: Play the episode
       player.play(episode: episode, duration: 300)
 
-      // Then: Player enters playing state via ticker (graceful fallback)
-      // In the ticker path (no AVPlayerPlaybackEngine), play() always succeeds
-      XCTAssertTrue(player.isPlaying, "Player should still enter playing state via ticker fallback")
+      // Then: Player should fail — audio engine never called, player not playing
+      XCTAssertEqual(
+        mockEngine.playCallCount, 0,
+        "Audio engine should NOT be called when episode has no audioURL"
+      )
+      XCTAssertFalse(
+        player.isPlaying,
+        "Player should NOT be playing when both sources are missing"
+      )
+    }
+  }
+
+  // MARK: - Test Double
+
+  /// Mock audio engine that records the URL passed to `play(from:)`.
+  /// Enables verification of the local-file-vs-streaming URL selection logic
+  /// in EnhancedEpisodePlayer without requiring AVFoundation.
+  @MainActor
+  private final class URLCapturingAudioEngine: AudioEngineProtocol {
+    var onPositionUpdate: ((TimeInterval) -> Void)?
+    var onPlaybackFinished: (() -> Void)?
+    var onError: ((PlaybackError) -> Void)?
+
+    private(set) var isPlaying: Bool = false
+    private(set) var lastPlayedURL: URL?
+    private(set) var playCallCount: Int = 0
+
+    func play(from url: URL, startPosition: TimeInterval, rate: Float) {
+      lastPlayedURL = url
+      playCallCount += 1
+      isPlaying = true
+    }
+
+    func pause() {
+      isPlaying = false
+    }
+
+    func seek(to position: TimeInterval) {}
+
+    func setRate(_ rate: Float) {}
+
+    func stop() {
+      isPlaying = false
     }
   }
 #endif

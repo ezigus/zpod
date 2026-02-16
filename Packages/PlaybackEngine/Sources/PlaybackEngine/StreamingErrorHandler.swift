@@ -208,6 +208,17 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
                  NSURLErrorNetworkConnectionLost: // Momentary connection drop
                 return true
 
+            // Server error via URLSession — retry 5xx per spec, fail 4xx immediately.
+            // URLSession wraps all non-2xx HTTP responses as NSURLErrorBadServerResponse;
+            // we must inspect the embedded status code to distinguish server vs client errors.
+            case NSURLErrorBadServerResponse:
+                if let httpResponse = nsError.userInfo["NSErrorFailingURLResponseKey"] as? HTTPURLResponse,
+                   (500...599).contains(httpResponse.statusCode)
+                {
+                    return true
+                }
+                return false
+
             // Offline state - should trigger network monitor, NOT retry
             case NSURLErrorNotConnectedToInternet:
                 return false

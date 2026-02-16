@@ -196,16 +196,14 @@
       )
     }
 
-    /// Test: NSURLErrorBadServerResponse is NOT retryable (URLSession-domain errors use code-based classification)
+    /// Test: NSURLErrorBadServerResponse with 5xx status IS retryable
     ///
-    /// **Spec**: streaming-playback.md - "Only truly transient errors retry"
+    /// **Spec**: streaming-playback.md - "Server Error (5xx): auto-retry after delay, up to 3 attempts"
     ///
-    /// **Given**: NSURLErrorBadServerResponse error (URLSession wraps 5xx here)
+    /// **Given**: NSURLErrorBadServerResponse error with HTTP 503
     /// **When**: Error is classified
-    /// **Then**: isRetryableError returns false — URLSession domain only retries
-    ///          timeout and connection-lost codes; HTTP status parsing is a
-    ///          secondary fallback for non-URLSession error domains
-    func testBadServerResponseNotRetryable() {
+    /// **Then**: isRetryableError returns true — 5xx server errors are retryable per spec
+    func testBadServerResponse5xxIsRetryable() {
       let serverError = NSError(
         domain: NSURLErrorDomain,
         code: NSURLErrorBadServerResponse,
@@ -219,13 +217,82 @@
         ]
       )
 
-      // NSURLErrorBadServerResponse falls under NSURLErrorDomain default → not retryable.
-      // The HTTP status code (503) is not checked for NSURLErrorDomain errors — only
-      // timeout and connection-lost are retryable in that domain.
-      XCTAssertFalse(
+      XCTAssertTrue(
         StreamingErrorHandler.isRetryableError(serverError),
-        "NSURLErrorBadServerResponse is NOT retryable (not in the transient-error allow-list)"
+        "NSURLErrorBadServerResponse with 5xx status IS retryable per spec"
       )
+    }
+
+    /// Test: NSURLErrorBadServerResponse with 4xx status is NOT retryable
+    ///
+    /// **Spec**: streaming-playback.md - "Client errors (4xx) fail immediately"
+    ///
+    /// **Given**: NSURLErrorBadServerResponse error with HTTP 403
+    /// **When**: Error is classified
+    /// **Then**: isRetryableError returns false — 4xx client errors fail immediately
+    func testBadServerResponse4xxNotRetryable() {
+      let clientError = NSError(
+        domain: NSURLErrorDomain,
+        code: NSURLErrorBadServerResponse,
+        userInfo: [
+          "NSErrorFailingURLResponseKey": HTTPURLResponse(
+            url: URL(string: "https://example.com/episode.mp3")!,
+            statusCode: 403,
+            httpVersion: nil,
+            headerFields: nil
+          )!
+        ]
+      )
+
+      XCTAssertFalse(
+        StreamingErrorHandler.isRetryableError(clientError),
+        "NSURLErrorBadServerResponse with 4xx status is NOT retryable — client error"
+      )
+    }
+
+    /// Test: 5xx server error drives full retry cycle (3 retries → fail)
+    ///
+    /// **Spec**: streaming-playback.md - "Server Error (5xx): auto-retry with backoff, max 3 attempts"
+    ///
+    /// **Given**: StreamingErrorHandler receives repeated 503 errors
+    /// **When**: Three retries are exhausted
+    /// **Then**: Fourth error fails permanently, delay backoff matches spec (2s, 5s, 10s)
+    func testServerErrorRetriesWithBackoff() async {
+      let serverError = NSError(
+        domain: NSURLErrorDomain,
+        code: NSURLErrorBadServerResponse,
+        userInfo: [
+          "NSErrorFailingURLResponseKey": HTTPURLResponse(
+            url: URL(string: "https://example.com/episode.mp3")!,
+            statusCode: 503,
+            httpVersion: nil,
+            headerFields: nil
+          )!
+        ]
+      )
+
+      // Verify 503 is retryable
+      XCTAssertTrue(StreamingErrorHandler.isRetryableError(serverError))
+
+      // Drive through full retry cycle
+      let retry1 = await handler.handleError(serverError)
+      try? await Task.sleep(nanoseconds: 100_000_000)
+      XCTAssertTrue(retry1, "First 503 should schedule retry")
+      XCTAssertEqual(delayProvider.totalSecondsRequested, 2.0, "First delay: 2s")
+
+      let retry2 = await handler.handleError(serverError)
+      try? await Task.sleep(nanoseconds: 100_000_000)
+      XCTAssertTrue(retry2, "Second 503 should schedule retry")
+      XCTAssertEqual(delayProvider.totalSecondsRequested, 7.0, "Total delay: 2+5=7s")
+
+      let retry3 = await handler.handleError(serverError)
+      try? await Task.sleep(nanoseconds: 100_000_000)
+      XCTAssertTrue(retry3, "Third 503 should schedule retry")
+      XCTAssertEqual(delayProvider.totalSecondsRequested, 17.0, "Total delay: 2+5+10=17s")
+
+      let retry4 = await handler.handleError(serverError)
+      XCTAssertFalse(retry4, "Fourth 503 should NOT retry — limit reached")
+      XCTAssertEqual(handler.retryState, .failed, "Should be in .failed state")
     }
 
     /// Test: Non-URLSession 5xx errors ARE retryable (HTTP status code fallback path)
