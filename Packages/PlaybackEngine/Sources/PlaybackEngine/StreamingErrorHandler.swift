@@ -212,9 +212,11 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
             // URLSession wraps all non-2xx HTTP responses as NSURLErrorBadServerResponse;
             // we must inspect the embedded status code to distinguish server vs client errors.
             case NSURLErrorBadServerResponse:
-                if let httpResponse = nsError.userInfo["NSErrorFailingURLResponseKey"] as? HTTPURLResponse,
-                   (500...599).contains(httpResponse.statusCode)
-                {
+                // URLSession may store the response under either key depending on iOS version.
+                // Check both to avoid silently classifying real 5xx as non-retryable.
+                let httpResponse = (nsError.userInfo["NSURLErrorFailingURLResponseErrorKey"]
+                    ?? nsError.userInfo["NSErrorFailingURLResponseKey"]) as? HTTPURLResponse
+                if let httpResponse, (500...599).contains(httpResponse.statusCode) {
                     return true
                 }
                 return false
