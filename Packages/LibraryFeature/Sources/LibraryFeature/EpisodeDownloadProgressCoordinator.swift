@@ -21,6 +21,9 @@ public protocol EpisodeDownloadProgressCoordinating: AnyObject {
   
   /// Returns download progress for a specific episode
   func downloadProgress(for episodeID: String) -> EpisodeDownloadProgressUpdate?
+
+  /// Clears cached progress for an episode (used when a download is cancelled).
+  func clearProgress(for episodeID: String)
   
   /// Starts monitoring download progress updates
   func startMonitoring()
@@ -54,6 +57,10 @@ public final class EpisodeDownloadProgressCoordinator: ObservableObject, Episode
   
   public func downloadProgress(for episodeID: String) -> EpisodeDownloadProgressUpdate? {
     downloadProgressByEpisodeID[episodeID]
+  }
+
+  public func clearProgress(for episodeID: String) {
+    downloadProgressByEpisodeID.removeValue(forKey: episodeID)
   }
   
   public func startMonitoring() {

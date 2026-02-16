@@ -88,6 +88,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private var lastPersistenceTime: TimeInterval = 0
   private let simulationRecoveryGracePeriod: TimeInterval
   private var simulationRecoveryTask: Task<Void, Never>?
+  private var simulatedBufferRecoveryTask: Task<Void, Never>?
   private var wasPlayingBeforeSimulatedNetworkLoss = false
   
   #if os(iOS)
@@ -175,6 +176,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   deinit {
     simulationRecoveryTask?.cancel()
+    simulatedBufferRecoveryTask?.cancel()
     activeTicker?.cancel()  // Ensure no lingering timer
     #if os(iOS)
       audioEngine?.stop()  // Clean up audio resources
@@ -185,6 +187,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   public func play(episode: Episode, duration maybeDuration: TimeInterval?) {
     cancelSimulationRecoveryTask()
+    cancelSimulatedBufferRecoveryTask()
     wasPlayingBeforeSimulatedNetworkLoss = false
     setNetworkSimulationPaused(false)
     setBufferSimulationActive(false)
@@ -349,6 +352,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   public func failPlayback(error: PlaybackError = .streamFailed) {
     guard let episode = currentEpisode else { return }
     cancelSimulationRecoveryTask()
+    cancelSimulatedBufferRecoveryTask()
     wasPlayingBeforeSimulatedNetworkLoss = false
     setNetworkSimulationPaused(false)
     setBufferSimulationActive(false)
@@ -497,6 +501,25 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     simulationRecoveryTask = nil
   }
 
+  private func cancelSimulatedBufferRecoveryTask() {
+    simulatedBufferRecoveryTask?.cancel()
+    simulatedBufferRecoveryTask = nil
+  }
+
+  private func scheduleSimulatedBufferRecovery(after delay: TimeInterval) {
+    cancelSimulatedBufferRecoveryTask()
+    simulatedBufferRecoveryTask = Task { @MainActor [weak self] in
+      guard let self else { return }
+      do {
+        try await Task.sleep(for: .seconds(max(0, delay)))
+        guard !Task.isCancelled else { return }
+        self.setBufferSimulationActive(false)
+      } catch {
+        // Task cancellation is expected when a newer simulation event supersedes recovery.
+      }
+    }
+  }
+
   private func setNetworkSimulationPaused(_ isPaused: Bool) {
     #if canImport(Combine)
       if networkSimulationPausedSubject.value != isPaused {
@@ -543,6 +566,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
   private func finishPlayback(markPlayed: Bool) {
     cancelSimulationRecoveryTask()
+    cancelSimulatedBufferRecoveryTask()
     wasPlayingBeforeSimulatedNetworkLoss = false
     setNetworkSimulationPaused(false)
     setBufferSimulationActive(false)
@@ -832,18 +856,55 @@ extension EnhancedEpisodePlayer: NetworkSimulationControlling {
 
   public func simulatePoorNetwork() {
     setBufferSimulationActive(true)
+    scheduleSimulatedBufferRecovery(after: 1.0)
+  }
+
+  public func simulateNetworkTypeChange() {
+    guard currentEpisode != nil else { return }
+    setBufferSimulationActive(true)
+    scheduleSimulatedBufferRecovery(after: 0.8)
   }
 
   public func simulateBufferEmpty() {
     setBufferSimulationActive(true)
+    cancelSimulatedBufferRecoveryTask()
   }
 
   public func simulateBufferReady() {
+    cancelSimulatedBufferRecoveryTask()
     setBufferSimulationActive(false)
   }
 
+  public func simulateSeekWithinBuffer() {
+    guard currentEpisode != nil else { return }
+    let target = min(currentDuration, currentPosition + 15)
+    seek(to: target)
+    cancelSimulatedBufferRecoveryTask()
+    setBufferSimulationActive(false)
+  }
+
+  public func simulateSeekOutsideBuffer() {
+    guard currentEpisode != nil else { return }
+    let seekDelta = max(60, currentDuration * 0.4)
+    let target = min(currentDuration, currentPosition + seekDelta)
+    seek(to: target)
+    setBufferSimulationActive(true)
+    scheduleSimulatedBufferRecovery(after: 1.2)
+  }
+
   public func simulatePlaybackError() {
-    failPlayback(error: .networkError)
+    simulatePlaybackError(.recoverableNetworkError)
+  }
+
+  public func simulatePlaybackError(_ type: PlaybackErrorSimulationType) {
+    switch type {
+    case .recoverableNetworkError, .serverError:
+      failPlayback(error: .networkError)
+    case .notFound:
+      failPlayback(error: .episodeUnavailable)
+    case .timeout:
+      failPlayback(error: .timeout)
+    }
   }
 
   private func resumePlaybackAfterSimulatedRecovery() {

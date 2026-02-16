@@ -2,6 +2,7 @@ import Foundation
 #if canImport(Combine)
 @preconcurrency import CombineSupport
 #endif
+import SharedUtilities
 
 /// Simulation controls used by UI tests to inject network and buffering events.
 @MainActor
@@ -14,7 +15,11 @@ public protocol NetworkSimulationControlling: AnyObject {
   func simulateNetworkLoss()
   func simulateNetworkRecovery()
   func simulatePoorNetwork()
+  func simulateNetworkTypeChange()
   func simulateBufferEmpty()
   func simulateBufferReady()
+  func simulateSeekWithinBuffer()
+  func simulateSeekOutsideBuffer()
   func simulatePlaybackError()
+  func simulatePlaybackError(_ type: PlaybackErrorSimulationType)
 }

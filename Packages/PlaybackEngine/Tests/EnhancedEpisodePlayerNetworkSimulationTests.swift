@@ -5,6 +5,7 @@ import Combine
 #endif
 @testable import PlaybackEngine
 import CoreModels
+import SharedUtilities
 
 @MainActor
 final class EnhancedEpisodePlayerNetworkSimulationTests: XCTestCase {
@@ -126,5 +127,53 @@ final class EnhancedEpisodePlayerNetworkSimulationTests: XCTestCase {
     XCTAssertEqual(error, .networkError, "Simulated playback error should use recoverable networkError")
     XCTAssertTrue(error.isRecoverable, "Simulated playback error must be recoverable for retry assertions")
     XCTAssertFalse(player.isPlaying, "Player should stop playing when simulated playback error occurs")
+  }
+
+  func testSimulatedNetworkTypeChangeKeepsPlaybackRunning() async throws {
+    let episode = Episode(id: "sim-network-type-1", title: "Network Type", duration: 240)
+    var bufferStates: [Bool] = []
+
+    player.bufferSimulationPublisher
+      .sink { bufferStates.append($0) }
+      .store(in: &cancellables)
+
+    player.play(episode: episode, duration: 240)
+    await ticker.tick(count: 1)
+    XCTAssertTrue(player.isPlaying)
+
+    player.simulateNetworkTypeChange()
+    XCTAssertTrue(player.isPlaying, "Network type transitions should not pause playback")
+    XCTAssertEqual(bufferStates.last, true, "Network type transition should briefly surface buffering")
+
+    try await Task.sleep(for: .milliseconds(950))
+    XCTAssertEqual(bufferStates.last, false, "Buffering should clear after transition stabilization")
+  }
+
+  func testSimulatedPlaybackErrorTypeMappings() async throws {
+    let episode = Episode(id: "sim-error-map-1", title: "Error Mapping", duration: 180)
+    var lastError: PlaybackError?
+
+    player.statePublisher
+      .sink { state in
+        guard case .failed(_, _, _, let error) = state else { return }
+        lastError = error
+      }
+      .store(in: &cancellables)
+
+    player.play(episode: episode, duration: 180)
+    await ticker.tick(count: 1)
+
+    player.simulatePlaybackError(.serverError)
+    XCTAssertEqual(lastError, .networkError)
+
+    player.play(episode: episode, duration: 180)
+    await ticker.tick(count: 1)
+    player.simulatePlaybackError(.notFound)
+    XCTAssertEqual(lastError, .episodeUnavailable)
+
+    player.play(episode: episode, duration: 180)
+    await ticker.tick(count: 1)
+    player.simulatePlaybackError(.timeout)
+    XCTAssertEqual(lastError, .timeout)
   }
 }

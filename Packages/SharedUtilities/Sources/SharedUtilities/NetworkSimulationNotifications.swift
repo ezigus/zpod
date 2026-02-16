@@ -4,15 +4,21 @@ public enum NetworkSimulationType: String, Sendable {
   case loss
   case recovery
   case poorQuality
+  case wifiToCellular
 }
 
 public enum BufferSimulationType: String, Sendable {
   case empty
   case ready
+  case seekWithinBuffer
+  case seekOutsideBuffer
 }
 
 public enum PlaybackErrorSimulationType: String, Sendable {
   case recoverableNetworkError
+  case serverError
+  case notFound
+  case timeout
 }
 
 public enum NetworkSimulationNotificationKey {

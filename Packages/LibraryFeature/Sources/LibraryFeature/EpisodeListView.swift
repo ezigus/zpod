@@ -1200,7 +1200,26 @@ public struct EpisodeRowView: View {
       if isDownloadDeleted {
         return episode.downloadStatus
       }
-      // UITest override: treat listed episodes as downloaded for deterministic UI
+
+      #if DEBUG
+      // UITest override: structured download state seeding (preferred)
+      if let seededState = DownloadStateSeeding.state(for: episode.id) {
+        switch seededState.status {
+        case .downloaded:
+          return .downloaded
+        case .downloading:
+          return .downloading
+        case .failed:
+          return .failed
+        case .paused:
+          return .paused
+        case .notDownloaded:
+          return .notDownloaded
+        }
+      }
+      #endif
+
+      // UITest override: legacy comma-separated downloaded episodes (backwards compatibility)
       if episode.downloadStatus == .downloaded {
         return .downloaded
       }
@@ -1218,47 +1237,86 @@ public struct EpisodeRowView: View {
       return episode.downloadStatus
     }()
 
-    switch effectiveStatus {
-    case .downloaded:
-      downloadStatusView(
-        icon: "arrow.down.circle.fill",
-        color: .blue,
-        label: "Downloaded"
-      )
-    case .downloading:
-      HStack(spacing: 4) {
-        Image(systemName: "arrow.down.circle")
-          .foregroundStyle(.blue)
-        ProgressView()
-          .scaleEffect(0.6)
-      }
-      .accessibilityElement(children: .combine)
-      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
-      .accessibilityLabel("Downloading")
-    case .paused:
-      HStack(spacing: 4) {
-        Image(systemName: "pause.circle")
-          .foregroundStyle(.yellow)
-        if let progress = downloadProgress {
-          Text("\(Int(progress.fractionCompleted * 100))%")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+    ZStack(alignment: .topLeading) {
+      switch effectiveStatus {
+      case .downloaded:
+        downloadStatusView(
+          icon: "arrow.down.circle.fill",
+          color: .blue,
+          label: "Downloaded"
+        )
+      case .downloading:
+        HStack(spacing: 4) {
+          Image(systemName: "arrow.down.circle")
+            .foregroundStyle(.blue)
+
+          #if DEBUG
+          // Show seeded progress if available, otherwise show spinner
+          if let seededState = DownloadStateSeeding.state(for: episode.id),
+             let progress = seededState.progress {
+            Text("\(Int(progress * 100))%")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .accessibilityIdentifier("Episode-\(episode.id)-DownloadProgress")
+          } else {
+            ProgressView()
+              .scaleEffect(0.6)
+          }
+          #else
+          ProgressView()
+            .scaleEffect(0.6)
+          #endif
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
+        .accessibilityLabel("Downloading")
+      case .paused:
+        HStack(spacing: 4) {
+          Image(systemName: "pause.circle")
+            .foregroundStyle(.yellow)
+
+          #if DEBUG
+          // Prefer seeded progress, fall back to actual download progress
+          let displayProgress: Double? = {
+            if let seededState = DownloadStateSeeding.state(for: episode.id) {
+              return seededState.progress
+            }
+            return downloadProgress?.fractionCompleted
+          }()
+
+          if let progress = displayProgress {
+            Text("\(Int(progress * 100))%")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .accessibilityIdentifier("Episode-\(episode.id)-DownloadProgress")
+          }
+          #else
+          if let progress = downloadProgress {
+            Text("\(Int(progress.fractionCompleted * 100))%")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+          }
+          #endif
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
+        .accessibilityLabel("Download paused")
+      case .failed:
+        Button(action: {
+          onDownloadRetry?()
+        }) {
+          Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(.red)
+        }
+        .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
+        .accessibilityLabel("Download failed, tap to retry")
+      case .notDownloaded:
+        EmptyView()
       }
-      .accessibilityElement(children: .combine)
-      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
-      .accessibilityLabel("Download paused")
-    case .failed:
-      Button(action: {
-        onDownloadRetry?()
-      }) {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .foregroundStyle(.red)
-      }
-      .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
-      .accessibilityLabel("Download failed, tap to retry")
-    case .notDownloaded:
-      EmptyView()
+
+      #if DEBUG
+      downloadStatusDiagnosticMarker(for: effectiveStatus)
+      #endif
     }
   }
 
@@ -1280,6 +1338,21 @@ public struct EpisodeRowView: View {
       .accessibilityIdentifier(downloadStatusAccessibilityIdentifier)
       .accessibilityLabel(label)
   }
+
+  #if DEBUG
+  @ViewBuilder
+  private func downloadStatusDiagnosticMarker(for status: EpisodeDownloadStatus) -> some View {
+    if ProcessInfo.processInfo.environment["UITEST_DOWNLOAD_STATUS_DIAGNOSTICS"] == "1" {
+      Text(status.rawValue)
+        .font(.caption2)
+        .opacity(0.001)
+        .accessibilityHidden(false)
+        .accessibilityIdentifier("Episode-\(episode.id)-DownloadStatusDiagnostic")
+        .accessibilityLabel("Episode-\(episode.id)-DownloadStatusDiagnostic")
+        .accessibilityValue(status.rawValue)
+    }
+  }
+  #endif
 
   private func formatDuration(_ duration: TimeInterval) -> String {
     let hours = Int(duration) / 3600

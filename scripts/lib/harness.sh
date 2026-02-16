@@ -1242,7 +1242,7 @@ print_ui_suite_results_summary() {
     (( computed_total += suite_total ))
     (( computed_failed += suite_failed ))
     (( computed_skipped += suite_skipped ))
-    [[ "$status" == "warn" ]] && (( computed_warn++ ))
+    [[ "$status" == "warn" ]] && (( computed_warn += 1 ))
   done
   if (( computed_present == 1 )); then
     summary_total="$computed_total"
@@ -2027,7 +2027,7 @@ dev_build_enhanced_syntax() {
     if ! swift -frontend -parse "$file" >/dev/null 2>&1; then
       log_error "Syntax error in $file"
       swift -frontend -parse "$file" 2>&1 | head -10 || true
-      ((error_count++))
+      (( error_count += 1 ))
     else
       log_success "$(basename "$file")"
     fi
