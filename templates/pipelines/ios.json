@@ -1,0 +1,87 @@
+{
+  "name": "ios",
+  "description": "iOS autonomous pipeline — build and test via run-xcode-tests.sh",
+  "defaults": {
+    "test_cmd": "./scripts/run-xcode-tests.sh -b zpod -t zpodTests 2>&1",
+    "model": "opus",
+    "agents": 1
+  },
+  "stages": [
+    { "id": "intake", "enabled": true, "gate": "auto", "config": {} },
+    {
+      "id": "plan",
+      "enabled": true,
+      "gate": "auto",
+      "config": { "model": "opus" }
+    },
+    {
+      "id": "design",
+      "enabled": true,
+      "gate": "auto",
+      "config": { "model": "opus" }
+    },
+    {
+      "id": "build",
+      "enabled": true,
+      "gate": "auto",
+      "config": {
+        "max_iterations": 25,
+        "audit": true,
+        "quality_gates": true
+      }
+    },
+    {
+      "id": "test",
+      "enabled": true,
+      "gate": "auto",
+      "config": {
+        "test_cmd": "./scripts/run-xcode-tests.sh -b zpod -t zpodTests 2>&1"
+      }
+    },
+    { "id": "review", "enabled": true, "gate": "auto", "config": {} },
+    {
+      "id": "compound_quality",
+      "enabled": true,
+      "gate": "auto",
+      "config": {
+        "adversarial": true,
+        "max_cycles": 2
+      }
+    },
+    {
+      "id": "pr",
+      "enabled": true,
+      "gate": "auto",
+      "config": { "wait_ci": false }
+    },
+    {
+      "id": "merge",
+      "enabled": true,
+      "gate": "auto",
+      "config": {
+        "merge_method": "squash",
+        "auto_merge": true,
+        "auto_approve": true,
+        "auto_delete_branch": true
+      }
+    },
+    {
+      "id": "deploy",
+      "enabled": false,
+      "gate": "approve",
+      "config": {}
+    },
+    {
+      "id": "validate",
+      "enabled": false,
+      "gate": "auto",
+      "config": {}
+    },
+    {
+      "id": "monitor",
+      "enabled": false,
+      "gate": "auto",
+      "config": {}
+    }
+  ]
+}
