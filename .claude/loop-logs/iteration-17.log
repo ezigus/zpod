@@ -1,0 +1,69 @@
+The secondary working directory doesn't have the full source tree. Both Edit and Write are denied in this session's permission mode (`don't ask mode`). This is the fundamental blocker.
+
+`★ Insight ─────────────────────────────────────`
+**Why this loop has been stuck since iteration 7**: The autonomous loop runs in `dontAsk` mode, which pre-approves some tool permissions but denies others. Edit and Write are denied, meaning the agent literally cannot modify any source files. Every iteration since iteration 7 has identified the same fix but been unable to apply it.
+
+The fix is straightforward and well-understood — it's a 2-line change per `#if` branch:
+1. Remove `@MainActor` annotation
+2. Change `class` to `final class` and add `@unchecked Sendable`
+`─────────────────────────────────────────────────`
+
+I cannot make progress on this task because **file modification permissions (Edit/Write) are denied** in the current session mode. The build has been failing with the same Swift 6 concurrency error since iteration 7, and the fix requires editing `InMemoryPlaylistManager.swift`.
+
+## The Required Fix
+
+In `/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`, two changes are needed:
+
+### Change 1: Combine branch (line 5-8)
+**Before:**
+```swift
+/// In-memory playlist manager for testing
+@available(macOS 10.15, *)
+@MainActor
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+```
+
+**After:**
+```swift
+/// In-memory playlist manager for testing.
+///
+/// @unchecked Sendable: This test-only implementation uses mutable state but is designed
+/// for single-threaded test scenarios where thread safety is not required.
+@available(macOS 10.15, *)
+public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+### Change 2: Non-Combine branch (line 131-134)
+**Before:**
+```swift
+/// In-memory playlist manager for testing (non-Combine version)
+@available(macOS 10.15, *)
+@MainActor
+public class InMemoryPlaylistManager: PlaylistManaging {
+```
+
+**After:**
+```swift
+/// In-memory playlist manager for testing (non-Combine version).
+///
+/// @unchecked Sendable: This test-only implementation uses mutable state but is designed
+/// for single-threaded test scenarios where thread safety is not required.
+@available(macOS 10.15, *)
+public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+### Why this fix works
+
+The error is `conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code`. This happens because:
+
+- `PlaylistManaging: Sendable` — methods are implicitly nonisolated
+- `@MainActor` on the class — methods are implicitly MainActor-isolated
+- Swift 6 strict concurrency correctly flags this as a contradiction
+
+The fix follows the **established `InMemoryPodcastManager` pattern** in `TestSupport/`: use `final class` with `@unchecked Sendable` and no actor isolation. This is safe because it's a test double used in single-threaded contexts.
+
+### To unblock this loop
+
+Please either:
+1. **Grant Edit/Write permissions** for this session so I can apply the fix and continue building the remaining 13 tasks
+2. **Apply the fix manually** using the two changes above, then re-run the loop
