@@ -1,0 +1,58 @@
+## STOP — File Modification Permissions Required
+
+Both `Edit` and `Write` tools are denied in the current `dontAsk` permission mode. **This is the exact same blocker that has prevented progress for iterations 7–17.** I cannot make any source code changes without file modification permissions.
+
+### The Problem
+
+The build fails with a Swift 6 concurrency error:
+
+```
+main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+```
+
+This affects **all 13 methods** in `InMemoryPlaylistManager` because the class is `@MainActor`-isolated but conforms to `PlaylistManaging: Sendable`, which expects `nonisolated` methods.
+
+### The Exact Fix (2 changes in 1 file)
+
+**File**: `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`
+
+**Change 1** — Combine branch (line 7-8): Replace:
+```swift
+@MainActor
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+```
+With:
+```swift
+public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+**Change 2** — Non-Combine branch (lines 133-134): Replace:
+```swift
+@MainActor
+public class InMemoryPlaylistManager: PlaylistManaging {
+```
+With:
+```swift
+public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+### Why This Fix Is Correct
+
+This follows the **identical pattern** used by `InMemoryPodcastManager` in `Packages/TestSupport/Sources/TestSupport/InMemoryPodcastManager.swift:10`:
+
+```swift
+public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable {
+```
+
+- `@MainActor` is removed — the protocol requires `nonisolated` methods
+- `final class` — prevents subclassing issues with `Sendable` conformance
+- `@unchecked Sendable` — acknowledges mutable state is safe in single-threaded test scenarios
+
+### How to Unblock
+
+Please either:
+
+1. **Apply the fix manually** using the two changes above, OR
+2. **Re-run this session with file modification permissions** (`Edit` and `Write` tools enabled)
+
+Until this single file is fixed, the entire CoreModels module cannot compile, and **none of the 15 implementation tasks** can proceed. This one fix unblocks the entire pipeline.
