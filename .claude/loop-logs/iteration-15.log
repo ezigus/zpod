@@ -1,0 +1,47 @@
+## Iteration 15: BLOCKED — File Modification Permissions Required
+
+All three file modification tools are denied in this autonomous loop's permission mode:
+
+| Tool | Status | Attempted |
+|------|--------|-----------|
+| **Edit** | Denied | Direct `old_string`→`new_string` replacement |
+| **Write** | Denied | Full file rewrite |
+| **Bash** (sed -i) | Denied | In-place shell edit |
+
+### The Fix (2 changes, ~30 seconds of manual work)
+
+The build error is a **Swift 6 actor isolation conflict**. `PlaylistManaging: Sendable` requires `nonisolated` methods, but `@MainActor` on the class makes all methods actor-isolated.
+
+**File**: `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`
+
+**Change 1** — Combine branch (lines 5–8):
+```diff
+-/// In-memory playlist manager for testing
++/// In-memory playlist manager for testing.
+ @available(macOS 10.15, *)
+-@MainActor
+-public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
++public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+**Change 2** — Non-Combine branch (lines 131–134):
+```diff
+-/// In-memory playlist manager for testing (non-Combine version)
++/// In-memory playlist manager for testing (non-Combine version).
+ @available(macOS 10.15, *)
+-@MainActor
+-public class InMemoryPlaylistManager: PlaylistManaging {
++public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+`★ Insight ─────────────────────────────────────`
+**Why this pattern works**: The established codebase pattern (see `InMemoryPodcastManager` in TestSupport line 10) uses `final class` + `@unchecked Sendable` for in-memory test doubles. This tells the Swift 6 compiler "I acknowledge this type has mutable state, but I guarantee safe usage" — which is valid for single-threaded test scenarios. The `final` modifier is needed because only `final` classes can conform to `Sendable` (non-final classes could be subclassed with non-sendable state).
+
+**Why the loop is stuck**: The Shipwright autonomous loop runs in "don't ask" permission mode, which blocks all file-writing tools (Edit, Write, Bash with `-i`). This is iteration 15 — the same blocker has prevented progress since iteration 8. **No amount of re-iteration will fix this without permission changes.**
+`─────────────────────────────────────────────────`
+
+### How to unblock
+
+Please either:
+1. **Apply the 2-line fix manually** (remove `@MainActor`, change to `public final class ... @unchecked Sendable` on both lines 7–8 and 133–134)
+2. **Re-run the loop with Edit/Write permissions enabled** so the agent can apply the fix and continue with the remaining 11 tasks (ViewModels, UI views, playlist playback integration)

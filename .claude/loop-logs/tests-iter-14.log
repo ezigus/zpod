@@ -1,0 +1,1674 @@
+⏱️  14:02:08 - run-xcode-tests start (2026-02-17 14:02:08 EST)
+[DEBUG] REQUESTED_SYNTAX=0 REQUESTED_BUILDS='' REQUESTED_TESTS='' REQUEST_TESTPLAN=0 REQUEST_TESTPLAN_SUITE='' REQUESTED_LINT=0
+ℹ️  ▶️  Swift syntax started
+================================
+Syntax check
+================================
+================================
+🔨 zPodcastAddict Development Build Script
+================================
+ℹ️  Project root: /Users/ericziegler/code/zpod
+================================
+Checking Swift Syntax
+================================
+ℹ️  Checking: PlaybackPositionTestSupport.swift
+✅ PlaybackPositionTestSupport.swift
+ℹ️  Checking: PlayerNavigationTests.swift
+✅ PlayerNavigationTests.swift
+ℹ️  Checking: UITestRetryHelpers.swift
+✅ UITestRetryHelpers.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+ToggleDiagnostics.swift
+✅ SwipeConfigurationTestSupport+ToggleDiagnostics.swift
+ℹ️  Checking: SwipeConfigurationSeeding.swift
+✅ SwipeConfigurationSeeding.swift
+ℹ️  Checking: DownloadStateSeedingHelper.swift
+✅ DownloadStateSeedingHelper.swift
+ℹ️  Checking: DownloadTransitionTestHelper.swift
+✅ DownloadTransitionTestHelper.swift
+ℹ️  Checking: OrphanedEpisodesUITests.swift
+✅ OrphanedEpisodesUITests.swift
+ℹ️  Checking: CoreUINavigationTests.swift
+✅ CoreUINavigationTests.swift
+ℹ️  Checking: EpisodeListUITests.swift
+✅ EpisodeListUITests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport.swift
+✅ SwipeConfigurationTestSupport.swift
+ℹ️  Checking: UITestWait.swift
+✅ UITestWait.swift
+ℹ️  Checking: UITestEnvironmentalIsolation.swift
+✅ UITestEnvironmentalIsolation.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+ActionManagement.swift
+✅ SwipeConfigurationTestSupport+ActionManagement.swift
+ℹ️  Checking: SwipePersistenceTests.swift
+✅ SwipePersistenceTests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Navigation.swift
+✅ SwipeConfigurationTestSupport+Navigation.swift
+ℹ️  Checking: SettingsScreen.swift
+✅ SettingsScreen.swift
+ℹ️  Checking: PlayerScreen.swift
+✅ PlayerScreen.swift
+ℹ️  Checking: LibraryScreen.swift
+✅ LibraryScreen.swift
+ℹ️  Checking: BaseScreen.swift
+✅ BaseScreen.swift
+ℹ️  Checking: TabBarNavigation.swift
+✅ TabBarNavigation.swift
+ℹ️  Checking: DiscoverScreen.swift
+✅ DiscoverScreen.swift
+ℹ️  Checking: PlaybackPositionTickerTests.swift
+✅ PlaybackPositionTickerTests.swift
+ℹ️  Checking: BatchOperationUITests.swift
+✅ BatchOperationUITests.swift
+ℹ️  Checking: MiniPlayerPersistenceTests.swift
+✅ MiniPlayerPersistenceTests.swift
+ℹ️  Checking: StorageManagementUITests.swift
+✅ StorageManagementUITests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Debug.swift
+✅ SwipeConfigurationTestSupport+Debug.swift
+ℹ️  Checking: PlayerAccessibilityTests.swift
+✅ PlayerAccessibilityTests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+SheetUtilities.swift
+✅ SwipeConfigurationTestSupport+SheetUtilities.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Toggle.swift
+✅ SwipeConfigurationTestSupport+Toggle.swift
+ℹ️  Checking: StreamingInterruptionUITests.swift
+✅ StreamingInterruptionUITests.swift
+ℹ️  Checking: PlayerPlaybackInteractionTests.swift
+✅ PlayerPlaybackInteractionTests.swift
+ℹ️  Checking: PlaybackPositionAVPlayerTests.swift
+✅ PlaybackPositionAVPlayerTests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Utilities.swift
+✅ SwipeConfigurationTestSupport+Utilities.swift
+ℹ️  Checking: UITestLaunchConfiguration.swift
+✅ UITestLaunchConfiguration.swift
+ℹ️  Checking: UITestStableWaitHelpers.swift
+✅ UITestStableWaitHelpers.swift
+ℹ️  Checking: SwipePresetSelectionTests.swift
+✅ SwipePresetSelectionTests.swift
+ℹ️  Checking: PlayerOrientationSnapshotTests.swift
+✅ PlayerOrientationSnapshotTests.swift
+ℹ️  Checking: UITestHelpers.swift
+✅ UITestHelpers.swift
+ℹ️  Checking: SwipeActionManagementTests.swift
+✅ SwipeActionManagementTests.swift
+ℹ️  Checking: DownloadFlowUITests.swift
+✅ DownloadFlowUITests.swift
+ℹ️  Checking: ContentDiscoveryUITests.swift
+✅ ContentDiscoveryUITests.swift
+ℹ️  Checking: PlaybackUITests.swift
+✅ PlaybackUITests.swift
+ℹ️  Checking: SwipeConfigurationUIDisplayTests.swift
+✅ SwipeConfigurationUIDisplayTests.swift
+ℹ️  Checking: SwipeToggleInteractionTests.swift
+✅ SwipeToggleInteractionTests.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Seeding.swift
+✅ SwipeConfigurationTestSupport+Seeding.swift
+ℹ️  Checking: UITestImprovedElementDiscovery.swift
+✅ UITestImprovedElementDiscovery.swift
+ℹ️  Checking: OfflinePlaybackUITests.swift
+✅ OfflinePlaybackUITests.swift
+ℹ️  Checking: SwipeExecutionTests.swift
+✅ SwipeExecutionTests.swift
+ℹ️  Checking: IsolatedUITestCase.swift
+✅ IsolatedUITestCase.swift
+ℹ️  Checking: SwipeConfigurationTestSupport+Assertions.swift
+✅ SwipeConfigurationTestSupport+Assertions.swift
+ℹ️  Checking: SwiftDataPodcastManagerTests.swift
+✅ SwiftDataPodcastManagerTests.swift
+ℹ️  Checking: AppSmokeTests.swift
+✅ AppSmokeTests.swift
+ℹ️  Checking: SwipePresetSelectionSwiftLensTests.swift
+✅ SwipePresetSelectionSwiftLensTests.swift
+ℹ️  Checking: HapticFeedbackServiceTests.swift
+✅ HapticFeedbackServiceTests.swift
+ℹ️  Checking: SystemMediaCoordinatorTests.swift
+✅ SystemMediaCoordinatorTests.swift
+ℹ️  Checking: OrganizationIntegrationTests.swift
+✅ OrganizationIntegrationTests.swift
+ℹ️  Checking: SearchTestBuilder.swift
+✅ SearchTestBuilder.swift
+ℹ️  Checking: OfflinePlaybackIntegrationTests.swift
+✅ OfflinePlaybackIntegrationTests.swift
+ℹ️  Checking: PodcastPersistenceIntegrationTests.swift
+✅ PodcastPersistenceIntegrationTests.swift
+ℹ️  Checking: MockRSSParser.swift
+✅ MockRSSParser.swift
+ℹ️  Checking: CoreWorkflowIntegrationTests.swift
+✅ CoreWorkflowIntegrationTests.swift
+ℹ️  Checking: SimpleCoreIntegrationTests.swift
+✅ SimpleCoreIntegrationTests.swift
+ℹ️  Checking: PlaybackStateSynchronizationIntegrationTests.swift
+✅ PlaybackStateSynchronizationIntegrationTests.swift
+ℹ️  Checking: SwipeActionsEpisodeListIntegrationTests.swift
+✅ SwipeActionsEpisodeListIntegrationTests.swift
+ℹ️  Checking: WorkflowTestBuilder.swift
+✅ WorkflowTestBuilder.swift
+ℹ️  Checking: StreamingEdgeCaseIntegrationTests.swift
+✅ StreamingEdgeCaseIntegrationTests.swift
+ℹ️  Checking: OrphanedEpisodesIntegrationTests.swift
+✅ OrphanedEpisodesIntegrationTests.swift
+ℹ️  Checking: IntegrationTestSupport.swift
+✅ IntegrationTestSupport.swift
+ℹ️  Checking: SearchDiscoveryIntegrationTests.swift
+✅ SearchDiscoveryIntegrationTests.swift
+ℹ️  Checking: SwipeConfigurationIntegrationTests.swift
+✅ SwipeConfigurationIntegrationTests.swift
+ℹ️  Checking: PlaylistPlaybackIntegrationTests.swift
+✅ PlaylistPlaybackIntegrationTests.swift
+ℹ️  Checking: DownloadStateSeedingIntegrationTests.swift
+✅ DownloadStateSeedingIntegrationTests.swift
+ℹ️  Checking: Issue11OPMLTests.swift
+✅ Issue11OPMLTests.swift
+ℹ️  Checking: RSSFeedParserPodcastTests.swift
+✅ RSSFeedParserPodcastTests.swift
+ℹ️  Checking: ComprehensiveFeedParsingTests.swift
+✅ ComprehensiveFeedParsingTests.swift
+ℹ️  Checking: RSSFeedParserEpisodeTests.swift
+✅ RSSFeedParserEpisodeTests.swift
+ℹ️  Checking: RSSFeedParserEdgeCaseTests.swift
+✅ RSSFeedParserEdgeCaseTests.swift
+ℹ️  Checking: WarningRecorder.swift
+✅ WarningRecorder.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: SubscriptionService.swift
+✅ SubscriptionService.swift
+ℹ️  Checking: OPMLExportService.swift
+✅ OPMLExportService.swift
+ℹ️  Checking: RSSFeedParser.swift
+✅ RSSFeedParser.swift
+ℹ️  Checking: OPMLParser.swift
+✅ OPMLParser.swift
+ℹ️  Checking: OPMLTypes.swift
+✅ OPMLTypes.swift
+ℹ️  Checking: OPMLImportService.swift
+✅ OPMLImportService.swift
+ℹ️  Checking: FeedParsing.swift
+✅ FeedParsing.swift
+ℹ️  Checking: ExpandedPlayerViewModelTests.swift
+✅ ExpandedPlayerViewModelTests.swift
+ℹ️  Checking: PlayerFeatureTests.swift
+✅ PlayerFeatureTests.swift
+ℹ️  Checking: EpisodeDetailViewModelTests.swift
+✅ EpisodeDetailViewModelTests.swift
+ℹ️  Checking: MiniPlayerViewModelTests.swift
+✅ MiniPlayerViewModelTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: EpisodeDetailView.swift
+✅ EpisodeDetailView.swift
+ℹ️  Checking: ExpandedPlayerViewModel.swift
+✅ ExpandedPlayerViewModel.swift
+ℹ️  Checking: MiniPlayerViewModel.swift
+✅ MiniPlayerViewModel.swift
+ℹ️  Checking: ExpandedPlayerView.swift
+✅ ExpandedPlayerView.swift
+ℹ️  Checking: MiniPlayerView.swift
+✅ MiniPlayerView.swift
+ℹ️  Checking: PlaybackAlertToastView.swift
+✅ PlaybackAlertToastView.swift
+ℹ️  Checking: EpisodeDetailViewModel.swift
+✅ EpisodeDetailViewModel.swift
+ℹ️  Checking: ComprehensiveInMemoryFolderManagerTests.swift
+✅ ComprehensiveInMemoryFolderManagerTests.swift
+ℹ️  Checking: ComprehensiveMockTests.swift
+✅ ComprehensiveMockTests.swift
+ℹ️  Checking: ConsolidatedHelpersTests.swift
+✅ ConsolidatedHelpersTests.swift
+ℹ️  Checking: ComprehensiveInMemoryPodcastManagerTests.swift
+✅ ComprehensiveInMemoryPodcastManagerTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: PlaylistEngine.swift
+✅ PlaylistEngine.swift
+ℹ️  Checking: InMemoryPodcastManager.swift
+✅ InMemoryPodcastManager.swift
+ℹ️  Checking: TestExtensions.swift
+✅ TestExtensions.swift
+ℹ️  Checking: InMemoryFolderManager.swift
+✅ InMemoryFolderManager.swift
+ℹ️  Checking: PlaylistManager.swift
+✅ PlaylistManager.swift
+ℹ️  Checking: MockEpisodeStateManager.swift
+✅ MockEpisodeStateManager.swift
+ℹ️  Checking: PlaylistTestBuilder.swift
+✅ PlaylistTestBuilder.swift
+ℹ️  Checking: SpySiriSnapshotRefresher.swift
+✅ SpySiriSnapshotRefresher.swift
+ℹ️  Checking: Mocks.swift
+✅ Mocks.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: CombineSupport.swift
+✅ CombineSupport.swift
+ℹ️  Checking: PlaylistFeatureTests.swift
+✅ PlaylistFeatureTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: PlaylistViews.swift
+✅ PlaylistViews.swift
+ℹ️  Checking: Issue05SettingsTests.swift
+✅ Issue05SettingsTests.swift
+ℹ️  Checking: UISettingsIntegrationTests.swift
+✅ UISettingsIntegrationTests.swift
+ℹ️  Checking: Issue05SettingsIntegrationTests.swift
+✅ Issue05SettingsIntegrationTests.swift
+ℹ️  Checking: SwipeConfigurationControllerTests.swift
+✅ SwipeConfigurationControllerTests.swift
+ℹ️  Checking: WorkingSettingsDomainTests.swift
+✅ WorkingSettingsDomainTests.swift
+ℹ️  Checking: SettingsDomainTestSupport.swift
+✅ SettingsDomainTestSupport.swift
+ℹ️  Checking: SwipeConfigurationServiceTests.swift
+✅ SwipeConfigurationServiceTests.swift
+ℹ️  Checking: PlaybackConfigurationServiceTests.swift
+✅ PlaybackConfigurationServiceTests.swift
+ℹ️  Checking: SmartListAutomationConfigurationControllerTests.swift
+✅ SmartListAutomationConfigurationControllerTests.swift
+ℹ️  Checking: DownloadConfigurationServiceTests.swift
+✅ DownloadConfigurationServiceTests.swift
+ℹ️  Checking: SettingsManagerFeatureRegistryTests.swift
+✅ SettingsManagerFeatureRegistryTests.swift
+ℹ️  Checking: PlaybackConfigurationControllerTests.swift
+✅ PlaybackConfigurationControllerTests.swift
+ℹ️  Checking: NotificationsConfigurationControllerTests.swift
+✅ NotificationsConfigurationControllerTests.swift
+ℹ️  Checking: DownloadConfigurationControllerTests.swift
+✅ DownloadConfigurationControllerTests.swift
+ℹ️  Checking: AppearanceConfigurationControllerTests.swift
+✅ AppearanceConfigurationControllerTests.swift
+ℹ️  Checking: FeatureConfigurationRegistryTests.swift
+✅ FeatureConfigurationRegistryTests.swift
+ℹ️  Checking: PlaybackPresetConfigurationControllerTests.swift
+✅ PlaybackPresetConfigurationControllerTests.swift
+ℹ️  Checking: Issue05AcceptanceCriteriaTests.swift
+✅ Issue05AcceptanceCriteriaTests.swift
+ℹ️  Checking: Issue10AcceptanceCriteriaTests.swift
+✅ Issue10AcceptanceCriteriaTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: NotificationsConfigurationService.swift
+✅ NotificationsConfigurationService.swift
+ℹ️  Checking: NotificationsConfigurationFeature.swift
+✅ NotificationsConfigurationFeature.swift
+ℹ️  Checking: SettingsManagerExtensions.swift
+✅ SettingsManagerExtensions.swift
+ℹ️  Checking: PlaybackPresetConfigurationService.swift
+✅ PlaybackPresetConfigurationService.swift
+ℹ️  Checking: NotificationsConfigurationController.swift
+✅ NotificationsConfigurationController.swift
+ℹ️  Checking: PlaybackPresetConfigurationFeature.swift
+✅ PlaybackPresetConfigurationFeature.swift
+ℹ️  Checking: SwipeConfigurationController.swift
+✅ SwipeConfigurationController.swift
+ℹ️  Checking: AppearanceConfigurationController.swift
+✅ AppearanceConfigurationController.swift
+ℹ️  Checking: SwipeConfigurationFeature.swift
+✅ SwipeConfigurationFeature.swift
+ℹ️  Checking: SmartListAutomationConfigurationController.swift
+✅ SmartListAutomationConfigurationController.swift
+ℹ️  Checking: SwipeConfigurationService.swift
+✅ SwipeConfigurationService.swift
+ℹ️  Checking: PlaybackConfigurationController.swift
+✅ PlaybackConfigurationController.swift
+ℹ️  Checking: DownloadConfigurationController.swift
+✅ DownloadConfigurationController.swift
+ℹ️  Checking: PlaybackPresetConfigurationController.swift
+✅ PlaybackPresetConfigurationController.swift
+ℹ️  Checking: FeatureConfigurationRegistry.swift
+✅ FeatureConfigurationRegistry.swift
+ℹ️  Checking: PlaybackConfigurationFeature.swift
+✅ PlaybackConfigurationFeature.swift
+ℹ️  Checking: UpdateFrequencyService.swift
+✅ UpdateFrequencyService.swift
+ℹ️  Checking: PlaybackConfigurationService.swift
+✅ PlaybackConfigurationService.swift
+ℹ️  Checking: AppearanceConfigurationFeature.swift
+✅ AppearanceConfigurationFeature.swift
+ℹ️  Checking: DownloadConfigurationService.swift
+✅ DownloadConfigurationService.swift
+ℹ️  Checking: DownloadConfigurationFeature.swift
+✅ DownloadConfigurationFeature.swift
+ℹ️  Checking: AppearanceConfigurationService.swift
+✅ AppearanceConfigurationService.swift
+ℹ️  Checking: SmartListAutomationConfigurationService.swift
+✅ SmartListAutomationConfigurationService.swift
+ℹ️  Checking: SettingsManager.swift
+✅ SettingsManager.swift
+ℹ️  Checking: SmartListAutomationConfigurationFeature.swift
+✅ SmartListAutomationConfigurationFeature.swift
+ℹ️  Checking: NetworkMonitorTests.swift
+✅ NetworkMonitorTests.swift
+ℹ️  Checking: DownloadRealFeedTests.swift
+✅ DownloadRealFeedTests.swift
+ℹ️  Checking: DownloadCoordinatorTests.swift
+✅ DownloadCoordinatorTests.swift
+ℹ️  Checking: DownloadIntegrationTests.swift
+✅ DownloadIntegrationTests.swift
+ℹ️  Checking: SimpleNetworkingTests.swift
+✅ SimpleNetworkingTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: DownloadCoordinator.swift
+✅ DownloadCoordinator.swift
+ℹ️  Checking: SubscriptionService.swift
+✅ SubscriptionService.swift
+ℹ️  Checking: AutoDownloadService.swift
+✅ AutoDownloadService.swift
+ℹ️  Checking: NetworkMonitor.swift
+✅ NetworkMonitor.swift
+ℹ️  Checking: DownloadQueueManager.swift
+✅ DownloadQueueManager.swift
+ℹ️  Checking: BaselineRecommendationServiceTests.swift
+✅ BaselineRecommendationServiceTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: BaselineRecommendationService.swift
+✅ BaselineRecommendationService.swift
+ℹ️  Checking: SearchIntegrationExample.swift
+✅ SearchIntegrationExample.swift
+ℹ️  Checking: FoundationalSearchDomainTests.swift
+✅ FoundationalSearchDomainTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: SearchIndexSources.swift
+✅ SearchIndexSources.swift
+ℹ️  Checking: Tokenizer.swift
+✅ Tokenizer.swift
+ℹ️  Checking: SearchIndex.swift
+✅ SearchIndex.swift
+ℹ️  Checking: OrganizationManagers.swift
+✅ OrganizationManagers.swift
+ℹ️  Checking: SearchService.swift
+✅ SearchService.swift
+ℹ️  Checking: AutoArchiveServiceTests.swift
+✅ AutoArchiveServiceTests.swift
+ℹ️  Checking: SwipeActionSettingsTests.swift
+✅ SwipeActionSettingsTests.swift
+ℹ️  Checking: ComprehensivePodcastTests.swift
+✅ ComprehensivePodcastTests.swift
+ℹ️  Checking: ComprehensivePlaylistTests.swift
+✅ ComprehensivePlaylistTests.swift
+ℹ️  Checking: EpisodeFilterEvaluatorTests.swift
+✅ EpisodeFilterEvaluatorTests.swift
+ℹ️  Checking: ComprehensiveDownloadTaskTests.swift
+✅ ComprehensiveDownloadTaskTests.swift
+ℹ️  Checking: EpisodeSortServiceTests.swift
+✅ EpisodeSortServiceTests.swift
+ℹ️  Checking: ComprehensiveEpisodeTests.swift
+✅ ComprehensiveEpisodeTests.swift
+ℹ️  Checking: EpisodeFilteringTests.swift
+✅ EpisodeFilteringTests.swift
+ℹ️  Checking: EpisodeFilterArchiveTests.swift
+✅ EpisodeFilterArchiveTests.swift
+ℹ️  Checking: SmartListRuleEvaluatorTests.swift
+✅ SmartListRuleEvaluatorTests.swift
+ℹ️  Checking: ComprehensiveSearchTests.swift
+✅ ComprehensiveSearchTests.swift
+ℹ️  Checking: AdvancedSearchEvaluatorTests.swift
+✅ AdvancedSearchEvaluatorTests.swift
+ℹ️  Checking: EpisodeAnnotationModelsTests.swift
+✅ EpisodeAnnotationModelsTests.swift
+ℹ️  Checking: AutoArchiveRulesTests.swift
+✅ AutoArchiveRulesTests.swift
+ℹ️  Checking: EpisodeSearchHelperTests.swift
+✅ EpisodeSearchHelperTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: EpisodeNote.swift
+✅ EpisodeNote.swift
+ℹ️  Checking: PlaybackResumeState.swift
+✅ PlaybackResumeState.swift
+ℹ️  Checking: AutoArchiveRules.swift
+✅ AutoArchiveRules.swift
+ℹ️  Checking: PlaylistManaging.swift
+✅ PlaylistManaging.swift
+ℹ️  Checking: EpisodeFilterService.swift
+✅ EpisodeFilterService.swift
+ℹ️  Checking: SettingsModels.swift
+✅ SettingsModels.swift
+ℹ️  Checking: SwipeActionSettings.swift
+✅ SwipeActionSettings.swift
+ℹ️  Checking: EpisodeSortService.swift
+✅ EpisodeSortService.swift
+ℹ️  Checking: SiriSnapshotRefreshing.swift
+✅ SiriSnapshotRefreshing.swift
+ℹ️  Checking: PodcastManaging.swift
+✅ PodcastManaging.swift
+ℹ️  Checking: DownloadTask.swift
+✅ DownloadTask.swift
+ℹ️  Checking: EpisodeFiltering.swift
+✅ EpisodeFiltering.swift
+ℹ️  Checking: EpisodeTranscript.swift
+✅ EpisodeTranscript.swift
+ℹ️  Checking: EpisodeDownloadProgress.swift
+✅ EpisodeDownloadProgress.swift
+ℹ️  Checking: Podcast.swift
+✅ Podcast.swift
+ℹ️  Checking: FolderManaging.swift
+✅ FolderManaging.swift
+ℹ️  Checking: PlaybackPresetLibrary.swift
+✅ PlaybackPresetLibrary.swift
+ℹ️  Checking: Folder.swift
+✅ Folder.swift
+ℹ️  Checking: EpisodeFilterEvaluator.swift
+✅ EpisodeFilterEvaluator.swift
+ℹ️  Checking: DownloadSettings.swift
+✅ DownloadSettings.swift
+ℹ️  Checking: SmartListRuleEvaluator.swift
+✅ SmartListRuleEvaluator.swift
+ℹ️  Checking: EpisodeBookmark.swift
+✅ EpisodeBookmark.swift
+ℹ️  Checking: Episode.swift
+✅ Episode.swift
+ℹ️  Checking: SearchModels.swift
+✅ SearchModels.swift
+ℹ️  Checking: Playlist.swift
+✅ Playlist.swift
+ℹ️  Checking: EpisodeSearch.swift
+✅ EpisodeSearch.swift
+ℹ️  Checking: UpdateSchedule.swift
+✅ UpdateSchedule.swift
+ℹ️  Checking: Chapter.swift
+✅ Chapter.swift
+ℹ️  Checking: OrganizationModels.swift
+✅ OrganizationModels.swift
+ℹ️  Checking: PlaybackSettings.swift
+✅ PlaybackSettings.swift
+ℹ️  Checking: AutoArchiveService.swift
+✅ AutoArchiveService.swift
+ℹ️  Checking: SmartEpisodeListRules.swift
+✅ SmartEpisodeListRules.swift
+ℹ️  Checking: RecommendationModels.swift
+✅ RecommendationModels.swift
+ℹ️  Checking: AdvancedSearchEvaluator.swift
+✅ AdvancedSearchEvaluator.swift
+ℹ️  Checking: OPMLModels.swift
+✅ OPMLModels.swift
+ℹ️  Checking: EpisodeSearchHelper.swift
+✅ EpisodeSearchHelper.swift
+ℹ️  Checking: EpisodeMetadata.swift
+✅ EpisodeMetadata.swift
+ℹ️  Checking: BatchOperationModels.swift
+✅ BatchOperationModels.swift
+ℹ️  Checking: SmartListBackgroundService.swift
+✅ SmartListBackgroundService.swift
+ℹ️  Checking: InMemoryPlaylistManager.swift
+✅ InMemoryPlaylistManager.swift
+ℹ️  Checking: EpisodeAnnotationRepositoryTests.swift
+✅ EpisodeAnnotationRepositoryTests.swift
+ℹ️  Checking: BasicPersistenceTests.swift
+✅ BasicPersistenceTests.swift
+ℹ️  Checking: FileManagerServiceTests.swift
+✅ FileManagerServiceTests.swift
+ℹ️  Checking: FileManagerServiceRealDownloadTests.swift
+✅ FileManagerServiceRealDownloadTests.swift
+ℹ️  Checking: EpisodeFilterRepositoryTests.swift
+✅ EpisodeFilterRepositoryTests.swift
+ℹ️  Checking: PlaybackResumePersistenceTests.swift
+✅ PlaybackResumePersistenceTests.swift
+ℹ️  Checking: SwiftDataPodcastRepositoryTests.swift
+✅ SwiftDataPodcastRepositoryTests.swift
+ℹ️  Checking: AutoArchiveRepositoryTests.swift
+✅ AutoArchiveRepositoryTests.swift
+ℹ️  Checking: PersistenceTestSupport.swift
+✅ PersistenceTestSupport.swift
+ℹ️  Checking: SwipeActionSettingsPersistenceTests.swift
+✅ SwipeActionSettingsPersistenceTests.swift
+ℹ️  Checking: EpisodeEntityTests.swift
+✅ EpisodeEntityTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: AutoArchiveRepository.swift
+✅ AutoArchiveRepository.swift
+ℹ️  Checking: PlaylistEntity.swift
+✅ PlaylistEntity.swift
+ℹ️  Checking: UserDefaultsRepositories.swift
+✅ UserDefaultsRepositories.swift
+ℹ️  Checking: FileManagerService.swift
+✅ FileManagerService.swift
+ℹ️  Checking: SmartEpisodeListRepository.swift
+✅ SmartEpisodeListRepository.swift
+ℹ️  Checking: SwiftDataPlaylistRepository.swift
+✅ SwiftDataPlaylistRepository.swift
+ℹ️  Checking: EpisodeSearchRepository.swift
+✅ EpisodeSearchRepository.swift
+ℹ️  Checking: EpisodeEntity.swift
+✅ EpisodeEntity.swift
+ℹ️  Checking: EpisodeAnnotationRepository.swift
+✅ EpisodeAnnotationRepository.swift
+ℹ️  Checking: EpisodeFilterRepository.swift
+✅ EpisodeFilterRepository.swift
+ℹ️  Checking: EpisodeRepository.swift
+✅ EpisodeRepository.swift
+ℹ️  Checking: PodcastEntity.swift
+✅ PodcastEntity.swift
+ℹ️  Checking: StoragePolicyEvaluator.swift
+✅ StoragePolicyEvaluator.swift
+ℹ️  Checking: SwiftDataPodcastRepository.swift
+✅ SwiftDataPodcastRepository.swift
+ℹ️  Checking: SettingsRepository.swift
+✅ SettingsRepository.swift
+ℹ️  Checking: SmartListBackgroundManager.swift
+✅ SmartListBackgroundManager.swift
+ℹ️  Checking: SmartListBackgroundService.swift
+✅ SmartListBackgroundService.swift
+ℹ️  Checking: EpisodeStateManager.swift
+✅ EpisodeStateManager.swift
+ℹ️  Checking: NetworkSimulationControlling.swift
+✅ NetworkSimulationControlling.swift
+ℹ️  Checking: EnhancedEpisodePlayer.swift
+✅ EnhancedEpisodePlayer.swift
+ℹ️  Checking: SleepTimer.swift
+✅ SleepTimer.swift
+ℹ️  Checking: AVPlayerPlaybackEngineTests.swift
+✅ AVPlayerPlaybackEngineTests.swift
+ℹ️  Checking: DeterministicTicker.swift
+✅ DeterministicTicker.swift
+ℹ️  Checking: InstantDelayProvider.swift
+✅ InstantDelayProvider.swift
+ℹ️  Checking: StreamingErrorHandlerTests.swift
+✅ StreamingErrorHandlerTests.swift
+ℹ️  Checking: SimplePlaybackEngineTests.swift
+✅ SimplePlaybackEngineTests.swift
+ℹ️  Checking: EnhancedEpisodePlayerNetworkSimulationTests.swift
+✅ EnhancedEpisodePlayerNetworkSimulationTests.swift
+ℹ️  Checking: StreamingInterruptionTests.swift
+✅ StreamingInterruptionTests.swift
+ℹ️  Checking: EnhancedEpisodePlayerAudioIntegrationTests.swift
+✅ EnhancedEpisodePlayerAudioIntegrationTests.swift
+ℹ️  Checking: EnhancedEpisodePlayerTickerTests.swift
+✅ EnhancedEpisodePlayerTickerTests.swift
+ℹ️  Checking: AVPlayerPlaybackEngine.swift
+✅ AVPlayerPlaybackEngine.swift
+ℹ️  Checking: PlaybackTypes.swift
+✅ PlaybackTypes.swift
+ℹ️  Checking: EpisodeTransportControlling.swift
+✅ EpisodeTransportControlling.swift
+ℹ️  Checking: AudioEngineProtocol.swift
+✅ AudioEngineProtocol.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: StreamingErrorHandler.swift
+✅ StreamingErrorHandler.swift
+ℹ️  Checking: DelayProvider.swift
+✅ DelayProvider.swift
+ℹ️  Checking: SimplePlaybackService.swift
+✅ SimplePlaybackService.swift
+ℹ️  Checking: SiriMediaSearchTests.swift
+✅ SiriMediaSearchTests.swift
+ℹ️  Checking: ComprehensiveLoggerTests.swift
+✅ ComprehensiveLoggerTests.swift
+ℹ️  Checking: SiriMediaResolverTests.swift
+✅ SiriMediaResolverTests.swift
+ℹ️  Checking: SiriIntentIntegrationTests.swift
+✅ SiriIntentIntegrationTests.swift
+ℹ️  Checking: TimeIntervalExtensionsTests.swift
+✅ TimeIntervalExtensionsTests.swift
+ℹ️  Checking: ComprehensiveValidationUtilitiesTests.swift
+✅ ComprehensiveValidationUtilitiesTests.swift
+ℹ️  Checking: PlaybackErrorTests.swift
+✅ PlaybackErrorTests.swift
+ℹ️  Checking: SiriMediaLibraryTests.swift
+✅ SiriMediaLibraryTests.swift
+ℹ️  Checking: ComprehensiveSharedErrorTests.swift
+✅ ComprehensiveSharedErrorTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: PlaybackDebugNotifications.swift
+✅ PlaybackDebugNotifications.swift
+ℹ️  Checking: SharedError.swift
+✅ SharedError.swift
+ℹ️  Checking: SiriMediaResolver.swift
+✅ SiriMediaResolver.swift
+ℹ️  Checking: View+PlatformModifiers.swift
+✅ View+PlatformModifiers.swift
+ℹ️  Checking: Logger.swift
+✅ Logger.swift
+ℹ️  Checking: SiriMediaLibrary.swift
+✅ SiriMediaLibrary.swift
+ℹ️  Checking: SiriMediaSearch.swift
+✅ SiriMediaSearch.swift
+ℹ️  Checking: ValidationUtilities.swift
+✅ ValidationUtilities.swift
+ℹ️  Checking: UITestTabSelection.swift
+✅ UITestTabSelection.swift
+ℹ️  Checking: NetworkSimulationNotifications.swift
+✅ NetworkSimulationNotifications.swift
+ℹ️  Checking: HapticFeedbackService.swift
+✅ HapticFeedbackService.swift
+ℹ️  Checking: NavigationBarAccessibility.swift
+✅ NavigationBarAccessibility.swift
+ℹ️  Checking: PlaybackAlerts.swift
+✅ PlaybackAlerts.swift
+ℹ️  Checking: TimeInterval+Extensions.swift
+✅ TimeInterval+Extensions.swift
+ℹ️  Checking: AppGroup.swift
+✅ AppGroup.swift
+ℹ️  Checking: Color+Platform.swift
+✅ Color+Platform.swift
+ℹ️  Checking: DiscoverFeatureTests.swift
+✅ DiscoverFeatureTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: SearchResultView.swift
+✅ SearchResultView.swift
+ℹ️  Checking: DiscoverView.swift
+✅ DiscoverView.swift
+ℹ️  Checking: SearchViewModel.swift
+✅ SearchViewModel.swift
+ℹ️  Checking: PlaybackEnvironmentTests.swift
+✅ PlaybackEnvironmentTests.swift
+ℹ️  Checking: EpisodeListViewTests.swift
+✅ EpisodeListViewTests.swift
+ℹ️  Checking: PlaybackStateCoordinatorTests.swift
+✅ PlaybackStateCoordinatorTests.swift
+ℹ️  Checking: RemoteCommandHandlerTests.swift
+✅ RemoteCommandHandlerTests.swift
+ℹ️  Checking: EpisodeStatusProgressTests.swift
+✅ EpisodeStatusProgressTests.swift
+ℹ️  Checking: CarPlayIntegrationTests.swift
+✅ CarPlayIntegrationTests.swift
+ℹ️  Checking: EpisodePlaybackCoordinatorTests.swift
+✅ EpisodePlaybackCoordinatorTests.swift
+ℹ️  Checking: SwipeActionHandlerTests.swift
+✅ SwipeActionHandlerTests.swift
+ℹ️  Checking: LibraryFeatureTests.swift
+✅ LibraryFeatureTests.swift
+ℹ️  Checking: OrphanedEpisodesViewModelTests.swift
+✅ OrphanedEpisodesViewModelTests.swift
+ℹ️  Checking: CarPlayHIGValidationTests.swift
+✅ CarPlayHIGValidationTests.swift
+ℹ️  Checking: EpisodeFilteringTests.swift
+✅ EpisodeFilteringTests.swift
+ℹ️  Checking: ForcedOverlaySeedingTests.swift
+✅ ForcedOverlaySeedingTests.swift
+ℹ️  Checking: EpisodeDownloadProgressCoordinatorTests.swift
+✅ EpisodeDownloadProgressCoordinatorTests.swift
+ℹ️  Checking: SettingsFeatureRouteFactoryTests.swift
+✅ SettingsFeatureRouteFactoryTests.swift
+ℹ️  Checking: BatchOperationTests.swift
+✅ BatchOperationTests.swift
+ℹ️  Checking: NowPlayingInfoBuilderTests.swift
+✅ NowPlayingInfoBuilderTests.swift
+ℹ️  Checking: BannerPresentationManagerTests.swift
+✅ BannerPresentationManagerTests.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: EpisodeDownloadProgressCoordinator.swift
+✅ EpisodeDownloadProgressCoordinator.swift
+ℹ️  Checking: PlaybackStateCoordinator.swift
+✅ PlaybackStateCoordinator.swift
+ℹ️  Checking: EpisodeListViewModel+DownloadManagement.swift
+✅ EpisodeListViewModel+DownloadManagement.swift
+ℹ️  Checking: SettingsFeatureRouteFactory.swift
+✅ SettingsFeatureRouteFactory.swift
+ℹ️  Checking: EpisodeListViewModel+FilterHelpers.swift
+✅ EpisodeListViewModel+FilterHelpers.swift
+ℹ️  Checking: CarPlayDataAdapter.swift
+✅ CarPlayDataAdapter.swift
+ℹ️  Checking: EpisodeSearchViews.swift
+✅ EpisodeSearchViews.swift
+ℹ️  Checking: DownloadConfigurationView.swift
+✅ DownloadConfigurationView.swift
+ℹ️  Checking: EpisodeSearchViewModel.swift
+✅ EpisodeSearchViewModel.swift
+ℹ️  Checking: AdvancedSearchBuilderView.swift
+✅ AdvancedSearchBuilderView.swift
+ℹ️  Checking: SwipeDebugPresetEntry.swift
+✅ SwipeDebugPresetEntry.swift
+ℹ️  Checking: Item.swift
+✅ Item.swift
+ℹ️  Checking: SwipeActionHaptics+Mapping.swift
+✅ SwipeActionHaptics+Mapping.swift
+ℹ️  Checking: OrphanedEpisodesView.swift
+✅ OrphanedEpisodesView.swift
+ℹ️  Checking: EpisodeListViewModel+UITestSupport.swift
+✅ EpisodeListViewModel+UITestSupport.swift
+ℹ️  Checking: NetworkSimulationOverlayManager.swift
+✅ NetworkSimulationOverlayManager.swift
+ℹ️  Checking: BannerPresentationManager.swift
+✅ BannerPresentationManager.swift
+ℹ️  Checking: PlaybackEnvironment.swift
+✅ PlaybackEnvironment.swift
+ℹ️  Checking: SmartListRuleBuilderView.swift
+✅ SmartListRuleBuilderView.swift
+ℹ️  Checking: ContentView+PreviewSupport.swift
+✅ ContentView+PreviewSupport.swift
+ℹ️  Checking: BatchOperationManager.swift
+✅ BatchOperationManager.swift
+ℹ️  Checking: SmartEpisodeListViewModel.swift
+✅ SmartEpisodeListViewModel.swift
+ℹ️  Checking: EpisodeListViewModel+Selection.swift
+✅ EpisodeListViewModel+Selection.swift
+ℹ️  Checking: CarPlayDependencies.swift
+✅ CarPlayDependencies.swift
+ℹ️  Checking: EpisodeListBannerState.swift
+✅ EpisodeListBannerState.swift
+ℹ️  Checking: BatchOperationViews.swift
+✅ BatchOperationViews.swift
+ℹ️  Checking: DownloadCoordinatorBridge.swift
+✅ DownloadCoordinatorBridge.swift
+ℹ️  Checking: CarPlaySceneDelegate.swift
+✅ CarPlaySceneDelegate.swift
+ℹ️  Checking: CarPlayEpisodeListController.swift
+✅ CarPlayEpisodeListController.swift
+ℹ️  Checking: NowPlayingInfoBuilder.swift
+✅ NowPlayingInfoBuilder.swift
+ℹ️  Checking: SettingsComponents.swift
+✅ SettingsComponents.swift
+ℹ️  Checking: SmartEpisodeListViews.swift
+✅ SmartEpisodeListViews.swift
+ℹ️  Checking: EpisodePlaybackCoordinator.swift
+✅ EpisodePlaybackCoordinator.swift
+ℹ️  Checking: SmartListAutomationConfigurationView.swift
+✅ SmartListAutomationConfigurationView.swift
+ℹ️  Checking: EpisodeListView.swift
+✅ EpisodeListView.swift
+ℹ️  Checking: DownloadProgressProviding.swift
+✅ DownloadProgressProviding.swift
+ℹ️  Checking: SmartListBackgroundSettingsView.swift
+✅ SmartListBackgroundSettingsView.swift
+ℹ️  Checking: SwipeActionConfigurationView.swift
+✅ SwipeActionConfigurationView.swift
+ℹ️  Checking: EpisodeListViewModel+BatchOperations.swift
+✅ EpisodeListViewModel+BatchOperations.swift
+ℹ️  Checking: OrphanedEpisodesViewModel.swift
+✅ OrphanedEpisodesViewModel.swift
+ℹ️  Checking: SettingsHomeView.swift
+✅ SettingsHomeView.swift
+ℹ️  Checking: EpisodeFilterViews.swift
+✅ EpisodeFilterViews.swift
+ℹ️  Checking: AppearanceConfigurationView.swift
+✅ AppearanceConfigurationView.swift
+ℹ️  Checking: PlaybackPresetConfigurationView.swift
+✅ PlaybackPresetConfigurationView.swift
+ℹ️  Checking: NotificationsConfigurationView.swift
+✅ NotificationsConfigurationView.swift
+ℹ️  Checking: DownloadStateSeeding.swift
+✅ DownloadStateSeeding.swift
+ℹ️  Checking: PlaybackConfigurationView.swift
+✅ PlaybackConfigurationView.swift
+ℹ️  Checking: SystemMediaCoordinator.swift
+✅ SystemMediaCoordinator.swift
+ℹ️  Checking: ContentView.swift
+✅ ContentView.swift
+ℹ️  Checking: SwipeDebugOverlayManager.swift
+✅ SwipeDebugOverlayManager.swift
+ℹ️  Checking: SwipeActionHandler.swift
+✅ SwipeActionHandler.swift
+ℹ️  Checking: EpisodeListViewModel.swift
+✅ EpisodeListViewModel.swift
+ℹ️  Checking: RemoteCommandHandler.swift
+✅ RemoteCommandHandler.swift
+ℹ️  Checking: AsyncImageView.swift
+✅ AsyncImageView.swift
+ℹ️  Checking: StorageManagementViewModel.swift
+✅ StorageManagementViewModel.swift
+ℹ️  Checking: StorageManagementView.swift
+✅ StorageManagementView.swift
+ℹ️  Checking: StorageInfo.swift
+✅ StorageInfo.swift
+ℹ️  Checking: Package.swift
+✅ Package.swift
+ℹ️  Checking: PlayMediaIntentHandler.swift
+✅ PlayMediaIntentHandler.swift
+ℹ️  Checking: IntentHandler.swift
+✅ IntentHandler.swift
+ℹ️  Checking: ZpodApp.swift
+✅ ZpodApp.swift
+ℹ️  Checking: zpodLib.swift
+✅ zpodLib.swift
+ℹ️  Checking: ContentViewBridge.swift
+✅ ContentViewBridge.swift
+ℹ️  Checking: SiriSnapshotCoordinator.swift
+✅ SiriSnapshotCoordinator.swift
+
+✅ All Swift files passed syntax check
+✅ Syntax check finished -> /Users/ericziegler/code/zpod/TestResults/TestResults_20260217_140208_syntax_swift.log
+ℹ️  ⏱️  Swift syntax completed in 00:00:16
+ℹ️  ▶️  Test plan default started
+================================
+Test Plan Coverage
+================================
+ℹ️  No test suite specified; using default scheme
+ℹ️  Workspace: /Users/ericziegler/code/zpod/zpod.xcworkspace
+ℹ️  Scheme: zpod
+ℹ️  Scheme file: /Users/ericziegler/code/zpod/zpod.xcodeproj/xcshareddata/xcschemes/zpod.xcscheme
+<stdin>:20: DeprecationWarning: Testing an element's truth value will always return True in future versions.  Use specific 'len(elem)' or 'elem is not None' test instead.
+ℹ️  Resolved test plan reference: container:zpod.xctestplan
+ℹ️  Test plan file: /Users/ericziegler/code/zpod/zpod.xctestplan
+================================
+Discovered Test Targets
+================================
+ℹ️    - AppSmokeTests
+ℹ️    - CoreModelsTests
+ℹ️    - DiscoverFeatureTests
+ℹ️    - FeedParsingTests
+ℹ️    - IntegrationTests
+ℹ️    - LibraryFeatureTests
+ℹ️    - NetworkingTests
+ℹ️    - PersistenceTests
+ℹ️    - PlaybackEngineTests
+ℹ️    - PlayerFeatureTests
+ℹ️    - PlaylistFeatureTests
+ℹ️    - RecommendationDomainTests
+ℹ️    - SearchDomainTests
+ℹ️    - SettingsDomainTests
+ℹ️    - SharedUtilitiesTests
+ℹ️    - TestSupportTests
+ℹ️    - zpodUITests
+================================
+Test Plan Entries
+================================
+ℹ️    - AppSmokeTests
+ℹ️    - IntegrationTests
+ℹ️    - zpodUITests
+✅ All discovered test targets are present in the test plan
+ℹ️  ⏱️  Test plan default completed in 00:00:00
+ℹ️  ▶️  Build package CombineSupport started
+================================
+swift build (CombineSupport)
+================================
+Building for debugging...
+[0/6] Write sources
+[4/6] Write swift-version--58304C5D6DBC2206.txt
+[5/6] Compiling COpenCombineHelpers COpenCombineHelpers.cpp
+[7/100] Compiling OpenCombine Deferred.swift
+[8/100] Compiling OpenCombine Empty.swift
+[9/100] Compiling OpenCombine Fail.swift
+[10/100] Compiling OpenCombine GENERATED-Publishers.Catch.swift
+[11/100] Compiling OpenCombine GENERATED-Publishers.Encode.swift
+[12/100] Compiling OpenCombine GENERATED-Publishers.MapKeyPath.swift
+[13/100] Compiling OpenCombine Just.swift
+[14/100] Compiling OpenCombine Optional.Publisher.swift
+[15/100] Compiling OpenCombine Publishers.AllSatisfy.swift
+[16/100] Compiling OpenCombine Publishers.AssertNoFailure.swift
+[17/110] Compiling OpenCombine Future.swift
+[18/110] Compiling OpenCombine GENERATED-RootProtocols.swift
+[19/110] Compiling OpenCombine ConduitBase.swift
+[20/110] Compiling OpenCombine ConduitList.swift
+[21/110] Compiling OpenCombine DebugHook.swift
+[22/110] Compiling OpenCombine FilterProducer.swift
+[23/110] Compiling OpenCombine Locking.swift
+[24/110] Compiling OpenCombine PartialCompletion.swift
+[25/110] Compiling OpenCombine PublishedSubject.swift
+[26/110] Compiling OpenCombine PublishedSubscriber.swift
+[27/110] Compiling OpenCombine ReduceProducer.swift
+[28/110] Compiling OpenCombine SubjectSubscriber.swift
+[29/110] Compiling OpenCombine SubscriberTap.swift
+[30/110] Compiling OpenCombine SubscriptionStatus.swift
+[31/110] Compiling OpenCombine SubscriptionTap.swift
+[32/110] Compiling OpenCombine Utils.swift
+[33/110] Compiling OpenCombine Violations.swift
+[34/110] Compiling OpenCombine ImmediateScheduler.swift
+[35/110] Compiling OpenCombine ObservableObject.swift
+[36/110] Compiling OpenCombine PassthroughSubject.swift
+[37/110] Compiling OpenCombine Published.swift
+[38/110] Compiling OpenCombine Publisher+Subscribe.swift
+[39/110] Compiling OpenCombine Publishers.Debounce.swift
+[40/110] Compiling OpenCombine Publishers.Delay.swift
+[41/110] Compiling OpenCombine Publishers.Drop.swift
+[42/110] Compiling OpenCombine Publishers.DropUntilOutput.swift
+[43/110] Compiling OpenCombine Publishers.DropWhile.swift
+[44/110] Compiling OpenCombine Publishers.Filter.swift
+[45/110] Compiling OpenCombine Publishers.First.swift
+[46/110] Compiling OpenCombine Publishers.FlatMap.swift
+[47/110] Compiling OpenCombine Publishers.HandleEvents.swift
+[48/110] Compiling OpenCombine Publishers.IgnoreOutput.swift
+[49/110] Compiling OpenCombine AnyCancellable.swift
+[50/110] Compiling OpenCombine AnyPublisher.swift
+[51/110] Compiling OpenCombine AnySubscriber.swift
+[52/110] Compiling OpenCombine Cancellable.swift
+[53/110] Compiling OpenCombine Codable.swift
+[54/110] Compiling OpenCombine CombineIdentifier.swift
+[55/110] Compiling OpenCombine ConcurrencyHelpers.swift
+[56/110] Compiling OpenCombine Future+Concurrency.swift
+[57/110] Compiling OpenCombine GENERATED-Publisher+Concurrency.swift
+[58/110] Compiling OpenCombine CurrentValueSubject.swift
+[59/110] Compiling OpenCombine CustomCombineIdentifierConvertible.swift
+[60/110] Emitting module OpenCombine
+[61/110] Compiling OpenCombine Publishers.Last.swift
+[62/110] Compiling OpenCombine Publishers.MakeConnectable.swift
+[63/110] Compiling OpenCombine Publishers.Map.swift
+[64/110] Compiling OpenCombine Publishers.MapError.swift
+[65/110] Compiling OpenCombine Publishers.MeasureInterval.swift
+[66/110] Compiling OpenCombine Publishers.Multicast.swift
+[67/110] Compiling OpenCombine Publishers.Output.swift
+[68/110] Compiling OpenCombine Publishers.PrefixUntilOutput.swift
+[69/110] Compiling OpenCombine Publishers.PrefixWhile.swift
+[70/110] Compiling OpenCombine Publishers.Print.swift
+[71/110] Compiling OpenCombine Publishers.ReceiveOn.swift
+[72/110] Compiling OpenCombine Publishers.Reduce.swift
+[73/110] Compiling OpenCombine Publishers.RemoveDuplicates.swift
+[74/110] Compiling OpenCombine Publishers.ReplaceEmpty.swift
+[75/110] Compiling OpenCombine Publishers.ReplaceError.swift
+[76/110] Compiling OpenCombine Publishers.Retry.swift
+[77/110] Compiling OpenCombine Publishers.Scan.swift
+[78/110] Compiling OpenCombine Publishers.Sequence.swift
+[79/110] Compiling OpenCombine Publishers.SetFailureType.swift
+[80/110] Compiling OpenCombine Publishers.Share.swift
+[81/110] Compiling OpenCombine Publishers.SubscribeOn.swift
+[82/110] Compiling OpenCombine Publishers.SwitchToLatest.swift
+[83/110] Compiling OpenCombine Publishers.Throttle.swift
+[84/110] Compiling OpenCombine Publishers.Timeout.swift
+[85/110] Compiling OpenCombine Publishers.Zip.swift
+[86/110] Compiling OpenCombine Publishers.swift
+[87/110] Compiling OpenCombine Record.swift
+[88/110] Compiling OpenCombine Result.Publisher.swift
+[89/110] Compiling OpenCombine Result.swift
+[90/110] Compiling OpenCombine Scheduler.swift
+[91/110] Compiling OpenCombine Publishers.Autoconnect.swift
+[92/110] Compiling OpenCombine Publishers.Breakpoint.swift
+[93/110] Compiling OpenCombine Publishers.Buffer.swift
+[94/110] Compiling OpenCombine Publishers.Collect.swift
+[95/110] Compiling OpenCombine Publishers.CollectByCount.swift
+[96/110] Compiling OpenCombine Publishers.CompactMap.swift
+[97/110] Compiling OpenCombine Publishers.Comparison.swift
+[98/110] Compiling OpenCombine Publishers.Concatenate.swift
+[99/110] Compiling OpenCombine Publishers.Contains.swift
+[100/110] Compiling OpenCombine Publishers.Count.swift
+[101/110] Compiling OpenCombine Subject+Void.swift
+[102/110] Compiling OpenCombine Subscriber+Void.swift
+[103/110] Compiling OpenCombine Subscribers.Assign.swift
+[104/110] Compiling OpenCombine Subscribers.Completion.swift
+[105/110] Compiling OpenCombine Subscribers.Demand.swift
+[106/110] Compiling OpenCombine Subscribers.Sink.swift
+[107/110] Compiling OpenCombine Subscribers.swift
+[108/110] Compiling OpenCombine Subscription.swift
+[109/110] Compiling OpenCombine Subscriptions.swift
+[110/110] Compiling OpenCombine _Introspection.swift
+[111/123] Compiling OpenCombineDispatch DispatchQueue+Scheduler.swift
+[112/123] Emitting module OpenCombineDispatch
+[113/123] Emitting module OpenCombineFoundation
+[114/124] Compiling OpenCombineFoundation Timer+Publisher.swift
+[115/124] Compiling OpenCombineFoundation NotificationCenter.swift
+[116/124] Compiling OpenCombineFoundation OperationQueue+Scheduler.swift
+[117/124] Compiling OpenCombineFoundation PropertyListEncoder.swift
+[118/124] Compiling OpenCombineFoundation Violations.swift
+[119/124] Compiling OpenCombineFoundation Locking.swift
+[120/124] Compiling OpenCombineFoundation Portability.swift
+[121/124] Compiling OpenCombineFoundation RunLoop+Scheduler.swift
+[122/124] Compiling OpenCombineFoundation JSONEncoder.swift
+[123/124] Compiling OpenCombineFoundation Utils.swift
+[124/124] Compiling OpenCombineFoundation URLSession.swift
+[125/126] Compiling CombineSupport CombineSupport.swift
+[126/126] Emitting module CombineSupport
+Build complete! (4.45s)
+✅ Package build finished -> /Users/ericziegler/code/zpod/TestResults/TestResults_20260217_140224_build_pkg_CombineSupport.log
+ℹ️  ⏱️  Build package CombineSupport completed in 00:00:06
+ℹ️  ▶️  Build package CoreModels started
+================================
+swift build (CoreModels)
+================================
+Building for debugging...
+[0/8] Write sources
+[6/8] Write swift-version--58304C5D6DBC2206.txt
+[7/24] Compiling COpenCombineHelpers COpenCombineHelpers.cpp
+[9/118] Compiling OpenCombine Deferred.swift
+[10/118] Compiling OpenCombine Empty.swift
+[11/118] Compiling OpenCombine Fail.swift
+[12/118] Compiling OpenCombine GENERATED-Publishers.Catch.swift
+[13/118] Compiling OpenCombine GENERATED-Publishers.Encode.swift
+[14/118] Compiling OpenCombine GENERATED-Publishers.MapKeyPath.swift
+[15/118] Compiling OpenCombine Just.swift
+[16/118] Compiling OpenCombine Optional.Publisher.swift
+[17/118] Compiling OpenCombine Publishers.AllSatisfy.swift
+[18/118] Compiling OpenCombine Publishers.AssertNoFailure.swift
+[19/128] Emitting module OpenCombine
+[20/128] Compiling OpenCombine Publishers.Debounce.swift
+[21/128] Compiling OpenCombine Publishers.Delay.swift
+[22/128] Compiling OpenCombine Publishers.Drop.swift
+[23/128] Compiling OpenCombine Publishers.DropUntilOutput.swift
+[24/128] Compiling OpenCombine Publishers.DropWhile.swift
+[25/128] Compiling OpenCombine Publishers.Filter.swift
+[26/128] Compiling OpenCombine Publishers.First.swift
+[27/128] Compiling OpenCombine Publishers.FlatMap.swift
+[28/128] Compiling OpenCombine Publishers.HandleEvents.swift
+[29/128] Compiling OpenCombine Publishers.IgnoreOutput.swift
+[30/128] Compiling OpenCombine SubjectSubscriber.swift
+[31/128] Compiling OpenCombine SubscriberTap.swift
+[32/128] Compiling OpenCombine SubscriptionStatus.swift
+[33/128] Compiling OpenCombine SubscriptionTap.swift
+[34/128] Compiling OpenCombine Utils.swift
+[35/128] Compiling OpenCombine Violations.swift
+[36/128] Compiling OpenCombine ImmediateScheduler.swift
+[37/128] Compiling OpenCombine ObservableObject.swift
+[38/128] Compiling OpenCombine PassthroughSubject.swift
+[39/128] Compiling OpenCombine Published.swift
+[40/128] Compiling OpenCombine Publisher+Subscribe.swift
+[41/128] Compiling OpenCombine AnyCancellable.swift
+[42/128] Compiling OpenCombine AnyPublisher.swift
+[43/128] Compiling OpenCombine AnySubscriber.swift
+[44/128] Compiling OpenCombine Cancellable.swift
+[45/128] Compiling OpenCombine Codable.swift
+[46/128] Compiling OpenCombine CombineIdentifier.swift
+[47/128] Compiling OpenCombine ConcurrencyHelpers.swift
+[48/128] Compiling OpenCombine Future+Concurrency.swift
+[49/128] Compiling OpenCombine GENERATED-Publisher+Concurrency.swift
+[50/128] Compiling OpenCombine CurrentValueSubject.swift
+[51/128] Compiling OpenCombine CustomCombineIdentifierConvertible.swift
+[52/128] Compiling OpenCombine Publishers.SubscribeOn.swift
+[53/128] Compiling OpenCombine Publishers.SwitchToLatest.swift
+[54/128] Compiling OpenCombine Publishers.Throttle.swift
+[55/128] Compiling OpenCombine Publishers.Timeout.swift
+[56/128] Compiling OpenCombine Publishers.Zip.swift
+[57/128] Compiling OpenCombine Publishers.swift
+[58/128] Compiling OpenCombine Record.swift
+[59/128] Compiling OpenCombine Result.Publisher.swift
+[60/128] Compiling OpenCombine Result.swift
+[61/128] Compiling OpenCombine Scheduler.swift
+[62/128] Compiling OpenCombine Publishers.Last.swift
+[63/128] Compiling OpenCombine Publishers.MakeConnectable.swift
+[64/128] Compiling OpenCombine Publishers.Map.swift
+[65/128] Compiling OpenCombine Publishers.MapError.swift
+[66/128] Compiling OpenCombine Publishers.MeasureInterval.swift
+[67/128] Compiling OpenCombine Publishers.Multicast.swift
+[68/128] Compiling OpenCombine Publishers.Output.swift
+[69/128] Compiling OpenCombine Publishers.PrefixUntilOutput.swift
+[70/128] Compiling OpenCombine Publishers.PrefixWhile.swift
+[71/128] Compiling OpenCombine Publishers.Print.swift
+[72/128] Compiling OpenCombine Publishers.Autoconnect.swift
+[73/128] Compiling OpenCombine Publishers.Breakpoint.swift
+[74/128] Compiling OpenCombine Publishers.Buffer.swift
+[75/128] Compiling OpenCombine Publishers.Collect.swift
+[76/128] Compiling OpenCombine Publishers.CollectByCount.swift
+[77/128] Compiling OpenCombine Publishers.CompactMap.swift
+[78/128] Compiling OpenCombine Publishers.Comparison.swift
+[79/128] Compiling OpenCombine Publishers.Concatenate.swift
+[80/128] Compiling OpenCombine Publishers.Contains.swift
+[81/128] Compiling OpenCombine Publishers.Count.swift
+[82/128] Compiling OpenCombine Future.swift
+[83/128] Compiling OpenCombine GENERATED-RootProtocols.swift
+[84/128] Compiling OpenCombine ConduitBase.swift
+[85/128] Compiling OpenCombine ConduitList.swift
+[86/128] Compiling OpenCombine DebugHook.swift
+[87/128] Compiling OpenCombine FilterProducer.swift
+[88/128] Compiling OpenCombine Locking.swift
+[89/128] Compiling OpenCombine PartialCompletion.swift
+[90/128] Compiling OpenCombine PublishedSubject.swift
+[91/128] Compiling OpenCombine PublishedSubscriber.swift
+[92/128] Compiling OpenCombine ReduceProducer.swift
+[93/128] Compiling OpenCombine Publishers.ReceiveOn.swift
+[94/128] Compiling OpenCombine Publishers.Reduce.swift
+[95/128] Compiling OpenCombine Publishers.RemoveDuplicates.swift
+[96/128] Compiling OpenCombine Publishers.ReplaceEmpty.swift
+[97/128] Compiling OpenCombine Publishers.ReplaceError.swift
+[98/128] Compiling OpenCombine Publishers.Retry.swift
+[99/128] Compiling OpenCombine Publishers.Scan.swift
+[100/128] Compiling OpenCombine Publishers.Sequence.swift
+[101/128] Compiling OpenCombine Publishers.SetFailureType.swift
+[102/128] Compiling OpenCombine Publishers.Share.swift
+[103/128] Compiling OpenCombine Subject+Void.swift
+[104/128] Compiling OpenCombine Subscriber+Void.swift
+[105/128] Compiling OpenCombine Subscribers.Assign.swift
+[106/128] Compiling OpenCombine Subscribers.Completion.swift
+[107/128] Compiling OpenCombine Subscribers.Demand.swift
+[108/128] Compiling OpenCombine Subscribers.Sink.swift
+[109/128] Compiling OpenCombine Subscribers.swift
+[110/128] Compiling OpenCombine Subscription.swift
+[111/128] Compiling OpenCombine Subscriptions.swift
+[112/128] Compiling OpenCombine _Introspection.swift
+[113/141] Emitting module OpenCombineDispatch
+[114/141] Compiling OpenCombineDispatch DispatchQueue+Scheduler.swift
+[115/141] Compiling OpenCombineFoundation Locking.swift
+[116/141] Compiling OpenCombineFoundation Portability.swift
+[117/142] Compiling OpenCombineFoundation URLSession.swift
+[118/142] Compiling SharedUtilities UITestTabSelection.swift
+[119/142] Compiling SharedUtilities ValidationUtilities.swift
+[122/142] Compiling SharedUtilities TimeInterval+Extensions.swift
+[125/143] Compiling OpenCombineFoundation PropertyListEncoder.swift
+[126/143] Compiling OpenCombineFoundation RunLoop+Scheduler.swift
+[127/143] Compiling OpenCombineFoundation Timer+Publisher.swift
+[128/143] Emitting module OpenCombineFoundation
+[129/143] Compiling OpenCombineFoundation Violations.swift
+[130/143] Compiling OpenCombineFoundation JSONEncoder.swift
+[131/143] Compiling OpenCombineFoundation Utils.swift
+[132/143] Compiling OpenCombineFoundation OperationQueue+Scheduler.swift
+[133/143] Compiling OpenCombineFoundation NotificationCenter.swift
+[134/145] Compiling CombineSupport CombineSupport.swift
+[135/145] Emitting module CombineSupport
+[136/145] Compiling SharedUtilities View+PlatformModifiers.swift
+[143/145] Emitting module SharedUtilities
+[146/182] Compiling CoreModels EpisodeSearchHelper.swift
+[147/182] Compiling CoreModels EpisodeSortService.swift
+[148/182] Compiling CoreModels EpisodeTranscript.swift
+[149/182] Compiling CoreModels Folder.swift
+[150/182] Compiling CoreModels Chapter.swift
+[151/182] Compiling CoreModels DownloadSettings.swift
+[152/182] Compiling CoreModels DownloadTask.swift
+[153/182] Compiling CoreModels Episode.swift
+[154/186] Compiling CoreModels AdvancedSearchEvaluator.swift
+[155/186] Compiling CoreModels AutoArchiveRules.swift
+[156/186] Compiling CoreModels AutoArchiveService.swift
+[157/186] Compiling CoreModels BatchOperationModels.swift
+[158/186] Compiling CoreModels EpisodeBookmark.swift
+[159/186] Compiling CoreModels EpisodeDownloadProgress.swift
+[160/186] Compiling CoreModels EpisodeFilterEvaluator.swift
+[161/186] Compiling CoreModels EpisodeFilterService.swift
+[162/186] Compiling CoreModels EpisodeFiltering.swift
+[163/186] Compiling CoreModels EpisodeMetadata.swift
+[164/186] Compiling CoreModels EpisodeNote.swift
+[165/186] Compiling CoreModels EpisodeSearch.swift
+[166/186] Compiling CoreModels FolderManaging.swift
+/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift:8:57: error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+  6 | @available(macOS 10.15, *)
+  7 | @MainActor
+  8 | public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+    |              |                                          |- error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+    |              |                                          |- note: isolate this conformance to the main actor with '@MainActor'
+    |              |                                          `- note: turn data races into runtime errors with '@preconcurrency'
+    |              `- note: mark all declarations used in the conformance 'nonisolated'
+  9 |     @Published public private(set) var playlists: [Playlist] = []
+ 10 |     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    :
+ 18 |     public init() {}
+ 19 | 
+ 20 |     public func allPlaylists() -> [Playlist] { playlists }
+    |                 `- note: main actor-isolated instance method 'allPlaylists()' cannot satisfy nonisolated requirement
+ 21 |     public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
+    |                 `- note: main actor-isolated instance method 'allSmartPlaylists()' cannot satisfy nonisolated requirement
+ 22 |     
+ 23 |     // MARK: - Manual Playlists
+ 24 |     
+ 25 |     public func createPlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'createPlaylist' cannot satisfy nonisolated requirement
+ 26 |         // Don't add duplicates
+ 27 |         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+    :
+ 31 |     }
+ 32 |     
+ 33 |     public func updatePlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'updatePlaylist' cannot satisfy nonisolated requirement
+ 34 |         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+ 35 |         
+    :
+ 38 |     }
+ 39 |     
+ 40 |     public func deletePlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deletePlaylist(id:)' cannot satisfy nonisolated requirement
+ 41 |         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+ 42 |         
+    :
+ 45 |     }
+ 46 |     
+ 47 |     public func findPlaylist(id: String) -> Playlist? {
+    |                 `- note: main actor-isolated instance method 'findPlaylist(id:)' cannot satisfy nonisolated requirement
+ 48 |         return playlists.first { $0.id == id }
+ 49 |     }
+ 50 |     
+ 51 |     public func addEpisode(episodeId: String, to playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'addEpisode(episodeId:to:)' cannot satisfy nonisolated requirement
+ 52 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 53 |         
+    :
+ 59 |     }
+ 60 |     
+ 61 |     public func removeEpisode(episodeId: String, from playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'removeEpisode(episodeId:from:)' cannot satisfy nonisolated requirement
+ 62 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 63 |         
+    :
+ 67 |     }
+ 68 |     
+ 69 |     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+    |                 `- note: main actor-isolated instance method 'reorderEpisodes(in:from:to:)' cannot satisfy nonisolated requirement
+ 70 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 71 |         
+    :
+100 |     // MARK: - Smart Playlists
+101 |     
+102 |     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'createSmartPlaylist' cannot satisfy nonisolated requirement
+103 |         // Don't add duplicates
+104 |         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+    :
+108 |     }
+109 |     
+110 |     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'updateSmartPlaylist' cannot satisfy nonisolated requirement
+111 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+112 |         
+    :
+115 |     }
+116 |     
+117 |     public func deleteSmartPlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deleteSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+118 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+119 |         
+    :
+122 |     }
+123 |     
+124 |     public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+    |                 `- note: main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+125 |         return smartPlaylists.first { $0.id == id }
+126 |     }
+
+[#ConformanceIsolation]: <https://docs.swift.org/compiler/documentation/diagnostics/conformance-isolation>
+[167/186] Compiling CoreModels InMemoryPlaylistManager.swift
+/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift:8:57: error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+  6 | @available(macOS 10.15, *)
+  7 | @MainActor
+  8 | public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+    |              |                                          |- error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+    |              |                                          |- note: isolate this conformance to the main actor with '@MainActor'
+    |              |                                          `- note: turn data races into runtime errors with '@preconcurrency'
+    |              `- note: mark all declarations used in the conformance 'nonisolated'
+  9 |     @Published public private(set) var playlists: [Playlist] = []
+ 10 |     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    :
+ 18 |     public init() {}
+ 19 | 
+ 20 |     public func allPlaylists() -> [Playlist] { playlists }
+    |                 `- note: main actor-isolated instance method 'allPlaylists()' cannot satisfy nonisolated requirement
+ 21 |     public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
+    |                 `- note: main actor-isolated instance method 'allSmartPlaylists()' cannot satisfy nonisolated requirement
+ 22 |     
+ 23 |     // MARK: - Manual Playlists
+ 24 |     
+ 25 |     public func createPlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'createPlaylist' cannot satisfy nonisolated requirement
+ 26 |         // Don't add duplicates
+ 27 |         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+    :
+ 31 |     }
+ 32 |     
+ 33 |     public func updatePlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'updatePlaylist' cannot satisfy nonisolated requirement
+ 34 |         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+ 35 |         
+    :
+ 38 |     }
+ 39 |     
+ 40 |     public func deletePlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deletePlaylist(id:)' cannot satisfy nonisolated requirement
+ 41 |         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+ 42 |         
+    :
+ 45 |     }
+ 46 |     
+ 47 |     public func findPlaylist(id: String) -> Playlist? {
+    |                 `- note: main actor-isolated instance method 'findPlaylist(id:)' cannot satisfy nonisolated requirement
+ 48 |         return playlists.first { $0.id == id }
+ 49 |     }
+ 50 |     
+ 51 |     public func addEpisode(episodeId: String, to playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'addEpisode(episodeId:to:)' cannot satisfy nonisolated requirement
+ 52 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 53 |         
+    :
+ 59 |     }
+ 60 |     
+ 61 |     public func removeEpisode(episodeId: String, from playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'removeEpisode(episodeId:from:)' cannot satisfy nonisolated requirement
+ 62 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 63 |         
+    :
+ 67 |     }
+ 68 |     
+ 69 |     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+    |                 `- note: main actor-isolated instance method 'reorderEpisodes(in:from:to:)' cannot satisfy nonisolated requirement
+ 70 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 71 |         
+    :
+100 |     // MARK: - Smart Playlists
+101 |     
+102 |     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'createSmartPlaylist' cannot satisfy nonisolated requirement
+103 |         // Don't add duplicates
+104 |         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+    :
+108 |     }
+109 |     
+110 |     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'updateSmartPlaylist' cannot satisfy nonisolated requirement
+111 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+112 |         
+    :
+115 |     }
+116 |     
+117 |     public func deleteSmartPlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deleteSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+118 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+119 |         
+    :
+122 |     }
+123 |     
+124 |     public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+    |                 `- note: main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+125 |         return smartPlaylists.first { $0.id == id }
+126 |     }
+
+[#ConformanceIsolation]: <https://docs.swift.org/compiler/documentation/diagnostics/conformance-isolation>
+[168/186] Compiling CoreModels OPMLModels.swift
+/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift:8:57: error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+  6 | @available(macOS 10.15, *)
+  7 | @MainActor
+  8 | public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+    |              |                                          |- error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+    |              |                                          |- note: isolate this conformance to the main actor with '@MainActor'
+    |              |                                          `- note: turn data races into runtime errors with '@preconcurrency'
+    |              `- note: mark all declarations used in the conformance 'nonisolated'
+  9 |     @Published public private(set) var playlists: [Playlist] = []
+ 10 |     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    :
+ 18 |     public init() {}
+ 19 | 
+ 20 |     public func allPlaylists() -> [Playlist] { playlists }
+    |                 `- note: main actor-isolated instance method 'allPlaylists()' cannot satisfy nonisolated requirement
+ 21 |     public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
+    |                 `- note: main actor-isolated instance method 'allSmartPlaylists()' cannot satisfy nonisolated requirement
+ 22 |     
+ 23 |     // MARK: - Manual Playlists
+ 24 |     
+ 25 |     public func createPlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'createPlaylist' cannot satisfy nonisolated requirement
+ 26 |         // Don't add duplicates
+ 27 |         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+    :
+ 31 |     }
+ 32 |     
+ 33 |     public func updatePlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'updatePlaylist' cannot satisfy nonisolated requirement
+ 34 |         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+ 35 |         
+    :
+ 38 |     }
+ 39 |     
+ 40 |     public func deletePlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deletePlaylist(id:)' cannot satisfy nonisolated requirement
+ 41 |         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+ 42 |         
+    :
+ 45 |     }
+ 46 |     
+ 47 |     public func findPlaylist(id: String) -> Playlist? {
+    |                 `- note: main actor-isolated instance method 'findPlaylist(id:)' cannot satisfy nonisolated requirement
+ 48 |         return playlists.first { $0.id == id }
+ 49 |     }
+ 50 |     
+ 51 |     public func addEpisode(episodeId: String, to playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'addEpisode(episodeId:to:)' cannot satisfy nonisolated requirement
+ 52 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 53 |         
+    :
+ 59 |     }
+ 60 |     
+ 61 |     public func removeEpisode(episodeId: String, from playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'removeEpisode(episodeId:from:)' cannot satisfy nonisolated requirement
+ 62 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 63 |         
+    :
+ 67 |     }
+ 68 |     
+ 69 |     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+    |                 `- note: main actor-isolated instance method 'reorderEpisodes(in:from:to:)' cannot satisfy nonisolated requirement
+ 70 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 71 |         
+    :
+100 |     // MARK: - Smart Playlists
+101 |     
+102 |     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'createSmartPlaylist' cannot satisfy nonisolated requirement
+103 |         // Don't add duplicates
+104 |         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+    :
+108 |     }
+109 |     
+110 |     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'updateSmartPlaylist' cannot satisfy nonisolated requirement
+111 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+112 |         
+    :
+115 |     }
+116 |     
+117 |     public func deleteSmartPlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deleteSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+118 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+119 |         
+    :
+122 |     }
+123 |     
+124 |     public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+    |                 `- note: main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+125 |         return smartPlaylists.first { $0.id == id }
+126 |     }
+
+[#ConformanceIsolation]: <https://docs.swift.org/compiler/documentation/diagnostics/conformance-isolation>
+[169/186] Compiling CoreModels OrganizationModels.swift
+/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift:8:57: error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+  6 | @available(macOS 10.15, *)
+  7 | @MainActor
+  8 | public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+    |              |                                          |- error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+    |              |                                          |- note: isolate this conformance to the main actor with '@MainActor'
+    |              |                                          `- note: turn data races into runtime errors with '@preconcurrency'
+    |              `- note: mark all declarations used in the conformance 'nonisolated'
+  9 |     @Published public private(set) var playlists: [Playlist] = []
+ 10 |     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    :
+ 18 |     public init() {}
+ 19 | 
+ 20 |     public func allPlaylists() -> [Playlist] { playlists }
+    |                 `- note: main actor-isolated instance method 'allPlaylists()' cannot satisfy nonisolated requirement
+ 21 |     public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
+    |                 `- note: main actor-isolated instance method 'allSmartPlaylists()' cannot satisfy nonisolated requirement
+ 22 |     
+ 23 |     // MARK: - Manual Playlists
+ 24 |     
+ 25 |     public func createPlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'createPlaylist' cannot satisfy nonisolated requirement
+ 26 |         // Don't add duplicates
+ 27 |         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+    :
+ 31 |     }
+ 32 |     
+ 33 |     public func updatePlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'updatePlaylist' cannot satisfy nonisolated requirement
+ 34 |         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+ 35 |         
+    :
+ 38 |     }
+ 39 |     
+ 40 |     public func deletePlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deletePlaylist(id:)' cannot satisfy nonisolated requirement
+ 41 |         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+ 42 |         
+    :
+ 45 |     }
+ 46 |     
+ 47 |     public func findPlaylist(id: String) -> Playlist? {
+    |                 `- note: main actor-isolated instance method 'findPlaylist(id:)' cannot satisfy nonisolated requirement
+ 48 |         return playlists.first { $0.id == id }
+ 49 |     }
+ 50 |     
+ 51 |     public func addEpisode(episodeId: String, to playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'addEpisode(episodeId:to:)' cannot satisfy nonisolated requirement
+ 52 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 53 |         
+    :
+ 59 |     }
+ 60 |     
+ 61 |     public func removeEpisode(episodeId: String, from playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'removeEpisode(episodeId:from:)' cannot satisfy nonisolated requirement
+ 62 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 63 |         
+    :
+ 67 |     }
+ 68 |     
+ 69 |     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+    |                 `- note: main actor-isolated instance method 'reorderEpisodes(in:from:to:)' cannot satisfy nonisolated requirement
+ 70 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 71 |         
+    :
+100 |     // MARK: - Smart Playlists
+101 |     
+102 |     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'createSmartPlaylist' cannot satisfy nonisolated requirement
+103 |         // Don't add duplicates
+104 |         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+    :
+108 |     }
+109 |     
+110 |     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'updateSmartPlaylist' cannot satisfy nonisolated requirement
+111 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+112 |         
+    :
+115 |     }
+116 |     
+117 |     public func deleteSmartPlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deleteSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+118 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+119 |         
+    :
+122 |     }
+123 |     
+124 |     public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+    |                 `- note: main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+125 |         return smartPlaylists.first { $0.id == id }
+126 |     }
+
+[#ConformanceIsolation]: <https://docs.swift.org/compiler/documentation/diagnostics/conformance-isolation>
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[170/186] Compiling CoreModels PlaylistManaging.swift
+[171/186] Compiling CoreModels Podcast.swift
+[172/186] Compiling CoreModels PodcastManaging.swift
+[173/186] Compiling CoreModels RecommendationModels.swift
+[174/186] Compiling CoreModels PlaybackPresetLibrary.swift
+[175/186] Compiling CoreModels PlaybackResumeState.swift
+[176/186] Compiling CoreModels PlaybackSettings.swift
+[177/186] Compiling CoreModels Playlist.swift
+[178/186] Emitting module CoreModels
+/Volumes/zHardDrive/code/zpod/Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift:8:57: error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+  6 | @available(macOS 10.15, *)
+  7 | @MainActor
+  8 | public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+    |              |                                          |- error: conformance of 'InMemoryPlaylistManager' to protocol 'PlaylistManaging' crosses into main actor-isolated code and can cause data races [#ConformanceIsolation]
+    |              |                                          |- note: isolate this conformance to the main actor with '@MainActor'
+    |              |                                          `- note: turn data races into runtime errors with '@preconcurrency'
+    |              `- note: mark all declarations used in the conformance 'nonisolated'
+  9 |     @Published public private(set) var playlists: [Playlist] = []
+ 10 |     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
+    :
+ 18 |     public init() {}
+ 19 | 
+ 20 |     public func allPlaylists() -> [Playlist] { playlists }
+    |                 `- note: main actor-isolated instance method 'allPlaylists()' cannot satisfy nonisolated requirement
+ 21 |     public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
+    |                 `- note: main actor-isolated instance method 'allSmartPlaylists()' cannot satisfy nonisolated requirement
+ 22 |     
+ 23 |     // MARK: - Manual Playlists
+ 24 |     
+ 25 |     public func createPlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'createPlaylist' cannot satisfy nonisolated requirement
+ 26 |         // Don't add duplicates
+ 27 |         guard !playlists.contains(where: { $0.id == playlist.id }) else { return }
+    :
+ 31 |     }
+ 32 |     
+ 33 |     public func updatePlaylist(_ playlist: Playlist) {
+    |                 `- note: main actor-isolated instance method 'updatePlaylist' cannot satisfy nonisolated requirement
+ 34 |         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+ 35 |         
+    :
+ 38 |     }
+ 39 |     
+ 40 |     public func deletePlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deletePlaylist(id:)' cannot satisfy nonisolated requirement
+ 41 |         guard let index = playlists.firstIndex(where: { $0.id == id }) else { return }
+ 42 |         
+    :
+ 45 |     }
+ 46 |     
+ 47 |     public func findPlaylist(id: String) -> Playlist? {
+    |                 `- note: main actor-isolated instance method 'findPlaylist(id:)' cannot satisfy nonisolated requirement
+ 48 |         return playlists.first { $0.id == id }
+ 49 |     }
+ 50 |     
+ 51 |     public func addEpisode(episodeId: String, to playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'addEpisode(episodeId:to:)' cannot satisfy nonisolated requirement
+ 52 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 53 |         
+    :
+ 59 |     }
+ 60 |     
+ 61 |     public func removeEpisode(episodeId: String, from playlistId: String) {
+    |                 `- note: main actor-isolated instance method 'removeEpisode(episodeId:from:)' cannot satisfy nonisolated requirement
+ 62 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 63 |         
+    :
+ 67 |     }
+ 68 |     
+ 69 |     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+    |                 `- note: main actor-isolated instance method 'reorderEpisodes(in:from:to:)' cannot satisfy nonisolated requirement
+ 70 |         guard let playlist = findPlaylist(id: playlistId) else { return }
+ 71 |         
+    :
+100 |     // MARK: - Smart Playlists
+101 |     
+102 |     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'createSmartPlaylist' cannot satisfy nonisolated requirement
+103 |         // Don't add duplicates
+104 |         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
+    :
+108 |     }
+109 |     
+110 |     public func updateSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
+    |                 `- note: main actor-isolated instance method 'updateSmartPlaylist' cannot satisfy nonisolated requirement
+111 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == smartPlaylist.id }) else { return }
+112 |         
+    :
+115 |     }
+116 |     
+117 |     public func deleteSmartPlaylist(id: String) {
+    |                 `- note: main actor-isolated instance method 'deleteSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+118 |         guard let index = smartPlaylists.firstIndex(where: { $0.id == id }) else { return }
+119 |         
+    :
+122 |     }
+123 |     
+124 |     public func findSmartPlaylist(id: String) -> SmartPlaylist? {
+    |                 `- note: main actor-isolated instance method 'findSmartPlaylist(id:)' cannot satisfy nonisolated requirement
+125 |         return smartPlaylists.first { $0.id == id }
+126 |     }
+
+[#ConformanceIsolation]: <https://docs.swift.org/compiler/documentation/diagnostics/conformance-isolation>
+[179/186] Compiling CoreModels SmartListBackgroundService.swift
+[180/186] Compiling CoreModels SmartListRuleEvaluator.swift
+[181/186] Compiling CoreModels SwipeActionSettings.swift
+[182/186] Compiling CoreModels UpdateSchedule.swift
+[183/186] Compiling CoreModels SearchModels.swift
+[184/186] Compiling CoreModels SettingsModels.swift
+[185/186] Compiling CoreModels SiriSnapshotRefreshing.swift
+[186/186] Compiling CoreModels SmartEpisodeListRules.swift
+================================
+Build Timing
+================================
+  Package Build: 00:00:06 – log: /Users/ericziegler/code/zpod/TestResults/TestResults_20260217_140224_build_pkg_CombineSupport.log
+  Total: 00:00:06
+
+================================
+Test Timing
+================================
+  Syntax: 00:00:16 – log: /Users/ericziegler/code/zpod/TestResults/TestResults_20260217_140208_syntax_swift.log
+  Total: 00:00:16
+
+================================
+Build Results
+================================
+  Package Build: total 2 (passed 1, failed 1, skipped 0, warnings 0)
+
+================================
+Test Results
+================================
+  (none)
+
+================================
+Overall Status
+================================
+  Exit Status: 1
+  Elapsed Time: 00:00:29
+  Started: 2026-02-17 14:02:08 EST
+  Ended: 2026-02-17 14:02:37 EST
+⏱️  14:02:37 - run-xcode-tests finished in 00:00:29 (exit 1)
