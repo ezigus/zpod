@@ -1,0 +1,46 @@
+The Edit tool is denied in the current permission mode. This is the **exact same blocker** that has stalled this pipeline for 17 iterations. Let me clearly explain the situation.
+
+---
+
+## Pipeline Blocked: Permission Issue
+
+The autonomous loop cannot proceed because **file editing permissions are denied** in the current "don't ask" mode. This is the sole blocker — the fix is a simple 2-line change that has been identified since iteration 7.
+
+### The Fix Needed
+
+In `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`:
+
+**Change 1** (line 7-8, Combine branch):
+```swift
+// REMOVE these two lines:
+@MainActor
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+
+// REPLACE with:
+public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+**Change 2** (line 133-134, non-Combine branch):
+```swift
+// REMOVE these two lines:
+@MainActor
+public class InMemoryPlaylistManager: PlaylistManaging {
+
+// REPLACE with:
+public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+### Why This Fix Works
+
+The `PlaylistManaging` protocol requires `Sendable` conformance (matching the existing `PodcastManaging` pattern). `@MainActor` creates an actor-isolation mismatch because the protocol methods are nonisolated. The fix:
+1. **Removes `@MainActor`** — eliminates the actor isolation that conflicts with nonisolated protocol methods
+2. **Adds `final`** — required for `Sendable` conformance on classes (prevents subclasses from breaking thread safety guarantees)
+3. **Adds `@unchecked Sendable`** — matches the existing `InMemoryPodcastManager` pattern in TestSupport, acknowledging this is a test fixture with single-threaded usage
+
+### What To Do
+
+Please either:
+1. **Apply the two changes above manually** to `InMemoryPlaylistManager.swift`, or
+2. **Re-run this session with Edit permissions enabled** so the agent can apply the fix
+
+Once this compilation error is resolved, the remaining 13 tasks in the implementation plan (SwiftData persistence, ViewModels, UI views, app wiring) can proceed.
