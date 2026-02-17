@@ -5,7 +5,7 @@ import Foundation
 /// In-memory playlist manager for testing
 @available(macOS 10.15, *)
 @MainActor
-public class InMemoryPlaylistManager: ObservableObject {
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
     @Published public private(set) var playlists: [Playlist] = []
     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
     
@@ -16,6 +16,9 @@ public class InMemoryPlaylistManager: ObservableObject {
     }
     
     public init() {}
+
+    public func allPlaylists() -> [Playlist] { playlists }
+    public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
     
     // MARK: - Manual Playlists
     
@@ -128,11 +131,14 @@ public class InMemoryPlaylistManager: ObservableObject {
 /// In-memory playlist manager for testing (non-Combine version)
 @available(macOS 10.15, *)
 @MainActor
-public class InMemoryPlaylistManager {
+public class InMemoryPlaylistManager: PlaylistManaging {
     public private(set) var playlists: [Playlist] = []
     public private(set) var smartPlaylists: [SmartPlaylist] = []
     
     public init() {}
+
+    public func allPlaylists() -> [Playlist] { playlists }
+    public func allSmartPlaylists() -> [SmartPlaylist] { smartPlaylists }
     
     // MARK: - Manual Playlists
     

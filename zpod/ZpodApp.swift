@@ -84,7 +84,7 @@ struct ZpodApp: App {
         do {
           let config = ModelConfiguration(isStoredInMemoryOnly: true)
           let container = try ModelContainer(
-            for: LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self,
+            for: LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self, PlaylistEntity.self,
             configurations: config
           )
           print("✅ UI Test: Successfully created in-memory ModelContainer")
@@ -96,7 +96,7 @@ struct ZpodApp: App {
       } else {
         print("📱 Production mode - creating persistent ModelContainer")
         do {
-          let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self])
+          let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self, PlaylistEntity.self])
           let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
           let container = try ModelContainer(for: schema, configurations: [config])
           print("✅ Production: Successfully created persistent ModelContainer")
@@ -126,6 +126,11 @@ struct ZpodApp: App {
       )
       return repository
     }()
+
+    @available(iOS 17, *)
+    private static let sharedPlaylistRepository: SwiftDataPlaylistRepository = {
+      SwiftDataPlaylistRepository(modelContainer: sharedModelContainer)
+    }()
   #endif
 
   var body: some Scene {
@@ -134,7 +139,7 @@ struct ZpodApp: App {
         if ProcessInfo.processInfo.environment["UITEST_USE_LIBRARY_PLACEHOLDER"] == "1" {
           UITestLibraryPlaceholderView()
         } else {
-          ContentView(podcastManager: Self.sharedPodcastRepository)
+          ContentView(podcastManager: Self.sharedPodcastRepository, playlistManager: Self.sharedPlaylistRepository)
             .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
               handlePlayEpisodeActivity(userActivity)
             }

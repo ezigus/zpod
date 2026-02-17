@@ -155,8 +155,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   import PlaylistFeature
 
   private struct PlaylistTabView: View {
+    let playlistManager: any PlaylistManaging
     var body: some View {
-      PlaylistFeatureView(playlists: [], episodesProvider: { _ in [] })
+      PlaylistFeatureView(playlists: playlistManager.allPlaylists(), episodesProvider: { _ in [] })
     }
   }
 #else
@@ -408,6 +409,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
     // Service instances for dependency injection
     private let podcastManager: PodcastManaging
+    private let playlistManager: any PlaylistManaging
     private let searchService: SearchServicing
     @StateObject private var settingsManager: SettingsManager
 
@@ -429,8 +431,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
 
-    public init(podcastManager: PodcastManaging) {
+    public init(podcastManager: PodcastManaging, playlistManager: any PlaylistManaging) {
       self.podcastManager = podcastManager
+      self.playlistManager = playlistManager
 
       // Create search index sources (empty for now, will be populated as content is added)
       let searchSources: [SearchIndexSource] = []
@@ -483,7 +486,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .tag(1)
 
           // Playlists Tab (placeholder UI)
-          PlaylistTabView()
+          PlaylistTabView(playlistManager: playlistManager)
             .tabItem {
               Label("Playlists", systemImage: "music.note.list")
             }
@@ -1136,7 +1139,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
   #if DEBUG
     #Preview {
-      ContentView(podcastManager: PreviewPodcastManager())
+      ContentView(podcastManager: PreviewPodcastManager(), playlistManager: InMemoryPlaylistManager())
         .modelContainer(for: Item.self, inMemory: true)
     }
   #endif
