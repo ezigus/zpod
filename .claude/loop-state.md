@@ -70,16 +70,16 @@ Task tracking (check off items as you complete them):
 - Branch: feat/06-1-1-core-playlist-creation-and-manage-186
 - Issue: #186
 - Generated: 2026-02-17T01:52:38Z"
-iteration: 11
+iteration: 12
 max_iterations: 25
 status: running
 test_cmd: "./scripts/run-xcode-tests.sh 2>&1"
 model: opus
 agents: 1
-started_at: 2026-02-17T18:52:18Z
-last_iteration_at: 2026-02-17T18:52:18Z
+started_at: 2026-02-17T18:55:56Z
+last_iteration_at: 2026-02-17T18:55:56Z
 consecutive_failures: 0
-total_commits: 11
+total_commits: 12
 audit_enabled: true
 audit_agent_enabled: true
 quality_gates_enabled: true
@@ -144,4 +144,9 @@ Either:
 - PlaylistManaging protocol + SwiftData persistence
 - ContentView wired to live playlist data
 - App-level dependency injection complete
+
+### Iteration 12 (2026-02-17T18:55:56Z)
+2. `PlaylistCreationView` + `PlaylistEditView` sheets
+3. `AddToPlaylistView` for episode addition
+4. Playlist playback integration
 
