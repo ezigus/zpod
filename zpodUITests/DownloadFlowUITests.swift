@@ -30,10 +30,14 @@ final class DownloadFlowUITests: IsolatedUITestCase {
   /// don't hit navigation timeouts.
   override class func setUp() {
     super.setUp()
-    let warmupApp = XCUIApplication()
-    warmupApp.launch()
-    _ = warmupApp.wait(for: .runningForeground, timeout: 10)
-    warmupApp.terminate()
+    // XCTest class setUp runs on the main thread; assumeIsolated
+    // satisfies Swift 6 strict concurrency for @MainActor APIs.
+    MainActor.assumeIsolated {
+      let warmupApp = XCUIApplication()
+      warmupApp.launch()
+      _ = warmupApp.wait(for: .runningForeground, timeout: 10)
+      warmupApp.terminate()
+    }
   }
 
   private let downloadSwipeSuite = "us.zig.zpod.download-flow-swipes"
