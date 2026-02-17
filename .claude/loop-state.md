@@ -70,16 +70,16 @@ Task tracking (check off items as you complete them):
 - Branch: feat/06-1-1-core-playlist-creation-and-manage-186
 - Issue: #186
 - Generated: 2026-02-17T01:52:38Z"
-iteration: 20
+iteration: 21
 max_iterations: 25
 status: running
 test_cmd: "./scripts/run-xcode-tests.sh 2>&1"
 model: opus
 agents: 1
-started_at: 2026-02-17T19:22:06Z
-last_iteration_at: 2026-02-17T19:22:06Z
+started_at: 2026-02-17T19:23:52Z
+last_iteration_at: 2026-02-17T19:23:52Z
 consecutive_failures: 0
-total_commits: 20
+total_commits: 21
 audit_enabled: true
 audit_agent_enabled: true
 quality_gates_enabled: true
@@ -189,4 +189,9 @@ Please either:
 ### To Unblock
 Please either:
 1. **Apply the two changes above manually** and re-run the loop, OR
+
+### Iteration 21 (2026-02-17T19:23:52Z)
+The three changes are:
+1. **Remove `@MainActor`** — protocol methods are nonisolated, so conforming type can't be actor-isolated
+2. **Make `final`** — required for `@unchecked Sendable` to be safe (prevents subclassing that could violate invariants)
 
