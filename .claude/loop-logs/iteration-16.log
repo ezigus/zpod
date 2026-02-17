@@ -1,0 +1,55 @@
+`★ Insight ─────────────────────────────────────`
+**Why this loop is stuck**: The autonomous "don't ask" mode denies both `Edit` and `Write` tool permissions. The pipeline has been blocked on this since iteration 8 (9 iterations ago). The fix is a two-line change, but no file modification path is available.
+
+**The exact fix needed** (2 changes in `InMemoryPlaylistManager.swift`):
+1. **Line 7-8**: Change `@MainActor\npublic class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {` to `public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {`
+2. **Line 133-134**: Change `@MainActor\npublic class InMemoryPlaylistManager: PlaylistManaging {` to `public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {`
+
+This follows the exact pattern of `InMemoryPodcastManager` in `TestSupport/`.
+`─────────────────────────────────────────────────`
+
+---
+
+## BLOCKED — Need File Modification Permissions
+
+**I cannot proceed.** This is iteration 16 and the loop has been stuck on the same compiler error since iteration 8. The autonomous mode denies `Edit` and `Write` tool permissions, which are **required** to fix the build.
+
+### The Problem
+`InMemoryPlaylistManager.swift` has `@MainActor` on both class declarations (lines 7 and 133). The `PlaylistManaging` protocol requires `Sendable` with `nonisolated` methods. In Swift 6 strict concurrency, a `@MainActor` class cannot conform to a `Sendable` protocol with nonisolated methods — the actor isolation conflicts.
+
+### The Exact Fix (two-line change)
+
+**File**: `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`
+
+**Change 1** (Combine branch, line 7-8):
+```swift
+// FROM:
+@MainActor
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+
+// TO:
+public final class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+**Change 2** (non-Combine branch, line 133-134):
+```swift
+// FROM:
+@MainActor
+public class InMemoryPlaylistManager: PlaylistManaging {
+
+// TO:
+public final class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+### Why This Fix Is Correct
+- Follows the established `InMemoryPodcastManager` pattern (see `TestSupport/InMemoryPodcastManager.swift:10`)
+- `@unchecked Sendable` is appropriate for test-only in-memory implementations
+- `final` is required for `@unchecked Sendable` classes
+- Removes `@MainActor` which conflicts with the protocol's nonisolated method requirements
+
+### To Unblock
+Please either:
+1. **Apply the fix manually** using the two changes above, OR
+2. **Grant Edit/Write permissions** for `*.swift` files and restart the loop
+
+Once this compiles, the remaining 11 tasks (ViewModels, UI views, playlist playback integration) can proceed.
