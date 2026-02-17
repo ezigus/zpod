@@ -28,7 +28,7 @@ import SharedUtilities
 /// Expects audio session to be configured by SystemMediaCoordinator.
 /// Only activates the session when starting playback.
 @MainActor
-public final class AVPlayerPlaybackEngine {
+public final class AVPlayerPlaybackEngine: AudioEngineProtocol {
     // MARK: - Public Callbacks
     
     /// Called periodically (every ~0.5s) with current playback position
@@ -353,15 +353,9 @@ public final class AVPlayerPlaybackEngine {
     }
     
     /// Stop playback and release all resources.
-    /// 
-    /// This method is nonisolated to allow safe cleanup from deinit contexts.
-    /// Cleanup operations are dispatched to the main actor when needed.
-    nonisolated public func stop() {
-        Task { @MainActor in
-            // Pause playback first to stop audio output
-            player?.pause()
-            cleanupSync()
-        }
+    public func stop() {
+        player?.pause()
+        cleanupSync()
     }
     
     // MARK: - Private Methods

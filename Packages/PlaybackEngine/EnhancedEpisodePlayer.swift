@@ -92,7 +92,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
   private var wasPlayingBeforeSimulatedNetworkLoss = false
   
   #if os(iOS)
-  private let audioEngine: AVPlayerPlaybackEngine?
+  private let audioEngine: (any AudioEngineProtocol)?
   #endif
 
   #if canImport(Combine)
@@ -129,7 +129,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     stateManager: EpisodeStateManager? = nil,
     chapterResolver: ((Episode, TimeInterval) -> [Chapter])? = nil,
     ticker: Ticker? = nil,
-    audioEngine: AVPlayerPlaybackEngine? = nil,
+    audioEngine: (any AudioEngineProtocol)? = nil,
     localFileProvider: ((String) -> URL?)? = nil,
     simulationRecoveryGracePeriod: TimeInterval = 3.0
   ) {
@@ -179,7 +179,11 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     simulatedBufferRecoveryTask?.cancel()
     activeTicker?.cancel()  // Ensure no lingering timer
     #if os(iOS)
-      audioEngine?.stop()  // Clean up audio resources
+      // @MainActor class instances are deallocated on the main actor,
+      // so assumeIsolated is safe here for calling the protocol method.
+      MainActor.assumeIsolated {
+        audioEngine?.stop()
+      }
     #endif
   }
 
@@ -670,9 +674,10 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
     #if os(iOS)
       let mode = audioEngine == nil ? "ticker" : "audioEngine"
-      let engineStatus = audioEngine?.debugStatusDescription ?? "none"
-      let engineRate = audioEngine?.debugRateDescription ?? "none"
-      let engineError = audioEngine?.debugErrorDescription ?? "none"
+      let avEngine = audioEngine as? AVPlayerPlaybackEngine
+      let engineStatus = avEngine?.debugStatusDescription ?? "none"
+      let engineRate = avEngine?.debugRateDescription ?? "none"
+      let engineError = avEngine?.debugErrorDescription ?? "none"
       let engineIsPlaying = audioEngine?.isPlaying ?? false
     #else
       let mode = "ticker"

@@ -39,6 +39,14 @@ public enum SwipeConfigurationSeeding {
     )
   }
 
+  /// Cancel-download-focused configuration exposing the cancel action for in-progress download tests.
+  public static var cancelDownloadFocused: String {
+    base64(
+      leading: ["download", "markPlayed"],
+      trailing: ["cancelDownload", "deleteDownload", "delete"]
+    )
+  }
+
   /// Factory for a custom swipe configuration payload.
   public static func custom(
     leading: [String],

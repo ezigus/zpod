@@ -45,10 +45,10 @@ public protocol StreamingErrorHandling: Sendable {
 
 /// Handles streaming errors with exponential backoff retry logic
 ///
-/// Retry schedule:
-/// - First retry: 5 seconds
-/// - Second retry: 15 seconds
-/// - Third retry: 60 seconds
+/// Retry schedule (per spec/streaming-playback.md):
+/// - First retry: 2 seconds
+/// - Second retry: 5 seconds
+/// - Third retry: 10 seconds
 /// - After 3 attempts: fail permanently
 ///
 /// **Testing**: Uses `DelayProvider` for deterministic testing (similar to `DeterministicTicker`).
@@ -207,6 +207,19 @@ public final class StreamingErrorHandler: StreamingErrorHandling, @unchecked Sen
             case NSURLErrorTimedOut,              // Brief data timeout (not offline)
                  NSURLErrorNetworkConnectionLost: // Momentary connection drop
                 return true
+
+            // Server error via URLSession — retry 5xx per spec, fail 4xx immediately.
+            // URLSession wraps all non-2xx HTTP responses as NSURLErrorBadServerResponse;
+            // we must inspect the embedded status code to distinguish server vs client errors.
+            case NSURLErrorBadServerResponse:
+                // URLSession may store the response under either key depending on iOS version.
+                // Check both to avoid silently classifying real 5xx as non-retryable.
+                let httpResponse = (nsError.userInfo["NSURLErrorFailingURLResponseErrorKey"]
+                    ?? nsError.userInfo["NSErrorFailingURLResponseKey"]) as? HTTPURLResponse
+                if let httpResponse, (500...599).contains(httpResponse.statusCode) {
+                    return true
+                }
+                return false
 
             // Offline state - should trigger network monitor, NOT retry
             case NSURLErrorNotConnectedToInternet:

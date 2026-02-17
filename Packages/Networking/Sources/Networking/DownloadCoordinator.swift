@@ -116,8 +116,18 @@ public class DownloadCoordinator {
 
   public func cancelDownload(forEpisodeID episodeID: String) {
     guard let info = downloadInfo(forEpisodeID: episodeID) else { return }
-    queueManager.cancelDownload(taskId: info.task.id)
-    if let updated = queueManager.getTask(id: info.task.id) {
+    let taskId = info.task.id
+    queueManager.cancelDownload(taskId: taskId)
+
+    // Cancel actual URLSession download task and clean up partial data
+    Task { [fileManagerService] in
+      await fileManagerService.cancelDownload(taskId: taskId)
+    }
+
+    // Remove from completed downloads cache
+    completedDownloads.removeValue(forKey: episodeID)
+
+    if let updated = queueManager.getTask(id: taskId) {
       emitProgress(for: updated, statusOverride: .failed, message: "Cancelled")
     } else {
       emitProgress(forEpisodeID: episodeID, fraction: 0, status: .failed, message: "Cancelled")
