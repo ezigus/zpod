@@ -1,0 +1,1 @@
+The pipeline cannot advance without file modification permissions. The fix is a two-line change that I've documented above. Please apply it manually or re-run with permissions enabled.
