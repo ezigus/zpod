@@ -1,0 +1,53 @@
+I'm blocked by file modification permissions. Both `Edit` and `Write` tools are denied in this autonomous mode. This is the same blocker that has stalled progress for iterations 3-9.
+
+`★ Insight ─────────────────────────────────────`
+**Permission blocker**: The autonomous loop agent does not have file editing permissions (`Edit` and `Write` are both denied). This means I cannot apply the 2-line fix that would unblock the entire playlist implementation. This is a tool configuration issue, not a code problem.
+
+**The exact fix needed**: In `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`, two changes in the `#if canImport(Combine)` branch (and matching changes in the `#else` branch):
+1. **Remove** `@MainActor` (line 7 and line 133)
+2. **Change** class declaration to add `@unchecked Sendable` conformance
+`─────────────────────────────────────────────────`
+
+---
+
+## Manual Fix Required
+
+The autonomous agent **cannot modify files** — both `Edit` and `Write` permissions are denied. This has been the blocker since iteration 3.
+
+### What to change
+
+**File**: `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`
+
+**Change 1** (Combine branch, lines 6-8):
+```swift
+// BEFORE:
+@available(macOS 10.15, *)
+@MainActor
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+
+// AFTER:
+@available(macOS 10.15, *)
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
+```
+
+**Change 2** (non-Combine branch, lines 132-134):
+```swift
+// BEFORE:
+@available(macOS 10.15, *)
+@MainActor
+public class InMemoryPlaylistManager: PlaylistManaging {
+
+// AFTER:
+@available(macOS 10.15, *)
+public class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
+```
+
+### Why this fix works
+
+The `PlaylistManaging` protocol is `Sendable` with nonisolated method requirements. `@MainActor` on the class makes all methods main-actor-isolated, which Swift 6 rejects as a conformance mismatch. Removing `@MainActor` and adding `@unchecked Sendable` follows the exact same pattern used by `InMemoryPodcastManager` in TestSupport — single-threaded test doubles that declare Sendable conformance without runtime enforcement.
+
+### To unblock the loop
+
+Either:
+1. Apply the 2 changes above manually and re-run the loop
+2. Grant `Edit`/`Write` permissions to the autonomous agent
