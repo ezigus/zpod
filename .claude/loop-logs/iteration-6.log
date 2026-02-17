@@ -1,0 +1,281 @@
+---
+
+## Permission Blocker — Iteration 6 of 25
+
+**Status: BLOCKED — cannot write any code.**
+
+Both `Write` and `Bash` tools are denied in the current "don't ask" permission mode. This is the same blocker from iterations 2-5, despite the iteration 5 notes indicating permissions should be enabled.
+
+### What I need to implement
+
+I have **complete code ready** for the first 4 tasks. Here's exactly what needs to happen:
+
+### Task 1: Create `PlaylistManaging.swift` (new file)
+
+**Path:** `Packages/CoreModels/Sources/CoreModels/PlaylistManaging.swift`
+
+```swift
+import Foundation
+
+@MainActor
+public protocol PlaylistManaging: AnyObject, Observable {
+    var playlists: [Playlist] { get }
+    func createPlaylist(_ playlist: Playlist)
+    func updatePlaylist(_ playlist: Playlist)
+    func deletePlaylist(id: String)
+    func findPlaylist(id: String) -> Playlist?
+    func addEpisode(episodeId: String, to playlistId: String)
+    func removeEpisode(episodeId: String, from playlistId: String)
+    func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int)
+}
+```
+
+### Task 1b: Make `InMemoryPlaylistManager` conform to `PlaylistManaging`
+
+**File:** `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`
+
+Add `: PlaylistManaging` to both `#if canImport(Combine)` and `#else` class declarations (lines 8 and 131).
+
+### Task 2: Create `PlaylistEntity.swift` (new file)
+
+**Path:** `Packages/Persistence/Sources/Persistence/PlaylistEntity.swift`
+
+```swift
+import Foundation
+import SwiftData
+import CoreModels
+import OSLog
+
+@available(iOS 17, macOS 14, watchOS 10, *)
+@Model
+public final class PlaylistEntity {
+    private static let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "PlaylistEntity")
+    @Attribute(.unique) public var id: String
+    public var name: String
+    public var episodeIds: [String]
+    public var continuousPlayback: Bool
+    public var shuffleAllowed: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: String,
+        name: String,
+        episodeIds: [String] = [],
+        continuousPlayback: Bool = true,
+        shuffleAllowed: Bool = true,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.episodeIds = episodeIds
+        self.continuousPlayback = continuousPlayback
+        self.shuffleAllowed = shuffleAllowed
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+@available(iOS 17, macOS 14, watchOS 10, *)
+extension PlaylistEntity {
+    public func toDomain() -> Playlist {
+        Playlist(
+            id: id,
+            name: name,
+            episodeIds: episodeIds,
+            continuousPlayback: continuousPlayback,
+            shuffleAllowed: shuffleAllowed,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
+    public static func fromDomain(_ playlist: Playlist) -> PlaylistEntity {
+        PlaylistEntity(
+            id: playlist.id,
+            name: playlist.name,
+            episodeIds: playlist.episodeIds,
+            continuousPlayback: playlist.continuousPlayback,
+            shuffleAllowed: playlist.shuffleAllowed,
+            createdAt: playlist.createdAt,
+            updatedAt: playlist.updatedAt
+        )
+    }
+
+    public func updateFrom(_ playlist: Playlist) {
+        name = playlist.name
+        episodeIds = playlist.episodeIds
+        continuousPlayback = playlist.continuousPlayback
+        shuffleAllowed = playlist.shuffleAllowed
+        updatedAt = playlist.updatedAt
+    }
+}
+```
+
+### Task 3: Create `SwiftDataPlaylistRepository.swift` (new file)
+
+**Path:** `Packages/Persistence/Sources/Persistence/SwiftDataPlaylistRepository.swift`
+
+```swift
+import Foundation
+import SwiftData
+import CoreModels
+import OSLog
+
+@available(iOS 17, macOS 14, watchOS 10, *)
+public final class SwiftDataPlaylistRepository: PlaylistManaging, @unchecked Sendable {
+    private let modelContainer: ModelContainer
+    private let modelContext: ModelContext
+    private let serialQueue: DispatchQueue
+    private let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "SwiftDataPlaylistRepository")
+    private let saveHandler: () throws -> Void
+
+    @MainActor public private(set) var playlists: [Playlist] = []
+
+    public init(modelContainer: ModelContainer, saveHandler: (() throws -> Void)? = nil) {
+        self.modelContainer = modelContainer
+        let queue = DispatchQueue(label: "us.zig.zpod.SwiftDataPlaylistRepository")
+        self.serialQueue = queue
+
+        var context: ModelContext?
+        queue.sync { context = ModelContext(modelContainer) }
+        guard let context else {
+            fatalError("Failed to create ModelContext on SwiftDataPlaylistRepository queue.")
+        }
+        self.modelContext = context
+        self.saveHandler = saveHandler ?? { try context.save() }
+
+        // Load initial playlists
+        let initial = loadPlaylistsSync()
+        // Schedule main-actor update
+        let repo = self
+        DispatchQueue.main.async {
+            repo.playlists = initial
+        }
+    }
+
+    // MARK: - PlaylistManaging
+
+    @MainActor
+    public func createPlaylist(_ playlist: Playlist) {
+        let didSave = serialQueue.sync { () -> Bool in
+            if fetchEntity(id: playlist.id) != nil {
+                logger.warning("Duplicate playlist add ignored: \(playlist.id, privacy: .public)")
+                return false
+            }
+            let entity = PlaylistEntity.fromDomain(playlist)
+            modelContext.insert(entity)
+            return saveContext()
+        }
+        if didSave { refreshPlaylists() }
+    }
+
+    @MainActor
+    public func updatePlaylist(_ playlist: Playlist) {
+        let didSave = serialQueue.sync { () -> Bool in
+            guard let entity = fetchEntity(id: playlist.id) else {
+                logger.warning("Update ignored for missing playlist: \(playlist.id, privacy: .public)")
+                return false
+            }
+            entity.updateFrom(playlist)
+            return saveContext()
+        }
+        if didSave { refreshPlaylists() }
+    }
+
+    @MainActor
+    public func deletePlaylist(id: String) {
+        let didSave = serialQueue.sync { () -> Bool in
+            guard let entity = fetchEntity(id: id) else {
+                logger.warning("Delete ignored for missing playlist: \(id, privacy: .public)")
+                return false
+            }
+            modelContext.delete(entity)
+            return saveContext()
+        }
+        if didSave { refreshPlaylists() }
+    }
+
+    @MainActor
+    public func findPlaylist(id: String) -> Playlist? {
+        serialQueue.sync {
+            fetchEntity(id: id)?.toDomain()
+        }
+    }
+
+    @MainActor
+    public func addEpisode(episodeId: String, to playlistId: String) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        guard !playlist.episodeIds.contains(episodeId) else { return }
+        let updated = playlist.withEpisodes(playlist.episodeIds + [episodeId])
+        updatePlaylist(updated)
+    }
+
+    @MainActor
+    public func removeEpisode(episodeId: String, from playlistId: String) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        let updated = playlist.withEpisodes(playlist.episodeIds.filter { $0 != episodeId })
+        updatePlaylist(updated)
+    }
+
+    @MainActor
+    public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
+        guard let playlist = findPlaylist(id: playlistId) else { return }
+        var ids = playlist.episodeIds
+        ids.move(fromOffsets: source, toOffset: destination)
+        let updated = playlist.withEpisodes(ids)
+        updatePlaylist(updated)
+    }
+
+    // MARK: - Private
+
+    private func fetchEntity(id: String) -> PlaylistEntity? {
+        let predicate = #Predicate<PlaylistEntity> { $0.id == id }
+        let descriptor = FetchDescriptor(predicate: predicate)
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    private func loadPlaylistsSync() -> [Playlist] {
+        serialQueue.sync {
+            let descriptor = FetchDescriptor<PlaylistEntity>(sortBy: [SortDescriptor(\.createdAt)])
+            guard let entities = try? modelContext.fetch(descriptor) else {
+                logger.error("Failed to fetch playlists")
+                return []
+            }
+            return entities.map { $0.toDomain() }
+        }
+    }
+
+    @MainActor
+    private func refreshPlaylists() {
+        playlists = loadPlaylistsSync()
+    }
+
+    private func saveContext() -> Bool {
+        do {
+            try saveHandler()
+            return true
+        } catch {
+            logger.error("Failed to save context: \(error.localizedDescription, privacy: .public)")
+            modelContext.rollback()
+            return false
+        }
+    }
+}
+```
+
+### Task 4: Register `PlaylistEntity` in `ZpodApp.swift`
+
+**File:** `zpod/ZpodApp.swift` — Add `PlaylistEntity.self` to the schema arrays on lines 87, 89, and 99.
+
+---
+
+### To the pipeline operator
+
+Please re-run this iteration with these permissions:
+- **Write tool**: allowed for `*.swift` and `Package.swift` files in `/Volumes/zHardDrive/code/zpod/`
+- **Edit tool**: allowed for same scope
+- **Bash tool**: allowed for `./scripts/run-xcode-tests.sh` and `git` commands
+
+Without these, the implementation is completely blocked. All 15 tasks require writing or editing Swift files, and testing requires shell execution. I've now documented the complete code for 4 of the 15 tasks above — if permissions are granted, I can write and test them immediately.
