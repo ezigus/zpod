@@ -1,0 +1,35 @@
+`★ Insight ─────────────────────────────────────`
+**What was accomplished in this iteration**: This is the first iteration (out of 7) that produced **actual code changes** rather than just plans. The core persistence layer for playlists is now in place across 3 new files and 3 modified files:
+
+1. **`PlaylistManaging` protocol** (CoreModels) — Defines the abstract CRUD contract, following the same `Sendable` pattern as `PodcastManaging`. This enables swapping in-memory (testing) and SwiftData (production) backends.
+
+2. **`PlaylistEntity` + `SwiftDataPlaylistRepository`** (Persistence) — The SwiftData model stores playlists with ordered episode ID arrays. The repository uses the same serial-queue thread-safety pattern as `SwiftDataPodcastRepository`, ensuring `ModelContext` is never accessed from multiple threads.
+
+3. **End-to-end wiring** — `ZpodApp` creates the shared repository, passes it through `ContentView`, down to `PlaylistTabView`, which now calls `playlistManager.allPlaylists()` instead of passing empty arrays. The "backend done, frontend not wired" gap is closed.
+
+**Remaining work** for full issue completion: ViewModel layer, creation/editing sheets, episode addition UI, reordering, playback integration, and tests (Tasks 5-15 from the plan).
+`─────────────────────────────────────────────────`
+
+---
+
+**Iteration 7 Summary — Commit `2be8f1c`**
+
+| Task | Status |
+|------|--------|
+| 1. Extract `PlaylistManaging` protocol | Done |
+| 2. Create `PlaylistEntity` SwiftData model | Done |
+| 3. Create `SwiftDataPlaylistRepository` | Done |
+| 4. Register `PlaylistEntity` in ModelContainer | Done |
+| 5-15. ViewModels, UI views, tests | Remaining |
+
+**Files created** (3):
+- `Packages/CoreModels/Sources/CoreModels/PlaylistManaging.swift`
+- `Packages/Persistence/Sources/Persistence/PlaylistEntity.swift`
+- `Packages/Persistence/Sources/Persistence/SwiftDataPlaylistRepository.swift`
+
+**Files modified** (3):
+- `InMemoryPlaylistManager.swift` — Added `PlaylistManaging` conformance
+- `ContentView.swift` — Wired `playlistManager` through to `PlaylistTabView`
+- `ZpodApp.swift` — Added `PlaylistEntity` to schema + `sharedPlaylistRepository`
+
+Syntax check passes. The playlist tab now reads from SwiftData instead of showing empty arrays.
