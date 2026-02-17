@@ -221,7 +221,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testSeekingUpdatesPositionImmediately() throws {
         try XCTSkipIf(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
             "AVPlayer seek accuracy requires real audio hardware - CI tests UI only"
         )
         logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): launch app")
@@ -305,7 +306,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testSeekingUpdatesPositionImmediately_CI() throws {
         try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
             "CI-only test for UI interaction verification"
         )
 
@@ -611,7 +613,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testInterruptionPausesAndResumesPlayback() throws {
         try XCTSkipIf(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
             "AVPlayer interruption requires real audio hardware - CI tests UI only"
         )
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
@@ -671,7 +674,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     func testInterruptionPausesAndResumesPlayback_CI() throws {
         try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil,
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
             "CI-only test for UI interaction verification"
         )
 
@@ -718,6 +722,11 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     // swiftlint:disable:next function_body_length
     func testPlaybackSpeedChangesPositionRate() throws {
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
+            "AVPlayer rate-based position measurement requires real audio hardware - CI uses UI-only variant"
+        )
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
         guard startPlaybackFromPlayerTab() else {
@@ -1019,6 +1028,75 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             baselineDelta * speedThreshold,
             "Playback should advance ~2x faster at 2.0x speed (baseline \(baselineDelta)s, fast \(fastDelta)s, ratio \(fastDelta/baselineDelta)x)"
         )
+    }
+
+    /// **CI Variant**: Speed Change UI Controls
+    ///
+    /// Verifies that speed control buttons exist and label changes correctly in CI.
+    /// Does NOT verify AVPlayer rate-based position measurement (requires real audio hardware).
+    ///
+    /// **Given**: An episode is playing
+    /// **When**: User changes playback speed via Speed Control
+    /// **Then**: Speed Control button label updates to reflect the new speed
+    @MainActor
+    func testPlaybackSpeedChangesPositionRate_CI() throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
+            || ProcessInfo.processInfo.environment["CI"] != nil,
+            "CI-only test for UI interaction verification"
+        )
+
+        launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
+
+        guard startPlaybackFromPlayerTab() else {
+            XCTFail("Failed to start playback from Player tab")
+            return
+        }
+
+        // Verify Speed Control button exists
+        let speedControl = app.buttons.matching(identifier: "Speed Control").firstMatch
+        XCTAssertTrue(speedControl.waitForExistence(timeout: adaptiveShortTimeout),
+            "Speed Control button should exist")
+
+        // Record initial speed label
+        let initialLabel = speedControl.label
+        XCTContext.runActivity(named: "Initial speed: \(initialLabel)") { _ in }
+
+        // Set speed to 2.0x
+        guard let twoXOption = openSpeedOption(identifier: "PlaybackSpeed.Option.2.0x") else {
+            XCTFail("2.0x speed option not found")
+            return
+        }
+        twoXOption.tap()
+
+        // Wait for speed menu to close
+        _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed menu close") {
+            !twoXOption.exists
+        }
+
+        // Verify label changed to 2.0x
+        let fastLabel = speedControl.label
+        XCTContext.runActivity(named: "Speed after 2.0x: \(fastLabel)") { _ in }
+        XCTAssertTrue(fastLabel.contains("2.0x") || fastLabel.contains("2x"),
+            "Speed Control should show 2.0x after setting (got: '\(fastLabel)')")
+
+        // Set speed back to 1.0x
+        guard let oneXOption = openSpeedOption(identifier: "PlaybackSpeed.Option.1.0x") else {
+            XCTFail("1.0x speed option not found")
+            return
+        }
+        oneXOption.tap()
+
+        // Wait for speed menu to close
+        _ = waitUntil(timeout: 1.0, pollInterval: 0.1, description: "speed menu close") {
+            !oneXOption.exists
+        }
+
+        // Verify label reverted to 1.0x
+        let revertedLabel = speedControl.label
+        XCTContext.runActivity(named: "Speed after revert: \(revertedLabel)") { _ in }
+        XCTAssertTrue(revertedLabel.contains("1.0x") || revertedLabel.contains("1x"),
+            "Speed Control should show 1.0x after reverting (got: '\(revertedLabel)')")
     }
 
     // MARK: - Helpers

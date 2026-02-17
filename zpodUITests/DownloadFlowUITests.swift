@@ -19,6 +19,23 @@ import XCTest
 ///
 /// **Issue**: #28.1 - Phase 4: Test Infrastructure
 final class DownloadFlowUITests: IsolatedUITestCase {
+
+  // MARK: - Class-Level Warm-Up
+
+  /// Prime the CI simulator before any tests run.
+  ///
+  /// On a freshly provisioned CI simulator, the first app launch incurs cold-start
+  /// latency (SpringBoard initialization, accessibility services, SwiftUI view
+  /// materialization). This throwaway launch absorbs that cost so individual tests
+  /// don't hit navigation timeouts.
+  override class func setUp() {
+    super.setUp()
+    let warmupApp = XCUIApplication()
+    warmupApp.launch()
+    _ = warmupApp.wait(for: .runningForeground, timeout: 10)
+    warmupApp.terminate()
+  }
+
   private let downloadSwipeSuite = "us.zig.zpod.download-flow-swipes"
 
   private func launchDownloadSwipeApp(
