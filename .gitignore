@@ -80,3 +80,8 @@ simvision.png
 .claude/loop-logs/
 .claude/tasks.md
 .claude/pipeline-tasks.md
+
+# Shipwright runtime artifacts
+.claude/pipeline-state.md
+.claude/pipeline-artifacts/
+.claude/loop-state.md
