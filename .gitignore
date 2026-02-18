@@ -71,3 +71,12 @@ TestResults_*.log
 
 # Local simulator captures
 simvision.png
+
+# Claude Code runtime artifacts
+.claude/settings.local.json
+.claude/pipeline-state.md
+.claude/pipeline-artifacts/
+.claude/loop-state.md
+.claude/loop-logs/
+.claude/tasks.md
+.claude/pipeline-tasks.md
