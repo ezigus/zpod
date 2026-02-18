@@ -1,9 +1,3 @@
-intake|{
-  "model": "haiku",
-  "reason": "budget constrained (< $5 remaining)",
-  "stage": "intake",
-  "complexity": 5,
-  "source": "heuristic"
-}|true
+intake|opus|true
 plan|opus|true
 design|opus|true

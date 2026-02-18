@@ -1,9 +1,0 @@
-{
-  "iteration": 27,
-  "timestamp": "2026-02-17T19:36:52Z",
-  "error_count": 1,
-  "error_lines": [
-    "  Package Build: total 2 (passed 1, failed 1, skipped 0, warnings 0)"
-  ],
-  "test_cmd": "./scripts/run-xcode-tests.sh 2>&1"
-}

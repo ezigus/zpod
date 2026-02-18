@@ -1,15 +1,7 @@
-
-
-Excellent — now I have a thorough understanding of the codebase. Let me synthesize everything into the ADR.
+I'm running in a restricted permission mode that prevents writing files. Since this is a design/planning pipeline stage, I'll present the Architecture Decision Record directly in the conversation output.
 
 `★ Insight ─────────────────────────────────────`
-**Three critical findings that refine the plan:**
-
-1. **No `PlaylistManaging` protocol exists** — `InMemoryPlaylistManager` is a concrete `@MainActor` class, not behind an abstraction. The plan correctly identifies this gap. Extracting a protocol is prerequisite work.
-
-2. **Queue management lives in LibraryFeature**, not PlaybackEngine — `CarPlayPlaybackCoordinator` implements `CarPlayQueueManaging` with `playNow(_:)` and `enqueue(_:)`. Playlist playback must wire through this coordinator, not directly to the AVPlayer engine.
-
-3. **The existing persistence pattern uses DispatchQueue.sync, not actors** — `SwiftDataPodcastRepository` uses `private let serialQueue: DispatchQueue` with synchronous dispatch for thread safety (not Swift actors). The playlist repository must follow this same pattern for consistency and to avoid mixing concurrency models within the Persistence package.
+**Why the plan was blocked**: The pipeline is running in "don't ask" mode with file writes denied. This is the same restriction that stalled the autonomous loop for 27 iterations. The ADR will be presented inline — the pipeline operator will need to persist it to `.claude/pipeline-artifacts/design.md`.
 `─────────────────────────────────────────────────`
 
 ---
@@ -18,210 +10,174 @@ Excellent — now I have a thorough understanding of the codebase. Let me synthe
 
 ## Context
 
-The zpod podcast app has a complete in-memory playlist backend (`InMemoryPlaylistManager` in CoreModels) with CRUD operations, episode reordering, duplicate prevention, and Combine change notifications. However, playlists are **not surfaced to users**:
+The zpod iOS podcast app needs interactive playlist management — users currently see read-only playlist lists but cannot create, edit, reorder, or delete playlists from the UI. The backend infrastructure is largely complete: `PlaylistManaging` protocol, `SwiftDataPlaylistRepository` (production), `InMemoryPlaylistManager` (test double), and the `Playlist`/`SmartPlaylist` domain models all exist. The gap is the interactive UI layer and its backing ViewModel, plus a critical Swift 6 concurrency bug that blocks compilation.
 
-- `ContentView.swift:157-161` hardcodes `PlaylistFeatureView(playlists: [], episodesProvider: { _ in [] })` — the Playlists tab always shows "No playlists yet"
-- No persistence layer exists — playlists live only in RAM via `InMemoryPlaylistManager` and are lost on app restart
-- No creation, editing, or "Add to Playlist" UI exists
-- No protocol abstracts playlist management — `InMemoryPlaylistManager` is a concrete `@MainActor` class, making it untestable in isolation and impossible to swap for a persistent implementation
+### Critical Blocker: Swift 6 Conformance
 
-**Constraints:**
-- Swift 6.1.2 strict concurrency — all new code must pass `-s` syntax gate
-- iOS 18+ only (no backwards compatibility burden)
-- Existing persistence uses SwiftData with serial DispatchQueue pattern (`SwiftDataPodcastRepository`)
-- Existing queue management lives in `CarPlayPlaybackCoordinator` (`CarPlayQueueManaging` protocol) in LibraryFeature
-- The `Playlist` struct is an immutable value type with builder methods (`withName(_:)`, `withEpisodes(_:)`) — modifications return new instances with bumped `updatedAt`
-- CI tests must be self-supporting (no persisted state between test runs)
+`InMemoryPlaylistManager` (`Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift`) is annotated `@MainActor` yet conforms to `PlaylistManaging: Sendable`. Under Swift 6 strict concurrency (the package uses `swift-tools-version: 6.0`), a `@MainActor` class cannot satisfy a `Sendable` conformance because actor isolation restricts where methods can be called from, violating the "usable from any context" contract of `Sendable`. The previous autonomous pipeline stalled for **27 iterations** trying to fix this but was denied write permissions.
+
+### Constraints
+
+- **Swift 6.1.2 strict concurrency** — no escape hatches; conformance must be clean.
+- **iOS 18+ deployment target** — Observation framework (`@Observable`) available.
+- **Package architecture**: `SharedUtilities → CoreModels → Persistence → PlaylistFeature → LibraryFeature → App`.
+- `PlaylistManaging` is a synchronous protocol with no async methods and no change streams.
+- `SwiftDataPlaylistRepository` already uses `@unchecked Sendable` + serial `DispatchQueue` — the established production pattern.
+- The existing `PlaylistFeatureView` is purely data-driven (receives `[Playlist]` as parameter), with no mutation affordances.
 
 ## Decision
 
-### 1. Protocol Extraction: `PlaylistManaging`
+### 1. Fix `InMemoryPlaylistManager` to `@unchecked Sendable` (matching production pattern)
 
-Extract a `PlaylistManaging` protocol from `InMemoryPlaylistManager`'s public API in CoreModels. This enables:
-- Swapping `InMemoryPlaylistManager` (tests) for `SwiftDataPlaylistRepository` (production)
-- Dependency injection at the `ContentView` level
-- Clean testability without hitting SwiftData
+Remove `@MainActor` isolation. Make `InMemoryPlaylistManager` a `final class` conforming to `PlaylistManaging, @unchecked Sendable`. This mirrors `InMemoryPodcastManager` in TestSupport and `SwiftDataPlaylistRepository` in Persistence — both use `@unchecked Sendable` because they manage mutable state internally but guarantee safety through either single-threaded test usage or serial queues. The `#if canImport(Combine)` branching with `ObservableObject` will be removed — the Combine publishers are unused (no subscribers exist anywhere in the codebase) and the dual-implementation creates maintenance burden.
 
-The protocol will be `@MainActor`-isolated to match the existing manager and allow `@Published` properties in conforming types. It covers manual playlists only for 06.1.1 scope (smart playlists are a future issue).
+**Rationale**: The protocol requires `Sendable`. `@MainActor` is too restrictive — it forces all callers onto the main thread, which the protocol doesn't guarantee. `@unchecked Sendable` is the established codebase pattern for both test doubles and production repositories.
 
-```swift
-@MainActor
-public protocol PlaylistManaging: AnyObject, Observable {
-    var playlists: [Playlist] { get }
-    func createPlaylist(_ playlist: Playlist)
-    func updatePlaylist(_ playlist: Playlist)
-    func deletePlaylist(id: String)
-    func findPlaylist(id: String) -> Playlist?
-    func addEpisode(episodeId: String, to playlistId: String)
-    func removeEpisode(episodeId: String, from playlistId: String)
-    func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int)
-}
-```
+### 2. Add `description` field to `Playlist` model
 
-### 2. SwiftData Persistence: `PlaylistEntity` + `SwiftDataPlaylistRepository`
+Add `public let description: String` (default `""`) to the `Playlist` struct in `Packages/CoreModels/Sources/CoreModels/Playlist.swift`. The property name `description` is safe because `Playlist` does not conform to `CustomStringConvertible`. Add a `withDescription(_:)` builder method following the existing `withName(_:)` / `withEpisodes(_:)` pattern. Update `PlaylistEntity` in `Packages/Persistence/Sources/Persistence/PlaylistEntity.swift` with a `playlistDescription` stored property (avoiding the SwiftData/`description` naming collision) and update `toDomain()` / `fromDomain()` / `updateFrom()` accordingly.
 
-**Entity design** follows the established `PodcastEntity`/`EpisodeEntity` pattern:
-- `@Model final class PlaylistEntity` with `@Attribute(.unique) var id: String`
-- All fields are primitives/arrays of primitives (no relationships — `episodeIds` stored as `[String]`)
-- `toDomain() -> Playlist` and `static fromDomain(_ playlist: Playlist) -> PlaylistEntity` conversions
-- `func updateFrom(_ playlist: Playlist)` for in-place updates
+### 3. Introduce `PlaylistViewModel` as `@MainActor @Observable`
 
-**Repository design** mirrors `SwiftDataPodcastRepository`:
-- `final class SwiftDataPlaylistRepository: PlaylistManaging, @unchecked Sendable`
-- Thread safety via `private let serialQueue: DispatchQueue` with `serialQueue.sync {}` (matches existing pattern — NOT actor-based)
-- `ModelContainer` injected via init; private `ModelContext` created on the serial queue
-- `@Published var playlists: [Playlist]` kept in sync after each mutation by re-querying
-- `saveContext()` with rollback on failure
+Create a new `PlaylistViewModel` in the PlaylistFeature package. It holds a reference to `any PlaylistManaging` and exposes:
 
-**Schema registration:** `PlaylistEntity.self` added to `ZpodApp.sharedModelContainer` schema array. SwiftData handles additive schema changes automatically — no migration needed.
+- `playlists: [Playlist]` — read from manager, drives the list view
+- CRUD methods: `createPlaylist(name:description:)`, `deletePlaylist(id:)`, `duplicatePlaylist(id:)`, `renamePlaylist(id:name:)`, `updateDescription(id:description:)`
+- Episode management: `addEpisodes(_:to:)`, `removeEpisode(_:from:)`, `reorderEpisodes(in:from:to:)`
 
-### 3. ViewModel Layer
+After every mutation, the ViewModel calls `refreshPlaylists()` which re-reads `allPlaylists()` from the manager. This pull-based refresh is simple and correct — the `PlaylistManaging` protocol is synchronous without change streams.
 
-**`PlaylistViewModel`** (`@MainActor ObservableObject`):
-- Owns a `PlaylistManaging` reference (injected)
-- Owns a `PodcastManaging` reference for episode resolution (`episodeIds → [Episode]`)
-- Exposes `playlists`, `showingCreationSheet`, `showingAddToPlaylistSheet`
-- Methods: `createPlaylist(name:)`, `deletePlaylist(id:)`, `episodesFor(playlist:) -> [Episode]`
+**Why `@Observable` over `ObservableObject`**: The project targets iOS 18+. `@Observable` (Observation framework) provides finer-grained view invalidation — views only re-render when the specific properties they read change. This matches `StorageManagementViewModel` (`Packages/LibraryFeature/Sources/LibraryFeature/StorageManagement/StorageManagementViewModel.swift`), the existing ViewModel precedent in the codebase.
 
-**`PlaylistDetailViewModel`** (`@MainActor ObservableObject`):
-- Owns a single `Playlist` + resolved `[Episode]` array
-- Methods: `reorderEpisodes(from:to:)`, `removeEpisode(at:)`, `playAll()`, `shufflePlay()`
-- Playback integration: calls into `CarPlayQueueManaging` (enqueue resolved episodes)
+### 4. Interactive UI: Creation Sheet, Add-to-Playlist Sheet, Inline Editing
 
-### 4. UI Views
+**PlaylistCreationView** — A `.sheet` presentation with:
+- Text field for playlist name (required, disables Save when empty)
+- Optional text field for description
+- Supports both create and edit modes via an optional `existingPlaylist` parameter
+- On save: calls ViewModel create or rename+updateDescription
 
-Refactor existing `PlaylistViews.swift` to accept `PlaylistViewModel` instead of raw arrays. Add:
-- **Toolbar "+"** button → presents `PlaylistCreationView` sheet (name TextField + Create)
-- **Swipe-to-delete** on playlist rows
-- **Drag-and-drop reorder** (`.onMove`) on episodes in `PlaylistDetailView`
-- **`PlaylistEditView`** — sheet for renaming + toggling settings
-- **`AddToPlaylistView`** — sheet listing existing playlists for quick episode addition (presented from episode row context menu)
+**AddToPlaylistView** — A `.sheet` accepting `episodeIds: [String]`:
+- Lists all playlists with tap-to-add (checkmark for playlists already containing the episodes)
+- "New Playlist" row at top that presents `PlaylistCreationView` inline
+- Prepared for integration from episode context menus (actual context menu wiring deferred)
 
-### 5. App Wiring
+**PlaylistFeatureView upgrades** (`Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViews.swift`):
+- Toolbar `+` button presents `PlaylistCreationView`
+- `.onDelete` swipe on playlist rows → ViewModel `deletePlaylist`
+- Context menu on each row: Edit, Duplicate, Delete
 
-In `ContentView.swift`, replace the hardcoded empty `PlaylistTabView` with:
-```swift
-private struct PlaylistTabView: View {
-    @StateObject private var viewModel: PlaylistViewModel
-    
-    init(playlistManager: PlaylistManaging, podcastManager: PodcastManaging) {
-        _viewModel = StateObject(wrappedValue: PlaylistViewModel(
-            playlistManager: playlistManager,
-            podcastManager: podcastManager
-        ))
-    }
-    
-    var body: some View {
-        PlaylistFeatureView(viewModel: viewModel)
-    }
-}
-```
+**PlaylistDetailView upgrades** (same file):
+- `.onMove` modifier for drag-and-drop episode reordering in Edit mode
+- Swipe-to-remove on individual episode rows
+- `EditButton` in toolbar to toggle reorder mode
 
-The `PlaylistManaging` instance is created in `ZpodApp.swift` alongside the existing `sharedPodcastRepository`, passed through `ContentView.init`.
+### 5. ContentView integration changes
 
-### 6. Episode Addition Entry Point
+`PlaylistTabView` in `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift` will construct a `PlaylistViewModel` from the injected `playlistManager` and pass it to the upgraded `PlaylistFeatureView`. The `episodesProvider` closure continues to resolve episode IDs to `Episode` objects — this lookup responsibility stays in LibraryFeature where podcast data is available.
 
-Add a `.contextMenu` on episode rows in `EpisodeListView.swift` with an "Add to Playlist" action that presents `AddToPlaylistView` as a sheet. This is preferred over adding another swipe action because swipe slots are already occupied by existing actions (mark played, download, archive).
-
-### 7. Data Flow
+### 6. Data flow architecture
 
 ```
-ZpodApp
-  ├─ sharedModelContainer (PlaylistEntity registered)
-  ├─ sharedPlaylistRepository: SwiftDataPlaylistRepository
-  └─ ContentView(podcastManager:, playlistManager:)
-       └─ PlaylistTabView
-            └─ PlaylistViewModel(playlistManager:, podcastManager:)
-                 └─ PlaylistFeatureView(viewModel:)
-                      ├─ PlaylistCreationView (sheet)
-                      ├─ PlaylistDetailView → PlaylistDetailViewModel
-                      │    ├─ .onMove (reorder)
-                      │    ├─ .onDelete (remove episode)
-                      │    └─ Play All / Shuffle → CarPlayQueueManaging
-                      └─ PlaylistEditView (sheet)
-
-EpisodeListView
-  └─ .contextMenu → AddToPlaylistView (sheet)
-       └─ playlistManager.addEpisode(episodeId:to:)
+┌─────────────┐     ┌──────────────────┐     ┌───────────────────┐
+│ SwiftUI View │────▶│ PlaylistViewModel│────▶│ PlaylistManaging   │
+│ (reads state)│     │ @MainActor       │     │ (protocol)         │
+│              │◀────│ @Observable      │◀────│                    │
+│              │     │                  │     │ SwiftDataPlaylist- │
+│              │     │ playlists: [P]   │     │ Repository (prod)  │
+│              │     │ create/delete/   │     │ InMemoryPlaylist-  │
+│              │     │ duplicate/reorder│     │ Manager (test)     │
+└─────────────┘     └──────────────────┘     └───────────────────┘
+      │                     │
+      │ .sheet              │ refreshPlaylists()
+      ▼                     │ (pull after mutate)
+┌─────────────┐             │
+│ Creation/   │─────────────┘
+│ AddTo Sheet │
+└─────────────┘
 ```
 
 ## Alternatives Considered
 
-### 1. UserDefaults-based persistence
-- **Pros:** Simpler setup, no SwiftData schema registration, matches `UserDefaultsSettingsRepository` pattern
-- **Cons:** No indexed queries, manual JSON encoding for `[String]` arrays, doesn't scale for relational queries (e.g., "find all playlists containing episode X"), inconsistent with the primary persistence layer (`PodcastEntity`/`EpisodeEntity` use SwiftData). Rejected because playlists have ordered episode arrays that will grow and benefit from proper database storage.
+### 1. Keep `@MainActor` on `InMemoryPlaylistManager`, make protocol methods `@MainActor`
 
-### 2. Skip protocol extraction, use `InMemoryPlaylistManager` directly with SwiftData behind it
-- **Pros:** Fewer files, faster initial implementation
-- **Cons:** `InMemoryPlaylistManager` is `@MainActor`-isolated and stores everything in `@Published` arrays — bolting SwiftData onto it would require either breaking actor isolation for disk I/O or making all persistence calls async. The serial-queue repository pattern already exists and is proven. Also prevents clean testing. Rejected because it fights the existing architecture.
+**Pros**: No `@unchecked Sendable` annotation needed; explicit isolation throughout.
+**Cons**: Would require changing `PlaylistManaging` protocol to add `@MainActor` to every method signature. This breaks `SwiftDataPlaylistRepository` which runs on a serial `DispatchQueue` (not MainActor). It would also break the established `PodcastManaging` pattern (synchronous, `Sendable`, no actor annotation). **Rejected** — cascading protocol change contradicts existing architecture.
 
-### 3. Add `Persistence` as a dependency of `PlaylistFeature` directly (ViewModels call repository)
-- **Pros:** ViewModels can call repository directly without going through a protocol
-- **Cons:** Creates a hard dependency from feature UI → persistence implementation. Every other feature (Library, Discover) accesses persistence through protocols injected from the app target. Violates the existing dependency direction: `App → Feature → CoreModels`, with Persistence injected via protocols. Rejected for architectural consistency.
+### 2. Use `ObservableObject` + `@Published` for the ViewModel
 
-### 4. Actor-based repository instead of serial DispatchQueue
-- **Pros:** More "modern Swift" concurrency, compiler-enforced isolation
-- **Cons:** Every existing SwiftData repository uses serial DispatchQueue (`SwiftDataPodcastRepository`, `SwiftDataEpisodeSnapshotRepository`). Mixing concurrency models within the Persistence package creates confusion and potential deadlock risks at boundaries. `ModelContext` is not `Sendable` and must stay on a single thread — DispatchQueue achieves this with less overhead than actor isolation. Rejected for consistency with established patterns.
+**Pros**: Familiar to older SwiftUI codebases; doesn't require iOS 17+.
+**Cons**: Project targets iOS 18+. `@Observable` is the modern replacement with better performance. `StorageManagementViewModel` already uses `@Observable`, establishing project convention. **Rejected** — inconsistent with existing patterns.
+
+### 3. Add `AsyncStream<PlaylistChange>` to `PlaylistManaging` for reactive updates
+
+**Pros**: ViewModel could subscribe to change events instead of pull-after-mutate; enables multi-writer scenarios.
+**Cons**: Over-engineering — only one writer (the UI) exists. `PlaylistChange` enum exists in `Playlist.swift` but nothing consumes it. Adding reactive streams would require changes to both repository implementations. **Deferred** to a future issue when multi-writer or background sync is needed.
+
+### 4. Merge `PlaylistFeatureView` and `PlaylistDetailView` into a single combined view
+
+**Pros**: Fewer files.
+**Cons**: Violates single-responsibility — list and detail have different layouts, toolbars, and interaction patterns. **Rejected**.
 
 ## Implementation Plan
 
-### Files to Create
+### Files to create (4 new files)
+- `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViewModel.swift`
+- `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistCreationView.swift`
+- `Packages/PlaylistFeature/Sources/PlaylistFeature/AddToPlaylistView.swift`
+- `Packages/PlaylistFeature/Tests/PlaylistFeatureTests/PlaylistViewModelTests.swift`
 
-| # | Path | Purpose |
-|---|------|---------|
-| 1 | `Packages/CoreModels/Sources/CoreModels/PlaylistManaging.swift` | Protocol extracted from `InMemoryPlaylistManager` |
-| 2 | `Packages/Persistence/Sources/Persistence/PlaylistEntity.swift` | SwiftData `@Model` with `toDomain()`/`fromDomain()` |
-| 3 | `Packages/Persistence/Sources/Persistence/SwiftDataPlaylistRepository.swift` | Serial-queue CRUD conforming to `PlaylistManaging` |
-| 4 | `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViewModel.swift` | `@MainActor ObservableObject` for playlist list |
-| 5 | `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistDetailViewModel.swift` | VM for detail: reorder, remove, playback |
-| 6 | `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistCreationView.swift` | Sheet: name field + Create button |
-| 7 | `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistEditView.swift` | Sheet: rename + settings toggles |
-| 8 | `Packages/PlaylistFeature/Sources/PlaylistFeature/AddToPlaylistView.swift` | Sheet: select playlist for episode addition |
-| 9 | `Packages/Persistence/Tests/PersistenceTests/PlaylistRepositoryTests.swift` | CRUD, reorder, duplicate prevention tests |
-| 10 | `Packages/PlaylistFeature/Tests/PlaylistFeatureTests/PlaylistViewModelTests.swift` | State transition + episode resolution tests |
-| 11 | `zpodUITests/PlaylistCreationUITests.swift` | End-to-end creation/edit/delete UI tests |
-| 12 | `dev-log/06.1.1-core-playlist-creation-management.md` | Dev log |
-
-### Files to Modify
-
-| # | Path | Change |
-|---|------|--------|
-| 13 | `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift` | Conform to new `PlaylistManaging` protocol |
-| 14 | `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViews.swift` | Accept `PlaylistViewModel`; add toolbar "+", swipe-delete, `.onMove` reorder |
-| 15 | `Packages/PlaylistFeature/Package.swift` | Add `Persistence` dependency |
-| 16 | `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift` | Wire `PlaylistTabView` to real `PlaylistViewModel` via injected `PlaylistManaging` |
-| 17 | `Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift` | Add `.contextMenu` with "Add to Playlist" on episode rows |
-| 18 | `zpod/ZpodApp.swift` | Register `PlaylistEntity` in ModelContainer schema; create `sharedPlaylistRepository`; pass to ContentView |
+### Files to modify (6 existing files)
+- `Packages/CoreModels/Sources/CoreModels/InMemoryPlaylistManager.swift` — Remove `@MainActor`, consolidate to single `@unchecked Sendable` implementation, drop Combine branching
+- `Packages/CoreModels/Sources/CoreModels/Playlist.swift` — Add `description` property + `withDescription(_:)` builder
+- `Packages/Persistence/Sources/Persistence/PlaylistEntity.swift` — Add `playlistDescription` stored property, update conversion methods
+- `Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViews.swift` — Add toolbar create button, swipe-delete, context menus, `.onMove` for episodes, `EditButton`
+- `Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift` — Update `PlaylistTabView` to construct and pass `PlaylistViewModel`
+- `Packages/PlaylistFeature/Tests/PlaylistFeatureTests/PlaylistFeatureTests.swift` — Replace stub test or keep as smoke test alongside new test file
 
 ### Dependencies
-- **New package dependency:** `PlaylistFeature` → `Persistence` (same as `LibraryFeature` → `Persistence`)
-- **No external dependencies added.** All work uses existing SwiftData, Combine, and SwiftUI.
+- **No new package dependencies.** PlaylistFeature already depends on CoreModels and SharedUtilities. The ViewModel uses `any PlaylistManaging` (from CoreModels).
+- CoreModels' `CombineSupport` dependency may become orphaned after removing Combine from `InMemoryPlaylistManager` — but other files in CoreModels may still use it, so **do not remove the package dependency** without auditing all imports.
 
-### Risk Areas
+### Risk areas
 
-1. **ModelContainer schema addition** — Adding `PlaylistEntity.self` to the schema array is additive; SwiftData handles this without migration. Risk is low but should be verified by building against a device with existing data.
+1. **`InMemoryPlaylistManager` Combine removal** — Must grep for `playlistsChanged` across the entire codebase to confirm nothing subscribes. If anything does, the Combine support must be preserved (but made `@unchecked Sendable`).
 
-2. **Episode resolution performance** — `episodesFor(playlist:)` must resolve `[String]` episode IDs to `[Episode]` objects by walking `PodcastManaging.all()`. This is O(total_episodes) per call. At current scale (<1,000 episodes), this is sub-millisecond. If scale grows, add an episode-ID lookup index. **Mitigation:** cache the resolution result in `PlaylistDetailViewModel`; re-resolve only on playlist change.
+2. **SwiftData migration for `playlistDescription`** — Adding `var playlistDescription: String = ""` with a default value is a lightweight schema migration SwiftData handles automatically. Non-optional without a default would crash on existing databases.
 
-3. **Swift 6 concurrency at the seam** — `SwiftDataPlaylistRepository` uses a serial DispatchQueue but conforms to `@MainActor PlaylistManaging`. The `@unchecked Sendable` annotation (matching `SwiftDataPodcastRepository`) bridges this. Ensure no `@Published` mutations happen off the main actor — schedule them via `DispatchQueue.main.async`.
+3. **`PlaylistFeatureView` API change** — The view currently takes `playlists: [Playlist]` as a parameter. After adding ViewModel support, its initializer changes. `ContentView` is the only caller (confirmed by grep), so blast radius is contained.
 
-4. **PlaylistFeature → Persistence dependency** — This adds a second dependency path from feature to persistence. If this feels heavy, an alternative is to keep PlaylistFeature pure and inject a `PlaylistManaging`-conforming object from the app target (no direct Persistence import in the feature package). The plan currently takes the direct dependency approach for simplicity, matching how `LibraryFeature` depends on `Persistence`.
-
-5. **Context menu on episode rows** — `EpisodeListView` already has swipe actions on both edges. Adding a `.contextMenu` is additive and doesn't conflict, but it must present a sheet (for playlist selection) which requires `@State` management in the view or viewmodel.
+4. **`description` property naming** — `Playlist` doesn't conform to `CustomStringConvertible`, so no conflict. Minor future risk if someone adds that conformance later.
 
 ## Validation Criteria
 
-- [ ] **Syntax gate passes**: `./scripts/run-xcode-tests.sh -s` — confirms Swift 6 strict concurrency compliance for all new code
-- [ ] **Persistence CRUD**: `PlaylistRepositoryTests` — create, read, update, delete playlists with in-memory `ModelContainer`; verify `toDomain()`/`fromDomain()` roundtrip preserves all fields including episode order
-- [ ] **Duplicate prevention**: Persistence test — attempting to create a playlist with an existing ID is a no-op; adding a duplicate episode ID to a playlist is rejected
-- [ ] **Episode reorder**: Persistence test — `reorderEpisodes(in:from:to:)` correctly handles `IndexSet` → `toOffset` semantics matching SwiftUI's `.onMove`
-- [ ] **ViewModel state transitions**: `PlaylistViewModelTests` — creating a playlist updates `playlists` array; deleting removes it; episode resolution returns correct `[Episode]` for given playlist
-- [ ] **Protocol conformance**: Both `InMemoryPlaylistManager` and `SwiftDataPlaylistRepository` compile and conform to `PlaylistManaging` without warnings
-- [ ] **App wiring**: Building `zpod` target (`./scripts/run-xcode-tests.sh -b zpod`) succeeds — confirms schema registration, dependency injection, and import graph are correct
-- [ ] **Playlists persist across restart**: Manual verification — create playlist, kill app, relaunch, playlist still present (SwiftData storage)
-- [ ] **UI test: create playlist**: `PlaylistCreationUITests` — tap "+", enter name, tap Create, verify playlist appears in list
-- [ ] **UI test: delete playlist**: swipe-to-delete, verify playlist removed
-- [ ] **UI test: add episode to playlist**: navigate to episode list, long-press episode, tap "Add to Playlist", select playlist, verify episode count increases
-- [ ] **Accessibility**: All new interactive elements have `accessibilityIdentifier` set using `.matching(identifier:).firstMatch` pattern in tests
-- [ ] **Full regression**: `./scripts/run-xcode-tests.sh` (no flags) — all existing tests still pass, no regressions introduced
-- [ ] **CI compatibility**: New tests are self-supporting — they create their own state, don't depend on persisted data from prior runs (use in-memory `ModelContainer` or `InMemoryPlaylistManager`)
+- [ ] `./scripts/run-xcode-tests.sh -s` passes (syntax gate — confirms Swift 6 conformance fix)
+- [ ] `./scripts/run-xcode-tests.sh -b zpod` builds successfully (workspace build)
+- [ ] `InMemoryPlaylistManager` uses `@unchecked Sendable` without `@MainActor`
+- [ ] `Playlist` model has `description: String` field with default `""`
+- [ ] `PlaylistEntity` has `playlistDescription` field with round-trip conversion verified
+- [ ] `PlaylistViewModel` CRUD tests pass: create, delete, duplicate, rename, add episode, remove episode, reorder
+- [ ] `PlaylistFeatureView` shows `+` toolbar button that presents creation sheet
+- [ ] Swipe-to-delete works on playlist rows
+- [ ] Context menu offers Edit, Duplicate, Delete on each playlist row
+- [ ] `PlaylistDetailView` supports `.onMove` drag-and-drop in Edit mode
+- [ ] Swipe-to-remove works on episode rows in detail view
+- [ ] `AddToPlaylistView` lists playlists with checkmarks for existing membership
+- [ ] All new views have accessibility identifiers following project conventions (e.g., `Playlist.CreateButton`, `Playlist.Row.<id>`)
+- [ ] No force unwraps in production code
+- [ ] `IntegrationTests/PlaylistPlaybackIntegrationTests` continue passing (regression)
+- [ ] `./scripts/run-xcode-tests.sh` full regression passes
+- [ ] No Combine imports remain in `InMemoryPlaylistManager` (or if kept, conformance is clean)
+
+---
+
+`★ Insight ─────────────────────────────────────`
+**Key architectural takeaways from this ADR**:
+- The `@MainActor` + `Sendable` conflict is a common Swift 6 migration trap. The lesson: protocols requiring `Sendable` should not have conforming types pinned to a specific actor unless the protocol itself is actor-isolated. The zpod codebase already solved this in `SwiftDataPlaylistRepository` and `InMemoryPodcastManager` — the fix is to align `InMemoryPlaylistManager` with those precedents.
+- The pull-based refresh pattern (mutate → re-read) is intentionally simple. Reactive streams via `AsyncStream<PlaylistChange>` would be more elegant but introduce complexity without a current consumer. The `PlaylistChange` enum is already defined and ready for when that future need arises.
+- `@Observable` over `ObservableObject` is a one-way door for iOS 18+ projects — once adopted, going back adds boilerplate. The project already crossed this threshold with `StorageManagementViewModel`.
+`─────────────────────────────────────────────────`
+
+---
+
+**Note**: I was unable to write this ADR to `.claude/pipeline-artifacts/design.md` because file write permissions are denied in the current pipeline mode. To proceed with the build stage, this content needs to be persisted to that file.
