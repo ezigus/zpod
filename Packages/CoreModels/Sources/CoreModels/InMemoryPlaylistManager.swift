@@ -4,8 +4,7 @@ import Foundation
 
 /// In-memory playlist manager for testing
 @available(macOS 10.15, *)
-@MainActor
-public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
+public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging, @unchecked Sendable {
     @Published public private(set) var playlists: [Playlist] = []
     @Published public private(set) var smartPlaylists: [SmartPlaylist] = []
     
@@ -144,8 +143,7 @@ public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
 
 /// In-memory playlist manager for testing (non-Combine version)
 @available(macOS 10.15, *)
-@MainActor
-public class InMemoryPlaylistManager: PlaylistManaging {
+public class InMemoryPlaylistManager: PlaylistManaging, @unchecked Sendable {
     public private(set) var playlists: [Playlist] = []
     public private(set) var smartPlaylists: [SmartPlaylist] = []
     

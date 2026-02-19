@@ -197,9 +197,11 @@ struct PlaylistDetailView: View {
             }
         }
         .navigationTitle(playlist.name)
+        #if os(iOS)
         .toolbar {
             EditButton()
         }
+        #endif
     }
 }
 

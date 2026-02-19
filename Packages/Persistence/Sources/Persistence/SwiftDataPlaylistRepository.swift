@@ -121,6 +121,24 @@ public final class SwiftDataPlaylistRepository: PlaylistManaging, @unchecked Sen
         }
     }
 
+    @discardableResult
+    public func duplicatePlaylist(id: String) -> Playlist? {
+        serialQueue.sync {
+            guard let original = fetchEntity(id: id) else { return nil }
+            let copy = Playlist(
+                name: "\(original.name) Copy",
+                description: original.playlistDescription,
+                episodeIds: original.episodeIds,
+                continuousPlayback: original.continuousPlayback,
+                shuffleAllowed: original.shuffleAllowed
+            )
+            let entity = PlaylistEntity.fromDomain(copy)
+            modelContext.insert(entity)
+            saveContext()
+            return copy
+        }
+    }
+
     // MARK: - PlaylistManaging (Smart Playlists)
 
     public func allSmartPlaylists() -> [SmartPlaylist] {

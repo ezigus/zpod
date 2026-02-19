@@ -2,9 +2,11 @@ import Foundation
 
 /// Protocol abstracting playlist CRUD operations.
 ///
-/// Mirrors the existing `PodcastManaging` pattern: synchronous, `Sendable`,
-/// and suitable for both in-memory (testing) and SwiftData (production) backends.
-public protocol PlaylistManaging: Sendable {
+/// Mirrors the existing `PodcastManaging` pattern: synchronous and suitable
+/// for both in-memory (testing) and SwiftData (production) backends.
+/// Not `Sendable` — all callers are `@MainActor`-isolated, so the protocol
+/// value never crosses actor boundaries.
+public protocol PlaylistManaging {
     // MARK: - Manual Playlists
 
     func allPlaylists() -> [Playlist]
