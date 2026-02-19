@@ -156,6 +156,29 @@ final class PlaylistFeatureTests: XCTestCase {
         XCTAssertEqual(vm.playlists[0].episodeIds, ["ep-3", "ep-1", "ep-2"])
     }
 
+    // MARK: - Batch Episode Addition
+
+    func testAddEpisodesAddsMultipleAtOnce() {
+        let p = makeSamplePlaylist(id: "pl-1", name: "My Playlist")
+        let (vm, _) = makeViewModel(playlists: [p])
+        vm.addEpisodes(["ep-1", "ep-2", "ep-3"], to: p)
+        XCTAssertEqual(vm.playlists[0].episodeIds, ["ep-1", "ep-2", "ep-3"])
+    }
+
+    func testAddEpisodesSkipsDuplicates() {
+        let p = makeSamplePlaylist(id: "pl-1", name: "My Playlist", episodeIds: ["ep-1"])
+        let (vm, _) = makeViewModel(playlists: [p])
+        vm.addEpisodes(["ep-1", "ep-2"], to: p)
+        XCTAssertEqual(vm.playlists[0].episodeIds, ["ep-1", "ep-2"])
+    }
+
+    func testAddEpisodesWithEmptyArrayDoesNotChangePlaylist() {
+        let p = makeSamplePlaylist(id: "pl-1", name: "My Playlist", episodeIds: ["ep-1"])
+        let (vm, _) = makeViewModel(playlists: [p])
+        vm.addEpisodes([], to: p)
+        XCTAssertEqual(vm.playlists[0].episodeIds, ["ep-1"])
+    }
+
     // MARK: - Episode Provider
 
     func testEpisodeProviderResolvesEpisodesForPlaylist() {

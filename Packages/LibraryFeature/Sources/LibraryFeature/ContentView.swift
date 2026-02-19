@@ -157,8 +157,14 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   private struct PlaylistTabView: View {
     @State private var viewModel: PlaylistViewModel
 
-    init(playlistManager: any PlaylistManaging) {
-      _viewModel = State(initialValue: PlaylistViewModel(manager: playlistManager))
+    init(playlistManager: any PlaylistManaging, podcastManager: PodcastManaging) {
+      let provider: (Playlist) -> [Episode] = { playlist in
+        let episodeIndex = podcastManager.all()
+          .flatMap { $0.episodes }
+          .reduce(into: [String: Episode]()) { dict, episode in dict[episode.id] = episode }
+        return playlist.episodeIds.compactMap { episodeIndex[$0] }
+      }
+      _viewModel = State(initialValue: PlaylistViewModel(manager: playlistManager, episodeProvider: provider))
     }
 
     var body: some View {
@@ -168,7 +174,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #else
   // Fallback placeholder when PlaylistFeature module isn't linked
   private struct PlaylistTabView: View {
-    init(playlistManager: any PlaylistManaging) {}
+    init(playlistManager: any PlaylistManaging, podcastManager: PodcastManaging) {}
     var body: some View { Text("Playlists") }
   }
 #endif
@@ -493,8 +499,8 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             }
             .tag(1)
 
-          // Playlists Tab (placeholder UI)
-          PlaylistTabView(playlistManager: playlistManager)
+          // Playlists Tab
+          PlaylistTabView(playlistManager: playlistManager, podcastManager: podcastManager)
             .tabItem {
               Label("Playlists", systemImage: "music.note.list")
             }

@@ -78,6 +78,13 @@ public final class PlaylistViewModel {
         reload()
     }
 
+    public func addEpisodes(_ episodeIds: [String], to playlist: Playlist) {
+        for episodeId in episodeIds {
+            manager.addEpisode(episodeId: episodeId, to: playlist.id)
+        }
+        reload()
+    }
+
     public func removeEpisode(_ episodeId: String, from playlist: Playlist) {
         manager.removeEpisode(episodeId: episodeId, from: playlist.id)
         reload()
