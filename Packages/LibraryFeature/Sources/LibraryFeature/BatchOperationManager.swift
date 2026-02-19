@@ -61,12 +61,12 @@ public final class BatchOperationManager: BatchOperationManaging, ObservableObje
     // Dependencies
     private let episodeStateManager: EpisodeStateManager
     private let downloadManager: DownloadManaging?
-    private let playlistManager: PlaylistManaging?
-    
+    private let playlistManager: BatchPlaylistManaging?
+
     public init(
         episodeStateManager: EpisodeStateManager,
         downloadManager: DownloadManaging? = nil,
-        playlistManager: PlaylistManaging? = nil
+        playlistManager: BatchPlaylistManaging? = nil
     ) {
         self.episodeStateManager = episodeStateManager
         self.downloadManager = downloadManager
@@ -306,8 +306,8 @@ public protocol EpisodeDownloadEnqueuing: DownloadManaging {
     func enqueueEpisode(_ episode: Episode)
 }
 
-/// Protocol for playlist management (to be used when playlist manager is available)
-public protocol PlaylistManaging: Sendable {
+/// Protocol for batch playlist management operations (distinct from CoreModels.PlaylistManaging).
+public protocol BatchPlaylistManaging: Sendable {
     func addEpisodesToPlaylist(_ episodeIDs: [String], playlistID: String) async throws
     func removeEpisodesFromPlaylist(_ episodeIDs: [String], playlistID: String) async throws
 }
