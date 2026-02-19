@@ -155,14 +155,22 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   import PlaylistFeature
 
   private struct PlaylistTabView: View {
-    let playlistManager: any PlaylistManaging
+    @State private var viewModel: PlaylistViewModel
+
+    init(playlistManager: any PlaylistManaging) {
+      _viewModel = State(initialValue: PlaylistViewModel(manager: playlistManager))
+    }
+
     var body: some View {
-      PlaylistFeatureView(playlists: playlistManager.allPlaylists(), episodesProvider: { _ in [] })
+      PlaylistFeatureView(viewModel: viewModel)
     }
   }
 #else
   // Fallback placeholder when PlaylistFeature module isn't linked
-  private struct PlaylistTabView: View { var body: some View { Text("Playlists") } }
+  private struct PlaylistTabView: View {
+    init(playlistManager: any PlaylistManaging) {}
+    var body: some View { Text("Playlists") }
+  }
 #endif
 
 #if canImport(UIKit)
