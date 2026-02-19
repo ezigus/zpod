@@ -4,27 +4,27 @@
 Pipeline: autonomous | Branch: feat/06-1-1-core-playlist-creation-and-manage-186
 
 ## Checklist
-- [ ] Task 1: Add `addEpisodes(_:to:)` batch method to `PlaylistViewModel`
-- [ ] Task 2: Create `AddToPlaylistView` sheet in PlaylistFeature
-- [ ] Task 3: Wire `episodeProvider` into `PlaylistTabView` in ContentView
-- [ ] Task 4: Create `PlaylistTests.swift` unit tests in CoreModels
-- [ ] Task 5: Add batch-add tests to `PlaylistFeatureTests`
-- [ ] Task 6: Run syntax check and fix any issues
-- [ ] Task 7: Run targeted tests for PlaylistFeature and CoreModels
-- [ ] Task 8: Run full regression suite
-- [ ] Task 9: Update `.claude/tasks.md` and `.claude/pipeline-tasks.md`
-- [ ] Task 10: Commit all changes
-- [x] `Playlist` model has `description` field with backward-compatible defaults
-- [x] `PlaylistEntity` persistence includes `playlistDescription` with domain conversion
-- [x] `PlaylistManaging` includes `duplicatePlaylist` method, implemented in manager + repository
-- [x] `PlaylistViewModel` provides reactive CRUD, reorder, and episode management
-- [x] `PlaylistCreationView` allows creating/editing playlists with name + description
-- [ ] `AddToPlaylistView` allows adding episodes to playlists from various contexts
-- [ ] Batch episode addition works (multiple episodes at once)
-- [ ] CoreModels playlist unit tests pass
-- [ ] PlaylistFeature ViewModel tests pass (including new batch tests)
+- [ ] Task 1: Add `totalDuration(for:)` method to `PlaylistViewModel`
+- [ ] Task 2: Update `PlaylistRow` to display total duration alongside episode count
+- [ ] Task 3: Add "Play All" and "Shuffle" buttons to `PlaylistDetailView`
+- [ ] Task 4: Add `totalDuration` unit test to `PlaylistFeatureTests`
+- [ ] Task 5: Run syntax check and fix any compilation issues
+- [ ] Task 6: Run targeted PlaylistFeature + CoreModels tests
+- [ ] Task 7: Run full regression suite — confirm zero failures
+- [ ] Task 8: Update `.claude/pipeline-tasks.md` with all completed items
+- [ ] Task 9: Create `dev-log/06.1.1-core-playlist-creation-management.md`
+- [ ] Task 10: Commit all changes on `feat/06-1-1-core-playlist-creation-and-manage-186`
+- [ ] Playlist list shows episode count **and** total duration per playlist
+- [ ] Playlist detail view has "Play All" and "Shuffle" action buttons
+- [ ] All CRUD operations work (create, edit, delete, duplicate)
+- [ ] Drag-and-drop episode reordering works in detail view
+- [ ] `AddToPlaylistView` allows episode addition from external contexts
+- [ ] Batch episode addition works correctly
+- [ ] All package tests pass (PlaylistFeature + CoreModels)
 - [ ] Full regression suite passes with zero failures
+- [ ] Dev-log created
+- [ ] Changes committed on feature branch
 
 ## Notes
-- Generated from pipeline plan at 2026-02-19T11:30:44Z
+- Generated from pipeline plan at 2026-02-19T12:06:54Z
 - Pipeline will update status as tasks complete
