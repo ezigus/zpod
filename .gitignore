@@ -72,16 +72,8 @@ TestResults_*.log
 # Local simulator captures
 simvision.png
 
-# Claude Code runtime artifacts
-.claude/settings.local.json
-.claude/pipeline-state.md
-.claude/pipeline-artifacts/
-.claude/loop-state.md
-.claude/loop-logs/
-.claude/tasks.md
-.claude/pipeline-tasks.md
-
-# Shipwright runtime artifacts
-.claude/pipeline-state.md
-.claude/pipeline-artifacts/
-.claude/loop-state.md
+# Claude Code & Shipwright — deny-all, allow-specific
+# Any new file the autonomous loop creates is automatically ignored.
+# Only CLAUDE.md (project instructions) is tracked.
+.claude/*
+!.claude/CLAUDE.md
