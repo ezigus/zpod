@@ -4,15 +4,17 @@ import Foundation
 public struct Playlist: Codable, Equatable, Identifiable, Sendable {
     public let id: String
     public let name: String
+    public let description: String
     public let episodeIds: [String] // Ordered episode references
     public let continuousPlayback: Bool
     public let shuffleAllowed: Bool
     public let createdAt: Date
     public let updatedAt: Date
-    
+
     public init(
         id: String = UUID().uuidString,
         name: String,
+        description: String = "",
         episodeIds: [String] = [],
         continuousPlayback: Bool = true,
         shuffleAllowed: Bool = true,
@@ -21,24 +23,26 @@ public struct Playlist: Codable, Equatable, Identifiable, Sendable {
     ) {
         self.id = id
         self.name = name
+        self.description = description
         self.episodeIds = episodeIds
         self.continuousPlayback = continuousPlayback
         self.shuffleAllowed = shuffleAllowed
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
-    
+
     // Ensure updatedAt is strictly later than the previous value to avoid equality in fast updates
     private func nextUpdatedAt(from previous: Date) -> Date {
         let now = Date()
         if now <= previous { return previous.addingTimeInterval(0.001) }
         return now
     }
-    
+
     public func withEpisodes(_ episodeIds: [String]) -> Playlist {
         Playlist(
             id: id,
             name: name,
+            description: description,
             episodeIds: episodeIds,
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,
@@ -46,11 +50,25 @@ public struct Playlist: Codable, Equatable, Identifiable, Sendable {
             updatedAt: nextUpdatedAt(from: updatedAt)
         )
     }
-    
+
     public func withName(_ name: String) -> Playlist {
         Playlist(
             id: id,
             name: name,
+            description: description,
+            episodeIds: episodeIds,
+            continuousPlayback: continuousPlayback,
+            shuffleAllowed: shuffleAllowed,
+            createdAt: createdAt,
+            updatedAt: nextUpdatedAt(from: updatedAt)
+        )
+    }
+
+    public func withDescription(_ description: String) -> Playlist {
+        Playlist(
+            id: id,
+            name: name,
+            description: description,
             episodeIds: episodeIds,
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,

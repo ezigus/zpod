@@ -15,6 +15,7 @@ public protocol PlaylistManaging: Sendable {
     func addEpisode(episodeId: String, to playlistId: String)
     func removeEpisode(episodeId: String, from playlistId: String)
     func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int)
+    @discardableResult func duplicatePlaylist(id: String) -> Playlist?
 
     // MARK: - Smart Playlists
 

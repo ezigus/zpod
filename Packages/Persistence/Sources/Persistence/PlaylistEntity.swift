@@ -10,6 +10,8 @@ public final class PlaylistEntity {
     private static let logger = Logger(subsystem: "us.zig.zpod.persistence", category: "PlaylistEntity")
     @Attribute(.unique) public var id: String
     public var name: String
+    /// Stored as `playlistDescription` to avoid collision with `NSObject.description`.
+    public var playlistDescription: String
     public var episodeIds: [String]
     public var continuousPlayback: Bool
     public var shuffleAllowed: Bool
@@ -19,6 +21,7 @@ public final class PlaylistEntity {
     public init(
         id: String,
         name: String,
+        playlistDescription: String = "",
         episodeIds: [String] = [],
         continuousPlayback: Bool = true,
         shuffleAllowed: Bool = true,
@@ -27,6 +30,7 @@ public final class PlaylistEntity {
     ) {
         self.id = id
         self.name = name
+        self.playlistDescription = playlistDescription
         self.episodeIds = episodeIds
         self.continuousPlayback = continuousPlayback
         self.shuffleAllowed = shuffleAllowed
@@ -43,6 +47,7 @@ extension PlaylistEntity {
         Playlist(
             id: id,
             name: name,
+            description: playlistDescription,
             episodeIds: episodeIds,
             continuousPlayback: continuousPlayback,
             shuffleAllowed: shuffleAllowed,
@@ -55,6 +60,7 @@ extension PlaylistEntity {
         PlaylistEntity(
             id: playlist.id,
             name: playlist.name,
+            playlistDescription: playlist.description,
             episodeIds: playlist.episodeIds,
             continuousPlayback: playlist.continuousPlayback,
             shuffleAllowed: playlist.shuffleAllowed,
@@ -65,6 +71,7 @@ extension PlaylistEntity {
 
     public func updateFrom(_ playlist: Playlist) {
         name = playlist.name
+        playlistDescription = playlist.description
         episodeIds = playlist.episodeIds
         continuousPlayback = playlist.continuousPlayback
         shuffleAllowed = playlist.shuffleAllowed

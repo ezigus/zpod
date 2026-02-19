@@ -68,41 +68,55 @@ public class InMemoryPlaylistManager: ObservableObject, PlaylistManaging {
     
     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
         guard let playlist = findPlaylist(id: playlistId) else { return }
-        
+
         var episodeIds = playlist.episodeIds
         moveElements(in: &episodeIds, fromOffsets: source, toOffset: destination)
-        
+
         let updatedPlaylist = playlist.withEpisodes(episodeIds)
         updatePlaylist(updatedPlaylist)
     }
-    
+
+    @discardableResult
+    public func duplicatePlaylist(id: String) -> Playlist? {
+        guard let original = findPlaylist(id: id) else { return nil }
+        let copy = Playlist(
+            name: "\(original.name) Copy",
+            description: original.description,
+            episodeIds: original.episodeIds,
+            continuousPlayback: original.continuousPlayback,
+            shuffleAllowed: original.shuffleAllowed
+        )
+        createPlaylist(copy)
+        return copy
+    }
+
     /// Helper method to move elements in an array from source indices to destination
     /// This implements SwiftUI's move(fromOffsets:toOffset:) behavior correctly
     private func moveElements<T>(in array: inout [T], fromOffsets source: IndexSet, toOffset destination: Int) {
         // Extract elements to move in original order
         let elementsToMove = source.sorted().map { array[$0] }
-        
+
         // Remove elements from highest index to lowest to avoid index shifting
         for index in source.sorted(by: >) {
             array.remove(at: index)
         }
-        
+
         // Insert elements at the destination position
         // Clamp destination to valid range after removals
         let insertPosition = min(destination, array.count)
-        
+
         // Insert elements at the calculated position
         for (offset, element) in elementsToMove.enumerated() {
             array.insert(element, at: insertPosition + offset)
         }
     }
-    
+
     // MARK: - Smart Playlists
-    
+
     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
         // Don't add duplicates
         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
-        
+
         smartPlaylists.append(smartPlaylist)
         playlistsChangedSubject.send(.smartPlaylistAdded(smartPlaylist))
     }
@@ -185,41 +199,55 @@ public class InMemoryPlaylistManager: PlaylistManaging {
     
     public func reorderEpisodes(in playlistId: String, from source: IndexSet, to destination: Int) {
         guard let playlist = findPlaylist(id: playlistId) else { return }
-        
+
         var episodeIds = playlist.episodeIds
         moveElements(in: &episodeIds, fromOffsets: source, toOffset: destination)
-        
+
         let updatedPlaylist = playlist.withEpisodes(episodeIds)
         updatePlaylist(updatedPlaylist)
     }
-    
+
+    @discardableResult
+    public func duplicatePlaylist(id: String) -> Playlist? {
+        guard let original = findPlaylist(id: id) else { return nil }
+        let copy = Playlist(
+            name: "\(original.name) Copy",
+            description: original.description,
+            episodeIds: original.episodeIds,
+            continuousPlayback: original.continuousPlayback,
+            shuffleAllowed: original.shuffleAllowed
+        )
+        createPlaylist(copy)
+        return copy
+    }
+
     /// Helper method to move elements in an array from source indices to destination
     /// This implements SwiftUI's move(fromOffsets:toOffset:) behavior correctly
     private func moveElements<T>(in array: inout [T], fromOffsets source: IndexSet, toOffset destination: Int) {
         // Extract elements to move in original order
         let elementsToMove = source.sorted().map { array[$0] }
-        
+
         // Remove elements from highest index to lowest to avoid index shifting
         for index in source.sorted(by: >) {
             array.remove(at: index)
         }
-        
+
         // Insert elements at the destination position
         // Clamp destination to valid range after removals
         let insertPosition = min(destination, array.count)
-        
+
         // Insert elements at the calculated position
         for (offset, element) in elementsToMove.enumerated() {
             array.insert(element, at: insertPosition + offset)
         }
     }
-    
+
     // MARK: - Smart Playlists
-    
+
     public func createSmartPlaylist(_ smartPlaylist: SmartPlaylist) {
         // Don't add duplicates
         guard !smartPlaylists.contains(where: { $0.id == smartPlaylist.id }) else { return }
-        
+
         smartPlaylists.append(smartPlaylist)
     }
     
