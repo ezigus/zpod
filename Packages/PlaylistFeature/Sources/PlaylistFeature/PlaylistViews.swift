@@ -24,7 +24,10 @@ public struct PlaylistFeatureView: View {
                     Section {
                         ForEach(viewModel.playlists) { playlist in
                             NavigationLink(value: playlist.id) {
-                                PlaylistRow(playlist: playlist)
+                                PlaylistRow(
+                                    playlist: playlist,
+                                    totalDuration: viewModel.totalDuration(for: playlist)
+                                )
                             }
                             .accessibilityIdentifier("Playlist.\(playlist.id).Row")
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -174,6 +177,29 @@ struct PlaylistDetailView: View {
                         .listRowInsets(.init(top: 24, leading: 16, bottom: 24, trailing: 16))
                 }
             } else {
+                Section {
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel.onPlayAll?(playlist)
+                        } label: {
+                            Label("Play All", systemImage: "play.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("Playlist.\(playlist.id).PlayAll")
+
+                        Button {
+                            viewModel.onShuffle?(playlist)
+                        } label: {
+                            Label("Shuffle", systemImage: "shuffle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("Playlist.\(playlist.id).Shuffle")
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 Section(header: Text("Episodes")) {
                     ForEach(episodes) { episode in
                         EpisodeRow(episode: episode)
@@ -210,6 +236,7 @@ struct PlaylistDetailView: View {
 @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
 private struct PlaylistRow: View {
     let playlist: Playlist
+    let totalDuration: TimeInterval?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -231,7 +258,12 @@ private struct PlaylistRow: View {
     private var summaryText: String {
         let count = playlist.episodeIds.count
         guard count > 0 else { return "No episodes yet" }
-        return "\(count) episode\(count == 1 ? "" : "s") • Updated \(playlist.updatedAt.relativeDescription)"
+        var parts = ["\(count) episode\(count == 1 ? "" : "s")"]
+        if let total = totalDuration {
+            parts.append(total.playlistDurationText)
+        }
+        parts.append("Updated \(playlist.updatedAt.relativeDescription)")
+        return parts.joined(separator: " • ")
     }
 }
 
@@ -328,11 +360,20 @@ private struct MissingPlaylistView: View {
 // MARK: - Formatting helpers
 
 extension TimeInterval {
+    /// Abbreviated h/m/s display used for individual episode rows (e.g. "30m 0s").
     fileprivate var formattedTime: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.hour, .minute, .second]
         formatter.unitsStyle = .abbreviated
         formatter.zeroFormattingBehavior = [.pad]
+        return formatter.string(from: self) ?? "--"
+    }
+
+    /// Condensed h/m display used for total playlist duration (e.g. "1h 30m").
+    fileprivate var playlistDurationText: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.unitsStyle = .abbreviated
         return formatter.string(from: self) ?? "--"
     }
 }

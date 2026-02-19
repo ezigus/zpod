@@ -33,10 +33,27 @@ public final class PlaylistViewModel {
         self.playlists = manager.allPlaylists()
     }
 
+    // MARK: - Playback Actions
+
+    /// Called when the user requests "Play All" on a playlist. Wired at the app layer.
+    public var onPlayAll: ((Playlist) -> Void)? = nil
+
+    /// Called when the user requests "Shuffle" on a playlist. Wired at the app layer.
+    public var onShuffle: ((Playlist) -> Void)? = nil
+
     // MARK: - Episode Resolution
 
     public func episodes(for playlist: Playlist) -> [Episode] {
         episodeProvider(playlist)
+    }
+
+    /// Total playback duration across all episodes in `playlist`.
+    /// Returns `nil` when the playlist is empty or none of its episodes have a known duration.
+    public func totalDuration(for playlist: Playlist) -> TimeInterval? {
+        let eps = episodeProvider(playlist)
+        guard !eps.isEmpty else { return nil }
+        let total = eps.compactMap(\.duration).reduce(0, +)
+        return total > 0 ? total : nil
     }
 
     // MARK: - Playlist CRUD

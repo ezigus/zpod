@@ -196,4 +196,45 @@ final class PlaylistFeatureTests: XCTestCase {
         XCTAssertEqual(resolved.count, 1)
         XCTAssertEqual(resolved[0].id, "ep-1")
     }
+
+    // MARK: - Total Duration
+
+    func testTotalDurationSumsEpisodeDurations() {
+        let p = makeSamplePlaylist(id: "pl-dur", name: "Duration Test", episodeIds: ["ep-1", "ep-2"])
+        let episodes = [
+            Episode(id: "ep-1", title: "E1", podcastID: "pod-1", podcastTitle: "P1", duration: 1800),
+            Episode(id: "ep-2", title: "E2", podcastID: "pod-1", podcastTitle: "P1", duration: 900),
+        ]
+        let manager = InMemoryPlaylistManager()
+        manager.createPlaylist(p)
+        let vm = PlaylistViewModel(manager: manager) { _ in episodes }
+        XCTAssertEqual(vm.totalDuration(for: p), 2700)
+    }
+
+    func testTotalDurationReturnsNilForEmptyEpisodeList() {
+        let p = makeSamplePlaylist(id: "pl-empty", name: "Empty", episodeIds: [])
+        let (vm, _) = makeViewModel(playlists: [p])
+        XCTAssertNil(vm.totalDuration(for: p))
+    }
+
+    func testTotalDurationReturnsNilWhenNoEpisodeDurationsKnown() {
+        let p = makeSamplePlaylist(id: "pl-nodur", name: "No Durations", episodeIds: ["ep-1"])
+        let episodes = [Episode(id: "ep-1", title: "E1", podcastID: "pod-1", podcastTitle: "P1")]
+        let manager = InMemoryPlaylistManager()
+        manager.createPlaylist(p)
+        let vm = PlaylistViewModel(manager: manager) { _ in episodes }
+        XCTAssertNil(vm.totalDuration(for: p))
+    }
+
+    func testTotalDurationSkipsNilDurations() {
+        let p = makeSamplePlaylist(id: "pl-mixed", name: "Mixed", episodeIds: ["ep-1", "ep-2"])
+        let episodes = [
+            Episode(id: "ep-1", title: "E1", podcastID: "pod-1", podcastTitle: "P1", duration: 600),
+            Episode(id: "ep-2", title: "E2", podcastID: "pod-1", podcastTitle: "P1"), // no duration
+        ]
+        let manager = InMemoryPlaylistManager()
+        manager.createPlaylist(p)
+        let vm = PlaylistViewModel(manager: manager) { _ in episodes }
+        XCTAssertEqual(vm.totalDuration(for: p), 600)
+    }
 }
