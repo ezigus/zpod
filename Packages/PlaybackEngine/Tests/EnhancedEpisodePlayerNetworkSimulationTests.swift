@@ -61,7 +61,9 @@ final class EnhancedEpisodePlayerNetworkSimulationTests: XCTestCase {
     XCTAssertFalse(player.isPlaying)
 
     player.simulateNetworkRecovery()
-    try await Task.sleep(for: .milliseconds(120))
+    // Grace period is 50ms; wait 300ms (6x) to give the MainActor-bound
+    // recovery task time to schedule on slow CI runners.
+    try await Task.sleep(for: .milliseconds(300))
 
     XCTAssertTrue(player.isPlaying, "Player should resume after simulated recovery grace period")
     XCTAssertEqual(pausedStates.last, false, "Paused simulation publisher should emit false after recovery")
