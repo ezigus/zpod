@@ -1,6 +1,10 @@
 import CoreModels
 import SwiftUI
 
+#if canImport(UIKit)
+  import UIKit
+#endif
+
 /// A sheet that lets users pick an existing playlist (or create a new one)
 /// to add one or more episodes to. Presented from any episode context.
 @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
@@ -43,6 +47,9 @@ public struct AddToPlaylistView: View {
                         ForEach(sortedPlaylists) { playlist in
                             Button {
                                 viewModel.addEpisodes(episodeIds, to: playlist)
+                                #if canImport(UIKit)
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                #endif
                                 onComplete?()
                                 dismiss()
                             } label: {

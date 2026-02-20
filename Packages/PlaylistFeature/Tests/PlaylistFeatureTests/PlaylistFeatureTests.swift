@@ -237,4 +237,26 @@ final class PlaylistFeatureTests: XCTestCase {
         let vm = PlaylistViewModel(manager: manager) { _ in episodes }
         XCTAssertEqual(vm.totalDuration(for: p), 600)
     }
+
+    // MARK: - Playback Callbacks
+
+    func testOnPlayAllCallbackInvoked() {
+        let p = makeSamplePlaylist(id: "pl-play", name: "Play All Test")
+        let (vm, _) = makeViewModel(playlists: [p])
+        var invokedPlaylist: Playlist?
+        vm.onPlayAll = { playlist in invokedPlaylist = playlist }
+        vm.onPlayAll?(p)
+        XCTAssertNotNil(invokedPlaylist)
+        XCTAssertEqual(invokedPlaylist?.id, p.id)
+    }
+
+    func testOnShuffleCallbackInvoked() {
+        let p = makeSamplePlaylist(id: "pl-shuffle", name: "Shuffle Test")
+        let (vm, _) = makeViewModel(playlists: [p])
+        var invokedPlaylist: Playlist?
+        vm.onShuffle = { playlist in invokedPlaylist = playlist }
+        vm.onShuffle?(p)
+        XCTAssertNotNil(invokedPlaylist)
+        XCTAssertEqual(invokedPlaylist?.id, p.id)
+    }
 }

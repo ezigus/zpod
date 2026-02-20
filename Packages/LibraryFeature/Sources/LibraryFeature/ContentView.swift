@@ -157,14 +157,33 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   private struct PlaylistTabView: View {
     @State private var viewModel: PlaylistViewModel
 
-    init(playlistManager: any PlaylistManaging, podcastManager: PodcastManaging) {
+    init(
+      playlistManager: any PlaylistManaging,
+      podcastManager: PodcastManaging,
+      queueManager: (any CarPlayQueueManaging)? = nil
+    ) {
       let provider: (Playlist) -> [Episode] = { playlist in
         let episodeIndex = podcastManager.all()
           .flatMap { $0.episodes }
           .reduce(into: [String: Episode]()) { dict, episode in dict[episode.id] = episode }
         return playlist.episodeIds.compactMap { episodeIndex[$0] }
       }
-      _viewModel = State(initialValue: PlaylistViewModel(manager: playlistManager, episodeProvider: provider))
+      let vm = PlaylistViewModel(manager: playlistManager, episodeProvider: provider)
+      if let queueManager {
+        vm.onPlayAll = { playlist in
+          let episodes = provider(playlist)
+          guard let first = episodes.first else { return }
+          queueManager.playNow(first)
+          episodes.dropFirst().forEach { queueManager.enqueue($0) }
+        }
+        vm.onShuffle = { playlist in
+          let episodes = provider(playlist).shuffled()
+          guard let first = episodes.first else { return }
+          queueManager.playNow(first)
+          episodes.dropFirst().forEach { queueManager.enqueue($0) }
+        }
+      }
+      _viewModel = State(initialValue: vm)
     }
 
     var body: some View {
@@ -174,7 +193,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #else
   // Fallback placeholder when PlaylistFeature module isn't linked
   private struct PlaylistTabView: View {
-    init(playlistManager: any PlaylistManaging, podcastManager: PodcastManaging) {}
+    init(playlistManager: any PlaylistManaging, podcastManager: PodcastManaging, queueManager: (any CarPlayQueueManaging)? = nil) {}
     var body: some View { Text("Playlists") }
   }
 #endif
@@ -483,7 +502,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       ZStack(alignment: .bottom) {
         TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
-          LibraryView()
+          LibraryView(playlistManager: playlistManager)
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
@@ -500,11 +519,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .tag(1)
 
           // Playlists Tab
-          PlaylistTabView(playlistManager: playlistManager, podcastManager: podcastManager)
-            .tabItem {
-              Label("Playlists", systemImage: "music.note.list")
-            }
-            .tag(2)
+          PlaylistTabView(
+            playlistManager: playlistManager,
+            podcastManager: podcastManager,
+            queueManager: playlistQueueManager
+          )
+          .tabItem {
+            Label("Playlists", systemImage: "music.note.list")
+          }
+          .tag(2)
 
           // Player Tab (placeholder - shows sample episode)
           #if canImport(PlayerFeature)
@@ -561,6 +584,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       #endif
     }
 
+    /// The queue manager used to wire playlist playback — only available when PlayerFeature is linked.
+    private var playlistQueueManager: (any CarPlayQueueManaging)? {
+      #if canImport(PlayerFeature)
+        return playbackDependencies.queueManager
+      #else
+        return nil
+      #endif
+    }
+
     private static func initialTabSelection() -> Int {
       UITestTabSelection.resolve(
         rawValue: ProcessInfo.processInfo.environment["UITEST_INITIAL_TAB"],
@@ -584,11 +616,16 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
   /// Library view using card-based button layout instead of table for XCUITest compatibility
   struct LibraryView: View {
+    let playlistManager: (any PlaylistManaging)?
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
 
     @State private var samplePodcasts: [PodcastItem] = []
     @State private var isLoading = true
+
+    init(playlistManager: (any PlaylistManaging)? = nil) {
+      self.playlistManager = playlistManager
+    }
 
     var body: some View {
       NavigationStack {
@@ -611,7 +648,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
               // Card-based podcast layout (no table structure)
               ForEach(samplePodcasts) { podcast in
-                PodcastCardView(podcast: podcast)
+                PodcastCardView(podcast: podcast, playlistManager: playlistManager)
                   .padding(.horizontal)
               }
 
@@ -694,10 +731,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   // MARK: - Podcast Card View for Button-Based Layout (No Table Structure)
   private struct PodcastCardView: View {
     let podcast: PodcastItem
+    let playlistManager: (any PlaylistManaging)?
 
     var body: some View {
       NavigationLink(
-        destination: EpisodeListViewWrapper(podcastId: podcast.id, podcastTitle: podcast.title)
+        destination: EpisodeListViewWrapper(podcastId: podcast.id, podcastTitle: podcast.title, playlistManager: playlistManager)
       ) {
         HStack(spacing: 16) {
           // Podcast artwork placeholder
@@ -745,6 +783,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     struct EpisodeListViewWrapper: View {
       let podcastId: String
       let podcastTitle: String
+      let playlistManager: (any PlaylistManaging)?
 
       var body: some View {
         // Create a real Podcast object with sample episodes for testing
@@ -758,7 +797,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           EpisodeListCardContainer(podcastId: podcastId, podcastTitle: podcastTitle)
         } else {
           // Use the real EpisodeListView with full batch operation functionality
-          EpisodeListView(podcast: samplePodcast)
+          EpisodeListView(podcast: samplePodcast, playlistManager: playlistManager)
         }
       }
 

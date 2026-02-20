@@ -20,6 +20,10 @@ import SwiftUI
   import UIKit
 #endif
 
+#if canImport(PlaylistFeature)
+  import PlaylistFeature
+#endif
+
 private func normalizedEpisodeIDToken(_ id: String) -> String {
   let trimmed = id
     .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -36,12 +40,15 @@ private func normalizedEpisodeIDToken(_ id: String) -> String {
 public struct EpisodeListView: View {
   private static let logger = Logger(subsystem: "us.zig.zpod", category: "EpisodeListView")
   let podcast: Podcast
+  let playlistManager: (any PlaylistManaging)?
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
+  @State private var addToPlaylistEpisode: Episode? = nil
 
   @MainActor
-  public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil) {
+  public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
     self.podcast = podcast
+    self.playlistManager = playlistManager
     let dependencies = EpisodeListDependencyProvider.shared
     if ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] != nil {
       #if DEBUG
@@ -169,15 +176,44 @@ public struct EpisodeListView: View {
       )
     }
     .sheet(isPresented: $viewModel.showingPlaylistSelectionSheet) {
-      PlaylistSelectionView(
-        onPlaylistSelected: { playlistID in
-          viewModel.addPendingEpisodeToPlaylist(playlistID)
-        },
-        onCancel: {
-          viewModel.cancelPendingPlaylistSelection()
+      #if canImport(PlaylistFeature)
+        if let manager = playlistManager, let episode = viewModel.pendingPlaylistEpisode {
+          AddToPlaylistView(
+            viewModel: PlaylistViewModel(manager: manager),
+            episodeIds: [episode.id],
+            onComplete: { viewModel.cancelPendingPlaylistSelection() }
+          )
+        } else {
+          PlaylistSelectionView(
+            onPlaylistSelected: { playlistID in
+              viewModel.addPendingEpisodeToPlaylist(playlistID)
+            },
+            onCancel: {
+              viewModel.cancelPendingPlaylistSelection()
+            }
+          )
         }
-      )
+      #else
+        PlaylistSelectionView(
+          onPlaylistSelected: { playlistID in
+            viewModel.addPendingEpisodeToPlaylist(playlistID)
+          },
+          onCancel: {
+            viewModel.cancelPendingPlaylistSelection()
+          }
+        )
+      #endif
     }
+    #if canImport(PlaylistFeature)
+    .sheet(item: $addToPlaylistEpisode) { episode in
+      if let manager = playlistManager {
+        AddToPlaylistView(
+          viewModel: PlaylistViewModel(manager: manager),
+          episodeIds: [episode.id]
+        )
+      }
+    }
+    #endif
     .sheet(
       item: $viewModel.pendingShareEpisode,
       onDismiss: {
@@ -557,6 +593,24 @@ public struct EpisodeListView: View {
           ) {
             swipeButtons(for: viewModel.leadingSwipeActions, episode: episode)
           }
+          #if canImport(PlaylistFeature)
+          .contextMenu {
+            if playlistManager != nil {
+              Button {
+                addToPlaylistEpisode = episode
+              } label: {
+                Label("Add to Playlist", systemImage: "music.note.list")
+              }
+              .accessibilityIdentifier("Episode-\(episode.id).AddToPlaylist")
+            }
+            Button {
+              viewModel.enterMultiSelectMode()
+              viewModel.toggleEpisodeSelection(episode)
+            } label: {
+              Label("Select", systemImage: "checkmark.circle")
+            }
+          }
+          #endif
           .accessibilityIdentifier("Episode-\(episode.id)")
           .onLongPressGesture {
             viewModel.enterMultiSelectMode()
