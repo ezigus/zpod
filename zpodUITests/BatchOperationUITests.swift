@@ -9,6 +9,24 @@ import XCTest
 
 final class BatchOperationUITests: IsolatedUITestCase {
 
+  // MARK: - Class-Level Warm-Up
+
+  /// Prime the CI simulator before any tests run.
+  ///
+  /// On a freshly provisioned CI simulator, the first app launch incurs cold-start
+  /// latency (SpringBoard initialization, accessibility services, SwiftUI view
+  /// materialization). This throwaway launch absorbs that cost so individual tests
+  /// don't hit navigation timeouts.
+  override class func setUp() {
+    super.setUp()
+    MainActor.assumeIsolated {
+      let warmupApp = XCUIApplication()
+      warmupApp.launch()
+      _ = warmupApp.wait(for: .runningForeground, timeout: 10)
+      warmupApp.terminate()
+    }
+  }
+
   @MainActor
   func testLaunchConfiguredApp_WithForcedOverlayDoesNotWait() throws {
     app = launchConfiguredApp(environmentOverrides: ["UITEST_FORCE_BATCH_OVERLAY": "1"])
