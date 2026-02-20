@@ -92,8 +92,10 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     downloadButton.tap()
 
     // Then: Download should start — swipe action should dismiss after tap
-    XCTAssertFalse(
-      downloadButton.exists,
+    // Use waitUntil(.disappeared) instead of instant .exists check because
+    // the swipe-row dismissal animation takes longer on CI runners.
+    XCTAssertTrue(
+      downloadButton.waitUntil(.disappeared, timeout: adaptiveShortTimeout),
       "Download button should dismiss after tap"
     )
 
@@ -421,9 +423,11 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     cancelButton.tap()
 
     // Then: Download status should reset — downloading indicator should disappear
-    // After cancellation, the episode reverts to not-downloaded state
-    XCTAssertFalse(
-      cancelButton.exists,
+    // After cancellation, the episode reverts to not-downloaded state.
+    // Use waitUntil(.disappeared) instead of instant .exists check because
+    // the swipe-row dismissal animation takes longer on CI runners.
+    XCTAssertTrue(
+      cancelButton.waitUntil(.disappeared, timeout: adaptiveShortTimeout),
       "Cancel Download button should dismiss after tap"
     )
 
