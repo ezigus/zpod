@@ -108,6 +108,33 @@
 		F59254081ED344A49493273B /* test-episode-long.aiff */ = {isa = PBXFileReference; lastKnownFileType = audio.mp4; name = "test-episode-long.aiff"; path = "zpodUITests/TestResources/Audio/test-episode-long.aiff"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7831F4082F0B3F93005AB782 /* Exceptions for "zpodUITests" folder in "zpodUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"TestResources/Audio/test-episode-long.aiff",
+				"TestResources/Audio/test-episode-long.m4a",
+				"TestResources/Audio/test-episode-medium.aiff",
+				"TestResources/Audio/test-episode-medium.m4a",
+				"TestResources/Audio/test-episode-short.aiff",
+				"TestResources/Audio/test-episode-short.m4a",
+				TestSummary.md,
+			);
+			target = 786FD1262E22E617008CEE55 /* zpodUITests */;
+		};
+		786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				.vscode/settings.json,
+				Info.plist,
+				"Preview Content/Preview Assets.xcassets",
+				README.md,
+				spec,
+			);
+			target = 786FD1082E22E615008CEE55 /* zpod */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		448868E042ED492A85BE6C62 /* IntegrationTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -121,6 +148,9 @@
 		};
 		786FD10B2E22E615008CEE55 /* zpod */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				786FD12F2E22E617008CEE55 /* Exceptions for "zpod" folder in "zpod" target */,
+			);
 			explicitFolders = (
 				spec,
 			);
@@ -129,6 +159,9 @@
 		};
 		786FD12A2E22E617008CEE55 /* zpodUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7831F4082F0B3F93005AB782 /* Exceptions for "zpodUITests" folder in "zpodUITests" target */,
+			);
 			path = zpodUITests;
 			sourceTree = "<group>";
 		};
