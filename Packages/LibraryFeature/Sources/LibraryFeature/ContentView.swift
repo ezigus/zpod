@@ -156,6 +156,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
   private struct PlaylistTabView: View {
     @State private var viewModel: PlaylistViewModel
+    @State private var smartViewModel: SmartPlaylistViewModel
 
     init(
       playlistManager: any PlaylistManaging,
@@ -184,10 +185,31 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
       }
       _viewModel = State(initialValue: vm)
+
+      // Wire SmartPlaylistViewModel — uses InMemorySmartPlaylistManager backed by the
+      // live podcast library. Custom playlists are session-scoped; the built-in 6 smart
+      // lists are always populated from SmartEpisodeListV2.builtInSmartLists.
+      let allEpisodesProvider: () -> [Episode] = { podcastManager.all().flatMap { $0.episodes } }
+      let smartManager = InMemorySmartPlaylistManager()
+      let smartVM = SmartPlaylistViewModel(manager: smartManager, allEpisodesProvider: allEpisodesProvider)
+      if let queueManager {
+        smartVM.onPlayAll = { episodes in
+          guard let first = episodes.first else { return }
+          queueManager.playNow(first)
+          episodes.dropFirst().forEach { queueManager.enqueue($0) }
+        }
+        smartVM.onShuffle = { episodes in
+          let shuffled = episodes.shuffled()
+          guard let first = shuffled.first else { return }
+          queueManager.playNow(first)
+          shuffled.dropFirst().forEach { queueManager.enqueue($0) }
+        }
+      }
+      _smartViewModel = State(initialValue: smartVM)
     }
 
     var body: some View {
-      PlaylistFeatureView(viewModel: viewModel)
+      PlaylistFeatureView(viewModel: viewModel, smartViewModel: smartViewModel)
     }
   }
 #else

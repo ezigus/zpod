@@ -49,22 +49,80 @@ public struct SmartEpisodeListV2: Codable, Equatable, Sendable, Identifiable {
         self.isSystemGenerated = isSystemGenerated
     }
     
+    // MARK: - Builder Methods (immutable copy-on-write)
+
     public func withLastUpdated(_ date: Date) -> SmartEpisodeListV2 {
         SmartEpisodeListV2(
-            id: id,
-            name: name,
-            description: description,
-            rules: rules,
-            sortBy: sortBy,
-            maxEpisodes: maxEpisodes,
-            autoUpdate: autoUpdate,
-            refreshInterval: refreshInterval,
-            createdAt: createdAt,
-            lastUpdated: date,
-            isSystemGenerated: isSystemGenerated
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: date, isSystemGenerated: isSystemGenerated
         )
     }
-    
+
+    public func withName(_ name: String) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withDescription(_ description: String?) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withRules(_ rules: SmartListRuleSet) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withSortBy(_ sortBy: EpisodeSortBy) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withMaxEpisodes(_ maxEpisodes: Int?) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withAutoUpdate(_ autoUpdate: Bool) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withRefreshInterval(_ refreshInterval: TimeInterval) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
     /// Check if smart list needs updating based on refresh interval
     public func needsUpdate() -> Bool {
         guard autoUpdate else { return false }
@@ -164,9 +222,28 @@ public enum SmartListRuleType: String, Codable, CaseIterable, Sendable {
         case .dateAdded, .pubDate:
             return [.equals, .notEquals, .before, .after, .between, .within]
         case .duration, .rating, .playbackPosition:
-            return [.equals, .notEquals, .lessThan, .greaterThan, .between]
+            // .between is intentionally excluded: the evaluator supports only a single
+            // value for numeric comparisons; exposing .between would silently never match.
+            return [.equals, .notEquals, .lessThan, .greaterThan]
         case .podcast, .title, .description:
             return [.contains, .notContains, .startsWith, .endsWith, .equals, .notEquals]
+        }
+    }
+
+    /// The default comparison to select when this rule type is chosen or changed.
+    /// For date rules this is `.within` (paired with a relative-date value),
+    /// which the evaluator fully handles. For numeric rules `.greaterThan` is the
+    /// most natural default; for text rules `.contains`.
+    public var defaultComparison: SmartListComparison {
+        switch self {
+        case .playStatus, .downloadStatus, .isFavorited, .isBookmarked, .isArchived:
+            return .equals
+        case .dateAdded, .pubDate:
+            return .within
+        case .duration, .rating, .playbackPosition:
+            return .greaterThan
+        case .podcast, .title, .description:
+            return .contains
         }
     }
 }
