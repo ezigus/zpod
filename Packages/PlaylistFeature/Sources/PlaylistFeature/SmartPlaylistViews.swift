@@ -235,6 +235,14 @@ public struct SmartPlaylistCreationView: View {
                     TextField("Description (optional)", text: $description, axis: .vertical)
                         .lineLimit(3...)
                         .accessibilityIdentifier("SmartPlaylistCreation.DescriptionField")
+                    if !isEditing {
+                        Button {
+                            showingTemplatePicker = true
+                        } label: {
+                            Label("From Template", systemImage: "doc.on.doc")
+                        }
+                        .accessibilityIdentifier("SmartPlaylistCreation.TemplateButton")
+                    }
                 }
 
                 Section("Matching Logic") {

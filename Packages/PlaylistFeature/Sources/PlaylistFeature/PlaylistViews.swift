@@ -7,7 +7,6 @@ import SwiftUI
 public struct PlaylistFeatureView: View {
     @Bindable var viewModel: PlaylistViewModel
     var smartViewModel: SmartPlaylistViewModel?
-    @State private var showingNewMenu = false
 
     public init(viewModel: PlaylistViewModel, smartViewModel: SmartPlaylistViewModel? = nil) {
         self.viewModel = viewModel
