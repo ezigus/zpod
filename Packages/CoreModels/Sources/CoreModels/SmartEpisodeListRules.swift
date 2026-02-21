@@ -49,22 +49,80 @@ public struct SmartEpisodeListV2: Codable, Equatable, Sendable, Identifiable {
         self.isSystemGenerated = isSystemGenerated
     }
     
+    // MARK: - Builder Methods (immutable copy-on-write)
+
     public func withLastUpdated(_ date: Date) -> SmartEpisodeListV2 {
         SmartEpisodeListV2(
-            id: id,
-            name: name,
-            description: description,
-            rules: rules,
-            sortBy: sortBy,
-            maxEpisodes: maxEpisodes,
-            autoUpdate: autoUpdate,
-            refreshInterval: refreshInterval,
-            createdAt: createdAt,
-            lastUpdated: date,
-            isSystemGenerated: isSystemGenerated
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: date, isSystemGenerated: isSystemGenerated
         )
     }
-    
+
+    public func withName(_ name: String) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withDescription(_ description: String?) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withRules(_ rules: SmartListRuleSet) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withSortBy(_ sortBy: EpisodeSortBy) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withMaxEpisodes(_ maxEpisodes: Int?) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withAutoUpdate(_ autoUpdate: Bool) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
+    public func withRefreshInterval(_ refreshInterval: TimeInterval) -> SmartEpisodeListV2 {
+        SmartEpisodeListV2(
+            id: id, name: name, description: description, rules: rules,
+            sortBy: sortBy, maxEpisodes: maxEpisodes, autoUpdate: autoUpdate,
+            refreshInterval: refreshInterval, createdAt: createdAt,
+            lastUpdated: Date(), isSystemGenerated: isSystemGenerated
+        )
+    }
+
     /// Check if smart list needs updating based on refresh interval
     public func needsUpdate() -> Bool {
         guard autoUpdate else { return false }
