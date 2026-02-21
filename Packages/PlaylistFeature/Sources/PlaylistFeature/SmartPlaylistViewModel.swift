@@ -20,6 +20,13 @@ public final class SmartPlaylistViewModel {
     public var isShowingTemplatePicker = false
     public var errorMessage: String? = nil
 
+    // MARK: - Episode Count Cache
+
+    /// Cached episode counts keyed by smart playlist ID.
+    /// Populated during `reload()` so rows can read counts without triggering
+    /// a full evaluation pass on every SwiftUI render cycle.
+    private var cachedEpisodeCounts: [String: Int] = [:]
+
     // MARK: - Dependencies
 
     private let manager: any SmartPlaylistManaging
@@ -154,11 +161,22 @@ public final class SmartPlaylistViewModel {
         Dictionary(grouping: manager.availableTemplates(), by: \.category)
     }
 
+    /// Cached episode count for a smart playlist, computed during the last `reload()`.
+    /// Use this in list rows to avoid triggering a full evaluation per SwiftUI render cycle.
+    public func cachedEpisodeCount(for smartPlaylist: SmartEpisodeListV2) -> Int {
+        cachedEpisodeCounts[smartPlaylist.id] ?? 0
+    }
+
     // MARK: - Private
 
     private func reload() {
         smartPlaylists = manager.allSmartPlaylists()
         builtInPlaylists = manager.builtInSmartPlaylists()
         customPlaylists = manager.customSmartPlaylists()
+        // Pre-compute episode counts so list rows don't trigger full evaluation per render.
+        let allEpisodes = allEpisodesProvider()
+        cachedEpisodeCounts = Dictionary(uniqueKeysWithValues: smartPlaylists.map { pl in
+            (pl.id, manager.evaluateSmartPlaylist(pl, allEpisodes: allEpisodes).count)
+        })
     }
 }

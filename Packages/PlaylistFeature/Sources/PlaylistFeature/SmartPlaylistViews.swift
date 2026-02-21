@@ -19,7 +19,7 @@ public struct SmartPlaylistSectionView: View {
                     NavigationLink(value: SmartPlaylistNavigation(id: smartPlaylist.id)) {
                         SmartPlaylistRow(
                             smartPlaylist: smartPlaylist,
-                            episodeCount: viewModel.episodes(for: smartPlaylist).count
+                            episodeCount: viewModel.cachedEpisodeCount(for: smartPlaylist)
                         )
                     }
                     .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).Row")
@@ -33,7 +33,7 @@ public struct SmartPlaylistSectionView: View {
                     NavigationLink(value: SmartPlaylistNavigation(id: smartPlaylist.id)) {
                         SmartPlaylistRow(
                             smartPlaylist: smartPlaylist,
-                            episodeCount: viewModel.episodes(for: smartPlaylist).count
+                            episodeCount: viewModel.cachedEpisodeCount(for: smartPlaylist)
                         )
                     }
                     .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).Row")
@@ -206,6 +206,7 @@ public struct SmartPlaylistCreationView: View {
     @State private var autoUpdate: Bool
     @State private var refreshInterval: TimeInterval
     @State private var showingTemplatePicker = false
+    @State private var previewEpisodes: [Episode] = []
 
     public init(viewModel: SmartPlaylistViewModel, existingSmartPlaylist: SmartEpisodeListV2?) {
         self.viewModel = viewModel
@@ -255,11 +256,14 @@ public struct SmartPlaylistCreationView: View {
                 }
 
                 Section("Rules") {
-                    ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in
+                    ForEach(rules, id: \.id) { rule in
                         SmartPlaylistRuleRow(
                             rule: rule,
                             onUpdate: { updatedRule in
-                                rules[index] = updatedRule
+                                // Look up by ID to avoid stale indices after deletes/reorders.
+                                if let idx = rules.firstIndex(where: { $0.id == updatedRule.id }) {
+                                    rules[idx] = updatedRule
+                                }
                             }
                         )
                     }
@@ -322,11 +326,6 @@ public struct SmartPlaylistCreationView: View {
                 }
 
                 Section("Preview") {
-                    let previewEpisodes = viewModel.previewEpisodes(
-                        for: currentRuleSet,
-                        sortBy: sortBy,
-                        maxEpisodes: maxEpisodes
-                    )
                     if previewEpisodes.isEmpty {
                         Text("No episodes match these rules")
                             .foregroundStyle(.secondary)
@@ -347,6 +346,10 @@ public struct SmartPlaylistCreationView: View {
                 }
             }
             .navigationTitle(isEditing ? "Edit Smart Playlist" : "New Smart Playlist")
+            .onAppear { refreshPreview() }
+            .onChange(of: rules) { refreshPreview() }
+            .onChange(of: sortBy) { refreshPreview() }
+            .onChange(of: maxEpisodes) { refreshPreview() }
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -374,6 +377,14 @@ public struct SmartPlaylistCreationView: View {
                 }
             }
         }
+    }
+
+    private func refreshPreview() {
+        previewEpisodes = viewModel.previewEpisodes(
+            for: currentRuleSet,
+            sortBy: sortBy,
+            maxEpisodes: maxEpisodes
+        )
     }
 
     private func save() {
@@ -434,10 +445,11 @@ struct SmartPlaylistRuleRow: View {
                 }
                 .labelsHidden()
                 .onChange(of: selectedType) { _, newType in
-                    let comparisons = newType.availableComparisons
-                    if !comparisons.contains(selectedComparison) {
-                        selectedComparison = comparisons.first ?? .equals
-                    }
+                    // Always reset to the semantic default for the new type.
+                    // Preserving the previous comparison risks invalid pairings
+                    // (e.g. .equals + .relativeDate for date rules), which the
+                    // evaluator cannot handle and silently returns false.
+                    selectedComparison = newType.defaultComparison
                     ruleValue = defaultValue(for: newType)
                     notifyUpdate()
                 }

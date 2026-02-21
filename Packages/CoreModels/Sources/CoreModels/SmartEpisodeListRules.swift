@@ -222,9 +222,28 @@ public enum SmartListRuleType: String, Codable, CaseIterable, Sendable {
         case .dateAdded, .pubDate:
             return [.equals, .notEquals, .before, .after, .between, .within]
         case .duration, .rating, .playbackPosition:
-            return [.equals, .notEquals, .lessThan, .greaterThan, .between]
+            // .between is intentionally excluded: the evaluator supports only a single
+            // value for numeric comparisons; exposing .between would silently never match.
+            return [.equals, .notEquals, .lessThan, .greaterThan]
         case .podcast, .title, .description:
             return [.contains, .notContains, .startsWith, .endsWith, .equals, .notEquals]
+        }
+    }
+
+    /// The default comparison to select when this rule type is chosen or changed.
+    /// For date rules this is `.within` (paired with a relative-date value),
+    /// which the evaluator fully handles. For numeric rules `.greaterThan` is the
+    /// most natural default; for text rules `.contains`.
+    public var defaultComparison: SmartListComparison {
+        switch self {
+        case .playStatus, .downloadStatus, .isFavorited, .isBookmarked, .isArchived:
+            return .equals
+        case .dateAdded, .pubDate:
+            return .within
+        case .duration, .rating, .playbackPosition:
+            return .greaterThan
+        case .podcast, .title, .description:
+            return .contains
         }
     }
 }
