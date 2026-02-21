@@ -186,11 +186,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
       _viewModel = State(initialValue: vm)
 
-      // Wire SmartPlaylistViewModel — uses InMemorySmartPlaylistManager backed by the
-      // live podcast library. Custom playlists are session-scoped; the built-in 6 smart
-      // lists are always populated from SmartEpisodeListV2.builtInSmartLists.
+      // Wire SmartPlaylistViewModel — uses UserDefaultsSmartPlaylistManager so custom
+      // playlists survive app restarts. Built-in lists always come from
+      // SmartEpisodeListV2.builtInSmartLists and are never written to UserDefaults.
       let allEpisodesProvider: () -> [Episode] = { podcastManager.all().flatMap { $0.episodes } }
-      let smartManager = InMemorySmartPlaylistManager()
+      let smartManager = UserDefaultsSmartPlaylistManager()
       let smartVM = SmartPlaylistViewModel(manager: smartManager, allEpisodesProvider: allEpisodesProvider)
       if let queueManager {
         smartVM.onPlayAll = { episodes in
