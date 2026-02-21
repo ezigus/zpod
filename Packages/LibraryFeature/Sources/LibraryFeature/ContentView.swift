@@ -205,6 +205,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           shuffled.dropFirst().forEach { queueManager.enqueue($0) }
         }
       }
+      smartVM.analyticsRepository = UserDefaultsSmartPlaylistAnalyticsRepository()
       _smartViewModel = State(initialValue: smartVM)
     }
 

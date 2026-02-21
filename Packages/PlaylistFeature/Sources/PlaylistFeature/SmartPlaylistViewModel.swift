@@ -32,6 +32,13 @@ public final class SmartPlaylistViewModel {
     private let manager: any SmartPlaylistManaging
     private let allEpisodesProvider: () -> [Episode]
 
+    // MARK: - Analytics
+
+    /// Injected repository for recording and querying play events.
+    /// Set this from the app layer (LibraryFeature) after construction so PlaylistFeature
+    /// stays free of a Persistence dependency.
+    public var analyticsRepository: (any SmartPlaylistAnalyticsRepository)?
+
     // MARK: - Initialization
 
     public init(
@@ -50,6 +57,36 @@ public final class SmartPlaylistViewModel {
 
     /// Called when the user requests "Shuffle" on a smart playlist's evaluated episodes.
     public var onShuffle: (([Episode]) -> Void)? = nil
+
+    // MARK: - Analytics Methods
+
+    /// Record a play event when a user starts playing an episode from a smart playlist.
+    public func recordPlay(of episode: Episode, from smartPlaylist: SmartEpisodeListV2) {
+        analyticsRepository?.record(SmartPlaylistPlayEvent(
+            playlistID: smartPlaylist.id,
+            episodeID: episode.id,
+            episodeDuration: episode.duration
+        ))
+    }
+
+    /// Stats for a smart playlist based on stored play events.
+    public func stats(for smartPlaylist: SmartEpisodeListV2) -> SmartPlaylistStats {
+        analyticsRepository?.stats(for: smartPlaylist.id)
+            ?? SmartPlaylistStats.empty(for: smartPlaylist.id)
+    }
+
+    /// Human-readable insights derived from play-event patterns.
+    public func insights(for smartPlaylist: SmartEpisodeListV2) -> [SmartPlaylistInsight] {
+        analyticsRepository?.insights(for: smartPlaylist.id) ?? []
+    }
+
+    /// JSON export of all play events for a smart playlist.
+    public func exportJSON(for smartPlaylist: SmartEpisodeListV2) throws -> Data {
+        if let repo = analyticsRepository {
+            return try repo.exportJSON(for: smartPlaylist.id)
+        }
+        return try JSONEncoder().encode([SmartPlaylistPlayEvent]())
+    }
 
     // MARK: - Episode Evaluation
 

@@ -120,6 +120,8 @@ public struct SmartPlaylistDetailView: View {
     let smartPlaylist: SmartEpisodeListV2
     var viewModel: SmartPlaylistViewModel
 
+    @State private var showingAnalytics = false
+
     public init(smartPlaylist: SmartEpisodeListV2, viewModel: SmartPlaylistViewModel) {
         self.smartPlaylist = smartPlaylist
         self.viewModel = viewModel
@@ -174,8 +176,15 @@ public struct SmartPlaylistDetailView: View {
         .navigationTitle(smartPlaylist.name)
         #if os(iOS)
         .toolbar {
-            if !smartPlaylist.isSystemGenerated {
-                ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    showingAnalytics = true
+                } label: {
+                    Label("Analytics", systemImage: "chart.bar")
+                }
+                .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).AnalyticsButton")
+
+                if !smartPlaylist.isSystemGenerated {
                     Button {
                         viewModel.editingSmartPlaylist = smartPlaylist
                     } label: {
@@ -184,6 +193,9 @@ public struct SmartPlaylistDetailView: View {
                     .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).EditButton")
                 }
             }
+        }
+        .sheet(isPresented: $showingAnalytics) {
+            SmartPlaylistAnalyticsView(smartPlaylist: smartPlaylist, viewModel: viewModel)
         }
         #endif
     }
