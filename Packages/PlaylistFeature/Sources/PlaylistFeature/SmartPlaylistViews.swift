@@ -13,13 +13,15 @@ public struct SmartPlaylistSectionView: View {
     }
 
     public var body: some View {
+        let episodeCounts = viewModel.cachedEpisodeCountsSnapshot()
+
         if !viewModel.builtInPlaylists.isEmpty {
             Section("Smart Playlists") {
                 ForEach(viewModel.builtInPlaylists) { smartPlaylist in
                     NavigationLink(value: SmartPlaylistNavigation(id: smartPlaylist.id)) {
                         SmartPlaylistRow(
                             smartPlaylist: smartPlaylist,
-                            episodeCount: viewModel.cachedEpisodeCount(for: smartPlaylist)
+                            episodeCount: episodeCounts[smartPlaylist.id] ?? 0
                         )
                     }
                     .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).Row")
@@ -33,7 +35,7 @@ public struct SmartPlaylistSectionView: View {
                     NavigationLink(value: SmartPlaylistNavigation(id: smartPlaylist.id)) {
                         SmartPlaylistRow(
                             smartPlaylist: smartPlaylist,
-                            episodeCount: viewModel.cachedEpisodeCount(for: smartPlaylist)
+                            episodeCount: episodeCounts[smartPlaylist.id] ?? 0
                         )
                     }
                     .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).Row")
@@ -360,6 +362,7 @@ public struct SmartPlaylistCreationView: View {
             .navigationTitle(isEditing ? "Edit Smart Playlist" : "New Smart Playlist")
             .onAppear { refreshPreview() }
             .onChange(of: rules) { refreshPreview() }
+            .onChange(of: logic) { refreshPreview() }
             .onChange(of: sortBy) { refreshPreview() }
             .onChange(of: maxEpisodes) { refreshPreview() }
             #if os(iOS)

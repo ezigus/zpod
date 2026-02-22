@@ -36,6 +36,7 @@ CURRENT_PHASE=""
 CURRENT_PHASE_CATEGORY=""
 SUMMARY_PRINTED=0
 CURRENT_PHASE_RECORDED=0
+ROOT_SHELL_PID="${BASHPID:-$$}"
 declare -a PHASE_DURATION_ENTRIES=()
 declare -a TEST_SUITE_TIMING_ENTRIES=()
 
@@ -366,6 +367,7 @@ run_ui_test_suites() {
   fi
 
   local any_failed=0
+  local switched_to_fresh=0
   local use_fresh_sim=0
   if [[ "${ZPOD_UI_TEST_FRESH_SIM:-0}" == "1" ]]; then
     use_fresh_sim=1
@@ -386,6 +388,12 @@ run_ui_test_suites() {
 
     if ! execute_phase "UI tests ${suite}" "test" run_test_target "zpodUITests/${suite}"; then
       any_failed=1
+      if (( use_fresh_sim == 0 && switched_to_fresh == 0 )); then
+        switched_to_fresh=1
+        use_fresh_sim=1
+        log_warn "UI suite ${suite} failed; switching remaining UI suites to fresh simulators"
+        reset_core_simulator_service
+      fi
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
@@ -400,7 +408,9 @@ run_ui_test_suites() {
   done
   if (( any_failed == 1 )); then
     log_warn "One or more UI suites failed; continuing with remaining phases"
+    return 1
   fi
+  return 0
 }
 
 retry_with_fresh_sim() {
@@ -531,6 +541,9 @@ exit_with_summary() {
 }
 
 handle_interrupt() {
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return
+  fi
   INTERRUPTED=1
   if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
     add_summary "${CURRENT_PHASE_CATEGORY:-phase}" "$CURRENT_PHASE" "interrupted" "" "" "" "" "" "interrupted by user"
@@ -540,6 +553,9 @@ handle_interrupt() {
 }
 
 handle_unexpected_error() {
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return
+  fi
   local status=$1
   local line=$2
   if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
@@ -554,6 +570,11 @@ handle_unexpected_error() {
 trap 'handle_interrupt' INT
 trap 'handle_unexpected_error $? $LINENO' ERR
 handle_exit() {
+  # Ignore trap callbacks from forked shells/subprocesses. Only the original
+  # run-xcode-tests shell should emit final summaries.
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return
+  fi
   local status=$?
   if (( EXIT_STATUS != 0 )); then
     status=$EXIT_STATUS
@@ -1047,6 +1068,28 @@ ui_suite_timing_breakdown() {
     fi
     lines+=("$line")
   done
+  if (( any == 0 )); then
+    # Fallback to phase timing when suite-level xcresult parsing has no entries
+    # (for example, simulator boot failures before tests start).
+    local phase_entry
+    for phase_entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
+      IFS='|' read -r phase_category phase_name phase_elapsed phase_status <<< "$phase_entry"
+      [[ "$phase_category" == "test" ]] || continue
+      local suite_name=""
+      if [[ "$phase_name" == UI\ tests\ * ]]; then
+        suite_name="${phase_name#UI tests }"
+      elif [[ "$phase_name" == Test\ zpodUITests/* ]]; then
+        suite_name="${phase_name#Test }"
+      else
+        continue
+      fi
+      local symbol
+      symbol=$(status_symbol "$phase_status")
+      total_duration=$(( total_duration + ${phase_elapsed:-0} ))
+      any=1
+      lines+=("    ${symbol} ${suite_name} – $(format_elapsed_time "${phase_elapsed:-0}")")
+    done
+  fi
   (( any == 0 )) && return
   local group_total
   group_total=$(group_elapsed_seconds "UI Tests")
@@ -1098,6 +1141,16 @@ test_counts_for_group() {
     skipped=$(( skipped + ${s:-0} ))
     [[ "$status" == "warn" ]] && (( warn++ ))
   done
+  local minimum_total=$(( passed + failed + skipped ))
+  if (( total < minimum_total )); then
+    total=$minimum_total
+  fi
+  if (( passed > total )); then
+    passed=$(( total - failed - skipped ))
+    if (( passed < 0 )); then
+      passed=0
+    fi
+  fi
   printf "%s|%s|%s|%s|%s|%s" "$total" "$passed" "$failed" "$skipped" "$warn" "$has_entry"
 }
 
@@ -1253,6 +1306,32 @@ print_ui_suite_results_summary() {
     present=1
   fi
   if (( present == 0 )); then
+    return
+  fi
+  if (( computed_present == 0 )); then
+    # Fall back to per-target summary rows when suite-level timing rows are absent.
+    printf "  UI suite results: total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)\n" \
+      "${summary_total:-0}" "${summary_passed:-0}" "${summary_failed:-0}" "${summary_skipped:-0}" "${summary_warn:-0}"
+    local summary_entry
+    for summary_entry in "${SUMMARY_ITEMS[@]-}"; do
+      IFS='|' read -r category name status log_path entry_total entry_passed entry_failed entry_skipped _ <<< "$summary_entry"
+      [[ "$category" == "test" ]] || continue
+      local group
+      group=$(test_group_for "$category" "$name")
+      [[ "$group" == "UI Tests" ]] || continue
+      local suite_total="${entry_total:-0}"
+      local suite_failed="${entry_failed:-0}"
+      local suite_skipped="${entry_skipped:-0}"
+      local suite_passed="${entry_passed:-$(( suite_total - suite_failed - suite_skipped ))}"
+      local suite_warn=0
+      [[ "$status" == "warn" ]] && suite_warn=1
+      printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
+        "$name" "$suite_total" "$suite_passed" "$suite_failed" "$suite_skipped" "$suite_warn"
+      if [[ -n "$log_path" ]]; then
+        printf " – log: %s" "$log_path"
+      fi
+      printf "\n"
+    done
     return
   fi
   local printed_header=0
@@ -2300,7 +2379,9 @@ test_app_target() {
     return 0
   fi
 
-  if ! boot_simulator_destination "$resolved_destination" "$target"; then
+  if boot_simulator_destination "$resolved_destination" "$target"; then
+    :
+  else
     local boot_status=$?
     add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
     update_exit_status "$boot_status"
@@ -2829,7 +2910,9 @@ run_filtered_xcode_tests() {
     return 2
   fi
 
-  if ! boot_simulator_destination "$resolved_destination" "$label"; then
+  if boot_simulator_destination "$resolved_destination" "$label"; then
+    :
+  else
     local boot_status=$?
     add_summary "test" "${label}" "error" "$RESULT_LOG" "" "" "" "" "failed (simulator boot)"
     update_exit_status "$boot_status"

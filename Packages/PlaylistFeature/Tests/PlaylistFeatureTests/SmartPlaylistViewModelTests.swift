@@ -350,6 +350,46 @@ final class SmartPlaylistViewModelTests: XCTestCase {
         XCTAssertEqual(preview.count, 1)
     }
 
+    // MARK: - Cached Counts
+
+    func testCachedEpisodeCountRefreshesWhenEpisodeProviderChanges() {
+        var episodes: [Episode] = [
+            Episode(
+                id: "dynamic-1",
+                title: "Dynamic 1",
+                podcastID: "pod-dyn",
+                podcastTitle: "Dynamic Pod",
+                isPlayed: false,
+                pubDate: Date().addingTimeInterval(-300),
+                duration: 1200
+            ),
+        ]
+
+        let manager = InMemorySmartPlaylistManager(initialSmartPlaylists: SmartEpisodeListV2.builtInSmartLists)
+        let vm = SmartPlaylistViewModel(manager: manager, allEpisodesProvider: { episodes })
+
+        guard let recentUnplayed = vm.builtInPlaylists.first(where: { $0.id == "recent_unplayed" }) else {
+            XCTFail("Expected built-in recent_unplayed smart playlist")
+            return
+        }
+
+        XCTAssertEqual(vm.cachedEpisodeCount(for: recentUnplayed), 1)
+
+        episodes.append(
+            Episode(
+                id: "dynamic-2",
+                title: "Dynamic 2",
+                podcastID: "pod-dyn",
+                podcastTitle: "Dynamic Pod",
+                isPlayed: false,
+                pubDate: Date().addingTimeInterval(-120),
+                duration: 1800
+            )
+        )
+
+        XCTAssertEqual(vm.cachedEpisodeCount(for: recentUnplayed), 2)
+    }
+
     // MARK: - Templates
 
     func testAvailableTemplatesReturnsBuiltInTemplates() {

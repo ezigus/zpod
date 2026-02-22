@@ -26,6 +26,7 @@ public final class SmartPlaylistViewModel {
     /// Populated during `reload()` so rows can read counts without triggering
     /// a full evaluation pass on every SwiftUI render cycle.
     private var cachedEpisodeCounts: [String: Int] = [:]
+    private var cachedEpisodeSignature: Int? = nil
 
     // MARK: - Dependencies
 
@@ -201,7 +202,14 @@ public final class SmartPlaylistViewModel {
     /// Cached episode count for a smart playlist, computed during the last `reload()`.
     /// Use this in list rows to avoid triggering a full evaluation per SwiftUI render cycle.
     public func cachedEpisodeCount(for smartPlaylist: SmartEpisodeListV2) -> Int {
-        cachedEpisodeCounts[smartPlaylist.id] ?? 0
+        cachedEpisodeCountsSnapshot()[smartPlaylist.id] ?? 0
+    }
+
+    /// Snapshot of cached episode counts keyed by smart playlist ID.
+    /// Refreshes the cache when the underlying episode input set changes.
+    public func cachedEpisodeCountsSnapshot() -> [String: Int] {
+        refreshCachedEpisodeCountsIfNeeded()
+        return cachedEpisodeCounts
     }
 
     // MARK: - Private
@@ -210,10 +218,39 @@ public final class SmartPlaylistViewModel {
         smartPlaylists = manager.allSmartPlaylists()
         builtInPlaylists = manager.builtInSmartPlaylists()
         customPlaylists = manager.customSmartPlaylists()
-        // Pre-compute episode counts so list rows don't trigger full evaluation per render.
+        refreshCachedEpisodeCountsIfNeeded(force: true)
+    }
+
+    private func refreshCachedEpisodeCountsIfNeeded(force: Bool = false) {
         let allEpisodes = allEpisodesProvider()
-        cachedEpisodeCounts = Dictionary(uniqueKeysWithValues: smartPlaylists.map { pl in
-            (pl.id, manager.evaluateSmartPlaylist(pl, allEpisodes: allEpisodes).count)
+        let signature = Self.episodeSignature(for: allEpisodes)
+        guard force || signature != cachedEpisodeSignature else { return }
+        cachedEpisodeSignature = signature
+        cachedEpisodeCounts = Dictionary(uniqueKeysWithValues: smartPlaylists.map { smartPlaylist in
+            (smartPlaylist.id, manager.evaluateSmartPlaylist(smartPlaylist, allEpisodes: allEpisodes).count)
         })
+    }
+
+    private static func episodeSignature(for episodes: [Episode]) -> Int {
+        var hasher = Hasher()
+        hasher.combine(episodes.count)
+        for episode in episodes.sorted(by: { $0.id < $1.id }) {
+            hasher.combine(episode.id)
+            hasher.combine(episode.title)
+            hasher.combine(episode.podcastID)
+            hasher.combine(episode.podcastTitle)
+            hasher.combine(episode.playbackPosition)
+            hasher.combine(episode.isPlayed)
+            hasher.combine(episode.pubDate?.timeIntervalSinceReferenceDate)
+            hasher.combine(episode.duration)
+            hasher.combine(episode.description)
+            hasher.combine(episode.downloadStatus.rawValue)
+            hasher.combine(episode.isFavorited)
+            hasher.combine(episode.isBookmarked)
+            hasher.combine(episode.isArchived)
+            hasher.combine(episode.rating)
+            hasher.combine(episode.dateAdded.timeIntervalSinceReferenceDate)
+        }
+        return hasher.finalize()
     }
 }
