@@ -486,6 +486,8 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
+    private let showUITestPlaybackDebug =
+      ProcessInfo.processInfo.environment["UITEST_PLAYBACK_DEBUG"] == "1"
 
     public init(podcastManager: PodcastManaging, playlistManager: any PlaylistManaging) {
       self.podcastManager = podcastManager
@@ -596,6 +598,19 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           }
         #endif
       }
+      .overlay(alignment: .topLeading) {
+        if showUITestPlaybackDebug {
+          // Hidden diagnostics for UI tests: exposes playback/mini-player state
+          // without affecting production visuals.
+          Text(playbackDebugStateSummary)
+            .font(.caption2)
+            .opacity(0.001)
+            .accessibilityHidden(false)
+            .accessibilityIdentifier("UITest.PlaybackState")
+            .accessibilityLabel("UITest.PlaybackState")
+            .accessibilityValue(playbackDebugStateSummary)
+        }
+      }
       #if canImport(PlayerFeature)
         .sheet(isPresented: $showFullPlayer) {
           ExpandedPlayerView(
@@ -628,6 +643,22 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           "settings": 4,
         ]
       )
+    }
+
+    private var playbackDebugStateSummary: String {
+      #if canImport(PlayerFeature)
+        let state = miniPlayerViewModel.displayState
+        let episodeID = state.episode?.id ?? "none"
+        let status: String
+        if state.isVisible {
+          status = state.isPlaying ? "playing" : "paused_or_stopped"
+        } else {
+          status = "hidden"
+        }
+        return "status=\(status);episode=\(episodeID);visible=\(state.isVisible);playing=\(state.isPlaying)"
+      #else
+        return "status=unsupported"
+      #endif
     }
   }
 

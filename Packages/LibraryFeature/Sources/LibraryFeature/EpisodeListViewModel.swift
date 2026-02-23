@@ -576,6 +576,9 @@ public final class EpisodeListViewModel: ObservableObject {
 
   /// Quick play an episode that's in progress
   public func quickPlayEpisode(_ episode: Episode) async {
+    if ProcessInfo.processInfo.environment["UITEST_PLAYBACK_DEBUG"] == "1" {
+      print("🧪 UITEST quickPlayEpisode invoked for episode=\(episode.id)")
+    }
     await playbackCoordinator.quickPlayEpisode(episode)
   }
 }

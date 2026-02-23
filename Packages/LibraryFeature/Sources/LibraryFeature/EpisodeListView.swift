@@ -571,15 +571,12 @@ public struct EpisodeListView: View {
                   await viewModel.resumeEpisodeDownload(episode)
                 }
               },
-              onQuickPlay: nil,
+              onQuickPlay: quickPlayAction,
               isSelected: false,
               isInMultiSelectMode: false,
               noteCount: viewModel.noteCounts[episode.id],
               isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
             )
-          }
-          .overlay(alignment: .trailing) {
-            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
           }
           .swipeActions(
             edge: .trailing,
@@ -1057,7 +1054,7 @@ public struct EpisodeRowView: View {
     .padding(.vertical, 4)
     .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color.clear)
     .cornerRadius(8)
-    .accessibilityElement(children: .combine)
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("Episode Row-\(episode.id)")
     .onTapGesture {
       if isInMultiSelectMode {
@@ -1255,6 +1252,7 @@ public struct EpisodeRowView: View {
         }
       }
     }
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("Episode Status")
   }
 

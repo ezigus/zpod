@@ -11,6 +11,55 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
   // MARK: - Helpers
 
   @MainActor
+  @discardableResult
+  private func launchMiniPlayerTestApp() -> XCUIApplication {
+    launchConfiguredApp(
+      environmentOverrides: [
+        "UITEST_PLAYBACK_DEBUG": "1"
+      ]
+    )
+  }
+
+  @MainActor
+  private func deterministicDelay(_ seconds: TimeInterval, reason: String) {
+    let expectation = XCTestExpectation(description: "Deterministic delay: \(reason)")
+    DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+      expectation.fulfill()
+    }
+    _ = XCTWaiter.wait(for: [expectation], timeout: seconds + 0.5)
+  }
+
+  @MainActor
+  private func playbackStateElement() -> XCUIElement {
+    app.staticTexts.matching(identifier: "UITest.PlaybackState").firstMatch
+  }
+
+  @MainActor
+  private func assertQuickPlayStartsPlayback() {
+    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+
+    deterministicDelay(0.8, reason: "allow playback state propagation after quick-play tap")
+
+    let playbackState = playbackStateElement()
+    XCTAssertTrue(
+      playbackState.waitUntil(.exists, timeout: adaptiveShortTimeout),
+      "Playback debug state should be exposed in UITest mode"
+    )
+
+    let stateSummary = playbackState.value as? String ?? playbackState.label
+    XCTAssertFalse(
+      stateSummary.contains("status=hidden"),
+      "Quick play should transition playback state away from hidden. state=\(stateSummary)"
+    )
+
+    let miniPlayer = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayer.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear after quick play. state=\(stateSummary)"
+    )
+  }
+
+  @MainActor
   private func navigateToLibraryTab() {
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
@@ -55,55 +104,46 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
 
   @MainActor
   func testMiniPlayerPersistsAcrossTabSwitches() throws {
-    app = launchConfiguredApp()
+    app = launchMiniPlayerTestApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+    assertQuickPlayStartsPlayback()
 
     let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
-      "Mini player should appear after quick play"
-    )
-
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
-      settingsTab.waitForExistence(timeout: adaptiveShortTimeout),
+      settingsTab.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Settings tab should exist"
     )
     settingsTab.tap()
+    deterministicDelay(0.4, reason: "tab transition settle")
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      miniPlayer.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player should persist after switching tabs"
     )
 
     let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     XCTAssertTrue(
-      libraryTab.waitForExistence(timeout: adaptiveShortTimeout),
+      libraryTab.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Library tab should exist"
     )
     libraryTab.tap()
+    deterministicDelay(0.4, reason: "tab transition settle")
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      miniPlayer.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player should persist when returning to Library"
     )
   }
 
   @MainActor
   func testMiniPlayerKeepsTabBarTappable() throws {
-    app = launchConfiguredApp()
+    app = launchMiniPlayerTestApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
-
-    let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
-      "Mini player should appear after quick play"
-    )
+    assertQuickPlayStartsPlayback()
 
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
@@ -119,6 +159,7 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
       )
       XCTAssertTrue(tab.isHittable, "\(tabName) tab should remain tappable with mini player visible")
       tab.tap()
+      deterministicDelay(0.4, reason: "tab selection settle")
 
       let selectedExpectation = XCTNSPredicateExpectation(
         predicate: NSPredicate(format: "isSelected == true"),
@@ -139,21 +180,17 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
 
   @MainActor
   func testMiniPlayerPersistsAcrossNavigation() throws {
-    app = launchConfiguredApp()
+    app = launchMiniPlayerTestApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+    assertQuickPlayStartsPlayback()
 
     let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
-      "Mini player should appear after quick play"
-    )
-
     let backButton = app.navigationBars.buttons.firstMatch
-    if backButton.waitForExistence(timeout: adaptiveShortTimeout) {
+    if backButton.waitUntil(.exists, timeout: adaptiveShortTimeout) {
       backButton.tap()
+      deterministicDelay(0.4, reason: "navigation pop settle")
     }
 
     let podcastListLoaded = waitForContentToLoad(
@@ -162,56 +199,44 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     )
     XCTAssertTrue(podcastListLoaded, "Podcast list should load after navigating back")
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      miniPlayer.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player should persist after navigating back"
     )
 
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load after re-entering podcast")
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      miniPlayer.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player should persist after navigating forward"
     )
   }
 
   @MainActor
   func testQuickPlayShowsMiniPlayerWithoutLeavingEpisodeList() throws {
-    app = launchConfiguredApp()
+    app = launchMiniPlayerTestApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
+    assertQuickPlayStartsPlayback()
 
     let episodeList = app.otherElements.matching(identifier: "Episode List View").firstMatch
     XCTAssertTrue(
-      episodeList.waitForExistence(timeout: adaptiveShortTimeout),
+      episodeList.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Episode list should remain visible after quick play"
-    )
-
-    let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
-      "Mini player should appear after quick play"
     )
   }
 
   @MainActor
   func testMiniPlayerAccessibilityLabels() throws {
-    app = launchConfiguredApp()
+    app = launchMiniPlayerTestApp()
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
-
-    let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
-      "Mini player should appear before checking accessibility"
-    )
+    assertQuickPlayStartsPlayback()
 
     let episodeTitle = app.staticTexts.matching(identifier: "Mini Player Episode Title").firstMatch
     XCTAssertTrue(
-      episodeTitle.waitForExistence(timeout: adaptiveShortTimeout),
+      episodeTitle.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player episode title should be accessible"
     )
     XCTAssertTrue(hasNonEmptyLabel(episodeTitle), "Episode title should have a label")
@@ -219,11 +244,11 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     let skipBackward = app.buttons.matching(identifier: "Mini Player Skip Backward").firstMatch
     let skipForward = app.buttons.matching(identifier: "Mini Player Skip Forward").firstMatch
     XCTAssertTrue(
-      skipBackward.waitForExistence(timeout: adaptiveShortTimeout),
+      skipBackward.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player skip backward should be accessible"
     )
     XCTAssertTrue(
-      skipForward.waitForExistence(timeout: adaptiveShortTimeout),
+      skipForward.waitUntil(.exists, timeout: adaptiveShortTimeout),
       "Mini player skip forward should be accessible"
     )
     XCTAssertEqual(skipBackward.label, "Skip backward")

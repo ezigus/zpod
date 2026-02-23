@@ -236,15 +236,15 @@ extension ElementWaiting {
     let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
       ? String(episodeIdentifier.dropFirst("Episode-".count))
       : episodeIdentifier
+    let quickPlayIdentifier = "Episode-\(rawEpisodeId)-QuickPlay"
     let primaryQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
+      .matching(identifier: quickPlayIdentifier)
       .firstMatch
-    let fallbackQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)")
-      .matching(NSPredicate(format: "label == 'Quick play'"))
+    let anyQuickPlayElement = app.descendants(matching: .any)
+      .matching(identifier: quickPlayIdentifier)
       .firstMatch
     return waitForAnyElement(
-      [primaryQuickPlayButton, fallbackQuickPlayButton],
+      [primaryQuickPlayButton, anyQuickPlayElement],
       timeout: timeout,
       description: description,
       failOnTimeout: true
@@ -265,11 +265,15 @@ extension ElementWaiting {
         description: description
       )
     else { return }
-    quickPlayButton.tap()
+    if quickPlayButton.isHittable {
+      quickPlayButton.tap()
+    } else {
+      quickPlayButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
   }
 
   func miniPlayerElement(in app: XCUIApplication) -> XCUIElement {
-    app.otherElements.matching(identifier: "Mini Player").firstMatch
+    app.descendants(matching: .any).matching(identifier: "Mini Player").firstMatch
   }
 
   func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {
@@ -313,8 +317,8 @@ extension ElementWaiting {
 
     if result != .completed {
       if failOnTimeout {
-        let debugSummaries = elements.enumerated().map { idx, el in
-          "[\(idx)] id='\(el.identifier)' exists=\(el.exists) hittable=\(el.isHittable)"
+        let debugSummaries = elements.enumerated().map { idx, _ in
+          "[\(idx)] candidate did not resolve"
         }.joined(separator: "\n")
         // Note: Removed app.debugDescription as it can cause "Lost connection" errors when app has crashed
         XCTFail(

@@ -43,9 +43,13 @@ CURRENT_PHASE_RECORDED=0
 ROOT_SHELL_PID="${BASHPID:-$$}"
 RUN_INVOCATION_ID=""
 declare -a ORIGINAL_CLI_ARGS=()
+HARNESS_RUN_LOCK_HELD=0
+HARNESS_RUN_LOCK_PATH=""
+HARNESS_RUN_LOCK_METADATA=""
 UI_TEST_LOCK_HELD=0
 UI_TEST_LOCK_PATH=""
 UI_TEST_LOCK_METADATA=""
+HARNESS_LOCK_CONFLICT_EXIT_CODE=72
 UI_LOCK_CONFLICT_EXIT_CODE=73
 UI_PARALLEL_SETUP_EXIT_CODE=74
 UI_PARALLEL_SHARED_DERIVED_ROOT=""
@@ -112,6 +116,16 @@ resolve_ui_test_lock_dir() {
   printf "%s/zpod-ui-test-lock-%s" "${TMPDIR:-/tmp}" "$repo_slug"
 }
 
+resolve_harness_run_lock_dir() {
+  if [[ -n "${ZPOD_HARNESS_LOCK_DIR:-}" ]]; then
+    printf "%s" "$ZPOD_HARNESS_LOCK_DIR"
+    return 0
+  fi
+  local repo_slug
+  repo_slug=$(printf "%s" "$REPO_ROOT" | tr '/ :' '____')
+  printf "%s/zpod-harness-lock-%s" "${TMPDIR:-/tmp}" "$repo_slug"
+}
+
 read_ui_lock_metadata_field() {
   local metadata_path="$1"
   local key="$2"
@@ -123,6 +137,26 @@ read_ui_lock_metadata_field() {
 }
 
 write_ui_lock_metadata() {
+  local metadata_path="$1"
+  local reason="$2"
+  local host_name
+  host_name=$(hostname 2>/dev/null || printf "unknown-host")
+  local command_line
+  command_line=$(invocation_command_line)
+  cat > "$metadata_path" <<EOF
+pid=${ROOT_SHELL_PID}
+run_id=${RUN_INVOCATION_ID}
+started_epoch=${START_TIME:-0}
+started_human=${START_TIME_HUMAN:-unknown}
+host=${host_name}
+reason=${reason}
+repo_root=${REPO_ROOT}
+cwd=${PWD}
+command=${command_line}
+EOF
+}
+
+write_harness_lock_metadata() {
   local metadata_path="$1"
   local reason="$2"
   local host_name
@@ -214,6 +248,146 @@ remove_ui_lock_dir() {
     return 1
   fi
   rm -rf "$lock_dir"
+}
+
+remove_harness_lock_dir() {
+  local lock_dir="$1"
+  if [[ -z "$lock_dir" || "$lock_dir" == "/" ]]; then
+    return 1
+  fi
+  rm -rf "$lock_dir"
+}
+
+acquire_harness_run_lock() {
+  local reason="${1:-test harness run}"
+  local lock_mode="${ZPOD_HARNESS_LOCK_MODE:-strict}"
+  if [[ "$lock_mode" == "off" ]]; then
+    return 0
+  fi
+  if (( HARNESS_RUN_LOCK_HELD == 1 )); then
+    return 0
+  fi
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return 0
+  fi
+
+  local lock_dir
+  lock_dir=$(resolve_harness_run_lock_dir)
+  local metadata_path="${lock_dir}/owner.meta"
+  local attempt
+  for attempt in 1 2; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      HARNESS_RUN_LOCK_HELD=1
+      HARNESS_RUN_LOCK_PATH="$lock_dir"
+      HARNESS_RUN_LOCK_METADATA="$metadata_path"
+      write_harness_lock_metadata "$metadata_path" "$reason"
+      log_info "Acquired harness run lock: ${lock_dir} (run_id=${RUN_INVOCATION_ID})"
+      return 0
+    fi
+
+    local owner_pid owner_run_id owner_host owner_started owner_reason owner_command
+    owner_pid=$(read_ui_lock_metadata_field "$metadata_path" "pid")
+    owner_run_id=$(read_ui_lock_metadata_field "$metadata_path" "run_id")
+    owner_host=$(read_ui_lock_metadata_field "$metadata_path" "host")
+    owner_started=$(read_ui_lock_metadata_field "$metadata_path" "started_human")
+    owner_reason=$(read_ui_lock_metadata_field "$metadata_path" "reason")
+    owner_command=$(read_ui_lock_metadata_field "$metadata_path" "command")
+
+    if [[ -n "$owner_pid" ]] && ui_lock_owner_is_alive "$owner_pid"; then
+      log_error "Harness run conflict: another run-xcode-tests.sh invocation is already active."
+      log_error "Lock path: ${lock_dir}"
+      log_error "Owner PID: ${owner_pid} (run_id=${owner_run_id:-unknown}, host=${owner_host:-unknown})"
+      log_error "Owner started: ${owner_started:-unknown}"
+      log_error "Owner reason: ${owner_reason:-unknown}"
+      log_error "Owner command: ${owner_command:-unknown}"
+      log_error "Inspect owner: ps -p ${owner_pid} -o pid,etime,command"
+      log_error "Clear stale lock/processes with: ./scripts/run-xcode-tests.sh --clear-ui-lock"
+      update_exit_status "$HARNESS_LOCK_CONFLICT_EXIT_CODE"
+      return "$HARNESS_LOCK_CONFLICT_EXIT_CODE"
+    fi
+
+    if (( attempt == 1 )); then
+      log_warn "Detected stale harness run lock at ${lock_dir}; attempting cleanup"
+      if remove_harness_lock_dir "$lock_dir"; then
+        continue
+      fi
+    fi
+
+    log_error "Failed to acquire harness run lock at ${lock_dir}."
+    log_error "Set ZPOD_HARNESS_LOCK_MODE=off to bypass locking (not recommended)."
+    update_exit_status "$HARNESS_LOCK_CONFLICT_EXIT_CODE"
+    return "$HARNESS_LOCK_CONFLICT_EXIT_CODE"
+  done
+}
+
+release_harness_run_lock() {
+  if (( HARNESS_RUN_LOCK_HELD == 0 )); then
+    return 0
+  fi
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return 0
+  fi
+  local lock_dir="$HARNESS_RUN_LOCK_PATH"
+  if [[ -n "$lock_dir" && -d "$lock_dir" ]]; then
+    if remove_harness_lock_dir "$lock_dir"; then
+      log_info "Released harness run lock: ${lock_dir}"
+    else
+      log_warn "Unable to remove harness run lock directory: ${lock_dir}"
+    fi
+  fi
+  HARNESS_RUN_LOCK_HELD=0
+  HARNESS_RUN_LOCK_PATH=""
+  HARNESS_RUN_LOCK_METADATA=""
+}
+
+clear_harness_run_lock() {
+  local lock_dir
+  lock_dir=$(resolve_harness_run_lock_dir)
+  local metadata_path="${lock_dir}/owner.meta"
+
+  if [[ ! -e "$lock_dir" ]]; then
+    log_info "No harness run lock present at ${lock_dir}"
+    return 0
+  fi
+  if [[ ! -d "$lock_dir" ]]; then
+    log_error "Harness run lock path exists but is not a directory: ${lock_dir}"
+    return 1
+  fi
+
+  local owner_pid owner_run_id owner_host owner_started owner_reason owner_command
+  owner_pid=$(read_ui_lock_metadata_field "$metadata_path" "pid")
+  owner_run_id=$(read_ui_lock_metadata_field "$metadata_path" "run_id")
+  owner_host=$(read_ui_lock_metadata_field "$metadata_path" "host")
+  owner_started=$(read_ui_lock_metadata_field "$metadata_path" "started_human")
+  owner_reason=$(read_ui_lock_metadata_field "$metadata_path" "reason")
+  owner_command=$(read_ui_lock_metadata_field "$metadata_path" "command")
+
+  if [[ -n "$owner_pid" ]] && ui_lock_owner_is_alive "$owner_pid"; then
+    log_warn "Clearing active harness lock owned by PID ${owner_pid} (run_id=${owner_run_id:-unknown})"
+    log_warn "Owner host: ${owner_host:-unknown}; started: ${owner_started:-unknown}; reason: ${owner_reason:-unknown}"
+    log_warn "Owner command: ${owner_command:-unknown}"
+    log_warn "Stopping harness lock owner process tree rooted at PID ${owner_pid}"
+    terminate_process_tree "$owner_pid" "${ZPOD_UI_LOCK_CLEAR_KILL_GRACE_SECONDS:-5}"
+    if ui_lock_owner_is_alive "$owner_pid"; then
+      log_error "Unable to stop active harness lock owner PID ${owner_pid}"
+      return 1
+    fi
+  else
+    log_info "Clearing stale harness run lock at ${lock_dir}"
+  fi
+
+  if remove_harness_lock_dir "$lock_dir"; then
+    if [[ "$HARNESS_RUN_LOCK_PATH" == "$lock_dir" ]]; then
+      HARNESS_RUN_LOCK_HELD=0
+      HARNESS_RUN_LOCK_PATH=""
+      HARNESS_RUN_LOCK_METADATA=""
+    fi
+    log_success "Cleared harness run lock: ${lock_dir}"
+    return 0
+  fi
+
+  log_error "Failed to clear harness run lock: ${lock_dir}"
+  return 1
 }
 
 record_ui_lock_conflict_summary() {
@@ -1450,6 +1624,7 @@ finalize_and_exit() {
     teardown_ui_shard_runtime "finalize-guard" 1
   fi
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
+    release_harness_run_lock
     release_ui_test_lock
   fi
   trap - ERR INT EXIT
@@ -4454,10 +4629,10 @@ if [[ $REQUEST_CLEAR_UI_LOCK -eq 1 ]]; then
     update_exit_status 1
     finalize_and_exit 1
   fi
-  if clear_ui_test_lock; then
-    finalize_and_exit 0
-  fi
-  finalize_and_exit 1
+  local clear_status=0
+  clear_ui_test_lock || clear_status=1
+  clear_harness_run_lock || clear_status=1
+  finalize_and_exit "$clear_status"
 fi
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
@@ -4477,6 +4652,10 @@ if [[ $REQUESTED_SYNTAX -eq 0 && -z "$REQUESTED_BUILDS" && -z "$REQUESTED_TESTS"
   DEFAULT_PIPELINE=1
 else
   DEFAULT_PIPELINE=0
+fi
+
+if ! acquire_harness_run_lock "run-xcode-tests"; then
+  finalize_and_exit "$HARNESS_LOCK_CONFLICT_EXIT_CODE"
 fi
 
 UI_PARALLELISM=$(resolve_ui_parallelism)
