@@ -3,25 +3,33 @@ import SwiftUI
 
 // MARK: - PlaylistFeatureView
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 public struct PlaylistFeatureView: View {
     @Bindable var viewModel: PlaylistViewModel
+    var smartViewModel: SmartPlaylistViewModel?
 
-    public init(viewModel: PlaylistViewModel) {
+    public init(viewModel: PlaylistViewModel, smartViewModel: SmartPlaylistViewModel? = nil) {
         self.viewModel = viewModel
+        self.smartViewModel = smartViewModel
     }
 
     public var body: some View {
         NavigationStack {
             List {
-                if viewModel.playlists.isEmpty {
+                // Smart playlist sections (when available)
+                if let smartVM = smartViewModel {
+                    SmartPlaylistSectionView(viewModel: smartVM)
+                }
+
+                // Manual playlists section
+                if viewModel.playlists.isEmpty && smartViewModel == nil {
                     Section {
                         EmptyPlaylistsView()
                             .frame(maxWidth: .infinity)
                             .listRowInsets(.init(top: 24, leading: 16, bottom: 24, trailing: 16))
                     }
-                } else {
-                    Section {
+                } else if !viewModel.playlists.isEmpty {
+                    Section("My Playlists") {
                         ForEach(viewModel.playlists) { playlist in
                             NavigationLink(value: playlist.id) {
                                 PlaylistRow(
@@ -66,12 +74,35 @@ public struct PlaylistFeatureView: View {
             .navigationTitle("Playlists")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        viewModel.isShowingCreateSheet = true
-                    } label: {
-                        Label("New Playlist", systemImage: "plus")
+                    if smartViewModel != nil {
+                        Menu {
+                            Button {
+                                viewModel.isShowingCreateSheet = true
+                            } label: {
+                                Label("New Playlist", systemImage: "music.note.list")
+                            }
+                            Button {
+                                smartViewModel?.isShowingCreateSheet = true
+                            } label: {
+                                Label("New Smart Playlist", systemImage: "wand.and.stars")
+                            }
+                            Button {
+                                smartViewModel?.isShowingTemplatePicker = true
+                            } label: {
+                                Label("From Template", systemImage: "doc.on.doc")
+                            }
+                        } label: {
+                            Label("New", systemImage: "plus")
+                        }
+                        .accessibilityIdentifier("Playlist.CreateButton")
+                    } else {
+                        Button {
+                            viewModel.isShowingCreateSheet = true
+                        } label: {
+                            Label("New Playlist", systemImage: "plus")
+                        }
+                        .accessibilityIdentifier("Playlist.CreateButton")
                     }
-                    .accessibilityIdentifier("Playlist.CreateButton")
                 }
             }
             .navigationDestination(for: String.self) { playlistID in
@@ -85,19 +116,72 @@ public struct PlaylistFeatureView: View {
                     MissingPlaylistView()
                 }
             }
+            .navigationDestination(for: SmartPlaylistNavigation.self) { nav in
+                if let smartVM = smartViewModel,
+                   let smartPlaylist = smartVM.smartPlaylists.first(where: { $0.id == nav.id }) {
+                    SmartPlaylistDetailView(
+                        smartPlaylist: smartPlaylist,
+                        viewModel: smartVM
+                    )
+                } else {
+                    MissingPlaylistView()
+                }
+            }
             .sheet(isPresented: $viewModel.isShowingCreateSheet) {
                 PlaylistCreationView(viewModel: viewModel, existingPlaylist: nil)
             }
             .sheet(item: $viewModel.editingPlaylist) { playlist in
                 PlaylistCreationView(viewModel: viewModel, existingPlaylist: playlist)
             }
+            .modifier(SmartPlaylistSheetModifier(smartViewModel: smartViewModel))
+        }
+    }
+}
+
+/// Applies smart playlist sheet modifiers when a SmartPlaylistViewModel is present.
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
+struct SmartPlaylistSheetModifier: ViewModifier {
+    var smartViewModel: SmartPlaylistViewModel?
+
+    func body(content: Content) -> some View {
+        if let smartVM = smartViewModel {
+            content
+                .sheet(isPresented: Binding(
+                    get: { smartVM.isShowingCreateSheet },
+                    set: { smartVM.isShowingCreateSheet = $0 }
+                )) {
+                    SmartPlaylistCreationView(
+                        viewModel: smartVM,
+                        existingSmartPlaylist: nil
+                    )
+                }
+                .sheet(item: Binding(
+                    get: { smartVM.editingSmartPlaylist },
+                    set: { smartVM.editingSmartPlaylist = $0 }
+                )) { smartPlaylist in
+                    SmartPlaylistCreationView(
+                        viewModel: smartVM,
+                        existingSmartPlaylist: smartPlaylist
+                    )
+                }
+                .sheet(isPresented: Binding(
+                    get: { smartVM.isShowingTemplatePicker },
+                    set: { smartVM.isShowingTemplatePicker = $0 }
+                )) {
+                    SmartPlaylistTemplatePicker(viewModel: smartVM) { template in
+                        smartVM.createFromTemplate(template)
+                        smartVM.isShowingTemplatePicker = false
+                    }
+                }
+        } else {
+            content
         }
     }
 }
 
 // MARK: - PlaylistCreationView
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 public struct PlaylistCreationView: View {
     @Environment(\.dismiss) private var dismiss
     var viewModel: PlaylistViewModel
@@ -162,7 +246,7 @@ public struct PlaylistCreationView: View {
 
 // MARK: - PlaylistDetailView
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
     let episodes: [Episode]
@@ -233,7 +317,7 @@ struct PlaylistDetailView: View {
 
 // MARK: - Supporting Views
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 private struct PlaylistRow: View {
     let playlist: Playlist
     let totalDuration: TimeInterval?
@@ -267,7 +351,7 @@ private struct PlaylistRow: View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 private struct EmptyPlaylistsView: View {
     var body: some View {
         VStack(spacing: 12) {
@@ -285,7 +369,7 @@ private struct EmptyPlaylistsView: View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 private struct EmptyEpisodesView: View {
     let playlistName: String
 
@@ -305,7 +389,7 @@ private struct EmptyEpisodesView: View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 private struct EpisodeRow: View {
     let episode: Episode
 
@@ -340,7 +424,7 @@ private struct EpisodeRow: View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+@available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 private struct MissingPlaylistView: View {
     var body: some View {
         VStack(spacing: 12) {
@@ -390,7 +474,7 @@ extension Date {
 // MARK: - Preview
 
 #if DEBUG
-    @available(iOS 16.0, macOS 13.0, watchOS 9.0, *)
+    @available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
     struct PlaylistFeatureView_Previews: PreviewProvider {
         static let manager: InMemoryPlaylistManager = {
             let m = InMemoryPlaylistManager()
