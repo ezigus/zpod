@@ -143,6 +143,9 @@ public struct SmartPlaylistDetailView: View {
                 Section {
                     HStack(spacing: 12) {
                         Button {
+                            if let firstEpisode = episodes.first {
+                                viewModel.recordPlay(of: firstEpisode, from: smartPlaylist)
+                            }
                             viewModel.onPlayAll?(episodes)
                         } label: {
                             Label("Play All", systemImage: "play.fill")

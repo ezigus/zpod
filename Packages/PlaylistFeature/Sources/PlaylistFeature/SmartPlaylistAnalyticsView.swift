@@ -13,7 +13,7 @@ public struct SmartPlaylistAnalyticsView: View {
     let smartPlaylist: SmartEpisodeListV2
     var viewModel: SmartPlaylistViewModel
 
-    @State private var exportData: Data?
+    @State private var exportURL: URL?
     @State private var showingExportSheet = false
     @State private var exportError: String?
 
@@ -108,13 +108,16 @@ public struct SmartPlaylistAnalyticsView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .sheet(isPresented: $showingExportSheet) {
-                if let data = exportData,
-                   let url = writeExportFile(data: data) {
+                if let url = exportURL {
                     ShareLink(
                         item: url,
                         subject: Text("\(smartPlaylist.name) Play History"),
                         message: Text("Exported play events from \"\(smartPlaylist.name)\".")
                     )
+                } else {
+                    Text("Export file unavailable.")
+                        .font(.subheadline)
+                        .padding()
                 }
             }
         }
@@ -122,10 +125,19 @@ public struct SmartPlaylistAnalyticsView: View {
 
     private func exportEvents() {
         do {
-            exportData = try viewModel.exportJSON(for: smartPlaylist)
+            let data = try viewModel.exportJSON(for: smartPlaylist)
+            guard let url = writeExportFile(data: data) else {
+                showingExportSheet = false
+                exportURL = nil
+                exportError = "Export failed: unable to write file."
+                return
+            }
+            exportURL = url
             showingExportSheet = true
             exportError = nil
         } catch {
+            showingExportSheet = false
+            exportURL = nil
             exportError = "Export failed: \(error.localizedDescription)"
         }
     }

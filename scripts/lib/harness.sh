@@ -821,7 +821,11 @@ worker_report_has_completion_marker() {
   local report_file="$1"
   local worker_label="$2"
   [[ -f "$report_file" ]] || return 1
-  rg -q "^worker_health\\|${worker_label}\\|completed\\|" "$report_file"
+  if command_exists rg; then
+    rg -q "^worker_health\\|${worker_label}\\|completed\\|" "$report_file"
+  else
+    grep -q "^worker_health|${worker_label}|completed|" "$report_file"
+  fi
 }
 
 sanitize_suite_filename() {
@@ -1332,7 +1336,7 @@ run_ui_test_suites() {
 
   if (( ${#suites[@]} == 0 )); then
     log_warn "No UI test suites discovered; falling back to zpodUITests"
-    execute_phase "UI tests" "test" run_test_target "zpodUITests"
+    execute_phase "UI tests" "test" test_app_target "zpodUITests"
     return $?
   fi
 
@@ -1974,7 +1978,17 @@ print_test_timing_block() {
   fi
   local package_seconds
   package_seconds=$(group_elapsed_seconds "Package Tests")
-  total_all=$(( total_all + package_seconds ))
+  if (( package_seconds > 0 )); then
+    total_all=$(( total_all + package_seconds ))
+    any=1
+    local package_log
+    package_log=$(first_log_for_group "Package Tests")
+    printf "  Package Tests: %s" "$(format_elapsed_time "$package_seconds")"
+    if [[ -n "$package_log" ]]; then
+      printf " – log: %s" "$package_log"
+    fi
+    printf "\n"
+  fi
   if (( any == 0 )); then
     printf "  (none)\n"
   fi
