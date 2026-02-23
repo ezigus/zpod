@@ -10,7 +10,7 @@ public struct Recommendation: Codable, Equatable, Sendable {
     public let score: Double
     public let reason: RecommendationReason
     public let createdAt: Date
-    
+
     public init(
         id: String = UUID().uuidString,
         type: RecommendationType,
@@ -39,7 +39,7 @@ public struct RecommendationReason: Codable, Equatable, Sendable {
     public let primary: String
     public let details: [String]
     public let categoryWeights: [String: Double]
-    
+
     public init(
         primary: String,
         details: [String] = [],
@@ -49,7 +49,7 @@ public struct RecommendationReason: Codable, Equatable, Sendable {
         self.details = details
         self.categoryWeights = categoryWeights
     }
-    
+
     /// Formatted string for UI display
     public var displayText: String {
         if details.isEmpty {
@@ -67,7 +67,7 @@ public struct RecommendationCriteria: Codable, Equatable, Sendable {
     public let popularityWeight: Double
     public let excludePlayedEpisodes: Bool
     public let minimumScore: Double
-    
+
     public init(
         maxRecommendations: Int = 20,
         categoryFrequencyWeight: Double = 0.5,
@@ -90,11 +90,6 @@ public struct RecommendationCriteria: Codable, Equatable, Sendable {
 /// Protocol for generating podcast and episode recommendations
 public protocol RecommendationService: Sendable {
     /// Generate recommendations based on user's listening history and subscriptions
-    /// - Parameters:
-    ///   - criteria: Criteria for recommendation generation
-    ///   - podcasts: User's subscribed podcasts
-    ///   - playHistory: User's play history data
-    /// - Returns: Array of recommendations sorted by score (descending)
     func generateRecommendations(
         criteria: RecommendationCriteria,
         podcasts: [Podcast],
@@ -105,21 +100,30 @@ public protocol RecommendationService: Sendable {
 // MARK: - Play History Model
 
 /// Represents a single playback event in the user's history
-public struct PlaybackHistoryEntry: Codable, Equatable, Sendable {
+public struct PlaybackHistoryEntry: Codable, Equatable, Sendable, Identifiable {
     public let id: String
     public let episodeId: String
     public let podcastId: String
     public let playedAt: Date
     public let duration: TimeInterval
     public let completed: Bool
-    
+    /// Human-readable episode title (optional for backward compatibility).
+    public let episodeTitle: String?
+    /// Human-readable podcast title (optional for backward compatibility).
+    public let podcastTitle: String?
+    /// Playback speed at the time of recording (e.g. 1.0, 1.5, 2.0).
+    public let playbackSpeed: Double?
+
     public init(
         id: String = UUID().uuidString,
         episodeId: String,
         podcastId: String,
         playedAt: Date = Date(),
         duration: TimeInterval,
-        completed: Bool
+        completed: Bool,
+        episodeTitle: String? = nil,
+        podcastTitle: String? = nil,
+        playbackSpeed: Double? = nil
     ) {
         self.id = id
         self.episodeId = episodeId
@@ -127,5 +131,8 @@ public struct PlaybackHistoryEntry: Codable, Equatable, Sendable {
         self.playedAt = playedAt
         self.duration = duration
         self.completed = completed
+        self.episodeTitle = episodeTitle
+        self.podcastTitle = podcastTitle
+        self.playbackSpeed = playbackSpeed
     }
 }

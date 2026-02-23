@@ -1,4 +1,5 @@
 import CoreModels
+import Persistence
 import PlaybackEngine
 import SharedUtilities
 
@@ -15,6 +16,7 @@ public enum PlaybackEnvironment {
   /// Reset to production defaults.
   public static func reset() {
     overrideResolver = nil
+    _listeningHistoryRecorder = nil
   }
 
   /// Access the shared CarPlay-aware dependency bundle.
@@ -45,5 +47,26 @@ public enum PlaybackEnvironment {
 
   public static var playbackStateCoordinator: PlaybackStateCoordinator? {
     dependencies.playbackStateCoordinator
+  }
+
+  // MARK: - Listening History
+
+  private static var _listeningHistoryRecorder: ListeningHistoryRecorder?
+
+  /// Shared listening history recorder. Lazily created and wired to the playback publisher.
+  public static var listeningHistoryRecorder: ListeningHistoryRecorder {
+    if let existing = _listeningHistoryRecorder { return existing }
+    let repo = UserDefaultsListeningHistoryRepository()
+    let privacy = UserDefaultsListeningHistoryPrivacySettings()
+    let recorder = ListeningHistoryRecorder(
+      repository: repo,
+      privacySettings: privacy,
+      playbackSpeedProvider: { 1.0 }
+    )
+    #if canImport(Combine)
+    recorder.startObserving(publisher: playbackService.statePublisher)
+    #endif
+    _listeningHistoryRecorder = recorder
+    return recorder
   }
 }
