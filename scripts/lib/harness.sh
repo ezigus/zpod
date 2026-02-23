@@ -14,9 +14,13 @@ REQUEST_TESTPLAN=0
 REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
 REQUESTED_OSLOG_DEBUG=0
+REQUEST_CLEAR_UI_LOCK=0
 SELF_CHECK=0
 SCHEME_RESOLVED=0
 SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
+
+DEFAULT_PIPELINE=0
+UI_PARALLELISM=1
 
 TESTPLAN_LAST_DISCOVERED=0
 TESTPLAN_LAST_INCLUDED=0
@@ -37,8 +41,27 @@ CURRENT_PHASE_CATEGORY=""
 SUMMARY_PRINTED=0
 CURRENT_PHASE_RECORDED=0
 ROOT_SHELL_PID="${BASHPID:-$$}"
+RUN_INVOCATION_ID=""
+declare -a ORIGINAL_CLI_ARGS=()
+UI_TEST_LOCK_HELD=0
+UI_TEST_LOCK_PATH=""
+UI_TEST_LOCK_METADATA=""
+UI_LOCK_CONFLICT_EXIT_CODE=73
+UI_PARALLEL_SETUP_EXIT_CODE=74
+UI_PARALLEL_SHARED_DERIVED_ROOT=""
+UI_SHARD_ACTIVE=0
+UI_SHARD_TEARDOWN_DONE=0
+UI_SHARD_QUEUE_ROOT=""
+UI_SHARD_DERIVED_ROOT=""
+UI_SHARD_CANCELLED=0
 declare -a PHASE_DURATION_ENTRIES=()
 declare -a TEST_SUITE_TIMING_ENTRIES=()
+declare -a PACKAGE_TEST_TIMING_ENTRIES=()
+declare -a UI_WORKER_HEALTH_ENTRIES=()
+declare -a UI_SHARD_WORKER_PIDS=()
+declare -a UI_SHARD_WORKER_LABELS=()
+declare -a UI_SHARD_WORKER_REPORTS=()
+declare -a UI_SHARD_WORKER_SIMULATORS=()
 
 register_result_log() {
   local path="$1"
@@ -52,6 +75,313 @@ register_result_log() {
     done
   fi
   RESULT_LOG_PATHS+=("$path")
+}
+
+reset_ui_shard_runtime_state() {
+  UI_SHARD_ACTIVE=0
+  UI_SHARD_TEARDOWN_DONE=0
+  UI_SHARD_QUEUE_ROOT=""
+  UI_SHARD_DERIVED_ROOT=""
+  UI_SHARD_CANCELLED=0
+  UI_SHARD_WORKER_PIDS=()
+  UI_SHARD_WORKER_LABELS=()
+  UI_SHARD_WORKER_REPORTS=()
+  UI_SHARD_WORKER_SIMULATORS=()
+}
+
+invocation_command_line() {
+  local cmd="scripts/run-xcode-tests.sh"
+  if (( ${#ORIGINAL_CLI_ARGS[@]} == 0 )); then
+    printf "%s" "$cmd"
+    return 0
+  fi
+  local arg
+  for arg in "${ORIGINAL_CLI_ARGS[@]}"; do
+    cmd+=" ${arg}"
+  done
+  printf "%s" "$cmd"
+}
+
+resolve_ui_test_lock_dir() {
+  if [[ -n "${ZPOD_UI_TEST_LOCK_DIR:-}" ]]; then
+    printf "%s" "$ZPOD_UI_TEST_LOCK_DIR"
+    return 0
+  fi
+  local repo_slug
+  repo_slug=$(printf "%s" "$REPO_ROOT" | tr '/ :' '____')
+  printf "%s/zpod-ui-test-lock-%s" "${TMPDIR:-/tmp}" "$repo_slug"
+}
+
+read_ui_lock_metadata_field() {
+  local metadata_path="$1"
+  local key="$2"
+  if [[ ! -f "$metadata_path" ]]; then
+    printf ""
+    return 0
+  fi
+  awk -F= -v field="$key" '$1 == field { sub(/^[^=]*=/, "", $0); print $0; exit }' "$metadata_path" || true
+}
+
+write_ui_lock_metadata() {
+  local metadata_path="$1"
+  local reason="$2"
+  local host_name
+  host_name=$(hostname 2>/dev/null || printf "unknown-host")
+  local command_line
+  command_line=$(invocation_command_line)
+  cat > "$metadata_path" <<EOF
+pid=${ROOT_SHELL_PID}
+run_id=${RUN_INVOCATION_ID}
+started_epoch=${START_TIME:-0}
+started_human=${START_TIME_HUMAN:-unknown}
+host=${host_name}
+reason=${reason}
+repo_root=${REPO_ROOT}
+cwd=${PWD}
+command=${command_line}
+EOF
+}
+
+ui_lock_owner_is_alive() {
+  local pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  local state=""
+  state=$(ps -p "$pid" -o stat= 2>/dev/null | awk '{print $1}' || true)
+  if [[ "$state" == Z* ]]; then
+    return 1
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  ps -p "$pid" -o pid= >/dev/null 2>/dev/null
+}
+
+collect_descendant_pids() {
+  local parent_pid="$1"
+  [[ "$parent_pid" =~ ^[0-9]+$ ]] || return 0
+  command_exists pgrep || return 0
+
+  local child_pid
+  while IFS= read -r child_pid; do
+    [[ -z "$child_pid" ]] && continue
+    printf "%s\n" "$child_pid"
+    collect_descendant_pids "$child_pid"
+  done < <(pgrep -P "$parent_pid" || true)
+}
+
+terminate_process_tree() {
+  local root_pid="$1"
+  local grace_seconds="${2:-5}"
+  [[ "$root_pid" =~ ^[0-9]+$ ]] || return 0
+  if [[ ! "$grace_seconds" =~ ^[0-9]+$ ]]; then
+    grace_seconds=5
+  fi
+
+  local -a targets=()
+  local descendant_pid
+  while IFS= read -r descendant_pid; do
+    [[ -z "$descendant_pid" ]] && continue
+    targets+=("$descendant_pid")
+  done < <(collect_descendant_pids "$root_pid")
+  targets+=("$root_pid")
+
+  local signaled=0
+  local target_pid
+  for target_pid in "${targets[@]-}"; do
+    [[ "$target_pid" =~ ^[0-9]+$ ]] || continue
+    if kill -0 "$target_pid" 2>/dev/null; then
+      if kill "$target_pid" 2>/dev/null; then
+        signaled=$((signaled + 1))
+      fi
+    fi
+  done
+
+  if (( signaled > 0 && grace_seconds > 0 )); then
+    sleep "$grace_seconds"
+  fi
+
+  for target_pid in "${targets[@]-}"; do
+    [[ "$target_pid" =~ ^[0-9]+$ ]] || continue
+    if kill -0 "$target_pid" 2>/dev/null; then
+      kill -9 "$target_pid" 2>/dev/null || true
+    fi
+  done
+}
+
+remove_ui_lock_dir() {
+  local lock_dir="$1"
+  if [[ -z "$lock_dir" || "$lock_dir" == "/" ]]; then
+    return 1
+  fi
+  rm -rf "$lock_dir"
+}
+
+record_ui_lock_conflict_summary() {
+  local note="$1"
+  local entry
+  for entry in "${SUMMARY_ITEMS[@]-}"; do
+    IFS='|' read -r category name _ <<< "$entry"
+    if [[ "$category" == "test" && "$name" == "zpodUITests lock" ]]; then
+      return 0
+    fi
+  done
+  add_summary "test" "zpodUITests lock" "error" "" "1" "0" "1" "0" "$note"
+}
+
+acquire_ui_test_lock() {
+  local reason="${1:-UI tests}"
+  local lock_mode="${ZPOD_UI_TEST_LOCK_MODE:-strict}"
+  if [[ "$lock_mode" == "off" ]]; then
+    return 0
+  fi
+  if (( UI_TEST_LOCK_HELD == 1 )); then
+    return 0
+  fi
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return 0
+  fi
+
+  local lock_dir
+  lock_dir=$(resolve_ui_test_lock_dir)
+  local metadata_path="${lock_dir}/owner.meta"
+  local attempt
+  for attempt in 1 2; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      UI_TEST_LOCK_HELD=1
+      UI_TEST_LOCK_PATH="$lock_dir"
+      UI_TEST_LOCK_METADATA="$metadata_path"
+      write_ui_lock_metadata "$metadata_path" "$reason"
+      log_info "Acquired UI test lock: ${lock_dir} (run_id=${RUN_INVOCATION_ID})"
+      return 0
+    fi
+
+    local owner_pid owner_run_id owner_host owner_started owner_reason owner_command
+    owner_pid=$(read_ui_lock_metadata_field "$metadata_path" "pid")
+    owner_run_id=$(read_ui_lock_metadata_field "$metadata_path" "run_id")
+    owner_host=$(read_ui_lock_metadata_field "$metadata_path" "host")
+    owner_started=$(read_ui_lock_metadata_field "$metadata_path" "started_human")
+    owner_reason=$(read_ui_lock_metadata_field "$metadata_path" "reason")
+    owner_command=$(read_ui_lock_metadata_field "$metadata_path" "command")
+
+    if [[ -n "$owner_pid" ]] && ui_lock_owner_is_alive "$owner_pid"; then
+      log_error "UI test lock conflict: another run is already executing UI tests."
+      log_error "Lock path: ${lock_dir}"
+      log_error "Owner PID: ${owner_pid} (run_id=${owner_run_id:-unknown}, host=${owner_host:-unknown})"
+      log_error "Owner started: ${owner_started:-unknown}"
+      log_error "Owner reason: ${owner_reason:-unknown}"
+      log_error "Owner command: ${owner_command:-unknown}"
+      log_error "Inspect owner: ps -p ${owner_pid} -o pid,etime,command"
+      log_error "If the owner process is gone, remove stale lock: rm -rf '${lock_dir}'"
+      record_ui_lock_conflict_summary "UI lock held by pid ${owner_pid} (run ${owner_run_id:-unknown})"
+      update_exit_status "$UI_LOCK_CONFLICT_EXIT_CODE"
+      return "$UI_LOCK_CONFLICT_EXIT_CODE"
+    fi
+
+    if (( attempt == 1 )); then
+      log_warn "Detected stale UI test lock at ${lock_dir}; attempting cleanup"
+      if remove_ui_lock_dir "$lock_dir"; then
+        continue
+      fi
+    fi
+
+    log_error "Failed to acquire UI test lock at ${lock_dir}."
+    log_error "Set ZPOD_UI_TEST_LOCK_MODE=off to bypass locking (not recommended for regular runs)."
+    record_ui_lock_conflict_summary "Failed to recover UI lock at ${lock_dir}"
+    update_exit_status "$UI_LOCK_CONFLICT_EXIT_CODE"
+    return "$UI_LOCK_CONFLICT_EXIT_CODE"
+  done
+}
+
+release_ui_test_lock() {
+  if (( UI_TEST_LOCK_HELD == 0 )); then
+    return 0
+  fi
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return 0
+  fi
+  local lock_dir="$UI_TEST_LOCK_PATH"
+  if [[ -n "$lock_dir" && -d "$lock_dir" ]]; then
+    if remove_ui_lock_dir "$lock_dir"; then
+      log_info "Released UI test lock: ${lock_dir}"
+    else
+      log_warn "Unable to remove UI test lock directory: ${lock_dir}"
+    fi
+  fi
+  UI_TEST_LOCK_HELD=0
+  UI_TEST_LOCK_PATH=""
+  UI_TEST_LOCK_METADATA=""
+}
+
+clear_ui_test_lock() {
+  local lock_dir
+  lock_dir=$(resolve_ui_test_lock_dir)
+  local metadata_path="${lock_dir}/owner.meta"
+  local cleanup_status=0
+  cleanup_ui_parallel_artifacts || cleanup_status=$?
+
+  if [[ ! -e "$lock_dir" ]]; then
+    log_info "No UI test lock present at ${lock_dir}"
+    return "$cleanup_status"
+  fi
+  if [[ ! -d "$lock_dir" ]]; then
+    log_error "UI lock path exists but is not a directory: ${lock_dir}"
+    return 1
+  fi
+
+  local owner_pid owner_run_id owner_host owner_started owner_reason owner_command
+  owner_pid=$(read_ui_lock_metadata_field "$metadata_path" "pid")
+  owner_run_id=$(read_ui_lock_metadata_field "$metadata_path" "run_id")
+  owner_host=$(read_ui_lock_metadata_field "$metadata_path" "host")
+  owner_started=$(read_ui_lock_metadata_field "$metadata_path" "started_human")
+  owner_reason=$(read_ui_lock_metadata_field "$metadata_path" "reason")
+  owner_command=$(read_ui_lock_metadata_field "$metadata_path" "command")
+
+  if [[ -n "$owner_pid" ]] && ui_lock_owner_is_alive "$owner_pid"; then
+    log_warn "Clearing active UI lock owned by PID ${owner_pid} (run_id=${owner_run_id:-unknown})"
+    log_warn "Owner host: ${owner_host:-unknown}; started: ${owner_started:-unknown}; reason: ${owner_reason:-unknown}"
+    log_warn "Owner command: ${owner_command:-unknown}"
+    log_warn "Stopping lock owner process tree rooted at PID ${owner_pid}"
+    terminate_process_tree "$owner_pid" "${ZPOD_UI_LOCK_CLEAR_KILL_GRACE_SECONDS:-5}"
+    if ui_lock_owner_is_alive "$owner_pid"; then
+      log_error "Unable to stop active lock owner PID ${owner_pid}"
+      return 1
+    fi
+  else
+    log_info "Clearing stale UI lock at ${lock_dir}"
+  fi
+
+  if remove_ui_lock_dir "$lock_dir"; then
+    if [[ "$UI_TEST_LOCK_PATH" == "$lock_dir" ]]; then
+      UI_TEST_LOCK_HELD=0
+      UI_TEST_LOCK_PATH=""
+      UI_TEST_LOCK_METADATA=""
+    fi
+    log_success "Cleared UI test lock: ${lock_dir}"
+    return "$cleanup_status"
+  fi
+
+  log_error "Failed to clear UI test lock: ${lock_dir}"
+  return 1
+}
+
+cleanup_ui_parallel_artifacts() {
+  local tmp_root="${TMPDIR:-/tmp}"
+  local removed_count=0
+  local artifact_path=""
+
+  while IFS= read -r artifact_path; do
+    [[ -z "$artifact_path" ]] && continue
+    if rm -rf "$artifact_path"; then
+      removed_count=$((removed_count + 1))
+    fi
+  done < <(find "$tmp_root" -maxdepth 1 \( -type d -name 'zpod-ui-derived-*' -o -type f -name '*zpod-ui-derived-*' \) -print 2>/dev/null)
+
+  if (( removed_count > 0 )); then
+    log_info "Removed ${removed_count} UI shard artifact(s) from ${tmp_root}"
+  else
+    log_info "No UI shard artifacts found in ${tmp_root}"
+  fi
+  return 0
 }
 
 print_grouped_test_summary() {
@@ -154,10 +484,12 @@ execute_phase() {
   local phase_start
   phase_start=$(date +%s)
   log_info "▶️  ${label} started"
-  set +e
-  "${command[@]}"
-  local status=$?
-  set -e
+  local status=0
+  if "${command[@]}"; then
+    status=0
+  else
+    status=$?
+  fi
   local phase_end
   phase_end=$(date +%s)
   local phase_elapsed=$((phase_end - phase_start))
@@ -191,6 +523,14 @@ record_phase_timing() {
   local elapsed="$3"
   local status="$4"
   PHASE_DURATION_ENTRIES+=("${category}|${name}|${elapsed}|${status}")
+}
+
+record_package_test_timing() {
+  local package="$1"
+  local elapsed="$2"
+  local status="$3"
+  local log_path="$4"
+  PACKAGE_TEST_TIMING_ENTRIES+=("${package}|${elapsed}|${status}|${log_path}")
 }
 
 log_oslog_debug() {
@@ -251,61 +591,80 @@ phase_group_for() {
   local category="$1"
   local name="$2"
   if [[ "$category" == "syntax" || "$name" == "Swift syntax" ]]; then
-    echo "Syntax"; return
+    echo "Syntax"
+    return 0
   fi
   if [[ "$name" == "App smoke tests" ]]; then
-    echo "AppSmoke"; return
+    echo "AppSmoke"
+    return 0
   fi
   if [[ "$name" == Integration* ]]; then
-    echo "Integration"; return
+    echo "Integration"
+    return 0
   fi
   if [[ "$name" == "UI tests" || "$name" == zpodUITests* || "$name" == *UITests* || "$name" == *-ui || "$name" == zpod-ui ]]; then
-    echo "UI Tests"; return
+    echo "UI Tests"
+    return 0
   fi
   if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
-    echo "Lint"; return
+    echo "Lint"
+    return 0
   fi
   if [[ "$name" == Build\ package* ]]; then
-    echo "Package Build"; return
+    echo "Package Build"
+    return 0
   fi
   if [[ "$name" == package\ * ]]; then
-    echo "Package Build"; return
+    echo "Package Build"
+    return 0
   fi
-  if [[ "$name" == Package\ tests* ]]; then
-    echo "Package Tests"; return
+  if [[ "$name" == Package\ tests* || "$name" == Test\ Packages || "$name" == Packages ]]; then
+    echo "Package Tests"
+    return 0
   fi
   if [[ "$category" == "build" || "$name" == Build* ]]; then
-    echo "Build"; return
+    echo "Build"
+    return 0
   fi
+  return 0
 }
 
 test_group_for() {
   local category="$1"
   local name="$2"
   if [[ "$category" == "syntax" ]]; then
-    echo "Syntax"; return
+    echo "Syntax"
+    return 0
   fi
   if [[ "$category" == "build" ]]; then
     if [[ "$name" == package\ * || "$name" == Build\ package* ]]; then
-      echo "Package Build"; return
+      echo "Package Build"
+      return 0
     fi
-    echo "Build"; return
+    echo "Build"
+    return 0
   fi
   if [[ "$name" == AppSmokeTests* || "$name" == *AppSmoke* ]]; then
-    echo "AppSmoke"; return
+    echo "AppSmoke"
+    return 0
   fi
   if [[ "$name" == IntegrationTests* || "$name" == *Integration* ]]; then
-    echo "Integration"; return
+    echo "Integration"
+    return 0
   fi
   if [[ "$name" == zpodUITests* || "$name" == *UITests* || "$name" == *-ui || "$name" == zpod-ui ]]; then
-    echo "UI Tests"; return
+    echo "UI Tests"
+    return 0
   fi
   if [[ "$category" == "lint" || "$name" == Swift\ lint* ]]; then
-    echo "Lint"; return
+    echo "Lint"
+    return 0
   fi
-  if [[ "$name" == package* ]]; then
-    echo "Package Tests"; return
+  if [[ "$name" == package* || "$name" == Test\ Packages || "$name" == Packages ]]; then
+    echo "Package Tests"
+    return 0
   fi
+  return 0
 }
 
 resolve_xcodebuild_timeout() {
@@ -352,19 +711,300 @@ list_ui_test_suites() {
     sort -u
 }
 
-run_ui_test_suites() {
-  local suites=()
-  local suite
-  while IFS= read -r suite; do
-    [[ -z "$suite" ]] && continue
-    suites+=("$suite")
-  done < <(list_ui_test_suites)
+target_includes_ui_tests() {
+  local target="$1"
+  case "$target" in
+    all|zpod|zpodUITests|zpodUITests/*|*UITests*|*-ui)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
-  if (( ${#suites[@]} == 0 )); then
-    log_warn "No UI test suites discovered; falling back to zpodUITests"
-    execute_phase "UI tests" "test" run_test_target "zpodUITests"
-    return
+resolve_ui_parallelism() {
+  local requested="${ZPOD_UI_TEST_PARALLELISM:-1}"
+  if [[ ! "$requested" =~ ^[0-9]+$ ]]; then
+    log_warn "Ignoring invalid ZPOD_UI_TEST_PARALLELISM='${requested}', defaulting to 1"
+    requested=1
   fi
+  if (( requested < 1 )); then
+    requested=1
+  fi
+
+  local max_parallel="${ZPOD_UI_TEST_PARALLEL_MAX:-}"
+  if [[ -z "$max_parallel" ]]; then
+    if is_ci; then
+      max_parallel=5
+    else
+      max_parallel=4
+    fi
+  fi
+  if [[ ! "$max_parallel" =~ ^[0-9]+$ ]] || (( max_parallel < 1 )); then
+    max_parallel=1
+  fi
+  if (( requested > max_parallel )); then
+    log_warn "Requested UI parallelism ${requested} exceeds max ${max_parallel}; capping"
+    requested=$max_parallel
+  fi
+  printf "%s" "$requested"
+}
+
+resolve_ui_parallel_derived_root() {
+  if [[ -n "${ZPOD_UI_TEST_PARALLEL_DERIVED_ROOT:-}" ]]; then
+    printf "%s" "$ZPOD_UI_TEST_PARALLEL_DERIVED_ROOT"
+    return 0
+  fi
+  if [[ -n "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    printf "%s/ui-shards-%s" "$ZPOD_DERIVED_DATA_PATH" "$RUN_INVOCATION_ID"
+    return 0
+  fi
+  printf "%s/zpod-ui-derived-%s" "${TMPDIR:-/tmp}" "$RUN_INVOCATION_ID"
+}
+
+append_ui_worker_report_entries() {
+  local report_file="$1"
+  [[ -f "$report_file" ]] || return 0
+  local line
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    case "$line" in
+      summary\|*)
+        append_summary_item_if_new "${line#summary|}"
+        ;;
+      suite_timing\|*)
+        local timing_entry="${line#suite_timing|}"
+        append_test_suite_timing_entry_if_new "$timing_entry"
+        ;;
+      worker_health\|*)
+        append_ui_worker_health_entry_if_new "${line#worker_health|}"
+        ;;
+    esac
+  done < "$report_file"
+}
+
+append_summary_item_if_new() {
+  local candidate="$1"
+  local existing
+  for existing in "${SUMMARY_ITEMS[@]-}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  SUMMARY_ITEMS+=("$candidate")
+}
+
+append_test_suite_timing_entry_if_new() {
+  local candidate="$1"
+  local existing
+  for existing in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  TEST_SUITE_TIMING_ENTRIES+=("$candidate")
+}
+
+append_ui_worker_health_entry_if_new() {
+  local candidate="$1"
+  local existing
+  for existing in "${UI_WORKER_HEALTH_ENTRIES[@]-}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  UI_WORKER_HEALTH_ENTRIES+=("$candidate")
+}
+
+worker_report_has_completion_marker() {
+  local report_file="$1"
+  local worker_label="$2"
+  [[ -f "$report_file" ]] || return 1
+  rg -q "^worker_health\\|${worker_label}\\|completed\\|" "$report_file"
+}
+
+sanitize_suite_filename() {
+  local suite="$1"
+  local safe
+  safe=$(printf "%s" "$suite" | sed -E 's/[^A-Za-z0-9._-]+/_/g')
+  printf "%s" "$safe"
+}
+
+init_ui_dynamic_queue() {
+  local queue_root="$1"
+  shift
+  local suites=("$@")
+  local pending_dir="${queue_root}/pending"
+  local inflight_dir="${queue_root}/inflight"
+  local done_dir="${queue_root}/done"
+  rm -rf "$queue_root"
+  mkdir -p "$pending_dir" "$inflight_dir" "$done_dir"
+
+  local index=1
+  local suite
+  for suite in "${suites[@]}"; do
+    local safe_name
+    safe_name=$(sanitize_suite_filename "$suite")
+    local file_name
+    file_name=$(printf "%04d__%s" "$index" "$safe_name")
+    printf "%s\n" "$suite" > "${pending_dir}/${file_name}"
+    index=$((index + 1))
+  done
+}
+
+queue_remaining_count() {
+  local queue_root="$1"
+  local pending_dir="${queue_root}/pending"
+  local inflight_dir="${queue_root}/inflight"
+  local pending_count=0
+  local inflight_count=0
+  if [[ -d "$pending_dir" ]]; then
+    pending_count=$(find "$pending_dir" -type f | wc -l | tr -d ' ')
+  fi
+  if [[ -d "$inflight_dir" ]]; then
+    inflight_count=$(find "$inflight_dir" -type f | wc -l | tr -d ' ')
+  fi
+  printf "%s" $((pending_count + inflight_count))
+}
+
+teardown_ui_shard_runtime() {
+  local reason="${1:-unknown}"
+  local emit_summary="${2:-1}"
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return 0
+  fi
+  if (( UI_SHARD_ACTIVE == 0 )); then
+    return 0
+  fi
+  if (( UI_SHARD_TEARDOWN_DONE == 1 )); then
+    return 0
+  fi
+  UI_SHARD_TEARDOWN_DONE=1
+
+  local grace="${ZPOD_UI_SHARD_KILL_GRACE_SECONDS:-5}"
+  if [[ ! "$grace" =~ ^[0-9]+$ ]]; then
+    grace=5
+  fi
+
+  local signaled=0
+  local forced=0
+  local pid
+  for pid in "${UI_SHARD_WORKER_PIDS[@]-}"; do
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      if kill "$pid" 2>/dev/null; then
+        signaled=$((signaled + 1))
+      fi
+    fi
+  done
+
+  if (( signaled > 0 && grace > 0 )); then
+    sleep "$grace"
+  fi
+
+  for pid in "${UI_SHARD_WORKER_PIDS[@]-}"; do
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      if kill -9 "$pid" 2>/dev/null; then
+        forced=$((forced + 1))
+      fi
+    fi
+  done
+
+  local idx
+  for idx in "${!UI_SHARD_WORKER_PIDS[@]}"; do
+    pid="${UI_SHARD_WORKER_PIDS[$idx]}"
+    [[ "$pid" =~ ^[0-9]+$ ]] && wait "$pid" 2>/dev/null || true
+
+    local label="${UI_SHARD_WORKER_LABELS[$idx]:-}"
+    local report_file="${UI_SHARD_WORKER_REPORTS[$idx]:-}"
+    append_ui_worker_report_entries "$report_file"
+    if [[ -n "$label" ]] && ! worker_report_has_completion_marker "$report_file" "$label"; then
+      local remaining="unknown"
+      if [[ -n "$UI_SHARD_QUEUE_ROOT" ]]; then
+        remaining=$(queue_remaining_count "$UI_SHARD_QUEUE_ROOT")
+      fi
+      append_ui_worker_health_entry_if_new "${label}|stopped_unexpected|130|0|0|unknown|${remaining}"
+    fi
+  done
+
+  local sim_udid
+  for sim_udid in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    cleanup_ephemeral_simulator "$sim_udid"
+  done
+
+  if (( emit_summary == 1 )); then
+    add_summary "test" "zpodUITests sharding cancel" "error" "" "1" "0" "1" "0" \
+      "cancelled (${reason}; workers_signaled=${signaled}; workers_killed=${forced})"
+  fi
+  reset_ui_shard_runtime_state
+}
+
+claim_next_ui_suite() {
+  local queue_root="$1"
+  local worker_label="$2"
+  local pending_dir="${queue_root}/pending"
+  local inflight_dir="${queue_root}/inflight"
+  mkdir -p "$pending_dir" "$inflight_dir"
+
+  while true; do
+    local candidate=""
+    candidate=$(find "$pending_dir" -maxdepth 1 -type f -print | sort | head -n 1)
+    [[ -z "$candidate" ]] && return 1
+    local candidate_name
+    candidate_name=$(basename "$candidate")
+    local claim_path="${inflight_dir}/${worker_label}__${candidate_name}"
+    if mv "$candidate" "$claim_path" 2>/dev/null; then
+      local suite
+      suite=$(head -n 1 "$claim_path" 2>/dev/null || true)
+      if [[ -z "$suite" ]]; then
+        suite="${candidate_name#*__}"
+      fi
+      printf "%s|%s" "$claim_path" "$suite"
+      return 0
+    fi
+  done
+}
+
+complete_ui_suite_claim() {
+  local queue_root="$1"
+  local claim_path="$2"
+  local suite_status="$3"
+  local done_dir="${queue_root}/done"
+  mkdir -p "$done_dir"
+  [[ -f "$claim_path" ]] || return 0
+  local claim_name
+  claim_name=$(basename "$claim_path")
+  mv "$claim_path" "${done_dir}/${claim_name}__${suite_status}" 2>/dev/null || true
+}
+
+normalize_suite_counts() {
+  local raw_total="$1"
+  local raw_failed="$2"
+  local raw_skipped="$3"
+  local total="${raw_total:-0}"
+  local failed="${raw_failed:-0}"
+  local skipped="${raw_skipped:-0}"
+
+  if (( failed < 0 )); then failed=0; fi
+  if (( skipped < 0 )); then skipped=0; fi
+  if (( total < 0 )); then total=0; fi
+
+  local minimum_total=$(( failed + skipped ))
+  if (( total < minimum_total )); then
+    total=$minimum_total
+  fi
+  local passed=$(( total - failed - skipped ))
+  if (( passed < 0 )); then
+    passed=0
+  fi
+  printf '%s|%s|%s|%s' "$total" "$passed" "$failed" "$skipped"
+}
+
+run_ui_test_suites_serial() {
+  local suites=("$@")
+  local suite
 
   local any_failed=0
   local switched_to_fresh=0
@@ -411,6 +1051,293 @@ run_ui_test_suites() {
     return 1
   fi
   return 0
+}
+
+run_ui_test_shard_worker() {
+  local worker_name="$1"
+  local report_file="$2"
+  local worker_sim_udid="$3"
+  local queue_root="$4"
+
+  : > "$report_file"
+  if [[ -n "$UI_PARALLEL_SHARED_DERIVED_ROOT" ]]; then
+    export ZPOD_DERIVED_DATA_PATH="$UI_PARALLEL_SHARED_DERIVED_ROOT"
+  fi
+  if [[ -n "$worker_sim_udid" ]]; then
+    export ZPOD_SIMULATOR_UDID="$worker_sim_udid"
+  fi
+
+  local any_failed=0
+  local switched_to_fresh=0
+  local use_fresh_sim=0
+  local claimed_count=0
+  local completed_count=0
+  local last_suite=""
+  if [[ "${ZPOD_UI_TEST_FRESH_SIM:-0}" == "1" ]]; then
+    use_fresh_sim=1
+  fi
+  local original_sim_udid="${ZPOD_SIMULATOR_UDID:-}"
+  while true; do
+    local claim_result=""
+    if ! claim_result=$(claim_next_ui_suite "$queue_root" "$worker_name"); then
+      break
+    fi
+    IFS='|' read -r claim_path suite <<< "$claim_result"
+    claimed_count=$((claimed_count + 1))
+    last_suite="$suite"
+    local remaining_now
+    remaining_now=$(queue_remaining_count "$queue_root")
+    log_info "[${worker_name}] Claimed UI suite ${suite} (remaining approx: ${remaining_now})"
+
+    local before_summary_count=${#SUMMARY_ITEMS[@]}
+    local before_timing_count=${#TEST_SUITE_TIMING_ENTRIES[@]}
+    local suite_start
+    suite_start=$(date +%s)
+    local temp_sim_udid=""
+
+    if (( use_fresh_sim == 1 )); then
+      log_info "[${worker_name}] Provisioning fresh simulator for ${suite}..."
+      if temp_sim_udid=$(create_ephemeral_simulator 2>/dev/null); then
+        log_info "[${worker_name}] Using simulator id=${temp_sim_udid} for ${suite}"
+        export ZPOD_SIMULATOR_UDID="$temp_sim_udid"
+      else
+        log_warn "[${worker_name}] Failed to provision fresh simulator for ${suite}; using default destination"
+      fi
+    fi
+
+    local suite_status=0
+    if run_test_target "zpodUITests/${suite}"; then
+      suite_status=0
+    else
+      suite_status=$?
+      any_failed=1
+      if (( use_fresh_sim == 0 && switched_to_fresh == 0 )); then
+        switched_to_fresh=1
+        use_fresh_sim=1
+        log_warn "[${worker_name}] UI suite ${suite} failed; switching remaining shard suites to fresh simulators"
+        reset_core_simulator_service
+      fi
+    fi
+
+    local suite_end
+    suite_end=$(date +%s)
+    local suite_elapsed=$((suite_end - suite_start))
+    completed_count=$((completed_count + 1))
+    if (( suite_status == 0 )); then
+      complete_ui_suite_claim "$queue_root" "$claim_path" "success"
+    else
+      complete_ui_suite_claim "$queue_root" "$claim_path" "error"
+    fi
+
+    local wrote_summary=0
+    local idx
+    for (( idx=before_summary_count; idx<${#SUMMARY_ITEMS[@]}; idx++ )); do
+      printf 'summary|%s\n' "${SUMMARY_ITEMS[$idx]}" >> "$report_file"
+      wrote_summary=1
+    done
+    if (( wrote_summary == 0 )); then
+      local fallback_status="success"
+      if (( suite_status != 0 )); then
+        fallback_status="error"
+      fi
+      printf 'summary|test|zpodUITests/%s|%s||||||worker fallback\n' "$suite" "$fallback_status" >> "$report_file"
+    fi
+
+    local wrote_timing=0
+    local timing_idx
+    for (( timing_idx=before_timing_count; timing_idx<${#TEST_SUITE_TIMING_ENTRIES[@]}; timing_idx++ )); do
+      printf 'suite_timing|%s\n' "${TEST_SUITE_TIMING_ENTRIES[$timing_idx]}" >> "$report_file"
+      wrote_timing=1
+    done
+    if (( wrote_timing == 0 )); then
+      local fallback_status="success"
+      local fallback_failed=0
+      if (( suite_status != 0 )); then
+        fallback_status="error"
+        fallback_failed=1
+      fi
+      printf 'suite_timing|zpodUITests/%s|%s|%s|%s|0|%s|0|%s\n' \
+        "$suite" "$suite" "$suite_elapsed" "$fallback_status" "$fallback_failed" "${RESULT_LOG:-}" >> "$report_file"
+    fi
+
+    if [[ -n "$temp_sim_udid" ]]; then
+      cleanup_ephemeral_simulator "$temp_sim_udid"
+    fi
+    if [[ -n "$original_sim_udid" ]]; then
+      export ZPOD_SIMULATOR_UDID="$original_sim_udid"
+    else
+      unset ZPOD_SIMULATOR_UDID
+    fi
+  done
+
+  local remaining_after
+  remaining_after=$(queue_remaining_count "$queue_root")
+  printf 'worker_health|%s|completed|%s|%s|%s|%s|%s\n' \
+    "$worker_name" "$any_failed" "$claimed_count" "$completed_count" "${last_suite:-none}" "$remaining_after" >> "$report_file"
+  if (( any_failed == 1 )); then
+    return 1
+  fi
+  return 0
+}
+
+run_ui_test_suites_parallel() {
+  local suites=("$@")
+  local suite_count=${#suites[@]}
+  if (( suite_count == 0 )); then
+    return 0
+  fi
+  reset_ui_shard_runtime_state
+
+  if (( UI_PARALLELISM > 1 )); then
+    if ! ensure_shared_host_app_product; then
+      log_info "Shared host app missing for sharded UI run; running build-for-testing preflight"
+      local prebuild_start
+      prebuild_start=$(date +%s)
+      if build_for_testing_phase; then
+        local prebuild_end
+        prebuild_end=$(date +%s)
+        record_phase_timing "build" "Build app and test bundles" "$((prebuild_end - prebuild_start))" "success"
+      else
+        local prebuild_status=$?
+        local prebuild_end
+        prebuild_end=$(date +%s)
+        record_phase_timing "build" "Build app and test bundles" "$((prebuild_end - prebuild_start))" "error"
+        update_exit_status "$prebuild_status"
+        return "$prebuild_status"
+      fi
+      if ! ensure_shared_host_app_product; then
+        add_summary "test" "UI sharding host app" "error" "" "" "" "" "" "missing zpod.app in shared derived data"
+        update_exit_status "$UI_PARALLEL_SETUP_EXIT_CODE"
+        return "$UI_PARALLEL_SETUP_EXIT_CODE"
+      fi
+    fi
+  fi
+
+  local parallelism
+  parallelism=$(resolve_ui_parallelism)
+  if (( parallelism < 2 || suite_count < 2 )); then
+    run_ui_test_suites_serial "${suites[@]}"
+    return $?
+  fi
+  if (( parallelism > suite_count )); then
+    parallelism=$suite_count
+  fi
+
+  local derived_root
+  derived_root=$(resolve_ui_parallel_derived_root)
+  if ! mkdir -p "$derived_root"; then
+    log_error "Failed to create UI shard derived data root: ${derived_root}"
+    add_summary "test" "zpodUITests sharding" "error" "" "" "" "" "" "parallel setup failed (derived data root)"
+    update_exit_status "$UI_PARALLEL_SETUP_EXIT_CODE"
+    return "$UI_PARALLEL_SETUP_EXIT_CODE"
+  fi
+
+  log_info "UI sharding enabled: ${parallelism} workers for ${suite_count} suites"
+  log_info "UI shard derived data root: ${derived_root}"
+  log_info "UI sharding mode: dynamic queue"
+
+  local queue_root="${derived_root}/dynamic-queue"
+  init_ui_dynamic_queue "$queue_root" "${suites[@]}"
+  log_info "UI queue initialized with ${suite_count} suites at ${queue_root}"
+
+  UI_SHARD_ACTIVE=1
+  UI_SHARD_TEARDOWN_DONE=0
+  UI_SHARD_QUEUE_ROOT="$queue_root"
+  UI_SHARD_DERIVED_ROOT="$derived_root"
+
+  local worker_index
+
+  for (( worker_index=0; worker_index<parallelism; worker_index++ )); do
+    local worker_label="ui-shard-$((worker_index + 1))"
+    local report_file="${derived_root}/${worker_label}.report"
+    local worker_sim=""
+    if worker_sim=$(create_ephemeral_simulator 2>/dev/null); then
+      log_info "[${worker_label}] Provisioned simulator id=${worker_sim}"
+    else
+      log_error "[${worker_label}] Failed to provision dedicated simulator for parallel UI run"
+      log_error "Set ZPOD_UI_TEST_PARALLELISM=1 to disable sharding or retry after resetting CoreSimulator"
+      teardown_ui_shard_runtime "simulator provisioning failure" 0
+      add_summary "test" "zpodUITests sharding" "error" "" "" "" "" "" "parallel setup failed (simulator provisioning)"
+      update_exit_status "$UI_PARALLEL_SETUP_EXIT_CODE"
+      return "$UI_PARALLEL_SETUP_EXIT_CODE"
+    fi
+    UI_SHARD_WORKER_SIMULATORS+=("$worker_sim")
+    UI_SHARD_WORKER_REPORTS+=("$report_file")
+    UI_SHARD_WORKER_LABELS+=("$worker_label")
+
+    run_ui_test_shard_worker "$worker_label" "$report_file" "$worker_sim" "$queue_root" &
+    UI_SHARD_WORKER_PIDS+=($!)
+  done
+
+  local any_failed=0
+  local worker_stopped_unexpected=0
+  for (( worker_index=0; worker_index<${#UI_SHARD_WORKER_PIDS[@]}; worker_index++ )); do
+    local pid="${UI_SHARD_WORKER_PIDS[$worker_index]}"
+    local worker_status=0
+    if wait "$pid"; then
+      worker_status=0
+      log_info "[${UI_SHARD_WORKER_LABELS[$worker_index]}] completed successfully"
+    else
+      worker_status=$?
+      any_failed=1
+      if worker_report_has_completion_marker "${UI_SHARD_WORKER_REPORTS[$worker_index]}" "${UI_SHARD_WORKER_LABELS[$worker_index]}"; then
+        log_warn "[${UI_SHARD_WORKER_LABELS[$worker_index]}] completed with failing suites (status ${worker_status})"
+      else
+        worker_stopped_unexpected=1
+        local remaining_after_stop
+        remaining_after_stop=$(queue_remaining_count "$queue_root")
+        log_error "[${UI_SHARD_WORKER_LABELS[$worker_index]}] stopped unexpectedly (status ${worker_status}); remaining queued/inflight suites: ${remaining_after_stop}"
+        append_ui_worker_health_entry_if_new "${UI_SHARD_WORKER_LABELS[$worker_index]}|stopped_unexpected|${worker_status}|0|0|unknown|${remaining_after_stop}"
+      fi
+    fi
+    append_ui_worker_report_entries "${UI_SHARD_WORKER_REPORTS[$worker_index]}"
+  done
+
+  local remaining_after_workers
+  remaining_after_workers=$(queue_remaining_count "$queue_root")
+  if (( remaining_after_workers > 0 )); then
+    any_failed=1
+    log_error "Dynamic UI queue not fully drained: ${remaining_after_workers} suites remained unprocessed"
+    add_summary "test" "zpodUITests sharding" "error" "" "" "" "" "" "unprocessed suites remained (${remaining_after_workers})"
+  fi
+
+  if (( worker_stopped_unexpected == 1 )); then
+    add_summary "test" "zpodUITests sharding workers" "error" "" "1" "0" "1" "0" "one or more shard workers stopped unexpectedly"
+  fi
+
+  local worker_sim
+  for worker_sim in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    cleanup_ephemeral_simulator "$worker_sim"
+  done
+  reset_ui_shard_runtime_state
+
+  if (( any_failed == 1 )); then
+    log_warn "One or more UI shards failed; continuing with remaining phases"
+    return 1
+  fi
+  return 0
+}
+
+run_ui_test_suites() {
+  if ! acquire_ui_test_lock "UI suite orchestration"; then
+    return $?
+  fi
+
+  local suites=()
+  local suite
+  while IFS= read -r suite; do
+    [[ -z "$suite" ]] && continue
+    suites+=("$suite")
+  done < <(list_ui_test_suites)
+
+  if (( ${#suites[@]} == 0 )); then
+    log_warn "No UI test suites discovered; falling back to zpodUITests"
+    execute_phase "UI tests" "test" run_test_target "zpodUITests"
+    return $?
+  fi
+
+  run_ui_test_suites_parallel "${suites[@]}"
+  return $?
 }
 
 retry_with_fresh_sim() {
@@ -515,12 +1442,26 @@ print_entries_for_categories() {
 finalize_and_exit() {
   local code="$1"
   update_exit_status "$code"
+  if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]] && (( UI_SHARD_ACTIVE == 1 )); then
+    teardown_ui_shard_runtime "finalize-guard" 1
+  fi
+  if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
+    release_ui_test_lock
+  fi
   trap - ERR INT EXIT
   if (( SUMMARY_PRINTED == 0 )); then
+    local previous_errexit=0
+    case $- in
+      *e*) previous_errexit=1;;
+    esac
+    set +e
     if [[ -n "${RESULT_LOG:-}" ]]; then
       print_summary | tee -a "$RESULT_LOG"
     else
       print_summary
+    fi
+    if (( previous_errexit == 1 )); then
+      set -e
     fi
   fi
   SUMMARY_PRINTED=1
@@ -529,7 +1470,7 @@ finalize_and_exit() {
     end_time=$(date +%s)
     elapsed=$((end_time - START_TIME))
     formatted=$(printf '%02d:%02d:%02d' $((elapsed/3600)) $(((elapsed%3600)/60)) $((elapsed%60)))
-    log_time "run-xcode-tests finished in ${formatted} (exit ${EXIT_STATUS})"
+    log_time "run-xcode-tests finished in ${formatted} (exit ${EXIT_STATUS}, run_id=${RUN_INVOCATION_ID:-unknown})"
   fi
   exit "$code"
 }
@@ -545,10 +1486,12 @@ handle_interrupt() {
     return
   fi
   INTERRUPTED=1
+  UI_SHARD_CANCELLED=1
   if [[ -n "$CURRENT_PHASE" && $CURRENT_PHASE_RECORDED -eq 0 ]]; then
     add_summary "${CURRENT_PHASE_CATEGORY:-phase}" "$CURRENT_PHASE" "interrupted" "" "" "" "" "" "interrupted by user"
   fi
   update_exit_status 130
+  teardown_ui_shard_runtime "interrupt" 1
   finalize_and_exit "$EXIT_STATUS"
 }
 
@@ -564,6 +1507,7 @@ handle_unexpected_error() {
     add_summary "script" "runtime" "error" "" "" "" "" "" "script error at line ${line}"
   fi
   update_exit_status "$status"
+  teardown_ui_shard_runtime "error-trap" 1
   finalize_and_exit "$EXIT_STATUS"
 }
 
@@ -578,6 +1522,9 @@ handle_exit() {
   local status=$?
   if (( EXIT_STATUS != 0 )); then
     status=$EXIT_STATUS
+  fi
+  if (( UI_SHARD_ACTIVE == 1 )); then
+    teardown_ui_shard_runtime "exit-trap" 1
   fi
   finalize_and_exit "$status"
 }
@@ -629,6 +1576,19 @@ ensure_host_app_product() {
   fi
 
   return 0
+}
+
+ensure_shared_host_app_product() {
+  if [[ -z "${UI_PARALLEL_SHARED_DERIVED_ROOT:-}" ]]; then
+    return 0
+  fi
+  local expected_app="${UI_PARALLEL_SHARED_DERIVED_ROOT}/Build/Products/Debug-iphonesimulator/zpod.app/zpod"
+  if [[ -f "$expected_app" ]]; then
+    return 0
+  fi
+  log_error "Shared derived data root '${UI_PARALLEL_SHARED_DERIVED_ROOT}' has no host app at ${expected_app}"
+  log_error "Ensure the build phase ran against this derived root before sharded UI suites start."
+  return 1
 }
 
 extract_test_counts() {
@@ -980,7 +1940,7 @@ print_group_timing_block() {
 }
 
 print_test_timing_block() {
-  local -a groups=("Syntax" "AppSmoke" "Package Tests" "Integration" "UI Tests" "Lint")
+  local -a groups=("Syntax" "AppSmoke" "Integration" "Lint")
   local any=0
   print_section_header "Test Timing"
   local total_all=0
@@ -990,13 +1950,6 @@ print_test_timing_block() {
     seconds=$(group_elapsed_seconds "$group")
     (( seconds == 0 )) && continue
     total_all=$(( total_all + seconds ))
-    local suppress=0
-    if [[ "$group" == "Package Tests" || "$group" == "UI Tests" ]]; then
-      suppress=1
-    fi
-    if (( suppress == 1 )); then
-      continue
-    fi
     any=1
     local log_path
     log_path=$(first_log_for_group "$group")
@@ -1006,6 +1959,22 @@ print_test_timing_block() {
     fi
     printf "\n"
   done
+  local ui_seconds
+  ui_seconds=$(group_elapsed_seconds "UI Tests")
+  if (( ui_seconds > 0 )); then
+    total_all=$(( total_all + ui_seconds ))
+    any=1
+    local ui_log
+    ui_log=$(first_log_for_group "UI Tests")
+    printf "  UI Tests: %s" "$(format_elapsed_time "$ui_seconds")"
+    if [[ -n "$ui_log" ]]; then
+      printf " – log: %s" "$ui_log"
+    fi
+    printf "\n"
+  fi
+  local package_seconds
+  package_seconds=$(group_elapsed_seconds "Package Tests")
+  total_all=$(( total_all + package_seconds ))
   if (( any == 0 )); then
     printf "  (none)\n"
   fi
@@ -1017,35 +1986,46 @@ package_test_timing_breakdown() {
   local any=0
   local total_duration=0
   local -a lines=()
-  local entry
-  for entry in "${SUMMARY_ITEMS[@]-}"; do
-    IFS='|' read -r category name status log_path total passed failed skipped _ <<< "$entry"
-    [[ "$category" == "test" ]] || continue
-    [[ "$name" == package\ * ]] || continue
-    local pkg_phase="Package tests ${name#package }"
-    local duration_sec=0
-    local ph_entry
-    for ph_entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
-      IFS='|' read -r ph_cat ph_name ph_elapsed _ <<< "$ph_entry"
-      if [[ "$ph_name" == "$pkg_phase" ]]; then
-        duration_sec=${ph_elapsed:-0}
-        break
+
+  if (( ${#PACKAGE_TEST_TIMING_ENTRIES[@]} > 0 )); then
+    local timing_entry
+    for timing_entry in "${PACKAGE_TEST_TIMING_ENTRIES[@]-}"; do
+      IFS='|' read -r package_name package_elapsed _ package_log <<< "$timing_entry"
+      total_duration=$(( total_duration + ${package_elapsed:-0} ))
+      any=1
+      local line="    package ${package_name} – $(format_elapsed_time "${package_elapsed:-0}")"
+      if [[ -n "$package_log" ]]; then
+        line+=" – log: ${package_log}"
       fi
+      lines+=("$line")
     done
-    total_duration=$(( total_duration + duration_sec ))
-    any=1
-    local line="    ${name} – $(format_elapsed_time "$duration_sec")"
-    if [[ -n "$log_path" ]]; then
-      line+=" – log: ${log_path}"
-    fi
-    lines+=("$line")
-  done
-  (( any == 0 )) && return
-  local group_total
-  group_total=$(group_elapsed_seconds "Package Tests")
-  if (( group_total > 0 )); then
-    total_duration=$group_total
+  else
+    local entry
+    for entry in "${SUMMARY_ITEMS[@]-}"; do
+      IFS='|' read -r category name _ log_path _ _ _ _ _ <<< "$entry"
+      [[ "$category" == "test" ]] || continue
+      [[ "$name" == package\ * ]] || continue
+      local pkg_phase="Package tests ${name#package }"
+      local duration_sec=0
+      local ph_entry
+      for ph_entry in "${PHASE_DURATION_ENTRIES[@]-}"; do
+        IFS='|' read -r _ ph_name ph_elapsed _ <<< "$ph_entry"
+        if [[ "$ph_name" == "$pkg_phase" ]]; then
+          duration_sec=${ph_elapsed:-0}
+          break
+        fi
+      done
+      total_duration=$(( total_duration + duration_sec ))
+      any=1
+      local line="    ${name} – $(format_elapsed_time "$duration_sec")"
+      if [[ -n "$log_path" ]]; then
+        line+=" – log: ${log_path}"
+      fi
+      lines+=("$line")
+    done
   fi
+
+  (( any == 0 )) && return
   printf "  Package Tests detail: %s\n" "$(format_elapsed_time "$total_duration")"
   printf '%s\n' "${lines[@]}"
 }
@@ -1145,6 +2125,9 @@ test_counts_for_group() {
   if (( total < minimum_total )); then
     total=$minimum_total
   fi
+  if (( passed < 0 )); then
+    passed=0
+  fi
   if (( passed > total )); then
     passed=$(( total - failed - skipped ))
     if (( passed < 0 )); then
@@ -1240,6 +2223,7 @@ print_test_results_block() {
   fi
   print_package_test_breakdown "$pkg_total" "$pkg_passed" "$pkg_failed" "$pkg_skipped" "$pkg_warn" "$pkg_present"
   print_ui_suite_results_summary "$ui_total" "$ui_passed" "$ui_failed" "$ui_skipped" "$ui_warn" "$ui_present"
+  print_ui_worker_health_summary
   printf "\n"
 }
 
@@ -1291,6 +2275,9 @@ print_ui_suite_results_summary() {
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
     IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped _ <<< "$entry"
     [[ "$suite_target" == *UITests* ]] || continue
+    local normalized_counts
+    normalized_counts=$(normalize_suite_counts "$suite_total" "$suite_failed" "$suite_skipped")
+    IFS='|' read -r suite_total _ suite_failed suite_skipped <<< "$normalized_counts"
     computed_present=1
     (( computed_total += suite_total ))
     (( computed_failed += suite_failed ))
@@ -1302,6 +2289,9 @@ print_ui_suite_results_summary() {
     summary_failed="$computed_failed"
     summary_skipped="$computed_skipped"
     summary_passed=$(( summary_total - summary_failed - summary_skipped ))
+    if (( summary_passed < 0 )); then
+      summary_passed=0
+    fi
     summary_warn="$computed_warn"
     present=1
   fi
@@ -1323,6 +2313,9 @@ print_ui_suite_results_summary() {
       local suite_failed="${entry_failed:-0}"
       local suite_skipped="${entry_skipped:-0}"
       local suite_passed="${entry_passed:-$(( suite_total - suite_failed - suite_skipped ))}"
+      if (( suite_passed < 0 )); then
+        suite_passed=0
+      fi
       local suite_warn=0
       [[ "$status" == "warn" ]] && suite_warn=1
       printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
@@ -1343,7 +2336,10 @@ print_ui_suite_results_summary() {
         "${summary_total:-0}" "${summary_passed:-0}" "${summary_failed:-0}" "${summary_skipped:-0}" "${summary_warn:-0}"
     fi
     printed_header=1
-    local passed=$(( ${suite_total:-0} - ${suite_failed:-0} - ${suite_skipped:-0} ))
+    local normalized_counts
+    normalized_counts=$(normalize_suite_counts "$suite_total" "$suite_failed" "$suite_skipped")
+    local passed
+    IFS='|' read -r suite_total passed suite_failed suite_skipped <<< "$normalized_counts"
     local suite_warn=0
     [[ "$status" == "warn" ]] && suite_warn=1
     printf "    %s – total %s (✅ %s, ❌ %s, ⏭️ %s, ⚠️ %s)" \
@@ -1352,6 +2348,49 @@ print_ui_suite_results_summary() {
       printf " – log: %s" "$log_path"
     fi
     printf "\n"
+  done
+}
+
+print_ui_worker_health_summary() {
+  local total_entries=0
+  local unexpected_count=0
+  local entry
+  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]-}"; do
+    IFS='|' read -r _ event _ _ _ _ _ <<< "$entry"
+    total_entries=$((total_entries + 1))
+    [[ "$event" == "stopped_unexpected" ]] && unexpected_count=$((unexpected_count + 1))
+  done
+  (( total_entries == 0 )) && return
+
+  if (( unexpected_count > 0 )); then
+    printf "  UI shard worker health: ❌ %s worker(s) stopped unexpectedly\n" "$unexpected_count"
+  else
+    printf "  UI shard worker health: ✅ all workers completed\n"
+  fi
+
+  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]-}"; do
+    IFS='|' read -r worker_label event status claimed completed last_suite remaining <<< "$entry"
+    case "$event" in
+      completed)
+        local worker_failures=0
+        [[ "${status:-0}" == "1" ]] && worker_failures=1
+        if (( worker_failures == 1 )); then
+          printf "    %s – completed (suites %s/%s, last suite %s, remaining %s, suite failures encountered)\n" \
+            "$worker_label" "${completed:-0}" "${claimed:-0}" "${last_suite:-none}" "${remaining:-0}"
+        else
+          printf "    %s – completed (suites %s/%s, last suite %s, remaining %s)\n" \
+            "$worker_label" "${completed:-0}" "${claimed:-0}" "${last_suite:-none}" "${remaining:-0}"
+        fi
+        ;;
+      stopped_unexpected)
+        printf "    %s – stopped unexpectedly (exit %s, completed %s/%s, last suite %s, remaining %s)\n" \
+          "$worker_label" "${status:-unknown}" "${completed:-0}" "${claimed:-0}" "${last_suite:-unknown}" "${remaining:-unknown}"
+        ;;
+      *)
+        printf "    %s – event %s (status %s, suites %s/%s, last suite %s, remaining %s)\n" \
+          "$worker_label" "${event:-unknown}" "${status:-unknown}" "${completed:-0}" "${claimed:-0}" "${last_suite:-unknown}" "${remaining:-unknown}"
+        ;;
+    esac
   done
 }
 
@@ -1367,7 +2406,10 @@ print_ui_suite_breakdown() {
     fi
     local symbol
     symbol=$(status_symbol "$status")
-    local passed=$(( ${total:-0} - ${failed:-0} - ${skipped:-0} ))
+    local normalized_counts
+    normalized_counts=$(normalize_suite_counts "$total" "$failed" "$skipped")
+    local passed
+    IFS='|' read -r total passed failed skipped <<< "$normalized_counts"
     printf "    %s %s – total %s (✅ %s, ❌ %s, ⏭️ %s)" \
       "$symbol" "$suite" "${total:-0}" "${passed:-0}" "${failed:-0}" "${skipped:-0}"
     if [[ -n "$log_path" ]]; then
@@ -1384,11 +2426,17 @@ aggregate_suite_counts() {
   for entry in "${TEST_SUITE_TIMING_ENTRIES[@]-}"; do
     IFS='|' read -r suite_target _ _ status suite_total suite_failed suite_skipped _ <<< "$entry"
     [[ "$suite_target" == "$target" ]] || continue
+    local normalized_counts
+    normalized_counts=$(normalize_suite_counts "$suite_total" "$suite_failed" "$suite_skipped")
+    IFS='|' read -r suite_total _ suite_failed suite_skipped <<< "$normalized_counts"
     (( total += suite_total ))
     (( failed += suite_failed ))
     (( skipped += suite_skipped ))
   done
-  local passed=$(( total - failed - skipped ))
+  local counts
+  counts=$(normalize_suite_counts "$total" "$failed" "$skipped")
+  local passed
+  IFS='|' read -r total passed failed skipped <<< "$counts"
   printf '%s|%s|%s|%s' "$total" "$passed" "$failed" "$skipped"
 }
 
@@ -1593,6 +2641,9 @@ print_summary() {
   print_test_results_block
 
   print_section_header "Overall Status"
+  if [[ -n "${RUN_INVOCATION_ID:-}" ]]; then
+    printf '  Run ID: %s\n' "$RUN_INVOCATION_ID"
+  fi
   printf '  Exit Status: %s\n' "$EXIT_STATUS"
   if [[ -n "${START_TIME:-}" ]]; then
     local end_time
@@ -1781,7 +2832,10 @@ PY
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         IFS='|' read -r suite duration status total failed skipped <<< "$line"
-        TEST_SUITE_TIMING_ENTRIES+=("${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}|${log_path}")
+        local normalized_counts
+        normalized_counts=$(normalize_suite_counts "$total" "$failed" "$skipped")
+        IFS='|' read -r total _ failed skipped <<< "$normalized_counts"
+        append_test_suite_timing_entry_if_new "${target_label}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}|${log_path}"
       done <<< "$output"
       return
     fi
@@ -1818,7 +2872,11 @@ PY
     ); then
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        TEST_SUITE_TIMING_ENTRIES+=("${line}|${log_path}")
+        IFS='|' read -r suite_target suite duration status total failed skipped <<< "$line"
+        local normalized_counts
+        normalized_counts=$(normalize_suite_counts "$total" "$failed" "$skipped")
+        IFS='|' read -r total _ failed skipped <<< "$normalized_counts"
+        append_test_suite_timing_entry_if_new "${suite_target}|${suite}|${duration}|${status}|${total}|${failed}|${skipped}|${log_path}"
       done <<< "$log_output"
     fi
   fi
@@ -1940,11 +2998,19 @@ Options:
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
+  --clear-ui-lock   Stop lock owner process tree (if active), clear UI lock, remove UI shard artifacts, and exit
   --self-check      Run environment self-checks and exit
   --help            Show this message
 
 Environment:
-  ZPOD_UI_TEST_FRESH_SIM=1  Run each UI suite on a fresh simulator (overrides ZPOD_SIMULATOR_UDID per suite)
+  ZPOD_UI_TEST_FRESH_SIM=1        Run each UI suite on a fresh simulator (overrides ZPOD_SIMULATOR_UDID per suite)
+  ZPOD_UI_TEST_LOCK_MODE=off      Disable UI lock (default: strict; prevents concurrent UI runs)
+  ZPOD_UI_TEST_LOCK_DIR=<path>    Override UI lock directory (default: TMPDIR-based repo-specific path)
+  ZPOD_UI_LOCK_CLEAR_KILL_GRACE_SECONDS=<n>  TERM grace seconds before KILL when clearing active lock (default: 5)
+  ZPOD_UI_TEST_PARALLELISM=<n>    Run UI suites across n shards in one invocation (default: 1)
+  ZPOD_UI_TEST_PARALLEL_MAX=<n>   Cap max UI shard workers (default: 4 local, 5 CI)
+  ZPOD_UI_TEST_PARALLEL_DERIVED_ROOT=<path>
+                                  Root for per-shard DerivedData paths when parallel UI sharding is enabled
 EOF
 }
 
@@ -2609,6 +3675,8 @@ test_app_target() {
 
 test_package_target() {
   local package="$1"
+  local package_start
+  package_start=$(date +%s)
   init_result_paths "test_pkg" "$package"
   register_result_log "$RESULT_LOG"
   
@@ -2618,6 +3686,10 @@ test_package_target() {
     log_warn "Skipping swift test for package '${package}' (no Tests directory)"
     printf "⚠️ Package %s skipped: no Tests directory found.\n" "$package" | tee "$RESULT_LOG" >/dev/null
     add_summary "test" "package ${package}" "warn" "$RESULT_LOG" "" "" "" "" "skipped (no tests)"
+    local package_end package_elapsed
+    package_end=$(date +%s)
+    package_elapsed=$((package_end - package_start))
+    record_package_test_timing "$package" "$package_elapsed" "warn" "$RESULT_LOG"
     return 0
   fi
   
@@ -2627,6 +3699,10 @@ test_package_target() {
     log_warn "Skipping swift test for package '${package}' (host platform unsupported on this machine)"
     printf "⚠️ Package %s skipped: host platform does not match declared platforms.\n" "$package" | tee "$RESULT_LOG" >/dev/null
     add_summary "test" "package ${package}" "warn" "$RESULT_LOG" "" "" "" "" "skipped (host platform unsupported)"
+    local package_end package_elapsed
+    package_end=$(date +%s)
+    package_elapsed=$((package_end - package_start))
+    record_package_test_timing "$package" "$package_elapsed" "warn" "$RESULT_LOG"
     return 0
   fi
   log_section "swift test (${package})"
@@ -2639,6 +3715,10 @@ test_package_target() {
     log_error "Package tests failed (${package}) status ${pkg_status} -> $RESULT_LOG"
     add_summary "test" "package ${package}" "error" "$RESULT_LOG" "" "" "" "" "failed"
     update_exit_status "$pkg_status"
+    local package_end package_elapsed
+    package_end=$(date +%s)
+    package_elapsed=$((package_end - package_start))
+    record_package_test_timing "$package" "$package_elapsed" "error" "$RESULT_LOG"
     return 0  # Continue with other packages despite failure
   fi
 
@@ -2655,6 +3735,10 @@ test_package_target() {
     fi
   fi
   add_summary "test" "package ${package}" "success" "$RESULT_LOG" "$pt_total" "$pt_passed" "$pt_failed" "$pt_skipped"
+  local package_end package_elapsed
+  package_end=$(date +%s)
+  package_elapsed=$((package_end - package_start))
+  record_package_test_timing "$package" "$package_elapsed" "success" "$RESULT_LOG"
   return 0
 }
 
@@ -3090,6 +4174,22 @@ run_package_suite() {
 run_test_target() {
   local target
   target=$(resolve_test_identifier "$1") || exit_with_summary 1
+  if [[ "$target" == "zpodUITests" ]] && (( UI_PARALLELISM > 1 )); then
+    log_info "Routing ${target} through sharded UI suite orchestration (parallelism=${UI_PARALLELISM})"
+    local previous_twb="${ZPOD_TEST_WITHOUT_BUILDING:-}"
+    export ZPOD_TEST_WITHOUT_BUILDING=1
+    run_ui_test_suites
+    local status=$?
+    if [[ -n "$previous_twb" ]]; then
+      export ZPOD_TEST_WITHOUT_BUILDING="$previous_twb"
+    else
+      unset ZPOD_TEST_WITHOUT_BUILDING
+    fi
+    return $status
+  fi
+  if target_includes_ui_tests "$target"; then
+    acquire_ui_test_lock "target ${target}" || return $?
+  fi
   case "$target" in
     Packages)
       run_package_suite || return $?;;
@@ -3269,9 +4369,11 @@ partial_build_and_test() {
 
 harness_main() {
 # Start timer for entire script execution
+ORIGINAL_CLI_ARGS=("$@")
+RUN_INVOCATION_ID="$(current_timestamp)-${ROOT_SHELL_PID}"
 START_TIME=$(date +%s)
 START_TIME_HUMAN=$(date "+%Y-%m-%d %H:%M:%S %Z")
-log_time "run-xcode-tests start (${START_TIME_HUMAN})"
+log_time "run-xcode-tests start (${START_TIME_HUMAN}, run_id=${RUN_INVOCATION_ID})"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -3302,6 +4404,8 @@ while [[ $# -gt 0 ]]; do
       WORKSPACE="$2"; shift 2;;
     --sim)
       PREFERRED_SIM="$2"; shift 2;;
+    --clear-ui-lock)
+      REQUEST_CLEAR_UI_LOCK=1; shift;;
     --verify-testplan)
       REQUEST_TESTPLAN=1
       REQUEST_TESTPLAN_SUITE=""
@@ -3330,6 +4434,18 @@ if [[ $REQUESTED_OSLOG_DEBUG -eq 1 ]]; then
   log_info "OSLog debug enabled (OS_ACTIVITY_DT_MODE=YES, OS_LOG_DEFAULT_LEVEL=debug)"
 fi
 
+if [[ $REQUEST_CLEAR_UI_LOCK -eq 1 ]]; then
+  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUESTED_SYNTAX -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || $REQUESTED_OSLOG_DEBUG -eq 1 || $SELF_CHECK -eq 1 ]]; then
+    log_error "--clear-ui-lock must be used by itself"
+    update_exit_status 1
+    finalize_and_exit 1
+  fi
+  if clear_ui_test_lock; then
+    finalize_and_exit 0
+  fi
+  finalize_and_exit 1
+fi
+
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
   if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 ]]; then
     log_error "-s (syntax) cannot be combined with other build or test flags"
@@ -3343,7 +4459,27 @@ if [[ $SELF_CHECK -eq 1 ]]; then
   finalize_and_exit $?
 fi
 
-echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' REQUEST_TESTPLAN=$REQUEST_TESTPLAN REQUEST_TESTPLAN_SUITE='$REQUEST_TESTPLAN_SUITE' REQUESTED_LINT=$REQUESTED_LINT"
+if [[ $REQUESTED_SYNTAX -eq 0 && -z "$REQUESTED_BUILDS" && -z "$REQUESTED_TESTS" && $REQUEST_TESTPLAN -eq 0 && $REQUESTED_LINT -eq 0 && $REQUEST_CLEAR_UI_LOCK -eq 0 ]]; then
+  DEFAULT_PIPELINE=1
+else
+  DEFAULT_PIPELINE=0
+fi
+
+UI_PARALLELISM=$(resolve_ui_parallelism)
+if (( UI_PARALLELISM > 1 )); then
+  if [[ -z "${ZPOD_DERIVED_DATA_PATH:-}" ]]; then
+    UI_PARALLEL_SHARED_DERIVED_ROOT=$(resolve_ui_parallel_derived_root)
+    export ZPOD_DERIVED_DATA_PATH="$UI_PARALLEL_SHARED_DERIVED_ROOT"
+  else
+    UI_PARALLEL_SHARED_DERIVED_ROOT="$ZPOD_DERIVED_DATA_PATH"
+  fi
+  if ! mkdir -p "$ZPOD_DERIVED_DATA_PATH"; then
+    log_error "Failed to prepare shared derived data root: $ZPOD_DERIVED_DATA_PATH"
+    finalize_and_exit "$UI_PARALLEL_SETUP_EXIT_CODE"
+  fi
+fi
+
+echo "[DEBUG] REQUESTED_SYNTAX=$REQUESTED_SYNTAX REQUESTED_BUILDS='$REQUESTED_BUILDS' REQUESTED_TESTS='$REQUESTED_TESTS' REQUEST_TESTPLAN=$REQUEST_TESTPLAN REQUEST_TESTPLAN_SUITE='$REQUEST_TESTPLAN_SUITE' REQUESTED_LINT=$REQUESTED_LINT REQUEST_CLEAR_UI_LOCK=$REQUEST_CLEAR_UI_LOCK UI_PARALLELISM=$UI_PARALLELISM"
 
 did_run_anything=0
 
@@ -3367,9 +4503,18 @@ if [[ -n "$REQUESTED_TESTS" ]]; then
   for item in "${__ZPOD_SPLIT_RESULT[@]}"; do
     item="$(trim "$item")"
     [[ -z "$item" ]] && continue
-    execute_phase "Test ${item}" "test" run_test_target "$item"
+    local explicit_test_status=0
+    if execute_phase "Test ${item}" "test" run_test_target "$item"; then
+      explicit_test_status=0
+    else
+      explicit_test_status=$?
+      if (( explicit_test_status == UI_LOCK_CONFLICT_EXIT_CODE || explicit_test_status == UI_PARALLEL_SETUP_EXIT_CODE )); then
+        finalize_and_exit "$explicit_test_status"
+      fi
+    fi
     did_run_anything=1
   done
+  release_ui_test_lock
 fi
 
 if [[ $REQUEST_TESTPLAN -eq 1 ]]; then
@@ -3431,7 +4576,16 @@ if ! execute_phase "App smoke tests" "test" run_test_target "AppSmokeTests"; the
 fi
 execute_phase "Integration tests" "test" run_test_target "IntegrationTests"
 local ui_suite_status=0
-run_ui_test_suites || ui_suite_status=$?
+if execute_phase "UI tests" "test" run_ui_test_suites; then
+  ui_suite_status=0
+else
+  ui_suite_status=$?
+fi
+release_ui_test_lock
+if (( ui_suite_status == UI_LOCK_CONFLICT_EXIT_CODE || ui_suite_status == UI_PARALLEL_SETUP_EXIT_CODE )); then
+  unset ZPOD_TEST_WITHOUT_BUILDING || true
+  finalize_and_exit "$ui_suite_status"
+fi
 if (( ui_suite_status != 0 )); then
   log_warn "UI suite orchestration exited with status ${ui_suite_status}; continuing to lint"
   update_exit_status "$ui_suite_status"
