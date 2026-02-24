@@ -6,7 +6,7 @@ import SwiftUI
 /// Text search + date range + completion filter over listening history entries.
 @available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
 struct ListeningHistorySearchView: View {
-    var viewModel: ListeningHistoryViewModel
+    @Bindable var viewModel: ListeningHistoryViewModel
 
     var body: some View {
         VStack(spacing: 0) {

@@ -75,7 +75,11 @@ public struct SmartPlaylistAnalyticsDashboard: View {
                             }
                         }
                     }
+                    #if os(iOS) || os(visionOS)
                     .listStyle(.insetGrouped)
+                    #else
+                    .listStyle(.plain)
+                    #endif
                 }
             }
             .navigationTitle("Playlist Analytics")

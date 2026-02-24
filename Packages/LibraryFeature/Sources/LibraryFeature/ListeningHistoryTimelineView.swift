@@ -31,7 +31,11 @@ struct ListeningHistoryTimelineView: View {
                     }
                 }
             }
+            #if os(iOS) || os(visionOS)
             .listStyle(.insetGrouped)
+            #else
+            .listStyle(.plain)
+            #endif
         }
     }
 }
