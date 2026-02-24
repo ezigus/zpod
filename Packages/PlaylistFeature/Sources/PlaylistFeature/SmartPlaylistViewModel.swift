@@ -18,6 +18,7 @@ public final class SmartPlaylistViewModel {
     public var isShowingCreateSheet = false
     public var editingSmartPlaylist: SmartEpisodeListV2? = nil
     public var isShowingTemplatePicker = false
+    public var isShowingAnalyticsDashboard = false
     public var errorMessage: String? = nil
 
     // MARK: - Episode Count Cache

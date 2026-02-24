@@ -91,6 +91,13 @@ public struct PlaylistFeatureView: View {
                             } label: {
                                 Label("From Template", systemImage: "doc.on.doc")
                             }
+                            Divider()
+                            Button {
+                                smartViewModel?.isShowingAnalyticsDashboard = true
+                            } label: {
+                                Label("Analytics", systemImage: "chart.bar.xaxis")
+                            }
+                            .accessibilityIdentifier("Playlist.AnalyticsDashboardButton")
                         } label: {
                             Label("New", systemImage: "plus")
                         }
@@ -172,6 +179,12 @@ struct SmartPlaylistSheetModifier: ViewModifier {
                         smartVM.createFromTemplate(template)
                         smartVM.isShowingTemplatePicker = false
                     }
+                }
+                .sheet(isPresented: Binding(
+                    get: { smartVM.isShowingAnalyticsDashboard },
+                    set: { smartVM.isShowingAnalyticsDashboard = $0 }
+                )) {
+                    SmartPlaylistAnalyticsDashboard(viewModel: smartVM)
                 }
         } else {
             content
