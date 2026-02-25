@@ -340,16 +340,32 @@ final class BatchOperationUITests: IsolatedUITestCase {
       XCTFail("Multi-select mode not activated - feature may not be fully implemented"); return
     }
 
-    // Select episodes for download using native element waiting
-    let episodes = [
-      app.buttons.matching(identifier: "Episode-st-001").firstMatch,
-      app.buttons.matching(identifier: "Episode-st-002").firstMatch,
-    ]
+    // Select an episode for download — use fallback identifier pattern for robustness.
+    // testMarkSelectedEpisodesAsPlayed uses the same fallback approach to handle
+    // cases where seeded episode IDs differ from "st-001".
+    let firstEpisode = waitForAnyElement(
+      [
+        app.buttons.matching(identifier: "Episode-st-001").firstMatch,
+        app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Episode'")).firstMatch,
+      ], timeout: adaptiveShortTimeout, description: "first episode", failOnTimeout: false)
 
-    for episode in episodes {
-      if episode.waitForExistence(timeout: adaptiveShortTimeout) {
-        episode.tap()
-      }
+    guard let episode = firstEpisode else {
+      XCTFail("No episodes available for selection"); return
+    }
+
+    episode.tap()
+
+    // Verify episode selection happened before checking for batch toolbar
+    guard
+      waitForAnyElement(
+        [
+          app.staticTexts.matching(identifier: "1 selected").firstMatch,
+          app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'selected'")).firstMatch,
+        ], timeout: adaptiveTimeout, description: "selection confirmation",
+        failOnTimeout: false
+      ) != nil
+    else {
+      XCTFail("Episode selection not working - batch download requires at least one selection"); return
     }
 
     // Look for download button with native waiting

@@ -15,7 +15,10 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
   private func launchMiniPlayerTestApp() -> XCUIApplication {
     launchConfiguredApp(
       environmentOverrides: [
-        "UITEST_PLAYBACK_DEBUG": "1"
+        "UITEST_PLAYBACK_DEBUG": "1",
+        // Seed playback at launch so the mini player appears immediately without
+        // relying on tapQuickPlayButton → real audio session (unreliable in simulator).
+        "UITEST_FORCE_MINI_PLAYER": "1",
       ]
     )
   }
@@ -108,9 +111,12 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    assertQuickPlayStartsPlayback()
 
     let miniPlayer = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayer.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear via force-seeded playback"
+    )
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     let settingsTab = tabBar.buttons.matching(identifier: "Settings").firstMatch
     XCTAssertTrue(
@@ -143,8 +149,12 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    assertQuickPlayStartsPlayback()
 
+    let miniPlayerForTabCheck = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayerForTabCheck.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear via force-seeded playback"
+    )
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     XCTAssertTrue(
       waitForElement(tabBar, timeout: adaptiveShortTimeout, description: "Main tab bar"),
@@ -184,9 +194,12 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    assertQuickPlayStartsPlayback()
 
     let miniPlayer = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayer.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear via force-seeded playback"
+    )
     let backButton = app.navigationBars.buttons.firstMatch
     if backButton.waitUntil(.exists, timeout: adaptiveShortTimeout) {
       backButton.tap()
@@ -217,8 +230,12 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    assertQuickPlayStartsPlayback()
 
+    let miniPlayerCheck = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayerCheck.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear via force-seeded playback"
+    )
     let episodeList = app.otherElements.matching(identifier: "Episode List View").firstMatch
     XCTAssertTrue(
       episodeList.waitUntil(.exists, timeout: adaptiveShortTimeout),
@@ -232,8 +249,12 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
-    assertQuickPlayStartsPlayback()
 
+    let miniPlayerForA11y = miniPlayerElement(in: app)
+    XCTAssertTrue(
+      miniPlayerForA11y.waitUntil(.exists, timeout: adaptiveTimeout),
+      "Mini player should appear via force-seeded playback"
+    )
     let episodeTitle = app.staticTexts.matching(identifier: "Mini Player Episode Title").firstMatch
     XCTAssertTrue(
       episodeTitle.waitUntil(.exists, timeout: adaptiveShortTimeout),

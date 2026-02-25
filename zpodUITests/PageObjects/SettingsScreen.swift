@@ -122,13 +122,25 @@ public struct SettingsScreen: BaseScreen {
   /// Navigate to Swipe Actions configuration.
   ///
   /// **Steps**:
-  /// 1. Find Swipe Actions row (using fallback chain)
+  /// 1. Find Swipe Actions row (scrolling settings list if needed — row may be below fold)
   /// 2. Tap row
   /// 3. Verify Swipe Actions list appeared
+  ///
+  /// **Note**: SwiftUI lazy lists don't materialize off-screen rows. This method scrolls
+  /// the Settings list before searching so the row is guaranteed to be in the accessibility tree.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToSwipeActions() -> Bool {
+    // Scroll settings list to ensure swipeActions row is materialized (it may be below fold)
+    let settingsList = app.collectionViews.matching(identifier: "Settings.Content").firstMatch
+    if settingsList.exists {
+      settingsList.swipeUp()
+    } else {
+      // Fallback: scroll the app if collection view isn't found directly
+      app.swipeUp()
+    }
+
     guard let row = swipeActionsRow else {
       return false
     }

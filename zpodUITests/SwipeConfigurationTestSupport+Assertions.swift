@@ -21,12 +21,11 @@ extension SwipeConfigurationTestCase {
     _ = waitForSectionIfNeeded(timeout: postReadinessTimeout)
 
     if let container = swipeActionsSheetListContainer() {
+      // Scroll to each element and assert immediately — avoids SwiftUI lazy
+      // unmaterialization (elements scroll out of the accessibility tree when scrolled away).
       for identifier in leadingIdentifiers + trailingIdentifiers {
         _ = ensureVisibleInSheet(identifier: identifier, container: container, scrollAttempts: 4)
-      }
-      let leading = leadingIdentifiers.map { elementForAction(identifier: $0, within: container) }
-      let trailing = trailingIdentifiers.map { elementForAction(identifier: $0, within: container) }
-      for element in leading + trailing {
+        let element = elementForAction(identifier: identifier, within: container)
         XCTAssertTrue(
           waitForElement(
             element,

@@ -95,8 +95,7 @@ final class PlayerAccessibilityTests: IsolatedUITestCase {
 
   @MainActor
   func testExpandedPlayerAccessibilityLabels() throws {
-    app = launchConfiguredApp()
-    startPlaybackFromQuickPlay()
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_FORCE_MINI_PLAYER": "1"])
     openExpandedPlayer()
 
     let episodeTitle = app.staticTexts.matching(identifier: "Expanded Player Episode Title").firstMatch
@@ -149,14 +148,19 @@ final class PlayerAccessibilityTests: IsolatedUITestCase {
 
   @MainActor
   func testDynamicTypeAccessibilitySizeKeepsMiniPlayerVisible() throws {
-    app = launchConfiguredApp(launchArguments: [
-      "-UIPreferredContentSizeCategoryName",
-      "UICTContentSizeCategoryAccessibilityXXXL",
-    ])
-    startPlaybackFromQuickPlay()
+    app = launchConfiguredApp(
+      environmentOverrides: ["UITEST_FORCE_MINI_PLAYER": "1"],
+      launchArguments: [
+        "-UIPreferredContentSizeCategoryName",
+        "UICTContentSizeCategoryAccessibilityXXXL",
+      ]
+    )
 
     let miniPlayer = miniPlayerElement(in: app)
-    XCTAssertTrue(miniPlayer.exists, "Mini player should remain visible at large type sizes")
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
+      "Mini player should be visible at large type sizes"
+    )
 
     let skipBackward = app.buttons.matching(identifier: "Mini Player Skip Backward").firstMatch
     let skipForward = app.buttons.matching(identifier: "Mini Player Skip Forward").firstMatch

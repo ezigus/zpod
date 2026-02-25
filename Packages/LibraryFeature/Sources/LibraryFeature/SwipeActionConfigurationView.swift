@@ -73,10 +73,10 @@
               }
             }
             .overlay(alignment: .topTrailing) {
-              if debugEnabled {
-                materializationProbe
+              // Always present (opacity 0.001 = invisible) so XCUITest can detect
+              // materializationComplete=true regardless of UITEST_SWIPE_DEBUG setting.
+              materializationProbe
                 .allowsHitTesting(false)
-              }
             }
           #endif
           .sheet(
@@ -171,25 +171,30 @@
     @MainActor
     private func materializeSections(proxy: ScrollViewProxy) async {
       let transaction = Transaction(animation: .default)
+      // Scroll partway down to materialize haptics + leading + trailing sections
       withTransaction(transaction) {
         proxy.scrollTo("swipe-trailing", anchor: .top)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
-      // FIX: Scroll to actual preset button, not just the bottom marker
-      // SwiftUI's lazy List needs to see actual content to materialize rows
-      // Scrolling to "swipe-presets-bottom" (empty Color.clear) doesn't work
+      // Scroll to the last preset to materialize the entire presets section
       withTransaction(transaction) {
         proxy.scrollTo("SwipeActions.Preset.Download", anchor: .center)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
+      // Choose end position based on test context:
+      // - UITEST_SWIPE_MATERIALIZE_PRESETS=1: stay near first preset so all four preset
+      //   rows remain in the accessibility tree for XCUITest preset taps (e.g. Download
+      //   which is the last/farthest preset and gets unmaterialized when scrolling away).
+      // - Default: return to top so haptics/leading sections are immediately accessible
+      //   without XCUITest having to scroll (avoids tap-reliability issues in management tests).
+      let endTarget: String =
+        ProcessInfo.processInfo.environment["UITEST_SWIPE_MATERIALIZE_PRESETS"] == "1"
+        ? "SwipeActions.Preset.Default"
+        : "swipe-top"
       withTransaction(transaction) {
-        proxy.scrollTo("swipe-haptics", anchor: .top)
+        proxy.scrollTo(endTarget, anchor: .top)
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
-
-      withTransaction(transaction) {
-        proxy.scrollTo("swipe-top", anchor: .top)
-      }
       materializationComplete = true
     }
 

@@ -23,6 +23,16 @@ import XCTest
 /// - Pass rate: 100% (3/3 tests)
 final class SwipePresetSelectionTests: SwipeConfigurationTestCase {
 
+  // Keep all four preset rows materialized after the scroll sequence so that
+  // XCUITest can tap "Download Focused" (the last preset) without re-scrolling.
+  // Other test classes (management, display) omit this flag so they end at the
+  // top of the list where haptics/leading sections are immediately accessible.
+  override var baseLaunchEnvironment: [String: String] {
+    var env = super.baseLaunchEnvironment
+    env["UITEST_SWIPE_MATERIALIZE_PRESETS"] = "1"
+    return env
+  }
+
   // MARK: - Preset Selection Tests
 
   @MainActor
