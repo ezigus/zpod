@@ -706,6 +706,29 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
                   .padding(.horizontal)
               }
 
+              // Listening History
+              if #available(iOS 17.0, macOS 14.0, watchOS 10.0, *) {
+                NavigationLink {
+                  ListeningHistoryDashboard()
+                } label: {
+                  HStack {
+                    Label("Listening History", systemImage: "clock.arrow.circlepath")
+                      .font(.headline)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                      .font(.caption)
+                      .foregroundColor(.secondary)
+                  }
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .padding()
+                  .background(Color.platformSystemGray6)
+                  .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+                .accessibilityIdentifier("Library.ListeningHistory")
+              }
+
               // Show persisted items as cards
               ForEach(items) { item in
                 NavigationLink {

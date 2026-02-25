@@ -87,6 +87,10 @@ public struct SmartPlaylistAnalyticsView: View {
                     }
                 }
 
+                Section("Recommendations") {
+                    SmartPlaylistRecommendationsView(insights: analyticsInsights)
+                }
+
                 Section {
                     Button {
                         exportEvents()
