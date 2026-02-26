@@ -124,18 +124,24 @@ public struct SmartPlaylistDetailView: View {
 
     @State private var showingAnalytics = false
 
+    /// Always reads the latest version of the playlist from the ViewModel so that
+    /// edited rules/name/description are reflected immediately after sheet dismissal.
+    private var currentPlaylist: SmartEpisodeListV2 {
+        viewModel.smartPlaylists.first(where: { $0.id == smartPlaylist.id }) ?? smartPlaylist
+    }
+
     public init(smartPlaylist: SmartEpisodeListV2, viewModel: SmartPlaylistViewModel) {
         self.smartPlaylist = smartPlaylist
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        let episodes = viewModel.episodes(for: smartPlaylist)
+        let episodes = viewModel.episodes(for: currentPlaylist)
 
         List {
             if episodes.isEmpty {
                 Section {
-                    SmartPlaylistEmptyView(name: smartPlaylist.name)
+                    SmartPlaylistEmptyView(name: currentPlaylist.name)
                         .frame(maxWidth: .infinity)
                         .listRowInsets(.init(top: 24, leading: 16, bottom: 24, trailing: 16))
                 }
@@ -144,7 +150,7 @@ public struct SmartPlaylistDetailView: View {
                     HStack(spacing: 12) {
                         Button {
                             if let firstEpisode = episodes.first {
-                                viewModel.recordPlay(of: firstEpisode, from: smartPlaylist)
+                                viewModel.recordPlay(of: firstEpisode, from: currentPlaylist)
                             }
                             viewModel.onPlayAll?(episodes)
                         } label: {
@@ -152,7 +158,7 @@ public struct SmartPlaylistDetailView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).PlayAll")
+                        .accessibilityIdentifier("SmartPlaylist.\(currentPlaylist.id).PlayAll")
 
                         Button {
                             viewModel.onShuffle?(episodes)
@@ -161,7 +167,7 @@ public struct SmartPlaylistDetailView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).Shuffle")
+                        .accessibilityIdentifier("SmartPlaylist.\(currentPlaylist.id).Shuffle")
                     }
                     .padding(.vertical, 4)
                 }
@@ -175,10 +181,10 @@ public struct SmartPlaylistDetailView: View {
             }
 
             Section("Rules") {
-                SmartPlaylistRuleSummary(smartPlaylist: smartPlaylist)
+                SmartPlaylistRuleSummary(smartPlaylist: currentPlaylist)
             }
         }
-        .navigationTitle(smartPlaylist.name)
+        .navigationTitle(currentPlaylist.name)
         #if os(iOS)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -187,20 +193,20 @@ public struct SmartPlaylistDetailView: View {
                 } label: {
                     Label("Analytics", systemImage: "chart.bar")
                 }
-                .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).AnalyticsButton")
+                .accessibilityIdentifier("SmartPlaylist.\(currentPlaylist.id).AnalyticsButton")
 
-                if !smartPlaylist.isSystemGenerated {
+                if !currentPlaylist.isSystemGenerated {
                     Button {
-                        viewModel.editingSmartPlaylist = smartPlaylist
+                        viewModel.editingSmartPlaylist = currentPlaylist
                     } label: {
                         Label("Edit", systemImage: "pencil")
                     }
-                    .accessibilityIdentifier("SmartPlaylist.\(smartPlaylist.id).EditButton")
+                    .accessibilityIdentifier("SmartPlaylist.\(currentPlaylist.id).EditButton")
                 }
             }
         }
         .sheet(isPresented: $showingAnalytics) {
-            SmartPlaylistAnalyticsView(smartPlaylist: smartPlaylist, viewModel: viewModel)
+            SmartPlaylistAnalyticsView(smartPlaylist: currentPlaylist, viewModel: viewModel)
         }
         #endif
     }
@@ -224,6 +230,8 @@ public struct SmartPlaylistCreationView: View {
     @State private var refreshInterval: TimeInterval
     @State private var showingTemplatePicker = false
     @State private var previewEpisodes: [Episode] = []
+    @State private var isReordering = false
+    @State private var showingDiscardConfirmation = false
 
     public init(viewModel: SmartPlaylistViewModel, existingSmartPlaylist: SmartEpisodeListV2?) {
         self.viewModel = viewModel
@@ -243,6 +251,22 @@ public struct SmartPlaylistCreationView: View {
     private var isEditing: Bool { existingSmartPlaylist != nil }
     private var isNameValid: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var currentRuleSet: SmartListRuleSet { SmartListRuleSet(rules: rules, logic: logic) }
+
+    private var hasUnsavedChanges: Bool {
+        if let existing = existingSmartPlaylist {
+            return name != existing.name
+                || description != (existing.description ?? "")
+                || rules != existing.rules.rules
+                || logic != existing.rules.logic
+                || sortBy != existing.sortBy
+                || maxEpisodes != existing.maxEpisodes
+                || autoUpdate != existing.autoUpdate
+                || refreshInterval != existing.refreshInterval
+        }
+        return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !description.isEmpty
+            || rules.count > 1
+    }
 
     public var body: some View {
         NavigationStack {
@@ -272,22 +296,38 @@ public struct SmartPlaylistCreationView: View {
                     .accessibilityIdentifier("SmartPlaylistCreation.LogicPicker")
                 }
 
-                Section("Rules") {
-                    ForEach(rules, id: \.id) { rule in
-                        SmartPlaylistRuleRow(
-                            rule: rule,
-                            onUpdate: { updatedRule in
-                                // Look up by ID to avoid stale indices after deletes/reorders.
-                                if let idx = rules.firstIndex(where: { $0.id == updatedRule.id }) {
-                                    rules[idx] = updatedRule
-                                }
+                #if os(iOS)
+                Section {
+                    rulesForEach
+                    if !isReordering {
+                        Button {
+                            rules.append(
+                                SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed))
+                            )
+                        } label: {
+                            Label("Add Rule", systemImage: "plus.circle")
+                        }
+                        .accessibilityIdentifier("SmartPlaylistCreation.AddRule")
+                    }
+                } header: {
+                    HStack {
+                        Text("Rules")
+                        Spacer()
+                        if rules.count > 1 {
+                            Button(isReordering ? "Done" : "Reorder") {
+                                withAnimation { isReordering.toggle() }
                             }
-                        )
+                            .font(.caption)
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.blue)
+                            .accessibilityIdentifier("SmartPlaylistCreation.ReorderButton")
+                        }
                     }
-                    .onDelete { offsets in
-                        rules.remove(atOffsets: offsets)
-                    }
-
+                }
+                .environment(\.editMode, .constant(isReordering ? .active : .inactive))
+                #else
+                Section("Rules") {
+                    rulesForEach
                     Button {
                         rules.append(
                             SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed))
@@ -297,6 +337,7 @@ public struct SmartPlaylistCreationView: View {
                     }
                     .accessibilityIdentifier("SmartPlaylistCreation.AddRule")
                 }
+                #endif
 
                 Section("Sort & Limits") {
                     Picker("Sort By", selection: $sortBy) {
@@ -342,15 +383,12 @@ public struct SmartPlaylistCreationView: View {
                     }
                 }
 
-                Section("Preview") {
+                Section {
                     if previewEpisodes.isEmpty {
                         Text("No episodes match these rules")
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
                     } else {
-                        Text("\(previewEpisodes.count) episode\(previewEpisodes.count == 1 ? "" : "s") match")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                         ForEach(previewEpisodes.prefix(5)) { episode in
                             SmartPlaylistEpisodeRow(episode: episode)
                         }
@@ -358,6 +396,17 @@ public struct SmartPlaylistCreationView: View {
                             Text("and \(previewEpisodes.count - 5) more...")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Preview")
+                        Spacer()
+                        if !previewEpisodes.isEmpty {
+                            Text("\(previewEpisodes.count) match\(previewEpisodes.count == 1 ? "" : "es")")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                                .fontWeight(.medium)
                         }
                     }
                 }
@@ -373,8 +422,14 @@ public struct SmartPlaylistCreationView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .accessibilityIdentifier("SmartPlaylistCreation.CancelButton")
+                    Button("Cancel") {
+                        if hasUnsavedChanges {
+                            showingDiscardConfirmation = true
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .accessibilityIdentifier("SmartPlaylistCreation.CancelButton")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isEditing ? "Save" : "Create") {
@@ -394,6 +449,12 @@ public struct SmartPlaylistCreationView: View {
                     showingTemplatePicker = false
                 }
             }
+            .confirmationDialog("Discard Changes?", isPresented: $showingDiscardConfirmation) {
+                Button("Discard", role: .destructive) { dismiss() }
+                Button("Keep Editing", role: .cancel) { }
+            } message: {
+                Text("You have unsaved changes. Are you sure you want to discard them?")
+            }
         }
     }
 
@@ -403,6 +464,46 @@ public struct SmartPlaylistCreationView: View {
             sortBy: sortBy,
             maxEpisodes: maxEpisodes
         )
+    }
+
+    /// ForEach of rule rows with delete and (on iOS) move support.
+    /// Extracted so platform-conditional modifiers can be applied without duplicating row content.
+    @ViewBuilder private var rulesForEach: some View {
+        #if os(iOS)
+        ForEach(rules, id: \.id) { rule in ruleRow(for: rule) }
+            .onDelete { offsets in rules.remove(atOffsets: offsets) }
+            .onMove { source, destination in rules.move(fromOffsets: source, toOffset: destination) }
+        #else
+        ForEach(rules, id: \.id) { rule in ruleRow(for: rule) }
+            .onDelete { offsets in rules.remove(atOffsets: offsets) }
+        #endif
+    }
+
+    @ViewBuilder private func ruleRow(for rule: SmartListRule) -> some View {
+        SmartPlaylistRuleRow(
+            rule: rule,
+            onUpdate: { updatedRule in
+                // Look up by ID to avoid stale indices after deletes/reorders.
+                if let idx = rules.firstIndex(where: { $0.id == updatedRule.id }) {
+                    rules[idx] = updatedRule
+                }
+            }
+        )
+        .contextMenu {
+            Button {
+                let copy = SmartListRule(
+                    type: rule.type,
+                    comparison: rule.comparison,
+                    value: rule.value,
+                    isNegated: rule.isNegated
+                )
+                if let idx = rules.firstIndex(where: { $0.id == rule.id }) {
+                    rules.insert(copy, at: idx + 1)
+                }
+            } label: {
+                Label("Duplicate Rule", systemImage: "plus.square.on.square")
+            }
+        }
     }
 
     private func save() {
@@ -566,8 +667,15 @@ struct SmartPlaylistRuleValueEditor: View {
             Stepper("Rating: \(integerValueBinding.wrappedValue)", value: integerValueBinding, in: 1...5)
 
         case .podcast, .title, .description:
-            TextField("Value", text: stringValueBinding)
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("Value", text: stringValueBinding)
+                    .textFieldStyle(.roundedBorder)
+                if case .string(let str) = value, str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text("Enter a value for this rule to match")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
 
         case .isFavorited, .isBookmarked, .isArchived:
             Toggle(ruleType.displayName, isOn: booleanValueBinding)
