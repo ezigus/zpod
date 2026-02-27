@@ -1517,6 +1517,19 @@ handle_unexpected_error() {
 
 trap 'handle_interrupt' INT
 trap 'handle_unexpected_error $? $LINENO' ERR
+
+# Handle SIGTERM gracefully (e.g., from CI/harness timeout) to prevent
+# bash from printing "Terminated: 15 <command>" to the terminal, which
+# quality-gate parsers can misinterpret as a test failure. Exit cleanly
+# with the current accumulated exit status instead.
+handle_sigterm() {
+  if [[ "${BASHPID:-$$}" != "$ROOT_SHELL_PID" ]]; then
+    return
+  fi
+  finalize_and_exit "${EXIT_STATUS:-0}"
+}
+trap 'handle_sigterm' TERM
+
 handle_exit() {
   # Ignore trap callbacks from forked shells/subprocesses. Only the original
   # run-xcode-tests shell should emit final summaries.
