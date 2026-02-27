@@ -1,25 +1,4 @@
-# Agent Instructions (Codex Self-Contained)
-
-Canonical source of truth:
-- /Users/ericziegler/code/standards/ai-agent-standards
-
-This file is self-contained for Codex and inlines critical directives.
-Generated source snapshot:
-- .ai-standards/generated/codex-instructions.md
-
-## Critical Rules (Inlined)
-- Do not use `sleep` or `timeout` as polling/synchronization mechanisms.
-- Timeouts/sleeps are allowed only as failsafe bounds to prevent unbounded execution.
-- In test code, fixed sleeps are last resort only and require justification in context.
-- Always load mandatory baseline items from the resolution matrix on every turn.
-
-## Repo-Specific Additions (Preserved)
-# Repo-Specific Codex Additions
-
-Add repo-local instructions here. This file is preserved across installs.
-
-## BEGIN GENERATED STANDARDS (DO NOT EDIT IN PLACE)
-# Generated Codex Instructions
+# Generated Copilot Instructions
 
 Generated from central standards repository.
 - Repo key: zpod
@@ -29,7 +8,7 @@ Generated from central standards repository.
 ## Mandatory Baseline (Always Load)
 - core/core-policy.md
 - core/testing-baseline.md
-- adapters/codex-adapter.md
+- adapters/copilot-adapter.md
 - repo-overrides/zpod.md
 
 ### core/core-policy.md
@@ -71,16 +50,13 @@ This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot
 - Timeouts/sleeps are allowed only as failsafe bounds to prevent unbounded execution.
 - In test code, fixed sleeps are last resort only and require justification in context.
 
-### adapters/codex-adapter.md
-# Adapter: Codex
+### adapters/copilot-adapter.md
+# Adapter: Copilot
 
-Use with repo `AGENTS.md` as a self-contained prompt file.
+Use with `.github/copilot-instructions.md` thin wrappers.
 
-- Always load mandatory baseline items from the resolution matrix on every turn.
-- `AGENTS.md` MUST inline critical rules and must not be pointer-only for required behavior.
-- Generated Codex instructions may be used as the source for `AGENTS.md`, but critical rules must appear directly in `AGENTS.md`.
-- Prefer practical, repository-grounded execution.
-- Keep updates concise and explicit.
+- Keep instruction files concise and repository-specific.
+- Reference central standards for policy and profile behavior.
 
 ### repo-overrides/zpod.md
 # Repo Override: zpod
@@ -666,4 +642,3 @@ If none are true, do not load `profiles/shipwright-operations.md`.
 ## Optional env metadata
 - `SHIPWRIGHT_RUN_ID=<id>`
 - `SHIPWRIGHT_SOURCE=pipeline|daemon|session`
-## END GENERATED STANDARDS

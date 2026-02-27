@@ -1,29 +1,10 @@
-# zPod Claude Code Memory
+# Claude Instructions (Thin Wrapper)
 
-This file is automatically loaded by Claude Code at the start of every conversation. It imports all development guidelines, testing best practices, and platform-specific documentation.
+Canonical source of truth is centralized standards:
+- /Users/ericziegler/code/standards/ai-agent-standards
 
-## Core Development Guidelines
+Load local generated instructions:
+@../.ai-standards/generated/claude-instructions.md
 
-@../AGENTS.md
-
-## Testing Documentation
-
-@../docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md
-
-@../docs/testing/UI_TESTING_ADVANCED_PATTERNS.md
-
-## CarPlay Development
-
-@../docs/carplay/SETUP.md
-
-@../docs/carplay/HIG_COMPLIANCE.md
-
-@../docs/carplay/MANUAL_TESTING_CHECKLIST.md
-
-## Implementation Summaries
-
-@../dev-log/implementation-summaries/README.md
-
----
-
-**Note**: This memory file ensures consistent application of project standards across all Claude Code sessions. All team members should commit updates to imported files to maintain shared context.
+Optional repo-specific additions:
+@../.ai-standards/local/claude-additions.md

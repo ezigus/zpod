@@ -1,24 +1,3 @@
-# Agent Instructions (Codex Self-Contained)
-
-Canonical source of truth:
-- /Users/ericziegler/code/standards/ai-agent-standards
-
-This file is self-contained for Codex and inlines critical directives.
-Generated source snapshot:
-- .ai-standards/generated/codex-instructions.md
-
-## Critical Rules (Inlined)
-- Do not use `sleep` or `timeout` as polling/synchronization mechanisms.
-- Timeouts/sleeps are allowed only as failsafe bounds to prevent unbounded execution.
-- In test code, fixed sleeps are last resort only and require justification in context.
-- Always load mandatory baseline items from the resolution matrix on every turn.
-
-## Repo-Specific Additions (Preserved)
-# Repo-Specific Codex Additions
-
-Add repo-local instructions here. This file is preserved across installs.
-
-## BEGIN GENERATED STANDARDS (DO NOT EDIT IN PLACE)
 # Generated Codex Instructions
 
 Generated from central standards repository.
@@ -666,4 +645,3 @@ If none are true, do not load `profiles/shipwright-operations.md`.
 ## Optional env metadata
 - `SHIPWRIGHT_RUN_ID=<id>`
 - `SHIPWRIGHT_SOURCE=pipeline|daemon|session`
-## END GENERATED STANDARDS
