@@ -23,6 +23,11 @@ let package = Package(
         .product(name: "OpenCombineFoundation", package: "OpenCombine")
       ],
       path: "Sources"
-    )
+    ),
+    .testTarget(
+      name: "CombineSupportTests",
+      dependencies: ["CombineSupport"],
+      path: "Tests"
+    ),
   ]
 )
