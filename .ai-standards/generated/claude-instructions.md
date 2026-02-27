@@ -92,7 +92,8 @@ Use with `.claude/CLAUDE.md` thin wrappers.
 
 - **NEVER** use `2>&1` redirection - it causes output buffering and user prompts
 - **NEVER** run commands with `isBackground: true` - always run synchronously
-- **NEVER** use `timeout`, `sleep`, or other blocking commands that prompt user interaction
+- **NEVER** use `timeout` or `sleep` as polling/synchronization mechanisms
+- `timeout`/`sleep` are allowed only as failsafe bounds to prevent unbounded execution
 - **DO** run commands directly and let them complete naturally
 - **DO** use simple, clean command invocations without complex shell redirections
 - **DO** trust that output will appear when the command completes

@@ -1,7 +1,14 @@
 # Claude Instructions (Thin Wrapper)
 
-Canonical source of truth is centralized standards:
-- /Users/ericziegler/code/standards/ai-agent-standards
+Use centralized standards as source of truth:
+- /Users/ericziegler/code/standards/ai-agent-standards/core/core-policy.md
+- /Users/ericziegler/code/standards/ai-agent-standards/adapters/claude-adapter.md
+- /Users/ericziegler/code/standards/ai-agent-standards/repo-overrides/zpod.md
+- /Users/ericziegler/code/standards/ai-agent-standards/resolution/profile-resolution-matrix.md
+- /Users/ericziegler/code/standards/ai-agent-standards/resolution/shipwright-detection-contract.md
+
+Default profile eligibility for this repo: ios-swift,ui-testing,carplay.
+Shipwright profile is conditional per detection contract.
 
 Load local generated instructions:
 @../.ai-standards/generated/claude-instructions.md

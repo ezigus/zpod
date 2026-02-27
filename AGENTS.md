@@ -1,5 +1,15 @@
 # Agent Instructions (Codex Self-Contained)
 
+Use centralized standards as source of truth:
+- /Users/ericziegler/code/standards/ai-agent-standards/core/core-policy.md
+- /Users/ericziegler/code/standards/ai-agent-standards/adapters/codex-adapter.md
+- /Users/ericziegler/code/standards/ai-agent-standards/repo-overrides/zpod.md
+- /Users/ericziegler/code/standards/ai-agent-standards/resolution/profile-resolution-matrix.md
+- /Users/ericziegler/code/standards/ai-agent-standards/resolution/shipwright-detection-contract.md
+
+Default profile eligibility for this repo: ios-swift,ui-testing,carplay.
+Shipwright profile is conditional per detection contract.
+
 Canonical source of truth:
 - /Users/ericziegler/code/standards/ai-agent-standards
 
@@ -116,7 +126,8 @@ Use with repo `AGENTS.md` as a self-contained prompt file.
 
 - **NEVER** use `2>&1` redirection - it causes output buffering and user prompts
 - **NEVER** run commands with `isBackground: true` - always run synchronously
-- **NEVER** use `timeout`, `sleep`, or other blocking commands that prompt user interaction
+- **NEVER** use `timeout` or `sleep` as polling/synchronization mechanisms
+- `timeout`/`sleep` are allowed only as failsafe bounds to prevent unbounded execution
 - **DO** run commands directly and let them complete naturally
 - **DO** use simple, clean command invocations without complex shell redirections
 - **DO** trust that output will appear when the command completes
