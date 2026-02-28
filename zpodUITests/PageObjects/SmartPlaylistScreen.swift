@@ -114,13 +114,19 @@ public struct SmartPlaylistScreen: BaseScreen {
         return true
     }
 
-    /// Tap the Save (or Create) button to persist the smart playlist.
+    /// Tap the Save (or Create) button and wait for the form to dismiss.
     ///
-    /// - Returns: `true` if the button was tapped.
+    /// Waits up to 8 seconds for the name field to disappear, confirming the
+    /// creation sheet has fully animated away. This ensures callers can
+    /// immediately interact with the Playlists list without racing the dismissal.
+    ///
+    /// - Returns: `true` if the button was found and tapped.
     @discardableResult
     public func save() -> Bool {
         guard saveButton.waitForExistence(timeout: 3) else { return false }
         saveButton.tap()
+        // Wait for the sheet to fully dismiss before returning.
+        _ = !nameField.waitForExistence(timeout: 8)
         return true
     }
 
@@ -165,19 +171,25 @@ public struct SmartPlaylistScreen: BaseScreen {
         app.staticTexts.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 
-    /// Scroll the Playlists list down once to materialize the "My Smart Playlists"
-    /// section that appears below the built-in smart playlists.
+    /// Scroll the Playlists list to materialize the "My Smart Playlists" section.
     ///
-    /// SwiftUI lazy lists remove elements from the accessibility tree when they
-    /// scroll out of view. A single swipe-up ensures the custom section is in the
-    /// rendered viewport before querying its rows.
+    /// The "My Smart Playlists" section appears below 13 built-in smart playlist
+    /// rows (~845px of content) and may be outside the lazy-rendered viewport.
     ///
-    /// - Returns: `true` if the table was found and swiped.
+    /// Uses coordinate-based dragging rather than `app.tables.firstMatch` because
+    /// SwiftUI's List accessibility element type varies across iOS versions and
+    /// table queries are unreliable on iOS 26+. The coordinate approach always
+    /// works: it swipes on whatever is frontmost in the app window.
+    ///
+    /// - Returns: Always `true` — the drag is synthesized unconditionally.
     @discardableResult
     public func scrollToRevealCustomPlaylists() -> Bool {
-        let table = app.tables.firstMatch
-        guard table.waitForExistence(timeout: 3) else { return false }
-        table.swipeUp()
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        // A second swipe ensures the section clears the fold even when the
+        // built-in playlist rows push it further down on smaller viewports.
+        start.press(forDuration: 0.05, thenDragTo: end)
         return true
     }
 }

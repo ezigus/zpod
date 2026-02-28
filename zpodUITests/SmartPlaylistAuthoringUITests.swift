@@ -61,9 +61,11 @@ final class SmartPlaylistAuthoringUITests: IsolatedUITestCase {
         screen.scrollToRevealCustomPlaylists()
 
         // After dismissal the row's name text should be visible in the list.
+        // Allow 10s: the list must scroll into view and SwiftUI must materialize
+        // the lazy "My Smart Playlists" section (13 built-in rows are above it).
         let row = screen.rowForPlaylist(named: "My Test Playlist")
         XCTAssertTrue(
-            row.waitForExistence(timeout: 5),
+            row.waitForExistence(timeout: 10),
             "Created playlist should appear in the list after saving"
         )
     }
