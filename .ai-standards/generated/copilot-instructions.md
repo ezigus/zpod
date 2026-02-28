@@ -604,15 +604,28 @@ Load for CarPlay/HIG/compliance work.
 Load only when Shipwright is active (see detection contract).
 
 ## Core Commands
+
 - `shipwright status`
 - `shipwright activity`
 - `shipwright pipeline start --issue <N>`
 - `shipwright cleanup --force` (use intentionally)
 
 ## Operational Rules
+
 - Verify whether daemon/pipeline is already active before starting a new run.
 - Use Shipwright-specific diagnostics before manual intervention.
 - Treat lock/cleanup actions as explicit operations with visible logs.
+
+## Build Loop: Test Execution
+
+When `SHIPWRIGHT_SOURCE=loop`, the harness owns test execution:
+
+- **NEVER run the full test suite yourself.** The loop runs it automatically after each iteration and injects the results into your next prompt. Xcode tests take 60–90 minutes — running them yourself exhausts your entire context window and causes a timeout.
+- You MAY run a single targeted test class to validate a specific fix:
+  `./scripts/run-xcode-tests.sh -t SpecificTestClass`
+  Only do this for the specific failing test, not the full suite.
+- After making your code changes, stop and describe what you changed. The harness will run the full suite and report back.
+- When a UI test fails, read the failure details from the injected test log. Do not re-run the full suite to reproduce it — diagnose from the log and fix the code.
 
 ### resolution/profile-resolution-matrix.md
 # Profile Resolution Matrix
