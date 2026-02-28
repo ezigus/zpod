@@ -1,0 +1,144 @@
+import Foundation
+
+// MARK: - SmartListRuleValidator
+
+/// Synchronous, pure validation for smart list rules.
+///
+/// Centralises rule constraints so both the UI layer (form submission)
+/// and the persistence layer (pre-flight checks) share identical logic.
+/// No external dependencies — safe to call from any actor.
+public struct SmartListRuleValidator: Sendable {
+
+    // MARK: - Error Types
+
+    public enum ValidationError: LocalizedError, Equatable, Sendable {
+        /// The comparison operator is not supported for this rule type.
+        case unsupportedComparison(ruleType: SmartListRuleType, comparison: SmartListComparison)
+        /// A string value is required but is empty or whitespace-only.
+        case emptyStringValue(ruleType: SmartListRuleType)
+        /// A numeric value is outside the valid range for this rule type.
+        case numericOutOfRange(ruleType: SmartListRuleType, min: Double, max: Double)
+        /// The value type does not match what this rule type/comparison pair expects.
+        case valueTypeMismatch(ruleType: SmartListRuleType)
+
+        public var errorDescription: String? {
+            switch self {
+            case .unsupportedComparison(let type, let comparison):
+                return "'\(comparison.displayName)' is not a valid comparison for '\(type.displayName)' rules."
+            case .emptyStringValue(let type):
+                return "'\(type.displayName)' rules require a non-empty value."
+            case .numericOutOfRange(let type, let min, let max):
+                return "'\(type.displayName)' value must be between \(min) and \(max)."
+            case .valueTypeMismatch(let type):
+                return "The value type is incompatible with the '\(type.displayName)' rule."
+            }
+        }
+    }
+
+    /// Aggregates multiple `ValidationError` values into a single `Error`.
+    public struct ValidationErrors: LocalizedError, Sendable {
+        public let errors: [ValidationError]
+
+        public var errorDescription: String? {
+            errors.compactMap(\.errorDescription).joined(separator: "\n")
+        }
+    }
+
+    // MARK: - Public API
+
+    public init() {}
+
+    /// Validate a single rule. Returns `.success(())` if valid, or `.failure` with
+    /// the first detected error.
+    public static func validate(_ rule: SmartListRule) -> Result<Void, ValidationError> {
+        if let error = checkComparison(rule) { return .failure(error) }
+        if let error = checkValue(rule) { return .failure(error) }
+        return .success(())
+    }
+
+    /// Validate a collection of rules. Returns `.success(())` if every rule is valid,
+    /// or `.failure` containing all detected errors.
+    public static func validateAll(_ rules: [SmartListRule]) -> Result<Void, ValidationErrors> {
+        let errors = rules.compactMap { rule -> ValidationError? in
+            if case .failure(let e) = validate(rule) { return e }
+            return nil
+        }
+        return errors.isEmpty ? .success(()) : .failure(ValidationErrors(errors: errors))
+    }
+
+    /// Returns the comparisons that are valid for the given rule type.
+    /// Delegates to `SmartListRuleType.availableComparisons` — single source of truth.
+    public static func suggestedComparisons(for ruleType: SmartListRuleType) -> [SmartListComparison] {
+        ruleType.availableComparisons
+    }
+
+    // MARK: - Private Helpers
+
+    private static func checkComparison(_ rule: SmartListRule) -> ValidationError? {
+        guard rule.type.availableComparisons.contains(rule.comparison) else {
+            return .unsupportedComparison(ruleType: rule.type, comparison: rule.comparison)
+        }
+        return nil
+    }
+
+    private static func checkValue(_ rule: SmartListRule) -> ValidationError? {
+        switch rule.type {
+        case .podcast, .title, .description:
+            guard case .string(let str) = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+            if str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return .emptyStringValue(ruleType: rule.type)
+            }
+
+        case .rating:
+            let numericValue: Double
+            switch rule.value {
+            case .integer(let v): numericValue = Double(v)
+            case .double(let v): numericValue = v
+            default: return .valueTypeMismatch(ruleType: rule.type)
+            }
+            if numericValue < 1 || numericValue > 5 {
+                return .numericOutOfRange(ruleType: rule.type, min: 1, max: 5)
+            }
+
+        case .playbackPosition:
+            guard case .double(let v) = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+            if v < 0 || v > 1 {
+                return .numericOutOfRange(ruleType: rule.type, min: 0, max: 1)
+            }
+
+        case .duration:
+            guard case .timeInterval(let v) = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+            if v < 0 {
+                return .numericOutOfRange(ruleType: rule.type, min: 0, max: Double.greatestFiniteMagnitude)
+            }
+
+        case .playStatus:
+            guard case .episodeStatus = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+
+        case .downloadStatus:
+            guard case .downloadStatus = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+
+        case .isFavorited, .isBookmarked, .isArchived:
+            guard case .boolean = rule.value else {
+                return .valueTypeMismatch(ruleType: rule.type)
+            }
+
+        case .dateAdded, .pubDate:
+            switch rule.value {
+            case .relativeDate, .date, .dateRange: break
+            default: return .valueTypeMismatch(ruleType: rule.type)
+            }
+        }
+        return nil
+    }
+}
