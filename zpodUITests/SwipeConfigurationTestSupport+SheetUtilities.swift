@@ -157,10 +157,12 @@ extension SwipeConfigurationTestCase {
     guard refreshContainerIfNeeded() else { return target.exists }
     if target.exists { return true }
 
-    // OPTIMIZATION: With SwipeActionConfigurationView's UITEST_SWIPE_PRELOAD_SECTIONS,
-    // sections are pre-materialized. Reduce downward sweeps minimum from 2 to 1.
     let downwardSweeps = max(scrollAttempts, 1)
-    let upwardSweeps = 1  // Walk back up to catch elements we scrolled past
+    // Symmetric upward sweeps so elements near the top are reachable after scanning down.
+    let upwardSweeps = max(1, downwardSweeps / 2)
+    // Extra initial nudges towards the top give reliable starting position when the
+    // list may be sitting at the bottom (e.g. after applying a preset).
+    let initialTopNudges = max(1, scrollAttempts / 2)
 
     enum ScrollDirection {
       case towardsBottom
@@ -171,16 +173,10 @@ extension SwipeConfigurationTestCase {
       // Refresh only when the container is missing or empty.
       guard refreshContainerIfNeeded() else { return }
 
-      if scrollContainer.isHittable {
-        switch direction {
-        case .towardsBottom:
-          scrollContainer.swipeUp()
-        case .towardsTop:
-          scrollContainer.swipeDown()
-        }
-        return
-      }
-
+      // Always use coordinate-based drag instead of the isHittable swipeUp/swipeDown
+      // shortcut. In some configurations (e.g. UITEST_SWIPE_DEBUG=0) the direct
+      // element swipe is silently intercepted by the sheet presentation controller,
+      // producing no scroll effect. Coordinate drags bypass this interception.
       let startVector: CGVector
       let endVector: CGVector
       switch direction {
@@ -194,13 +190,6 @@ extension SwipeConfigurationTestCase {
       let startCoord = scrollContainer.coordinate(withNormalizedOffset: startVector)
       let endCoord = scrollContainer.coordinate(withNormalizedOffset: endVector)
       startCoord.press(forDuration: 0.01, thenDragTo: endCoord)
-
-      switch direction {
-      case .towardsBottom:
-        app.swipeUp()
-      case .towardsTop:
-        app.swipeDown()
-      }
     }
 
     func settle() {
@@ -216,15 +205,16 @@ extension SwipeConfigurationTestCase {
       RunLoop.current.run(until: Date().addingTimeInterval(settleTime))
     }
 
-    // Nudge to the top first so we have a deterministic starting point.
-    for _ in 0..<1 {
+    // Nudge to the top first so we have a deterministic starting position.
+    // Multiple sweeps ensure we reach the top even when the list starts at the bottom.
+    for _ in 0..<initialTopNudges {
       scroll(.towardsTop)
       settle()
       target = element(withIdentifier: identifier, within: scrollContainer)
       if target.exists { return true }
     }
 
-    // Scan downward through the sheet (swipe up) to materialize lazy rows.
+    // Scan downward through the sheet to materialize lazy rows.
     for _ in 0..<downwardSweeps {
       scroll(.towardsBottom)
       settle()
@@ -232,7 +222,7 @@ extension SwipeConfigurationTestCase {
       if target.exists { return true }
     }
 
-    // Walk back upward in case the element lives near the top and the first sweep missed it.
+    // Walk back upward in case the element lives near the top and was scrolled past.
     for _ in 0..<upwardSweeps {
       scroll(.towardsTop)
       settle()

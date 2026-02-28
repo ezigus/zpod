@@ -156,6 +156,71 @@ ui_lock_owner_is_alive() {
   ps -p "$pid" -o pid= >/dev/null 2>/dev/null
 }
 
+ui_lock_owner_elapsed_seconds() {
+  local pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] || {
+    printf "0"
+    return 0
+  }
+  local elapsed
+  elapsed=$(ps -p "$pid" -o etimes= 2>/dev/null | awk '{print $1}' || true)
+  if [[ "$elapsed" =~ ^[0-9]+$ ]]; then
+    printf "%s" "$elapsed"
+  else
+    printf "0"
+  fi
+}
+
+ui_lock_owner_has_active_test_descendants() {
+  local root_pid="$1"
+  [[ "$root_pid" =~ ^[0-9]+$ ]] || return 1
+
+  local root_cmd
+  root_cmd=$(ps -p "$root_pid" -o command= 2>/dev/null || true)
+  if [[ "$root_cmd" =~ (xcodebuild|xctest|simctl|run-xcode-tests\.sh) ]]; then
+    return 0
+  fi
+
+  command_exists pgrep || return 1
+  local child_pid
+  while IFS= read -r child_pid; do
+    [[ "$child_pid" =~ ^[0-9]+$ ]] || continue
+    local child_cmd
+    child_cmd=$(ps -p "$child_pid" -o command= 2>/dev/null || true)
+    if [[ "$child_cmd" =~ (xcodebuild|xctest|simctl|CoreSimulator|run-xcode-tests\.sh) ]]; then
+      return 0
+    fi
+  done < <(collect_descendant_pids "$root_pid")
+
+  return 1
+}
+
+ui_lock_owner_is_orphaned() {
+  local owner_pid="$1"
+  local owner_command="${2:-}"
+  [[ "$owner_pid" =~ ^[0-9]+$ ]] || return 1
+  # Default: reclaim only after 3 minutes without active test descendants.
+  local orphan_after="${ZPOD_UI_LOCK_ORPHAN_AFTER_SECONDS:-180}"
+  [[ "$orphan_after" =~ ^[0-9]+$ ]] || orphan_after=180
+
+  local elapsed
+  elapsed=$(ui_lock_owner_elapsed_seconds "$owner_pid")
+  if (( elapsed < orphan_after )); then
+    return 1
+  fi
+
+  # Be conservative: only auto-reclaim locks created by this harness command.
+  if [[ "$owner_command" != *"run-xcode-tests.sh"* ]]; then
+    return 1
+  fi
+
+  if ui_lock_owner_has_active_test_descendants "$owner_pid"; then
+    return 1
+  fi
+
+  return 0
+}
+
 collect_descendant_pids() {
   local parent_pid="$1"
   [[ "$parent_pid" =~ ^[0-9]+$ ]] || return 0
@@ -264,6 +329,20 @@ acquire_ui_test_lock() {
     owner_command=$(read_ui_lock_metadata_field "$metadata_path" "command")
 
     if [[ -n "$owner_pid" ]] && ui_lock_owner_is_alive "$owner_pid"; then
+      if ui_lock_owner_is_orphaned "$owner_pid" "$owner_command"; then
+        local owner_elapsed
+        owner_elapsed=$(ui_lock_owner_elapsed_seconds "$owner_pid")
+        log_warn "Detected orphaned active UI lock owner pid=${owner_pid} (elapsed=${owner_elapsed}s); reclaiming lock."
+        log_warn "Owner run_id=${owner_run_id:-unknown} reason=${owner_reason:-unknown}"
+        terminate_process_tree "$owner_pid" "${ZPOD_UI_LOCK_CLEAR_KILL_GRACE_SECONDS:-5}"
+        if ui_lock_owner_is_alive "$owner_pid"; then
+          log_warn "Owner pid ${owner_pid} remained alive after termination attempt; continuing with conflict handling."
+        else
+          if remove_ui_lock_dir "$lock_dir"; then
+            continue
+          fi
+        fi
+      fi
       log_error "UI test lock conflict: another run is already executing UI tests."
       log_error "Lock path: ${lock_dir}"
       log_error "Owner PID: ${owner_pid} (run_id=${owner_run_id:-unknown}, host=${owner_host:-unknown})"

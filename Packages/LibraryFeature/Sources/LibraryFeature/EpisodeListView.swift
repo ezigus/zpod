@@ -571,15 +571,12 @@ public struct EpisodeListView: View {
                   await viewModel.resumeEpisodeDownload(episode)
                 }
               },
-              onQuickPlay: nil,
+              onQuickPlay: quickPlayAction,
               isSelected: false,
               isInMultiSelectMode: false,
               noteCount: viewModel.noteCounts[episode.id],
               isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
             )
-          }
-          .overlay(alignment: .trailing) {
-            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
           }
           .swipeActions(
             edge: .trailing,
