@@ -563,6 +563,7 @@ struct SmartPlaylistRuleRow: View {
                     }
                 }
                 .labelsHidden()
+                .accessibilityIdentifier("SmartPlaylistRule.\(rule.id).TypePicker")
                 .onChange(of: selectedType) { _, newType in
                     // Always reset to the semantic default for the new type.
                     // Preserving the previous comparison risks invalid pairings
@@ -579,6 +580,7 @@ struct SmartPlaylistRuleRow: View {
                     }
                 }
                 .labelsHidden()
+                .accessibilityIdentifier("SmartPlaylistRule.\(rule.id).ComparisonPicker")
                 .onChange(of: selectedComparison) { _, _ in notifyUpdate() }
             }
 
@@ -587,9 +589,11 @@ struct SmartPlaylistRuleRow: View {
                 value: $ruleValue,
                 onChange: { notifyUpdate() }
             )
+            .accessibilityIdentifier("SmartPlaylistRule.\(rule.id).ValueEditor")
 
             Toggle("Negate", isOn: $isNegated)
                 .font(.caption)
+                .accessibilityIdentifier("SmartPlaylistRule.\(rule.id).NegateToggle")
                 .onChange(of: isNegated) { _, _ in notifyUpdate() }
         }
         .padding(.vertical, 4)
