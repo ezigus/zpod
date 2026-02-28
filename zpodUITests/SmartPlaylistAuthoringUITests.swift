@@ -56,7 +56,11 @@ final class SmartPlaylistAuthoringUITests: IsolatedUITestCase {
         XCTAssertTrue(screen.enterName("My Test Playlist"), "Name field should accept input")
         XCTAssertTrue(screen.save(), "Save button should be tappable")
 
-        // After dismissal, the row should be visible in the list.
+        // Scroll down to reveal the "My Smart Playlists" section, which appears
+        // below the built-in playlists and may not be in the lazy-rendered viewport.
+        screen.scrollToRevealCustomPlaylists()
+
+        // After dismissal the row's name text should be visible in the list.
         let row = screen.rowForPlaylist(named: "My Test Playlist")
         XCTAssertTrue(
             row.waitForExistence(timeout: 5),

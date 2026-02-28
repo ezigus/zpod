@@ -151,15 +151,33 @@ public struct SmartPlaylistScreen: BaseScreen {
         nameField.waitForExistence(timeout: 3)
     }
 
-    /// The list row cell for a smart playlist with the given name.
+    /// The list row for a smart playlist with the given name.
     ///
-    /// Uses a `CONTAINS` predicate because SwiftUI cells may include episode count
-    /// and other metadata alongside the playlist name.
+    /// Targets the `Text(smartPlaylist.name)` static text element directly.
+    /// SwiftUI `NavigationLink` cells in a `List` do not automatically expose
+    /// their child text as the cell's top-level accessibility label, so querying
+    /// `app.cells` by label predicate is unreliable. Finding the `Text` element
+    /// directly is always correct.
     ///
-    /// - Parameter name: The exact playlist name string to look for.
-    /// - Returns: The first cell whose label contains `name`.
+    /// - Parameter name: The exact playlist name to look for.
+    /// - Returns: The static text element showing `name` inside the row.
     public func rowForPlaylist(named name: String) -> XCUIElement {
-        let predicate = NSPredicate(format: "label CONTAINS %@", name)
-        return app.cells.matching(predicate).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "label == %@", name)).firstMatch
+    }
+
+    /// Scroll the Playlists list down once to materialize the "My Smart Playlists"
+    /// section that appears below the built-in smart playlists.
+    ///
+    /// SwiftUI lazy lists remove elements from the accessibility tree when they
+    /// scroll out of view. A single swipe-up ensures the custom section is in the
+    /// rendered viewport before querying its rows.
+    ///
+    /// - Returns: `true` if the table was found and swiped.
+    @discardableResult
+    public func scrollToRevealCustomPlaylists() -> Bool {
+        let table = app.tables.firstMatch
+        guard table.waitForExistence(timeout: 3) else { return false }
+        table.swipeUp()
+        return true
     }
 }
