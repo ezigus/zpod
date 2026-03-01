@@ -102,10 +102,10 @@ Examples:
 
 ```bash
 # ✅ CORRECT - simple, direct command
-./scripts/run-xcode-tests.sh -t zpodUITests/SomeTest
+./scripts/run-xcode-tests.sh zpodUITests/SomeTest.swift
 
 # ❌ WRONG - background execution
-./scripts/run-xcode-tests.sh -t Test &
+./scripts/run-xcode-tests.sh zpodUITests/SomeTest.swift &
 
 # ❌ WRONG - output redirection
 ./scripts/run-xcode-tests.sh 2>&1 | grep something
@@ -374,11 +374,14 @@ Use the shared helper script for a quick local verification:
 ```bash
 ./scripts/run-xcode-tests.sh --self-check                        # environment sanity checks
 ./scripts/run-xcode-tests.sh                                     # default: syntax gate → AppSmoke gate → full regression
-./scripts/run-xcode-tests.sh -s                                  # syntax verification only
-./scripts/run-xcode-tests.sh -b zpod                             # build without executing tests
-./scripts/run-xcode-tests.sh -t zpod,zpodUITests                 # targeted test execution
-./scripts/run-xcode-tests.sh -c -b zpod -t zpod                  # clean build + scheme tests
-./scripts/run-xcode-tests.sh -p [suite]                          # verify test plan coverage (omit suite for default)
+./scripts/run-xcode-tests.sh -s                                        # syntax verification only
+./scripts/run-xcode-tests.sh -b zpod                                   # build without executing tests
+./scripts/run-xcode-tests.sh -c -b zpod                                # clean build
+./scripts/run-xcode-tests.sh -p [suite]                                # verify test plan coverage
+./scripts/run-xcode-tests.sh zpodUITests                               # full UI test suite (directory name)
+./scripts/run-xcode-tests.sh AppSmokeTests                             # full smoke suite (directory name)
+./scripts/run-xcode-tests.sh zpodUITests/SmartPlaylistAuthoringUITests.swift  # one test class (file path)
+./scripts/run-xcode-tests.sh zpodUITests/PageObjects/SmartPlaylistScreen.swift  # page object → resolved to test class
 ```
 
 > ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
@@ -391,14 +394,41 @@ Use the shared helper script for a quick local verification:
 
 - `-b all` runs the zpod workspace build and then walks each package with SwiftPM when the host platform is supported; iOS-only packages are skipped with a warning because they already compile via the workspace scheme.
 - Package modules can be exercised directly (`-t SharedUtilities`, `-t SharedUtilitiesTests`) and fall back to `swift test` under the hood.
-- Full regression (`-t zpod`) targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
-- Running `./scripts/run-xcode-tests.sh` with no arguments now performs the full suite in gated order: syntax check first, AppSmokeTests second, then test-plan coverage, workspace build, all SwiftPM package tests, integration + UI suites, and Swift lint. Syntax or AppSmoke failures stop the remaining phases immediately so follow-ups always start from a healthy base.
-- running with -t and the class you want to test will test that specific test class and nothing more.
-- When possible, after each modification made, rerun a very targeted test that will show that the code that was modified works correctly. Once those tests pass 100%, commit those changes locally.  Then complete the full regression test using the default ./scripts/run-xcode-tests.sh without any flags and only then, push the changes to github.
+- Full regression targets the `"zpod (zpod project)"` scheme, which runs unit + UI suites; SwiftPM-only test targets remain covered via their individual `swift test` runs.
+- Running `./scripts/run-xcode-tests.sh` with no arguments performs the full suite in gated order: syntax check first, AppSmokeTests second, then test-plan coverage, workspace build, all SwiftPM package tests, integration + UI suites, and Swift lint. Syntax or AppSmoke failures stop the remaining phases immediately.
+- Targeted runs use positional args — file paths (`.swift`) or suite directory names. Bare class names are NOT supported; use the `.swift` file path instead.
+- When possible, after each modification, rerun a targeted test using the file path. Once those tests pass 100%, commit locally. Then complete the full regression with `./scripts/run-xcode-tests.sh` and push.
+
+### Test File Conventions
+
+Test class files MUST live at the root of their target directory, NOT in subdirectories:
+- `zpodUITests/*.swift` → UI test classes (e.g. `SmartPlaylistAuthoringUITests.swift`)
+- `AppSmokeTests/*.swift` → smoke test classes
+- `IntegrationTests/*.swift` → integration test classes
+
+Page objects MUST live in `zpodUITests/PageObjects/`.
+Test helpers MUST live in `zpodUITests/TestSupport/`.
+
+`scripts/test-manifest.json` maps production source files to test targets. The resolver uses these mechanisms in priority order:
+
+1. **`test-manifest.json` explicit mapping** — checked first for any `.swift` path
+2. **Grep heuristic (`rg -l`)** — scans test roots for the class name; applies to app-level files only (`zpod/`)
+3. **Coarse fallback** — `Packages/*.swift` with no manifest entry → entire `Packages` suite
+
+**Critical**: Packages source files (everything under `Packages/`) are NOT reachable by the grep heuristic because test files import modules, not reference individual class names. To map a Packages file to a specific UI test, add an explicit manifest entry. Include both `"Packages"` (unit coverage) and the UI test target:
+
+```json
+"Packages/PlaylistFeature/Sources/PlaylistFeature/SmartPlaylistViews.swift": [
+  "Packages",
+  "zpodUITests/SmartPlaylistAuthoringUITests"
+]
+```
+
+Add a manifest entry when modifying a Packages source file that has dedicated UI test coverage. Omit it for infrastructure/utility files where the Packages suite fallback is sufficient.
 
 ### Non-macOS / Lightweight Environments
 
-Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-t`/`-b` combinations for package tests even on Linux.
+Prefer `./scripts/run-xcode-tests.sh -s` for syntax and `-b` combinations for package tests even on Linux.
 
 ### CI Pipeline
 
@@ -621,7 +651,7 @@ When `SHIPWRIGHT_SOURCE=loop`, the harness owns test execution:
 
 - **NEVER run the full test suite yourself.** The loop runs it automatically after each iteration and injects the results into your next prompt. Xcode tests take 60–90 minutes — running them yourself exhausts your entire context window and causes a timeout.
 - You MAY run a single targeted test class to validate a specific fix:
-  `./scripts/run-xcode-tests.sh -t SpecificTestClass`
+  `./scripts/run-xcode-tests.sh zpodUITests/SpecificTestClass.swift`
   Only do this for the specific failing test, not the full suite.
 - After making your code changes, stop and describe what you changed. The harness will run the full suite and report back.
 - When a UI test fails, read the failure details from the injected test log. Do not re-run the full suite to reproduce it — diagnose from the log and fix the code.

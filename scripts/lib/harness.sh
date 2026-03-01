@@ -9,6 +9,7 @@ PREFERRED_SIM="iPhone 17 Pro"
 REQUESTED_CLEAN=0
 REQUESTED_BUILDS=""
 REQUESTED_TESTS=""
+REQUESTED_POSITIONAL_TARGETS=()   # file paths or suite directory names passed as positional args
 REQUESTED_SYNTAX=0
 REQUEST_TESTPLAN=0
 REQUEST_TESTPLAN_SUITE=""
@@ -2458,15 +2459,16 @@ print_ui_suite_results_summary() {
 }
 
 print_ui_worker_health_summary() {
-  local total_entries=0
+  # Guard: [@]-" on an empty array expands to one empty string (not nothing), so
+  # always check the length first rather than relying on the loop count.
+  (( ${#UI_WORKER_HEALTH_ENTRIES[@]} == 0 )) && return
+
   local unexpected_count=0
   local entry
-  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]-}"; do
+  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]+"${UI_WORKER_HEALTH_ENTRIES[@]}"}"; do
     IFS='|' read -r _ event _ _ _ _ _ <<< "$entry"
-    total_entries=$((total_entries + 1))
     [[ "$event" == "stopped_unexpected" ]] && unexpected_count=$((unexpected_count + 1))
   done
-  (( total_entries == 0 )) && return
 
   if (( unexpected_count > 0 )); then
     printf "  UI shard worker health: ❌ %s worker(s) stopped unexpectedly\n" "$unexpected_count"
@@ -2474,7 +2476,7 @@ print_ui_worker_health_summary() {
     printf "  UI shard worker health: ✅ all workers completed\n"
   fi
 
-  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]-}"; do
+  for entry in "${UI_WORKER_HEALTH_ENTRIES[@]+"${UI_WORKER_HEALTH_ENTRIES[@]}"}"; do
     IFS='|' read -r worker_label event status claimed completed last_suite remaining <<< "$entry"
     case "$event" in
       completed)
@@ -3095,7 +3097,14 @@ Usage: scripts/run-xcode-tests.sh [OPTIONS]
 
 Options:
   -b <targets>      Comma-separated list of build targets (e.g. zpod,CoreModels)
-  -t <tests>        Comma-separated list of tests (target, class, or class/method); use "Packages" to run every SwiftPM package test
+  [targets...]      Zero or more test targets. Each MUST be a .swift file path or a suite directory name:
+                      • .swift file path:  zpodUITests/SmartPlaylistAuthoringUITests.swift
+                                           zpodUITests/PageObjects/SmartPlaylistScreen.swift
+                      • suite directory:   zpodUITests  AppSmokeTests  IntegrationTests  Packages
+                    File paths are classified automatically: test classes, page objects, test
+                    helpers, and production sources are all resolved to test targets.
+                    Bare class names (without a path) are NOT supported.
+                    Omit to run the full default pipeline.
   -c                Clean before running build/test
   -s                Run Swift syntax verification only (no build or tests)
   -l                Run Swift lint checks (swiftlint/swift-format if available)
@@ -3153,7 +3162,7 @@ self_check() {
   fi
 
   REQUESTED_BUILDS="zpod"
-  REQUESTED_TESTS="AppSmokeTests"
+  REQUESTED_POSITIONAL_TARGETS=("AppSmokeTests")
   log_info "Argument parsing sanity check passed"
 
   log_success "Self-check complete"
@@ -4473,6 +4482,177 @@ partial_build_and_test() {
   run_test_target "$module" || return $?
 }
 
+# Resolves a single pre-split test spec to one or more test target specs, printed one per line.
+# Accepts: .swift file paths, suite directory names, Target/ClassName slash specs, or package names.
+# Bare class names (no path separator, no .swift) that are not known targets are NOT supported.
+resolve_single_target() {
+  local spec="$1"
+  # Normalize: strip leading ./ and convert absolute paths to repo-relative
+  spec="${spec#./}"
+  [[ "$spec" == /* ]] && spec="${spec#${REPO_ROOT}/}"
+
+  # Case 1: Known suite directory name (case-insensitive)
+  local lower_spec
+  lower_spec=$(printf '%s' "$spec" | tr '[:upper:]' '[:lower:]')
+  case "$lower_spec" in
+    zpoduitests)      echo "zpodUITests";      return 0;;
+    appsmoketests)    echo "AppSmokeTests";    return 0;;
+    integrationtests) echo "IntegrationTests"; return 0;;
+    packages)         echo "Packages";         return 0;;
+  esac
+
+  # Case 2: Target/ClassName slash spec without .swift (e.g. zpodUITests/CoreUINavigationTests)
+  # Pass through directly — test_app_target already handles this via -only-testing.
+  if [[ "$spec" == */* && "$spec" != *.swift ]]; then
+    echo "$spec"
+    return 0
+  fi
+
+  # Case 3: Packages/ path ending in .swift
+  # Check manifest first for a specific mapping (e.g. production source → UI test).
+  # Fall back to the full Packages suite when no manifest entry exists.
+  if [[ "$spec" == Packages/* && "$spec" == *.swift ]]; then
+    local manifest="${REPO_ROOT}/scripts/test-manifest.json"
+    if [[ -f "$manifest" ]]; then
+      local manifest_targets
+      manifest_targets=$(jq -r --arg p "$spec" '.sourceToTests[$p][]? // empty' "$manifest" 2>/dev/null || true)
+      if [[ -n "$manifest_targets" ]]; then
+        while IFS= read -r t; do
+          [[ -n "$t" ]] && echo "$t"
+        done <<< "$manifest_targets"
+        return 0
+      fi
+    fi
+    echo "Packages"
+    return 0
+  fi
+
+  # Case 4: .swift file path
+  if [[ "$spec" == *.swift ]]; then
+    local abs_path="${REPO_ROOT}/${spec}"
+    if [[ ! -f "$abs_path" ]]; then
+      log_warn "resolve_single_target: file not found on disk: $spec"
+      return 0
+    fi
+
+    local class_name
+    class_name="${spec##*/}"          # basename
+    class_name="${class_name%.swift}" # strip .swift extension
+
+    # Case 4a: Root-level file in a test target directory (not in a subdirectory)
+    if [[ "$spec" =~ ^(zpodUITests|AppSmokeTests|IntegrationTests)/[^/]+\.swift$ ]]; then
+      local suite_dir="${spec%%/*}"
+      echo "${suite_dir}/${class_name}"
+      return 0
+    fi
+
+    # Case 4b: PageObjects/ or TestSupport/ — grep for test files that reference this class
+    if [[ "$spec" == */PageObjects/*.swift || "$spec" == */TestSupport/*.swift ]]; then
+      local found=0
+      local hit_file
+      while IFS= read -r hit_file; do
+        local hit_class="${hit_file##*/}"
+        hit_class="${hit_class%.swift}"
+        local inferred
+        inferred=$(infer_target_for_class "$hit_class" 2>/dev/null) || continue
+        echo "${inferred}/${hit_class}"
+        found=1
+      done < <(rg -l --hidden "$class_name" \
+                 "${REPO_ROOT}/zpodUITests" \
+                 "${REPO_ROOT}/AppSmokeTests" \
+                 "${REPO_ROOT}/IntegrationTests" 2>/dev/null | grep '\.swift$' || true)
+      if (( found )); then return 0; fi
+      log_warn "resolve_single_target: no test files reference '$class_name' (from $spec)"
+      return 0
+    fi
+
+    # Case 4c: Production source — check manifest first, then grep
+    local manifest="${REPO_ROOT}/scripts/test-manifest.json"
+    if [[ -f "$manifest" ]]; then
+      local manifest_targets
+      manifest_targets=$(jq -r --arg p "$spec" '.sourceToTests[$p][]? // empty' "$manifest" 2>/dev/null || true)
+      if [[ -n "$manifest_targets" ]]; then
+        while IFS= read -r t; do
+          [[ -n "$t" ]] && echo "$t"
+        done <<< "$manifest_targets"
+        return 0
+      fi
+    fi
+
+    # Grep fallback for production source
+    local found=0
+    local hit_file
+    while IFS= read -r hit_file; do
+      local hit_class="${hit_file##*/}"
+      hit_class="${hit_class%.swift}"
+      local inferred
+      inferred=$(infer_target_for_class "$hit_class" 2>/dev/null) || continue
+      echo "${inferred}/${hit_class}"
+      found=1
+    done < <(rg -l --hidden "$class_name" \
+               "${REPO_ROOT}/zpodUITests" \
+               "${REPO_ROOT}/AppSmokeTests" \
+               "${REPO_ROOT}/IntegrationTests" 2>/dev/null | grep '\.swift$' || true)
+    if (( found )); then return 0; fi
+    log_warn "resolve_single_target: no test target found for production source: $spec"
+    return 0
+  fi
+
+  # Case 5: No slash, no .swift — could be a package test target (e.g. CoreModels)
+  load_package_test_targets 2>/dev/null || true
+  if is_package_target "$spec" 2>/dev/null; then
+    echo "$spec"
+    return 0
+  fi
+
+  # Case 6: Unrecognized
+  log_warn "resolve_single_target: unrecognized argument '$spec' (expected a .swift file path, suite directory like zpodUITests, or Target/ClassName spec)"
+  return 0
+}
+
+# Iterates REQUESTED_POSITIONAL_TARGETS, splits comma-separated values, resolves each via
+# resolve_single_target, deduplicates, and sets REQUESTED_TESTS as a comma-separated string.
+# Returns 1 if no targets could be resolved (caller should fall back to full suite).
+resolve_positional_targets() {
+  local resolved=()
+  local spec sub_spec
+  for spec in "${REQUESTED_POSITIONAL_TARGETS[@]}"; do
+    spec="$(trim "$spec")"
+    [[ -z "$spec" ]] && continue
+    # Support comma-separated values in a single positional arg (CI matrix compat)
+    split_csv "$spec"
+    for sub_spec in "${__ZPOD_SPLIT_RESULT[@]}"; do
+      sub_spec="$(trim "$sub_spec")"
+      [[ -z "$sub_spec" ]] && continue
+      while IFS= read -r target; do
+        [[ -n "$target" ]] && resolved+=("$target")
+      done < <(resolve_single_target "$sub_spec")
+    done
+  done
+
+  if (( ${#resolved[@]} == 0 )); then
+    return 1
+  fi
+
+  # Deduplicate preserving order
+  local seen=() deduped=()
+  local t s already
+  for t in "${resolved[@]}"; do
+    already=0
+    if (( ${#seen[@]} > 0 )); then
+      for s in "${seen[@]}"; do
+        [[ "$s" == "$t" ]] && already=1 && break
+      done
+    fi
+    if (( already == 0 )); then
+      seen+=("$t")
+      deduped+=("$t")
+    fi
+  done
+
+  REQUESTED_TESTS=$(IFS=','; echo "${deduped[*]}")
+}
+
 harness_main() {
 # Start timer for entire script execution
 ORIGINAL_CLI_ARGS=("$@")
@@ -4485,8 +4665,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -b)
       REQUESTED_BUILDS="$2"; shift 2;;
-    -t)
-      REQUESTED_TESTS="$2"; shift 2;;
     -c)
       REQUESTED_CLEAN=1; shift;;
     -s)
@@ -4525,14 +4703,23 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       show_help; finalize_and_exit 0;;
     full_clean_build|full_build_no_test|full_build_and_test|partial_clean_build|partial_build_and_test)
-      log_error "Deprecated action '$1'. Use -b/-t/-c/-s flags instead."
+      log_error "Deprecated action '$1'. Use -b/-c/-s flags instead."
       exit_with_summary 1;;
     *)
-      log_error "Unknown argument: $1"
-      show_help
-      exit_with_summary 1;;
+      # Positional arg: .swift file path or suite directory name (npm-style)
+      REQUESTED_POSITIONAL_TARGETS+=("$1"); shift;;
   esac
 done
+
+# Resolve positional args (file paths / suite directories) to REQUESTED_TESTS
+if (( ${#REQUESTED_POSITIONAL_TARGETS[@]} > 0 )); then
+  if ! resolve_positional_targets; then
+    log_warn "Positional args produced no resolvable test targets; running full suite"
+    DEFAULT_PIPELINE=1
+  else
+    log_info "Resolved positional targets to: $REQUESTED_TESTS"
+  fi
+fi
 
 if [[ $REQUESTED_OSLOG_DEBUG -eq 1 ]]; then
   export OS_ACTIVITY_DT_MODE=YES
