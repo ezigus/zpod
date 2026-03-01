@@ -198,6 +198,46 @@ final class SmartPlaylistAuthoringTests: XCTestCase {
         XCTAssertFalse(created.isSystemGenerated)
     }
 
+    // MARK: - Validator Integration
+
+    /// Verify that the default form rule (play status = unplayed) passes validation —
+    /// ensuring new playlists can always be saved immediately without user intervention.
+    func testDefaultRulePassesValidation() {
+        let defaultRule = SmartListRule(
+            type: .playStatus,
+            comparison: .equals,
+            value: .episodeStatus(.unplayed)
+        )
+        if case .failure(let errors) = SmartListRuleValidator.validateAll([defaultRule]) {
+            XCTFail("Default play-status rule should pass validation; got errors: \(errors.errors)")
+        }
+    }
+
+    /// Verify that an empty-string podcast filter rule fails validation.
+    ///
+    /// The save button uses `SmartListRuleValidator.validateAll(rules)` to gate
+    /// persistence, so invalid rules are blocked before reaching the ViewModel.
+    func testEmptyStringPodcastRuleFailsValidation() {
+        let emptyPodcastRule = SmartListRule(
+            type: .podcast,
+            comparison: .contains,
+            value: .string("")
+        )
+        if case .success = SmartListRuleValidator.validateAll([emptyPodcastRule]) {
+            XCTFail("Empty-string podcast rule should fail validation — evaluator silently skips it")
+        }
+    }
+
+    /// Verify that mixing valid and invalid rules causes validateAll to fail.
+    func testMixedValidAndInvalidRulesFailsValidation() {
+        let validRule = SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed))
+        let invalidRule = SmartListRule(type: .title, comparison: .contains, value: .string("   "))
+
+        if case .success = SmartListRuleValidator.validateAll([validRule, invalidRule]) {
+            XCTFail("Rule set containing an invalid rule should fail validateAll")
+        }
+    }
+
     // MARK: - Rule Order is Commutative
 
     func testRuleOrderIsCommutativeForEvaluation() {

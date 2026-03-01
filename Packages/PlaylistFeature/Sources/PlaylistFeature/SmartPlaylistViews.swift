@@ -268,6 +268,15 @@ public struct SmartPlaylistCreationView: View {
             || rules.count > 1
     }
 
+    /// True when any rule fails `SmartListRuleValidator` checks.
+    ///
+    /// Used to gate the Save/Create button — invalid rules (e.g. empty string
+    /// filter for podcast/title) should not be persisted.
+    private var hasRuleValidationErrors: Bool {
+        if case .failure = SmartListRuleValidator.validateAll(rules) { return true }
+        return false
+    }
+
     public var body: some View {
         NavigationStack {
             Form {
@@ -388,6 +397,7 @@ public struct SmartPlaylistCreationView: View {
                         Text("No episodes match these rules")
                             .foregroundStyle(.secondary)
                             .font(.subheadline)
+                            .accessibilityIdentifier("SmartPlaylistCreation.PreviewEmpty")
                     } else {
                         ForEach(previewEpisodes.prefix(5)) { episode in
                             SmartPlaylistEpisodeRow(episode: episode)
@@ -407,6 +417,7 @@ public struct SmartPlaylistCreationView: View {
                                 .font(.caption)
                                 .foregroundStyle(.blue)
                                 .fontWeight(.medium)
+                                .accessibilityIdentifier("SmartPlaylistCreation.PreviewCount")
                         }
                     }
                 }
@@ -436,7 +447,7 @@ public struct SmartPlaylistCreationView: View {
                         save()
                         dismiss()
                     }
-                    .disabled(!isNameValid || rules.isEmpty)
+                    .disabled(!isNameValid || rules.isEmpty || hasRuleValidationErrors)
                     .accessibilityIdentifier("SmartPlaylistCreation.SaveButton")
                 }
             }
