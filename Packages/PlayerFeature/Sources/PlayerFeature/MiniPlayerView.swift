@@ -28,7 +28,16 @@ public struct MiniPlayerView: View {
         miniPlayerCard(for: episode, state: state)
       }
     }
-    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: state.isVisible)
+    // In UI test mode, disable the spring animation entirely. SwiftUI drives
+    // .spring() via CADisplayLink which fires every frame on RunLoop.main —
+    // this is NOT affected by layer.speed or UIView.setAnimationsEnabled(false),
+    // and keeps xcodebuild's quiescence detector perpetually non-idle.
+    .animation(
+      ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
+        ? nil
+        : .spring(response: 0.35, dampingFraction: 0.8),
+      value: state.isVisible
+    )
   }
 
   // MARK: - Subviews ---------------------------------------------------------
@@ -79,7 +88,11 @@ public struct MiniPlayerView: View {
     .accessibilityIdentifier("Mini Player")
     .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
     .accessibilityHint("Double-tap to open the full player")
-    .transition(.move(edge: .bottom).combined(with: .opacity))
+    .transition(
+      ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
+        ? .identity
+        : .move(edge: .bottom).combined(with: .opacity)
+    )
   }
 
   private func miniPlayerAccessibilityLabel(
@@ -130,7 +143,13 @@ public struct MiniPlayerView: View {
 
   @ViewBuilder
   private func artwork(for episode: Episode) -> some View {
-    AsyncImage(url: episode.artworkURL) { phase in
+    // In UI test mode, skip network artwork loading to prevent NSURLSession tasks
+    // from keeping the app non-idle for XCUITest's quiescence detector.
+    // AsyncImage(url: nil) renders the placeholder immediately without network.
+    let artworkURL: URL? = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] == "1"
+      ? nil
+      : episode.artworkURL
+    AsyncImage(url: artworkURL) { phase in
       switch phase {
       case .empty:
         placeholderArtwork

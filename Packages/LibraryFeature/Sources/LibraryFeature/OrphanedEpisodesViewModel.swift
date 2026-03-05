@@ -60,9 +60,9 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
     await load()
   }
 
-  public func quickPlayEpisode(_ episode: Episode) async {
+  public func quickPlayEpisode(_ episode: Episode) {
     guard episode.audioURL != nil else { return }
-    await playbackCoordinator.quickPlayEpisode(episode)
+    playbackCoordinator.quickPlayEpisode(episode)
   }
 
   private func fetch() async -> [Episode] {

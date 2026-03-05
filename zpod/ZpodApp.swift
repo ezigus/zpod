@@ -28,6 +28,7 @@ struct ZpodApp: App {
     disableHardwareKeyboard()
     configureSiriSnapshots()
     configureCarPlayDependencies()
+    configureAnimationsForUITesting()
 
     // Seed UI test data asynchronously (StorageManagementViewModel uses fallback stats for deterministic UI)
     #if canImport(LibraryFeature)
@@ -163,7 +164,18 @@ struct ZpodApp: App {
     #if canImport(LibraryFeature)
       // Reset all episode playback positions to ensure clean state between tests
       Self.sharedPodcastRepository.resetAllPlaybackPositions()
-      print("🧪 UI Test: Reset all episode playback positions to 0")
+
+      // Clear persisted episode state from UserDefaults suite used by EpisodeListDependencyProvider.
+      // Without this, playbackPosition from a previous test run leaks through
+      // UserDefaultsEpisodeRepository → loadPersistedEpisodes(), causing episodes to start
+      // at their old position (e.g., fully played) instead of 0.
+      let episodeSuiteName = "us.zig.zpod.episode-state"
+      UserDefaults.standard.removePersistentDomain(forName: episodeSuiteName)
+
+      // Also clear playback resume state from standard UserDefaults
+      UserDefaults.standard.removeObject(forKey: "playback_resume_state")
+
+      print("🧪 UI Test: Reset all episode playback positions and cleared persisted state")
     #endif
   }
 
@@ -355,6 +367,7 @@ struct ZpodApp: App {
     }
   }
 
+
   #if canImport(LibraryFeature)
     /// Handles NSUserActivity from Siri to play a specific episode
     private func handlePlayEpisodeActivity(_ userActivity: NSUserActivity) {
@@ -420,3 +433,4 @@ struct ZpodApp: App {
   }
 
 }
+

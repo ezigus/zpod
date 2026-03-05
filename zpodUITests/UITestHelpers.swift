@@ -8,6 +8,7 @@
 
 import Foundation
 import OSLog
+import UIKit
 import XCTest
 
 private let launchLogger = Logger(subsystem: "us.zig.zpod", category: "UITestHelpers")
@@ -30,6 +31,17 @@ extension XCTestCase {
   }
 }
 
+// MARK: - Quiescence Control
+
+// NOTE: Method swizzling of XCUIApplication._waitForQuiescence* was attempted
+// but cannot work because _waitForQuiescenceAsPreEvent: is called both for the
+// standard pre/post-event quiescence checks AND internally during IPC event
+// delivery. Swizzling it breaks event synthesis ("Synthesize event" hangs).
+//
+// The correct fix is on the APP side: eliminate sources of permanent main-thread
+// non-idle state (Combine publishers, SwiftUI transitions, pending Tasks) so the
+// quiescence detector passes naturally after QuickPlay triggers playback.
+
 // MARK: - Application Configuration
 
 extension XCUIApplication {
@@ -41,6 +53,7 @@ extension XCUIApplication {
     app.launchEnvironment["UITEST_DISABLE_ANIMATIONS"] = "1"
     app.launchEnvironment["UITEST_SLIDER_OPACITY"] = "0.1"
     app.launchEnvironment["UITEST_DISABLE_AUDIO_ENGINE"] = "1"  // Use ticker-based playback for deterministic timing
+    app.launchEnvironment["UITEST_DEBUG_AUDIO"] = "1"  // DIAGNOSTIC: log EnhancedEpisodePlayer.play() calls
     return app
   }
 
@@ -236,11 +249,14 @@ extension ElementWaiting {
     let candidates = quickPlayButtonCandidates(in: app, episodeIdentifier: episodeIdentifier)
     if let resolved = firstDiscoverableElement(candidates, timeout: timeout) {
       let resolvedIdentifier = resolved.identifier
-      if resolvedIdentifier.localizedCaseInsensitiveContains("quickplay") {
+      let resolvedLabel = resolved.label
+      if resolvedIdentifier.localizedCaseInsensitiveContains("quickplay")
+        || resolvedLabel.localizedCaseInsensitiveContains("quick play")
+      {
         return resolved
       }
       XCTFail(
-        "Resolved non-quick-play control while looking for quick play: identifier='\(resolvedIdentifier)'."
+        "Resolved non-quick-play control while looking for quick play: identifier='\(resolvedIdentifier)', label='\(resolvedLabel)'."
       )
       return nil
     }
@@ -364,6 +380,27 @@ extension ElementWaiting {
         )
       }
     }
+
+    // iOS label-based fallback: the QuickPlay button can surface under the parent row's
+    // identifier with label "Quick play" rather than the expected "-QuickPlay" suffix.
+    // On iOS 26.x, two buttons share identifier "Episode-<id>": the row (long combined
+    // label) and the QuickPlay button (label exactly "Quick play"). Use a compound
+    // predicate to target the QuickPlay button specifically.
+    let quickPlayLabelPredicate = NSPredicate(format: "label == 'Quick play'")
+    for episodeCellIdentifier in episodeCellIdentifiers {
+      let compoundPredicate = NSPredicate(
+        format: "identifier == %@ AND label == 'Quick play'", episodeCellIdentifier)
+      candidates.append(app.buttons.matching(compoundPredicate).firstMatch)
+      candidates.append(app.descendants(matching: .any).matching(compoundPredicate).firstMatch)
+    }
+    for rowIdentifier in rowIdentifiers {
+      let compoundPredicate = NSPredicate(
+        format: "identifier == %@ AND label == 'Quick play'", rowIdentifier)
+      candidates.append(app.buttons.matching(compoundPredicate).firstMatch)
+      candidates.append(app.descendants(matching: .any).matching(compoundPredicate).firstMatch)
+    }
+    // Final fallback: app-wide label search (may find the row element on some iOS versions)
+    candidates.append(app.buttons.matching(quickPlayLabelPredicate).firstMatch)
 
     return candidates
   }

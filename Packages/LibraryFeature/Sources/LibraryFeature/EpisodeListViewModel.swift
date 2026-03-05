@@ -69,7 +69,7 @@ public final class EpisodeListViewModel: ObservableObject {
     
     let callbacks = SwipeActionCallbacks(
       quickPlay: { [weak self] episode in
-        await self?.quickPlayEpisode(episode)
+        self?.quickPlayEpisode(episode)
       },
       download: { [weak self] episode in
         self?.startEpisodeDownload(episode)
@@ -575,7 +575,7 @@ public final class EpisodeListViewModel: ObservableObject {
   }
 
   /// Quick play an episode that's in progress
-  public func quickPlayEpisode(_ episode: Episode) async {
-    await playbackCoordinator.quickPlayEpisode(episode)
+  public func quickPlayEpisode(_ episode: Episode) {
+    playbackCoordinator.quickPlayEpisode(episode)
   }
 }

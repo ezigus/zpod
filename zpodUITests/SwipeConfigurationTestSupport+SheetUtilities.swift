@@ -30,11 +30,25 @@ extension SwipeConfigurationTestCase {
     let swipePredicate = NSPredicate(format: "identifier BEGINSWITH 'SwipeActions.'")
 
     // OPTIMIZATION: SwipeActionConfigurationView.swift:64 sets accessibilityIdentifier("SwipeActions.List")
-    // Wait for it directly instead of polling windows for 5s
-    let explicitList =
-      app.descendants(matching: .any).matching(identifier: "SwipeActions.List").firstMatch
+    // Use collectionViews (not .any) to get the actual UICollectionView backing the List.
+    // After a SwiftUI state change (e.g. AddActionPicker dismissal), the new UICollectionView
+    // can appear in the accessibility tree immediately but with a zero frame until layout
+    // completes. Returning a zero-frame element causes coordinate-based drags to silently
+    // resolve to (0,0) and produce no scroll effect. We wait for both existence AND a non-zero
+    // frame before returning.
+    let explicitList = app.collectionViews.matching(identifier: "SwipeActions.List").firstMatch
     if explicitList.waitForExistence(timeout: 2.0) {
-      return explicitList
+      // If the frame is already valid, return immediately.
+      if !explicitList.frame.isEmpty {
+        return explicitList
+      }
+      // Frame is zero — wait up to 1.5s for layout to complete.
+      let framePredicate = NSPredicate { _, _ in !explicitList.frame.isEmpty }
+      let frameExpectation = XCTNSPredicateExpectation(predicate: framePredicate, object: nil)
+      if XCTWaiter.wait(for: [frameExpectation], timeout: 1.5) == .completed {
+        return explicitList
+      }
+      // Frame never became non-zero; fall through to window-scan fallback.
     }
 
     let windows = app.windows.matching(NSPredicate(value: true))
@@ -159,10 +173,13 @@ extension SwipeConfigurationTestCase {
 
     let downwardSweeps = max(scrollAttempts, 1)
     // Symmetric upward sweeps so elements near the top are reachable after scanning down.
+    // NOTE: upward sweeps (dragging DOWN = towardsTop) are only safe AFTER at least one
+    // downward sweep has scrolled the list content offset above zero. When content offset
+    // is zero the scroll view releases the downward pan gesture and the sheet's dismiss
+    // UIPanGestureRecognizer claims it, dismissing the sheet. Do NOT add a separate
+    // "initialTopNudges" phase — starting from the top means content offset is 0 and
+    // every towardsTop drag will trigger sheet dismissal rather than list scrolling.
     let upwardSweeps = max(1, downwardSweeps / 2)
-    // Extra initial nudges towards the top give reliable starting position when the
-    // list may be sitting at the bottom (e.g. after applying a preset).
-    let initialTopNudges = max(1, scrollAttempts / 2)
 
     enum ScrollDirection {
       case towardsBottom
@@ -205,15 +222,6 @@ extension SwipeConfigurationTestCase {
       RunLoop.current.run(until: Date().addingTimeInterval(settleTime))
     }
 
-    // Nudge to the top first so we have a deterministic starting position.
-    // Multiple sweeps ensure we reach the top even when the list starts at the bottom.
-    for _ in 0..<initialTopNudges {
-      scroll(.towardsTop)
-      settle()
-      target = element(withIdentifier: identifier, within: scrollContainer)
-      if target.exists { return true }
-    }
-
     // Scan downward through the sheet to materialize lazy rows.
     for _ in 0..<downwardSweeps {
       scroll(.towardsBottom)
@@ -223,6 +231,8 @@ extension SwipeConfigurationTestCase {
     }
 
     // Walk back upward in case the element lives near the top and was scrolled past.
+    // Safe to use towardsTop here: the downward phase above has advanced content offset
+    // above zero, so the scroll view — not the sheet dismiss gesture — claims the drag.
     for _ in 0..<upwardSweeps {
       scroll(.towardsTop)
       settle()

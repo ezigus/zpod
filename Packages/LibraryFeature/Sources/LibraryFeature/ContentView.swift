@@ -261,6 +261,16 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+      // Only retry if the tab bar hasn't been configured yet.
+      // Restarting the full retry loop on every SwiftUI re-render creates
+      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
+      // app non-idle for XCUITest's quiescence detector.
+      if let tabBar = locateTabBar(startingFrom: uiViewController)
+        ?? locateTabBarAcrossScenes(),
+        tabBar.accessibilityIdentifier == "Main Tab Bar"
+      {
+        return
+      }
       scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
     }
 
@@ -592,7 +602,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             #else
               .padding(.bottom, 60)  // Fallback for non-UIKit platforms
             #endif
-            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .transition(
+              ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
+                ? .identity
+                : .move(edge: .bottom).combined(with: .opacity)
+            )
           }
         #endif
       }

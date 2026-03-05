@@ -44,8 +44,6 @@ public struct EpisodeListView: View {
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
   @State private var addToPlaylistEpisode: Episode? = nil
-  @State private var selectedEpisodeForDetail: Episode? = nil
-  @State private var showEpisodeDetail = false
 
   @MainActor
   public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
@@ -246,11 +244,6 @@ public struct EpisodeListView: View {
       }
     }
     .accessibilityIdentifier("Episode List View")
-    .navigationDestination(isPresented: $showEpisodeDetail) {
-      if let episode = selectedEpisodeForDetail {
-        episodeDetailView(for: episode)
-      }
-    }
     .task {
       await viewModel.ensureUITestBatchOverlayIfNeeded(after: 0.2)
       try? await viewModel.refreshNoteCounts()
@@ -554,46 +547,41 @@ public struct EpisodeListView: View {
             isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
           )
           .accessibilityIdentifier("Episode-\(episode.id)")
+          .accessibilityAddTraits(.isButton)
+          .contentShape(Rectangle())
+          .onTapGesture { viewModel.toggleEpisodeSelection(episode) }
         } else {
-          let quickPlayAction = {
-            let _: Task<Void, Never> = Task { @MainActor in
-              await viewModel.quickPlayEpisode(episode)
-            }
+          ZStack(alignment: .leading) {
+            NavigationLink(value: episode) { EmptyView() }
+              .opacity(0)
+
+            EpisodeRowView(
+              episode: episode,
+              downloadProgress: viewModel.downloadProgress(for: episode.id),
+              onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
+              onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
+              onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
+              onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
+              onDownloadPause: {
+                let _: Task<Void, Never> = Task { @MainActor in
+                  await viewModel.pauseEpisodeDownload(episode)
+                }
+              },
+              onDownloadResume: {
+                let _: Task<Void, Never> = Task { @MainActor in
+                  await viewModel.resumeEpisodeDownload(episode)
+                }
+              },
+              onQuickPlay: {
+                viewModel.quickPlayEpisode(episode)
+              },
+              isSelected: false,
+              isInMultiSelectMode: false,
+              noteCount: viewModel.noteCounts[episode.id],
+              isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
+            )
           }
-          ZStack(alignment: .trailing) {
-            Button {
-              selectedEpisodeForDetail = episode
-              showEpisodeDetail = true
-            } label: {
-              EpisodeRowView(
-                episode: episode,
-                downloadProgress: viewModel.downloadProgress(for: episode.id),
-                onFavoriteToggle: { viewModel.toggleEpisodeFavorite(episode) },
-                onBookmarkToggle: { viewModel.toggleEpisodeBookmark(episode) },
-                onPlayedStatusToggle: { viewModel.toggleEpisodePlayedStatus(episode) },
-                onDownloadRetry: { viewModel.retryEpisodeDownload(episode) },
-                onDownloadPause: {
-                  let _: Task<Void, Never> = Task { @MainActor in
-                    await viewModel.pauseEpisodeDownload(episode)
-                  }
-                },
-                onDownloadResume: {
-                  let _: Task<Void, Never> = Task { @MainActor in
-                    await viewModel.resumeEpisodeDownload(episode)
-                  }
-                },
-                onQuickPlay: nil,
-                isSelected: false,
-                isInMultiSelectMode: false,
-                noteCount: viewModel.noteCounts[episode.id],
-                isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
-              )
-              .padding(.trailing, 44)
-            }
-            .buttonStyle(.plain)
-            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
-          }
-          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Episode-\(episode.id)")
           .swipeActions(
             edge: .trailing,
             allowsFullSwipe: viewModel.allowsFullSwipeTrailing
@@ -624,14 +612,16 @@ public struct EpisodeListView: View {
             }
           }
           #endif
-          .accessibilityIdentifier("Episode-\(episode.id)")
           .onLongPressGesture {
             viewModel.enterMultiSelectMode()
             viewModel.toggleEpisodeSelection(episode)
           }
-      }
+        }
     }
     .platformInsetGroupedListStyle()
+    .navigationDestination(for: Episode.self) { episode in
+      episodeDetailView(for: episode)
+    }
     .accessibilityIdentifier("Episode Cards Container")
     .background(EpisodeListIdentifierSetter())
     #if DEBUG
@@ -908,6 +898,15 @@ public struct EpisodeListView: View {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+      // Only retry if the identifier hasn't been set yet.
+      // Restarting the full retry loop on every SwiftUI re-render creates
+      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
+      // app non-idle for XCUITest's quiescence detector.
+      if let tableView = locateTableView(startingFrom: uiViewController),
+        tableView.accessibilityIdentifier == "Episode Cards Container"
+      {
+        return
+      }
       scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
     }
 
@@ -968,21 +967,6 @@ public struct EpisodeListView: View {
   }
 #endif
 
-/// A rectangle that excludes a fixed width from the trailing edge, used to
-/// restrict a NavigationLink's hit area so a sibling quick-play button wins.
-private struct TrailingTrimmedRect: Shape {
-  let trailingInset: CGFloat
-  func path(in rect: CGRect) -> Path {
-    Path(
-      CGRect(
-        x: rect.minX,
-        y: rect.minY,
-        width: max(0, rect.width - trailingInset),
-        height: rect.height
-      )
-    )
-  }
-}
 
 @MainActor
 @ViewBuilder
@@ -1087,12 +1071,7 @@ public struct EpisodeRowView: View {
     .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color.clear)
     .cornerRadius(8)
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("Episode Row-\(episode.id)")
-    .onTapGesture {
-      if isInMultiSelectMode {
-        onSelectionToggle?()
-      }
-    }
+    .accessibilityIdentifier("Episode-\(episode.id)")
   }
 
   private var episodeArtwork: some View {
@@ -1284,6 +1263,8 @@ public struct EpisodeRowView: View {
         }
       }
     }
+    .buttonStyle(.borderless)
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("Episode Status")
   }
 

@@ -18,7 +18,7 @@ import SharedUtilities
 @MainActor
 public protocol EpisodePlaybackCoordinating: AnyObject {
   /// Quick play an episode
-  func quickPlayEpisode(_ episode: Episode) async
+  func quickPlayEpisode(_ episode: Episode)
   
   /// Stop monitoring playback state
   func stopMonitoring()
@@ -44,13 +44,13 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
     self.episodeUpdateHandler = episodeUpdateHandler
   }
   
-  public func quickPlayEpisode(_ episode: Episode) async {
+  public func quickPlayEpisode(_ episode: Episode) {
     guard let playbackService else {
       PlaybackEnvironment.playbackStateCoordinator?.reportPlaybackError(
         .streamFailed,
         retryAction: { [weak self] in
           guard let self else { return }
-          Task { await self.quickPlayEpisode(episode) }
+          Task { self.quickPlayEpisode(episode) }
         }
       )
       return
