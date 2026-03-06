@@ -96,6 +96,13 @@ struct ZpodApp: App {
         }
       } else {
         print("📱 Production mode - creating persistent ModelContainer")
+        // Ensure Application Support directory exists before CoreData attempts store creation.
+        // Fresh simulator environments may lack this directory, causing CoreData recovery errors
+        // that leave the process unstable (exit code 65 in integration tests).
+        let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let appSupportURL, !FileManager.default.fileExists(atPath: appSupportURL.path) {
+          try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        }
         do {
           let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self, PlaylistEntity.self])
           let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

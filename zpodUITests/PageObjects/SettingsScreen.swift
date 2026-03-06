@@ -145,18 +145,21 @@ public struct SettingsScreen: BaseScreen {
   /// Navigate to Download Policies configuration.
   ///
   /// **Steps**:
-  /// 1. Find Download Policies row
+  /// 1. Scroll Settings list to find Download Policies row (section 5, requires scroll)
   /// 2. Tap row
   /// 3. Verify Download toggle appeared
-  ///
-  /// **Known Issue**: Download Policies is in Settings section 5. SwiftUI lazy lists
-  /// don't materialize elements until scrolled into view. This method may fail if
-  /// the element isn't visible. See testSettingsTabPresentsDownloadPolicies skip.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToDownloadPolicies() -> Bool {
-    guard let row = downloadPoliciesRow else {
+    // Download Policies is in section 5 — not materialized without scroll
+    guard let row = scrollToFindSettingsRow(
+      identifiers: [
+        "Settings.Feature.downloadPolicies",
+        "Settings.Feature.Label.downloadPolicies",
+        "Download Policies"
+      ]
+    ) else {
       return false
     }
 
@@ -255,10 +258,6 @@ public struct SettingsScreen: BaseScreen {
   /// 3. Cell with identifier
   /// 4. StaticText with identifier
   ///
-  /// **Limitation**: Settings list has many sections. Elements in later sections
-  /// (e.g., downloadPolicies in section 5) may not be materialized until scrolled
-  /// into view. This method does NOT currently scroll.
-  ///
   /// - Parameter identifiers: Identifiers/labels to try (in order)
   /// - Returns: First matching element, or nil if none found
   private func findSettingsRow(identifiers: [String]) -> XCUIElement? {
@@ -273,6 +272,59 @@ public struct SettingsScreen: BaseScreen {
     }
 
     return waitForAny(candidates)
+  }
+
+  /// Scrolls the Settings list until a row becomes hittable.
+  ///
+  /// SwiftUI lists register elements in the accessibility tree even when off-screen,
+  /// so checking `exists` is insufficient — we must verify `isHittable` to confirm
+  /// the element is in the visible viewport.
+  ///
+  /// - Parameter identifiers: Identifiers/labels to try (in order)
+  /// - Parameter maxSwipes: Maximum number of swipe-up gestures (default: 6)
+  /// - Returns: First matching hittable element after scrolling, or nil
+  private func scrollToFindSettingsRow(
+    identifiers: [String],
+    maxSwipes: Int = 6
+  ) -> XCUIElement? {
+    // Build candidate list
+    var candidates: [XCUIElement] = []
+    for identifier in identifiers {
+      candidates += [
+        app.buttons.matching(identifier: identifier).firstMatch,
+        app.otherElements.matching(identifier: identifier).firstMatch,
+        app.cells.matching(identifier: identifier).firstMatch,
+        app.staticTexts.matching(identifier: identifier).firstMatch
+      ]
+    }
+
+    // Check if already hittable
+    if let hittable = candidates.first(where: { $0.exists && $0.isHittable }) {
+      return hittable
+    }
+
+    // Scroll until hittable
+    let settingsList = settingsListElement()
+    for _ in 0..<maxSwipes {
+      settingsList.swipeUp()
+
+      if let hittable = candidates.first(where: { $0.exists && $0.isHittable }) {
+        return hittable
+      }
+    }
+
+    return nil
+  }
+
+  /// Finds the Settings list container to perform scroll gestures on.
+  private func settingsListElement() -> XCUIElement {
+    let candidates = [
+      app.collectionViews.matching(identifier: "Settings.Content").firstMatch,
+      app.tables.matching(identifier: "Settings.Content").firstMatch,
+      app.scrollViews.matching(identifier: "Settings.Content").firstMatch,
+      app.otherElements.matching(identifier: "Settings.Content").firstMatch
+    ]
+    return candidates.first(where: { $0.exists }) ?? candidates[0]
   }
 
   /// Finds the Swipe Actions configuration list.
