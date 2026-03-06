@@ -399,17 +399,13 @@ public struct ExpandedPlayerView: View {
         set: { newValue in
           let maxBound = max(viewModel.duration, viewModel.currentPosition, 1)
           let clampedPosition = min(max(newValue, 0), maxBound)
-          if !viewModel.isScrubbing {
-            viewModel.beginScrubbing()
-          }
-          viewModel.updateScrubbingPosition(clampedPosition)
+          viewModel.seekTo(clampedPosition)
         }
       ),
       in: 0...upperBound,
       onEditingChanged: { editing in
         if editing {
           performLightHaptic()
-          viewModel.beginScrubbing()
         } else {
           performMediumHaptic()
           viewModel.endScrubbing()

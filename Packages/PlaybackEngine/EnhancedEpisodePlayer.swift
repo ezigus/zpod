@@ -329,14 +329,14 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
-    
+
     #if os(iOS)
       // If using audio engine, seek the player
       if audioEngine != nil {
         audioEngine?.seek(to: currentPosition)
       }
     #endif
-    
+
     let snapshot = persistPlaybackPosition()
     lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
 

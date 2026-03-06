@@ -166,6 +166,14 @@ public final class ExpandedPlayerViewModel: ObservableObject {
     playbackService.seek(to: currentPosition)
   }
 
+  /// Seek directly without entering scrubbing state.
+  /// Used when the slider value changes programmatically (e.g., XCUITest slider.adjust)
+  /// where onEditingChanged callbacks may not fire.
+  public func seekTo(_ position: TimeInterval) {
+    currentPosition = min(max(position, 0), duration)
+    playbackService.seek(to: currentPosition)
+  }
+
   public func dismissAlert() {
     alertPresenter.dismissAlert()
   }

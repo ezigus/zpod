@@ -187,21 +187,22 @@ extension StubEpisodePlayer: EpisodePlaybackStateInjecting {
 /// from a single actor context. Timer invalidation and assignment are atomic operations,
 /// making cross-actor access safe despite Timer not being Sendable.
 public final class TimerTicker: Ticker, @unchecked Sendable {
-  private var source: DispatchSourceTimer?
+  private var timer: Timer?
 
   public init() {}
 
   public func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void) {
     cancel()
-    let timer = DispatchSource.makeTimerSource(queue: .main)
-    timer.schedule(deadline: .now() + interval, repeating: interval, leeway: .milliseconds(10))
-    timer.setEventHandler(handler: tick)
-    timer.resume()
-    source = timer
+    let newTimer = Timer(timeInterval: interval, repeats: true) { _ in
+      tick()
+    }
+    // Add to .common run loop mode so timer continues during UI scrolling/interactions
+    RunLoop.main.add(newTimer, forMode: .common)
+    timer = newTimer
   }
 
   public func cancel() {
-    source?.cancel()
-    source = nil
+    timer?.invalidate()
+    timer = nil
   }
 }

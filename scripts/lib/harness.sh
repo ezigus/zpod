@@ -16,6 +16,8 @@ REQUEST_TESTPLAN_SUITE=""
 REQUESTED_LINT=0
 REQUESTED_OSLOG_DEBUG=0
 REQUEST_CLEAR_UI_LOCK=0
+REQUEST_REAP=0
+REQUEST_REAP_DRY_RUN=0
 SELF_CHECK=0
 SCHEME_RESOLVED=0
 SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
@@ -163,13 +165,31 @@ ui_lock_owner_elapsed_seconds() {
     printf "0"
     return 0
   }
+  # Try etimes (Linux) first, fall back to etime (macOS) and parse the format
   local elapsed
   elapsed=$(ps -p "$pid" -o etimes= 2>/dev/null | awk '{print $1}' || true)
   if [[ "$elapsed" =~ ^[0-9]+$ ]]; then
     printf "%s" "$elapsed"
-  else
-    printf "0"
+    return 0
   fi
+  # Parse etime format: [[DD-]HH:]MM:SS
+  local etime
+  etime=$(ps -p "$pid" -o etime= 2>/dev/null | awk '{$1=$1; print}' || true)
+  [[ -z "$etime" ]] && { printf "0"; return 0; }
+  local days=0 hours=0 mins=0 secs=0
+  if [[ "$etime" == *-* ]]; then
+    days="${etime%%-*}"
+    etime="${etime#*-}"
+  fi
+  IFS=: read -ra parts <<< "$etime"
+  case ${#parts[@]} in
+    3) hours="${parts[0]}"; mins="${parts[1]}"; secs="${parts[2]}";;
+    2) mins="${parts[0]}"; secs="${parts[1]}";;
+    1) secs="${parts[0]}";;
+  esac
+  # Strip leading zeros to prevent octal interpretation
+  days=$((10#$days)); hours=$((10#$hours)); mins=$((10#$mins)); secs=$((10#$secs))
+  printf "%s" $(( days*86400 + hours*3600 + mins*60 + secs ))
 }
 
 ui_lock_owner_has_active_test_descendants() {
@@ -272,6 +292,81 @@ terminate_process_tree() {
       kill -9 "$target_pid" 2>/dev/null || true
     fi
   done
+}
+
+reap_orphaned_harness_processes() {
+  local dry_run="${1:-0}"
+  local self_pid="${ROOT_SHELL_PID:-$$}"
+  local orphan_after="${ZPOD_REAP_ORPHAN_AFTER_SECONDS:-120}"
+  [[ "$orphan_after" =~ ^[0-9]+$ ]] || orphan_after=120
+
+  local -a candidate_pids=()
+  local pid
+  while IFS= read -r pid; do
+    [[ -z "$pid" ]] && continue
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    # Skip ourselves and our ancestors
+    [[ "$pid" == "$self_pid" ]] && continue
+    [[ "$pid" == "$$" ]] && continue
+    candidate_pids+=("$pid")
+  done < <(pgrep -f 'run-xcode-tests\.sh' 2>/dev/null || true)
+
+  if (( ${#candidate_pids[@]} == 0 )); then
+    log_info "Reap: no other run-xcode-tests.sh processes found"
+    return 0
+  fi
+
+  local reaped=0
+  local skipped=0
+  for pid in "${candidate_pids[@]}"; do
+    local cmd elapsed state
+    cmd=$(ps -p "$pid" -o command= 2>/dev/null || true)
+    [[ -z "$cmd" ]] && continue
+    # Verify this is actually our harness
+    [[ "$cmd" == *"run-xcode-tests.sh"* ]] || continue
+
+    elapsed=$(ui_lock_owner_elapsed_seconds "$pid")
+    state=$(ps -p "$pid" -o state= 2>/dev/null | awk '{print $1}' || true)
+
+    # Skip if too young
+    if (( elapsed < orphan_after )); then
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # Skip if it has active xcodebuild/xctest descendants
+    if ui_lock_owner_has_active_test_descendants "$pid"; then
+      log_info "Reap: PID ${pid} has active test descendants (age ${elapsed}s) — skipping"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # Count descendants for reporting
+    local descendant_count=0
+    local desc_pid
+    while IFS= read -r desc_pid; do
+      [[ -n "$desc_pid" ]] && descendant_count=$((descendant_count + 1))
+    done < <(collect_descendant_pids "$pid")
+
+    if [[ "$dry_run" == "1" ]]; then
+      log_warn "Reap (dry-run): would kill PID ${pid} + ${descendant_count} descendants (age ${elapsed}s, state ${state})"
+      log_warn "  cmd: ${cmd}"
+    else
+      log_warn "Reap: killing orphaned PID ${pid} + ${descendant_count} descendants (age ${elapsed}s, state ${state})"
+      log_warn "  cmd: ${cmd}"
+      terminate_process_tree "$pid" 3
+    fi
+    reaped=$((reaped + 1))
+  done
+
+  if (( reaped == 0 )); then
+    log_info "Reap: no orphaned harness processes found (${skipped} active/young process(es) skipped)"
+  else
+    local verb="killed"
+    [[ "$dry_run" == "1" ]] && verb="would kill"
+    log_success "Reap: ${verb} ${reaped} orphaned harness process tree(s) (${skipped} skipped)"
+  fi
+  return 0
 }
 
 remove_ui_lock_dir() {
@@ -1439,6 +1534,13 @@ retry_with_fresh_sim() {
   if [[ -n "${temp_sim_udid:-}" ]]; then
     cleanup_ephemeral_simulator "$temp_sim_udid"
     temp_sim_udid=""
+  fi
+
+  # Clean up stale .xcresult bundle from the failed first attempt.
+  # xcodebuild refuses to write to an existing -resultBundlePath.
+  if [[ -n "${RESULT_BUNDLE:-}" && -d "$RESULT_BUNDLE" ]]; then
+    log_info "Removing stale result bundle before retry: ${RESULT_BUNDLE}"
+    rm -rf "$RESULT_BUNDLE"
   fi
 
   log_warn "Retrying ${label} with a freshly created simulator..."
@@ -3114,6 +3216,8 @@ Options:
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
   --clear-ui-lock   Stop lock owner process tree (if active), clear UI lock, remove UI shard artifacts, and exit
+  --reap            Find and kill orphaned run-xcode-tests.sh processes from previous runs
+  --reap-dry-run    Show what --reap would kill without actually killing
   --self-check      Run environment self-checks and exit
   --help            Show this message
 
@@ -3126,6 +3230,7 @@ Environment:
   ZPOD_UI_TEST_PARALLEL_MAX=<n>   Cap max UI shard workers (default: 4 local, 5 CI)
   ZPOD_UI_TEST_PARALLEL_DERIVED_ROOT=<path>
                                   Root for per-shard DerivedData paths when parallel UI sharding is enabled
+  ZPOD_REAP_ORPHAN_AFTER_SECONDS=<n>  Min age in seconds before a harness process is considered orphaned (default: 120)
 EOF
 }
 
@@ -3639,20 +3744,19 @@ test_app_target() {
   local xc_status=$?
 
   local temp_sim_udid=""
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$target" "Simulator boot failure detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$target" "System-level test bundle failure detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$target" "Early test bootstrap crash detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$target" "Test runner restarted after unexpected exit" run_tests_once
+  # Attempt ONE retry for infrastructure failures (sim boot, bundle load, crash).
+  # retry_with_fresh_sim is a no-op after the first call (retry_attempted guard),
+  # but we also skip remaining checks via elif to avoid wasteful log scanning.
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]]; then
+    if is_sim_boot_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$target" "Simulator boot failure detected" run_tests_once
+    elif is_system_test_bundle_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$target" "System-level test bundle failure detected" run_tests_once
+    elif is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$target" "Early test bootstrap crash detected" run_tests_once
+    elif is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$target" "Test runner restarted after unexpected exit" run_tests_once
+    fi
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
@@ -4205,20 +4309,17 @@ run_filtered_xcode_tests() {
   run_tests_once
   local xc_status=$?
 
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_sim_boot_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$label" "Simulator boot failure detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_system_test_bundle_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$label" "System-level test bundle failure detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$label" "Early test bootstrap crash detected" run_tests_once
-  fi
-
-  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]] && is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
-    retry_with_fresh_sim "$label" "Test runner restarted after unexpected exit" run_tests_once
+  # Attempt ONE retry for infrastructure failures (sim boot, bundle load, crash).
+  if [[ $xc_status -ne 0 ]] && [[ -f "$RESULT_LOG" ]]; then
+    if is_sim_boot_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$label" "Simulator boot failure detected" run_tests_once
+    elif is_system_test_bundle_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$label" "System-level test bundle failure detected" run_tests_once
+    elif is_early_test_bootstrap_failure_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$label" "Early test bootstrap crash detected" run_tests_once
+    elif is_test_runner_restart_log "$RESULT_LOG" && ! has_explicit_test_case_failures_log "$RESULT_LOG"; then
+      retry_with_fresh_sim "$label" "Test runner restarted after unexpected exit" run_tests_once
+    fi
   fi
 
   cleanup_ephemeral_simulator "$temp_sim_udid"
@@ -4690,6 +4791,10 @@ while [[ $# -gt 0 ]]; do
       PREFERRED_SIM="$2"; shift 2;;
     --clear-ui-lock)
       REQUEST_CLEAR_UI_LOCK=1; shift;;
+    --reap)
+      REQUEST_REAP=1; shift;;
+    --reap-dry-run)
+      REQUEST_REAP_DRY_RUN=1; shift;;
     --verify-testplan)
       REQUEST_TESTPLAN=1
       REQUEST_TESTPLAN_SUITE=""
@@ -4737,6 +4842,16 @@ if [[ $REQUEST_CLEAR_UI_LOCK -eq 1 ]]; then
     finalize_and_exit 0
   fi
   finalize_and_exit 1
+fi
+
+if [[ $REQUEST_REAP_DRY_RUN -eq 1 ]]; then
+  reap_orphaned_harness_processes 1
+  finalize_and_exit 0
+fi
+
+if [[ $REQUEST_REAP -eq 1 ]]; then
+  reap_orphaned_harness_processes 0
+  finalize_and_exit 0
 fi
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then

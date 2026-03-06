@@ -25,8 +25,37 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
     @MainActor
     private func launchApp() {
         app = launchWithPlaybackMode(.ticker, environmentOverrides: [
-            "UITEST_POSITION_DEBUG": "1"
+            "UITEST_POSITION_DEBUG": "1",
+            // Seed mini player at launch so startPlayback() doesn't depend on
+            // the quick-play -> audio-session path, which is unreliable in ticker mode.
+            "UITEST_FORCE_MINI_PLAYER": "1",
         ])
+    }
+
+    // MARK: - Ticker-specific startPlayback override
+
+    /// Ticker tests use UITEST_FORCE_MINI_PLAYER=1 to seed an episode at launch via
+    /// ContentView's `.task`, so the mini player appears before any UI navigation.
+    /// This override waits for the seeded mini player rather than navigating to the
+    /// Library and tapping quick play — that path is unreliable in ticker mode because
+    /// the quick-play tap would switch episodes, momentarily stopping playback before
+    /// the ticker engine can restart it.
+    ///
+    /// Swift dispatches protocol-extension default methods statically; defining
+    /// `startPlayback()` here takes precedence for direct calls on this concrete type.
+    @MainActor
+    func startPlayback() -> Bool {
+        let miniPlayer = miniPlayerElement(in: app)
+        guard miniPlayer.waitForExistence(timeout: adaptiveTimeout) else {
+            XCTFail("Mini player did not appear — check UITEST_FORCE_MINI_PLAYER seeding")
+            return false
+        }
+        let pauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
+        guard pauseButton.waitForExistence(timeout: adaptiveTimeout) else {
+            XCTFail("Seeded mini player not showing Pause button — ticker not playing")
+            return false
+        }
+        return true
     }
 
     // MARK: - Test 1: Position Advancement

@@ -619,6 +619,33 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           .presentationBackground(.black)
         }
       #endif
+      // UITEST_FORCE_MINI_PLAYER: Seed a sample episode so the mini player appears at launch
+      // without requiring UI navigation. Analogous to UITEST_FORCE_EXPANDED_PLAYER.
+      .task {
+        #if canImport(PlayerFeature)
+          if ProcessInfo.processInfo.environment["UITEST_FORCE_MINI_PLAYER"] == "1" {
+            let env = ProcessInfo.processInfo.environment
+            let audioURL = resolveTestAudioURL(
+              envKey: "UITEST_AUDIO_SHORT_PATH",
+              bundleName: "test-episode-short",
+              env: env
+            ) ?? URL(string: "https://example.com/test-episode.mp3")
+            let episode = Episode(
+              id: "force-mini-player-sample",
+              title: "Test Episode",
+              podcastID: "force-mini-player-podcast",
+              podcastTitle: "Test Podcast",
+              playbackPosition: 0,
+              isPlayed: false,
+              pubDate: Date(),
+              duration: 60.0,
+              description: "",
+              audioURL: audioURL
+            )
+            playbackDependencies.playbackService.play(episode: episode, duration: 60.0)
+          }
+        #endif
+      }
     }
 
     /// The queue manager used to wire playlist playback — only available when PlayerFeature is linked.

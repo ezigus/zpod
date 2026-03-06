@@ -581,7 +581,9 @@ public struct EpisodeListView: View {
               isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
             )
           }
+          .accessibilityElement(children: .contain)
           .accessibilityIdentifier("Episode-\(episode.id)")
+          .accessibilityAddTraits(.isButton)
           .swipeActions(
             edge: .trailing,
             allowsFullSwipe: viewModel.allowsFullSwipeTrailing
