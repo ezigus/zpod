@@ -82,7 +82,7 @@ final class OrphanedEpisodesViewModelTests: XCTestCase {
 private final class MockPlaybackCoordinator: EpisodePlaybackCoordinating {
   var playedEpisodes: [Episode] = []
 
-  func quickPlayEpisode(_ episode: Episode) async {
+  func quickPlayEpisode(_ episode: Episode) {
     playedEpisodes.append(episode)
   }
 

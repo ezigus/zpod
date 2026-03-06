@@ -48,7 +48,7 @@ final class SimplePlaybackEngineTests: XCTestCase {
     @MainActor
     func testStubEpisodePlayer_basicFunctionality() {
         // Given: Stub episode player
-        let ticker = TimerTicker()
+        let ticker = DeterministicTicker()
         let stubPlayer = StubEpisodePlayer(ticker: ticker)
         let episode = Episode(id: "ep1", title: "Test Episode")
         
