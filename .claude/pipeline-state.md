@@ -1,49 +1,46 @@
 ---
-pipeline: standard
-goal: "[Issue 28.1.13] Final Acceptance Criteria Completion for Offline & Streaming"
-status: failed
-issue: "#403"
-branch: "feat/-issue-28-1-13-final-acceptance-criteria-403"
-template: "feature-dev"
-current_stage: test
-current_stage_description: "Running test suite and validating coverage"
-stage_progress: "intake:complete plan:complete design:complete build:failed test:pending review:pending compound_quality:pending pr:pending merge:pending"
-started_at: 2026-02-16T14:56:46Z
-updated_at: 2026-02-16T18:55:07Z
-elapsed: 3h 58m 21s
+pipeline: autonomous
+goal: "[#27.1.9] Wire Library View to Live Podcast Repository Data"
+status: running
+issue: "#426"
+branch: "feat/-27-1-9-wire-library-view-to-live-podcas-426"
+template: ""
+current_stage: build
+current_stage_description: "Building with 20 max iterations using claude-opus-4-6"
+stage_progress: "intake:complete plan:complete design:complete build:pending test:pending review:pending compound_quality:pending audit:pending pr:pending merge:pending monitor:pending"
+started_at: 2026-03-07T20:17:00Z
+updated_at: 2026-03-07T21:56:58Z
+elapsed: 0s
+test_cmd: "bash ./scripts/run-xcode-tests.sh"
 pr_number: 
-progress_comment_id: 3908932297
+progress_comment_id: 
 stages:
   intake: complete
   plan: complete
   design: complete
-  build: failed
 ---
 
 ## Log
 
-### intake (09:57:01)
-Goal: [Issue 28.1.13] Final Acceptance Criteria Completion for Offline & Streaming
+### intake (15:19:09)
+Goal: [#27.1.9] Wire Library View to Live Podcast Repository Data
 Type: feature → template: feature-dev
-Branch: feat/-issue-28-1-13-final-acceptance-criteria-403
-Language: unknown
-Test cmd: none detected
+Branch: feat/-27-1-9-wire-library-view-to-live-podcas-426
+Language: swift
+Test cmd: bash ./scripts/run-xcode-tests.sh
+Issue type: backend
 
-### intake (09:57:01)
-complete (13s)
+### intake (15:19:09)
+complete (2m 6s)
 
-### plan (10:04:08)
-Generated plan.md (13 lines, 1 tasks)
+### plan (15:28:19)
+Generated plan.md (269 lines, 20 tasks)
 
-### plan (10:04:08)
-complete (6m 46s)
+### plan (15:28:19)
+complete (9m 8s)
 
-### design (10:31:03)
-Generated design.md (133 lines)
+### design (15:29:30)
+Generated design.md (437 lines)
 
-### design (10:31:03)
-complete (9m 52s)
-
-### build (13:13:57)
-failed (2h 42m 50s)
-
+### design (15:29:30)
+complete (1m 10s)

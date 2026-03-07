@@ -73,131 +73,16 @@ Task tracking (check off items as you complete them):
 - Pipeline: autonomous
 - Branch: feat/-27-1-9-wire-library-view-to-live-podcas-426
 - Issue: #426
-- Generated: 2026-03-07T20:21:58Z
-
-## Skill Guidance (backend issue, AI-selected)
-## Frontend Design Expertise
-
-Apply these frontend patterns to your implementation:
-
-### Accessibility (Required)
-- All interactive elements must have keyboard support
-- Use semantic HTML elements (button, nav, main, article)
-- Include aria-labels for non-text interactive elements
-- Ensure color contrast meets WCAG AA (4.5:1 for text)
-- Test with screen reader mental model: does the DOM order make sense?
-
-### Responsive Design
-- Mobile-first: start with mobile layout, enhance for larger screens
-- Use relative units (rem, %, vh/vw) instead of fixed pixels
-- Test breakpoints: 320px, 768px, 1024px, 1440px
-- Touch targets: minimum 44x44px
-
-### Component Patterns
-- Keep components focused — one responsibility per component
-- Lift state up only when siblings need to share it
-- Use composition over inheritance
-- Handle loading, error, and empty states for every data-dependent component
-
-### Performance
-- Lazy-load below-the-fold content
-- Optimize images (appropriate format, size, lazy loading)
-- Minimize re-renders — check dependency arrays in effects
-- Avoid layout thrashing — batch DOM reads and writes
-
-### User Experience
-- Provide immediate feedback for user actions
-- Show loading indicators for operations > 300ms
-- Use optimistic updates where safe
-- Preserve user input on errors — never clear forms on failed submit
-
-### Required Output (Mandatory)
-
-Your output MUST include these sections when this skill is active:
-
-1. **Component Hierarchy**: Tree structure showing parent/child relationships and where state lives
-2. **State Management Approach**: How state flows (props, context, local state, external store) with explicit data flow
-3. **Accessibility Checklist**: WCAG AA compliance items checked (keyboard support, semantic HTML, color contrast, aria-labels)
-4. **Responsive Breakpoints**: Explicit breakpoints tested (320px, 768px, 1024px, 1440px) and how layout changes at each
-
-If any section is not applicable, explicitly state why it's skipped.
-## Testing Strategy Expertise
-
-Apply these testing patterns:
-
-### Test Pyramid
-- **Unit tests** (70%): Test individual functions/methods in isolation
-- **Integration tests** (20%): Test component interactions and boundaries
-- **E2E tests** (10%): Test critical user flows end-to-end
-
-### What to Test
-- Happy path: the expected successful flow
-- Error cases: what happens when things go wrong?
-- Edge cases: empty inputs, maximum values, concurrent access
-- Boundary conditions: off-by-one, empty collections, null/undefined
-
-### Test Quality
-- Each test should verify ONE behavior
-- Test names should describe the expected behavior, not the implementation
-- Tests should be independent — no shared mutable state between tests
-- Tests should be deterministic — same result every run
-
-### Coverage Strategy
-- Aim for meaningful coverage, not 100% line coverage
-- Focus coverage on business logic and error handling
-- Don't test framework code or simple getters/setters
-- Cover the branches, not just the lines
-
-### Mocking Guidelines
-- Mock external dependencies (APIs, databases, file system)
-- Don't mock the code under test
-- Use realistic test data — edge cases reveal bugs
-- Verify mock interactions when the side effect IS the behavior
-
-### Regression Testing
-- Write a failing test FIRST that reproduces the bug
-- Then fix the bug and verify the test passes
-- Keep regression tests — they prevent the bug from recurring
-
-### Required Output (Mandatory)
-
-Your output MUST include these sections when this skill is active:
-
-1. **Test Pyramid Breakdown**: Explicit count of unit/integration/E2E tests and their coverage targets (e.g., "70 unit tests covering business logic, 12 integration tests for API boundaries, 3 E2E tests for critical paths")
-2. **Coverage Targets**: Target coverage percentage per layer and which critical paths MUST be tested
-3. **Critical Paths to Test**: Specific test cases for the happy path, 2+ error cases, and 2+ edge cases
-
-If any section is not applicable, explicitly state why it's skipped.
-
-
-## Failure Diagnosis (Iteration 2)
-Classification: unknown
-Strategy: alternative_approach
-Repeat count: 27
-INSTRUCTION: This error has occurred 27 times. The previous approach is not working. Try a FUNDAMENTALLY DIFFERENT approach:
-- If you were modifying existing code, try rewriting the function from scratch
-- If you were using one library, try a different one
-- If you were adding to a file, try creating a new file instead
-- Step back and reconsider the requirements
-
-## Failure Diagnosis (Iteration 3)
-Classification: unknown
-Strategy: alternative_approach
-Repeat count: 28
-INSTRUCTION: This error has occurred 28 times. The previous approach is not working. Try a FUNDAMENTALLY DIFFERENT approach:
-- If you were modifying existing code, try rewriting the function from scratch
-- If you were using one library, try a different one
-- If you were adding to a file, try creating a new file instead
-- Step back and reconsider the requirements"
-iteration: 3
+- Generated: 2026-03-07T20:21:58Z"
+iteration: 0
 max_iterations: 20
 status: running
 test_cmd: "bash ./scripts/run-xcode-tests.sh"
 model: sonnet
 agents: 1
-started_at: 2026-03-07T21:31:42Z
-last_iteration_at: 2026-03-07T21:31:42Z
-consecutive_failures: 1
+started_at: 2026-03-07T21:58:34Z
+last_iteration_at: 2026-03-07T21:58:34Z
+consecutive_failures: 0
 total_commits: 0
 audit_enabled: true
 audit_agent_enabled: true
@@ -209,12 +94,4 @@ max_extensions: 3
 ---
 
 ## Log
-### Iteration 1 (2026-03-07T20:48:01Z)
-{"type":"result","subtype":"success","is_error":false,"duration_ms":55646,"duration_api_ms":44204,"num_turns":17,"result
-
-### Iteration 2 (2026-03-07T21:09:02Z)
-{"type":"result","subtype":"success","is_error":false,"duration_ms":307606,"duration_api_ms":282566,"num_turns":36,"resu
-
-### Iteration 3 (2026-03-07T21:31:42Z)
-{"type":"result","subtype":"success","is_error":false,"duration_ms":401942,"duration_api_ms":235634,"num_turns":19,"resu
 
