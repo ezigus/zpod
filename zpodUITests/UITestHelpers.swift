@@ -54,6 +54,7 @@ extension XCUIApplication {
     app.launchEnvironment["UITEST_SLIDER_OPACITY"] = "0.1"
     app.launchEnvironment["UITEST_DISABLE_AUDIO_ENGINE"] = "1"  // Use ticker-based playback for deterministic timing
     app.launchEnvironment["UITEST_DEBUG_AUDIO"] = "1"  // DIAGNOSTIC: log EnhancedEpisodePlayer.play() calls
+    app.launchEnvironment["UITEST_SEED_PODCASTS"] = "1"  // Seed Library with sample podcast data so navigation tests pass
     return app
   }
 

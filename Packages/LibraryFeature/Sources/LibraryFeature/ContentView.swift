@@ -734,6 +734,23 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     @MainActor
     private func loadData() async {
       podcasts = podcastManager.all()
+
+      // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
+      // tests can find podcast cards in a fresh (empty) test environment.
+      if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
+        let seedPodcast = Podcast(
+          id: "swift-talk",
+          title: "Swift Talk",
+          author: "objc.io",
+          description: "Weekly episodes about Swift programming",
+          feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+          episodes: [],
+          dateAdded: Date()
+        )
+        podcastManager.add(seedPodcast)
+        podcasts = podcastManager.all()
+      }
+
       isLoading = false
 
       // Retry playback restoration now that library is loaded
