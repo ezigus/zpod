@@ -15,9 +15,7 @@ struct OrphanedEpisodesView: View {
     List {
       ForEach(viewModel.episodes, id: \.id) { episode in
         let quickPlayAction = {
-          let _: Task<Void, Never> = Task {
-            await viewModel.quickPlayEpisode(episode)
-          }
+          viewModel.quickPlayEpisode(episode)
         }
         row(for: episode)
           .padding(.trailing, 44) // leave space for trailing quick play control

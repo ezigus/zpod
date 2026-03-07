@@ -8,6 +8,7 @@
 
 import Foundation
 import OSLog
+import UIKit
 import XCTest
 
 private let launchLogger = Logger(subsystem: "us.zig.zpod", category: "UITestHelpers")
@@ -30,6 +31,17 @@ extension XCTestCase {
   }
 }
 
+// MARK: - Quiescence Control
+
+// NOTE: Method swizzling of XCUIApplication._waitForQuiescence* was attempted
+// but cannot work because _waitForQuiescenceAsPreEvent: is called both for the
+// standard pre/post-event quiescence checks AND internally during IPC event
+// delivery. Swizzling it breaks event synthesis ("Synthesize event" hangs).
+//
+// The correct fix is on the APP side: eliminate sources of permanent main-thread
+// non-idle state (Combine publishers, SwiftUI transitions, pending Tasks) so the
+// quiescence detector passes naturally after QuickPlay triggers playback.
+
 // MARK: - Application Configuration
 
 extension XCUIApplication {
@@ -41,6 +53,7 @@ extension XCUIApplication {
     app.launchEnvironment["UITEST_DISABLE_ANIMATIONS"] = "1"
     app.launchEnvironment["UITEST_SLIDER_OPACITY"] = "0.1"
     app.launchEnvironment["UITEST_DISABLE_AUDIO_ENGINE"] = "1"  // Use ticker-based playback for deterministic timing
+    app.launchEnvironment["UITEST_DEBUG_AUDIO"] = "1"  // DIAGNOSTIC: log EnhancedEpisodePlayer.play() calls
     return app
   }
 
@@ -233,22 +246,27 @@ extension ElementWaiting {
     timeout: TimeInterval,
     description: String = "Quick play button"
   ) -> XCUIElement? {
-    let rawEpisodeId = episodeIdentifier.hasPrefix("Episode-")
-      ? String(episodeIdentifier.dropFirst("Episode-".count))
-      : episodeIdentifier
-    let primaryQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)-QuickPlay")
-      .firstMatch
-    let fallbackQuickPlayButton = app.buttons
-      .matching(identifier: "Episode-\(rawEpisodeId)")
-      .matching(NSPredicate(format: "label == 'Quick play'"))
-      .firstMatch
-    return waitForAnyElement(
-      [primaryQuickPlayButton, fallbackQuickPlayButton],
-      timeout: timeout,
-      description: description,
-      failOnTimeout: true
+    let candidates = quickPlayButtonCandidates(in: app, episodeIdentifier: episodeIdentifier)
+    if let resolved = firstDiscoverableElement(candidates, timeout: timeout) {
+      let resolvedIdentifier = resolved.identifier
+      let resolvedLabel = resolved.label
+      if resolvedIdentifier.localizedCaseInsensitiveContains("quickplay")
+        || resolvedLabel.localizedCaseInsensitiveContains("quick play")
+      {
+        return resolved
+      }
+      XCTFail(
+        "Resolved non-quick-play control while looking for quick play: identifier='\(resolvedIdentifier)', label='\(resolvedLabel)'."
+      )
+      return nil
+    }
+
+    let rawEpisodeId = normalizedEpisodeIdentifier(episodeIdentifier)
+    XCTFail(
+      "Quick play button was not discoverable for episode '\(rawEpisodeId)' within \(timeout)s. " +
+      "Checked identifier 'Episode-\(rawEpisodeId)-QuickPlay' across button, row-scoped, and type-agnostic queries."
     )
+    return nil
   }
 
   func tapQuickPlayButton(
@@ -268,6 +286,34 @@ extension ElementWaiting {
     quickPlayButton.tap()
   }
 
+  @discardableResult
+  func ensureEpisodeVisibleForQuickPlay(
+    in app: XCUIApplication,
+    episodeIdentifier: String = "Episode-st-001",
+    timeout: TimeInterval,
+    maxScrollAttempts: Int = 4
+  ) -> Bool {
+    let candidates = quickPlayButtonCandidates(in: app, episodeIdentifier: episodeIdentifier)
+    if firstDiscoverableElement(candidates, timeout: min(timeout, adaptiveShortTimeout)) != nil {
+      return true
+    }
+
+    let listContainer = episodeListContainer(in: app)
+    for _ in 0..<maxScrollAttempts {
+      if listContainer.exists {
+        listContainer.swipeUp()
+      } else {
+        app.swipeUp()
+      }
+
+      if firstDiscoverableElement(candidates, timeout: min(adaptiveShortTimeout, 0.75)) != nil {
+        return true
+      }
+    }
+
+    return false
+  }
+
   func miniPlayerElement(in app: XCUIApplication) -> XCUIElement {
     app.otherElements.matching(identifier: "Mini Player").firstMatch
   }
@@ -276,6 +322,112 @@ extension ElementWaiting {
     guard element.exists else { return false }
     let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
     return !text.isEmpty
+  }
+
+  private func normalizedEpisodeIdentifier(_ episodeIdentifier: String) -> String {
+    episodeIdentifier.hasPrefix("Episode-")
+      ? String(episodeIdentifier.dropFirst("Episode-".count))
+      : episodeIdentifier
+  }
+
+  private func quickPlayButtonCandidates(
+    in app: XCUIApplication,
+    episodeIdentifier: String
+  ) -> [XCUIElement] {
+    let rawEpisodeId = normalizedEpisodeIdentifier(episodeIdentifier)
+    let episodeIdVariants = Array(Set([rawEpisodeId, episodeIdentifier]))
+
+    var quickPlayIdentifiers = episodeIdVariants.map { "Episode-\($0)-QuickPlay" }
+    if episodeIdentifier.hasPrefix("Episode-") {
+      quickPlayIdentifiers.append("Episode-\(episodeIdentifier)-QuickPlay")
+    }
+
+    let episodeCellIdentifiers = episodeIdVariants.map { "Episode-\($0)" }
+    let rowIdentifiers = episodeIdVariants.map { "Episode Row-\($0)" }
+
+    var candidates: [XCUIElement] = []
+
+    for quickPlayIdentifier in quickPlayIdentifiers {
+      candidates.append(app.buttons.matching(identifier: quickPlayIdentifier).firstMatch)
+      candidates.append(
+        app.descendants(matching: .button).matching(identifier: quickPlayIdentifier).firstMatch
+      )
+      candidates.append(
+        app.descendants(matching: .any).matching(identifier: quickPlayIdentifier).firstMatch
+      )
+    }
+
+    for episodeCellIdentifier in episodeCellIdentifiers {
+      let episodeCell = app.descendants(matching: .any).matching(identifier: episodeCellIdentifier).firstMatch
+      for quickPlayIdentifier in quickPlayIdentifiers {
+        candidates.append(
+          episodeCell.descendants(matching: .button).matching(identifier: quickPlayIdentifier).firstMatch
+        )
+        candidates.append(
+          episodeCell.descendants(matching: .any).matching(identifier: quickPlayIdentifier).firstMatch
+        )
+      }
+    }
+
+    for rowIdentifier in rowIdentifiers {
+      let episodeRow = app.descendants(matching: .any).matching(identifier: rowIdentifier).firstMatch
+      for quickPlayIdentifier in quickPlayIdentifiers {
+        candidates.append(
+          episodeRow.descendants(matching: .button).matching(identifier: quickPlayIdentifier).firstMatch
+        )
+        candidates.append(
+          episodeRow.descendants(matching: .any).matching(identifier: quickPlayIdentifier).firstMatch
+        )
+      }
+    }
+
+    // iOS label-based fallback: the QuickPlay button can surface under the parent row's
+    // identifier with label "Quick play" rather than the expected "-QuickPlay" suffix.
+    // On iOS 26.x, two buttons share identifier "Episode-<id>": the row (long combined
+    // label) and the QuickPlay button (label exactly "Quick play"). Use a compound
+    // predicate to target the QuickPlay button specifically.
+    let quickPlayLabelPredicate = NSPredicate(format: "label == 'Quick play'")
+    for episodeCellIdentifier in episodeCellIdentifiers {
+      let compoundPredicate = NSPredicate(
+        format: "identifier == %@ AND label == 'Quick play'", episodeCellIdentifier)
+      candidates.append(app.buttons.matching(compoundPredicate).firstMatch)
+      candidates.append(app.descendants(matching: .any).matching(compoundPredicate).firstMatch)
+    }
+    for rowIdentifier in rowIdentifiers {
+      let compoundPredicate = NSPredicate(
+        format: "identifier == %@ AND label == 'Quick play'", rowIdentifier)
+      candidates.append(app.buttons.matching(compoundPredicate).firstMatch)
+      candidates.append(app.descendants(matching: .any).matching(compoundPredicate).firstMatch)
+    }
+    // Final fallback: app-wide label search (may find the row element on some iOS versions)
+    candidates.append(app.buttons.matching(quickPlayLabelPredicate).firstMatch)
+
+    return candidates
+  }
+
+  private func firstDiscoverableElement(
+    _ elements: [XCUIElement],
+    timeout: TimeInterval
+  ) -> XCUIElement? {
+    guard !elements.isEmpty else { return nil }
+    let perElementTimeout = max(0.2, timeout / Double(elements.count))
+    for element in elements where element.waitForExistence(timeout: perElementTimeout) {
+      return element
+    }
+    return nil
+  }
+
+  private func episodeListContainer(in app: XCUIApplication) -> XCUIElement {
+    let table = app.tables.matching(identifier: "Episode Cards Container").firstMatch
+    if table.exists { return table }
+
+    let collection = app.collectionViews.matching(identifier: "Episode Cards Container").firstMatch
+    if collection.exists { return collection }
+
+    let scroll = app.scrollViews.matching(identifier: "Episode Cards Container").firstMatch
+    if scroll.exists { return scroll }
+
+    return app.descendants(matching: .any).matching(identifier: "Episode Cards Container").firstMatch
   }
 
   /// Wait for any element using XCTestExpectation pattern

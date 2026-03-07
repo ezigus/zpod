@@ -547,13 +547,14 @@ public struct EpisodeListView: View {
             isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
           )
           .accessibilityIdentifier("Episode-\(episode.id)")
+          .accessibilityAddTraits(.isButton)
+          .contentShape(Rectangle())
+          .onTapGesture { viewModel.toggleEpisodeSelection(episode) }
         } else {
-          let quickPlayAction = {
-            let _: Task<Void, Never> = Task { @MainActor in
-              await viewModel.quickPlayEpisode(episode)
-            }
-          }
-          NavigationLink(destination: episodeDetailView(for: episode)) {
+          ZStack(alignment: .leading) {
+            NavigationLink(value: episode) { EmptyView() }
+              .opacity(0)
+
             EpisodeRowView(
               episode: episode,
               downloadProgress: viewModel.downloadProgress(for: episode.id),
@@ -571,16 +572,18 @@ public struct EpisodeListView: View {
                   await viewModel.resumeEpisodeDownload(episode)
                 }
               },
-              onQuickPlay: nil,
+              onQuickPlay: {
+                viewModel.quickPlayEpisode(episode)
+              },
               isSelected: false,
               isInMultiSelectMode: false,
               noteCount: viewModel.noteCounts[episode.id],
               isDownloadDeleted: viewModel.deletedDownloadEpisodeIDs.contains(episode.id)
             )
           }
-          .overlay(alignment: .trailing) {
-            quickPlayButton(for: episode, action: quickPlayAction, trailingPadding: 12)
-          }
+          .accessibilityElement(children: .contain)
+          .accessibilityIdentifier("Episode-\(episode.id)")
+          .accessibilityAddTraits(.isButton)
           .swipeActions(
             edge: .trailing,
             allowsFullSwipe: viewModel.allowsFullSwipeTrailing
@@ -611,14 +614,16 @@ public struct EpisodeListView: View {
             }
           }
           #endif
-          .accessibilityIdentifier("Episode-\(episode.id)")
           .onLongPressGesture {
             viewModel.enterMultiSelectMode()
             viewModel.toggleEpisodeSelection(episode)
           }
-      }
+        }
     }
     .platformInsetGroupedListStyle()
+    .navigationDestination(for: Episode.self) { episode in
+      episodeDetailView(for: episode)
+    }
     .accessibilityIdentifier("Episode Cards Container")
     .background(EpisodeListIdentifierSetter())
     #if DEBUG
@@ -895,6 +900,15 @@ public struct EpisodeListView: View {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+      // Only retry if the identifier hasn't been set yet.
+      // Restarting the full retry loop on every SwiftUI re-render creates
+      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
+      // app non-idle for XCUITest's quiescence detector.
+      if let tableView = locateTableView(startingFrom: uiViewController),
+        tableView.accessibilityIdentifier == "Episode Cards Container"
+      {
+        return
+      }
       scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
     }
 
@@ -954,6 +968,7 @@ public struct EpisodeListView: View {
     }
   }
 #endif
+
 
 @MainActor
 @ViewBuilder
@@ -1057,13 +1072,8 @@ public struct EpisodeRowView: View {
     .padding(.vertical, 4)
     .background(isSelected && isInMultiSelectMode ? Color.blue.opacity(0.1) : Color.clear)
     .cornerRadius(8)
-    .accessibilityElement(children: .combine)
-    .accessibilityIdentifier("Episode Row-\(episode.id)")
-    .onTapGesture {
-      if isInMultiSelectMode {
-        onSelectionToggle?()
-      }
-    }
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("Episode-\(episode.id)")
   }
 
   private var episodeArtwork: some View {
@@ -1255,6 +1265,8 @@ public struct EpisodeRowView: View {
         }
       }
     }
+    .buttonStyle(.borderless)
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("Episode Status")
   }
 

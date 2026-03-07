@@ -28,6 +28,7 @@ struct ZpodApp: App {
     disableHardwareKeyboard()
     configureSiriSnapshots()
     configureCarPlayDependencies()
+    configureAnimationsForUITesting()
 
     // Seed UI test data asynchronously (StorageManagementViewModel uses fallback stats for deterministic UI)
     #if canImport(LibraryFeature)
@@ -95,6 +96,13 @@ struct ZpodApp: App {
         }
       } else {
         print("📱 Production mode - creating persistent ModelContainer")
+        // Ensure Application Support directory exists before CoreData attempts store creation.
+        // Fresh simulator environments may lack this directory, causing CoreData recovery errors
+        // that leave the process unstable (exit code 65 in integration tests).
+        let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let appSupportURL, !FileManager.default.fileExists(atPath: appSupportURL.path) {
+          try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        }
         do {
           let schema = Schema([LibraryFeature.Item.self, PodcastEntity.self, EpisodeEntity.self, PlaylistEntity.self])
           let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -163,7 +171,18 @@ struct ZpodApp: App {
     #if canImport(LibraryFeature)
       // Reset all episode playback positions to ensure clean state between tests
       Self.sharedPodcastRepository.resetAllPlaybackPositions()
-      print("🧪 UI Test: Reset all episode playback positions to 0")
+
+      // Clear persisted episode state from UserDefaults suite used by EpisodeListDependencyProvider.
+      // Without this, playbackPosition from a previous test run leaks through
+      // UserDefaultsEpisodeRepository → loadPersistedEpisodes(), causing episodes to start
+      // at their old position (e.g., fully played) instead of 0.
+      let episodeSuiteName = "us.zig.zpod.episode-state"
+      UserDefaults.standard.removePersistentDomain(forName: episodeSuiteName)
+
+      // Also clear playback resume state from standard UserDefaults
+      UserDefaults.standard.removeObject(forKey: "playback_resume_state")
+
+      print("🧪 UI Test: Reset all episode playback positions and cleared persisted state")
     #endif
   }
 
@@ -355,6 +374,7 @@ struct ZpodApp: App {
     }
   }
 
+
   #if canImport(LibraryFeature)
     /// Handles NSUserActivity from Siri to play a specific episode
     private func handlePlayEpisodeActivity(_ userActivity: NSUserActivity) {
@@ -420,3 +440,4 @@ struct ZpodApp: App {
   }
 
 }
+

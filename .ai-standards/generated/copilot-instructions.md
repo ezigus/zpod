@@ -1,35 +1,4 @@
-# Agent Instructions (Codex Self-Contained)
-
-Use centralized standards as source of truth:
-- /Users/ericziegler/code/standards/ai-agent-standards/core/core-policy.md
-- /Users/ericziegler/code/standards/ai-agent-standards/adapters/codex-adapter.md
-- /Users/ericziegler/code/standards/ai-agent-standards/repo-overrides/zpod.md
-- /Users/ericziegler/code/standards/ai-agent-standards/resolution/profile-resolution-matrix.md
-- /Users/ericziegler/code/standards/ai-agent-standards/resolution/shipwright-detection-contract.md
-
-Default profile eligibility for this repo: ios-swift,ui-testing,carplay.
-Shipwright profile is conditional per detection contract.
-
-Canonical source of truth:
-- /Users/ericziegler/code/standards/ai-agent-standards
-
-This file is self-contained for Codex and inlines critical directives.
-Generated source snapshot:
-- .ai-standards/generated/codex-instructions.md
-
-## Critical Rules (Inlined)
-- Do not use `sleep` or `timeout` as polling/synchronization mechanisms.
-- Timeouts/sleeps are allowed only as failsafe bounds to prevent unbounded execution.
-- In test code, fixed sleeps are last resort only and require justification in context.
-- Always load mandatory baseline items from the resolution matrix on every turn.
-
-## Repo-Specific Additions (Preserved)
-# Repo-Specific Codex Additions
-
-Add repo-local instructions here. This file is preserved across installs.
-
-## BEGIN GENERATED STANDARDS (DO NOT EDIT IN PLACE)
-# Generated Codex Instructions
+# Generated Copilot Instructions
 
 Generated from central standards repository.
 - Repo key: zpod
@@ -39,7 +8,7 @@ Generated from central standards repository.
 ## Mandatory Baseline (Always Load)
 - core/core-policy.md
 - core/testing-baseline.md
-- adapters/codex-adapter.md
+- adapters/copilot-adapter.md
 - repo-overrides/zpod.md
 
 ### core/core-policy.md
@@ -81,16 +50,14 @@ This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot
 - Timeouts/sleeps are allowed only as failsafe bounds to prevent unbounded execution.
 - In test code, fixed sleeps are last resort only and require justification in context.
 
-### adapters/codex-adapter.md
-# Adapter: Codex
+### adapters/copilot-adapter.md
+# Adapter: Copilot
 
-Use with repo `AGENTS.md` as a self-contained prompt file.
+Use with `.github/copilot-instructions.md` as a self-contained startup file.
 
 - Always load mandatory baseline items from the resolution matrix on every turn.
-- `AGENTS.md` MUST inline critical rules and must not be pointer-only for required behavior.
-- Generated Codex instructions may be used as the source for `AGENTS.md`, but critical rules must appear directly in `AGENTS.md`.
-- Prefer practical, repository-grounded execution.
-- Keep updates concise and explicit.
+- `.github/copilot-instructions.md` MUST include critical rules directly and must not be pointer-only for required behavior.
+- Generated Copilot instructions may be used as source content, but critical rules must appear directly in `.github/copilot-instructions.md`.
 
 ### repo-overrides/zpod.md
 # Repo Override: zpod
@@ -637,15 +604,28 @@ Load for CarPlay/HIG/compliance work.
 Load only when Shipwright is active (see detection contract).
 
 ## Core Commands
+
 - `shipwright status`
 - `shipwright activity`
 - `shipwright pipeline start --issue <N>`
 - `shipwright cleanup --force` (use intentionally)
 
 ## Operational Rules
+
 - Verify whether daemon/pipeline is already active before starting a new run.
 - Use Shipwright-specific diagnostics before manual intervention.
 - Treat lock/cleanup actions as explicit operations with visible logs.
+
+## Build Loop: Test Execution
+
+When `SHIPWRIGHT_SOURCE=loop`, the harness owns test execution:
+
+- **NEVER run the full test suite yourself.** The loop runs it automatically after each iteration and injects the results into your next prompt. Xcode tests take 60–90 minutes — running them yourself exhausts your entire context window and causes a timeout.
+- You MAY run a single targeted test class to validate a specific fix:
+  `./scripts/run-xcode-tests.sh -t SpecificTestClass`
+  Only do this for the specific failing test, not the full suite.
+- After making your code changes, stop and describe what you changed. The harness will run the full suite and report back.
+- When a UI test fails, read the failure details from the injected test log. Do not re-run the full suite to reproduce it — diagnose from the log and fix the code.
 
 ### resolution/profile-resolution-matrix.md
 # Profile Resolution Matrix
@@ -677,4 +657,3 @@ If none are true, do not load `profiles/shipwright-operations.md`.
 ## Optional env metadata
 - `SHIPWRIGHT_RUN_ID=<id>`
 - `SHIPWRIGHT_SOURCE=pipeline|daemon|session`
-## END GENERATED STANDARDS

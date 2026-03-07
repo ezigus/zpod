@@ -430,4 +430,78 @@ final class SmartPlaylistViewModelTests: XCTestCase {
         vm.onShuffle?(episodes)
         XCTAssertNotNil(invokedEpisodes)
     }
+
+    // MARK: - Edge Cases
+
+    func testUpdateSmartPlaylistChangesLastUpdatedTimestamp() {
+        let vm = makeViewModel()
+        vm.createSmartPlaylist(
+            name: "Timestamp Test",
+            rules: SmartListRuleSet(rules: [
+                SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed)),
+            ])
+        )
+
+        let original = vm.customPlaylists[0]
+        let originalTimestamp = original.lastUpdated
+
+        // Ensure some time elapses so timestamps differ
+        let updated = original
+            .withName("Timestamp Test Updated")
+            .withLastUpdated(Date().addingTimeInterval(1))
+        vm.updateSmartPlaylist(updated)
+
+        let saved = vm.customPlaylists[0]
+        XCTAssertGreaterThan(saved.lastUpdated, originalTimestamp)
+    }
+
+    func testCreateSmartPlaylistWithManyRulesEvaluatesCorrectly() {
+        let episodes = makeSampleEpisodes()
+        let vm = makeViewModel(allEpisodes: episodes)
+
+        // Build a playlist with 5 rules using OR logic (union of all conditions)
+        let rules = SmartListRuleSet(rules: [
+            SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed)),
+            SmartListRule(type: .downloadStatus, comparison: .equals, value: .downloadStatus(.downloaded)),
+            SmartListRule(type: .duration, comparison: .greaterThan, value: .timeInterval(60)),
+            SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.played)),
+            SmartListRule(type: .downloadStatus, comparison: .equals, value: .downloadStatus(.notDownloaded)),
+        ], logic: .or)
+        vm.createSmartPlaylist(name: "Many Rules OR", rules: rules)
+
+        let result = vm.episodes(for: vm.customPlaylists[0])
+        // With OR logic covering unplayed/played/downloaded/notDownloaded, all episodes should match
+        XCTAssertEqual(result.count, episodes.count)
+    }
+
+    func testCachedCountUpdatesAfterEdit() {
+        let episodes = makeSampleEpisodes()
+        let manager = InMemorySmartPlaylistManager(initialSmartPlaylists: SmartEpisodeListV2.builtInSmartLists)
+        let vm = SmartPlaylistViewModel(manager: manager, allEpisodesProvider: { episodes })
+
+        vm.createSmartPlaylist(
+            name: "Dynamic Count",
+            rules: SmartListRuleSet(rules: [
+                SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed)),
+            ])
+        )
+        let playlist = vm.customPlaylists[0]
+
+        // ep-1, ep-2, ep-3 are unplayed (from makeSampleEpisodes)
+        let initialCount = vm.cachedEpisodeCount(for: playlist)
+        XCTAssertGreaterThan(initialCount, 0)
+
+        // Change rules to require downloaded AND unplayed
+        let newRules = SmartListRuleSet(rules: [
+            SmartListRule(type: .playStatus, comparison: .equals, value: .episodeStatus(.unplayed)),
+            SmartListRule(type: .downloadStatus, comparison: .equals, value: .downloadStatus(.downloaded)),
+        ], logic: .and)
+        vm.updateSmartPlaylist(playlist.withRules(newRules))
+
+        // After reload, cached counts should reflect updated rules
+        let updatedPlaylist = vm.customPlaylists[0]
+        let newCount = vm.cachedEpisodeCount(for: updatedPlaylist)
+        XCTAssertLessThanOrEqual(newCount, initialCount,
+                                 "More restrictive rules should reduce or maintain the episode count")
+    }
 }

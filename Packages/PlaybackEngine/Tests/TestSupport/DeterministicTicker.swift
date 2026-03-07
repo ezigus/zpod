@@ -68,6 +68,7 @@ public final class DeterministicTicker: Ticker, @unchecked Sendable {
   /// spawn async tasks that need to complete before the next tick.
   ///
   /// - Parameter count: Number of ticks to advance (default: 1)
+  @MainActor
   public func tick(count: Int = 1) async {
     guard let handler else { return }
     for _ in 0..<count {

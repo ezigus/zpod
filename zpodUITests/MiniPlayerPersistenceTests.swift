@@ -59,6 +59,14 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let miniPlayer = miniPlayerElement(in: app)
@@ -97,6 +105,14 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let miniPlayer = miniPlayerElement(in: app)
@@ -143,6 +159,14 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let miniPlayer = miniPlayerElement(in: app)
@@ -180,6 +204,14 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let episodeList = app.otherElements.matching(identifier: "Episode List View").firstMatch
@@ -201,6 +233,14 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
     navigateToLibraryTab()
     navigateToPodcast()
     XCTAssertTrue(waitForEpisodeList(), "Episode list should load")
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
 
     let miniPlayer = miniPlayerElement(in: app)

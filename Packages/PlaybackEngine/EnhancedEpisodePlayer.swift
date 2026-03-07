@@ -1,5 +1,8 @@
 import CoreModels
 @preconcurrency import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 import OSLog
 import SharedUtilities
 
@@ -198,6 +201,13 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     currentEpisode = episode
     currentDuration = resolveDuration(for: episode, override: maybeDuration)
     currentPosition = clampPosition(TimeInterval(episode.playbackPosition))
+
+    // If position is at or past the duration, the episode was already finished —
+    // restart from the beginning instead of instantly completing again.
+    if currentDuration > 0 && currentPosition >= currentDuration {
+      currentPosition = 0
+    }
+
     playbackSpeed = clampSpeed(playbackSettings.defaultSpeed)
 
     #if os(iOS)
@@ -319,14 +329,14 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
 
     currentPosition = clampPosition(position)
     updateCurrentChapterIndex()
-    
+
     #if os(iOS)
       // If using audio engine, seek the player
       if audioEngine != nil {
         audioEngine?.seek(to: currentPosition)
       }
     #endif
-    
+
     let snapshot = persistPlaybackPosition()
     lastPersistenceTime = 0  // Reset throttle so next tick can persist immediately
 
@@ -798,7 +808,7 @@ public final class EnhancedEpisodePlayer: EpisodePlaybackService, EpisodeTranspo
     activeTicker?.cancel()  // Cancel any existing ticker
     activeTicker = tickerFactory()  // Create new ticker from factory
     activeTicker?.schedule(every: Constants.tickInterval) { [weak self] in
-      Task { @MainActor in
+      MainActor.assumeIsolated {
         self?.tick()
       }
     }

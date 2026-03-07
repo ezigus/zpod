@@ -8,6 +8,7 @@
 import CombineSupport
 import CoreModels
 import Foundation
+import OSLog
 import PlaybackEngine
 import SharedUtilities
 
@@ -50,6 +51,11 @@ public struct MiniPlayerDisplayState: Equatable, Sendable {
 /// View model for the mini-player that exposes a compact summary of playback state.
 @MainActor
 public final class MiniPlayerViewModel: ObservableObject {
+  private static let logger = Logger(
+    subsystem: "us.zig.zpod",
+    category: "MiniPlayerViewModel"
+  )
+
   // MARK: - Published State
 
   @Published public private(set) var displayState: MiniPlayerDisplayState = .hidden
@@ -179,12 +185,10 @@ public final class MiniPlayerViewModel: ObservableObject {
         episode: episode,
         currentPosition: position,
         duration: duration,
-        error: nil  // Issue 03.3.4.2: Clear error on successful playback
+        error: nil
       )
 
     case .paused(let episode, let position, let duration):
-      // Issue 03.3.4.2: Don't clear error on pause - errors persist until playback resumes
-      // The PlaybackStateCoordinator pauses after errors, so clearing here would lose the error state
       let preservedError = displayState.error
       displayState = MiniPlayerDisplayState(
         isVisible: true,
@@ -205,7 +209,7 @@ public final class MiniPlayerViewModel: ObservableObject {
           episode: episode,
           currentPosition: duration,
           duration: duration,
-          error: nil  // Issue 03.3.4.2: Clear error on finish
+          error: nil
         )
       }
     case .failed(let episode, let position, let duration, let error):
@@ -215,7 +219,7 @@ public final class MiniPlayerViewModel: ObservableObject {
         episode: episode,
         currentPosition: position,
         duration: duration,
-        error: error  // Issue 03.3.4.2: Expose error to view
+        error: error
       )
     }
   }

@@ -226,10 +226,17 @@ public enum CarPlayDependencyRegistry {
     )
 
     #if os(iOS)
-      let systemMediaCoordinator = SystemMediaCoordinator(
-        playbackService: playback,
-        settingsRepository: settingsRepository
-      )
+      // In UI test mode, skip SystemMediaCoordinator entirely to prevent system IPC calls
+      // (MPNowPlayingInfoCenter, AVAudioSession.setActive, artwork URLSession) from keeping
+      // the app non-idle. xcodebuild's quiescence detector tracks all of these, causing
+      // "Wait for app to idle" to hang indefinitely after the first playback state change.
+      let isUITestMode = ProcessInfo.processInfo.environment["UITEST_DISABLE_AUDIO_ENGINE"] == "1"
+      let systemMediaCoordinator: SystemMediaCoordinator? = isUITestMode
+        ? nil
+        : SystemMediaCoordinator(
+            playbackService: playback,
+            settingsRepository: settingsRepository
+          )
     #endif
     
     // Restore playback state on initialization (asynchronous, non-blocking)

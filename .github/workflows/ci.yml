@@ -532,7 +532,7 @@ jobs:
       - name: Run AppSmoke tests
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t AppSmokeTests
+          ./scripts/run-xcode-tests.sh AppSmokeTests
         env:
           NSUnbufferedIO: "YES"
           ZPOD_SIMULATOR_UDID: ${{ steps.unit-sim.outputs.udid }}
@@ -788,7 +788,7 @@ jobs:
         timeout-minutes: 45
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t IntegrationTests
+          ./scripts/run-xcode-tests.sh IntegrationTests
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
@@ -1075,7 +1075,7 @@ jobs:
         timeout-minutes: 45
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
+          ./scripts/run-xcode-tests.sh ${{ matrix.tests }}
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
@@ -1358,7 +1358,7 @@ jobs:
             echo "::group::Test attempt $ATTEMPT of $MAX_ATTEMPTS"
             
             # Run tests and capture output
-            if ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}; then
+            if ./scripts/run-xcode-tests.sh ${{ matrix.tests }}; then
               echo "::endgroup::"
               echo "✅ Tests passed on attempt $ATTEMPT"
               exit 0
@@ -1683,7 +1683,7 @@ jobs:
         timeout-minutes: 45
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t ${{ matrix.tests }}
+          ./scripts/run-xcode-tests.sh ${{ matrix.tests }}
         env:
           NSUnbufferedIO: "YES"
           UITEST_TIMEOUT_SCALE: "1.5"
@@ -1751,7 +1751,7 @@ jobs:
       - name: Run ${{ matrix.package }} Package Tests
         run: |
           set -euo pipefail
-          ./scripts/run-xcode-tests.sh -t ${{ matrix.package }}
+          ./scripts/run-xcode-tests.sh ${{ matrix.package }}
         env:
           NSUnbufferedIO: "YES"
       - name: Archive Test Results

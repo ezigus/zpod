@@ -198,8 +198,21 @@ final class PlayerAccessibilityTests: IsolatedUITestCase {
       skipForward.waitForExistence(timeout: adaptiveShortTimeout),
       "Skip forward should exist at large type sizes"
     )
-    XCTAssertTrue(skipBackward.isHittable, "Skip backward should be hittable at large type sizes")
-    XCTAssertTrue(skipForward.isHittable, "Skip forward should be hittable at large type sizes")
+
+    // At accessibility sizes the expanded player scrolls inside a sheet.
+    // Transport controls may be below the viewport — scroll to reveal them.
+    if !skipBackward.isHittable || !skipForward.isHittable {
+      expandedPlayer.swipeUp()
+      expandedPlayer.swipeUp()
+    }
+    XCTAssertTrue(
+      waitForElementToBeHittable(skipBackward, timeout: adaptiveShortTimeout, description: "Skip backward"),
+      "Skip backward should be hittable at large type sizes"
+    )
+    XCTAssertTrue(
+      waitForElementToBeHittable(skipForward, timeout: adaptiveShortTimeout, description: "Skip forward"),
+      "Skip forward should be hittable at large type sizes"
+    )
 
     let playButton = app.buttons.matching(identifier: "Expanded Player Play").firstMatch
     let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
@@ -211,7 +224,12 @@ final class PlayerAccessibilityTests: IsolatedUITestCase {
     )
     XCTAssertNotNil(playOrPause, "Play/pause should exist at large type sizes")
     if let playOrPause {
-      XCTAssertTrue(playOrPause.isHittable, "Play/pause should be hittable at large type sizes")
+      // Play/pause is between skip buttons in the same HStack — should be hittable
+      // after the same scroll, but verify with a wait to handle timing
+      XCTAssertTrue(
+        waitForElementToBeHittable(playOrPause, timeout: adaptiveShortTimeout, description: "Play/pause"),
+        "Play/pause should be hittable at large type sizes"
+      )
     }
   }
 }

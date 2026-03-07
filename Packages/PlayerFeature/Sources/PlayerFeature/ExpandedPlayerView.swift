@@ -10,10 +10,24 @@ import Foundation
 import SharedUtilities
 import SwiftUI
 
+// MARK: - Dynamic Type Helpers
+
+private extension DynamicTypeSize {
+  var isAccessibilitySize: Bool {
+    switch self {
+    case .accessibility1, .accessibility2, .accessibility3, .accessibility4, .accessibility5:
+      return true
+    default:
+      return false
+    }
+  }
+}
+
 /// Full-screen player interface with large artwork, metadata, and comprehensive playback controls.
 public struct ExpandedPlayerView: View {
   @ObservedObject private var viewModel: ExpandedPlayerViewModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   public init(viewModel: ExpandedPlayerViewModel) {
     self.viewModel = viewModel
@@ -131,41 +145,54 @@ public struct ExpandedPlayerView: View {
   }
 
   /// Normal player view (non-error state)
+  ///
+  /// At accessibility dynamic type sizes, the layout scrolls and artwork shrinks
+  /// so transport controls remain reachable inside the sheet.
   @ViewBuilder
   private func normalPlayerView(geometry: GeometryProxy) -> some View {
-    VStack(spacing: 0) {
+    let isA11y = dynamicTypeSize.isAccessibilitySize
+    let playerContent = VStack(spacing: 0) {
       // Drag indicator
       dragIndicator
 
-      Spacer(minLength: 20)
+      Spacer(minLength: isA11y ? 4 : 20)
 
       // Artwork
       artworkView(size: artworkSize(for: geometry))
 
-      Spacer(minLength: 24)
+      Spacer(minLength: isA11y ? 8 : 24)
 
       // Metadata
       metadataView
         .padding(.horizontal, 24)
 
-      Spacer(minLength: 32)
+      Spacer(minLength: isA11y ? 8 : 32)
 
       // Progress slider
       progressSliderView
         .padding(.horizontal, 24)
 
-      Spacer(minLength: 32)
+      Spacer(minLength: isA11y ? 8 : 32)
 
       // Transport controls
       transportControlsView
         .padding(.horizontal, 24)
 
-      Spacer(minLength: 40)
+      Spacer(minLength: isA11y ? 8 : 40)
     }
     .padding(.top, 8)
-    .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+    .padding(.bottom, max(isA11y ? 8 : 20, geometry.safeAreaInsets.bottom))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("Expanded Player")
+
+    if isA11y {
+      ScrollView(.vertical, showsIndicators: false) {
+        playerContent
+          .frame(minHeight: geometry.size.height)
+      }
+    } else {
+      playerContent
+    }
   }
 
   /// Debug and alert overlays
@@ -399,17 +426,13 @@ public struct ExpandedPlayerView: View {
         set: { newValue in
           let maxBound = max(viewModel.duration, viewModel.currentPosition, 1)
           let clampedPosition = min(max(newValue, 0), maxBound)
-          if !viewModel.isScrubbing {
-            viewModel.beginScrubbing()
-          }
-          viewModel.updateScrubbingPosition(clampedPosition)
+          viewModel.seekTo(clampedPosition)
         }
       ),
       in: 0...upperBound,
       onEditingChanged: { editing in
         if editing {
           performLightHaptic()
-          viewModel.beginScrubbing()
         } else {
           performMediumHaptic()
           viewModel.endScrubbing()
@@ -495,8 +518,10 @@ public struct ExpandedPlayerView: View {
     let screenWidth = geometry.size.width
     let screenHeight = geometry.size.height
 
-    // Adjust size based on orientation and available space
-    if screenHeight > screenWidth {
+    if dynamicTypeSize.isAccessibilitySize {
+      // Shrink artwork at accessibility sizes to leave room for controls
+      return min(screenWidth * 0.35, 160)
+    } else if screenHeight > screenWidth {
       // Portrait: use most of the width
       return min(screenWidth * 0.85, 400)
     } else {

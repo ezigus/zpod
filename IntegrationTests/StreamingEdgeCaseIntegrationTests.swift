@@ -48,6 +48,7 @@
       isScheduled = false
     }
 
+    @MainActor
     func tick(count: Int = 1) async {
       guard let handler else { return }
       for _ in 0..<count {

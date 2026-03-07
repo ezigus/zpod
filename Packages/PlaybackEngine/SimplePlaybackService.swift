@@ -188,9 +188,9 @@ extension StubEpisodePlayer: EpisodePlaybackStateInjecting {
 /// making cross-actor access safe despite Timer not being Sendable.
 public final class TimerTicker: Ticker, @unchecked Sendable {
   private var timer: Timer?
-  
+
   public init() {}
-  
+
   public func schedule(every interval: TimeInterval, _ tick: @escaping @Sendable () -> Void) {
     cancel()
     let newTimer = Timer(timeInterval: interval, repeats: true) { _ in
@@ -200,7 +200,7 @@ public final class TimerTicker: Ticker, @unchecked Sendable {
     RunLoop.main.add(newTimer, forMode: .common)
     timer = newTimer
   }
-  
+
   public func cancel() {
     timer?.invalidate()
     timer = nil

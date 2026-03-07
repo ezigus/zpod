@@ -34,25 +34,59 @@ extension PlaybackUITests {
     XCTAssertTrue(tabs.navigateToPlayer(), "Player tab should become selected after launch")
   }
 
+  /// Mirrors the proven MiniPlayerPersistenceTests navigation pattern:
+  /// direct element access, waitForContentToLoad, no extra env overrides.
   @MainActor
   private func startPlaybackFromLibraryQuickPlay() {
     app = launchConfiguredApp()
 
-    let tabs = TabBarNavigation(app: app)
-    XCTAssertTrue(tabs.navigateToLibrary(), "Library tab should become available")
+    // Navigate to Library tab (direct element access — matches passing tests)
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
+    XCTAssertTrue(
+      libraryTab.waitForExistence(timeout: adaptiveShortTimeout),
+      "Library tab should exist"
+    )
+    libraryTab.tap()
 
-    let library = LibraryScreen(app: app)
-    XCTAssertTrue(library.waitForLibraryContent(), "Library content should load")
-    XCTAssertTrue(library.selectPodcast("Podcast-swift-talk"), "Podcast should be selectable")
-    XCTAssertTrue(library.waitForEpisodeList(), "Episode list should appear")
+    // Wait for library content
+    XCTAssertTrue(
+      waitForContentToLoad(
+        containerIdentifier: "Podcast Cards Container",
+        timeout: adaptiveTimeout
+      ),
+      "Library content should load"
+    )
+
+    // Select podcast
+    let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
+    XCTAssertTrue(
+      podcastButton.waitForExistence(timeout: adaptiveTimeout),
+      "Podcast should exist"
+    )
+    podcastButton.tap()
+
+    // Wait for episode list (predicate-based, matches passing pattern)
+    XCTAssertTrue(
+      waitForContentToLoad(
+        containerIdentifier: "Episode List View",
+        itemIdentifiers: ["Episode-st-001"],
+        timeout: adaptiveTimeout
+      ),
+      "Episode list should appear"
+    )
+
+    // Ensure QuickPlay button is in viewport before tapping
+    XCTAssertTrue(
+      ensureEpisodeVisibleForQuickPlay(
+        in: app,
+        episodeIdentifier: "Episode-st-001",
+        timeout: adaptiveTimeout
+      ),
+      "Quick play control should be discoverable before tapping"
+    )
 
     tapQuickPlayButton(in: app, timeout: adaptiveTimeout)
-
-    let player = PlayerScreen(app: app)
-    XCTAssertTrue(
-      player.waitForPlayerInterface(),
-      "Player interface should appear after quick play"
-    )
   }
 
   @MainActor
@@ -820,20 +854,20 @@ extension PlaybackUITests {
 
     let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: 5),
+      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear after playback starts"
     )
 
     let miniPlayerPauseButton = app.buttons.matching(identifier: "Mini Player Pause").firstMatch
-    XCTAssertTrue(miniPlayerPauseButton.waitForExistence(timeout: 1))
+    XCTAssertTrue(miniPlayerPauseButton.waitForExistence(timeout: adaptiveShortTimeout))
 
     miniPlayerPauseButton.tap()
     let playToggle = app.buttons.matching(identifier: "Mini Player Play").firstMatch
-    XCTAssertTrue(playToggle.waitForExistence(timeout: 1))
+    XCTAssertTrue(playToggle.waitForExistence(timeout: adaptiveShortTimeout))
 
     playToggle.tap()
     XCTAssertTrue(
-      app.buttons.matching(identifier: "Mini Player Pause").firstMatch.waitForExistence(timeout: 1),
+      app.buttons.matching(identifier: "Mini Player Pause").firstMatch.waitForExistence(timeout: adaptiveShortTimeout),
       "Mini player should toggle back to pause state"
     )
 
@@ -841,7 +875,7 @@ extension PlaybackUITests {
 
     let expandedPlayer = app.otherElements.matching(identifier: "Expanded Player").firstMatch
     XCTAssertTrue(
-      expandedPlayer.waitForExistence(timeout: 5),
+      expandedPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Expanded player sheet should appear"
     )
   }

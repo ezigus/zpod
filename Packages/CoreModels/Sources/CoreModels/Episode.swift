@@ -19,7 +19,7 @@ public enum EpisodeDownloadStatus: String, Codable, Sendable, CaseIterable {
     }
 }
 
-public struct Episode: Codable, Equatable, Sendable, Identifiable {
+public struct Episode: Codable, Equatable, Hashable, Sendable, Identifiable {
     public var id: String
     public var title: String
     public var podcastID: String?
