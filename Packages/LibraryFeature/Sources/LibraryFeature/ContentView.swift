@@ -722,37 +722,33 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
       }
       .onAppear {
+        // Load synchronously — podcastManager.all() is a sync call; wrapping in Task would
+        // prevent XCUITest quiescence detection by leaving async tasks pending on @MainActor.
+        podcasts = podcastManager.all()
+
+        // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
+        // tests can find podcast cards in a fresh (empty) test environment.
+        if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
+          let seedPodcast = Podcast(
+            id: "swift-talk",
+            title: "Swift Talk",
+            author: "objc.io",
+            description: "Weekly episodes about Swift programming",
+            feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+            episodes: [],
+            dateAdded: Date()
+          )
+          podcastManager.add(seedPodcast)
+          podcasts = podcastManager.all()
+        }
+
+        isLoading = false
+
+        // Playback restoration is genuinely async — keep in its own Task.
         Task {
-          await loadData()
+          await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
         }
       }
-    }
-
-    @MainActor
-    private func loadData() async {
-      podcasts = podcastManager.all()
-
-      // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
-      // tests can find podcast cards in a fresh (empty) test environment.
-      if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
-        let seedPodcast = Podcast(
-          id: "swift-talk",
-          title: "Swift Talk",
-          author: "objc.io",
-          description: "Weekly episodes about Swift programming",
-          feedURL: URL(string: "https://example.com/swift-talk.rss")!,
-          episodes: [],
-          dateAdded: Date()
-        )
-        podcastManager.add(seedPodcast)
-        podcasts = podcastManager.all()
-      }
-
-      isLoading = false
-
-      // Retry playback restoration now that library is loaded
-      // This handles the race condition where initial restoration ran before data was available
-      await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
     }
   }
 
