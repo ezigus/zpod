@@ -115,12 +115,12 @@ extension XCTestCase: TestEnvironmentIsolation {
   /// }
   /// ```
   func clearKeychain() {
-    let secItemClasses = [
+    // Only password classes support kSecAttrService scoping.
+    // Certificate/key/identity classes use different attributes and will
+    // return errSecMissingEntitlement (-34018) in the UI test host process.
+    let passwordClasses = [
       kSecClassGenericPassword,
       kSecClassInternetPassword,
-      kSecClassCertificate,
-      kSecClassKey,
-      kSecClassIdentity,
     ]
 
     // CRITICAL: Scope to app-specific service to avoid deleting system keychain items
@@ -128,7 +128,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     let appService = "us.zig.zpod.uitests"
     var deletedCount = 0
 
-    for itemClass in secItemClasses {
+    for itemClass in passwordClasses {
       let spec: [String: Any] = [
         kSecClass as String: itemClass,
         kSecAttrService as String: appService,  // Scope to app service only
