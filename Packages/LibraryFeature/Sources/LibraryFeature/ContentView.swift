@@ -470,9 +470,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   }
 
   public struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
     // Service instances for dependency injection
     private let podcastManager: PodcastManaging
     private let playlistManager: any PlaylistManaging
