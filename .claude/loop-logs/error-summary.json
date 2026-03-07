@@ -1,7 +1,0 @@
-{
-  "iteration": 3,
-  "timestamp": "2026-03-07T21:30:50Z",
-  "error_count": 0,
-  "error_lines": [],
-  "test_cmd": "bash ./scripts/run-xcode-tests.sh"
-}
