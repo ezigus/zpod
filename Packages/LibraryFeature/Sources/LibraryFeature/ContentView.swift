@@ -535,7 +535,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       ZStack(alignment: .bottom) {
         TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
-          LibraryView(playlistManager: playlistManager)
+          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager)
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
@@ -672,22 +672,16 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     }
   }
 
-  // MARK: - Data Models for UI Testing
-  private struct PodcastItem: Identifiable {
-    let id: String
-    let title: String
-  }
-
   /// Library view using card-based button layout instead of table for XCUITest compatibility
   struct LibraryView: View {
+    let podcastManager: PodcastManaging
     let playlistManager: (any PlaylistManaging)?
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
 
-    @State private var samplePodcasts: [PodcastItem] = []
+    @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
 
-    init(playlistManager: (any PlaylistManaging)? = nil) {
+    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil) {
+      self.podcastManager = podcastManager
       self.playlistManager = playlistManager
     }
 
@@ -698,6 +692,14 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Library")
+        } else if podcasts.isEmpty {
+          ContentUnavailableView(
+            "No Podcasts Yet",
+            systemImage: "antenna.radiowaves.left.and.right",
+            description: Text("Subscribe to podcasts in the Discover tab to see them here")
+          )
+          .accessibilityIdentifier("Library.EmptyState")
+          .navigationTitle("Library")
         } else {
           ScrollView {
             LazyVStack(spacing: 16) {
@@ -711,45 +713,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
                 .padding(.horizontal)
 
               // Card-based podcast layout (no table structure)
-              ForEach(samplePodcasts) { podcast in
+              ForEach(podcasts, id: \.id) { podcast in
                 PodcastCardView(podcast: podcast, playlistManager: playlistManager)
                   .padding(.horizontal)
-              }
-
-              // Show persisted items as cards
-              ForEach(items) { item in
-                NavigationLink {
-                  Text(
-                    "Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))"
-                  )
-                } label: {
-                  VStack(alignment: .leading) {
-                    Text("Data Item")
-                      .font(.headline)
-                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                      .font(.caption)
-                      .foregroundColor(.secondary)
-                  }
-                  .frame(maxWidth: .infinity, alignment: .leading)
-                  .padding()
-                  .background(Color.platformSystemGray6)
-                  .cornerRadius(12)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
               }
             }
             .padding(.vertical)
           }
           .accessibilityIdentifier("Podcast Cards Container")
           .navigationTitle("Library")
-          .toolbar {
-            ToolbarItem {
-              Button(action: addItem) {
-                Label("Add Item", systemImage: "plus")
-              }
-            }
-          }
         }
       }
       .onAppear {
@@ -759,31 +731,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
     }
 
-    private func addItem() {
-      withAnimation {
-        let newItem = Item(timestamp: Date())
-        modelContext.insert(newItem)
-      }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-      withAnimation {
-        for index in offsets {
-          modelContext.delete(items[index])
-        }
-      }
-    }
-
     @MainActor
     private func loadData() async {
-      // Load sample data for UI tests and development
-      // Using proper async loading without artificial delays
-      samplePodcasts = [
-        PodcastItem(id: "swift-talk", title: "Swift Talk"),
-        PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
-        PodcastItem(id: "accidental-tech-podcast", title: "Accidental Tech Podcast"),
-      ]
-
+      podcasts = podcastManager.all()
       isLoading = false
 
       // Retry playback restoration now that library is loaded
@@ -794,7 +744,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
   // MARK: - Podcast Card View for Button-Based Layout (No Table Structure)
   private struct PodcastCardView: View {
-    let podcast: PodcastItem
+    let podcast: Podcast
     let playlistManager: (any PlaylistManaging)?
 
     var body: some View {
@@ -816,11 +766,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             Text(podcast.title)
               .font(.headline)
               .foregroundColor(.primary)
-            Text("Sample Podcast Description")
-              .font(.subheadline)
-              .foregroundColor(.secondary)
-              .lineLimit(2)
-            Text("42 episodes")
+            if let description = podcast.description {
+              Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            }
+            Text("\(podcast.episodes.count) episodes")
               .font(.caption)
               .foregroundColor(.secondary)
           }
