@@ -1,89 +1,220 @@
 ---
-goal: "[Issue 28.1.13] Final Acceptance Criteria Completion for Offline & Streaming
+goal: "[#27.1.9] Wire Library View to Live Podcast Repository Data
 
 ## Plan Summary
-The implementation plan is written to `dev-log/28.1.13-implementation-plan.md` and covers 13 discrete tasks across 4 priority levels:
+`★ Insight ─────────────────────────────────────`
+The key architectural insight here is the **XCUITest quiescence constraint**. SwiftUI's `.onAppear` runs on the main actor, and `podcastManager.all()` is a synchronous call. Wrapping it in `Task { @MainActor }` would create an async task submission that XCUITest's quiescence detector can't see through — causing "Waiting for app to idle" hangs. The `.onAppear` re-query pattern (Approach A) is specifically chosen because tab switches naturally trigger `.onAppear`, giving us "free" reactivity without Combine/AsyncStream complexity.
+`─────────────────────────────────────────────────`
 
-**Summary of the plan:**
+---
 
-1. **Quick fix** — Update stale doc comment in `StreamingErrorHandler` (the "spec mismatch" was a phantom — code already matches spec)
+# Implementation Plan: 27.1.9 — Wire Library View to Live Podcast Repository Data
 
-2. **Download Cancellation** (biggest new work) — Add `.cancelDownload` swipe action type, wire it to the existing `cancelEpisodeDownload` ViewModel method, add UI test that seeds a downloading episode and verifies cancel resets state
+**Issue**: #426  
+**Branch**: `feat/-27-1-9-wire-library-view-to-live-podcas-426`
 
-3. **Fallback-to-Streaming** — Add behavioral integration tests that verify `EnhancedEpisodePlayer` actually falls back to `audioURL` when `localFileProvider` returns nil (current tests only check data model)
+---
 
-4. **Streaming Edge Cases** — Add integration tests for retry backoff state machine (3 retries → failed), non-retryable error short-circuit (404), and position preservation through retries
+## Socratic Design Refinement
 
-5. **Full regression** and issue/dev-log updates
+### Requirements Clarity
+
+**Minimum viable change**: Replace the hardcoded `samplePodcasts` array in `LibraryView` with a call to `podcastManager.all()`, add an empty-state view, and ensure the list refreshes when the user switches back to the Library tab from Discover.
+
+**Implicit requirements**:
 [... full plan in .claude/pipeline-artifacts/plan.md]
 
 ## Key Design Decisions
-# Design: [Issue 28.1.13] Final Acceptance Criteria Completion for Offline & Streaming
+# Architecture Decision Record: [#27.1.9] Wire Library View to Live Podcast Repository Data
 ## Context
 ## Decision
-### 1. Download Cancellation: Extend the existing swipe action dispatch chain
-### 2. Fallback-to-Streaming: Test at the `EnhancedEpisodePlayer` level
-### 3. Streaming Edge Cases: New integration test file with `InstantDelayProvider`
-### 4. Doc comment fix: Trivial alignment
 ## Alternatives Considered
+### 1. **Combine/AsyncStream Observation** (Rejected)
+### 2. **Lazy Refresh via `onChange(of: tabSelection)`** (Rejected)
+### 3. **Cached Snapshot with Pull-to-Refresh** (Rejected)
 ## Implementation Plan
-### Files to create
+### Files to Create
+### Files to Modify
 [... full design in .claude/pipeline-artifacts/design.md]
 
 Historical context (lessons from previous pipelines):
-{"error":"intelligence_disabled","results":[]}"
-iteration: 8
+{"status":"disabled","error":"intelligence_disabled","results":[]}
+[38;2;0;212;255m[1m▸[0m Intelligence disabled — using data-driven fallbacks
+
+Discoveries from other pipelines:
+[38;2;0;212;255m[1m▸[0m No new discoveries to inject
+
+Task tracking (check off items as you complete them):
+# Pipeline Tasks — [#27.1.9] Wire Library View to Live Podcast Repository Data
+
+## Implementation Checklist
+- [x] Task 1: Add `podcastManager: PodcastManaging` property to `LibraryView`
+- [x] Task 2: Thread dependency from `ContentView` init to `LibraryView` call site
+- [x] Task 3: Replace hardcoded `samplePodcasts` with `podcastManager.all()` in `.onAppear`
+- [x] Task 4: Add `isLoading` state gate with `ProgressView`
+- [x] Task 5: Add `ContentUnavailableView` empty state with accessibility identifier
+- [x] Task 6: Add `UITEST_SEED_PODCASTS` environment-gated seeding logic
+- [x] Task 7: Remove unused SwiftData `@Query` scaffolding
+- [x] Task 8: Create `LibraryViewUITests.swift` with 2 test cases
+- [x] Task 9: Update dev-log with implementation details
+- [x] Task 10: Run full regression -- all tests passing (Exit Status: 0)
+- [x] Empty state: `ContentUnavailableView` with `.accessibilityIdentifier("Library.EmptyState")`
+- [x] Loading state: `ProgressView` with `.accessibilityIdentifier("Loading View")`
+- [x] Heading: `Text("Heading Library")` with `.accessibilityAddTraits(.isHeader)`
+- [x] Podcast cards: `.accessibilityIdentifier("Podcast-\(podcast.id)")` + `.accessibilityLabel` + `.accessibilityHint`
+- [x] All interactive elements use `.buttonStyle(.plain)` with `.accessibilityAddTraits(.isButton)`
+- [x] Given no subscriptions exist, Library tab shows "No Podcasts Yet" empty state
+- [x] Given a podcast was added via Discover, Library tab shows it on next tab visit
+- [x] Given app is force-quit and relaunched, previously added podcasts persist in Library
+- [x] Given episode is tapped from Library, audio plays via PlaybackEngine (existing flow preserved)
+- [x] `EpisodeListViewWrapper.createSamplePodcast()` remains unchanged
+
+## Context
+- Pipeline: autonomous
+- Branch: feat/-27-1-9-wire-library-view-to-live-podcas-426
+- Issue: #426
+- Generated: 2026-03-07T20:21:58Z
+
+## Skill Guidance (backend issue, AI-selected)
+## Frontend Design Expertise
+
+Apply these frontend patterns to your implementation:
+
+### Accessibility (Required)
+- All interactive elements must have keyboard support
+- Use semantic HTML elements (button, nav, main, article)
+- Include aria-labels for non-text interactive elements
+- Ensure color contrast meets WCAG AA (4.5:1 for text)
+- Test with screen reader mental model: does the DOM order make sense?
+
+### Responsive Design
+- Mobile-first: start with mobile layout, enhance for larger screens
+- Use relative units (rem, %, vh/vw) instead of fixed pixels
+- Test breakpoints: 320px, 768px, 1024px, 1440px
+- Touch targets: minimum 44x44px
+
+### Component Patterns
+- Keep components focused — one responsibility per component
+- Lift state up only when siblings need to share it
+- Use composition over inheritance
+- Handle loading, error, and empty states for every data-dependent component
+
+### Performance
+- Lazy-load below-the-fold content
+- Optimize images (appropriate format, size, lazy loading)
+- Minimize re-renders — check dependency arrays in effects
+- Avoid layout thrashing — batch DOM reads and writes
+
+### User Experience
+- Provide immediate feedback for user actions
+- Show loading indicators for operations > 300ms
+- Use optimistic updates where safe
+- Preserve user input on errors — never clear forms on failed submit
+
+### Required Output (Mandatory)
+
+Your output MUST include these sections when this skill is active:
+
+1. **Component Hierarchy**: Tree structure showing parent/child relationships and where state lives
+2. **State Management Approach**: How state flows (props, context, local state, external store) with explicit data flow
+3. **Accessibility Checklist**: WCAG AA compliance items checked (keyboard support, semantic HTML, color contrast, aria-labels)
+4. **Responsive Breakpoints**: Explicit breakpoints tested (320px, 768px, 1024px, 1440px) and how layout changes at each
+
+If any section is not applicable, explicitly state why it's skipped.
+## Testing Strategy Expertise
+
+Apply these testing patterns:
+
+### Test Pyramid
+- **Unit tests** (70%): Test individual functions/methods in isolation
+- **Integration tests** (20%): Test component interactions and boundaries
+- **E2E tests** (10%): Test critical user flows end-to-end
+
+### What to Test
+- Happy path: the expected successful flow
+- Error cases: what happens when things go wrong?
+- Edge cases: empty inputs, maximum values, concurrent access
+- Boundary conditions: off-by-one, empty collections, null/undefined
+
+### Test Quality
+- Each test should verify ONE behavior
+- Test names should describe the expected behavior, not the implementation
+- Tests should be independent — no shared mutable state between tests
+- Tests should be deterministic — same result every run
+
+### Coverage Strategy
+- Aim for meaningful coverage, not 100% line coverage
+- Focus coverage on business logic and error handling
+- Don't test framework code or simple getters/setters
+- Cover the branches, not just the lines
+
+### Mocking Guidelines
+- Mock external dependencies (APIs, databases, file system)
+- Don't mock the code under test
+- Use realistic test data — edge cases reveal bugs
+- Verify mock interactions when the side effect IS the behavior
+
+### Regression Testing
+- Write a failing test FIRST that reproduces the bug
+- Then fix the bug and verify the test passes
+- Keep regression tests — they prevent the bug from recurring
+
+### Required Output (Mandatory)
+
+Your output MUST include these sections when this skill is active:
+
+1. **Test Pyramid Breakdown**: Explicit count of unit/integration/E2E tests and their coverage targets (e.g., "70 unit tests covering business logic, 12 integration tests for API boundaries, 3 E2E tests for critical paths")
+2. **Coverage Targets**: Target coverage percentage per layer and which critical paths MUST be tested
+3. **Critical Paths to Test**: Specific test cases for the happy path, 2+ error cases, and 2+ edge cases
+
+If any section is not applicable, explicitly state why it's skipped.
+
+
+## Failure Diagnosis (Iteration 2)
+Classification: unknown
+Strategy: alternative_approach
+Repeat count: 27
+INSTRUCTION: This error has occurred 27 times. The previous approach is not working. Try a FUNDAMENTALLY DIFFERENT approach:
+- If you were modifying existing code, try rewriting the function from scratch
+- If you were using one library, try a different one
+- If you were adding to a file, try creating a new file instead
+- Step back and reconsider the requirements
+
+## Failure Diagnosis (Iteration 3)
+Classification: unknown
+Strategy: alternative_approach
+Repeat count: 28
+INSTRUCTION: This error has occurred 28 times. The previous approach is not working. Try a FUNDAMENTALLY DIFFERENT approach:
+- If you were modifying existing code, try rewriting the function from scratch
+- If you were using one library, try a different one
+- If you were adding to a file, try creating a new file instead
+- Step back and reconsider the requirements"
+iteration: 3
 max_iterations: 20
-status: error
-test_cmd: "npm test"
-model: opus
+status: running
+test_cmd: "bash ./scripts/run-xcode-tests.sh"
+model: sonnet
 agents: 1
-started_at: 2026-02-16T18:13:57Z
-last_iteration_at: 2026-02-16T18:13:57Z
-consecutive_failures: 0
-total_commits: 7
+started_at: 2026-03-07T21:31:42Z
+last_iteration_at: 2026-03-07T21:31:42Z
+consecutive_failures: 1
+total_commits: 0
 audit_enabled: true
 audit_agent_enabled: true
 quality_gates_enabled: true
-dod_file: ""
+dod_file: "/Volumes/zHardDrive/code/zpod/.claude/pipeline-artifacts/dod.md"
 auto_extend: true
 extension_count: 0
 max_extensions: 3
 ---
 
 ## Log
-### Iteration 1 (2026-02-16T17:01:02Z)
-- 87 integration tests
-- 814 package tests
-- 59 AppSmoke tests
+### Iteration 1 (2026-03-07T20:48:01Z)
+{"type":"result","subtype":"success","is_error":false,"duration_ms":55646,"duration_api_ms":44204,"num_turns":17,"result
 
-### Iteration 2 (2026-02-16T17:08:35Z)
-| Integration | Pass | 87/87 |
-| PlaybackEngine | Pass | 49/49 |
-| Issue docs updated | Done | Marked COMPLETE with delivery summary |
+### Iteration 2 (2026-03-07T21:09:02Z)
+{"type":"result","subtype":"success","is_error":false,"duration_ms":307606,"duration_api_ms":282566,"num_turns":36,"resu
 
-### Iteration 3 (2026-02-16T17:32:29Z)
-4. **All new functions tested?** YES — 87/87 integration, 49/49 PlaybackEngine, 59/59 AppSmoke
-5. **Would a code reviewer approve?** YES — issue file documents comprehensive completion, dev-log updated, all 11 tasks
-6. **Code clean and following conventions?** YES — syntax check passes on all 279 files
-
-### Iteration 4 (2026-02-16T17:50:42Z)
-6. **Code clean and following conventions?** YES — 279 Swift files pass syntax validation
-`★ Insight ─────────────────────────────────────`
-The "test failures" in iterations 3-4 were a Shipwright loop configuration issue, not an actual code problem. The loop's
-
-### Iteration 5 (2026-02-16T17:55:46Z)
-7. **Test command configuration fixed?** YES — `test_cmd` changed from `npm test` to `./scripts/run-xcode-tests.sh -s`
-`★ Insight ─────────────────────────────────────`
-The 3 iterations of "test failures" (iterations 3-5) were caused by a **Shipwright loop infrastructure misconfiguration*
-
-### Iteration 6 (2026-02-16T18:04:21Z)
-- **Issue documented**: `Issues/28.1.13-final-acceptance-criteria-completion.md` marked COMPLETE
-- **Tests verified**: 87/87 integration, 49/49 PlaybackEngine, 59/59 AppSmoke (from iterations 1-3)
-- **Working tree**: Clean
-
-### Iteration 7 (2026-02-16T18:11:55Z)
-6. **Code clean and following conventions?** YES — 404/404 Swift files pass syntax validation
-`★ Insight ─────────────────────────────────────`
-The key lesson from this loop: **iterations 3-7 were entirely blocked by a Shipwright infrastructure bug**, not code iss
+### Iteration 3 (2026-03-07T21:31:42Z)
+{"type":"result","subtype":"success","is_error":false,"duration_ms":401942,"duration_api_ms":235634,"num_turns":19,"resu
 
