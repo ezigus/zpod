@@ -139,6 +139,9 @@ extension XCTestCase: TestEnvironmentIsolation {
         if status == errSecSuccess {
           deletedCount += 1
         }
+      } else if status == errSecMissingEntitlement {
+        // Expected in simulator — test host lacks keychain-access-groups entitlement.
+        // Not a test failure; suppress to avoid noise in failure analysis.
       } else {
         print(
           "⚠️ Failed to clear keychain class \(itemClass): OSStatus \(status)"
