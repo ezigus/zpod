@@ -354,7 +354,9 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             return 0.5
         }
         let ratio = current / total
-        return ratio >= 0.5 ? 0.2 : 0.8
+        // Seek to 20% if already past midpoint (backward seek),
+        // or 50% if before midpoint (forward seek to middle avoids end-of-file buffering stall).
+        return ratio >= 0.5 ? 0.2 : 0.5
     }
 
     @MainActor
