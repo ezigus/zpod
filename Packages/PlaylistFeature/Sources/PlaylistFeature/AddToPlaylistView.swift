@@ -101,10 +101,10 @@ public struct AddToPlaylistView: View {
     @available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
     struct AddToPlaylistView_Previews: PreviewProvider {
         static let manager: InMemoryPlaylistManager = {
-            let m = InMemoryPlaylistManager()
-            m.createPlaylist(Playlist(id: "pl-1", name: "Morning Commute", episodeIds: ["ep-a", "ep-b"]))
-            m.createPlaylist(Playlist(id: "pl-2", name: "Tech Deep Dives", episodeIds: []))
-            return m
+            let mgr = InMemoryPlaylistManager()
+            mgr.createPlaylist(Playlist(id: "pl-1", name: "Morning Commute", episodeIds: ["ep-a", "ep-b"]))
+            mgr.createPlaylist(Playlist(id: "pl-2", name: "Tech Deep Dives", episodeIds: []))
+            return mgr
         }()
 
         static var previews: some View {

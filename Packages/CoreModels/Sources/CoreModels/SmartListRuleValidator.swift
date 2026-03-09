@@ -60,7 +60,7 @@ public struct SmartListRuleValidator: Sendable {
     /// or `.failure` containing all detected errors.
     public static func validateAll(_ rules: [SmartListRule]) -> Result<Void, ValidationErrors> {
         let errors = rules.compactMap { rule -> ValidationError? in
-            if case .failure(let e) = validate(rule) { return e }
+            if case .failure(let err) = validate(rule) { return err }
             return nil
         }
         return errors.isEmpty ? .success(()) : .failure(ValidationErrors(errors: errors))
@@ -94,8 +94,8 @@ public struct SmartListRuleValidator: Sendable {
         case .rating:
             let numericValue: Double
             switch rule.value {
-            case .integer(let v): numericValue = Double(v)
-            case .double(let v): numericValue = v
+            case .integer(let val): numericValue = Double(val)
+            case .double(let val): numericValue = val
             default: return .valueTypeMismatch(ruleType: rule.type)
             }
             if numericValue < 1 || numericValue > 5 {
@@ -103,18 +103,18 @@ public struct SmartListRuleValidator: Sendable {
             }
 
         case .playbackPosition:
-            guard case .double(let v) = rule.value else {
+            guard case .double(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if v < 0 || v > 1 {
+            if val < 0 || val > 1 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: 1)
             }
 
         case .duration:
-            guard case .timeInterval(let v) = rule.value else {
+            guard case .timeInterval(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if v < 0 {
+            if val < 0 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: Double.greatestFiniteMagnitude)
             }
 

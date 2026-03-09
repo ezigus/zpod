@@ -177,6 +177,14 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             return
         }
 
+        // Wait for AVPlayer to start streaming before pausing
+        let initialValue = getSliderValue()
+        guard waitForPositionAdvancement(beyond: initialValue, timeout: avplayerTimeout) != nil else {
+            recordAudioDebugOverlay("pre-pause advancement timeout")
+            XCTFail("AVPlayer should have started advancing position before pause/resume test")
+            return
+        }
+
         // Pause playback
         let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
         XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout))

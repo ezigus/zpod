@@ -59,10 +59,10 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     }
 
     public func insights(for playlistID: String) -> [SmartPlaylistInsight] {
-        let s = stats(for: playlistID)
+        let playlistStats = stats(for: playlistID)
         var result: [SmartPlaylistInsight] = []
 
-        if s.totalPlays == 0 {
+        if playlistStats.totalPlays == 0 {
             result.append(SmartPlaylistInsight(
                 text: "No episodes have been played from this playlist yet.",
                 systemImage: "play.slash"
@@ -71,26 +71,26 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         }
 
         result.append(SmartPlaylistInsight(
-            text: "\(s.totalPlays) episode\(s.totalPlays == 1 ? "" : "s") played in the last 90 days.",
+            text: "\(playlistStats.totalPlays) episode\(playlistStats.totalPlays == 1 ? "" : "s") played in the last 90 days.",
             systemImage: "play.fill"
         ))
 
-        if s.uniqueEpisodesPlayed > 1 {
+        if playlistStats.uniqueEpisodesPlayed > 1 {
             result.append(SmartPlaylistInsight(
-                text: "\(s.uniqueEpisodesPlayed) unique episodes discovered through this playlist.",
+                text: "\(playlistStats.uniqueEpisodesPlayed) unique episodes discovered through this playlist.",
                 systemImage: "sparkles"
             ))
         }
 
-        if s.totalPlaybackDuration >= 3600 {
-            let hours = s.totalPlaybackDuration / 3600
+        if playlistStats.totalPlaybackDuration >= 3600 {
+            let hours = playlistStats.totalPlaybackDuration / 3600
             result.append(SmartPlaylistInsight(
                 text: String(format: "%.1f hours of listening driven by this playlist.", hours),
                 systemImage: "clock.fill"
             ))
         }
 
-        if let recent = s.mostRecentPlay {
+        if let recent = playlistStats.mostRecentPlay {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .full
             let rel = formatter.localizedString(for: recent, relativeTo: Date())

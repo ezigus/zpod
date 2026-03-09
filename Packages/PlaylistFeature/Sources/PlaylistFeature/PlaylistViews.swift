@@ -477,24 +477,24 @@ extension Date {
     @available(iOS 17.0, macOS 14.0, watchOS 10.0, *)
     struct PlaylistFeatureView_Previews: PreviewProvider {
         static let manager: InMemoryPlaylistManager = {
-            let m = InMemoryPlaylistManager()
-            m.createPlaylist(Playlist(
+            let mgr = InMemoryPlaylistManager()
+            mgr.createPlaylist(Playlist(
                 id: "playlist-1",
                 name: "Morning Commute",
                 description: "Podcasts for the daily commute",
                 episodeIds: ["ep-1", "ep-2"]
             ))
-            m.createPlaylist(Playlist(
+            mgr.createPlaylist(Playlist(
                 id: "playlist-2",
                 name: "Tech Deep Dives",
                 episodeIds: ["ep-3"]
             ))
-            m.createPlaylist(Playlist(
+            mgr.createPlaylist(Playlist(
                 id: "playlist-empty",
                 name: "Listen Later",
                 episodeIds: []
             ))
-            return m
+            return mgr
         }()
 
         static let sampleEpisodes: [String: [Episode]] = [

@@ -194,7 +194,7 @@ final class SmartListRuleValidatorTests: XCTestCase {
     }
 
     private func validationError(_ rule: SmartListRule) -> SmartListRuleValidator.ValidationError? {
-        if case .failure(let e) = SmartListRuleValidator.validate(rule) { return e }
+        if case .failure(let err) = SmartListRuleValidator.validate(rule) { return err }
         return nil
     }
 
