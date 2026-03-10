@@ -98,7 +98,7 @@ public struct SmartListRuleValidator: Sendable {
             case .double(let val): numericValue = val
             default: return .valueTypeMismatch(ruleType: rule.type)
             }
-            if numericValue < 1 || numericValue > 5 {
+            if !numericValue.isFinite || numericValue < 1 || numericValue > 5 {
                 return .numericOutOfRange(ruleType: rule.type, min: 1, max: 5)
             }
 
@@ -106,7 +106,7 @@ public struct SmartListRuleValidator: Sendable {
             guard case .double(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if val < 0 || val > 1 {
+            if !val.isFinite || val < 0 || val > 1 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: 1)
             }
 
@@ -114,7 +114,7 @@ public struct SmartListRuleValidator: Sendable {
             guard case .timeInterval(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if val < 0 {
+            if !val.isFinite || val < 0 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: Double.greatestFiniteMagnitude)
             }
 

@@ -113,6 +113,43 @@ final class SmartListRuleValidatorTests: XCTestCase {
         XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
     }
 
+    // MARK: - NaN / Infinity Edge Cases
+
+    func testPlaybackPositionNaNIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testPlaybackPositionInfinityIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testPlaybackPositionNegativeInfinityIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(-.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testRatingNaNIsInvalid() {
+        let rule = SmartListRule(type: .rating, comparison: .equals, value: .double(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .rating, min: 1, max: 5))
+    }
+
+    func testRatingInfinityIsInvalid() {
+        let rule = SmartListRule(type: .rating, comparison: .equals, value: .double(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .rating, min: 1, max: 5))
+    }
+
+    func testDurationNaNIsInvalid() {
+        let rule = SmartListRule(type: .duration, comparison: .greaterThan, value: .timeInterval(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
+    }
+
+    func testDurationInfinityIsInvalid() {
+        let rule = SmartListRule(type: .duration, comparison: .greaterThan, value: .timeInterval(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
+    }
+
     // MARK: - Value Type Mismatch Errors
 
     func testPlayStatusWithStringValueIsInvalid() {

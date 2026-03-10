@@ -14,13 +14,20 @@ import SharedUtilities
 public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAnalyticsRepository, @unchecked Sendable {
 
     private static let storageKey = "smart_playlist_analytics_events"
-    private static let retentionDays: Int = 90
 
     private let userDefaults: UserDefaults
+    private let retentionDays: Int
+    private let maxEventCount: Int
     private let lock = NSLock()
 
-    public init(userDefaults: UserDefaults = .standard) {
+    public init(
+        userDefaults: UserDefaults = .standard,
+        retentionDays: Int = 90,
+        maxEventCount: Int = 5000
+    ) {
         self.userDefaults = userDefaults
+        self.retentionDays = retentionDays
+        self.maxEventCount = maxEventCount
     }
 
     // MARK: - Record
@@ -30,7 +37,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
             var all = loadAll()
             all.append(event)
             pruneAll(&all)
-            saveAll(all)
+            if !saveAll(all) {
+                Logger.error("SmartPlaylistAnalyticsRepository: event for playlist '\(event.playlistID)' was not persisted due to encoding failure")
+            }
         }
     }
 
@@ -131,21 +140,30 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         return decoded
     }
 
-    private func saveAll(_ events: [SmartPlaylistPlayEvent]) {
+    @discardableResult
+    private func saveAll(_ events: [SmartPlaylistPlayEvent]) -> Bool {
         do {
             let data = try JSONEncoder().encode(events)
             userDefaults.set(data, forKey: Self.storageKey)
+            return true
         } catch {
-            Logger.error("SmartPlaylistAnalyticsRepository: failed to encode events — \(error.localizedDescription)")
+            Logger.error("SmartPlaylistAnalyticsRepository: failed to encode \(events.count) events — \(error.localizedDescription)")
+            return false
         }
     }
 
     private func pruneAll(_ events: inout [SmartPlaylistPlayEvent]) {
         let cutoff = Calendar.current.date(
             byAdding: .day,
-            value: -Self.retentionDays,
+            value: -retentionDays,
             to: Date()
         ) ?? Date()
         events = events.filter { $0.occurredAt >= cutoff }
+
+        // Hard cap prevents unbounded UserDefaults growth
+        if events.count > maxEventCount {
+            events.sort { $0.occurredAt > $1.occurredAt }
+            events = Array(events.prefix(maxEventCount))
+        }
     }
 }
