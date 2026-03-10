@@ -13,6 +13,20 @@
     "Packages/PlaylistFeature/Sources/PlaylistFeature/SmartPlaylistViews.swift": [
       "Packages",
       "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViews.swift": [
+      "Packages",
+      "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/PlaylistFeature/Sources/PlaylistFeature/AddToPlaylistView.swift": [
+      "Packages",
+      "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/CoreModels/Sources/CoreModels/SmartListRuleValidator.swift": [
+      "Packages"
+    ],
+    "Packages/Persistence/Sources/Persistence/SmartPlaylistAnalyticsRepository.swift": [
+      "Packages"
     ]
   }
 }
