@@ -42,8 +42,10 @@ final class LibraryViewUITests: IsolatedUITestCase {
     app = launchConfiguredApp()
     navigateToLibrary()
 
-    // NavigationLink with .buttonStyle(.plain) renders as a button in XCUITest.
-    // The card accessibility identifier is "Podcast-{podcast.id}".
+    // PodcastCardView is a Button (not NavigationLink) with .buttonStyle(.plain); XCUITest
+    // surfaces it under app.buttons. The identifier "Podcast-{podcast.id}" is set in
+    // LibraryFeature/ContentView.swift — PodcastCardView.body via
+    //   .accessibilityIdentifier("Podcast-\(podcast.id)")
     let podcastCard = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
     XCTAssertTrue(
       podcastCard.waitForExistence(timeout: adaptiveTimeout),
@@ -62,6 +64,9 @@ final class LibraryViewUITests: IsolatedUITestCase {
     app = launchConfiguredApp()
     navigateToLibrary()
 
+    // "Heading Library" is set in LibraryFeature/ContentView.swift — LibraryView.body, the
+    // non-empty branch, via: Text("Heading Library").accessibilityIdentifier("Heading Library")
+    // XCUITest surfaces it under app.staticTexts.
     let heading = app.staticTexts.matching(identifier: "Heading Library").firstMatch
     XCTAssertTrue(
       heading.waitForExistence(timeout: adaptiveTimeout),
