@@ -493,6 +493,10 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
+    // Incremented each time the Library tab (tag 0) is selected, causing LibraryView to reload.
+    // This covers the case where the user adds a podcast in Discover and returns to Library
+    // without .onAppear re-firing (e.g., back-navigation within the tab stack).
+    @State private var libraryRefreshTrigger: Int = 0
 
     public init(podcastManager: PodcastManaging, playlistManager: any PlaylistManaging) {
       self.podcastManager = podcastManager
@@ -532,7 +536,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       ZStack(alignment: .bottom) {
         TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
-          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager)
+          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager, refreshTrigger: libraryRefreshTrigger)
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
@@ -583,6 +587,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())
         #endif
+      }
+      // Refresh Library when user navigates back to tab 0 — covers the case where
+      // .onAppear doesn't re-fire (e.g., podcast added in Discover without leaving Library tab stack).
+      .onChange(of: selectedTab) { _, newTab in
+        if newTab == 0 {
+          libraryRefreshTrigger += 1
+        }
       }
       // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
       // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
@@ -673,13 +684,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   struct LibraryView: View {
     let podcastManager: PodcastManaging
     let playlistManager: (any PlaylistManaging)?
+    let refreshTrigger: Int
 
     @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
 
-    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil) {
+    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil, refreshTrigger: Int = 0) {
       self.podcastManager = podcastManager
       self.playlistManager = playlistManager
+      self.refreshTrigger = refreshTrigger
     }
 
     var body: some View {
@@ -748,6 +761,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         Task {
           await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
         }
+      }
+      // Re-load when the user navigates back to the Library tab — covers cases where
+      // .onAppear does not re-fire (e.g., podcast added in Discover without leaving
+      // the Library tab stack). Synchronous call; no Task to preserve XCUITest quiescence.
+      .onChange(of: refreshTrigger) { _, _ in
+        podcasts = podcastManager.all()
       }
     }
   }

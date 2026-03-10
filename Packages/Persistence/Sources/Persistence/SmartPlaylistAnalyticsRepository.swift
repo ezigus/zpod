@@ -1,5 +1,6 @@
 import CoreModels
 import Foundation
+import SharedUtilities
 
 // MARK: - UserDefaultsSmartPlaylistAnalyticsRepository
 
@@ -131,8 +132,11 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     }
 
     private func saveAll(_ events: [SmartPlaylistPlayEvent]) {
-        if let data = try? JSONEncoder().encode(events) {
+        do {
+            let data = try JSONEncoder().encode(events)
             userDefaults.set(data, forKey: Self.storageKey)
+        } catch {
+            Logger.error("SmartPlaylistAnalyticsRepository: failed to encode events — \(error.localizedDescription)")
         }
     }
 
