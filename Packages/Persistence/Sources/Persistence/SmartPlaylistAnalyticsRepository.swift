@@ -10,15 +10,23 @@ import SharedUtilities
 /// `pruneOldEvents()` is called automatically on each `record(_:)` call so the store
 /// never grows unbounded.
 ///
-/// Thread-safety: protected by `NSLock`; safe to call from any thread.
+/// Thread-safety: protected by a class-level `NSLock` shared across all instances.
+///
+/// A per-instance lock is insufficient because two separate instances backed by the same
+/// `UserDefaults` store (e.g. both using `.standard`) would perform non-atomic
+/// read-modify-write cycles concurrently, silently dropping events. The static lock
+/// serialises every mutation regardless of how many instances exist.
 public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAnalyticsRepository, @unchecked Sendable {
 
     private static let storageKey = "smart_playlist_analytics_events"
+    // Shared across ALL instances — prevents lost-update races when two instances
+    // operate on the same underlying UserDefaults store simultaneously.
+    // NSLock is Sendable, so no isolation annotation is needed.
+    private static let lock = NSLock()
 
     private let userDefaults: UserDefaults
     private let retentionDays: Int
     private let maxEventCount: Int
-    private let lock = NSLock()
 
     public init(
         userDefaults: UserDefaults = .standard,
@@ -33,7 +41,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // MARK: - Record
 
     public func record(_ event: SmartPlaylistPlayEvent) {
-        lock.withLock {
+        Self.lock.withLock {
             var all = loadAll()
             all.append(event)
             pruneAll(&all)
@@ -46,7 +54,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // MARK: - Query
 
     public func events(for playlistID: String) -> [SmartPlaylistPlayEvent] {
-        lock.withLock {
+        Self.lock.withLock {
             loadAll().filter { $0.playlistID == playlistID }
         }
     }
@@ -116,7 +124,10 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     public func exportJSON(for playlistID: String) throws -> Data {
         let filtered = events(for: playlistID)
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Use .sortedKeys only (no .prettyPrinted) to keep output compact.
+        // With the 5000-event cap the filtered set could reach ~1MB pretty-printed;
+        // compact JSON keeps that well under 300 KB and avoids allocation spikes.
+        encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return try encoder.encode(filtered)
     }
@@ -124,7 +135,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // MARK: - Pruning
 
     public func pruneOldEvents() {
-        lock.withLock {
+        Self.lock.withLock {
             var all = loadAll()
             pruneAll(&all)
             saveAll(all)

@@ -91,7 +91,14 @@ public struct SmartListRuleValidator: Sendable {
             guard case .string(let str) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // Extend the trim set beyond .whitespacesAndNewlines to catch invisible
+            // Unicode characters that are functionally empty but pass standard trimming:
+            // U+200B zero-width space, U+200C ZWNJ, U+200D ZWJ, U+00AD soft hyphen,
+            // U+FEFF BOM/zero-width no-break space, plus general control characters.
+            var invisibleChars = CharacterSet.whitespacesAndNewlines
+            invisibleChars.formUnion(.controlCharacters)
+            invisibleChars.insert(charactersIn: "\u{200B}\u{200C}\u{200D}\u{00AD}\u{FEFF}")
+            if str.trimmingCharacters(in: invisibleChars).isEmpty {
                 return .emptyStringValue(ruleType: rule.type)
             }
 
