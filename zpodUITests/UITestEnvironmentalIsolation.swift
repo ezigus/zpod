@@ -118,6 +118,10 @@ extension XCTestCase: TestEnvironmentIsolation {
     // Only password classes support kSecAttrService scoping.
     // Certificate/key/identity classes use different attributes and will
     // return errSecMissingEntitlement (-34018) in the UI test host process.
+    //
+    // Known limitation: kSecClassCertificate, kSecClassKey, and kSecClassIdentity
+    // are NOT cleared here. Tests that store certificates must clean up in their
+    // own tearDown(). See compound quality review for context.
     let passwordClasses = [
       kSecClassGenericPassword,
       kSecClassInternetPassword,

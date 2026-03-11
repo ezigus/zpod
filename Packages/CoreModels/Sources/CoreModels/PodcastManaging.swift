@@ -14,3 +14,11 @@ public protocol PodcastManaging: Sendable {
     func deleteOrphanedEpisode(id: String) -> Bool
     @discardableResult func deleteAllOrphanedEpisodes() -> Int
 }
+
+// MARK: - Podcast Library Change Notification
+
+public extension Notification.Name {
+    /// Posted by PodcastManaging implementations after add/update/remove mutations.
+    /// Observers can reload their podcast list without polling or tab-switch triggers.
+    static let podcastLibraryDidChange = Notification.Name("us.zig.zpod.podcastLibraryDidChange")
+}

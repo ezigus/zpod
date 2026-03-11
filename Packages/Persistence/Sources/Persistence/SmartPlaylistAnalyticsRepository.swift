@@ -22,6 +22,11 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // Shared across ALL instances — prevents lost-update races when two instances
     // operate on the same underlying UserDefaults store simultaneously.
     // NSLock is Sendable, so no isolation annotation is needed.
+    //
+    // Design trade-off: a static lock serialises unrelated stores if callers use
+    // different UserDefaults suites. This is acceptable because (a) all current
+    // callers target `.standard`, and (b) the critical section is sub-millisecond
+    // (JSON encode/decode), so contention cost is negligible.
     private static let lock = NSLock()
 
     private let userDefaults: UserDefaults
@@ -173,8 +178,10 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
 
         // Hard cap prevents unbounded UserDefaults growth
         if events.count > maxEventCount {
+            let discardCount = events.count - maxEventCount
             events.sort { $0.occurredAt > $1.occurredAt }
             events = Array(events.prefix(maxEventCount))
+            Logger.debug("SmartPlaylistAnalyticsRepository: pruned \(discardCount) oldest events to stay within \(maxEventCount) cap")
         }
     }
 }

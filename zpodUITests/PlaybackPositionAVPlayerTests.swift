@@ -364,6 +364,9 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         let ratio = current / total
         // Seek to 20% if already past midpoint (backward seek),
         // or 50% if before midpoint (forward seek to middle avoids end-of-file buffering stall).
+        // Previously targeted 80% for forward seeks, but AVPlayer buffering near end-of-file
+        // caused test hangs in CI (commit 0c929c7). End-of-file edge cases are out of scope
+        // for position-persistence tests; a dedicated buffering test should cover those paths.
         return ratio >= 0.5 ? 0.2 : 0.5
     }
 

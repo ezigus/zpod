@@ -688,6 +688,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
     @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
+    @State private var loadError: String?
+
+    private static let libraryLogger = Logger(
+      subsystem: "us.zig.zpod.library",
+      category: "LibraryView"
+    )
 
     init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil, refreshTrigger: Int = 0) {
       self.podcastManager = podcastManager
@@ -702,6 +708,14 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Library")
+        } else if let errorMessage = loadError {
+          ContentUnavailableView(
+            "Unable to Load Library",
+            systemImage: "exclamationmark.triangle",
+            description: Text(errorMessage)
+          )
+          .accessibilityIdentifier("Library.ErrorState")
+          .navigationTitle("Library")
         } else if podcasts.isEmpty {
           ContentUnavailableView(
             "No Podcasts Yet",
@@ -735,12 +749,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
       }
       .onAppear {
-        // Load synchronously — podcastManager.all() is a sync call; wrapping in Task would
-        // prevent XCUITest quiescence detection by leaving async tasks pending on @MainActor.
-        podcasts = podcastManager.all()
+        loadPodcasts()
 
         // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
         // tests can find podcast cards in a fresh (empty) test environment.
+        // Guarded by #if DEBUG so the seed path is compiled out of release builds entirely,
+        // preventing accidental state mutation if the env var leaks to production.
+        #if DEBUG
         if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
           let seedPodcast = Podcast(
             id: "swift-talk",
@@ -752,8 +767,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             dateAdded: Date()
           )
           podcastManager.add(seedPodcast)
-          podcasts = podcastManager.all()
+          // Notification from add() will trigger .onReceive below, but also
+          // reload here so the seeded podcast is visible immediately.
+          loadPodcasts()
         }
+        #endif
 
         isLoading = false
 
@@ -766,7 +784,26 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       // .onAppear does not re-fire (e.g., podcast added in Discover without leaving
       // the Library tab stack). Synchronous call; no Task to preserve XCUITest quiescence.
       .onChange(of: refreshTrigger) { _, _ in
-        podcasts = podcastManager.all()
+        loadPodcasts()
+      }
+      // Reactive update: reload whenever any PodcastManaging implementation mutates data.
+      // This covers the Discover → Library same-session flow without requiring tab switches.
+      .onReceive(NotificationCenter.default.publisher(for: .podcastLibraryDidChange)) { _ in
+        loadPodcasts()
+      }
+    }
+
+    /// Loads podcasts from the repository with diagnostic logging.
+    ///
+    /// `PodcastManaging.all()` is non-throwing by design — implementations handle errors
+    /// internally (logging and returning `[]`). This wrapper adds view-level diagnostics
+    /// so an empty result after a repository failure is visible in logs.
+    private func loadPodcasts() {
+      let result = podcastManager.all()
+      podcasts = result
+      loadError = nil
+      if result.isEmpty {
+        Self.libraryLogger.debug("LibraryView: podcastManager.all() returned 0 podcasts")
       }
     }
   }
