@@ -7,6 +7,7 @@
 //  Spec scenarios covered:
 //  - Given UITEST_SEED_PODCASTS=1, the seeded podcast card appears in Library
 //  - The "Heading Library" accessibility heading is present when podcasts exist
+//  - Given UITEST_SEED_PODCASTS=0 (no subscriptions), Library shows empty state
 //
 
 import XCTest
@@ -71,6 +72,39 @@ final class LibraryViewUITests: IsolatedUITestCase {
     XCTAssertTrue(
       heading.waitForExistence(timeout: adaptiveTimeout),
       "Library heading must be present and accessible when podcasts exist"
+    )
+  }
+
+  /// Given: App launched with no seeded podcasts (UITEST_SEED_PODCASTS=0)
+  /// When:  User taps the Library tab
+  /// Then:  The "Library.EmptyState" ContentUnavailableView is visible
+  ///
+  /// Verifies the empty-state branch of LibraryView (acceptance criterion:
+  /// "Given no subscriptions exist, Library tab shows a 'No podcasts yet' empty state").
+  /// The empty state is rendered in LibraryFeature/ContentView.swift — LibraryView.body
+  /// when podcastManager.all() returns an empty array.
+  @MainActor
+  func testLibraryShowsEmptyStateWhenNoSubscriptions() throws {
+    // Override the global seed flag so the empty state branch is exercised.
+    // configuredForUITests(environmentOverrides:) merges this over the base "1" value.
+    app = launchConfiguredApp(environmentOverrides: ["UITEST_SEED_PODCASTS": "0"])
+    navigateToLibrary()
+
+    // ContentUnavailableView may surface as either an `Other` (with the container identifier)
+    // or as its title `StaticText` depending on the SwiftUI version. Use waitForAnyElement
+    // to accept either — matching the same dual-check pattern used in OrphanedEpisodesUITests.
+    // Container identifier "Library.EmptyState" is set in LibraryFeature/ContentView.swift.
+    let emptyContainer = app.otherElements.matching(identifier: "Library.EmptyState").firstMatch
+    let emptyTitleText = app.staticTexts
+      .matching(NSPredicate(format: "label == %@", "No Podcasts Yet"))
+      .firstMatch
+    XCTAssertNotNil(
+      waitForAnyElement(
+        [emptyContainer, emptyTitleText],
+        timeout: adaptiveTimeout,
+        description: "Library empty state"
+      ),
+      "Library empty state must appear when no podcasts are subscribed"
     )
   }
 }
