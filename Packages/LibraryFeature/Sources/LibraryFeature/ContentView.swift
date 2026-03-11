@@ -169,22 +169,22 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           .reduce(into: [String: Episode]()) { dict, episode in dict[episode.id] = episode }
         return playlist.episodeIds.compactMap { episodeIndex[$0] }
       }
-      let vm = PlaylistViewModel(manager: playlistManager, episodeProvider: provider)
+      let playlistViewModel = PlaylistViewModel(manager: playlistManager, episodeProvider: provider)
       if let queueManager {
-        vm.onPlayAll = { playlist in
+        playlistViewModel.onPlayAll = { playlist in
           let episodes = provider(playlist)
           guard let first = episodes.first else { return }
           queueManager.playNow(first)
           episodes.dropFirst().forEach { queueManager.enqueue($0) }
         }
-        vm.onShuffle = { playlist in
+        playlistViewModel.onShuffle = { playlist in
           let episodes = provider(playlist).shuffled()
           guard let first = episodes.first else { return }
           queueManager.playNow(first)
           episodes.dropFirst().forEach { queueManager.enqueue($0) }
         }
       }
-      _viewModel = State(initialValue: vm)
+      _viewModel = State(initialValue: playlistViewModel)
 
       // Wire SmartPlaylistViewModel — uses UserDefaultsSmartPlaylistManager so custom
       // playlists survive app restarts. Built-in lists always come from

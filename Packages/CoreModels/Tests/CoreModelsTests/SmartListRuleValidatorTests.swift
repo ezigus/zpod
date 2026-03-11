@@ -167,6 +167,26 @@ final class SmartListRuleValidatorTests: XCTestCase {
         XCTAssertEqual(validationError(rule), .valueTypeMismatch(ruleType: .pubDate))
     }
 
+    func testDateRangeWithValidDatesIsValid() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = Date(timeIntervalSinceReferenceDate: 86400)
+        let rule = SmartListRule(type: .dateAdded, comparison: .between, value: .dateRange(start: start, end: end))
+        XCTAssertTrue(isValid(rule))
+    }
+
+    func testDateRangeWithEndBeforeStartIsInvalid() {
+        let start = Date(timeIntervalSinceReferenceDate: 86400)
+        let end = Date(timeIntervalSinceReferenceDate: 0)
+        let rule = SmartListRule(type: .dateAdded, comparison: .between, value: .dateRange(start: start, end: end))
+        XCTAssertEqual(validationError(rule), .invalidDateRange(ruleType: .dateAdded))
+    }
+
+    func testDateRangeWithEqualDatesIsInvalid() {
+        let date = Date(timeIntervalSinceReferenceDate: 0)
+        let rule = SmartListRule(type: .pubDate, comparison: .between, value: .dateRange(start: date, end: date))
+        XCTAssertEqual(validationError(rule), .invalidDateRange(ruleType: .pubDate))
+    }
+
     // MARK: - validateAll
 
     func testValidateAllEmptyRulesSucceeds() {
@@ -216,6 +236,7 @@ final class SmartListRuleValidatorTests: XCTestCase {
             .emptyStringValue(ruleType: .title),
             .numericOutOfRange(ruleType: .rating, min: 1, max: 5),
             .valueTypeMismatch(ruleType: .duration),
+            .invalidDateRange(ruleType: .dateAdded),
         ]
         for error in errors {
             XCTAssertNotNil(error.errorDescription)

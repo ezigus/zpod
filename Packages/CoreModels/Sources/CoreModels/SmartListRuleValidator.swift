@@ -20,6 +20,8 @@ public struct SmartListRuleValidator: Sendable {
         case numericOutOfRange(ruleType: SmartListRuleType, min: Double, max: Double)
         /// The value type does not match what this rule type/comparison pair expects.
         case valueTypeMismatch(ruleType: SmartListRuleType)
+        /// A date range has a start date that is not before its end date.
+        case invalidDateRange(ruleType: SmartListRuleType)
 
         public var errorDescription: String? {
             switch self {
@@ -31,6 +33,8 @@ public struct SmartListRuleValidator: Sendable {
                 return "'\(type.displayName)' value must be between \(min) and \(max)."
             case .valueTypeMismatch(let type):
                 return "The value type is incompatible with the '\(type.displayName)' rule."
+            case .invalidDateRange(let type):
+                return "'\(type.displayName)' date range must have a start date before the end date."
             }
         }
     }
@@ -135,7 +139,11 @@ public struct SmartListRuleValidator: Sendable {
 
         case .dateAdded, .pubDate:
             switch rule.value {
-            case .relativeDate, .date, .dateRange: break
+            case .relativeDate, .date: break
+            case .dateRange(let start, let end):
+                if start >= end {
+                    return .invalidDateRange(ruleType: rule.type)
+                }
             default: return .valueTypeMismatch(ruleType: rule.type)
             }
         }
