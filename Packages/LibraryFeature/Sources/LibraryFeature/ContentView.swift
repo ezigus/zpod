@@ -688,7 +688,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
     @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
-    @State private var loadError: String?
 
     private static let libraryLogger = Logger(
       subsystem: "us.zig.zpod.library",
@@ -708,15 +707,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Library")
-        } else if let errorMessage = loadError {
-          ContentUnavailableView(
-            "Unable to Load Library",
-            systemImage: "exclamationmark.triangle",
-            description: Text(errorMessage)
-          )
-          .accessibilityIdentifier("Library.ErrorState")
-          .navigationTitle("Library")
         } else if podcasts.isEmpty {
+          // NOTE: PodcastManaging.all() is non-throwing — repository errors are handled
+          // internally (logged via OSLog, returning []). An empty result therefore covers
+          // both "no subscriptions" and "repository failure" scenarios. The diagnostic log
+          // in loadPodcasts() distinguishes the two for developers.
           ContentUnavailableView(
             "No Podcasts Yet",
             systemImage: "antenna.radiowaves.left.and.right",
@@ -801,7 +796,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     private func loadPodcasts() {
       let result = podcastManager.all()
       podcasts = result
-      loadError = nil
       if result.isEmpty {
         Self.libraryLogger.debug("LibraryView: podcastManager.all() returned 0 podcasts")
       }
