@@ -16,16 +16,36 @@ Logger.debug("SmartPlaylistAnalyticsRepository: pruned \(discardCount) oldest ev
 
 ## Solution
 
-Added three tests to `SmartPlaylistAnalyticsRepositoryTests.swift`:
+### Tests added to `SmartPlaylistAnalyticsRepositoryTests.swift`
 
-1. **`testPruningAtCapEmitsDebugLog`** — Records 10 events against a cap of 5, verifies exactly 5 are retained (proving the `if events.count > maxEventCount` branch — and the `Logger.debug` call inside it — executed).
+1. **`testPruningAtCapEnforcesMaxEventCount`** — Records 10 events against a cap of 5, verifies exactly 5 are retained (proving the `if events.count > maxEventCount` branch — and the `Logger.debug` call inside it — executed).
 
-2. **`testNoPruneLogWhenUnderCap`** — Records 5 events against a cap of 10, verifies all 5 are retained (pruning branch did NOT fire).
+2. **`testPruningWithCapOfOne`** — Edge case with `maxEventCount = 1`; records 2 events, verifies only the newest survives. Guards against off-by-one errors in the pruning logic.
 
-3. **`testNoPruneLogWhenExactlyAtCap`** — Records exactly cap-many events, verifies no pruning occurs (boundary condition: `count > cap`, not `>=`).
+3. **`testNoPruningWhenUnderCap`** — Records 5 events against a cap of 10, verifies all 5 are retained and no pruning occurred.
+
+4. **`testNoPruningWhenExactlyAtCap`** — Records exactly cap-many events, verifies no pruning occurs (boundary condition: `count > cap`, not `>=`).
+
+### Logging verification approach
+
+`Logger.debug` is called inside the pruning branch but cannot be verified directly — `Logger` is a static enum backed by `os.Logger` with no injection point. Reaching `maxEventCount` in the assertion proves the pruning branch (containing the log call) executed. This is an acceptable trade-off: the log statement is a single line co-located with the pruning logic, so any change to the branch would be caught by the count assertion.
+
+### Quality review fixes (2026-03-12)
+
+Addressed compound quality review findings:
+
+- **System-clock dependency**: Injected a `currentDate` clock into `UserDefaultsSmartPlaylistAnalyticsRepository` (defaulting to `{ Date() }`). All cap tests now use a fixed reference date (`Date(timeIntervalSince1970: 1_700_000_000)`) making them fully deterministic and independent of the system clock.
+
+- **Misleading timestamp comment**: Corrected the comment about "ISO-8601 JSON encode/decode" — internal storage uses the default `JSONEncoder` date strategy (Double precision), which preserves sub-second ordering. The 1-hour gaps between test events are for readability, not precision.
+
+- **Code duplication**: Extracted `makeCappedRepo(cap:)` and `recordEvents(in:playlistID:count:)` helpers. All five cap tests now use these shared helpers instead of repeating setup boilerplate.
+
+- **Dev-log drift**: Updated this dev-log to list the actual four test names (previously listed three names that didn't match the implementation).
+
+- **Invalid maxEventCount guard**: Added `precondition(maxEventCount >= 1)` to the repository initializer to reject invalid values with a clear error.
 
 ## Test Results
 
-All 176 Persistence package tests pass (✅ 176, ❌ 0).
+All Persistence package tests pass.
 
-## Completion: 2026-03-11
+## Completion: 2026-03-11 (quality fixes: 2026-03-12)

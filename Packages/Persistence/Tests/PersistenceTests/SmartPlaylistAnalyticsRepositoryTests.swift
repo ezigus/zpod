@@ -203,32 +203,46 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
 
     // MARK: - Event Count Cap
 
-    func testRecordEnforcesMaxEventCount() {
-        // Use a small cap (20) to keep the test fast while proving the mechanism works.
-        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+    /// Fixed reference point for deterministic cap/pruning tests.
+    /// Injected into the repository's clock so results are independent of the system clock.
+    private static let referenceDate = Date(timeIntervalSince1970: 1_700_000_000) // 2023-11-14
+
+    /// Creates a repository with a custom event cap and an injected clock pinned to `referenceDate`.
+    private func makeCappedRepo(cap: Int) -> UserDefaultsSmartPlaylistAnalyticsRepository {
+        UserDefaultsSmartPlaylistAnalyticsRepository(
             userDefaults: harness.userDefaults,
-            maxEventCount: 20
+            maxEventCount: cap,
+            currentDate: { SmartPlaylistAnalyticsRepositoryTests.referenceDate }
         )
-        let batchSize = 30
-        // Anchor 7 days in the past so events fall well within the 90-day retention
-        // window. 1-hour gaps ensure ordering survives ISO-8601 JSON encode/decode.
-        let baseDate = Date(timeIntervalSinceNow: -(7 * 24 * 3600))
-        for idx in 0..<batchSize {
-            cappedRepo.record(makeEvent(
-                playlistID: "pl-cap",
+    }
+
+    /// Records `count` events with 1-hour gaps starting 7 days before `referenceDate`.
+    /// Internal storage uses default `JSONEncoder` (Double precision), so sub-second
+    /// ordering is preserved — the 1-hour gaps are for readability, not precision.
+    private func recordEvents(
+        in repo: UserDefaultsSmartPlaylistAnalyticsRepository,
+        playlistID: String,
+        count: Int
+    ) {
+        let baseDate = Self.referenceDate.addingTimeInterval(-(7 * 24 * 3600))
+        for idx in 0..<count {
+            repo.record(makeEvent(
+                playlistID: playlistID,
                 episodeID: "ep-\(idx)",
                 date: baseDate.addingTimeInterval(Double(idx) * 3600)
             ))
         }
+    }
+
+    func testRecordEnforcesMaxEventCount() {
+        let cappedRepo = makeCappedRepo(cap: 20)
+        recordEvents(in: cappedRepo, playlistID: "pl-cap", count: 30)
 
         let allEvents = cappedRepo.events(for: "pl-cap")
         XCTAssertLessThanOrEqual(allEvents.count, 20, "Event count should be capped at maxEventCount")
-
-        // The oldest events (ep-0 through ep-9) should have been pruned
         XCTAssertFalse(allEvents.contains { $0.episodeID == "ep-0" },
                        "Oldest event should be pruned when cap is exceeded")
-        // The newest event should be retained
-        XCTAssertTrue(allEvents.contains { $0.episodeID == "ep-\(batchSize - 1)" },
+        XCTAssertTrue(allEvents.contains { $0.episodeID == "ep-29" },
                       "Most recent event should be retained")
     }
 
@@ -237,29 +251,15 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
         // exactly maxEventCount, discarding the oldest events first.
         // NOTE: Logger.debug is called inside the pruning branch but cannot be verified
         // directly — Logger is a static enum backed by os.Logger with no injection point.
-        // Enforced count here is proof the pruning branch (containing the log call) executed.
+        // Reaching maxEventCount proves the pruning branch (containing the log call) executed.
         let cap = 5
-        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
-            userDefaults: harness.userDefaults,
-            maxEventCount: cap
-        )
-        // Anchor 7 days in the past so events fall well within the 90-day retention
-        // window. 1-hour gaps ensure ordering survives ISO-8601 JSON encode/decode.
-        let baseDate = Date(timeIntervalSinceNow: -(7 * 24 * 3600))
-        let recordCount = 10
-        for idx in 0..<recordCount {
-            cappedRepo.record(makeEvent(
-                playlistID: "pl-log",
-                episodeID: "ep-\(idx)",
-                date: baseDate.addingTimeInterval(Double(idx) * 3600)
-            ))
-        }
+        let cappedRepo = makeCappedRepo(cap: cap)
+        recordEvents(in: cappedRepo, playlistID: "pl-log", count: 10)
 
         let retained = cappedRepo.events(for: "pl-log")
         XCTAssertEqual(retained.count, cap,
                        "Pruning branch should have fired, capping events at \(cap)")
-        // Newest events are retained; oldest are discarded.
-        XCTAssertTrue(retained.contains { $0.episodeID == "ep-\(recordCount - 1)" },
+        XCTAssertTrue(retained.contains { $0.episodeID == "ep-9" },
                       "Most recent event must be retained after pruning")
         XCTAssertFalse(retained.contains { $0.episodeID == "ep-0" },
                        "Oldest events must be discarded by pruning")
@@ -267,75 +267,43 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
 
     func testPruningWithCapOfOne() {
         // Edge case: maxEventCount = 1 verifies the pruning logic has no off-by-one errors.
-        let cap = 1
-        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
-            userDefaults: harness.userDefaults,
-            maxEventCount: cap
-        )
-        let baseDate = Date(timeIntervalSinceNow: -(7 * 24 * 3600))
-        cappedRepo.record(makeEvent(playlistID: "pl-one", episodeID: "ep-older", date: baseDate))
-        cappedRepo.record(makeEvent(playlistID: "pl-one", episodeID: "ep-newer",
-                                    date: baseDate.addingTimeInterval(3600)))
+        let cappedRepo = makeCappedRepo(cap: 1)
+        recordEvents(in: cappedRepo, playlistID: "pl-one", count: 2)
 
         let retained = cappedRepo.events(for: "pl-one")
         XCTAssertEqual(retained.count, 1, "Only 1 event should be retained with cap of 1")
-        XCTAssertTrue(retained.contains { $0.episodeID == "ep-newer" },
+        XCTAssertTrue(retained.contains { $0.episodeID == "ep-1" },
                       "Newer event must be retained when cap is 1")
-        XCTAssertFalse(retained.contains { $0.episodeID == "ep-older" },
+        XCTAssertFalse(retained.contains { $0.episodeID == "ep-0" },
                        "Older event must be discarded when cap is 1")
     }
 
     func testNoPruningWhenUnderCap() {
-        // Verifies the pruning branch is NOT triggered when event count stays below maxEventCount.
-        let cap = 10
-        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
-            userDefaults: harness.userDefaults,
-            maxEventCount: cap
-        )
-        let baseDate = Date(timeIntervalSinceNow: -(7 * 24 * 3600))
-        for idx in 0..<5 {
-            cappedRepo.record(makeEvent(
-                playlistID: "pl-under",
-                episodeID: "ep-\(idx)",
-                date: baseDate.addingTimeInterval(Double(idx) * 3600)
-            ))
-        }
+        let cappedRepo = makeCappedRepo(cap: 10)
+        recordEvents(in: cappedRepo, playlistID: "pl-under", count: 5)
 
         let retained = cappedRepo.events(for: "pl-under")
         XCTAssertEqual(retained.count, 5,
                        "No events should be pruned when count is below maxEventCount")
-        // Verify every originally recorded event is still present — proves no pruning occurred.
         let expectedEpisodeIDs = Set((0..<5).map { "ep-\($0)" })
         let retainedEpisodeIDs = Set(retained.map { $0.episodeID })
         XCTAssertEqual(retainedEpisodeIDs, expectedEpisodeIDs,
-                       "All recorded events should be present when under cap — no pruning should have occurred")
+                       "All recorded events should be present when under cap")
     }
 
     func testNoPruningWhenExactlyAtCap() {
-        // Verifies the pruning branch is NOT triggered when event count equals maxEventCount exactly.
         // The condition is `events.count > maxEventCount`, so equality must not fire.
         let cap = 5
-        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
-            userDefaults: harness.userDefaults,
-            maxEventCount: cap
-        )
-        let baseDate = Date(timeIntervalSinceNow: -(7 * 24 * 3600))
-        for idx in 0..<cap {
-            cappedRepo.record(makeEvent(
-                playlistID: "pl-exact",
-                episodeID: "ep-\(idx)",
-                date: baseDate.addingTimeInterval(Double(idx) * 3600)
-            ))
-        }
+        let cappedRepo = makeCappedRepo(cap: cap)
+        recordEvents(in: cappedRepo, playlistID: "pl-exact", count: cap)
 
         let retained = cappedRepo.events(for: "pl-exact")
         XCTAssertEqual(retained.count, cap,
                        "Exactly cap-many events should be retained without triggering pruning")
-        // Verify every originally recorded event is still present — proves no pruning occurred.
         let expectedEpisodeIDs = Set((0..<cap).map { "ep-\($0)" })
         let retainedEpisodeIDs = Set(retained.map { $0.episodeID })
         XCTAssertEqual(retainedEpisodeIDs, expectedEpisodeIDs,
-                       "All recorded events should be present when exactly at cap — no pruning should have occurred")
+                       "All recorded events should be present when exactly at cap")
     }
 
     // MARK: - JSON Export

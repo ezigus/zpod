@@ -32,15 +32,19 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     private let userDefaults: UserDefaults
     private let retentionDays: Int
     private let maxEventCount: Int
+    private let currentDate: @Sendable () -> Date
 
     public init(
         userDefaults: UserDefaults = .standard,
         retentionDays: Int = 90,
-        maxEventCount: Int = 5000
+        maxEventCount: Int = 5000,
+        currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
+        precondition(maxEventCount >= 1, "maxEventCount must be at least 1")
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
+        self.currentDate = currentDate
     }
 
     // MARK: - Record
@@ -169,11 +173,12 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     }
 
     private func pruneAll(_ events: inout [SmartPlaylistPlayEvent]) {
+        let now = currentDate()
         let cutoff = Calendar.current.date(
             byAdding: .day,
             value: -retentionDays,
-            to: Date()
-        ) ?? Date()
+            to: now
+        ) ?? now
         events = events.filter { $0.occurredAt >= cutoff }
 
         // Hard cap prevents unbounded UserDefaults growth
