@@ -29,6 +29,11 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // (JSON encode/decode), so contention cost is negligible.
     private static let lock = NSLock()
 
+    // MARK: - Thread Safety
+    // This class is marked @unchecked Sendable because NSLock serialises all mutations.
+    // Invariant: `currentDate` must capture no mutable state or `self` references —
+    // it is either `{ Date() }` or a pure deterministic closure (e.g. for testing).
+    // If this invariant ever breaks, the @unchecked Sendable marking will hide the violation.
     private let userDefaults: UserDefaults
     private let retentionDays: Int
     private let maxEventCount: Int
@@ -40,7 +45,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         maxEventCount: Int = 5000,
         currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
-        precondition(maxEventCount >= 1, "maxEventCount must be at least 1")
+        guard maxEventCount >= 1 else {
+            fatalError("maxEventCount must be at least 1")
+        }
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount

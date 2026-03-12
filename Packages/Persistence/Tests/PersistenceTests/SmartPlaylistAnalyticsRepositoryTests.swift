@@ -176,36 +176,51 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
     // MARK: - Pruning
 
     func testPruneRemovesEventsOlderThan90Days() {
-        let old = Date().addingTimeInterval(-91 * 24 * 3600)
-        let recent = Date()
-        repo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-old", date: old))
-        repo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-new", date: recent))
+        // Use injected clock for deterministic date arithmetic (no system-clock dependency).
+        let now = Self.referenceDate
+        let retentionRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            currentDate: { now }
+        )
+        let old = now.addingTimeInterval(-91 * 24 * 3600)
+        retentionRepo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-old", date: old))
+        retentionRepo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-new", date: now))
 
-        repo.pruneOldEvents()
+        retentionRepo.pruneOldEvents()
 
-        let events = repo.events(for: "pl-1")
+        let events = retentionRepo.events(for: "pl-1")
         XCTAssertFalse(events.contains { $0.episodeID == "ep-old" })
         XCTAssertTrue(events.contains { $0.episodeID == "ep-new" })
     }
 
     func testRecentEventsAreNotPrunedOnRecord() {
-        let event = makeEvent(playlistID: "pl-1", episodeID: "ep-fresh")
-        repo.record(event)
-        XCTAssertTrue(repo.events(for: "pl-1").contains { $0.id == event.id })
+        let event = makeEvent(playlistID: "pl-1", episodeID: "ep-fresh", date: Self.referenceDate)
+        let retentionRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            currentDate: { Self.referenceDate }
+        )
+        retentionRepo.record(event)
+        XCTAssertTrue(retentionRepo.events(for: "pl-1").contains { $0.id == event.id })
     }
 
     func testEventsInsideRetentionWindowSurvivePrune() {
-        let withinWindow = Date().addingTimeInterval(-89 * 24 * 3600)
-        repo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-inside", date: withinWindow))
-        repo.pruneOldEvents()
-        XCTAssertTrue(repo.events(for: "pl-1").contains { $0.episodeID == "ep-inside" })
+        let now = Self.referenceDate
+        let retentionRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            currentDate: { now }
+        )
+        let withinWindow = now.addingTimeInterval(-89 * 24 * 3600)
+        retentionRepo.record(makeEvent(playlistID: "pl-1", episodeID: "ep-inside", date: withinWindow))
+        retentionRepo.pruneOldEvents()
+        XCTAssertTrue(retentionRepo.events(for: "pl-1").contains { $0.episodeID == "ep-inside" })
     }
 
     // MARK: - Event Count Cap
 
     /// Fixed reference point for deterministic cap/pruning tests.
     /// Injected into the repository's clock so results are independent of the system clock.
-    private static let referenceDate = Date(timeIntervalSince1970: 1_700_000_000) // 2023-11-14
+    // 2023-11-14 22:13:20 UTC (1_700_000_000 seconds since 1970-01-01 00:00:00 UTC)
+    private static let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
 
     /// Creates a repository with a custom event cap and an injected clock pinned to `referenceDate`.
     private func makeCappedRepo(cap: Int) -> UserDefaultsSmartPlaylistAnalyticsRepository {
@@ -252,6 +267,7 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
         // NOTE: Logger.debug is called inside the pruning branch but cannot be verified
         // directly — Logger is a static enum backed by os.Logger with no injection point.
         // Reaching maxEventCount proves the pruning branch (containing the log call) executed.
+        // Revisit this assertion if pruneAll() conditions change (e.g. different guard logic).
         let cap = 5
         let cappedRepo = makeCappedRepo(cap: cap)
         recordEvents(in: cappedRepo, playlistID: "pl-log", count: 10)
