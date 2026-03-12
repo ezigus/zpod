@@ -29,6 +29,7 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     guard storage[podcast.id] == nil else { return }
     storage[podcast.id] = podcast
     siriSnapshotRefresher?.refreshAll()
+    NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
   }
 
   /// Updates an existing podcast with new data.
@@ -80,11 +81,13 @@ public final class InMemoryPodcastManager: PodcastManaging, @unchecked Sendable 
     )
     storage[podcast.id] = merged
     siriSnapshotRefresher?.refreshAll()
+    NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
   }
 
   public func remove(id: String) {
     guard storage.removeValue(forKey: id) != nil else { return }
     siriSnapshotRefresher?.refreshAll()
+    NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
   }
   
   // MARK: - Organization Filtering

@@ -115,12 +115,16 @@ extension XCTestCase: TestEnvironmentIsolation {
   /// }
   /// ```
   func clearKeychain() {
-    let secItemClasses = [
+    // Only password classes support kSecAttrService scoping.
+    // Certificate/key/identity classes use different attributes and will
+    // return errSecMissingEntitlement (-34018) in the UI test host process.
+    //
+    // Known limitation: kSecClassCertificate, kSecClassKey, and kSecClassIdentity
+    // are NOT cleared here. Tests that store certificates must clean up in their
+    // own tearDown(). See compound quality review for context.
+    let passwordClasses = [
       kSecClassGenericPassword,
       kSecClassInternetPassword,
-      kSecClassCertificate,
-      kSecClassKey,
-      kSecClassIdentity,
     ]
 
     // CRITICAL: Scope to app-specific service to avoid deleting system keychain items
@@ -128,7 +132,7 @@ extension XCTestCase: TestEnvironmentIsolation {
     let appService = "us.zig.zpod.uitests"
     var deletedCount = 0
 
-    for itemClass in secItemClasses {
+    for itemClass in passwordClasses {
       let spec: [String: Any] = [
         kSecClass as String: itemClass,
         kSecAttrService as String: appService,  // Scope to app service only
@@ -139,6 +143,9 @@ extension XCTestCase: TestEnvironmentIsolation {
         if status == errSecSuccess {
           deletedCount += 1
         }
+      } else if status == errSecMissingEntitlement {
+        // Expected in simulator — test host lacks keychain-access-groups entitlement.
+        // Not a test failure; suppress to avoid noise in failure analysis.
       } else {
         print(
           "⚠️ Failed to clear keychain class \(itemClass): OSStatus \(status)"

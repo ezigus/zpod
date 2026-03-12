@@ -20,6 +20,8 @@ public struct SmartListRuleValidator: Sendable {
         case numericOutOfRange(ruleType: SmartListRuleType, min: Double, max: Double)
         /// The value type does not match what this rule type/comparison pair expects.
         case valueTypeMismatch(ruleType: SmartListRuleType)
+        /// A date range has a start date that is not before its end date.
+        case invalidDateRange(ruleType: SmartListRuleType)
 
         public var errorDescription: String? {
             switch self {
@@ -31,6 +33,8 @@ public struct SmartListRuleValidator: Sendable {
                 return "'\(type.displayName)' value must be between \(min) and \(max)."
             case .valueTypeMismatch(let type):
                 return "The value type is incompatible with the '\(type.displayName)' rule."
+            case .invalidDateRange(let type):
+                return "'\(type.displayName)' date range must have a start date before the end date."
             }
         }
     }
@@ -60,7 +64,7 @@ public struct SmartListRuleValidator: Sendable {
     /// or `.failure` containing all detected errors.
     public static func validateAll(_ rules: [SmartListRule]) -> Result<Void, ValidationErrors> {
         let errors = rules.compactMap { rule -> ValidationError? in
-            if case .failure(let e) = validate(rule) { return e }
+            if case .failure(let err) = validate(rule) { return err }
             return nil
         }
         return errors.isEmpty ? .success(()) : .failure(ValidationErrors(errors: errors))
@@ -87,34 +91,41 @@ public struct SmartListRuleValidator: Sendable {
             guard case .string(let str) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // Extend the trim set beyond .whitespacesAndNewlines to catch invisible
+            // Unicode characters that are functionally empty but pass standard trimming:
+            // U+200B zero-width space, U+200C ZWNJ, U+200D ZWJ, U+00AD soft hyphen,
+            // U+FEFF BOM/zero-width no-break space, plus general control characters.
+            var invisibleChars = CharacterSet.whitespacesAndNewlines
+            invisibleChars.formUnion(.controlCharacters)
+            invisibleChars.insert(charactersIn: "\u{200B}\u{200C}\u{200D}\u{00AD}\u{FEFF}")
+            if str.trimmingCharacters(in: invisibleChars).isEmpty {
                 return .emptyStringValue(ruleType: rule.type)
             }
 
         case .rating:
             let numericValue: Double
             switch rule.value {
-            case .integer(let v): numericValue = Double(v)
-            case .double(let v): numericValue = v
+            case .integer(let val): numericValue = Double(val)
+            case .double(let val): numericValue = val
             default: return .valueTypeMismatch(ruleType: rule.type)
             }
-            if numericValue < 1 || numericValue > 5 {
+            if !numericValue.isFinite || numericValue < 1 || numericValue > 5 {
                 return .numericOutOfRange(ruleType: rule.type, min: 1, max: 5)
             }
 
         case .playbackPosition:
-            guard case .double(let v) = rule.value else {
+            guard case .double(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if v < 0 || v > 1 {
+            if !val.isFinite || val < 0 || val > 1 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: 1)
             }
 
         case .duration:
-            guard case .timeInterval(let v) = rule.value else {
+            guard case .timeInterval(let val) = rule.value else {
                 return .valueTypeMismatch(ruleType: rule.type)
             }
-            if v < 0 {
+            if !val.isFinite || val < 0 {
                 return .numericOutOfRange(ruleType: rule.type, min: 0, max: Double.greatestFiniteMagnitude)
             }
 
@@ -135,7 +146,11 @@ public struct SmartListRuleValidator: Sendable {
 
         case .dateAdded, .pubDate:
             switch rule.value {
-            case .relativeDate, .date, .dateRange: break
+            case .relativeDate, .date: break
+            case .dateRange(let start, let end):
+                if start >= end {
+                    return .invalidDateRange(ruleType: rule.type)
+                }
             default: return .valueTypeMismatch(ruleType: rule.type)
             }
         }

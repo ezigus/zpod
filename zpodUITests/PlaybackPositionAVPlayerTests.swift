@@ -177,6 +177,14 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             return
         }
 
+        // Wait for AVPlayer to start streaming before pausing
+        let initialValue = getSliderValue()
+        guard waitForPositionAdvancement(beyond: initialValue, timeout: avplayerTimeout) != nil else {
+            recordAudioDebugOverlay("pre-pause advancement timeout")
+            XCTFail("AVPlayer should have started advancing position before pause/resume test")
+            return
+        }
+
         // Pause playback
         let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
         XCTAssertTrue(pauseButton.waitForExistence(timeout: adaptiveShortTimeout))
@@ -354,7 +362,12 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             return 0.5
         }
         let ratio = current / total
-        return ratio >= 0.5 ? 0.2 : 0.8
+        // Seek to 20% if already past midpoint (backward seek),
+        // or 50% if before midpoint (forward seek to middle avoids end-of-file buffering stall).
+        // Previously targeted 80% for forward seeks, but AVPlayer buffering near end-of-file
+        // caused test hangs in CI (commit 0c929c7). End-of-file edge cases are out of scope
+        // for position-persistence tests; a dedicated buffering test should cover those paths.
+        return ratio >= 0.5 ? 0.2 : 0.5
     }
 
     @MainActor

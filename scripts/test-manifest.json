@@ -1,6 +1,10 @@
 {
   "_comment": "Maps production source files to test targets that cannot be inferred by grep alone. Page objects and test helpers do NOT need entries. New test classes do NOT need entries — they are discovered by directory convention. MAINTENANCE: When adding a new production source file with dedicated tests, add an entry here so Shipwright targeted runs exercise the right suite.",
   "sourceToTests": {
+    "Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift": [
+      "Packages",
+      "zpodUITests/LibraryViewUITests"
+    ],
     "Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift": [
       "EpisodeListUITests",
       "PlayerOrientationSnapshotTests",
@@ -9,6 +13,20 @@
     "Packages/PlaylistFeature/Sources/PlaylistFeature/SmartPlaylistViews.swift": [
       "Packages",
       "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/PlaylistFeature/Sources/PlaylistFeature/PlaylistViews.swift": [
+      "Packages",
+      "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/PlaylistFeature/Sources/PlaylistFeature/AddToPlaylistView.swift": [
+      "Packages",
+      "zpodUITests/SmartPlaylistAuthoringUITests"
+    ],
+    "Packages/CoreModels/Sources/CoreModels/SmartListRuleValidator.swift": [
+      "Packages"
+    ],
+    "Packages/Persistence/Sources/Persistence/SmartPlaylistAnalyticsRepository.swift": [
+      "Packages"
     ]
   }
 }

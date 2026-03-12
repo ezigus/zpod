@@ -169,22 +169,22 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           .reduce(into: [String: Episode]()) { dict, episode in dict[episode.id] = episode }
         return playlist.episodeIds.compactMap { episodeIndex[$0] }
       }
-      let vm = PlaylistViewModel(manager: playlistManager, episodeProvider: provider)
+      let playlistViewModel = PlaylistViewModel(manager: playlistManager, episodeProvider: provider)
       if let queueManager {
-        vm.onPlayAll = { playlist in
+        playlistViewModel.onPlayAll = { playlist in
           let episodes = provider(playlist)
           guard let first = episodes.first else { return }
           queueManager.playNow(first)
           episodes.dropFirst().forEach { queueManager.enqueue($0) }
         }
-        vm.onShuffle = { playlist in
+        playlistViewModel.onShuffle = { playlist in
           let episodes = provider(playlist).shuffled()
           guard let first = episodes.first else { return }
           queueManager.playNow(first)
           episodes.dropFirst().forEach { queueManager.enqueue($0) }
         }
       }
-      _viewModel = State(initialValue: vm)
+      _viewModel = State(initialValue: playlistViewModel)
 
       // Wire SmartPlaylistViewModel — uses UserDefaultsSmartPlaylistManager so custom
       // playlists survive app restarts. Built-in lists always come from
@@ -470,9 +470,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   }
 
   public struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
     // Service instances for dependency injection
     private let podcastManager: PodcastManaging
     private let playlistManager: any PlaylistManaging
@@ -496,6 +493,10 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
+    // Incremented each time the Library tab (tag 0) is selected, causing LibraryView to reload.
+    // This covers the case where the user adds a podcast in Discover and returns to Library
+    // without .onAppear re-firing (e.g., back-navigation within the tab stack).
+    @State private var libraryRefreshTrigger: Int = 0
 
     public init(podcastManager: PodcastManaging, playlistManager: any PlaylistManaging) {
       self.podcastManager = podcastManager
@@ -535,7 +536,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       ZStack(alignment: .bottom) {
         TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
-          LibraryView(playlistManager: playlistManager)
+          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager, refreshTrigger: libraryRefreshTrigger)
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
@@ -586,6 +587,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         #if canImport(UIKit)
           .background(TabBarIdentifierSetter())
         #endif
+      }
+      // Refresh Library when user navigates back to tab 0 — covers the case where
+      // .onAppear doesn't re-fire (e.g., podcast added in Discover without leaving Library tab stack).
+      .onChange(of: selectedTab) { _, newTab in
+        if newTab == 0 {
+          libraryRefreshTrigger += 1
+        }
       }
       // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
       // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
@@ -672,23 +680,24 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     }
   }
 
-  // MARK: - Data Models for UI Testing
-  private struct PodcastItem: Identifiable {
-    let id: String
-    let title: String
-  }
-
   /// Library view using card-based button layout instead of table for XCUITest compatibility
   struct LibraryView: View {
+    let podcastManager: PodcastManaging
     let playlistManager: (any PlaylistManaging)?
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    let refreshTrigger: Int
 
-    @State private var samplePodcasts: [PodcastItem] = []
+    @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
 
-    init(playlistManager: (any PlaylistManaging)? = nil) {
+    private static let libraryLogger = Logger(
+      subsystem: "us.zig.zpod.library",
+      category: "LibraryView"
+    )
+
+    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil, refreshTrigger: Int = 0) {
+      self.podcastManager = podcastManager
       self.playlistManager = playlistManager
+      self.refreshTrigger = refreshTrigger
     }
 
     var body: some View {
@@ -698,6 +707,18 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .accessibilityIdentifier("Loading View")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("Library")
+        } else if podcasts.isEmpty {
+          // NOTE: PodcastManaging.all() is non-throwing — repository errors are handled
+          // internally (logged via OSLog, returning []). An empty result therefore covers
+          // both "no subscriptions" and "repository failure" scenarios. The diagnostic log
+          // in loadPodcasts() distinguishes the two for developers.
+          ContentUnavailableView(
+            "No Podcasts Yet",
+            systemImage: "antenna.radiowaves.left.and.right",
+            description: Text("Subscribe to podcasts in the Discover tab to see them here")
+          )
+          .accessibilityIdentifier("Library.EmptyState")
+          .navigationTitle("Library")
         } else {
           ScrollView {
             LazyVStack(spacing: 16) {
@@ -711,90 +732,79 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
                 .padding(.horizontal)
 
               // Card-based podcast layout (no table structure)
-              ForEach(samplePodcasts) { podcast in
+              ForEach(podcasts, id: \.id) { podcast in
                 PodcastCardView(podcast: podcast, playlistManager: playlistManager)
                   .padding(.horizontal)
-              }
-
-              // Show persisted items as cards
-              ForEach(items) { item in
-                NavigationLink {
-                  Text(
-                    "Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))"
-                  )
-                } label: {
-                  VStack(alignment: .leading) {
-                    Text("Data Item")
-                      .font(.headline)
-                    Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                      .font(.caption)
-                      .foregroundColor(.secondary)
-                  }
-                  .frame(maxWidth: .infinity, alignment: .leading)
-                  .padding()
-                  .background(Color.platformSystemGray6)
-                  .cornerRadius(12)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
               }
             }
             .padding(.vertical)
           }
           .accessibilityIdentifier("Podcast Cards Container")
           .navigationTitle("Library")
-          .toolbar {
-            ToolbarItem {
-              Button(action: addItem) {
-                Label("Add Item", systemImage: "plus")
-              }
-            }
-          }
         }
       }
       .onAppear {
+        loadPodcasts()
+
+        // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
+        // tests can find podcast cards in a fresh (empty) test environment.
+        // Guarded by #if DEBUG so the seed path is compiled out of release builds entirely,
+        // preventing accidental state mutation if the env var leaks to production.
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
+          let seedPodcast = Podcast(
+            id: "swift-talk",
+            title: "Swift Talk",
+            author: "objc.io",
+            description: "Weekly episodes about Swift programming",
+            feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+            episodes: [],
+            dateAdded: Date()
+          )
+          podcastManager.add(seedPodcast)
+          // Notification from add() will trigger .onReceive below, but also
+          // reload here so the seeded podcast is visible immediately.
+          loadPodcasts()
+        }
+        #endif
+
+        isLoading = false
+
+        // Playback restoration is genuinely async — keep in its own Task.
         Task {
-          await loadData()
+          await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
         }
       }
-    }
-
-    private func addItem() {
-      withAnimation {
-        let newItem = Item(timestamp: Date())
-        modelContext.insert(newItem)
+      // Re-load when the user navigates back to the Library tab — covers cases where
+      // .onAppear does not re-fire (e.g., podcast added in Discover without leaving
+      // the Library tab stack). Synchronous call; no Task to preserve XCUITest quiescence.
+      .onChange(of: refreshTrigger) { _, _ in
+        loadPodcasts()
+      }
+      // Reactive update: reload whenever any PodcastManaging implementation mutates data.
+      // This covers the Discover → Library same-session flow without requiring tab switches.
+      .onReceive(NotificationCenter.default.publisher(for: .podcastLibraryDidChange)) { _ in
+        loadPodcasts()
       }
     }
 
-    private func deleteItems(offsets: IndexSet) {
-      withAnimation {
-        for index in offsets {
-          modelContext.delete(items[index])
-        }
+    /// Loads podcasts from the repository with diagnostic logging.
+    ///
+    /// `PodcastManaging.all()` is non-throwing by design — implementations handle errors
+    /// internally (logging and returning `[]`). This wrapper adds view-level diagnostics
+    /// so an empty result after a repository failure is visible in logs.
+    private func loadPodcasts() {
+      let result = podcastManager.all()
+      podcasts = result
+      if result.isEmpty {
+        Self.libraryLogger.debug("LibraryView: podcastManager.all() returned 0 podcasts")
       }
-    }
-
-    @MainActor
-    private func loadData() async {
-      // Load sample data for UI tests and development
-      // Using proper async loading without artificial delays
-      samplePodcasts = [
-        PodcastItem(id: "swift-talk", title: "Swift Talk"),
-        PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
-        PodcastItem(id: "accidental-tech-podcast", title: "Accidental Tech Podcast"),
-      ]
-
-      isLoading = false
-
-      // Retry playback restoration now that library is loaded
-      // This handles the race condition where initial restoration ran before data was available
-      await PlaybackEnvironment.playbackStateCoordinator?.restorePlaybackIfNeeded()
     }
   }
 
   // MARK: - Podcast Card View for Button-Based Layout (No Table Structure)
   private struct PodcastCardView: View {
-    let podcast: PodcastItem
+    let podcast: Podcast
     let playlistManager: (any PlaylistManaging)?
 
     var body: some View {
@@ -816,11 +826,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             Text(podcast.title)
               .font(.headline)
               .foregroundColor(.primary)
-            Text("Sample Podcast Description")
-              .font(.subheadline)
-              .foregroundColor(.secondary)
-              .lineLimit(2)
-            Text("42 episodes")
+            if let description = podcast.description {
+              Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+            }
+            Text("\(podcast.episodes.count) episodes")
               .font(.caption)
               .foregroundColor(.secondary)
           }

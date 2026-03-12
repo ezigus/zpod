@@ -201,6 +201,35 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
         XCTAssertTrue(repo.events(for: "pl-1").contains { $0.episodeID == "ep-inside" })
     }
 
+    // MARK: - Event Count Cap
+
+    func testRecordEnforcesMaxEventCount() {
+        // Use a small cap (20) to keep the test fast while proving the mechanism works.
+        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            maxEventCount: 20
+        )
+        let batchSize = 30
+        let baseDate = Date()
+        for idx in 0..<batchSize {
+            cappedRepo.record(makeEvent(
+                playlistID: "pl-cap",
+                episodeID: "ep-\(idx)",
+                date: baseDate.addingTimeInterval(Double(idx))
+            ))
+        }
+
+        let allEvents = cappedRepo.events(for: "pl-cap")
+        XCTAssertLessThanOrEqual(allEvents.count, 20, "Event count should be capped at maxEventCount")
+
+        // The oldest events (ep-0 through ep-9) should have been pruned
+        XCTAssertFalse(allEvents.contains { $0.episodeID == "ep-0" },
+                       "Oldest event should be pruned when cap is exceeded")
+        // The newest event should be retained
+        XCTAssertTrue(allEvents.contains { $0.episodeID == "ep-\(batchSize - 1)" },
+                      "Most recent event should be retained")
+    }
+
     // MARK: - JSON Export
 
     func testExportJSONProducesValidJSON() throws {

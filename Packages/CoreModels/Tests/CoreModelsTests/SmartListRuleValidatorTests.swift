@@ -113,6 +113,43 @@ final class SmartListRuleValidatorTests: XCTestCase {
         XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
     }
 
+    // MARK: - NaN / Infinity Edge Cases
+
+    func testPlaybackPositionNaNIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testPlaybackPositionInfinityIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testPlaybackPositionNegativeInfinityIsInvalid() {
+        let rule = SmartListRule(type: .playbackPosition, comparison: .greaterThan, value: .double(-.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .playbackPosition, min: 0, max: 1))
+    }
+
+    func testRatingNaNIsInvalid() {
+        let rule = SmartListRule(type: .rating, comparison: .equals, value: .double(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .rating, min: 1, max: 5))
+    }
+
+    func testRatingInfinityIsInvalid() {
+        let rule = SmartListRule(type: .rating, comparison: .equals, value: .double(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .rating, min: 1, max: 5))
+    }
+
+    func testDurationNaNIsInvalid() {
+        let rule = SmartListRule(type: .duration, comparison: .greaterThan, value: .timeInterval(.nan))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
+    }
+
+    func testDurationInfinityIsInvalid() {
+        let rule = SmartListRule(type: .duration, comparison: .greaterThan, value: .timeInterval(.infinity))
+        XCTAssertEqual(validationError(rule), .numericOutOfRange(ruleType: .duration, min: 0, max: Double.greatestFiniteMagnitude))
+    }
+
     // MARK: - Value Type Mismatch Errors
 
     func testPlayStatusWithStringValueIsInvalid() {
@@ -128,6 +165,26 @@ final class SmartListRuleValidatorTests: XCTestCase {
     func testDateRuleWithStringValueIsInvalid() {
         let rule = SmartListRule(type: .pubDate, comparison: .within, value: .string("last week"))
         XCTAssertEqual(validationError(rule), .valueTypeMismatch(ruleType: .pubDate))
+    }
+
+    func testDateRangeWithValidDatesIsValid() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = Date(timeIntervalSinceReferenceDate: 86400)
+        let rule = SmartListRule(type: .dateAdded, comparison: .between, value: .dateRange(start: start, end: end))
+        XCTAssertTrue(isValid(rule))
+    }
+
+    func testDateRangeWithEndBeforeStartIsInvalid() {
+        let start = Date(timeIntervalSinceReferenceDate: 86400)
+        let end = Date(timeIntervalSinceReferenceDate: 0)
+        let rule = SmartListRule(type: .dateAdded, comparison: .between, value: .dateRange(start: start, end: end))
+        XCTAssertEqual(validationError(rule), .invalidDateRange(ruleType: .dateAdded))
+    }
+
+    func testDateRangeWithEqualDatesIsInvalid() {
+        let date = Date(timeIntervalSinceReferenceDate: 0)
+        let rule = SmartListRule(type: .pubDate, comparison: .between, value: .dateRange(start: date, end: date))
+        XCTAssertEqual(validationError(rule), .invalidDateRange(ruleType: .pubDate))
     }
 
     // MARK: - validateAll
@@ -179,6 +236,7 @@ final class SmartListRuleValidatorTests: XCTestCase {
             .emptyStringValue(ruleType: .title),
             .numericOutOfRange(ruleType: .rating, min: 1, max: 5),
             .valueTypeMismatch(ruleType: .duration),
+            .invalidDateRange(ruleType: .dateAdded),
         ]
         for error in errors {
             XCTAssertNotNil(error.errorDescription)
@@ -194,7 +252,7 @@ final class SmartListRuleValidatorTests: XCTestCase {
     }
 
     private func validationError(_ rule: SmartListRule) -> SmartListRuleValidator.ValidationError? {
-        if case .failure(let e) = SmartListRuleValidator.validate(rule) { return e }
+        if case .failure(let err) = SmartListRuleValidator.validate(rule) { return err }
         return nil
     }
 

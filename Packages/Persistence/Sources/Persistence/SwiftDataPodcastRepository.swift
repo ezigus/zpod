@@ -97,6 +97,7 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
         if didSave {
             refreshSiriSnapshotsIfNeeded()
+            NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
         }
     }
 
@@ -143,6 +144,7 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
         if didSave {
             refreshSiriSnapshotsIfNeeded()
+            NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
         }
     }
 
@@ -165,6 +167,7 @@ public final class SwiftDataPodcastRepository: PodcastManaging, @unchecked Senda
 
         if didSave {
             refreshSiriSnapshotsIfNeeded()
+            NotificationCenter.default.post(name: .podcastLibraryDidChange, object: nil)
         }
     }
 
