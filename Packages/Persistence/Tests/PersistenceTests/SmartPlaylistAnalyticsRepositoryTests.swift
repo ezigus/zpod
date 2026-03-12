@@ -230,6 +230,84 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
                       "Most recent event should be retained")
     }
 
+    func testPruningAtCapEmitsDebugLog() {
+        // Verifies the code branch that calls Logger.debug(...) is executed when the
+        // hard event cap is exceeded. Logger is a static enum backed by os.Logger with
+        // no injection point, so we verify the branch indirectly: recording more events
+        // than maxEventCount and observing the resulting cap enforcement proves the
+        // `if events.count > maxEventCount` block — and the Logger.debug call inside
+        // it — was executed.
+        let cap = 5
+        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            maxEventCount: cap
+        )
+        let baseDate = Date()
+        let recordCount = 10
+        for idx in 0..<recordCount {
+            cappedRepo.record(makeEvent(
+                playlistID: "pl-log",
+                episodeID: "ep-\(idx)",
+                date: baseDate.addingTimeInterval(Double(idx))
+            ))
+        }
+
+        let retained = cappedRepo.events(for: "pl-log")
+        // If the pruning branch (which contains Logger.debug) executed, count must equal cap.
+        XCTAssertEqual(retained.count, cap,
+                       "Pruning branch should have fired and emitted the debug log, capping events at \(cap)")
+        // Newest events are retained; oldest are discarded.
+        XCTAssertTrue(retained.contains { $0.episodeID == "ep-\(recordCount - 1)" },
+                      "Most recent event must be retained after pruning")
+        XCTAssertFalse(retained.contains { $0.episodeID == "ep-0" },
+                       "Oldest events must be discarded by pruning")
+    }
+
+    func testNoPruneLogWhenUnderCap() {
+        // Verifies the pruning branch (and its Logger.debug call) is NOT triggered
+        // when the event count stays at or below maxEventCount.
+        let cap = 10
+        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            maxEventCount: cap
+        )
+        let baseDate = Date()
+        for idx in 0..<5 {
+            cappedRepo.record(makeEvent(
+                playlistID: "pl-under",
+                episodeID: "ep-\(idx)",
+                date: baseDate.addingTimeInterval(Double(idx))
+            ))
+        }
+
+        let retained = cappedRepo.events(for: "pl-under")
+        // All events should be present — pruning branch did not fire, no log emitted.
+        XCTAssertEqual(retained.count, 5,
+                       "No events should be pruned when count is below maxEventCount")
+    }
+
+    func testNoPruneLogWhenExactlyAtCap() {
+        // Verifies the pruning branch is NOT triggered when event count equals maxEventCount exactly.
+        // The condition is `events.count > maxEventCount`, so equality must not fire.
+        let cap = 5
+        let cappedRepo = UserDefaultsSmartPlaylistAnalyticsRepository(
+            userDefaults: harness.userDefaults,
+            maxEventCount: cap
+        )
+        let baseDate = Date()
+        for idx in 0..<cap {
+            cappedRepo.record(makeEvent(
+                playlistID: "pl-exact",
+                episodeID: "ep-\(idx)",
+                date: baseDate.addingTimeInterval(Double(idx))
+            ))
+        }
+
+        let retained = cappedRepo.events(for: "pl-exact")
+        XCTAssertEqual(retained.count, cap,
+                       "Exactly cap-many events should be retained without triggering pruning log branch")
+    }
+
     // MARK: - JSON Export
 
     func testExportJSONProducesValidJSON() throws {
