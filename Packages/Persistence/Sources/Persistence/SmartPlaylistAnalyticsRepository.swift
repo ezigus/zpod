@@ -56,6 +56,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         maxEventCount: Int = 5000,
         currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
+        // precondition (not assert): runs in all builds including Release/App Store (-O, -Osize).
+        // assert() would be stripped by the optimizer. precondition() is only stripped with
+        // -Ounchecked, which this project does not use.
         precondition(maxEventCount >= 1, "maxEventCount must be at least 1")
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
