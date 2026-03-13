@@ -61,6 +61,12 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         guard maxEventCount >= 1 else {
             fatalError("maxEventCount must be at least 1")
         }
+        guard retentionDays > 0 else {
+            // Zero or negative retentionDays would produce a cutoff date at or in the future,
+            // causing every existing event to be pruned on the next call. This is always a
+            // misconfiguration rather than an intentional use case.
+            fatalError("retentionDays must be at least 1")
+        }
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
@@ -167,7 +173,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         Self.lock.withLock {
             var all = loadAll()
             pruneAll(&all)
-            saveAll(all)
+            if !saveAll(all) {
+                Logger.error("SmartPlaylistAnalyticsRepository: pruneOldEvents() failed to persist \(all.count) events due to encoding failure")
+            }
         }
     }
 
