@@ -39,15 +39,24 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     private let maxEventCount: Int
     private let currentDate: @Sendable () -> Date
 
+    /// Creates a new repository instance.
+    ///
+    /// - Parameters:
+    ///   - userDefaults: The `UserDefaults` store to persist events in. Defaults to `.standard`.
+    ///   - retentionDays: Events older than this many days are pruned. Defaults to 90.
+    ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be ≥ 1.
+    ///     Defaults to 5000. Violations are caught in Debug builds via `assert`.
+    ///   - currentDate: Clock provider injected for deterministic testing. **Invariant**: must capture
+    ///     no mutable state or `self` references — it must be a pure, `@Sendable`-safe closure.
+    ///     The default `{ Date() }` satisfies this invariant. Violations are not caught by the
+    ///     compiler due to `@unchecked Sendable`; callers must enforce this manually.
     public init(
         userDefaults: UserDefaults = .standard,
         retentionDays: Int = 90,
         maxEventCount: Int = 5000,
         currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
-        guard maxEventCount >= 1 else {
-            fatalError("maxEventCount must be at least 1")
-        }
+        assert(maxEventCount >= 1, "maxEventCount must be at least 1")
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
@@ -167,6 +176,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         return decoded
     }
 
+    // NOTE: This encoder uses default settings (no special date strategy).
+    // If you change the date encoding strategy here, also update exportJSON(for:) which
+    // uses .iso8601 — both must remain consistent to avoid stored/exported format divergence.
     @discardableResult
     private func saveAll(_ events: [SmartPlaylistPlayEvent]) -> Bool {
         do {
@@ -180,6 +192,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     }
 
     private func pruneAll(_ events: inout [SmartPlaylistPlayEvent]) {
+        // currentDate() is assumed to return a non-decreasing value.
+        // If the clock goes backwards (e.g. a system clock adjustment), pruning may retain
+        // unexpected old events relative to the adjusted time, but no events are erroneously lost.
         let now = currentDate()
         let cutoff = Calendar.current.date(
             byAdding: .day,
@@ -188,11 +203,18 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         ) ?? now
         events = events.filter { $0.occurredAt >= cutoff }
 
-        // Hard cap prevents unbounded UserDefaults growth
+        // Hard cap prevents unbounded UserDefaults growth.
+        // Pass 2 runs after Pass 1 (retention window), so count here reflects surviving events only.
         if events.count > maxEventCount {
             let discardCount = events.count - maxEventCount
-            events.sort { $0.occurredAt > $1.occurredAt }
+            // Stable sort: primary key is occurredAt descending; UUID string breaks ties
+            // deterministically so pruning order is reproducible when timestamps collide.
+            events.sort { lhs, rhs in
+                if lhs.occurredAt != rhs.occurredAt { return lhs.occurredAt > rhs.occurredAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
             events = Array(events.prefix(maxEventCount))
+            // Debug log: safe even if discardCount == maxEventCount
             Logger.debug("SmartPlaylistAnalyticsRepository: pruned \(discardCount) oldest events to stay within \(maxEventCount) cap")
         }
     }
