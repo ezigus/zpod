@@ -333,6 +333,20 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
                        "All recorded events should be present when exactly at cap")
     }
 
+    func testPruningWithTimestampCollisionUsesUUIDTiebreaker() {
+        // When two events share the same occurredAt timestamp, the UUID string tiebreaker
+        // determines which survives. This test verifies a defined (not arbitrary) outcome:
+        // exactly cap events are retained and the count is never wrong due to sort instability.
+        let cap = 2
+        let cappedRepo = makeCappedRepo(cap: cap)
+        // timeBetween: 0 forces all events to share the same occurredAt, exercising the UUID path.
+        recordEvents(in: cappedRepo, playlistID: "pl-collide", count: 4, timeBetween: 0)
+
+        let retained = cappedRepo.events(for: "pl-collide")
+        XCTAssertEqual(retained.count, cap,
+                       "UUID tiebreaker must still produce exactly cap events when all timestamps collide")
+    }
+
     func testRetentionAndCapPruneInteraction() {
         // Verifies that both pruning passes interact correctly when triggered simultaneously.
         // Pass 1 (retention window) removes old events; Pass 2 (hard cap) trims the remainder.

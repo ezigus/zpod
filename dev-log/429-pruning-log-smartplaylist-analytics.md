@@ -42,9 +42,9 @@ Addressed compound quality review findings:
 
 - **Dev-log drift**: Updated this dev-log to list the actual four test names (previously listed three names that didn't match the implementation).
 
-- **Invalid maxEventCount guard**: Added `precondition(maxEventCount >= 1)` to the repository initializer to reject invalid values with a clear error.
+- **Invalid maxEventCount guard**: Added `guard...fatalError("maxEventCount must be at least 1")` to the repository initializer. `fatalError()` is guaranteed to run in every build configuration (Release, `-Osize`, App Store) — unlike `precondition()` which can be stripped with `-Ounchecked`.
 
-- **Deterministic pruning sort**: Changed the cap-enforcement sort to use a UUID string tiebreaker when `occurredAt` timestamps collide. Swift's `sort` is not guaranteed stable, so without a tiebreaker the surviving events are undefined when two events share the same timestamp (e.g., in tests with a mocked clock). The UUID tiebreaker makes pruning order reproducible across all builds.
+- **Deterministic pruning sort**: Changed the cap-enforcement sort to use a UUID string tiebreaker when `occurredAt` timestamps collide. Swift's `sort` is not guaranteed stable, so without a tiebreaker the surviving events are undefined when two events share the same timestamp (e.g., in tests with a mocked clock). The UUID string comparison provides a *stable tiebreaker* — consistent within a session — but not reproducible across app launches, since UUIDs are random at creation time.
 
 ## Test Results
 

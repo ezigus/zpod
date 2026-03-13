@@ -45,7 +45,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     ///   - userDefaults: The `UserDefaults` store to persist events in. Defaults to `.standard`.
     ///   - retentionDays: Events older than this many days are pruned. Defaults to 90.
     ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be ≥ 1.
-    ///     Defaults to 5000. Enforced in all builds via `precondition`.
+    ///     Defaults to 5000. Enforced via `fatalError` (runs in all builds, never stripped).
     ///   - currentDate: Clock provider injected for deterministic testing. **Invariant**: must capture
     ///     no mutable state or `self` references — it must be a pure, `@Sendable`-safe closure.
     ///     The default `{ Date() }` satisfies this invariant. Violations are not caught by the
@@ -56,10 +56,11 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         maxEventCount: Int = 5000,
         currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
-        // precondition (not assert): runs in all builds including Release/App Store (-O, -Osize).
-        // assert() would be stripped by the optimizer. precondition() is only stripped with
-        // -Ounchecked, which this project does not use.
-        precondition(maxEventCount >= 1, "maxEventCount must be at least 1")
+        // fatalError: guaranteed to run in every build configuration, including Release and
+        // App Store (-O, -Osize). Unlike precondition(), it is never stripped by any optimizer.
+        guard maxEventCount >= 1 else {
+            fatalError("maxEventCount must be at least 1")
+        }
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
@@ -210,8 +211,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         // Pass 2 runs after Pass 1 (retention window), so count here reflects surviving events only.
         if events.count > maxEventCount {
             let discardCount = events.count - maxEventCount
-            // Stable sort: primary key is occurredAt descending; UUID string breaks ties
-            // deterministically so pruning order is reproducible when timestamps collide.
+            // Stable sort: primary key is occurredAt descending; UUID string comparison provides
+            // a stable tiebreaker when timestamps collide — consistent within a session, but
+            // not reproducible across app launches (UUIDs are random at creation time).
             events.sort { lhs, rhs in
                 if lhs.occurredAt != rhs.occurredAt { return lhs.occurredAt > rhs.occurredAt }
                 return lhs.id.uuidString < rhs.id.uuidString
