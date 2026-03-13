@@ -44,6 +44,8 @@ Addressed compound quality review findings:
 
 - **Invalid maxEventCount guard**: Added `precondition(maxEventCount >= 1)` to the repository initializer to reject invalid values with a clear error.
 
+- **Deterministic pruning sort**: Changed the cap-enforcement sort to use a UUID string tiebreaker when `occurredAt` timestamps collide. Swift's `sort` is not guaranteed stable, so without a tiebreaker the surviving events are undefined when two events share the same timestamp (e.g., in tests with a mocked clock). The UUID tiebreaker makes pruning order reproducible across all builds.
+
 ## Test Results
 
 All Persistence package tests pass.
