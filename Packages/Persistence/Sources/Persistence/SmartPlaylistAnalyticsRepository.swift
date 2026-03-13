@@ -43,8 +43,8 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     ///
     /// - Parameters:
     ///   - userDefaults: The `UserDefaults` store to persist events in. Defaults to `.standard`.
-    ///   - retentionDays: Events older than this many days are pruned. Defaults to 90.
-    ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be ≥ 1.
+    ///   - retentionDays: Events older than this many days are pruned. Must be 1–3650. Defaults to 90.
+    ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be 1–100_000.
     ///     Defaults to 5000. Enforced via `fatalError` (runs in all builds, never stripped).
     ///   - currentDate: Clock provider injected for deterministic testing. **Invariant**: must capture
     ///     no mutable state or `self` references — it must be a pure, `@Sendable`-safe closure.
@@ -61,11 +61,23 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         guard maxEventCount >= 1 else {
             fatalError("maxEventCount must be at least 1")
         }
+        guard maxEventCount <= 100_000 else {
+            // UserDefaults is not designed for large payloads. At ~150 bytes per event
+            // (compact JSON), 100 000 events ≈ 15 MB — already beyond practical limits.
+            // Values above this ceiling indicate a misconfiguration, not a feature request.
+            fatalError("maxEventCount must not exceed 100 000")
+        }
         guard retentionDays > 0 else {
             // Zero or negative retentionDays would produce a cutoff date at or in the future,
             // causing every existing event to be pruned on the next call. This is always a
             // misconfiguration rather than an intentional use case.
             fatalError("retentionDays must be at least 1")
+        }
+        guard retentionDays <= 3_650 else {
+            // 3 650 days = 10 years. Anything larger suggests a programmer error;
+            // very large values could also cause Calendar date arithmetic to overflow
+            // on platforms with smaller Int sizes.
+            fatalError("retentionDays must not exceed 3 650 (10 years)")
         }
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays

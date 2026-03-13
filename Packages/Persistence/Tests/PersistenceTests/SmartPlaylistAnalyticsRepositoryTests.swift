@@ -224,7 +224,8 @@ final class SmartPlaylistAnalyticsRepositoryTests: XCTestCase {
 
     /// Creates a repository with a custom event cap and an injected clock pinned to `referenceDate`.
     private func makeCappedRepo(cap: Int) -> UserDefaultsSmartPlaylistAnalyticsRepository {
-        UserDefaultsSmartPlaylistAnalyticsRepository(
+        assert(cap >= 1, "cap must be ≥ 1 — passing 0 or negative would trigger fatalError in init")
+        return UserDefaultsSmartPlaylistAnalyticsRepository(
             userDefaults: harness.userDefaults,
             maxEventCount: cap,
             currentDate: { SmartPlaylistAnalyticsRepositoryTests.referenceDate }
