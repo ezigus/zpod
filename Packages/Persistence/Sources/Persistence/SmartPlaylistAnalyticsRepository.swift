@@ -45,7 +45,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     ///   - userDefaults: The `UserDefaults` store to persist events in. Defaults to `.standard`.
     ///   - retentionDays: Events older than this many days are pruned. Defaults to 90.
     ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be ≥ 1.
-    ///     Defaults to 5000. Violations are caught in Debug builds via `assert`.
+    ///     Defaults to 5000. Enforced in all builds via `precondition`.
     ///   - currentDate: Clock provider injected for deterministic testing. **Invariant**: must capture
     ///     no mutable state or `self` references — it must be a pure, `@Sendable`-safe closure.
     ///     The default `{ Date() }` satisfies this invariant. Violations are not caught by the
@@ -56,7 +56,7 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         maxEventCount: Int = 5000,
         currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
-        assert(maxEventCount >= 1, "maxEventCount must be at least 1")
+        precondition(maxEventCount >= 1, "maxEventCount must be at least 1")
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
