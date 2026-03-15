@@ -35,7 +35,7 @@ public struct ContentView: View {
 private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Sendable {
     private var storage: [String: Podcast]
 
-    init(initial: [Podcast] = PlaceholderPodcastData.samplePodcasts) {
+    init(initial: [Podcast] = []) {
         storage = Dictionary(uniqueKeysWithValues: initial.map { ($0.id, $0) })
     }
 
@@ -75,68 +75,6 @@ private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Senda
     func deleteAllOrphanedEpisodes() -> Int { 0 }
 }
 
-private enum PlaceholderPodcastData {
-    static let sampleEpisodes: [Episode] = [
-        Episode(
-            id: "sample-episode-swift-1",
-            title: "Understanding Swift Concurrency",
-            podcastID: "swift-talk",
-            podcastTitle: "Swift Talk",
-            duration: 1_800,
-            description: "Quick overview of actors and structured concurrency."
-        ),
-        Episode(
-            id: "sample-episode-swiftui-1",
-            title: "SwiftUI Layout Techniques",
-            podcastID: "swift-over-coffee",
-            podcastTitle: "Swift Over Coffee",
-            duration: 1_500,
-            description: "Discussing the latest layout APIs."
-        )
-    ]
-
-    static let samplePodcasts: [Podcast] = [
-        Podcast(
-            id: "swift-talk",
-            title: "Swift Talk",
-            author: "objc.io",
-            description: "Deep dives into advanced Swift topics.",
-            artworkURL: URL(string: "https://example.com/swift-talk.png"),
-            feedURL: URL(string: "https://example.com/swift-talk.rss")!,
-            categories: ["Development"],
-            episodes: sampleEpisodes,
-            isSubscribed: true
-        ),
-        Podcast(
-            id: "swift-over-coffee",
-            title: "Swift Over Coffee",
-            author: "Swift Community",
-            description: "News and discussion from the Swift world.",
-            artworkURL: URL(string: "https://example.com/swift-over-coffee.png"),
-            feedURL: URL(string: "https://example.com/swift-over-coffee.rss")!,
-            categories: ["Development", "News"],
-            episodes: sampleEpisodes.map { episode in
-                var copy = episode
-                copy.id = "coffee-\(episode.id)"
-                copy.podcastID = "swift-over-coffee"
-                copy.podcastTitle = "Swift Over Coffee"
-                return copy
-            },
-            isSubscribed: false
-        ),
-        Podcast(
-            id: "accidental-tech-podcast",
-            title: "Accidental Tech Podcast",
-            author: "Casey, Marco, John",
-            description: "Apple, technology, and programming news commentary.",
-            artworkURL: URL(string: "https://example.com/atp.png"),
-            feedURL: URL(string: "https://example.com/atp.rss")!,
-            categories: ["Technology"],
-            episodes: [],
-            isSubscribed: true
-        )
-    ]
-}
 
 #if canImport(UIKit)
 private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
@@ -337,69 +275,32 @@ public struct UITestLibraryPlaceholderView: View {
 
 // MARK: - Library Placeholder
 private struct LibraryPlaceholderView: View {
-    // Provide a small sample model used only by the placeholder to retain testability
-    private struct PodcastItem: Identifiable {
-        let id: String   // slug-style id used by UI tests (e.g. "swift-talk")
-        let title: String
-    }
-
-    private let samplePodcasts: [PodcastItem] = [
-        PodcastItem(id: "swift-talk", title: "Swift Talk"),
-        PodcastItem(id: "swift-over-coffee", title: "Swift Over Coffee"),
-        PodcastItem(id: "accidental-tech-podcast", title: "Accidental Tech Podcast")
-    ]
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 16) {
             // Heading for accessibility structure
             Text("Your Library")
                 .font(.title2).bold()
                 .accessibilityAddTraits(.isHeader)
 
-            // Main Content container expected by tests
-            Group {
-                // Use a transparent element to mark main content region
-                Color.clear
-                    .frame(height: 1)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityIdentifier("Main Content")
-                    .accessibilityLabel("Main Content")
-                Color.clear
-                    .frame(height: 1)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityIdentifier("Content Container")
-                    .accessibilityLabel("Content Container")
-            }
+            // Accessibility markers preserved so existing UI test navigation still works
+            Color.clear
+                .frame(height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier("Main Content")
+                .accessibilityLabel("Main Content")
+            Color.clear
+                .frame(height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier("Content Container")
+                .accessibilityLabel("Content Container")
 
-            List {
-                Section(header: Text("Podcasts")) {
-                    ForEach(samplePodcasts) { podcast in
-                        // NavigationLink so tapping in UI tests opens the episode list placeholder
-                        NavigationLink(value: podcast.id) {
-                            HStack {
-                                Text(podcast.title)
-                                    .accessibilityIdentifier("Podcast Title_\(podcast.id)")
-                                Spacer()
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel(podcast.title)
-                        }
-                        // Ensure the NavigationLink (row) itself exposes the identifier so
-                        // XCUIApplication.cell queries can find the row by identifier.
-                        .accessibilityIdentifier("Podcast-\(podcast.id)")
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .accessibilityIdentifier("Podcast Cards Container")
-            .accessibilityLabel("Podcast Cards Container")
+            Spacer()
+            Text("No podcasts yet.")
+                .foregroundStyle(.secondary)
+            Spacer()
         }
         .padding()
-        // Enable navigation to use the new value-based NavigationStack in the placeholder
-        .navigationDestination(for: String.self) { podcastId in
-            EpisodeListPlaceholderView(podcastId: podcastId)
-        }
+        .accessibilityIdentifier("Podcast Cards Container")
     }
 }
 
@@ -407,79 +308,16 @@ private struct LibraryPlaceholderView: View {
 private struct EpisodeListPlaceholderView: View {
     let podcastId: String
 
-    private struct EpisodeItem: Identifiable {
-        let id: String
-        let title: String
-    }
-
-    private let sampleEpisodes: [EpisodeItem] = [
-        EpisodeItem(id: "Episode-st-001", title: "Understanding Swift Concurrency"),
-        EpisodeItem(id: "Episode-st-002", title: "SwiftUI Layouts Deep Dive"),
-        EpisodeItem(id: "Episode-st-003", title: "Modern Package Management")
-    ]
-
-    var body: some View {
-        List {
-            ForEach(sampleEpisodes) { episode in
-                Button {
-                    // Navigate to a tiny detail view when tapped
-                } label: {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading) {
-                            Text(episode.title)
-                                .font(.body)
-                                .accessibilityIdentifier("Episode Title")
-                            Text("45m • Jan 1, 2025")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("Episode-\(episode.id)")
-                .onTapGesture {
-                    // Present episode detail via a sheet to make it discoverable by UI tests
-                    // Use NotificationCenter or environment navigation in a real app; keep simple here
-                }
-                .background(
-                    NavigationLink(destination: EpisodeDetailPlaceholderView(episodeTitle: episode.title)) {
-                        EmptyView()
-                    }
-                    // Tag the hidden NavigationLink with the episode id so the underlying
-                    // table row/cell is discoverable by XCUI tests via identifier queries.
-                    .accessibilityIdentifier(episode.id)
-                    .opacity(0)
-                )
-            }
-        }
-        .navigationTitle("Episodes")
-        // Make the list discoverable by UI tests
-        .accessibilityIdentifier("Episode Cards Container")
-        .accessibilityLabel("Episode Cards Container")
-    }
-}
-
-// MARK: - Episode Detail Placeholder
-private struct EpisodeDetailPlaceholderView: View {
-    let episodeTitle: String
-
     var body: some View {
         VStack(spacing: 16) {
-            Text(episodeTitle)
-                .font(.title2)
-                .bold()
-                .accessibilityIdentifier("Episode Title")
-
-            Text("Episode details and description go here.")
+            Spacer()
+            Text("No episodes yet.")
                 .foregroundStyle(.secondary)
-
             Spacer()
         }
-        .padding()
-        .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("Episode Detail View")
+        .navigationTitle("Episodes")
+        .accessibilityIdentifier("Episode Cards Container")
+        .accessibilityLabel("Episode Cards Container")
     }
 }
 
