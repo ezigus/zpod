@@ -53,7 +53,7 @@ final class PlayerTabController: ObservableObject {
         object: nil,
         queue: .main
       ) { [weak self] _ in
-        self?.playSampleEpisode()
+        MainActor.assumeIsolated { self?.playSampleEpisode() }
       }
     }
   }
