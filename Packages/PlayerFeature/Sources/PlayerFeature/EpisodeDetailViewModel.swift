@@ -50,11 +50,36 @@ public class EpisodeDetailViewModel: ObservableObject {
   @Published public var transcriptSearchQuery: String = ""
   @Published public var transcriptSearchResults: [TranscriptSearchResult] = []
 
+  /// External overrides for play/pause/skip/seek, used by PlayerTabController to
+  /// route commands through its own playbackService rather than the view model's.
+  public struct PlaybackCommandHandlers {
+    public var play: (Episode, TimeInterval, TimeInterval) -> Void
+    public var pause: () -> Void
+    public var skipForward: (TimeInterval?) -> Void
+    public var skipBackward: (TimeInterval?) -> Void
+    public var seek: (TimeInterval) -> Void
+
+    public init(
+      play: @escaping (Episode, TimeInterval, TimeInterval) -> Void,
+      pause: @escaping () -> Void,
+      skipForward: @escaping (TimeInterval?) -> Void,
+      skipBackward: @escaping (TimeInterval?) -> Void,
+      seek: @escaping (TimeInterval) -> Void
+    ) {
+      self.play = play
+      self.pause = pause
+      self.skipForward = skipForward
+      self.skipBackward = skipBackward
+      self.seek = seek
+    }
+  }
+
   private let playbackService: EpisodePlaybackService
   private let sleepTimer: SleepTimer
   private let annotationRepository: EpisodeAnnotationRepository
   private var cancellables = Set<AnyCancellable>()
   private var currentState: EpisodePlaybackState?
+  private let playbackHandlers: PlaybackCommandHandlers?
 
   // Enhanced player reference for extended features
   private var enhancedPlayer: EnhancedEpisodePlayer? {
@@ -68,7 +93,8 @@ public class EpisodeDetailViewModel: ObservableObject {
   public init(
     playbackService: EpisodePlaybackService? = nil,
     sleepTimer: SleepTimer? = nil,
-    annotationRepository: EpisodeAnnotationRepository? = nil
+    annotationRepository: EpisodeAnnotationRepository? = nil,
+    playbackHandlers: PlaybackCommandHandlers? = nil
   ) {
     // Use provided service or create enhanced player (fallback to stub for compatibility)
     self.playbackService = playbackService ?? EnhancedEpisodePlayer()
@@ -80,6 +106,7 @@ public class EpisodeDetailViewModel: ObservableObject {
     }
     // Use provided repository or create default
     self.annotationRepository = annotationRepository ?? UserDefaultsEpisodeAnnotationRepository()
+    self.playbackHandlers = playbackHandlers
     observePlaybackState()
     observeSimulationState()
   }
@@ -125,14 +152,21 @@ public class EpisodeDetailViewModel: ObservableObject {
     guard let episode = episode else { return }
 
     if isPlaying {
-      playbackService.pause()
+      if let handlers = playbackHandlers {
+        handlers.pause()
+      } else {
+        playbackService.pause()
+      }
     } else {
-      // Use episode's duration or a default
-      let duration = episode.duration ?? 300.0  // 5 minutes default
+      let duration = episode.duration ?? 300.0
       let resumeEpisode = episode.withPlaybackPosition(Int(currentPosition))
-      playbackService.play(episode: resumeEpisode, duration: duration)
-      if currentPosition > 0 {
-        enhancedPlayer?.seek(to: currentPosition)
+      if let handlers = playbackHandlers {
+        handlers.play(resumeEpisode, currentPosition, duration)
+      } else {
+        playbackService.play(episode: resumeEpisode, duration: duration)
+        if currentPosition > 0 {
+          enhancedPlayer?.seek(to: currentPosition)
+        }
       }
     }
   }
@@ -140,15 +174,27 @@ public class EpisodeDetailViewModel: ObservableObject {
   // MARK: - Enhanced Controls
 
   public func skipForward() {
-    enhancedPlayer?.skipForward()
+    if let handlers = playbackHandlers {
+      handlers.skipForward(nil)
+    } else {
+      enhancedPlayer?.skipForward()
+    }
   }
 
   public func skipBackward() {
-    enhancedPlayer?.skipBackward()
+    if let handlers = playbackHandlers {
+      handlers.skipBackward(nil)
+    } else {
+      enhancedPlayer?.skipBackward()
+    }
   }
 
   public func seek(to position: TimeInterval) {
-    enhancedPlayer?.seek(to: position)
+    if let handlers = playbackHandlers {
+      handlers.seek(position)
+    } else {
+      enhancedPlayer?.seek(to: position)
+    }
   }
 
   public func setPlaybackSpeed(_ speed: Float) {

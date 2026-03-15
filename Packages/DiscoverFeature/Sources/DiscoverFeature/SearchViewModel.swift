@@ -217,13 +217,20 @@ public final class SearchViewModel: ObservableObject {
     // MARK: - Private Methods
     
     private func setupSearchDebouncing() {
-        // Debounce search text changes to avoid excessive API calls
+        // Debounce search text changes to avoid excessive API calls.
+        // DispatchQueue.main (not RunLoop.main) allows quiescence gaps between
+        // GCD blocks, preventing XCUITest "Wait for app to idle" hangs during typeText().
         $searchText
-            .debounce(for: .seconds(debounceInterval), scheduler: RunLoop.main)
+            .debounce(for: .seconds(debounceInterval), scheduler: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] _ in
-                Task { @MainActor in
-                    await self?.search()
+                // MainActor.assumeIsolated executes synchronously without creating an
+                // async task submission, keeping the run loop idle between debounce ticks.
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    Task {
+                        await self.search()
+                    }
                 }
             }
             .store(in: &cancellables)

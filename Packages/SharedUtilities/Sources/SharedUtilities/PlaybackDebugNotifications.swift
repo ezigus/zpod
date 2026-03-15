@@ -12,4 +12,6 @@ public enum PlaybackDebugNotificationKey {
 
 public extension Notification.Name {
   static let playbackDebugInterruption = Notification.Name("PlaybackDebug.Interruption")
+  static let playbackDebugOverlayRequested = Notification.Name("PlaybackDebug.OverlayRequested")
+  static let playerTabPlaySampleRequested = Notification.Name("PlayerTab.PlaySampleRequested")
 }

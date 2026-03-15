@@ -29,18 +29,60 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     // (JSON encode/decode), so contention cost is negligible.
     private static let lock = NSLock()
 
+    // MARK: - Thread Safety
+    // This class is marked @unchecked Sendable because NSLock serialises all mutations.
+    // Invariant: `currentDate` must capture no mutable state or `self` references —
+    // it is either `{ Date() }` or a pure deterministic closure (e.g. for testing).
+    // If this invariant ever breaks, the @unchecked Sendable marking will hide the violation.
     private let userDefaults: UserDefaults
     private let retentionDays: Int
     private let maxEventCount: Int
+    private let currentDate: @Sendable () -> Date
 
+    /// Creates a new repository instance.
+    ///
+    /// - Parameters:
+    ///   - userDefaults: The `UserDefaults` store to persist events in. Defaults to `.standard`.
+    ///   - retentionDays: Events older than this many days are pruned. Must be 1–3650. Defaults to 90.
+    ///   - maxEventCount: Hard cap on stored events; oldest are pruned when exceeded. Must be 1–100_000.
+    ///     Defaults to 5000. Enforced via `fatalError` (runs in all builds, never stripped).
+    ///   - currentDate: Clock provider injected for deterministic testing. **Invariant**: must capture
+    ///     no mutable state or `self` references — it must be a pure, `@Sendable`-safe closure.
+    ///     The default `{ Date() }` satisfies this invariant. Violations are not caught by the
+    ///     compiler due to `@unchecked Sendable`; callers must enforce this manually.
     public init(
         userDefaults: UserDefaults = .standard,
         retentionDays: Int = 90,
-        maxEventCount: Int = 5000
+        maxEventCount: Int = 5000,
+        currentDate: @escaping @Sendable () -> Date = { Date() }
     ) {
+        // fatalError: guaranteed to run in every build configuration, including Release and
+        // App Store (-O, -Osize). Unlike precondition(), it is never stripped by any optimizer.
+        guard maxEventCount >= 1 else {
+            fatalError("maxEventCount must be at least 1")
+        }
+        guard maxEventCount <= 100_000 else {
+            // UserDefaults is not designed for large payloads. At ~150 bytes per event
+            // (compact JSON), 100 000 events ≈ 15 MB — already beyond practical limits.
+            // Values above this ceiling indicate a misconfiguration, not a feature request.
+            fatalError("maxEventCount must not exceed 100 000")
+        }
+        guard retentionDays > 0 else {
+            // Zero or negative retentionDays would produce a cutoff date at or in the future,
+            // causing every existing event to be pruned on the next call. This is always a
+            // misconfiguration rather than an intentional use case.
+            fatalError("retentionDays must be at least 1")
+        }
+        guard retentionDays <= 3_650 else {
+            // 3 650 days = 10 years. Anything larger suggests a programmer error;
+            // very large values could also cause Calendar date arithmetic to overflow
+            // on platforms with smaller Int sizes.
+            fatalError("retentionDays must not exceed 3 650 (10 years)")
+        }
         self.userDefaults = userDefaults
         self.retentionDays = retentionDays
         self.maxEventCount = maxEventCount
+        self.currentDate = currentDate
     }
 
     // MARK: - Record
@@ -143,7 +185,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         Self.lock.withLock {
             var all = loadAll()
             pruneAll(&all)
-            saveAll(all)
+            if !saveAll(all) {
+                Logger.error("SmartPlaylistAnalyticsRepository: pruneOldEvents() failed to persist \(all.count) events due to encoding failure")
+            }
         }
     }
 
@@ -156,6 +200,9 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
         return decoded
     }
 
+    // NOTE: This encoder uses default settings (no special date strategy).
+    // If you change the date encoding strategy here, also update exportJSON(for:) which
+    // uses .iso8601 — both must remain consistent to avoid stored/exported format divergence.
     @discardableResult
     private func saveAll(_ events: [SmartPlaylistPlayEvent]) -> Bool {
         do {
@@ -169,18 +216,30 @@ public final class UserDefaultsSmartPlaylistAnalyticsRepository: SmartPlaylistAn
     }
 
     private func pruneAll(_ events: inout [SmartPlaylistPlayEvent]) {
+        // currentDate() is assumed to return a non-decreasing value.
+        // If the clock goes backwards (e.g. a system clock adjustment), pruning may retain
+        // unexpected old events relative to the adjusted time, but no events are erroneously lost.
+        let now = currentDate()
         let cutoff = Calendar.current.date(
             byAdding: .day,
             value: -retentionDays,
-            to: Date()
-        ) ?? Date()
+            to: now
+        ) ?? now
         events = events.filter { $0.occurredAt >= cutoff }
 
-        // Hard cap prevents unbounded UserDefaults growth
+        // Hard cap prevents unbounded UserDefaults growth.
+        // Pass 2 runs after Pass 1 (retention window), so count here reflects surviving events only.
         if events.count > maxEventCount {
             let discardCount = events.count - maxEventCount
-            events.sort { $0.occurredAt > $1.occurredAt }
+            // Stable sort: primary key is occurredAt descending; UUID string comparison provides
+            // a stable tiebreaker when timestamps collide — consistent within a session, but
+            // not reproducible across app launches (UUIDs are random at creation time).
+            events.sort { lhs, rhs in
+                if lhs.occurredAt != rhs.occurredAt { return lhs.occurredAt > rhs.occurredAt }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
             events = Array(events.prefix(maxEventCount))
+            // Debug log: safe even if discardCount == maxEventCount
             Logger.debug("SmartPlaylistAnalyticsRepository: pruned \(discardCount) oldest events to stay within \(maxEventCount) cap")
         }
     }
