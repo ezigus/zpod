@@ -38,6 +38,7 @@
 		78C0C2272EBC2F6D000CB820 /* PlaybackEngine in Frameworks */ = {isa = PBXBuildFile; productRef = F2345678901BCD23456EFGHI /* PlaybackEngine */; };
 		78C0C2292EBC2F6D000CB820 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 517390C5CD214EF2939E0057 /* Persistence */; };
 		94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
+		24FFD7A443DA4337BDC4C2B6 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
 		A1B2C3D4E5F60718293A4B5C /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = F1234567890ABC12345DEFGH /* LibraryFeature */; };
 		AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
 		B9BD6498D29E4BAC80C22BAF /* test-episode-long.m4a in Resources */ = {isa = PBXBuildFile; fileRef = D2CFBB9A25B54ABA88C1E80E /* test-episode-long.m4a */; };
@@ -230,6 +231,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				78AB4F5C2EF74DEB00A4E648 /* SwiftLensTestSupport in Frameworks */,
+				24FFD7A443DA4337BDC4C2B6 /* TestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -450,6 +452,7 @@
 			name = zpodUITests;
 			packageProductDependencies = (
 				78AB4F5B2EF74DEB00A4E648 /* SwiftLensTestSupport */,
+				6CB69C377B6742A8A827FE01 /* TestSupport */,
 			);
 			productName = zpodUITests;
 			productReference = 786FD1272E22E617008CEE55 /* zpodUITests.xctest */;
