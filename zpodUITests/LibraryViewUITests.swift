@@ -11,6 +11,7 @@
 //
 
 import XCTest
+import TestSupport
 
 final class LibraryViewUITests: IsolatedUITestCase {
 
@@ -47,7 +48,8 @@ final class LibraryViewUITests: IsolatedUITestCase {
     // surfaces it under app.buttons. The identifier "Podcast-{podcast.id}" is set in
     // LibraryFeature/ContentView.swift — PodcastCardView.body via
     //   .accessibilityIdentifier("Podcast-\(podcast.id)")
-    let podcastCard = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
+    // PodcastFixtures.swiftTalk.id is used here so the fixture and test stay in sync.
+    let podcastCard = app.buttons.matching(identifier: "Podcast-\(PodcastFixtures.swiftTalk.id)").firstMatch
     XCTAssertTrue(
       podcastCard.waitForExistence(timeout: adaptiveTimeout),
       "Seeded 'Swift Talk' podcast card must appear as a button in Library"

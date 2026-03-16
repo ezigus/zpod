@@ -81,3 +81,7 @@ templates/
 
 # Xcode backup files
 *.backup
+
+# Archived outside repo
+dev-log/
+Issues/
