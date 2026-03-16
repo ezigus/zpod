@@ -1,28 +1,33 @@
 # Generated Claude Instructions
 
 Generated from central standards repository.
+
 - Repo key: zpod
 - Repo override: repo-overrides/zpod.md
 - Default profiles: ios-swift,ui-testing,carplay
 
 ## Mandatory Baseline (Always Load)
+
 - core/core-policy.md
 - core/testing-baseline.md
 - adapters/claude-adapter.md
 - repo-overrides/zpod.md
 
 ### core/core-policy.md
+
 # Core Policy
 
 This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot.
 
 ## Priorities
+
 1. Safety and data integrity first.
 2. Solve user-requested outcomes end-to-end.
 3. Use deterministic, verifiable workflows.
 4. Keep instructions DRY: update central docs, not repo-local duplicates.
 
 ## Rule Priority and Exceptions
+
 - Use normative wording consistently.
 - `MUST` defines mandatory behavior.
 - `SHOULD` defines the default behavior; deviations require explicit justification.
@@ -30,6 +35,7 @@ This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot
 - Exception clauses override base rules only in their explicitly named context.
 
 ## Minimum Workflow
+
 1. Understand scope and constraints.
 2. Inspect existing implementation before edits.
 3. Make targeted changes.
@@ -37,10 +43,12 @@ This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot
 5. Summarize outcomes, risks, and next actions.
 
 ## Source of Truth
+
 - Central standards: `~/code/standards/ai-agent-standards`
 - Repo wrappers are thin entrypoints only.
 
 ### core/testing-baseline.md
+
 # Testing Baseline
 
 - Prefer targeted checks first, then broader regression as required.
@@ -51,6 +59,7 @@ This is the shared, tool-agnostic policy baseline for Codex, Claude, and Copilot
 - In test code, fixed sleeps are last resort only and require justification in context.
 
 ### adapters/claude-adapter.md
+
 # Adapter: Claude
 
 Use with `.claude/CLAUDE.md` thin wrappers.
@@ -59,6 +68,7 @@ Use with `.claude/CLAUDE.md` thin wrappers.
 - Apply profile matrix for conditional guidance.
 
 ### repo-overrides/zpod.md
+
 # Repo Override: zpod
 
 - Platform scope: iPhone, CarPlay, Apple Watch.
@@ -79,10 +89,10 @@ Use with `.claude/CLAUDE.md` thin wrappers.
 
 ## 2. Workflow Expectations
 
-1. **Design first** – document intent and Mermaid/PlantUML diagrams in the relevant `dev-log/*.md` before writing tests or code.
+1. **Design first** – document intent before writing tests or code.
 2. **TDD always** – add or update specs if the scenario is incomplete, write failing tests, implement, then refactor.
 3. **Automation over manual edits** – use scripts, generators, and formatters whenever possible.
-4. **Version control hygiene** – commit only after tests pass, include matching dev-log updates, then confirm whether to push.
+4. **Version control hygiene** – commit only after tests pass, then confirm whether to push.
    - PR titles linked to issues must include the issue identifier (e.g. `[#02.5] Testing cleanup fixes`) so GitHub references stay traceable.
    - When working on a PR, use the PR's branch exactly as created (do not rename or fork ad-hoc branches); all commits destined for that PR must land on its branch name.
 
@@ -147,9 +157,6 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 - **[Accessibility Testing Best Practices](docs/testing/ACCESSIBILITY_TESTING_BEST_PRACTICES.md)** - SwiftUI List row discovery, accessibility identifiers, UIKit fallback patterns
 - **[UI Testing Advanced Patterns](docs/testing/UI_TESTING_ADVANCED_PATTERNS.md)** - Advanced XCUITest patterns, waiting strategies, element queries
 - **[Isolated UI Test Infrastructure](docs/testing/ISOLATED_UITEST_INFRASTRUCTURE.md)** - Direction on the shared `IsolatedUITestCase` base, page-object stack, and the swipe/core migration plan
-- **Phase 3 Core Tests Design**: `dev-log/12.3-phase-3-core-tests-design.md` - Details the page-object plan for the high-value core suites and how they interact with the shared infrastructure
-- **Phase 4 Playback Position Design**: `dev-log/12.3-phase-4-playback-position-design.md` - Lays out the intent and verification plan for migrating the playback position suites to the isolated base
-- **Phase 5 Remaining Tests Design**: `dev-log/12.3-phase-5-remaining-tests-design.md` - Final phase migrating remaining player, feature, and snapshot tests to complete the migration plan
 
 #### Core Principles (FIRST)
 
@@ -196,6 +203,7 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 **The Problem**: SwiftUI Lists use lazy rendering—elements are removed from the accessibility tree when scrolled out of view, **even if they were previously materialized**. Pre-materialization (scrolling through all sections on sheet open) does NOT keep elements accessible after scrolling away.
 
 **The Failure Pattern**:
+
 ```
 ❌ BAD: Pre-materialize all sections, scroll to top, then try to interact with bottom elements
 1. Scroll to bottom (materializes all elements)
@@ -213,8 +221,6 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 **Rule**: Never assume an element stays materialized after scrolling away. Always use `ensureVisibleInSheet` or `ScrollViewReader.scrollTo()` immediately before element interaction.
 
 **Example**: See `SwipePresetSelectionTests` and `docs/testing/preventing-flakiness.md` for reference implementations.
-
-**See Also**: Issue dev-log for SwipePresetSelection CI failures - Download/Organization presets unmaterialized after scroll-to-top.
 
 #### Key Resources (re-read when updating UI tests)
 
@@ -237,12 +243,12 @@ sleep 30 && ./scripts/run-xcode-tests.sh
 
 ### Test Types & Locations
 
-| Type | Purpose | Location |
-| --- | --- | --- |
-| Unit | App smoke validation & module re-export checks | `AppSmokeTests/` |
-| UI | End-to-end user flows, accessibility | `zpodUITests/` |
-| Integration | Cross-module workflows, platform services | `IntegrationTests/` |
-| Package | Module-specific APIs | `Packages/*/Tests/` |
+| Type        | Purpose                                        | Location            |
+| ----------- | ---------------------------------------------- | ------------------- |
+| Unit        | App smoke validation & module re-export checks | `AppSmokeTests/`    |
+| UI          | End-to-end user flows, accessibility           | `zpodUITests/`      |
+| Integration | Cross-module workflows, platform services      | `IntegrationTests/` |
+| Package     | Module-specific APIs                           | `Packages/*/Tests/` |
 
 ### General Expectations
 
@@ -279,7 +285,7 @@ NotificationCenter.default.post(name: .appDidInitialize, object: nil)
 @MainActor
 public final class DebugOverlayManager {
   private var observer: NSObjectProtocol?
-  
+
   init() {
     if ProcessInfo.processInfo.environment["UITEST_DEBUG_MODE"] == "1" {
       observer = NotificationCenter.default.addObserver(
@@ -322,7 +328,6 @@ window.makeKeyAndVisible()
 
 **Related Documentation:**
 
-- See `dev-log/02.6.3-swipe-configuration-test-decomposition.md` (section "2025-11-15 — Debug Overlay Accessibility") for full implementation case study
 - See `Packages/LibraryFeature/Sources/LibraryFeature/SwipeDebugOverlayManager.swift` for reference implementation
 
 ## 5. Coding Standards
@@ -384,7 +389,7 @@ Use the shared helper script for a quick local verification:
 ./scripts/run-xcode-tests.sh zpodUITests/PageObjects/SmartPlaylistScreen.swift  # page object → resolved to test class
 ```
 
-> ⚠️  Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
+> ⚠️ Avoid running raw `xcodebuild` commands for routine work—the helper script configures destinations, result bundles, and fallbacks automatically. Only reach for direct `xcodebuild` invocations when debugging tooling issues, and mirror the flags shown by `run-xcode-tests.sh`.
 
 **Simulator / DerivedData overrides**
 
@@ -402,6 +407,7 @@ Use the shared helper script for a quick local verification:
 ### Test File Conventions
 
 Test class files MUST live at the root of their target directory, NOT in subdirectories:
+
 - `zpodUITests/*.swift` → UI test classes (e.g. `SmartPlaylistAuthoringUITests.swift`)
 - `AppSmokeTests/*.swift` → smoke test classes
 - `IntegrationTests/*.swift` → integration test classes
@@ -440,7 +446,7 @@ as you build code, be aware that you need to be able to run in a CI pipeline in 
   - **Staggered Provisioning**: Hash-based delays (0-8s) prevent simultaneous creation
   - **Capacity Monitoring**: Checks active simulator count, waits if ≥5 simulators exist
   - **Retry with Backoff**: Up to 3 attempts for creation with exponential delays (3s, 6s, 9s)
-  - **Resource Detection**: Identifies resource exhaustion vs configuration errors  
+  - **Resource Detection**: Identifies resource exhaustion vs configuration errors
   - **On-Demand Boot**: Simulators are created but NOT booted in CI; xcodebuild boots them on-demand to avoid concurrent boot contention (5 simulators booting simultaneously causes Data Migration hangs)
   - **Graceful Degradation**: Falls back to automatic destination if all retries fail
   - Matrix parallelism configurable via `max-parallel` (currently 5, can scale higher)
@@ -542,18 +548,10 @@ Inspect `.xcresult` bundles.
 - The `AppSmokeTests`, `IntegrationTests`, and `zpodUITests` targets depend on `SwiftLensTestSupport`.
 - Use SwiftLens for reliable SwiftUI UI testing and interaction; see <https://github.com/gahntpo/SwiftLens> for correct usage and APIs.
 
-## 8. Issue & Documentation Management
+## 8. Documentation & Artifacts
 
-- Create issues in `Issues/` when work falls outside an existing scope; name files `xx.y-description.md` to preserve ordering. Use sub-issue numbering (e.g. `17.1`) when inserting between existing IDs.
-- Issue files must include description, acceptance criteria, spec references, dependencies, and testing strategy.
-- Add TODO comments as `// TODO: [Issue #xx.y] Description`; remove them once the issue is resolved and update the issue accordingly.
-
-### Dev Logs & Artifacts
-
-- Maintain individual `dev-log/*.md` entries per issue; update with intent, progress, and timestamps (ET) as work evolves.
-- **Update dev-logs incrementally**: Document intent before starting work, add findings during investigation, record solutions after each fix. Include dev-log updates in commits with related code changes when appropriate.
-- **Implementation summaries**: Comprehensive post-completion documentation lives in `dev-log/implementation-summaries/` - see [README](dev-log/implementation-summaries/README.md) for details
-- Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set).  This is done automatically by the ./scripts/run-xcode-tests.sh so you don't need to add to do anything extra when running the script
+- Add TODO comments as `// TODO: [Issue #xx.y] Description`; remove them once the issue is resolved.
+- Store raw build/test outputs in `TestResults/TestResults_<timestamp>_<context>.log` (keep only the three most recent per test set). This is done automatically by the ./scripts/run-xcode-tests.sh so you don't need to do anything extra when running the script.
 - Use `OSLog` for runtime logging inside the app.
 
 ## 9. CarPlay Development
@@ -575,16 +573,19 @@ For CarPlay-specific development, consult these specialized guides:
 
 ### Pull Requests
 
-- Make sure you are doing updates regularly to the pull request, following the same strategy used for the dev-logs
+- Keep the PR description up to date as work progresses.
 
 ---
+
 When in doubt, consult the relevant spec or open a follow-up issue for clarification.
 
 ## Conditional Directives (Always Present, Apply Only When Condition Matches)
+
 - IF: Task involves UI testing, UI harnesses, flaky tests, waits, retries, or accessibility UI assertions
   THEN: Apply profiles/ui-testing-profile.md
 
 ### profiles/ui-testing-profile.md
+
 # Profile: UI Testing
 
 Load for UI test flakiness, harness debugging, or test orchestration work.
@@ -600,6 +601,7 @@ Load for UI test flakiness, harness debugging, or test orchestration work.
   THEN: Apply profiles/ios-swift-profile.md
 
 ### profiles/ios-swift-profile.md
+
 # Profile: iOS Swift
 
 Load for Swift/Xcode/iOS/watchOS/concurrency tasks.
@@ -614,6 +616,7 @@ Load for Swift/Xcode/iOS/watchOS/concurrency tasks.
   THEN: Apply profiles/carplay-profile.md
 
 ### profiles/carplay-profile.md
+
 # Profile: CarPlay
 
 Load for CarPlay/HIG/compliance work.
@@ -628,6 +631,7 @@ Load for CarPlay/HIG/compliance work.
   THEN: Apply profiles/shipwright-operations.md
 
 ### profiles/shipwright-operations.md
+
 # Profile: Shipwright Operations
 
 Load only when Shipwright is active (see detection contract).
@@ -657,15 +661,18 @@ When `SHIPWRIGHT_SOURCE=loop`, the harness owns test execution:
 - When a UI test fails, read the failure details from the injected test log. Do not re-run the full suite to reproduce it — diagnose from the log and fix the code.
 
 ### resolution/profile-resolution-matrix.md
+
 # Profile Resolution Matrix
 
 Always load:
+
 1. `core/core-policy.md`
 2. `core/testing-baseline.md`
 3. agent adapter (`adapters/*-adapter.md`)
 4. repo override (`repo-overrides/*.md`)
 
 Conditional profile loading:
+
 - `profiles/ui-testing-profile.md` for UI test/harness/flakiness tasks.
 - `profiles/carplay-profile.md` for CarPlay tasks.
 - `profiles/ios-swift-profile.md` for Swift/Xcode/iOS tasks.
@@ -673,9 +680,11 @@ Conditional profile loading:
 - `profiles/shipwright-operations.md` only when detection contract evaluates true.
 
 ### resolution/shipwright-detection-contract.md
+
 # Shipwright Detection Contract (Lenient)
 
 Shipwright is active if any condition is true:
+
 1. Env marker: `SHIPWRIGHT_ACTIVE=1`
 2. Repo marker file: `.shipwright/context.json` with `active=true`
 3. Task contains explicit Shipwright command intent (`shipwright ...` or `sw ...`)
@@ -684,5 +693,6 @@ Shipwright is active if any condition is true:
 If none are true, do not load `profiles/shipwright-operations.md`.
 
 ## Optional env metadata
+
 - `SHIPWRIGHT_RUN_ID=<id>`
 - `SHIPWRIGHT_SOURCE=pipeline|daemon|session`
