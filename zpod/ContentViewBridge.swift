@@ -225,7 +225,30 @@ public struct UITestLibraryPlaceholderView: View {
     private let searchService: SearchServicing
 
     public init() {
-        self.podcastManager = PlaceholderPodcastManager()
+        #if DEBUG
+        // When UITEST_SEED_PODCASTS=1, seed the placeholder manager so navigation tests
+        // can find podcast cards in a fresh environment (mirrors PodcastFixtures.swiftTalk
+        // from TestSupport, which cannot be imported in the app target).
+        let seedPodcasts: [Podcast]
+        if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" {
+            let swiftTalk = Podcast(
+                id: "swift-talk",
+                title: "Swift Talk",
+                author: "objc.io",
+                description: "Deep dives into advanced Swift topics.",
+                feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+                isSubscribed: true
+            )
+            seedPodcasts = [swiftTalk]
+        } else {
+            seedPodcasts = []
+        }
+        let manager = PlaceholderPodcastManager(initial: seedPodcasts)
+        #else
+        // Production (non-DEBUG) builds always start empty; callers must explicitly seed.
+        let manager = PlaceholderPodcastManager()
+        #endif
+        self.podcastManager = manager
         let searchSources: [SearchIndexSource] = []
         self.searchService = SearchService(indexSources: searchSources)
         _selectedTab = State(initialValue: Self.initialTabSelection())
@@ -234,7 +257,7 @@ public struct UITestLibraryPlaceholderView: View {
     public var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                LibraryPlaceholderView()
+                LibraryPlaceholderView(podcastManager: podcastManager)
                     .navigationTitle("Library")
             }
             .tabItem { Label("Library", systemImage: "books.vertical") }
@@ -275,12 +298,16 @@ public struct UITestLibraryPlaceholderView: View {
 
 // MARK: - Library Placeholder
 private struct LibraryPlaceholderView: View {
+    let podcastManager: PodcastManaging
+
     var body: some View {
-        VStack(spacing: 16) {
+        let podcasts = podcastManager.all()
+        VStack(spacing: 0) {
             // Heading for accessibility structure
             Text("Your Library")
                 .font(.title2).bold()
                 .accessibilityAddTraits(.isHeader)
+                .padding(.top)
 
             // Accessibility markers preserved so existing UI test navigation still works
             Color.clear
@@ -294,19 +321,27 @@ private struct LibraryPlaceholderView: View {
                 .accessibilityIdentifier("Content Container")
                 .accessibilityLabel("Content Container")
 
-            Spacer()
-            Text("No podcasts yet.")
-                .foregroundStyle(.secondary)
-            Spacer()
+            if podcasts.isEmpty {
+                Spacer()
+                Text("No podcasts yet.")
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                List(podcasts, id: \.id) { podcast in
+                    NavigationLink(destination: EpisodeListPlaceholderView(podcastTitle: podcast.title)) {
+                        Text(podcast.title)
+                    }
+                    .accessibilityIdentifier("Podcast-\(podcast.id)")
+                }
+            }
         }
-        .padding()
         .accessibilityIdentifier("Podcast Cards Container")
     }
 }
 
 // MARK: - Episode List Placeholder
 private struct EpisodeListPlaceholderView: View {
-    let podcastId: String
+    let podcastTitle: String
 
     var body: some View {
         VStack(spacing: 16) {
@@ -315,7 +350,7 @@ private struct EpisodeListPlaceholderView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
-        .navigationTitle("Episodes")
+        .navigationTitle(podcastTitle)
         .accessibilityIdentifier("Episode Cards Container")
         .accessibilityLabel("Episode Cards Container")
     }
