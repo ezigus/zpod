@@ -35,6 +35,9 @@ public struct ContentView: View {
 private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Sendable {
     private var storage: [String: Podcast]
 
+    /// Initialize with an empty store; callers must explicitly seed with podcasts via `initial:`.
+    /// Hardcoded sample data was removed per issue #32.1; use TestSupport PodcastFixtures
+    /// in test code and the UITEST_SEED_PODCASTS environment flag for UI test seeding.
     init(initial: [Podcast] = []) {
         storage = Dictionary(uniqueKeysWithValues: initial.map { ($0.id, $0) })
     }

@@ -5,6 +5,11 @@ import CoreModels
 ///
 /// All fixtures use `example.com` domain; never reference real podcast feeds.
 /// Fixtures are deterministic value types — they do not persist unless explicitly saved.
+///
+/// ## Feed URL force-unwraps
+/// `Podcast.feedURL` is a non-optional `URL`. The force-unwrap on `URL(string:)!` is
+/// intentional: all feed URLs here are known-valid literals. A runtime crash on init
+/// is a clear signal that a URL was accidentally broken during editing.
 public enum PodcastFixtures {
     public static let swiftTalk = Podcast(
         id: "swift-talk",
