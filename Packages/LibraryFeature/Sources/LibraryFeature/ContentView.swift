@@ -746,28 +746,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       .onAppear {
         loadPodcasts()
 
-        // UITEST_SEED_PODCASTS: seed a "swift-talk" sample podcast so Library navigation
-        // tests can find podcast cards in a fresh (empty) test environment.
-        // Guarded by #if DEBUG so the seed path is compiled out of release builds entirely,
-        // preventing accidental state mutation if the env var leaks to production.
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1", podcasts.isEmpty {
-          let seedPodcast = Podcast(
-            id: "swift-talk",
-            title: "Swift Talk",
-            author: "objc.io",
-            description: "Weekly episodes about Swift programming",
-            feedURL: URL(string: "https://example.com/swift-talk.rss")!,
-            episodes: [],
-            dateAdded: Date()
-          )
-          podcastManager.add(seedPodcast)
-          // Notification from add() will trigger .onReceive below, but also
-          // reload here so the seeded podcast is visible immediately.
-          loadPodcasts()
-        }
-        #endif
-
         isLoading = false
 
         // Playback restoration is genuinely async — keep in its own Task.
