@@ -316,7 +316,7 @@ struct ZpodApp: App {
       id: "swift-talk",
       title: "Swift Talk",
       author: "objc.io",
-      description: "Weekly episodes about Swift programming",
+      description: "Deep dives into advanced Swift topics.",
       feedURL: URL(string: "https://example.com/swift-talk.rss")!,
       isSubscribed: true
     )
