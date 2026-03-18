@@ -85,3 +85,6 @@ templates/
 # Archived outside repo
 dev-log/
 Issues/
+
+# Claude / Shipwright worktrees
+.claude/worktrees/
