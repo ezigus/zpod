@@ -132,7 +132,12 @@ public struct TabBarNavigation: BaseScreen {
     guard tap(discoverTab) else { return false }
 
     let root = app.descendants(matching: .any).matching(identifier: "Discover.Root").firstMatch
-    if root.waitForExistence(timeout: 10.0) { return true }
+    if root.waitForExistence(timeout: 10.0) {
+      // Root exists; also wait for the search field to become available before declaring success
+      let searchField = app.descendants(matching: .any).matching(identifier: "Discover.SearchField").firstMatch
+      _ = searchField.waitForExistence(timeout: 3.0)
+      return true
+    }
 
     let searchFieldCandidates = [
       app.textFields.matching(identifier: "Discover.SearchField").firstMatch,

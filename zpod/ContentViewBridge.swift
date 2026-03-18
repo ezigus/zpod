@@ -22,7 +22,21 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
-        UITestLibraryPlaceholderView()
+        UITestLibraryPlaceholderView(seedPodcasts: Self.uiTestSeeds())
+    }
+
+    private static func uiTestSeeds() -> [Podcast] {
+        guard ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" else { return [] }
+        return [
+            Podcast(
+                id: "swift-talk",
+                title: "Swift Talk",
+                author: "objc.io",
+                description: "Deep dives into advanced Swift topics.",
+                feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+                isSubscribed: true
+            )
+        ]
     }
 }
 

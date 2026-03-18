@@ -217,7 +217,7 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
   /// Resolve an audio source URL.
   /// Respects the requested audio file name (short, medium, long).
-  /// Falls back to longer variants only if the requested file is unavailable.
+  /// Falls back to other known variants, preferring longer clips when available.
   ///
   /// **Rationale**: Tests and app code specify UITEST_AUDIO_VARIANT to control
   /// which audio file to use. Respecting this contract ensures:
@@ -231,7 +231,7 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
       return (url, name)
     }
 
-    // Fall back to longer variants only if requested file is missing
+    // Fall back to remaining variants in preferred order (long → medium → short)
     let fallbackCandidates = [
       "test-episode-long",   // 20s
       "test-episode-medium", // 15s
