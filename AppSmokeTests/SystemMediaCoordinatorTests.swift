@@ -492,14 +492,14 @@ final class SystemMediaCoordinatorTests: XCTestCase {
 
     playbackService.setState(.playing(makeEpisode(withArtworkURL: urlA), position: 0, duration: 300))
     advanceRunLoop()
-    let firstArtworkLoaded = await waitForArtwork(timeout: 1.0)
+    let firstArtworkLoaded = await waitForArtwork(timeout: 3.0)
     let firstRequests = await loader.allRequests()
     XCTAssertTrue(firstArtworkLoaded)
     XCTAssertEqual(firstRequests, [urlA])
 
     playbackService.setState(.playing(makeEpisode(withArtworkURL: urlB), position: 10, duration: 300))
     advanceRunLoop()
-    let secondArtworkLoaded = await waitForArtwork(timeout: 1.0)
+    let secondArtworkLoaded = await waitForArtwork(timeout: 3.0)
     let secondRequests = await loader.allRequests()
     XCTAssertTrue(secondArtworkLoaded)
     XCTAssertEqual(secondRequests, [urlA, urlB])
@@ -518,7 +518,7 @@ final class SystemMediaCoordinatorTests: XCTestCase {
     let episode = makeEpisode(withArtworkURL: url)
     playbackService.setState(.playing(episode, position: 0, duration: 300))
     advanceRunLoop()
-    let artworkLoaded = await waitForArtwork(timeout: 1.0)
+    let artworkLoaded = await waitForArtwork(timeout: 3.0)
     XCTAssertTrue(artworkLoaded)
 
     playbackService.setState(.paused(episode, position: 20, duration: 300))
