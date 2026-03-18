@@ -1220,7 +1220,10 @@ run_ui_test_suites_serial() {
     # user-process limit). The next suite's xcodebuild invocation will reboot it.
     local shutdown_udid="${ZPOD_SIMULATOR_UDID:-}"
     if [[ -z "$shutdown_udid" ]]; then
-      shutdown_udid=$(_udid_for_destination "${ZPOD_DESTINATION:-}" 2>/dev/null) || true
+      # SELECTED_DESTINATION is set by select_destination() in xcode.sh and holds the
+      # actual destination chosen for this run. ZPOD_DESTINATION is never populated by
+      # the harness, so using it here would always produce an empty fallback.
+      shutdown_udid=$(_udid_for_destination "${SELECTED_DESTINATION:-}" 2>/dev/null) || true
     fi
     if [[ -n "$shutdown_udid" ]]; then
       log_info "Shutting down simulator ${shutdown_udid} between suites to reclaim CoreSimulator processes"
@@ -1568,6 +1571,10 @@ retry_with_fresh_sim() {
         break
       fi
     done
+    # Keep SELECTED_DESTINATION in sync with the fresh simulator so the between-suite
+    # shutdown code in run_ui_test_suites_serial targets the retry sim, not the stale
+    # pre-retry destination.
+    SELECTED_DESTINATION="platform=iOS Simulator,id=${temp_sim_udid}"
     $runner
     xc_status=$?
   else
