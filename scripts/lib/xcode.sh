@@ -766,19 +766,20 @@ xcodebuild_wrapper() {
   # Monitor with timeout
   local elapsed=0
   local check_interval=5
-  
+  # Keep a rolling snapshot of xcodebuild's direct children while it is alive.
+  # We cannot snapshot after kill -0 returns false — by then children are already
+  # reparented to PID 1 and pgrep -P will return nothing.
+  local child_pids=""
+
   while (( elapsed < timeout_seconds )); do
     # Check if xcodebuild is still running
     if ! kill -0 "$xcodebuild_pid" 2>/dev/null; then
-      # Process finished naturally.
-      # Snapshot direct children before wait — after wait they are reparented to PID 1
-      # and pkill -P can no longer find them.
-      local child_pids
-      child_pids=$(pgrep -P "$xcodebuild_pid" 2>/dev/null) || true
+      # Process finished naturally. child_pids holds the last snapshot taken while
+      # xcodebuild was alive.
       trap - INT  # Remove trap
       wait "$xcodebuild_pid"
       local exit_code=$?
-      # Kill any orphaned direct children that were reparented during wait
+      # Kill any orphaned direct children captured in the last live snapshot
       if [[ -n "$child_pids" ]]; then
         for cpid in $child_pids; do
           kill -TERM "$cpid" 2>/dev/null || true
@@ -789,7 +790,10 @@ xcodebuild_wrapper() {
       log_time "xcodebuild completed in ${formatted_elapsed}"
       return $exit_code
     fi
-    
+
+    # xcodebuild is still running — refresh the child snapshot while we can
+    child_pids=$(pgrep -P "$xcodebuild_pid" 2>/dev/null) || true
+
     sleep "$check_interval"
     elapsed=$((elapsed + check_interval))
   done
