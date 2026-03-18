@@ -308,7 +308,8 @@ struct ZpodApp: App {
 
   private func seedPodcastsForUITests() {
     guard ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" else { return }
-    guard #available(iOS 17, *), ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1" else {
+    guard #available(iOS 17, *) else { return }
+    guard ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1" else {
       return
     }
     guard Self.sharedPodcastRepository.all().isEmpty else { return }

@@ -216,17 +216,29 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
   }
 
   /// Resolve an audio source URL.
-  /// Strategy: always prefer the longest clip so playback stays alive during long UI flows,
-  /// regardless of which variant the caller requested. This avoids early EOF that previously
-  /// caused missing pause buttons and slow-rate confirmations in AVPlayer tests.
+  /// Respects the requested audio file name (short, medium, long).
+  /// Falls back to longer variants only if the requested file is unavailable.
+  ///
+  /// **Rationale**: Tests and app code specify UITEST_AUDIO_VARIANT to control
+  /// which audio file to use. Respecting this contract ensures:
+  /// - AVPlayer tests can verify playback position advances at the correct rate
+  /// - Ticker tests can validate timing with expected durations
+  /// - Tests that expect early EOF can detect it (e.g., pause button state changes)
   nonisolated private func resolveAudioSource(for name: String) -> (url: URL, resolvedName: String)? {
-    let candidates = [
-      "test-episode-long",   // best: 20s
-      "test-episode-medium", // fallback: 15s
-      "test-episode-short"   // last resort: 6s
-    ]
+    // Try the requested file first
+    if let url = testAudioURL(named: name),
+       FileManager.default.fileExists(atPath: url.path) {
+      return (url, name)
+    }
 
-    for candidate in candidates {
+    // Fall back to longer variants only if requested file is missing
+    let fallbackCandidates = [
+      "test-episode-long",   // 20s
+      "test-episode-medium", // 15s
+      "test-episode-short"   // 6s
+    ].filter { $0 != name }
+
+    for candidate in fallbackCandidates {
       if let url = testAudioURL(named: candidate),
          FileManager.default.fileExists(atPath: url.path) {
         return (url, candidate)

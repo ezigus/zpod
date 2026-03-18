@@ -75,10 +75,9 @@ public struct TabBarNavigation: BaseScreen {
     tabBar.buttons.matching(identifier: "Player").firstMatch
   }
 
-  /// Settings tab button (uses label predicate since tab buttons have empty identifiers).
+  /// Settings tab button.
   private var settingsTab: XCUIElement {
-    let predicate = NSPredicate(format: "label == 'Settings'")
-    return tabBar.buttons.matching(predicate).firstMatch
+    tabBar.buttons.matching(identifier: "Settings").firstMatch
   }
 
   // MARK: - State Queries
@@ -132,13 +131,14 @@ public struct TabBarNavigation: BaseScreen {
   public func navigateToDiscover() -> Bool {
     guard tap(discoverTab) else { return false }
 
-    // Verify Discover search field appeared (multiple fallbacks for SwiftUI variants)
+    let root = app.descendants(matching: .any).matching(identifier: "Discover.Root").firstMatch
+    if root.waitForExistence(timeout: 10.0) { return true }
+
     let searchFieldCandidates = [
       app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
       app.descendants(matching: .any).matching(identifier: "Discover.SearchField").firstMatch,
       app.searchFields.firstMatch,
       app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch,
-      app.descendants(matching: .any).matching(identifier: "Discover.Root").firstMatch
     ]
 
     return waitForAny(searchFieldCandidates) != nil
@@ -153,9 +153,10 @@ public struct TabBarNavigation: BaseScreen {
   public func navigateToPlayer() -> Bool {
     guard tap(playerTab) else { return false }
 
-    // Verify Player interface appeared
+    let playerInterface = app.otherElements.matching(identifier: "Player Interface").firstMatch
+    if playerInterface.waitForExistence(timeout: 10.0) { return true }
+
     let playerContent = [
-      app.otherElements.matching(identifier: "Player Interface").firstMatch,
       app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'")).firstMatch
     ]
 
