@@ -1215,6 +1215,18 @@ run_ui_test_suites_serial() {
       fi
     fi
 
+    # Shut down the simulator between serial suites to let CoreSimulator tear down its
+    # process tree and prevent accumulation across 17+ suites (which hits the ~1333
+    # user-process limit). The next suite's xcodebuild invocation will reboot it.
+    local shutdown_udid="${ZPOD_SIMULATOR_UDID:-}"
+    if [[ -z "$shutdown_udid" ]]; then
+      shutdown_udid=$(_udid_for_destination "${ZPOD_DESTINATION:-}" 2>/dev/null) || true
+    fi
+    if [[ -n "$shutdown_udid" ]]; then
+      log_info "Shutting down simulator ${shutdown_udid} between suites to reclaim CoreSimulator processes"
+      xcrun simctl shutdown "$shutdown_udid" 2>/dev/null || true
+    fi
+
     if [[ -n "$temp_sim_udid" ]]; then
       cleanup_ephemeral_simulator "$temp_sim_udid"
       temp_sim_udid=""
