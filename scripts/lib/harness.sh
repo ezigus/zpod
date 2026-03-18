@@ -1571,6 +1571,10 @@ retry_with_fresh_sim() {
         break
       fi
     done
+    # Keep SELECTED_DESTINATION in sync with the fresh simulator so the between-suite
+    # shutdown code in run_ui_test_suites_serial targets the retry sim, not the stale
+    # pre-retry destination.
+    SELECTED_DESTINATION="platform=iOS Simulator,id=${temp_sim_udid}"
     $runner
     xc_status=$?
   else

@@ -644,6 +644,12 @@ boot_simulator_destination() {
     return 0
   fi
 
+  # Pin SELECTED_DESTINATION to the concrete id= form now that we have the exact UDID.
+  # This eliminates the ambiguity where name=X,OS=Y can match multiple simulators, and
+  # ensures the between-suite shutdown code in run_ui_test_suites_serial shuts down the
+  # right device rather than whatever simctl returns first for that name/OS pair.
+  SELECTED_DESTINATION="platform=iOS Simulator,id=${udid}"
+
   local start_ts elapsed formatted boot_status=0
   start_ts=$(date +%s)
   local bootstatus_supports_timeout=0
