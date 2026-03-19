@@ -22,7 +22,21 @@ public struct ContentView: View {
     public init() {}
 
     public var body: some View {
-        UITestLibraryPlaceholderView()
+        UITestLibraryPlaceholderView(seedPodcasts: Self.uiTestSeeds())
+    }
+
+    private static func uiTestSeeds() -> [Podcast] {
+        guard ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" else { return [] }
+        return [
+            Podcast(
+                id: "swift-talk",
+                title: "Swift Talk",
+                author: "objc.io",
+                description: "Deep dives into advanced Swift topics.",
+                feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+                isSubscribed: true
+            )
+        ]
     }
 }
 
@@ -227,31 +241,8 @@ public struct UITestLibraryPlaceholderView: View {
     private let podcastManager: PodcastManaging
     private let searchService: SearchServicing
 
-    public init() {
-        #if DEBUG
-        // When UITEST_SEED_PODCASTS=1, seed the placeholder manager so navigation tests
-        // can find podcast cards in a fresh environment (mirrors PodcastFixtures.swiftTalk
-        // from TestSupport, which cannot be imported in the app target).
-        let seedPodcasts: [Podcast]
-        if ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" {
-            let swiftTalk = Podcast(
-                id: "swift-talk",
-                title: "Swift Talk",
-                author: "objc.io",
-                description: "Deep dives into advanced Swift topics.",
-                feedURL: URL(string: "https://example.com/swift-talk.rss")!,
-                isSubscribed: true
-            )
-            seedPodcasts = [swiftTalk]
-        } else {
-            seedPodcasts = []
-        }
-        let manager = PlaceholderPodcastManager(initial: seedPodcasts)
-        #else
-        // Production (non-DEBUG) builds always start empty; callers must explicitly seed.
-        let manager = PlaceholderPodcastManager()
-        #endif
-        self.podcastManager = manager
+    public init(seedPodcasts: [Podcast] = []) {
+        self.podcastManager = PlaceholderPodcastManager(initial: seedPodcasts)
         let searchSources: [SearchIndexSource] = []
         self.searchService = SearchService(indexSources: searchSources)
         _selectedTab = State(initialValue: Self.initialTabSelection())

@@ -31,15 +31,18 @@ struct ZpodApp: App {
     configureAnimationsForUITesting()
 
     // Seed UI test data asynchronously (StorageManagementViewModel uses fallback stats for deterministic UI)
-    #if canImport(LibraryFeature)
-      Task { @MainActor in
-        await DownloadCoordinatorBridge.shared.ensureUITestSeededFromEnvIfNeeded()
-      }
-    #endif
+    #if DEBUG
+      #if canImport(LibraryFeature)
+        Task { @MainActor in
+          await DownloadCoordinatorBridge.shared.ensureUITestSeededFromEnvIfNeeded()
+        }
+      #endif
 
-    // Reset playback state for UI tests to ensure clean state between tests
-    resetPlaybackStateForUITests()
-    seedOrphanedEpisodesForUITests()
+      // Reset playback state for UI tests to ensure clean state between tests
+      resetPlaybackStateForUITests()
+      seedOrphanedEpisodesForUITests()
+      seedPodcastsForUITests()
+    #endif
     
     // Diagnostic: Check if audio environment variables are present
     let env = ProcessInfo.processInfo.environment
@@ -145,7 +148,7 @@ struct ZpodApp: App {
     WindowGroup {
       #if canImport(LibraryFeature)
         if ProcessInfo.processInfo.environment["UITEST_USE_LIBRARY_PLACEHOLDER"] == "1" {
-          UITestLibraryPlaceholderView()
+          UITestLibraryPlaceholderView(seedPodcasts: Self.seedPodcastsForPlaceholder())
         } else {
           ContentView(podcastManager: Self.sharedPodcastRepository, playlistManager: Self.sharedPlaylistRepository)
             .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
@@ -303,6 +306,33 @@ struct ZpodApp: App {
     )
 
     print("🧪 UI Test: Seeded \(episodes.count) orphaned episodes")
+  }
+
+  private func seedPodcastsForUITests() {
+    guard ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" else { return }
+    guard #available(iOS 17, *) else { return }
+    guard ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1" else {
+      return
+    }
+    guard Self.sharedPodcastRepository.all().isEmpty else { return }
+    Self.sharedPodcastRepository.add(Self.makeSwiftTalkSeedPodcast())
+    print("🧪 UI Test: Seeded 'Swift Talk' podcast for navigation tests")
+  }
+
+  private static func seedPodcastsForPlaceholder() -> [Podcast] {
+    guard ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1" else { return [] }
+    return [makeSwiftTalkSeedPodcast()]
+  }
+
+  private static func makeSwiftTalkSeedPodcast() -> Podcast {
+    Podcast(
+      id: "swift-talk",
+      title: "Swift Talk",
+      author: "objc.io",
+      description: "Deep dives into advanced Swift topics.",
+      feedURL: URL(string: "https://example.com/swift-talk.rss")!,
+      isSubscribed: true
+    )
   }
 
   private func configureCarPlayDependencies() {
