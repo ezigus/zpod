@@ -787,7 +787,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
     var body: some View {
       NavigationLink(
-        destination: EpisodeListViewWrapper(podcastId: podcast.id, podcastTitle: podcast.title, playlistManager: playlistManager)
+        destination: EpisodeListViewWrapper(podcast: podcast, playlistManager: playlistManager)
       ) {
         HStack(spacing: 16) {
           // Podcast artwork placeholder
@@ -835,23 +835,25 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
   // MARK: - Episode List View Wrapper with Real Batch Operations
     struct EpisodeListViewWrapper: View {
-      let podcastId: String
-      let podcastTitle: String
+      let podcast: Podcast
       let playlistManager: (any PlaylistManaging)?
 
       var body: some View {
-        // Create a real Podcast object with sample episodes for testing
-        let samplePodcast = createSamplePodcast(id: podcastId, title: podcastTitle)
-
         // Allow UI tests to opt into a lightweight list to avoid dependency flakiness
         let useSimpleList =
           ProcessInfo.processInfo.environment["UITEST_USE_SIMPLE_EPISODE_LIST"] == "1"
 
         if useSimpleList {
-          EpisodeListCardContainer(podcastId: podcastId, podcastTitle: podcastTitle)
+          EpisodeListCardContainer(podcastId: podcast.id, podcastTitle: podcast.title)
         } else {
-          // Use the real EpisodeListView with full batch operation functionality
-          EpisodeListView(podcast: samplePodcast, playlistManager: playlistManager)
+          // In UI test mode, use sample episodes when seeded podcasts have no real episodes.
+          // In production, or when real episodes already exist, use the real podcast data.
+          let useSeedData = ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1"
+          let shouldUseSampleEpisodes = useSeedData && podcast.episodes.isEmpty
+          let displayPodcast = shouldUseSampleEpisodes
+            ? createSamplePodcast(id: podcast.id, title: podcast.title)
+            : podcast
+          EpisodeListView(podcast: displayPodcast, playlistManager: playlistManager)
         }
       }
 
