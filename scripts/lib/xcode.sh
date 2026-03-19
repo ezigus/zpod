@@ -753,13 +753,9 @@ xcodebuild_wrapper() {
     if (( cleanup_done == 0 )); then
       cleanup_done=1
       if [[ -n "${xcodebuild_pid:-}" ]] && kill -0 "$xcodebuild_pid" 2>/dev/null; then
-        log_warn "Interrupt received - terminating xcodebuild and child processes..."
-        pkill -TERM -P "$xcodebuild_pid" 2>/dev/null || true
-        sleep 1
-        pkill -KILL -P "$xcodebuild_pid" 2>/dev/null || true
-        kill -TERM "$xcodebuild_pid" 2>/dev/null || true
-        sleep 1
-        kill -KILL "$xcodebuild_pid" 2>/dev/null || true
+        log_warn "Terminating xcodebuild process tree (pid=${xcodebuild_pid})..."
+        terminate_process_tree "$xcodebuild_pid" 2
+        wait "$xcodebuild_pid" 2>/dev/null || true
       fi
     fi
   }
@@ -785,10 +781,11 @@ xcodebuild_wrapper() {
       trap - INT  # Remove trap
       wait "$xcodebuild_pid"
       local exit_code=$?
-      # Kill any orphaned direct children captured in the last live snapshot
+      # Kill any orphaned children captured in the last live snapshot, using
+      # recursive process tree termination to reach xcodebuild grandchildren.
       if [[ -n "$child_pids" ]]; then
         for cpid in $child_pids; do
-          kill -TERM "$cpid" 2>/dev/null || true
+          terminate_process_tree "$cpid" 1
         done
       fi
       ts_elapsed=$(( $(date +%s) - xb_start ))
@@ -807,6 +804,7 @@ xcodebuild_wrapper() {
   # Timeout reached - kill xcodebuild and all children
   log_error "xcodebuild timed out after ${timeout_seconds}s - killing process tree"
   cleanup_xcodebuild
+  wait "$xcodebuild_pid" 2>/dev/null || true  # reap zombie
   trap - INT  # Remove trap
   ts_elapsed=$(( $(date +%s) - xb_start ))
   formatted_elapsed=$(printf '%02d:%02d:%02d' $((ts_elapsed/3600)) $(((ts_elapsed%3600)/60)) $((ts_elapsed%60)))
