@@ -324,9 +324,178 @@ final class DiscoverFeatureTests: XCTestCase {
         // Then: History should be emptied
         XCTAssertTrue(viewModel.searchHistory.isEmpty)
     }
+
+    // MARK: - Directory Service Integration Tests
+
+    @MainActor
+    func testDirectorySearch_GivenDirectoryService_WhenSearching_ThenExternalResultsMergedWithLocal() async {
+        // Given: A view model with a directory service
+        let mockDirectoryService = MockDirectoryService()
+        let externalPodcast = DirectorySearchResult(
+            id: "ext-1",
+            title: "External Podcast",
+            author: "External Author",
+            feedURL: URL(string: "https://external.com/feed.xml")!,
+            episodeCount: 10,
+            provider: "itunes"
+        )
+        mockDirectoryService.mockResults = [externalPodcast]
+
+        let localPodcast = Podcast(id: "local-1", title: "Local Podcast", feedURL: URL(string: "https://local.com/feed.xml")!)
+        mockSearchService.mockResults = [.podcast(localPodcast, relevanceScore: 0.9)]
+
+        let vmWithDirectory = await SearchViewModel(
+            searchService: mockSearchService,
+            podcastManager: mockPodcastManager,
+            rssParser: mockRSSParser,
+            directoryService: mockDirectoryService
+        )
+
+        // When: Searching
+        vmWithDirectory.searchText = "podcast"
+        await vmWithDirectory.search()
+
+        // Then: Results contain both local and external entries
+        XCTAssertEqual(vmWithDirectory.searchResults.count, 2)
+        let titles = vmWithDirectory.searchResults.compactMap { result -> String? in
+            if case .podcast(let p, _) = result { return p.title }
+            return nil
+        }
+        XCTAssertTrue(titles.contains("Local Podcast"))
+        XCTAssertTrue(titles.contains("External Podcast"))
+        XCTAssertFalse(vmWithDirectory.isSearchingDirectory)
+    }
+
+    @MainActor
+    func testDirectorySearch_GivenDuplicateFeedURL_WhenMerging_ThenLocalResultTakesPrecedence() async {
+        // Given: Local and external results sharing the same feed URL
+        let sharedURL = URL(string: "https://shared.com/feed.xml")!
+        let mockDirectoryService = MockDirectoryService()
+        let externalPodcast = DirectorySearchResult(
+            id: "ext-dup",
+            title: "External Duplicate",
+            author: "External Author",
+            feedURL: sharedURL,
+            episodeCount: 5,
+            provider: "itunes"
+        )
+        mockDirectoryService.mockResults = [externalPodcast]
+
+        let localPodcast = Podcast(id: "local-dup", title: "Local Version", feedURL: sharedURL)
+        mockSearchService.mockResults = [.podcast(localPodcast, relevanceScore: 0.9)]
+
+        let vmWithDirectory = await SearchViewModel(
+            searchService: mockSearchService,
+            podcastManager: mockPodcastManager,
+            rssParser: mockRSSParser,
+            directoryService: mockDirectoryService
+        )
+
+        // When: Searching
+        vmWithDirectory.searchText = "duplicate"
+        await vmWithDirectory.search()
+
+        // Then: Only the local result is kept (no duplicate)
+        XCTAssertEqual(vmWithDirectory.searchResults.count, 1)
+        if case .podcast(let p, _) = vmWithDirectory.searchResults.first {
+            XCTAssertEqual(p.title, "Local Version")
+        } else {
+            XCTFail("Expected podcast result")
+        }
+    }
+
+    @MainActor
+    func testDirectorySearch_GivenServiceFailure_WhenSearching_ThenLocalResultsStillShown() async {
+        // Given: A directory service that throws errors
+        let mockDirectoryService = MockDirectoryService()
+        mockDirectoryService.shouldThrowError = true
+
+        let localPodcast = Podcast(id: "local-1", title: "Local Podcast", feedURL: URL(string: "https://local.com/feed.xml")!)
+        mockSearchService.mockResults = [.podcast(localPodcast, relevanceScore: 0.9)]
+
+        let vmWithDirectory = await SearchViewModel(
+            searchService: mockSearchService,
+            podcastManager: mockPodcastManager,
+            rssParser: mockRSSParser,
+            directoryService: mockDirectoryService
+        )
+
+        // When: Searching (directory call fails)
+        vmWithDirectory.searchText = "podcast"
+        await vmWithDirectory.search()
+
+        // Then: Local results are still displayed, no crash
+        XCTAssertEqual(vmWithDirectory.searchResults.count, 1)
+        if case .podcast(let p, _) = vmWithDirectory.searchResults.first {
+            XCTAssertEqual(p.title, "Local Podcast")
+        } else {
+            XCTFail("Expected podcast result")
+        }
+        XCTAssertNil(vmWithDirectory.errorMessage)
+        XCTAssertFalse(vmWithDirectory.isSearchingDirectory)
+    }
+
+    @MainActor
+    func testSubscribeExternalPodcast_GivenNoEpisodesAndDirectoryService_WhenSubscribing_ThenFetchesFeedFirst() async {
+        // Given: A view model with directory service and an external podcast (no episodes)
+        let mockDirectoryService = MockDirectoryService()
+        let externalPodcast = Podcast(
+            id: "ext-1",
+            title: "External Podcast",
+            feedURL: URL(string: "https://external.com/feed.xml")!,
+            isSubscribed: false
+        )
+
+        let fullPodcast = Podcast(
+            id: "ext-1",
+            title: "External Podcast",
+            feedURL: URL(string: "https://external.com/feed.xml")!,
+            isSubscribed: false
+        )
+        mockRSSParser.mockPodcast = fullPodcast
+
+        let vmWithDirectory = await SearchViewModel(
+            searchService: mockSearchService,
+            podcastManager: mockPodcastManager,
+            rssParser: mockRSSParser,
+            directoryService: mockDirectoryService
+        )
+
+        // When: Subscribing to the external podcast
+        vmWithDirectory.subscribe(to: externalPodcast)
+
+        // Allow async Task to complete
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // Then: RSS parser was called to fetch full feed before subscribing
+        XCTAssertTrue(mockRSSParser.parseFeedCalled, "RSS parser should be called for external podcasts with no episodes")
+        XCTAssertEqual(mockPodcastManager.addedPodcasts.count, 1)
+    }
+
+    @MainActor
+    func testIsSearchingDirectory_GivenDirectoryService_WhenNoDirectoryService_ThenFalse() async {
+        // Given: A view model WITHOUT directory service
+        viewModel.searchText = "test"
+        await viewModel.search()
+
+        // Then: isSearchingDirectory should never be true when no service configured
+        XCTAssertFalse(viewModel.isSearchingDirectory)
+    }
 }
 
 // MARK: - Mock Implementations
+
+private final class MockDirectoryService: PodcastDirectorySearching, @unchecked Sendable {
+    var mockResults: [DirectorySearchResult] = []
+    var shouldThrowError = false
+
+    func search(query: String, limit: Int) async throws -> [DirectorySearchResult] {
+        if shouldThrowError {
+            throw NSError(domain: "MockDirectoryError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock directory error"])
+        }
+        return mockResults
+    }
+}
 
 private final class MockSearchService: SearchServicing, @unchecked Sendable {
     var mockResults: [SearchResult] = []
@@ -355,12 +524,14 @@ private final class MockSearchService: SearchServicing, @unchecked Sendable {
 private final class MockRSSParser: RSSFeedParsing, @unchecked Sendable {
     var mockPodcast: Podcast?
     var shouldThrowError = false
-    
+    var parseFeedCalled = false
+
     func parseFeed(from url: URL) async throws -> Podcast {
+        parseFeedCalled = true
         if shouldThrowError {
             throw NSError(domain: "MockRSSError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock RSS parsing error"])
         }
-        
+
         return mockPodcast ?? Podcast(
             id: "mock-podcast",
             title: "Mock Podcast",

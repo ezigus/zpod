@@ -542,10 +542,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             }
             .tag(0)
 
-          // Discover Tab (placeholder UI)
+          // Discover Tab
           DiscoverView(
             searchService: searchService,
-            podcastManager: podcastManager
+            podcastManager: podcastManager,
+            directoryService: ITunesSearchProvider()
           )
             .tabItem {
               Label("Discover", systemImage: "safari")
