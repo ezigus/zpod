@@ -65,6 +65,56 @@ declare -a UI_SHARD_WORKER_PIDS=()
 declare -a UI_SHARD_WORKER_LABELS=()
 declare -a UI_SHARD_WORKER_REPORTS=()
 declare -a UI_SHARD_WORKER_SIMULATORS=()
+declare -a EPHEMERAL_SIMULATORS=()
+
+register_ephemeral_simulator() {
+  local udid="$1"
+  [[ -n "$udid" ]] || return
+  local existing
+  for existing in "${EPHEMERAL_SIMULATORS[@]-}"; do
+    [[ "$existing" == "$udid" ]] && return
+  done
+  EPHEMERAL_SIMULATORS+=("$udid")
+}
+
+unregister_ephemeral_simulator() {
+  local udid="$1"
+  [[ -n "$udid" ]] || return
+  local -a remaining=()
+  local existing
+  for existing in "${EPHEMERAL_SIMULATORS[@]-}"; do
+    [[ "$existing" != "$udid" ]] && remaining+=("$existing")
+  done
+  EPHEMERAL_SIMULATORS=("${remaining[@]-}")
+}
+
+cleanup_all_ephemeral_simulators() {
+  if (( ${#EPHEMERAL_SIMULATORS[@]} == 0 )); then
+    return
+  fi
+  local udid
+  for udid in "${EPHEMERAL_SIMULATORS[@]}"; do
+    cleanup_ephemeral_simulator "$udid"
+  done
+  EPHEMERAL_SIMULATORS=()
+}
+
+sweep_orphaned_ephemeral_simulators() {
+  local udid name
+  while IFS=' ' read -r udid name; do
+    [[ -z "$udid" ]] && continue
+    log_info "Sweeping orphaned ephemeral simulator: ${name} (${udid})"
+    cleanup_ephemeral_simulator "$udid"
+  done < <(xcrun simctl list devices -j 2>/dev/null \
+    | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for runtime, devices in data.get('devices', {}).items():
+    for d in devices:
+        if d['name'].startswith('zpod-temp-'):
+            print(d['udid'] + ' ' + d['name'])
+" 2>/dev/null || true)
+}
 
 register_result_log() {
   local path="$1"
@@ -1067,27 +1117,15 @@ teardown_ui_shard_runtime() {
   fi
 
   local signaled=0
-  local forced=0
   local pid
+  # Use terminate_process_tree to kill each worker and its entire xcodebuild
+  # descendant tree (xcodebuild → xcrun → simctl → CoreSimulator), not just
+  # the direct worker PID.
   for pid in "${UI_SHARD_WORKER_PIDS[@]-}"; do
     [[ "$pid" =~ ^[0-9]+$ ]] || continue
     if kill -0 "$pid" 2>/dev/null; then
-      if kill "$pid" 2>/dev/null; then
-        signaled=$((signaled + 1))
-      fi
-    fi
-  done
-
-  if (( signaled > 0 && grace > 0 )); then
-    sleep "$grace"
-  fi
-
-  for pid in "${UI_SHARD_WORKER_PIDS[@]-}"; do
-    [[ "$pid" =~ ^[0-9]+$ ]] || continue
-    if kill -0 "$pid" 2>/dev/null; then
-      if kill -9 "$pid" 2>/dev/null; then
-        forced=$((forced + 1))
-      fi
+      terminate_process_tree "$pid" "$grace"
+      signaled=$((signaled + 1))
     fi
   done
 
@@ -1110,12 +1148,13 @@ teardown_ui_shard_runtime() {
 
   local sim_udid
   for sim_udid in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    unregister_ephemeral_simulator "$sim_udid"
     cleanup_ephemeral_simulator "$sim_udid"
   done
 
   if (( emit_summary == 1 )); then
     add_summary "test" "zpodUITests sharding cancel" "error" "" "1" "0" "1" "0" \
-      "cancelled (${reason}; workers_signaled=${signaled}; workers_killed=${forced})"
+      "cancelled (${reason}; workers_terminated=${signaled})"
   fi
   reset_ui_shard_runtime_state
 }
@@ -1198,6 +1237,7 @@ run_ui_test_suites_serial() {
     if (( use_fresh_sim == 1 )); then
       log_info "Provisioning fresh simulator for UI suite ${suite}..."
       if temp_sim_udid=$(create_ephemeral_simulator 2>/dev/null); then
+        register_ephemeral_simulator "$temp_sim_udid"
         log_info "Using simulator id=${temp_sim_udid} for UI suite ${suite}"
         export ZPOD_SIMULATOR_UDID="$temp_sim_udid"
       else
@@ -1231,6 +1271,7 @@ run_ui_test_suites_serial() {
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
+      unregister_ephemeral_simulator "$temp_sim_udid"
       cleanup_ephemeral_simulator "$temp_sim_udid"
       temp_sim_udid=""
     fi
@@ -1292,6 +1333,7 @@ run_ui_test_shard_worker() {
     if (( use_fresh_sim == 1 )); then
       log_info "[${worker_name}] Provisioning fresh simulator for ${suite}..."
       if temp_sim_udid=$(create_ephemeral_simulator 2>/dev/null); then
+        register_ephemeral_simulator "$temp_sim_udid"
         log_info "[${worker_name}] Using simulator id=${temp_sim_udid} for ${suite}"
         export ZPOD_SIMULATOR_UDID="$temp_sim_udid"
       else
@@ -1355,6 +1397,7 @@ run_ui_test_shard_worker() {
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
+      unregister_ephemeral_simulator "$temp_sim_udid"
       cleanup_ephemeral_simulator "$temp_sim_udid"
     fi
     if [[ -n "$original_sim_udid" ]]; then
@@ -1446,6 +1489,7 @@ run_ui_test_suites_parallel() {
     local report_file="${derived_root}/${worker_label}.report"
     local worker_sim=""
     if worker_sim=$(create_ephemeral_simulator 2>/dev/null); then
+      register_ephemeral_simulator "$worker_sim"
       log_info "[${worker_label}] Provisioned simulator id=${worker_sim}"
     else
       log_error "[${worker_label}] Failed to provision dedicated simulator for parallel UI run"
@@ -1501,6 +1545,7 @@ run_ui_test_suites_parallel() {
 
   local worker_sim
   for worker_sim in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    unregister_ephemeral_simulator "$worker_sim"
     cleanup_ephemeral_simulator "$worker_sim"
   done
   reset_ui_shard_runtime_state
@@ -1547,6 +1592,7 @@ retry_with_fresh_sim() {
   log_warn "${reason}; resetting CoreSimulator service..."
   reset_core_simulator_service
   if [[ -n "${temp_sim_udid:-}" ]]; then
+    unregister_ephemeral_simulator "$temp_sim_udid"
     cleanup_ephemeral_simulator "$temp_sim_udid"
     temp_sim_udid=""
   fi
@@ -1562,6 +1608,7 @@ retry_with_fresh_sim() {
   local new_udid=""
   if new_udid=$(create_ephemeral_simulator 2>/dev/null); then
     temp_sim_udid="$new_udid"
+    register_ephemeral_simulator "$temp_sim_udid"
     log_info "Retrying ${label} with simulator id=${temp_sim_udid}"
     args=("${original_args[@]}")
     local idx
@@ -1647,9 +1694,15 @@ print_entries_for_categories() {
 finalize_and_exit() {
   local code="$1"
   update_exit_status "$code"
+  # 1. Kill process trees first so simulators are idle when we delete them
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]] && (( UI_SHARD_ACTIVE == 1 )); then
     teardown_ui_shard_runtime "finalize-guard" 1
   fi
+  # 2. Clean registered ephemeral sims (processes are already dead, so simctl won't hang)
+  if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
+    cleanup_all_ephemeral_simulators
+  fi
+  # 3. Release lock last
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
     release_ui_test_lock
   fi
@@ -3778,6 +3831,7 @@ test_app_target() {
     fi
   fi
 
+  unregister_ephemeral_simulator "$temp_sim_udid"
   cleanup_ephemeral_simulator "$temp_sim_udid"
   log_oslog_debug "$target"
 
@@ -4341,6 +4395,7 @@ run_filtered_xcode_tests() {
     fi
   fi
 
+  unregister_ephemeral_simulator "$temp_sim_udid"
   cleanup_ephemeral_simulator "$temp_sim_udid"
 
   if [[ $xc_status -ne 0 ]]; then

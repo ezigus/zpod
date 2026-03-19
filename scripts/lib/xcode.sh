@@ -9,6 +9,37 @@ __ZPOD_XCODE_SH=1
 DESTINATION_IS_GENERIC=0
 SELECTED_DESTINATION=""
 
+# Provide a minimal terminate_process_tree fallback so xcode.sh remains
+# self-contained when sourced without harness.sh (e.g. resolve-simulator-destination.sh).
+# harness.sh's full implementation takes precedence when both are loaded.
+if ! declare -f terminate_process_tree >/dev/null 2>&1; then
+  terminate_process_tree() {
+    local root_pid="$1"
+    local grace_seconds="${2:-5}"
+    [[ "$root_pid" =~ ^[0-9]+$ ]] || return 0
+    [[ "$grace_seconds" =~ ^[0-9]+$ ]] || grace_seconds=5
+    local -a targets=()
+    local cpid
+    while IFS= read -r cpid; do
+      [[ -z "$cpid" ]] && continue
+      targets+=("$cpid")
+    done < <(pgrep -P "$root_pid" 2>/dev/null || true)
+    targets+=("$root_pid")
+    local pid
+    for pid in "${targets[@]}"; do
+      kill "$pid" 2>/dev/null || true
+    done
+    if (( grace_seconds > 0 )); then
+      sleep "$grace_seconds"
+    fi
+    for pid in "${targets[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+  }
+fi
+
 _xcode_simctl_select() {
   if ! command_exists xcrun; then
     return 1
@@ -753,13 +784,9 @@ xcodebuild_wrapper() {
     if (( cleanup_done == 0 )); then
       cleanup_done=1
       if [[ -n "${xcodebuild_pid:-}" ]] && kill -0 "$xcodebuild_pid" 2>/dev/null; then
-        log_warn "Interrupt received - terminating xcodebuild and child processes..."
-        pkill -TERM -P "$xcodebuild_pid" 2>/dev/null || true
-        sleep 1
-        pkill -KILL -P "$xcodebuild_pid" 2>/dev/null || true
-        kill -TERM "$xcodebuild_pid" 2>/dev/null || true
-        sleep 1
-        kill -KILL "$xcodebuild_pid" 2>/dev/null || true
+        log_warn "Terminating xcodebuild process tree (pid=${xcodebuild_pid})..."
+        terminate_process_tree "$xcodebuild_pid" 2
+        wait "$xcodebuild_pid" 2>/dev/null || true
       fi
     fi
   }
@@ -783,12 +810,19 @@ xcodebuild_wrapper() {
       # Process finished naturally. child_pids holds the last snapshot taken while
       # xcodebuild was alive.
       trap - INT  # Remove trap
+      local exit_code
       wait "$xcodebuild_pid"
-      local exit_code=$?
-      # Kill any orphaned direct children captured in the last live snapshot
+      exit_code=$?
+      # If the INT trap already reaped the child, wait returns 127 ("not a child").
+      # Treat that as an interrupted run rather than propagating a spurious 127.
+      if [[ $exit_code -eq 127 ]]; then
+        exit_code=130
+      fi
+      # Kill any orphaned children captured in the last live snapshot, using
+      # recursive process tree termination to reach xcodebuild grandchildren.
       if [[ -n "$child_pids" ]]; then
         for cpid in $child_pids; do
-          kill -TERM "$cpid" 2>/dev/null || true
+          terminate_process_tree "$cpid" 1
         done
       fi
       ts_elapsed=$(( $(date +%s) - xb_start ))
@@ -807,6 +841,7 @@ xcodebuild_wrapper() {
   # Timeout reached - kill xcodebuild and all children
   log_error "xcodebuild timed out after ${timeout_seconds}s - killing process tree"
   cleanup_xcodebuild
+  wait "$xcodebuild_pid" 2>/dev/null || true  # reap zombie
   trap - INT  # Remove trap
   ts_elapsed=$(( $(date +%s) - xb_start ))
   formatted_elapsed=$(printf '%02d:%02d:%02d' $((ts_elapsed/3600)) $(((ts_elapsed%3600)/60)) $((ts_elapsed%60)))
