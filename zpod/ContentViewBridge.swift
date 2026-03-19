@@ -259,7 +259,8 @@ public struct UITestLibraryPlaceholderView: View {
 
             DiscoverView(
                 searchService: searchService,
-                podcastManager: podcastManager
+                podcastManager: podcastManager,
+                directoryService: ITunesSearchProvider()
             )
             .tabItem { Label("Discover", systemImage: "sparkles") }
             .tag(1)

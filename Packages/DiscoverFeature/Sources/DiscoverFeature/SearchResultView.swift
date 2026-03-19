@@ -58,9 +58,23 @@ public struct SearchResultView: View {
                     Label(resultTypeLabel, systemImage: resultTypeIcon)
                         .font(.caption)
                         .foregroundColor(.accentColor)
-                    
+
+                    // Show episode count for external directory results.
+                    if case .podcast(let podcast, _) = searchResult,
+                       podcast.episodes.isEmpty,
+                       !podcast.isSubscribed {
+                        Text("Online")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.platformSystemGray5)
+                            .foregroundColor(.secondary)
+                            .cornerRadius(4)
+                            .accessibilityIdentifier("SearchResult.OnlineBadge")
+                    }
+
                     Spacer()
-                    
+
                     if case let .podcast(podcast, _) = searchResult, !podcast.isSubscribed {
                         Button(action: {
                             onSubscribe(podcast)

@@ -33,53 +33,59 @@ public struct DefaultRSSFeedParser: RSSFeedParsing {
 /// ViewModel for search functionality in the Discover tab
 @MainActor
 public final class SearchViewModel: ObservableObject {
-    
+
     // MARK: - Published Properties
-    
+
     /// Current search query text
     @Published public var searchText: String = ""
-    
+
     /// Current search results
     @Published public var searchResults: [SearchResult] = []
-    
+
     /// Whether a search is currently in progress
     @Published public var isSearching: Bool = false
-    
+
+    /// Whether an external directory search is in progress (shows "Searching online" indicator)
+    @Published public var isSearchingDirectory: Bool = false
+
     /// Current search filter
     @Published public var currentFilter: SearchFilter = .all
-    
+
     /// Search history for quick access
     @Published public var searchHistory: [String] = []
-    
+
     /// Error message for display to user
     @Published public var errorMessage: String?
-    
+
     /// RSS feed URL for direct addition
     @Published public var rssURL: String = ""
-    
+
     /// Whether RSS feed addition is in progress
     @Published public var isAddingRSSFeed: Bool = false
-    
+
     // MARK: - Private Properties
-    
+
     private let searchService: SearchServicing
     private let podcastManager: PodcastManaging
     private let rssParser: RSSFeedParsing
+    private let directoryService: (any PodcastDirectorySearching)?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
     private let debounceInterval: TimeInterval = 0.3
-    
+
     // MARK: - Initialization
-    
+
     public init(
         searchService: SearchServicing,
         podcastManager: PodcastManaging,
         rssParser: RSSFeedParsing = DefaultRSSFeedParser(),
+        directoryService: (any PodcastDirectorySearching)? = nil,
         userDefaults: UserDefaults = .standard
     ) {
         self.searchService = searchService
         self.podcastManager = podcastManager
         self.rssParser = rssParser
+        self.directoryService = directoryService
         self.userDefaults = userDefaults
 
         setupSearchDebouncing()
@@ -88,42 +94,131 @@ public final class SearchViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Perform search with current query and filter
+    /// Perform search with current query and filter.
+    ///
+    /// Runs local and external directory searches concurrently. Local results are shown
+    /// immediately; external results are merged in when they arrive.
     public func search() async {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            await MainActor.run {
-                searchResults = []
-            }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchResults = []
             return
         }
-        
-        await MainActor.run {
-            isSearching = true
-            errorMessage = nil
-        }
-        
-        let results = await searchService.search(query: searchText, filter: currentFilter)
-        
-        await MainActor.run {
-            searchResults = results
-            isSearching = false
-            
-            // Add to search history if not already present
-            if !searchHistory.contains(searchText) {
-                searchHistory.insert(searchText, at: 0)
-                // Keep only last 10 searches
-                if searchHistory.count > 10 {
-                    searchHistory = Array(searchHistory.prefix(10))
-                }
-                saveSearchHistory()
+
+        isSearching = true
+        errorMessage = nil
+
+        // Local search runs on MainActor (in-memory, fast).
+        let local = await searchService.search(query: query, filter: currentFilter)
+
+        // Show local results immediately while the directory search runs.
+        searchResults = local
+        isSearchingDirectory = directoryService != nil
+
+        // External directory search (network call).
+        let external = await fetchDirectoryResults(query: query)
+
+        searchResults = mergeResults(local: local, external: external)
+        isSearching = false
+        isSearchingDirectory = false
+
+        // Track search history.
+        if !searchHistory.contains(query) {
+            searchHistory.insert(query, at: 0)
+            if searchHistory.count > 10 {
+                searchHistory = Array(searchHistory.prefix(10))
             }
+            saveSearchHistory()
         }
     }
-    
-    /// Subscribe to a podcast from search results
-    public func subscribe(to podcast: Podcast) {
-        let existingPodcast = podcastManager.find(id: podcast.id)
 
+    // MARK: - Private search helpers
+
+    /// Fetches external directory results and converts them to `SearchResult`.
+    /// Returns an empty array on any error (graceful degradation).
+    private func fetchDirectoryResults(query: String) async -> [SearchResult] {
+        guard let service = directoryService else { return [] }
+        isSearchingDirectory = true
+        do {
+            let results = try await service.search(query: query, limit: 25)
+            return results.map { directoryResult in
+                .podcast(directoryResult.toPodcast(), relevanceScore: 0.5)
+            }
+        } catch {
+            // External search failures are non-fatal; local results still show.
+            return []
+        }
+    }
+
+    /// Merges local and external results, deduplicating by feed URL.
+    /// Local results take precedence (higher relevance scores) and appear first.
+    private func mergeResults(local: [SearchResult], external: [SearchResult]) -> [SearchResult] {
+        var seen = Set<String>()
+        var merged = [SearchResult]()
+
+        for result in local {
+            if case .podcast(let podcast, _) = result {
+                seen.insert(podcast.feedURL.absoluteString)
+            }
+            merged.append(result)
+        }
+
+        for result in external {
+            if case .podcast(let podcast, _) = result {
+                let key = podcast.feedURL.absoluteString
+                guard !seen.contains(key) else { continue }
+                seen.insert(key)
+                merged.append(result)
+            }
+        }
+
+        return merged
+    }
+    
+    /// Subscribe to a podcast from search results.
+    ///
+    /// If the podcast has no episodes and a directory service is configured (meaning it
+    /// came from an external directory result), the full feed is fetched via RSS before
+    /// subscribing so that episodes are available immediately in the Library.
+    public func subscribe(to podcast: Podcast) {
+        if podcast.episodes.isEmpty && directoryService != nil {
+            Task {
+                await subscribeByFetchingFeed(podcast)
+            }
+        } else {
+            persistSubscription(podcast)
+        }
+    }
+
+    private func subscribeByFetchingFeed(_ podcast: Podcast) async {
+        isAddingRSSFeed = true
+        errorMessage = nil
+        do {
+            let fullPodcast = try await rssParser.parseFeed(from: podcast.feedURL)
+            let merged = Podcast(
+                id: fullPodcast.id,
+                title: fullPodcast.title,
+                author: fullPodcast.author ?? podcast.author,
+                description: fullPodcast.description ?? podcast.description,
+                artworkURL: fullPodcast.artworkURL ?? podcast.artworkURL,
+                feedURL: fullPodcast.feedURL,
+                categories: fullPodcast.categories.isEmpty ? podcast.categories : fullPodcast.categories,
+                episodes: fullPodcast.episodes,
+                isSubscribed: true,
+                dateAdded: Date(),
+                folderId: podcast.folderId,
+                tagIds: podcast.tagIds
+            )
+            podcastManager.add(merged)
+        } catch {
+            // Fall back to subscribing without full episode list.
+            persistSubscription(podcast)
+        }
+        isAddingRSSFeed = false
+    }
+
+    private func persistSubscription(_ podcast: Podcast) {
+        let existingPodcast = podcastManager.find(id: podcast.id)
         let subscribedPodcast = Podcast(
             id: podcast.id,
             title: podcast.title,
@@ -138,7 +233,6 @@ public final class SearchViewModel: ObservableObject {
             folderId: podcast.folderId,
             tagIds: podcast.tagIds
         )
-        
         if existingPodcast != nil {
             podcastManager.update(subscribedPodcast)
         } else {
