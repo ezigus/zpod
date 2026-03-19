@@ -846,10 +846,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         if useSimpleList {
           EpisodeListCardContainer(podcastId: podcast.id, podcastTitle: podcast.title)
         } else {
-          // In UI test mode, use sample episodes (seeded podcasts have no real episodes).
-          // In production, use the real podcast data from the RSS feed.
+          // In UI test mode, use sample episodes when seeded podcasts have no real episodes.
+          // In production, or when real episodes already exist, use the real podcast data.
           let useSeedData = ProcessInfo.processInfo.environment["UITEST_SEED_PODCASTS"] == "1"
-          let displayPodcast = useSeedData
+          let shouldUseSampleEpisodes = useSeedData && podcast.episodes.isEmpty
+          let displayPodcast = shouldUseSampleEpisodes
             ? createSamplePodcast(id: podcast.id, title: podcast.title)
             : podcast
           EpisodeListView(podcast: displayPodcast, playlistManager: playlistManager)
