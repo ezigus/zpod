@@ -9,6 +9,37 @@ __ZPOD_XCODE_SH=1
 DESTINATION_IS_GENERIC=0
 SELECTED_DESTINATION=""
 
+# Provide a minimal terminate_process_tree fallback so xcode.sh remains
+# self-contained when sourced without harness.sh (e.g. resolve-simulator-destination.sh).
+# harness.sh's full implementation takes precedence when both are loaded.
+if ! declare -f terminate_process_tree >/dev/null 2>&1; then
+  terminate_process_tree() {
+    local root_pid="$1"
+    local grace_seconds="${2:-5}"
+    [[ "$root_pid" =~ ^[0-9]+$ ]] || return 0
+    [[ "$grace_seconds" =~ ^[0-9]+$ ]] || grace_seconds=5
+    local -a targets=()
+    local cpid
+    while IFS= read -r cpid; do
+      [[ -z "$cpid" ]] && continue
+      targets+=("$cpid")
+    done < <(pgrep -P "$root_pid" 2>/dev/null || true)
+    targets+=("$root_pid")
+    local pid
+    for pid in "${targets[@]}"; do
+      kill "$pid" 2>/dev/null || true
+    done
+    if (( grace_seconds > 0 )); then
+      sleep "$grace_seconds"
+    fi
+    for pid in "${targets[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+  }
+fi
+
 _xcode_simctl_select() {
   if ! command_exists xcrun; then
     return 1
@@ -779,8 +810,14 @@ xcodebuild_wrapper() {
       # Process finished naturally. child_pids holds the last snapshot taken while
       # xcodebuild was alive.
       trap - INT  # Remove trap
+      local exit_code
       wait "$xcodebuild_pid"
-      local exit_code=$?
+      exit_code=$?
+      # If the INT trap already reaped the child, wait returns 127 ("not a child").
+      # Treat that as an interrupted run rather than propagating a spurious 127.
+      if [[ $exit_code -eq 127 ]]; then
+        exit_code=130
+      fi
       # Kill any orphaned children captured in the last live snapshot, using
       # recursive process tree termination to reach xcodebuild grandchildren.
       if [[ -n "$child_pids" ]]; then

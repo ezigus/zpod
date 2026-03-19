@@ -77,6 +77,17 @@ register_ephemeral_simulator() {
   EPHEMERAL_SIMULATORS+=("$udid")
 }
 
+unregister_ephemeral_simulator() {
+  local udid="$1"
+  [[ -n "$udid" ]] || return
+  local -a remaining=()
+  local existing
+  for existing in "${EPHEMERAL_SIMULATORS[@]-}"; do
+    [[ "$existing" != "$udid" ]] && remaining+=("$existing")
+  done
+  EPHEMERAL_SIMULATORS=("${remaining[@]-}")
+}
+
 cleanup_all_ephemeral_simulators() {
   if (( ${#EPHEMERAL_SIMULATORS[@]} == 0 )); then
     return
@@ -1106,7 +1117,6 @@ teardown_ui_shard_runtime() {
   fi
 
   local signaled=0
-  local forced=0
   local pid
   # Use terminate_process_tree to kill each worker and its entire xcodebuild
   # descendant tree (xcodebuild → xcrun → simctl → CoreSimulator), not just
@@ -1138,6 +1148,7 @@ teardown_ui_shard_runtime() {
 
   local sim_udid
   for sim_udid in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    unregister_ephemeral_simulator "$sim_udid"
     cleanup_ephemeral_simulator "$sim_udid"
   done
 
@@ -1260,6 +1271,7 @@ run_ui_test_suites_serial() {
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
+      unregister_ephemeral_simulator "$temp_sim_udid"
       cleanup_ephemeral_simulator "$temp_sim_udid"
       temp_sim_udid=""
     fi
@@ -1385,6 +1397,7 @@ run_ui_test_shard_worker() {
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
+      unregister_ephemeral_simulator "$temp_sim_udid"
       cleanup_ephemeral_simulator "$temp_sim_udid"
     fi
     if [[ -n "$original_sim_udid" ]]; then
@@ -1532,6 +1545,7 @@ run_ui_test_suites_parallel() {
 
   local worker_sim
   for worker_sim in "${UI_SHARD_WORKER_SIMULATORS[@]-}"; do
+    unregister_ephemeral_simulator "$worker_sim"
     cleanup_ephemeral_simulator "$worker_sim"
   done
   reset_ui_shard_runtime_state
@@ -1578,6 +1592,7 @@ retry_with_fresh_sim() {
   log_warn "${reason}; resetting CoreSimulator service..."
   reset_core_simulator_service
   if [[ -n "${temp_sim_udid:-}" ]]; then
+    unregister_ephemeral_simulator "$temp_sim_udid"
     cleanup_ephemeral_simulator "$temp_sim_udid"
     temp_sim_udid=""
   fi
@@ -1683,10 +1698,9 @@ finalize_and_exit() {
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]] && (( UI_SHARD_ACTIVE == 1 )); then
     teardown_ui_shard_runtime "finalize-guard" 1
   fi
-  # 2. Clean registered ephemeral sims, then sweep for any the parent didn't know about
+  # 2. Clean registered ephemeral sims (processes are already dead, so simctl won't hang)
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
     cleanup_all_ephemeral_simulators
-    sweep_orphaned_ephemeral_simulators
   fi
   # 3. Release lock last
   if [[ "${BASHPID:-$$}" == "$ROOT_SHELL_PID" ]]; then
@@ -3817,6 +3831,7 @@ test_app_target() {
     fi
   fi
 
+  unregister_ephemeral_simulator "$temp_sim_udid"
   cleanup_ephemeral_simulator "$temp_sim_udid"
   log_oslog_debug "$target"
 
@@ -4380,6 +4395,7 @@ run_filtered_xcode_tests() {
     fi
   fi
 
+  unregister_ephemeral_simulator "$temp_sim_udid"
   cleanup_ephemeral_simulator "$temp_sim_udid"
 
   if [[ $xc_status -ne 0 ]]; then
