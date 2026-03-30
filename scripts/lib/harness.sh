@@ -4846,13 +4846,17 @@ _resolve_changed_to_tests() {
     return 1
   fi
 
-  # Gather: committed branch changes vs base + uncommitted working-tree changes
-  local committed_files uncommitted_files changed_files
-  committed_files=$(git -C "$REPO_ROOT" diff --name-only "${base}...HEAD" -- '*.swift' 2>/dev/null || true)
-  uncommitted_files=$(git -C "$REPO_ROOT" diff --name-only HEAD -- '*.swift' 2>/dev/null || true)
+  # Gather: committed branch changes vs base + uncommitted tracked changes + untracked new files
+  local committed_files uncommitted_files untracked_files changed_files
+  committed_files=$(git -C "$REPO_ROOT" diff --name-only "${base}...HEAD" -- '*.swift' 2>/dev/null) \
+    || { log_warn "--changed: 'git diff ${base}...HEAD' failed; results may be incomplete"; committed_files=""; }
+  uncommitted_files=$(git -C "$REPO_ROOT" diff --name-only HEAD -- '*.swift' 2>/dev/null) \
+    || { log_warn "--changed: 'git diff HEAD' failed; results may be incomplete"; uncommitted_files=""; }
+  untracked_files=$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- '*.swift' 2>/dev/null) \
+    || { log_warn "--changed: 'git ls-files --others' failed; results may be incomplete"; untracked_files=""; }
 
   # Merge and deduplicate
-  changed_files=$(printf '%s\n%s\n' "$committed_files" "$uncommitted_files" \
+  changed_files=$(printf '%s\n%s\n%s\n' "$committed_files" "$uncommitted_files" "$untracked_files" \
     | sort -u | grep -v '^$' || true)
 
   if [[ -z "$changed_files" ]]; then
@@ -4867,13 +4871,17 @@ _resolve_changed_to_tests() {
   # — test files (zpodUITests/, AppSmokeTests/, etc.) resolve directly
   # — production files resolve via manifest + grep fallback
   # — Packages/*/Tests/* files resolve to "Packages" suite
-  declare -A seen
-  local deduped=() target
+  # Use indexed-array dedup (bash 3.2-compatible; avoids declare -A)
+  local deduped=() target already existing
   while IFS= read -r f; do
     [[ -z "$f" ]] && continue
     while IFS= read -r target; do
-      [[ -z "$target" || -n "${seen[$target]+x}" ]] && continue
-      seen[$target]=1
+      [[ -z "$target" ]] && continue
+      already=0
+      for existing in "${deduped[@]+"${deduped[@]}"}"; do
+        if [[ "$existing" == "$target" ]]; then already=1; break; fi
+      done
+      (( already )) && continue
       deduped+=("$target")
     done < <(resolve_single_target "$f")
   done <<< "$changed_files"
@@ -4982,7 +4990,7 @@ if (( REQUESTED_CHANGED == 1 )); then
 fi
 
 if [[ $REQUEST_CLEAR_UI_LOCK -eq 1 ]]; then
-  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUESTED_SYNTAX -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || $REQUESTED_OSLOG_DEBUG -eq 1 || $SELF_CHECK -eq 1 ]]; then
+  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUESTED_SYNTAX -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || $REQUESTED_OSLOG_DEBUG -eq 1 || $SELF_CHECK -eq 1 || $REQUESTED_CHANGED -eq 1 ]]; then
     log_error "--clear-ui-lock must be used by itself"
     update_exit_status 1
     finalize_and_exit 1
@@ -5017,7 +5025,9 @@ if [[ $SELF_CHECK -eq 1 ]]; then
 fi
 
 if (( REQUESTED_CHANGED == 1 )); then
-  execute_phase "Syntax [changed]" "syntax" run_syntax_check
+  if ! execute_phase "Syntax [changed]" "syntax" run_syntax_check; then
+    finalize_and_exit "$EXIT_STATUS"
+  fi
   if ! _resolve_changed_to_tests; then
     log_info "--changed: falling back to AppSmokeTests,Packages"
     REQUESTED_TESTS="AppSmokeTests,Packages"
@@ -5037,7 +5047,7 @@ if (( REQUESTED_CHANGED == 1 )); then
     fi
   done
   release_ui_test_lock
-  finalize_and_exit 0
+  finalize_and_exit "$EXIT_STATUS"
 fi
 
 if [[ $REQUESTED_SYNTAX -eq 0 && -z "$REQUESTED_BUILDS" && -z "$REQUESTED_TESTS" && $REQUEST_TESTPLAN -eq 0 && $REQUESTED_LINT -eq 0 && $REQUEST_CLEAR_UI_LOCK -eq 0 && $REQUESTED_CHANGED -eq 0 ]]; then
