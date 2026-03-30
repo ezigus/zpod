@@ -4,10 +4,12 @@ import CoreModels
 /// View component for displaying individual search results
 public struct SearchResultView: View {
     let searchResult: SearchResult
+    let episodeCount: Int?
     let onSubscribe: (Podcast) -> Void
-    
-    public init(searchResult: SearchResult, onSubscribe: @escaping (Podcast) -> Void) {
+
+    public init(searchResult: SearchResult, episodeCount: Int? = nil, onSubscribe: @escaping (Podcast) -> Void) {
         self.searchResult = searchResult
+        self.episodeCount = episodeCount
         self.onSubscribe = onSubscribe
     }
     
@@ -71,6 +73,13 @@ public struct SearchResultView: View {
                             .foregroundColor(.secondary)
                             .cornerRadius(4)
                             .accessibilityIdentifier("SearchResult.OnlineBadge")
+                    }
+
+                    if let count = episodeCount {
+                        Text("\(count) episodes")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .accessibilityIdentifier("SearchResult.EpisodeCount")
                     }
 
                     Spacer()

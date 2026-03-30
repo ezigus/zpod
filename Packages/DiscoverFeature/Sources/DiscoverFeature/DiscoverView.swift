@@ -350,8 +350,16 @@ public struct DiscoverView: View {
     
     private var searchResultsView: some View {
         List(viewModel.searchResults.indices, id: \.self) { index in
+            let result = viewModel.searchResults[index]
+            let feedKey: String? = {
+                if case .podcast(let podcast, _) = result {
+                    return podcast.feedURL.absoluteString
+                }
+                return nil
+            }()
             SearchResultView(
-                searchResult: viewModel.searchResults[index],
+                searchResult: result,
+                episodeCount: feedKey.flatMap { viewModel.episodeCountMap[$0] },
                 onSubscribe: viewModel.subscribe
             )
             .listRowSeparator(.hidden)

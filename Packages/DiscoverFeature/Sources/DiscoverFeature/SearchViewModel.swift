@@ -54,6 +54,10 @@ public final class SearchViewModel: ObservableObject {
     /// Search history for quick access
     @Published public var searchHistory: [String] = []
 
+    /// Episode counts keyed by feed URL string, populated during directory search.
+    /// Cleared on `clearSearch()`. Only holds current search session data.
+    @Published public var episodeCountMap: [String: Int] = [:]
+
     /// Error message for display to user
     @Published public var errorMessage: String?
 
@@ -141,6 +145,12 @@ public final class SearchViewModel: ObservableObject {
         isSearchingDirectory = true
         do {
             let results = try await service.search(query: query, limit: 25)
+            // Populate the episode count side-channel before converting to SearchResult.
+            for result in results {
+                if let count = result.episodeCount {
+                    episodeCountMap[result.feedURL.absoluteString] = count
+                }
+            }
             return results.map { directoryResult in
                 .podcast(directoryResult.toPodcast(), relevanceScore: 0.5)
             }
@@ -294,6 +304,7 @@ public final class SearchViewModel: ObservableObject {
     public func clearSearch() {
         searchText = ""
         searchResults = []
+        episodeCountMap = [:]
         errorMessage = nil
     }
     
