@@ -18,6 +18,8 @@ REQUESTED_OSLOG_DEBUG=0
 REQUEST_CLEAR_UI_LOCK=0
 REQUEST_REAP=0
 REQUEST_REAP_DRY_RUN=0
+REQUESTED_CHANGED=0
+CHANGED_BASE="origin/main"
 SELF_CHECK=0
 SCHEME_RESOLVED=0
 SCHEME_CANDIDATES=("zpod (zpod project)" "zpod")
@@ -3284,6 +3286,10 @@ Options:
   -l                Run Swift lint checks (swiftlint/swift-format if available)
   -p [suite]        Verify test plan coverage (optional suite: default, AppSmokeTests, zpodUITests, IntegrationTests)
   --oslog-debug     Enable OSLog debug output and emit a post-test log summary
+  --changed[=<ref>] Syntax check + run tests for .swift files changed vs <ref>
+                    (default: origin/main). Includes uncommitted changes.
+                    Falls back to AppSmokeTests,Packages when no targets resolve.
+                    Designed for Shipwright fast_test_cmd. Cannot combine with -s/-b/-t.
   --scheme <name>   Xcode scheme to use (default: "zpod (zpod project)")
   --workspace <ws>  Path to workspace (default: zpod.xcworkspace)
   --sim <device>    Preferred simulator name (default: "iPhone 17 Pro")
@@ -4828,6 +4834,60 @@ resolve_positional_targets() {
   REQUESTED_TESTS=$(IFS=','; echo "${deduped[*]}")
 }
 
+# Detects .swift files changed vs CHANGED_BASE (committed + uncommitted).
+# Resolves ALL changed files — production AND test — via resolve_single_target().
+# Sets REQUESTED_TESTS on success; returns 1 if no targets found (caller falls back).
+_resolve_changed_to_tests() {
+  local base="${CHANGED_BASE:-origin/main}"
+
+  # Verify base ref exists (origin/main may be stale locally)
+  if ! git -C "$REPO_ROOT" rev-parse --verify "$base" &>/dev/null; then
+    log_warn "--changed: ref '$base' not found; falling back to AppSmokeTests,Packages"
+    return 1
+  fi
+
+  # Gather: committed branch changes vs base + uncommitted working-tree changes
+  local committed_files uncommitted_files changed_files
+  committed_files=$(git -C "$REPO_ROOT" diff --name-only "${base}...HEAD" -- '*.swift' 2>/dev/null || true)
+  uncommitted_files=$(git -C "$REPO_ROOT" diff --name-only HEAD -- '*.swift' 2>/dev/null || true)
+
+  # Merge and deduplicate
+  changed_files=$(printf '%s\n%s\n' "$committed_files" "$uncommitted_files" \
+    | sort -u | grep -v '^$' || true)
+
+  if [[ -z "$changed_files" ]]; then
+    log_info "--changed: no changed .swift files detected vs $base"
+    return 1
+  fi
+
+  log_info "--changed: detected changed .swift files vs $base:"
+  while IFS= read -r f; do log_info "  $f"; done <<< "$changed_files"
+
+  # Resolve ALL changed .swift files via resolve_single_target()
+  # — test files (zpodUITests/, AppSmokeTests/, etc.) resolve directly
+  # — production files resolve via manifest + grep fallback
+  # — Packages/*/Tests/* files resolve to "Packages" suite
+  declare -A seen
+  local deduped=() target
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    while IFS= read -r target; do
+      [[ -z "$target" || -n "${seen[$target]+x}" ]] && continue
+      seen[$target]=1
+      deduped+=("$target")
+    done < <(resolve_single_target "$f")
+  done <<< "$changed_files"
+
+  if (( ${#deduped[@]} == 0 )); then
+    log_info "--changed: changed files produced no resolvable test targets"
+    return 1
+  fi
+
+  REQUESTED_TESTS=$(IFS=','; echo "${deduped[*]}")
+  log_info "--changed: resolved to: $REQUESTED_TESTS"
+  return 0
+}
+
 harness_main() {
 # Start timer for entire script execution
 ORIGINAL_CLI_ARGS=("$@")
@@ -4857,6 +4917,10 @@ while [[ $# -gt 0 ]]; do
       fi;;
     --oslog-debug)
       REQUESTED_OSLOG_DEBUG=1; shift;;
+    --changed)
+      REQUESTED_CHANGED=1; CHANGED_BASE="origin/main"; shift;;
+    --changed=*)
+      REQUESTED_CHANGED=1; CHANGED_BASE="${1#--changed=}"; shift;;
     --scheme)
       SCHEME="$2"; shift 2;;
     --workspace)
@@ -4906,6 +4970,17 @@ if [[ $REQUESTED_OSLOG_DEBUG -eq 1 ]]; then
   log_info "OSLog debug enabled (OS_ACTIVITY_DT_MODE=YES, OS_LOG_DEFAULT_LEVEL=debug)"
 fi
 
+if (( REQUESTED_CHANGED == 1 )); then
+  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || \
+        $REQUESTED_SYNTAX -eq 1 || $REQUESTED_CLEAN -eq 1 || \
+        $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || \
+        ${#REQUESTED_POSITIONAL_TARGETS[@]} -gt 0 ]]; then
+    log_error "--changed cannot be combined with other build or test flags"
+    update_exit_status 1
+    finalize_and_exit 1
+  fi
+fi
+
 if [[ $REQUEST_CLEAR_UI_LOCK -eq 1 ]]; then
   if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUESTED_SYNTAX -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || $REQUESTED_OSLOG_DEBUG -eq 1 || $SELF_CHECK -eq 1 ]]; then
     log_error "--clear-ui-lock must be used by itself"
@@ -4929,7 +5004,7 @@ if [[ $REQUEST_REAP -eq 1 ]]; then
 fi
 
 if [[ $REQUESTED_SYNTAX -eq 1 ]]; then
-  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 ]]; then
+  if [[ -n "$REQUESTED_BUILDS" || -n "$REQUESTED_TESTS" || $REQUESTED_CLEAN -eq 1 || $REQUEST_TESTPLAN -eq 1 || $REQUESTED_LINT -eq 1 || $REQUESTED_CHANGED -eq 1 ]]; then
     log_error "-s (syntax) cannot be combined with other build or test flags"
     update_exit_status 1
     finalize_and_exit 1
@@ -4941,7 +5016,31 @@ if [[ $SELF_CHECK -eq 1 ]]; then
   finalize_and_exit $?
 fi
 
-if [[ $REQUESTED_SYNTAX -eq 0 && -z "$REQUESTED_BUILDS" && -z "$REQUESTED_TESTS" && $REQUEST_TESTPLAN -eq 0 && $REQUESTED_LINT -eq 0 && $REQUEST_CLEAR_UI_LOCK -eq 0 ]]; then
+if (( REQUESTED_CHANGED == 1 )); then
+  execute_phase "Syntax [changed]" "syntax" run_syntax_check
+  if ! _resolve_changed_to_tests; then
+    log_info "--changed: falling back to AppSmokeTests,Packages"
+    REQUESTED_TESTS="AppSmokeTests,Packages"
+  fi
+  split_csv "$REQUESTED_TESTS"
+  for _item in "${__ZPOD_SPLIT_RESULT[@]+"${__ZPOD_SPLIT_RESULT[@]}"}"; do
+    _item="$(trim "$_item")"
+    [[ -z "$_item" ]] && continue
+    local _changed_test_status=0
+    if execute_phase "Test ${_item} [changed]" "test" run_test_target "$_item"; then
+      _changed_test_status=0
+    else
+      _changed_test_status=$?
+      if (( _changed_test_status == UI_LOCK_CONFLICT_EXIT_CODE || _changed_test_status == UI_PARALLEL_SETUP_EXIT_CODE )); then
+        finalize_and_exit "$_changed_test_status"
+      fi
+    fi
+  done
+  release_ui_test_lock
+  finalize_and_exit 0
+fi
+
+if [[ $REQUESTED_SYNTAX -eq 0 && -z "$REQUESTED_BUILDS" && -z "$REQUESTED_TESTS" && $REQUEST_TESTPLAN -eq 0 && $REQUESTED_LINT -eq 0 && $REQUEST_CLEAR_UI_LOCK -eq 0 && $REQUESTED_CHANGED -eq 0 ]]; then
   DEFAULT_PIPELINE=1
 else
   DEFAULT_PIPELINE=0
