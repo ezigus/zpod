@@ -116,21 +116,36 @@ This document outlines the UI testing approach for the main zpod application.
 
 ### Content Discovery UI Tests (`ContentDiscoveryUITests.swift`)
 
-**Purpose**: Verify search, browse, and discovery interface functionality
+**Purpose**: Verify search, browse, and discovery interface functionality, including
+the external podcast directory search feature introduced in [#442].
 
 **Specifications Covered**:
 
 - `spec/ui.md` - Voice Control for Search (Siri Integration)
 - `spec/discovery.md` - Search and browse scenarios
 - `spec/content.md` - Content browsing interfaces
+- `Issues/442` - External podcast directory search (iTunes Search API + PodcastIndex)
 
-**Test Areas**:
+**Test Areas (9 tests)**:
 
-- Search interface and results display
-- Browse and category navigation
-- Subscription management UI
-- Filter and sort controls
-- Content recommendation displays
+| # | Test Method | Validates |
+| --- | --- | --- |
+| 1 | `testBasicPodcastSearchInterface_GivenDiscoverTab_WhenSearching_ThenShowsSearchInterface` | Search field is present and accessible on the Discover tab |
+| 2 | `testSearchFieldInput_GivenSearchInterface_WhenTyping_ThenAcceptsInput` | Search field accepts typed text; field echoes query before results appear |
+| 3 | `testSearchClearButton_GivenSearchText_WhenTappingClear_ThenClearsSearch` | Clear button empties the search field |
+| 4 | `testDiscoveryOptionsMenu_GivenDiscoverTab_WhenTappingOptions_ThenShowsMenu` | Options toolbar button opens menu with Add RSS Feed and Search History items |
+| 5 | `testRSSFeedAddition_GivenOptionsMenu_WhenSelectingAddRSSFeed_ThenShowsRSSSheet` | Selecting "Add RSS Feed" shows the URL entry sheet |
+| 6 | `testRSSURLInput_GivenRSSSheet_WhenEnteringURL_ThenAcceptsInput` | RSS URL sheet accepts valid URL input |
+| 7 | `testSearchFilters_GivenSearchResults_WhenFilteringByType_ThenShowsFilters` | Filter buttons (All / Podcasts / Episodes) appear while search is active |
+| 8 | `testSearchHistoryAccess_GivenOptionsMenu_WhenSelectingHistory_ThenShowsHistory` | Search History sheet appears and contains Done button after a search is performed |
+| 9 | `testDiscoverTabAccessibility_GivenApp_WhenNavigating_ThenSupportsAccessibility` | Key Discover tab elements are accessible to assistive technologies |
+
+**External Directory Search Coverage**:
+
+The `SearchViewModel.fetchDirectoryResults` and `mergeResults` logic is exercised
+indirectly through tests 1–3 (search input triggers the debounced directory search
+pipeline). Unit-level coverage of each provider lives in
+`Packages/SearchDomain/Tests/SearchDomainTests/`.
 
 ### Offline Playback UI Tests (`OfflinePlaybackUITests.swift`)
 

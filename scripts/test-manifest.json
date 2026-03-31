@@ -28,11 +28,18 @@
     "Packages/Persistence/Sources/Persistence/SmartPlaylistAnalyticsRepository.swift": [
       "Packages"
     ],
+    "Packages/SearchDomain/Sources/ITunesSearchProvider.swift": [
+      "Packages"
+    ],
     "Packages/SearchDomain/Sources/PodcastIndexSearchProvider.swift": [
       "Packages"
     ],
     "Packages/SearchDomain/Sources/AggregateSearchProvider.swift": [
       "Packages"
+    ],
+    "Packages/DiscoverFeature/Sources/DiscoverFeature/DiscoverView.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
     ],
     "Packages/DiscoverFeature/Sources/DiscoverFeature/SearchResultView.swift": [
       "Packages",
