@@ -481,6 +481,48 @@ final class DiscoverFeatureTests: XCTestCase {
         // Then: isSearchingDirectory should never be true when no service configured
         XCTAssertFalse(viewModel.isSearchingDirectory)
     }
+
+    // MARK: - Already Subscribed Edge Case (spec: "Already subscribed" badge)
+
+    @MainActor
+    func testSearch_GivenAlreadySubscribedPodcast_WhenResultReturned_ThenIsSubscribedFlagIsTrue() async {
+        // Given: A podcast that the user already subscribes to
+        let subscribedPodcast = Podcast(
+            id: "subscribed-pod",
+            title: "Already Subscribed Show",
+            feedURL: URL(string: "https://example.com/feed.xml")!,
+            isSubscribed: true
+        )
+        mockSearchService.mockResults = [.podcast(subscribedPodcast, relevanceScore: 0.9)]
+
+        // When: User searches and the subscribed podcast appears in results
+        viewModel.searchText = "subscribed show"
+        await viewModel.search()
+
+        // Then: The result carries isSubscribed=true so the view renders the badge, not the Subscribe button
+        XCTAssertEqual(viewModel.searchResults.count, 1)
+        if case .podcast(let p, _) = viewModel.searchResults.first {
+            XCTAssertTrue(p.isSubscribed, "Result for an already-subscribed podcast must have isSubscribed=true")
+        } else {
+            XCTFail("Expected a podcast search result")
+        }
+    }
+
+    // MARK: - No Results Empty State (spec: "No results found" empty state)
+
+    @MainActor
+    func testSearch_GivenNoMatchingResults_WhenQueryReturnsEmpty_ThenSearchResultsIsEmpty() async {
+        // Given: Search service returns no results
+        mockSearchService.mockResults = []
+
+        // When: User searches for something that matches nothing
+        viewModel.searchText = "xyzzy no match"
+        await viewModel.search()
+
+        // Then: searchResults is empty — the view renders the "No results found" empty state
+        XCTAssertTrue(viewModel.searchResults.isEmpty)
+        XCTAssertFalse(viewModel.searchText.isEmpty, "searchText must still be non-empty to trigger the empty-state branch")
+    }
 }
 
 // MARK: - Mock Implementations

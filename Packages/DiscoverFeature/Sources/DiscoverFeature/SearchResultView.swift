@@ -99,6 +99,7 @@ public struct SearchResultView: View {
                             .font(.caption)
                             .foregroundColor(.green)
                             .accessibilityLabel("Already subscribed")
+                            .accessibilityIdentifier("SearchResult.SubscribedBadge")
                     }
                 }
             }
