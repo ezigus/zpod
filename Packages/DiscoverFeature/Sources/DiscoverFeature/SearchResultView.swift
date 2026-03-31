@@ -76,7 +76,7 @@ public struct SearchResultView: View {
                     }
 
                     if let count = episodeCount {
-                        Text("\(count) episodes")
+                        Text("\(count) \(count == 1 ? "episode" : "episodes")")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .accessibilityIdentifier("SearchResult.EpisodeCount")

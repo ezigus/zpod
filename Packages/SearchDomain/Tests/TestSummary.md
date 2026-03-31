@@ -19,7 +19,7 @@ the external podcast directory search providers introduced in [#442].
 
 **Purpose**: Validate `ITunesSearchProvider` against a mock `URLSession` (no network).
 
-**Specifications Covered**: `Issues/442` — External Podcast Directory Search via iTunes Search API
+**Specifications Covered**: `spec/442-external-podcast-directory-search.md` (#442) — External Podcast Directory Search via iTunes Search API
 
 **Test Areas**:
 - Happy path: parses iTunes JSON response into `[DirectorySearchResult]`
@@ -32,21 +32,21 @@ the external podcast directory search providers introduced in [#442].
 
 **Purpose**: Validate `PodcastIndexSearchProvider` against a mock `URLSession`.
 
-**Specifications Covered**: `Issues/442` — External Podcast Directory Search via PodcastIndex
+**Specifications Covered**: `spec/442-external-podcast-directory-search.md` (#442) — External Podcast Directory Search via PodcastIndex
 
 **Test Areas**:
 - Failable `init?(apiKey:apiSecret:urlSession:)` — returns `nil` for missing or empty keys
 - Successful init with valid keys
 - Happy path: parses PodcastIndex JSON response into `[DirectorySearchResult]`
 - Filters results without a feed URL
-- HMAC-SHA1 auth headers: `X-Auth-Key`, `X-Auth-Date`, `Authorization` (40-char SHA-1 hex)
+- SHA-1 auth headers (per PodcastIndex spec): `X-Auth-Key`, `X-Auth-Date`, `Authorization` (40-char SHA-1 hex)
 - Error cases: `.invalidQuery`, `.httpError(401)`, `.httpError(429)`, `.decodingError`, `.networkError`
 
 ### AggregateSearchProviderTests.swift
 
 **Purpose**: Validate `AggregateSearchProvider` multi-provider fan-out and merge logic.
 
-**Specifications Covered**: `Issues/442` — Graceful degradation and result deduplication
+**Specifications Covered**: `spec/442-external-podcast-directory-search.md` (#442) — Graceful degradation and result deduplication
 
 **Test Areas**:
 - Empty provider list → returns empty array (no throw)
@@ -68,9 +68,9 @@ the external podcast directory search providers introduced in [#442].
 ## Running Tests
 
 ```bash
-# All SearchDomain package tests
-./scripts/run-xcode-tests.sh Packages/SearchDomain/Sources/ITunesSearchProvider.swift
+# All SearchDomain package tests (via swift test directly)
+cd Packages/SearchDomain && swift test
 
-# Or run the full Packages suite
-./scripts/run-xcode-tests.sh -t SearchDomain
+# Or via the test runner using a manifest-mapped source file
+./scripts/run-xcode-tests.sh Packages/SearchDomain/Sources/SearchDomain/ITunesSearchProvider.swift
 ```

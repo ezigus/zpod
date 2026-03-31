@@ -124,9 +124,9 @@ the external podcast directory search feature introduced in [#442].
 - `spec/ui.md` - Voice Control for Search (Siri Integration)
 - `spec/discovery.md` - Search and browse scenarios
 - `spec/content.md` - Content browsing interfaces
-- `Issues/442` - External podcast directory search (iTunes Search API + PodcastIndex)
+- `spec/442-external-podcast-directory-search.md` (#442) - External podcast directory search (iTunes Search API + PodcastIndex)
 
-**Test Areas (9 tests)**:
+**Test Areas (12 tests)**:
 
 | # | Test Method | Validates |
 | --- | --- | --- |
@@ -139,6 +139,9 @@ the external podcast directory search feature introduced in [#442].
 | 7 | `testSearchFilters_GivenSearchResults_WhenFilteringByType_ThenShowsFilters` | Filter buttons (All / Podcasts / Episodes) appear while search is active |
 | 8 | `testSearchHistoryAccess_GivenOptionsMenu_WhenSelectingHistory_ThenShowsHistory` | Search History sheet appears and contains Done button after a search is performed |
 | 9 | `testDiscoverTabAccessibility_GivenApp_WhenNavigating_ThenSupportsAccessibility` | Key Discover tab elements are accessible to assistive technologies |
+| 10 | `testDiscoverTabTitle_GivenDiscoverTab_WhenViewing_ThenShowsCorrectTitle` | Discover tab shows the expected title |
+| 11 | `testEmptyDiscoverState_GivenNoSearch_WhenViewingDiscover_ThenShowsEmptyState` | Empty state renders correctly before any search is performed |
+| 12 | `testSearchResponsiveness_GivenSearchField_WhenTyping_ThenRespondsQuickly` | Search field responds within acceptable latency when text is entered |
 
 **External Directory Search Coverage**:
 

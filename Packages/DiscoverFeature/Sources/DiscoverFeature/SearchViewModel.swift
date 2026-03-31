@@ -100,8 +100,8 @@ public final class SearchViewModel: ObservableObject {
     
     /// Perform search with current query and filter.
     ///
-    /// Runs local and external directory searches concurrently. Local results are shown
-    /// immediately; external results are merged in when they arrive.
+    /// Shows local results immediately, then fetches external directory results and merges
+    /// them in. Directory search is skipped when the active filter excludes podcasts.
     public func search() async {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
@@ -117,10 +117,20 @@ public final class SearchViewModel: ObservableObject {
 
         // Show local results immediately while the directory search runs.
         searchResults = local
-        isSearchingDirectory = directoryService != nil
+
+        // Directory search only makes sense when podcasts are included in the filter.
+        let filterIncludesPodcasts = currentFilter == .all || currentFilter == .podcastsOnly
+        isSearchingDirectory = directoryService != nil && filterIncludesPodcasts
 
         // External directory search (network call).
-        let external = await fetchDirectoryResults(query: query)
+        let external = filterIncludesPodcasts ? await fetchDirectoryResults(query: query) : []
+
+        // Guard against stale searches overwriting results from a more recent query.
+        guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == query else {
+            isSearching = false
+            isSearchingDirectory = false
+            return
+        }
 
         searchResults = mergeResults(local: local, external: external)
         isSearching = false
@@ -146,6 +156,8 @@ public final class SearchViewModel: ObservableObject {
         do {
             let results = try await service.search(query: query, limit: 25)
             // Populate the episode count side-channel before converting to SearchResult.
+            // Reset first so counts from a previous query don't leak into this one.
+            episodeCountMap = [:]
             for result in results {
                 if let count = result.episodeCount {
                     episodeCountMap[result.feedURL.absoluteString] = count
