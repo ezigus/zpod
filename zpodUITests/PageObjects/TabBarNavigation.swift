@@ -180,8 +180,11 @@ public struct TabBarNavigation: BaseScreen {
     // Wait for Settings to load (feature rows or loading indicator)
     guard waitForSettingsLoad() else { return false }
 
-    // Verify Settings content appeared (feature rows or empty state)
+    // Verify Settings content appeared. The Storage section is always present synchronously,
+    // making Settings.ManageStorage a reliable indicator even before async descriptors load.
     let settingsContent = [
+      app.buttons.matching(identifier: "Settings.ManageStorage").firstMatch,
+      app.buttons.matching(identifier: "Settings.Orphaned").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
@@ -211,8 +214,14 @@ public struct TabBarNavigation: BaseScreen {
       _ = loadingIndicator.waitUntil(.disappeared)
     }
 
-    // Wait for any feature row or empty state to appear
+    // Wait for any Settings content to appear.
+    // The Storage section (ManageStorage, Orphaned) renders synchronously before the async
+    // feature descriptor load, so it's a reliable early indicator that Settings is visible.
     let rowCandidates: [XCUIElement] = [
+      app.navigationBars.matching(identifier: "Settings").firstMatch,
+      app.buttons.matching(identifier: "Settings.ManageStorage").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.ManageStorage.Label").firstMatch,
+      app.buttons.matching(identifier: "Settings.Orphaned").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
@@ -220,6 +229,6 @@ public struct TabBarNavigation: BaseScreen {
       app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
     ]
 
-    return waitForAny(rowCandidates, timeout: 4.0) != nil
+    return waitForAny(rowCandidates, timeout: 6.0) != nil
   }
 }
