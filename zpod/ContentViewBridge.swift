@@ -260,7 +260,16 @@ public struct UITestLibraryPlaceholderView: View {
             DiscoverView(
                 searchService: searchService,
                 podcastManager: podcastManager,
-                directoryService: ITunesSearchProvider()
+                directoryService: {
+                    let iTunes = ITunesSearchProvider()
+                    let podcastIndex = PodcastIndexSearchProvider(
+                        apiKey: Bundle.main.infoDictionary?["PODCAST_INDEX_API_KEY"] as? String,
+                        apiSecret: Bundle.main.infoDictionary?["PODCAST_INDEX_API_SECRET"] as? String
+                    )
+                    let providers: [any PodcastDirectorySearching] = [iTunes] + [podcastIndex].compactMap { $0 }
+                    if providers.count == 1 { return providers[0] }
+                    return AggregateSearchProvider(providers: providers)
+                }()
             )
             .tabItem { Label("Discover", systemImage: "sparkles") }
             .tag(1)
