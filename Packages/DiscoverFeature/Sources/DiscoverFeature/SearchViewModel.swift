@@ -4,6 +4,7 @@ import CombineSupport
 import CoreModels
 import SearchDomain
 import FeedParsing
+import SharedUtilities
 
 /// Protocol for RSS feed parsing to support dependency injection
 public protocol RSSFeedParsing: Sendable {
@@ -76,6 +77,7 @@ public final class SearchViewModel: ObservableObject {
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
     private let debounceInterval: TimeInterval = 0.3
+    private var subscribeTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -166,8 +168,22 @@ public final class SearchViewModel: ObservableObject {
             return results.map { directoryResult in
                 .podcast(directoryResult.toPodcast(), relevanceScore: 0.5)
             }
+        } catch let err as DirectorySearchError {
+            switch err {
+            case .decodingError, .httpError:
+                // Hard failure: schema break or auth/server rejection.
+                // Surface to user so they know something is wrong.
+                Logger.warning("fetchDirectoryResults: hard failure for '\(query)': \(err.localizedDescription)")
+                errorMessage = "Directory search unavailable: \(err.localizedDescription)"
+            case .networkError:
+                // Transient connectivity issue — degrade silently.
+                Logger.warning("fetchDirectoryResults: network failure for '\(query)': \(err.localizedDescription)")
+            case .invalidQuery:
+                break  // Caller already validated the query.
+            }
+            return []
         } catch {
-            // External search failures are non-fatal; local results still show.
+            Logger.warning("fetchDirectoryResults: unexpected failure for '\(query)': \(error.localizedDescription)")
             return []
         }
     }
@@ -204,7 +220,10 @@ public final class SearchViewModel: ObservableObject {
     /// subscribing so that episodes are available immediately in the Library.
     public func subscribe(to podcast: Podcast) {
         if podcast.episodes.isEmpty && directoryService != nil {
-            Task {
+            // Cancel any in-flight subscription fetch before starting a new one.
+            // Multiple rapid taps would otherwise race on isAddingRSSFeed.
+            subscribeTask?.cancel()
+            subscribeTask = Task {
                 await subscribeByFetchingFeed(podcast)
             }
         } else {
@@ -233,7 +252,10 @@ public final class SearchViewModel: ObservableObject {
             )
             podcastManager.add(merged)
         } catch {
-            // Fall back to subscribing without full episode list.
+            // Feed fetch failed; subscribe with directory metadata only.
+            // The podcast is added but won't show episodes until a feed refresh succeeds.
+            Logger.warning("subscribeByFetchingFeed: feed parse failed for \(podcast.feedURL): \(error.localizedDescription)")
+            errorMessage = "Subscribed, but couldn't load episodes yet. Pull to refresh later."
             persistSubscription(podcast)
         }
         isAddingRSSFeed = false
@@ -354,15 +376,20 @@ public final class SearchViewModel: ObservableObject {
     }
     
     private func loadSearchHistory() {
-        if let data = userDefaults.data(forKey: "SearchHistory"),
-           let history = try? JSONDecoder().decode([String].self, from: data) {
-            searchHistory = history
+        guard let data = userDefaults.data(forKey: "SearchHistory") else { return }
+        do {
+            searchHistory = try JSONDecoder().decode([String].self, from: data)
+        } catch {
+            Logger.warning("SearchViewModel: failed to decode search history: \(error.localizedDescription)")
         }
     }
 
     private func saveSearchHistory() {
-        if let data = try? JSONEncoder().encode(searchHistory) {
+        do {
+            let data = try JSONEncoder().encode(searchHistory)
             userDefaults.set(data, forKey: "SearchHistory")
+        } catch {
+            Logger.warning("SearchViewModel: failed to encode search history: \(error.localizedDescription)")
         }
     }
 }

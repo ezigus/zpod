@@ -8,6 +8,7 @@
 import CoreModels
 import OSLog
 import Persistence
+import SearchDomain
 import SettingsDomain
 import SharedUtilities
 import SwiftData
@@ -546,18 +547,10 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           DiscoverView(
             searchService: searchService,
             podcastManager: podcastManager,
-            directoryService: {
-              let iTunes = ITunesSearchProvider()
-              let podcastIndex = PodcastIndexSearchProvider(
-                apiKey: Bundle.main.infoDictionary?["PODCAST_INDEX_API_KEY"] as? String,
-                apiSecret: Bundle.main.infoDictionary?["PODCAST_INDEX_API_SECRET"] as? String
-              )
-              let providers: [any PodcastDirectorySearching] = [iTunes] + [podcastIndex].compactMap { $0 }
-              if providers.count == 1 {
-                return providers[0]
-              }
-              return AggregateSearchProvider(providers: providers)
-            }()
+            directoryService: DirectoryServiceFactory.makeDefault(
+              podcastIndexAPIKey: Bundle.main.infoDictionary?["PODCAST_INDEX_API_KEY"] as? String,
+              podcastIndexAPISecret: Bundle.main.infoDictionary?["PODCAST_INDEX_API_SECRET"] as? String
+            )
           )
             .tabItem {
               Label("Discover", systemImage: "safari")

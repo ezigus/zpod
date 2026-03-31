@@ -46,8 +46,10 @@ public struct PodcastIndexSearchProvider: PodcastDirectorySearching {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
+        } catch let urlError as URLError {
+            throw DirectorySearchError.networkError(urlError)
         } catch {
-            throw DirectorySearchError.networkError(error)
+            throw DirectorySearchError.networkError(URLError(.unknown))
         }
 
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -56,16 +58,29 @@ public struct PodcastIndexSearchProvider: PodcastDirectorySearching {
 
         do {
             let decoded = try JSONDecoder().decode(PodcastIndexResponse.self, from: data)
+            // PodcastIndex returns HTTP 200 with status:"false" for application-level errors
+            // (e.g., invalid API key). Detect this and surface as an auth failure.
+            guard decoded.status == "true" else {
+                throw DirectorySearchError.httpError(401)
+            }
             return decoded.feeds.compactMap { DirectorySearchResult(from: $0) }
+        } catch let directoryError as DirectorySearchError {
+            throw directoryError
+        } catch let decodingError as DecodingError {
+            throw DirectorySearchError.decodingError(decodingError)
         } catch {
-            throw DirectorySearchError.decodingError(error)
+            throw DirectorySearchError.decodingError(
+                DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: error.localizedDescription))
+            )
         }
     }
 
     // MARK: - Private helpers
 
     private func buildURL(query: String, limit: Int) throws -> URL {
-        var components = URLComponents(string: Self.baseURL)!
+        guard var components = URLComponents(string: Self.baseURL) else {
+            throw DirectorySearchError.invalidQuery
+        }
         components.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "max", value: String(min(limit, 200))),

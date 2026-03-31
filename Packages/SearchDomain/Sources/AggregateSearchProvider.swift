@@ -1,10 +1,12 @@
 import Foundation
 import CoreModels
+import SharedUtilities
 
 /// Runs multiple `PodcastDirectorySearching` providers concurrently and merges results.
 ///
 /// Each provider executes in its own child task. Individual provider failures are absorbed —
-/// only if ALL providers fail does `search` throw (propagating the first error encountered).
+/// only if ALL providers fail does `search` throw (propagating the first provider's error,
+/// by original index, for determinism).
 /// Deduplication is by `feedURL.absoluteString`; the first provider's result wins on collision.
 public struct AggregateSearchProvider: PodcastDirectorySearching {
 
@@ -20,7 +22,7 @@ public struct AggregateSearchProvider: PodcastDirectorySearching {
         // Keyed by provider index so deduplication respects the original providers order,
         // not task-group completion order (which is nondeterministic).
         var resultsByIndex: [Int: [DirectorySearchResult]] = [:]
-        var firstError: (any Error)?
+        var errorsByIndex: [Int: any Error] = [:]
 
         await withTaskGroup(of: (Int, Result<[DirectorySearchResult], any Error>).self) { group in
             for (index, provider) in providers.enumerated() {
@@ -37,14 +39,19 @@ public struct AggregateSearchProvider: PodcastDirectorySearching {
                 case .success(let results):
                     resultsByIndex[index] = results
                 case .failure(let error):
-                    if firstError == nil { firstError = error }
+                    Logger.warning("AggregateSearchProvider: provider[\(index)] failed for query '\(query)': \(error.localizedDescription)")
+                    errorsByIndex[index] = error
                 }
             }
         }
 
-        // If every provider failed, propagate the first error.
-        if resultsByIndex.isEmpty, let error = firstError {
-            throw error
+        // If every provider failed, throw the first-provider-by-index error for determinism.
+        if resultsByIndex.isEmpty {
+            for index in providers.indices {
+                if let error = errorsByIndex[index] {
+                    throw error
+                }
+            }
         }
 
         // Merge in provider order; first provider wins on duplicate feed URL.

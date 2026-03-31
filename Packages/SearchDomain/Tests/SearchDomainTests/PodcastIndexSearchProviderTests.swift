@@ -81,6 +81,14 @@ final class PodcastIndexSearchProviderTests: XCTestCase {
         XCTAssertNotNil(provider)
     }
 
+    func testInit_GivenEmptyAPISecret_ReturnsNil() {
+        // Given: valid key but empty secret
+        let provider = PodcastIndexSearchProvider(apiKey: "valid-key", apiSecret: "")
+
+        // Then: init fails — empty secret is equivalent to missing credentials
+        XCTAssertNil(provider, "PodcastIndexSearchProvider should return nil for empty apiSecret")
+    }
+
     // MARK: - Happy path
 
     func testSearch_ReturnsParsedResults() async throws {
@@ -235,6 +243,30 @@ final class PodcastIndexSearchProviderTests: XCTestCase {
             // pass
         } catch {
             XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testSearch_GivenStatusFalseResponse_ThrowsHTTPError401() async throws {
+        // Given: PodcastIndex returns HTTP 200 with status:"false" (auth failure)
+        let statusFalseJSON = """
+        {"status":"false","description":"Invalid API key","feeds":[],"count":0}
+        """.data(using: .utf8)!
+
+        PIMockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, statusFalseJSON)
+        }
+
+        let provider = try XCTUnwrap(PodcastIndexSearchProvider(apiKey: "test-key", apiSecret: "test-secret", urlSession: session))
+
+        // When / Then: throws .httpError(401)
+        do {
+            _ = try await provider.search(query: "swift", limit: 5)
+            XCTFail("Expected httpError(401) but no error was thrown")
+        } catch DirectorySearchError.httpError(let code) {
+            XCTAssertEqual(code, 401, "Status-false response should map to httpError(401)")
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
         }
     }
 

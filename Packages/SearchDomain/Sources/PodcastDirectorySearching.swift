@@ -19,12 +19,30 @@ public protocol PodcastDirectorySearching: Sendable {
 public enum DirectorySearchError: Error, Sendable {
     /// The query was empty or contained only whitespace.
     case invalidQuery
-    /// A network-level error occurred.
-    case networkError(any Error)
-    /// The response could not be decoded.
-    case decodingError(any Error)
-    /// The server returned a non-200 HTTP status.
+    /// A network-level error occurred (transient; degrade gracefully).
+    case networkError(URLError)
+    /// The response could not be decoded (hard failure; schema may have changed).
+    case decodingError(DecodingError)
+    /// The server returned a non-200 HTTP status (or an application-level auth failure).
     case httpError(Int)
+}
+
+extension DirectorySearchError: Equatable {
+    public static func == (lhs: DirectorySearchError, rhs: DirectorySearchError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidQuery, .invalidQuery):
+            return true
+        case (.httpError(let l), .httpError(let r)):
+            return l == r
+        case (.networkError(let l), .networkError(let r)):
+            return l.code == r.code
+        case (.decodingError, .decodingError):
+            // Compare by case only; DecodingError is not Equatable.
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 extension DirectorySearchError: LocalizedError {

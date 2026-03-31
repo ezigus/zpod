@@ -25,8 +25,10 @@ public struct ITunesSearchProvider: PodcastDirectorySearching {
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(from: url)
+        } catch let urlError as URLError {
+            throw DirectorySearchError.networkError(urlError)
         } catch {
-            throw DirectorySearchError.networkError(error)
+            throw DirectorySearchError.networkError(URLError(.unknown))
         }
 
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
@@ -36,15 +38,21 @@ public struct ITunesSearchProvider: PodcastDirectorySearching {
         do {
             let decoded = try JSONDecoder().decode(ITunesSearchResponse.self, from: data)
             return decoded.results.compactMap { DirectorySearchResult(from: $0) }
+        } catch let decodingError as DecodingError {
+            throw DirectorySearchError.decodingError(decodingError)
         } catch {
-            throw DirectorySearchError.decodingError(error)
+            throw DirectorySearchError.decodingError(
+                DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: error.localizedDescription))
+            )
         }
     }
 
     // MARK: - Private helpers
 
     private func buildURL(query: String, limit: Int) throws -> URL {
-        var components = URLComponents(string: ITunesSearchProvider.baseURL)!
+        guard var components = URLComponents(string: ITunesSearchProvider.baseURL) else {
+            throw DirectorySearchError.invalidQuery
+        }
         components.queryItems = [
             URLQueryItem(name: "term", value: query),
             URLQueryItem(name: "media", value: "podcast"),
