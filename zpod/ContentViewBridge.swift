@@ -260,7 +260,7 @@ public struct UITestLibraryPlaceholderView: View {
             DiscoverView(
                 searchService: searchService,
                 podcastManager: podcastManager,
-                directoryService: {
+                directoryService: ProcessInfo.processInfo.environment["UITEST_DISABLE_DIRECTORY_SEARCH"] == "1" ? nil : {
                     let iTunes = ITunesSearchProvider()
                     let podcastIndex = PodcastIndexSearchProvider(
                         apiKey: Bundle.main.infoDictionary?["PODCAST_INDEX_API_KEY"] as? String,

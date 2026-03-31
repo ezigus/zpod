@@ -69,6 +69,11 @@ public enum UITestLaunchConfiguration {
     "UITEST_DISABLE_DOWNLOAD_COORDINATOR": "1",
     "UITEST_DISABLE_ANIMATIONS": "1",
     "UITEST_SLIDER_OPACITY": "0.1",
+    // Disable external podcast directory search in all UI tests by default.
+    // Real iTunes/PodcastIndex network calls during typeText cause XCUITest quiescence
+    // hangs because @Published state updates on MainActor prevent the run loop from idling.
+    // Unit-level coverage of each provider lives in Packages/SearchDomain/Tests/.
+    "UITEST_DISABLE_DIRECTORY_SEARCH": "1",
   ]
 
   /// Orphaned episodes seed helper.
