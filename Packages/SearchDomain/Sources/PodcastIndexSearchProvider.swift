@@ -6,7 +6,9 @@ import CryptoKit
 ///
 /// API reference: https://podcastindex-org.github.io/docs-api/
 ///
-/// Authentication uses HMAC-style SHA-1: `SHA1(apiKey + apiSecret + epochSeconds)`.
+/// Authentication uses a plain SHA-1 digest of concatenated values:
+/// `SHA1(apiKey + apiSecret + epochSeconds)`. This is not an HMAC — it is a simple
+/// hash following the PodcastIndex documentation.
 /// Keys are read from the caller at init time (typically from `Bundle.main.infoDictionary`
 /// populated via a `.xcconfig` file excluded from version control).
 public struct PodcastIndexSearchProvider: PodcastDirectorySearching {

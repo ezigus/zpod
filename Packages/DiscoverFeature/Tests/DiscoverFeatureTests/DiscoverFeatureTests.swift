@@ -464,8 +464,14 @@ final class DiscoverFeatureTests: XCTestCase {
         // When: Subscribing to the external podcast
         vmWithDirectory.subscribe(to: externalPodcast)
 
-        // Allow async Task to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        // Wait deterministically for the unstructured Task spawned by subscribe(to:) to complete.
+        // Using XCTNSPredicateExpectation instead of Task.sleep to avoid fixed-time flakiness.
+        let manager = mockPodcastManager!
+        let podcastAdded = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in manager.all().count >= 1 },
+            object: nil
+        )
+        await fulfillment(of: [podcastAdded], timeout: 5)
 
         // Then: RSS parser was called to fetch full feed before subscribing
         XCTAssertTrue(mockRSSParser.parseFeedCalled, "RSS parser should be called for external podcasts with no episodes")
