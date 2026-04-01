@@ -77,8 +77,11 @@ public struct DiscoverView: View {
                     emptyStateView
                 }
             }
-            .accessibilityElement(children: .contain)
             // Identifier matches the fallback DiscoverView; only one is compiled per target.
+            // Note: .accessibilityElement(children: .contain) is intentionally omitted so
+            // child elements (Discover.SearchField etc.) are directly visible in the
+            // accessibility tree without going through a group container — this prevents
+            // cold-boot rendering delays from hiding the TextField on first tab selection.
             .accessibilityIdentifier("Discover.Root")
             .navigationTitle("Discover")
 #if os(iOS)

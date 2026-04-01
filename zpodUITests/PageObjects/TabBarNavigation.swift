@@ -234,6 +234,7 @@ public struct TabBarNavigation: BaseScreen {
       app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
     ]
 
-    return waitForAny(rowCandidates, timeout: 6.0) != nil
+    // Use 12s to handle cases where the simulator is under load (e.g., 3rd+ test in suite).
+    return waitForAny(rowCandidates, timeout: 12.0) != nil
   }
 }
