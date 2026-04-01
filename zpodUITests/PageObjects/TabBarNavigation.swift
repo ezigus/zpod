@@ -151,14 +151,7 @@ public struct TabBarNavigation: BaseScreen {
       app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch,
     ]
 
-    if waitForAny(searchFieldCandidates) != nil {
-      return true
-    }
-
-    // Final fallback: accept if the Discover tab is selected — the tab switch
-    // happened even if content hasn't rendered yet on cold-start. Subsequent test
-    // assertions will confirm the view is ready.
-    return discoverTab.isSelected
+    return waitForAny(searchFieldCandidates) != nil
   }
 
   /// Navigate to Player tab.
@@ -170,19 +163,14 @@ public struct TabBarNavigation: BaseScreen {
   public func navigateToPlayer() -> Bool {
     guard tap(playerTab) else { return false }
 
-    // Primary: look for the Player Interface container element
     let playerInterface = app.otherElements.matching(identifier: "Player Interface").firstMatch
     if playerInterface.waitForExistence(timeout: 10.0) { return true }
 
-    // Fallback A: match static text with "Now Playing" label (use matching, not containing)
-    let nowPlayingText = app.staticTexts.matching(
-      NSPredicate(format: "label CONTAINS 'Now Playing'")
-    ).firstMatch
-    if nowPlayingText.waitForExistence(timeout: 5.0) { return true }
+    let playerContent = [
+      app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Now Playing'")).firstMatch
+    ]
 
-    // Fallback B: the Player tab is selected — navigation succeeded even if
-    // no specific UI element could be confirmed in the accessibility tree
-    return playerTab.isSelected
+    return waitForAny(playerContent) != nil
   }
 
   /// Navigate to Settings tab.
@@ -195,12 +183,7 @@ public struct TabBarNavigation: BaseScreen {
     guard tap(settingsTab) else { return false }
 
     // Wait for Settings to load (feature rows or loading indicator)
-    guard waitForSettingsLoad() else {
-      // Content not found within timeout — but if the tab is selected the navigation
-      // succeeded. Slow cold-start renders can exceed the load timeout; test assertions
-      // that follow will confirm the view is fully ready.
-      return settingsTab.isSelected
-    }
+    guard waitForSettingsLoad() else { return false }
 
     // Verify Settings content appeared. The Storage section is always present synchronously,
     // making Settings.ManageStorage a reliable indicator even before async descriptors load.
@@ -251,8 +234,6 @@ public struct TabBarNavigation: BaseScreen {
       app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
     ]
 
-    // Use 20s to handle cold-start delays where the first test in a suite launches
-    // a completely cold simulator — Settings content can take >12s on first render.
-    return waitForAny(rowCandidates, timeout: 20.0) != nil
+    return waitForAny(rowCandidates, timeout: 6.0) != nil
   }
 }
