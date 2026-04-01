@@ -65,10 +65,17 @@ public enum UITestLaunchConfiguration {
   /// - Slider opacity reduced (makes slider values readable in tests)
   ///
   /// **Usage**: Starting point for all test configurations. Merge with specific configs.
+  /// Launch-environment key to disable external directory search in UI tests.
+  /// Must match `DirectoryServiceFactory.uitestDisableKey` in SearchDomain.
+  public static let directorySearchDisabledKey = "UITEST_DISABLE_DIRECTORY_SEARCH"
+
   public static let base: [String: String] = [
     "UITEST_DISABLE_DOWNLOAD_COORDINATOR": "1",
     "UITEST_DISABLE_ANIMATIONS": "1",
     "UITEST_SLIDER_OPACITY": "0.1",
+    // Disable external directory search — real network calls cause XCUITest quiescence hangs.
+    // Unit-level provider coverage lives in Packages/SearchDomain/Tests/.
+    directorySearchDisabledKey: "1",
   ]
 
   /// Orphaned episodes seed helper.

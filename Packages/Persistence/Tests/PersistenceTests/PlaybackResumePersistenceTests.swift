@@ -194,20 +194,20 @@ struct PlaybackResumePersistenceTests {
     // Given: A repository with change listener
     let suiteName = "test.playback.broadcast.\(UUID().uuidString)"
     let repository = UserDefaultsSettingsRepository(suiteName: suiteName)
-    
-    var receivedChange: SettingsChange?
+
+    let capture = ChangeCapture()
     let expectation = Expectation()
-    
+
     let stream = await repository.settingsChangeStream()
     let task = Task {
       for await change in stream {
-        receivedChange = change
+        await capture.set(change)
         await expectation.fulfill()
         break
       }
     }
     await Task.yield()
-    
+
     // When: Saving a resume state
     let resumeState = PlaybackResumeState(
       episodeId: "broadcast-test",
@@ -217,27 +217,28 @@ struct PlaybackResumePersistenceTests {
       isPlaying: false
     )
     await repository.savePlaybackResumeState(resumeState)
-    
+
     // Then: Should receive change notification
     await expectation.wait(for: 1.0)
+    let receivedChange = await capture.value
     #expect(receivedChange != nil)
-    
+
     if case .playbackResume(let state) = receivedChange {
       #expect(state?.episodeId == "broadcast-test")
     } else {
       Issue.record("Expected playbackResume change notification")
     }
-    
+
     task.cancel()
     await repository.clearPlaybackResumeState()
   }
-  
+
   @Test("Clear broadcasts change notification")
   func testClearBroadcastsChange() async throws {
     // Given: A repository with saved state and change listener
     let suiteName = "test.playback.clear.broadcast.\(UUID().uuidString)"
     let repository = UserDefaultsSettingsRepository(suiteName: suiteName)
-    
+
     let resumeState = PlaybackResumeState(
       episodeId: "clear-test",
       position: 75,
@@ -246,38 +247,46 @@ struct PlaybackResumePersistenceTests {
       isPlaying: true
     )
     await repository.savePlaybackResumeState(resumeState)
-    
-    var receivedChange: SettingsChange?
+
+    let capture = ChangeCapture()
     let expectation = Expectation()
-    
+
     let stream = await repository.settingsChangeStream()
     let task = Task {
       for await change in stream {
-        receivedChange = change
+        await capture.set(change)
         await expectation.fulfill()
         break
       }
     }
     await Task.yield()
-    
+
     // When: Clearing the state
     await repository.clearPlaybackResumeState()
-    
+
     // Then: Should receive change notification with nil state
     await expectation.wait(for: 1.0)
+    let receivedChange = await capture.value
     #expect(receivedChange != nil)
-    
+
     if case .playbackResume(let state) = receivedChange {
       #expect(state == nil)
     } else {
       Issue.record("Expected playbackResume change notification with nil")
     }
-    
+
     task.cancel()
   }
 }
 
 // MARK: - Test Helpers
+
+/// Actor-isolated capture for SettingsChange values received inside Task closures.
+/// Using an actor makes the Task body @Sendable-safe under Swift 6 strict concurrency.
+actor ChangeCapture {
+  private(set) var value: SettingsChange?
+  func set(_ change: SettingsChange) { value = change }
+}
 
 /// Simple expectation helper for async tests
 actor Expectation {

@@ -44,12 +44,18 @@ public struct DiscoverView: View {
     @StateObject private var viewModel: SearchViewModel
     @State private var optionsState = DiscoveryOptionsState()
     
-    public init(searchService: SearchServicing, podcastManager: PodcastManaging, rssParser: RSSFeedParsing = DefaultRSSFeedParser()) {
+    public init(
+        searchService: SearchServicing,
+        podcastManager: PodcastManaging,
+        rssParser: RSSFeedParsing = DefaultRSSFeedParser(),
+        directoryService: (any PodcastDirectorySearching)? = nil
+    ) {
         self._viewModel = StateObject(
             wrappedValue: SearchViewModel(
                 searchService: searchService,
                 podcastManager: podcastManager,
-                rssParser: rssParser
+                rssParser: rssParser,
+                directoryService: directoryService
             )
         )
     }
@@ -274,8 +280,14 @@ public struct DiscoverView: View {
     private var loadingView: some View {
         VStack(spacing: 16) {
             ProgressView()
-            Text("Searching...")
-                .foregroundColor(.secondary)
+            if viewModel.isSearchingDirectory {
+                Text("Searching online...")
+                    .foregroundColor(.secondary)
+                    .accessibilityIdentifier("Discover.SearchingOnlineLabel")
+            } else {
+                Text("Searching...")
+                    .foregroundColor(.secondary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -338,8 +350,16 @@ public struct DiscoverView: View {
     
     private var searchResultsView: some View {
         List(viewModel.searchResults.indices, id: \.self) { index in
+            let result = viewModel.searchResults[index]
+            let feedKey: String? = {
+                if case .podcast(let podcast, _) = result {
+                    return podcast.feedURL.absoluteString
+                }
+                return nil
+            }()
             SearchResultView(
-                searchResult: viewModel.searchResults[index],
+                searchResult: result,
+                episodeCount: feedKey.flatMap { viewModel.episodeCountMap[$0] },
                 onSubscribe: viewModel.subscribe
             )
             .listRowSeparator(.hidden)

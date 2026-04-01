@@ -129,7 +129,15 @@ public struct SettingsScreen: BaseScreen {
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToSwipeActions() -> Bool {
-    guard let row = swipeActionsRow else {
+    // Swipe Actions row may be below the initial viewport — use scrollToFindSettingsRow
+    // so the element is hittable before tapping (same pattern as downloadPolicies).
+    guard let row = scrollToFindSettingsRow(
+      identifiers: [
+        "Settings.Feature.swipeActions",
+        "Settings.Feature.Label.swipeActions",
+        "Swipe Actions"
+      ]
+    ) else {
       return false
     }
 

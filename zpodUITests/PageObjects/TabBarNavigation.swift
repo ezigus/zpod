@@ -131,16 +131,21 @@ public struct TabBarNavigation: BaseScreen {
   public func navigateToDiscover() -> Bool {
     guard tap(discoverTab) else { return false }
 
-    let root = app.descendants(matching: .any).matching(identifier: "Discover.Root").firstMatch
-    if root.waitForExistence(timeout: 10.0) {
-      // Root exists; also wait for the search field to become available before declaring success
-      let searchField = app.descendants(matching: .any).matching(identifier: "Discover.SearchField").firstMatch
-      _ = searchField.waitForExistence(timeout: 3.0)
+    // Primary: wait for the search field (concrete TextField element) — more reliably
+    // exposed in the accessibility tree than the Discover.Root container on cold launches.
+    let searchField = app.textFields.matching(identifier: "Discover.SearchField").firstMatch
+    if searchField.waitForExistence(timeout: 20.0) {
       return true
     }
 
+    // Fallback A: container element may appear on some iOS versions
+    let root = app.descendants(matching: .any).matching(identifier: "Discover.Root").firstMatch
+    if root.waitForExistence(timeout: 5.0) {
+      return true
+    }
+
+    // Fallback B: any search-like element
     let searchFieldCandidates = [
-      app.textFields.matching(identifier: "Discover.SearchField").firstMatch,
       app.descendants(matching: .any).matching(identifier: "Discover.SearchField").firstMatch,
       app.searchFields.firstMatch,
       app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[cd] 'search'")).firstMatch,
@@ -180,8 +185,11 @@ public struct TabBarNavigation: BaseScreen {
     // Wait for Settings to load (feature rows or loading indicator)
     guard waitForSettingsLoad() else { return false }
 
-    // Verify Settings content appeared (feature rows or empty state)
+    // Verify Settings content appeared. The Storage section is always present synchronously,
+    // making Settings.ManageStorage a reliable indicator even before async descriptors load.
     let settingsContent = [
+      app.buttons.matching(identifier: "Settings.ManageStorage").firstMatch,
+      app.buttons.matching(identifier: "Settings.Orphaned").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
@@ -211,8 +219,14 @@ public struct TabBarNavigation: BaseScreen {
       _ = loadingIndicator.waitUntil(.disappeared)
     }
 
-    // Wait for any feature row or empty state to appear
+    // Wait for any Settings content to appear.
+    // The Storage section (ManageStorage, Orphaned) renders synchronously before the async
+    // feature descriptor load, so it's a reliable early indicator that Settings is visible.
     let rowCandidates: [XCUIElement] = [
+      app.navigationBars.matching(identifier: "Settings").firstMatch,
+      app.buttons.matching(identifier: "Settings.ManageStorage").firstMatch,
+      app.staticTexts.matching(identifier: "Settings.ManageStorage.Label").firstMatch,
+      app.buttons.matching(identifier: "Settings.Orphaned").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.downloadPolicies").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.playbackPreferences").firstMatch,
       app.buttons.matching(identifier: "Settings.Feature.swipeActions").firstMatch,
@@ -220,6 +234,6 @@ public struct TabBarNavigation: BaseScreen {
       app.otherElements.matching(identifier: "Settings.EmptyState").firstMatch
     ]
 
-    return waitForAny(rowCandidates, timeout: 4.0) != nil
+    return waitForAny(rowCandidates, timeout: 6.0) != nil
   }
 }

@@ -230,7 +230,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testSeekingUpdatesPositionImmediately() throws {
         try XCTSkipIf(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "AVPlayer seek accuracy requires real audio hardware - CI tests UI only"
         )
         logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): launch app")
@@ -315,7 +316,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testSeekingUpdatesPositionImmediately_CI() throws {
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "CI-only test for UI interaction verification"
         )
 
@@ -627,7 +629,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testInterruptionPausesAndResumesPlayback() throws {
         try XCTSkipIf(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "AVPlayer interruption requires real audio hardware - CI tests UI only"
         )
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
@@ -688,7 +691,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testInterruptionPausesAndResumesPlayback_CI() throws {
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "CI-only test for UI interaction verification"
         )
 
@@ -737,7 +741,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testPlaybackSpeedChangesPositionRate() throws {
         try XCTSkipIf(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "AVPlayer rate-based position measurement requires real audio hardware - CI uses UI-only variant"
         )
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
@@ -1055,7 +1060,8 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     func testPlaybackSpeedChangesPositionRate_CI() throws {
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil,
+            || ProcessInfo.processInfo.environment["CI"] != nil
+            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
             "CI-only test for UI interaction verification"
         )
 

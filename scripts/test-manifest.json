@@ -3,7 +3,8 @@
   "sourceToTests": {
     "Packages/LibraryFeature/Sources/LibraryFeature/ContentView.swift": [
       "Packages",
-      "zpodUITests/LibraryViewUITests"
+      "zpodUITests/LibraryViewUITests",
+      "zpodUITests/ContentDiscoveryUITests"
     ],
     "Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift": [
       "EpisodeListUITests",
@@ -27,6 +28,37 @@
     ],
     "Packages/Persistence/Sources/Persistence/SmartPlaylistAnalyticsRepository.swift": [
       "Packages"
+    ],
+    "Packages/CoreModels/Sources/CoreModels/DirectorySearchResult.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/SearchDomain/Sources/PodcastDirectorySearching.swift": [
+      "Packages"
+    ],
+    "Packages/SearchDomain/Sources/ITunesSearchProvider.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/SearchDomain/Sources/PodcastIndexSearchProvider.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/SearchDomain/Sources/AggregateSearchProvider.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/DiscoverFeature/Sources/DiscoverFeature/DiscoverView.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/DiscoverFeature/Sources/DiscoverFeature/SearchResultView.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/DiscoverFeature/Sources/DiscoverFeature/SearchViewModel.swift": [
+      "Packages",
+      "zpodUITests/ContentDiscoveryUITests"
     ]
   }
 }
