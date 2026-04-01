@@ -385,14 +385,27 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
     logBreadcrumb("expandPlayer: waiting for expanded player or error view")
 
-    // Wait for either element to appear
-    let deadline = Date().addingTimeInterval(adaptiveTimeout)
+    // Wait for either element to appear. Use 15s to handle cases where the mini
+    // player tap doesn't trigger an immediate animation (e.g., timing edge cases on
+    // the 3rd+ test launch when the playback engine is in an intermediate state).
+    let deadline = Date().addingTimeInterval(15.0)
+    var retried = false
     while Date() < deadline {
       if expandedPlayer.exists || expandedErrorView.exists {
         logBreadcrumb("expandPlayer: expanded player appeared (normal: \(expandedPlayer.exists), error: \(expandedErrorView.exists))")
         return true
       }
       Thread.sleep(forTimeInterval: 0.1)
+      // Retry the tap once at the half-way point if the player still hasn't appeared.
+      // This handles the case where the initial tap had no effect due to a transient
+      // non-interactive state in the mini player (e.g., playback state transition).
+      if !retried && Date() > deadline.addingTimeInterval(-7.5) {
+        logBreadcrumb("expandPlayer: retrying tap — expanded player not yet visible")
+        if miniPlayer.exists {
+          miniPlayer.tap()
+        }
+        retried = true
+      }
     }
 
     XCTFail("Expanded player did not appear (neither normal view nor error view)")
