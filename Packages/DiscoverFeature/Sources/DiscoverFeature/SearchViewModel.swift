@@ -127,6 +127,11 @@ public final class SearchViewModel: ObservableObject {
             ? fetchDirectoryResults(query: query)
             : []
 
+        // Yield so the child task can start its network request before we run the local
+        // search. Because search() is @MainActor, the async let child task cannot begin
+        // until this function suspends; Task.yield() provides that suspension point.
+        await Task.yield()
+
         // Local search (in-memory, fast) runs while the directory call is in flight.
         let local = await searchService.search(query: query, filter: currentFilter)
 

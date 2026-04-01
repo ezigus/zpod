@@ -255,43 +255,61 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     private let maxAttempts = 50
     private let retryInterval: TimeInterval = 0.1
 
+    /// Persists across SwiftUI re-renders so that only one retry chain runs at a time.
+    ///
+    /// Without this guard, every ContentView re-render calls `updateUIViewController`,
+    /// which starts a new `DispatchQueue.main.asyncAfter` chain. On a warm simulator
+    /// there can be many rapid re-renders before the tab bar appears, producing
+    /// permanently-pending main-thread work items that XCUITest's quiescence detector
+    /// never sees clear — causing the "Wait for app to idle" 60-second hang.
+    final class Coordinator {
+      var isRetrying = false
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIViewController(context: Context) -> UIViewController {
       let controller = UIViewController()
-      scheduleIdentifierUpdate(from: controller, attempt: 0)
+      scheduleIdentifierUpdate(from: controller, coordinator: context.coordinator, attempt: 0)
       return controller
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-      // Only retry if the tab bar hasn't been configured yet.
-      // Restarting the full retry loop on every SwiftUI re-render creates
-      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
-      // app non-idle for XCUITest's quiescence detector.
+      // Tab bar already configured — nothing to do.
       if let tabBar = locateTabBar(startingFrom: uiViewController)
         ?? locateTabBarAcrossScenes(),
         tabBar.accessibilityIdentifier == "Main Tab Bar"
       {
         return
       }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
+      // A chain is already in flight — don't pile on another one.
+      guard !context.coordinator.isRetrying else { return }
+      scheduleIdentifierUpdate(from: uiViewController, coordinator: context.coordinator, attempt: 0)
     }
 
-    private func scheduleIdentifierUpdate(from uiViewController: UIViewController, attempt: Int) {
+    private func scheduleIdentifierUpdate(
+      from uiViewController: UIViewController,
+      coordinator: Coordinator,
+      attempt: Int
+    ) {
+      coordinator.isRetrying = true
       let delay = attempt == 0 ? 0 : retryInterval
       DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
         guard
           let tabBar = self.locateTabBar(startingFrom: uiViewController)
             ?? self.locateTabBarAcrossScenes()
         else {
-          self.retryIfNeeded(from: uiViewController, attempt: attempt)
+          if attempt < self.maxAttempts {
+            self.scheduleIdentifierUpdate(
+              from: uiViewController, coordinator: coordinator, attempt: attempt + 1)
+          } else {
+            coordinator.isRetrying = false
+          }
           return
         }
         self.configure(tabBar: tabBar)
+        coordinator.isRetrying = false
       }
-    }
-
-    private func retryIfNeeded(from uiViewController: UIViewController, attempt: Int) {
-      guard attempt < maxAttempts else { return }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: attempt + 1)
     }
 
     @MainActor
