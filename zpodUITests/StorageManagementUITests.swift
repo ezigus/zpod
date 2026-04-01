@@ -369,13 +369,16 @@ final class StorageManagementUITests: IsolatedUITestCase {
             deleteByLabel.tap()
         }
 
-        // Then: Wait for deletion to complete
-        sleep(2)
-
-        // Verify delete all button no longer exists (no downloads left)
+        // Then: Wait for deletion to complete — use predicate wait instead of fixed sleep
         let deleteAllButtonAfter = app.buttons.matching(identifier: "Storage.DeleteAll").firstMatch
-        XCTAssertFalse(
-            deleteAllButtonAfter.exists,
+        let disappearedPredicate = NSPredicate(format: "exists == false")
+        let disappearedExpectation = XCTNSPredicateExpectation(
+            predicate: disappearedPredicate,
+            object: deleteAllButtonAfter
+        )
+        let waitResult = XCTWaiter.wait(for: [disappearedExpectation], timeout: 10.0)
+        XCTAssertEqual(
+            waitResult, .completed,
             "Delete all button should disappear after all downloads removed"
         )
 
