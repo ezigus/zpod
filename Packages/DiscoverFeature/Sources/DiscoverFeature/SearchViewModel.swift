@@ -102,8 +102,10 @@ public final class SearchViewModel: ObservableObject {
     
     /// Perform search with current query and filter.
     ///
-    /// Shows local results immediately, then fetches external directory results and merges
-    /// them in. Directory search is skipped when the active filter excludes podcasts.
+    /// Runs local and external directory searches concurrently. Local results are
+    /// published immediately once the in-memory search completes; external directory
+    /// results are merged in when the network fetch finishes. Directory search is
+    /// skipped when the active filter excludes podcasts.
     public func search() async {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
@@ -114,23 +116,32 @@ public final class SearchViewModel: ObservableObject {
         isSearching = true
         errorMessage = nil
 
-        // Local search runs on MainActor (in-memory, fast).
-        let local = await searchService.search(query: query, filter: currentFilter)
-
-        // Show local results immediately while the directory search runs.
-        searchResults = local
-
         // Directory search only makes sense when podcasts are included in the filter.
         let filterIncludesPodcasts = currentFilter == .all || currentFilter == .podcastsOnly
         isSearchingDirectory = directoryService != nil && filterIncludesPodcasts
 
-        // External directory search (network call).
-        let external = filterIncludesPodcasts ? await fetchDirectoryResults(query: query) : []
+        // Kick off the external directory fetch as a child task so the network request
+        // starts concurrently with the local in-memory search. The ternary skips the
+        // fetch (returning [] immediately) when the filter excludes podcasts.
+        // The child task begins when this function first suspends at the local search
+        // await below — no explicit Task.yield() needed.
+        async let externalTask: [SearchResult] = filterIncludesPodcasts
+            ? fetchDirectoryResults(query: query)
+            : []
+
+        // Local search (in-memory, fast) runs while the directory call is in flight.
+        // Suspending here lets the async let child task start its network request.
+        let local = await searchService.search(query: query, filter: currentFilter)
+
+        // Show local results immediately while the directory search continues.
+        searchResults = local
+
+        let external = await externalTask
 
         // Guard against stale searches overwriting results from a more recent query.
+        // Do NOT reset isSearching/isSearchingDirectory here — a newer search has
+        // already set them to true and must manage its own loading state.
         guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == query else {
-            isSearching = false
-            isSearchingDirectory = false
             return
         }
 

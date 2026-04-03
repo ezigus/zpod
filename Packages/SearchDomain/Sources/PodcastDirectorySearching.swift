@@ -32,10 +32,10 @@ extension DirectorySearchError: Equatable {
         switch (lhs, rhs) {
         case (.invalidQuery, .invalidQuery):
             return true
-        case (.httpError(let l), .httpError(let r)):
-            return l == r
-        case (.networkError(let l), .networkError(let r)):
-            return l.code == r.code
+        case (.httpError(let lhs), .httpError(let rhs)):
+            return lhs == rhs
+        case (.networkError(let lhs), .networkError(let rhs)):
+            return lhs.code == rhs.code
         case (.decodingError, .decodingError):
             // Compare by case only; DecodingError is not Equatable.
             return true

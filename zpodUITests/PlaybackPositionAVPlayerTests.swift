@@ -955,16 +955,17 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
         // CI-aware thresholds: looser in CI due to performance variability
         // UITEST_CI_MODE is set in launchApp() when GITHUB_ACTIONS is detected (lines 59-61)
         let isCI = app.launchEnvironment["UITEST_CI_MODE"] == "1"
-        let rateConfirmTimeout: TimeInterval = isCI ? 5.0 : 2.0
         let rateConfirmThreshold: Double = isCI ? 1.5 : 1.8
 
-        let fastRateConfirmed = waitForState(timeout: rateConfirmTimeout, pollInterval: 0.1, description: "fast rate confirmation") {
+        let ratePredicate = NSPredicate { [self] _, _ in
             guard let text = audioDebugOverlayLabel(for: overlay),
                   let rate = audioDebugEngineRate(from: text) else {
                 return false
             }
             return rate >= rateConfirmThreshold
         }
+        let rateExpectation = XCTNSPredicateExpectation(predicate: ratePredicate, object: nil)
+        let fastRateConfirmed = XCTWaiter().wait(for: [rateExpectation], timeout: adaptiveTimeout) == .completed
 
         if !fastRateConfirmed {
             recordAudioDebugOverlay("fast rate not confirmed")
