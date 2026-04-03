@@ -299,6 +299,55 @@ XCTAssertTrue(button.waitForExistence(timeout: 5.0))
 button.tap()
 ```
 
+### ❌ DON'T: Tap-and-Hope with Poll Loops
+
+```swift
+// ❌ BAD: "Single-tap-and-hope" — taps without verifying hittability,
+// then polls in a busy loop. If the tap doesn't register (element was
+// mid-animation, behind an overlay, or not yet interactive), the entire
+// timeout is wasted polling for a state change that will never come.
+let playButton = app.buttons["Play"]
+guard playButton.waitForExistence(timeout: 4.0) else { return false }
+playButton.tap()
+return waitUntil(timeout: 8.0, pollInterval: 0.1) {
+    app.buttons["Pause"].exists
+}
+
+// ✅ GOOD: Verify hittability before tapping, then use XCTest's native
+// event-driven waitForExistence. The hittable check ensures the tap will
+// be delivered to an interactive element; waitForExistence uses KVO
+// internally and reacts immediately when the element appears.
+let playButton = app.buttons.matching(identifier: "Play").firstMatch
+guard playButton.waitUntil(.hittable, timeout: adaptiveShortTimeout) else {
+    return false
+}
+playButton.tap()
+let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+return pauseButton.waitForExistence(timeout: adaptiveTimeout)
+```
+
+**Why this matters**: `waitForExistence` only checks the accessibility tree — an element can "exist" while being covered by an overlay, mid-transition, or not yet hittable. Tapping a non-hittable element is silently swallowed by XCUITest, producing a timeout that looks like a flaky test but is actually a deterministic failure. The fix is never "increase the timeout" — it is "verify the element is interactive before acting on it."
+
+### ❌ DON'T: Increase Timeouts to Fix Flakiness
+
+```swift
+// ❌ BAD: Test fails under load → increase timeout → passes → breaks
+// again next time the machine is slower. This is the #1 anti-pattern
+// in UI testing and it propagates across the codebase.
+let adaptiveTimeout: TimeInterval = 12.0  // was 8.0, then 10.0...
+let adaptiveShortTimeout: TimeInterval = 6.0  // was 3.0, then 4.0...
+
+// ✅ GOOD: If a test fails under load, the tap or verification is wrong.
+// Use hittable waits, predicate-based expectations, and diagnose WHY
+// the element isn't appearing rather than waiting longer for it.
+```
+
+**Pipeline note for Shipwright agents**: When a UI test fails, NEVER increase an existing timeout value as a fix. Instead:
+1. Read the test log to find where exactly it hung or timed out
+2. Check whether the action used `waitForExistence` vs `waitUntil(.hittable)`
+3. Replace poll-based waits with `XCTNSPredicateExpectation`
+4. If the element genuinely doesn't appear, fix the production code or test setup
+
 ---
 
 ## Migration Guide

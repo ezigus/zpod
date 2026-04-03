@@ -123,16 +123,14 @@ public final class SearchViewModel: ObservableObject {
         // Kick off the external directory fetch as a child task so the network request
         // starts concurrently with the local in-memory search. The ternary skips the
         // fetch (returning [] immediately) when the filter excludes podcasts.
+        // The child task begins when this function first suspends at the local search
+        // await below — no explicit Task.yield() needed.
         async let externalTask: [SearchResult] = filterIncludesPodcasts
             ? fetchDirectoryResults(query: query)
             : []
 
-        // Yield so the child task can start its network request before we run the local
-        // search. Because search() is @MainActor, the async let child task cannot begin
-        // until this function suspends; Task.yield() provides that suspension point.
-        await Task.yield()
-
         // Local search (in-memory, fast) runs while the directory call is in flight.
+        // Suspending here lets the async let child task start its network request.
         let local = await searchService.search(query: query, filter: currentFilter)
 
         // Show local results immediately while the directory search continues.

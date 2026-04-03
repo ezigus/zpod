@@ -1118,17 +1118,47 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
     @discardableResult
     private func openPlayerForSimulation(environmentOverrides: [String: String]) -> XCUIElement {
         app = launchConfiguredApp(environmentOverrides: environmentOverrides)
-        let tabs = TabBarNavigation(app: app)
+
+        // Navigate to Player tab — use hittable wait to ensure the tab is
+        // interactive before tapping. Under load the tab bar can exist in the
+        // accessibility tree before it accepts touches.
+        let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+        let playerTab = tabBar.buttons.matching(identifier: "Player").firstMatch
         XCTAssertTrue(
-            tabs.navigateToPlayer(),
-            "Could not navigate to Player tab for simulation"
+            playerTab.waitUntil(.hittable, timeout: adaptiveTimeout),
+            "Player tab not hittable after launch"
+        )
+        playerTab.tap()
+
+        // Verify tab selection — a deterministic, immediate UIKit state change
+        // that doesn't depend on view rendering. This is the reliable signal
+        // that the tap registered, especially on cold-start first launches
+        // where content rendering can lag behind tab selection.
+        let tabSelected = NSPredicate { _, _ in playerTab.isSelected }
+        let selectionExpectation = XCTNSPredicateExpectation(predicate: tabSelected, object: nil)
+        let selectionResult = XCTWaiter().wait(for: [selectionExpectation], timeout: adaptiveShortTimeout)
+        XCTAssertEqual(
+            selectionResult, .completed,
+            "Player tab did not become selected after tap"
         )
 
+        // Now wait for Player Interface content. On first cold launch the
+        // Player view may take longer to render its SwiftUI hierarchy, so
+        // also check for the empty-state "Now Playing" label and the Play
+        // button as valid indicators that we're on the Player tab.
         let playerView = app.otherElements.matching(identifier: "Player Interface").firstMatch
-        XCTAssertTrue(
-            playerView.waitForExistence(timeout: adaptiveTimeout),
-            "Player interface not reachable in simulation mode"
+        let playButton = app.buttons.matching(identifier: "Play").firstMatch
+        let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+        let contentPredicate = NSPredicate { _, _ in
+            playerView.exists || playButton.exists || pauseButton.exists
+        }
+        let contentExpectation = XCTNSPredicateExpectation(predicate: contentPredicate, object: nil)
+        let contentResult = XCTWaiter().wait(for: [contentExpectation], timeout: adaptiveTimeout)
+        XCTAssertEqual(
+            contentResult, .completed,
+            "Player content not reachable in simulation mode"
         )
+
         return playerView
     }
 
@@ -1179,17 +1209,19 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         }
 
         let playButton = app.buttons.matching(identifier: "Play").firstMatch
-        guard playButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+        // Use hittable wait — ensures the button is interactive, not just in the
+        // accessibility tree. Raw waitForExistence succeeds for non-interactive
+        // elements (behind overlays, mid-animation) leading to swallowed taps.
+        guard playButton.waitUntil(.hittable, timeout: adaptiveShortTimeout) else {
             return false
         }
         playButton.tap()
 
-        return waitUntil(
-            timeout: timeout,
-            pollInterval: 0.1,
-            description: "playback controls show Pause after tapping Play",
-            condition: { self.isPlaybackControlShowingPause() }
-        )
+        // Use XCTest's native waitForExistence which is event-driven (backed by
+        // NSPredicate on the exists key path). Block-based XCTNSPredicateExpectation
+        // polls at ~1s intervals and can miss transient state changes.
+        let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
+        return pauseButton.waitForExistence(timeout: timeout)
     }
 
     @MainActor
