@@ -139,9 +139,9 @@ public final class SearchViewModel: ObservableObject {
         let external = await externalTask
 
         // Guard against stale searches overwriting results from a more recent query.
+        // Do NOT reset isSearching/isSearchingDirectory here — a newer search has
+        // already set them to true and must manage its own loading state.
         guard searchText.trimmingCharacters(in: .whitespacesAndNewlines) == query else {
-            isSearching = false
-            isSearchingDirectory = false
             return
         }
 

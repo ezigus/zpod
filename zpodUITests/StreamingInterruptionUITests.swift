@@ -1217,9 +1217,11 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
         }
         playButton.tap()
 
-        // Use XCTest's native waitForExistence which is event-driven (backed by
-        // NSPredicate on the exists key path). Block-based XCTNSPredicateExpectation
-        // polls at ~1s intervals and can miss transient state changes.
+        // For a single-element wait, waitForExistence is preferred over a block-based
+        // NSPredicate — it hooks directly into the accessibility tree change
+        // notification, while block predicates poll at fixed intervals (~0.25s).
+        // Multi-condition waits (e.g. openPlayerForSimulation) must still use
+        // block-based predicates since waitForExistence operates on one element.
         let pauseButton = app.buttons.matching(identifier: "Pause").firstMatch
         return pauseButton.waitForExistence(timeout: timeout)
     }

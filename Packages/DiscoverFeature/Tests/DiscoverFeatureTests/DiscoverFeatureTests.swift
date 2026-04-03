@@ -716,9 +716,85 @@ final class DiscoverFeatureTests: XCTestCase {
                 "Fallback subscription has no episodes since RSS parse failed")
         }
     }
+
+    // MARK: - Stale search guard tests
+
+    @MainActor
+    func testStaleSearch_WhenSearchTextChangedBeforeExternalResultsArrive_DoesNotResetIsSearching() async {
+        // Given: a directory service that blocks until explicitly signaled.
+        // This lets the test control exactly when the external task finishes
+        // so we can reproduce the race without timing-based sleeps.
+        let gatedDirectory = GatedMockDirectoryService()
+
+        let vm = SearchViewModel(
+            searchService: mockSearchService,
+            podcastManager: mockPodcastManager,
+            rssParser: mockRSSParser,
+            directoryService: gatedDirectory
+        )
+
+        // When: search("pod") starts — the gated directory service blocks the external task
+        vm.searchText = "pod"
+        let firstSearchTask = Task { @MainActor in await vm.search() }
+
+        // Yield so the first search reaches the gated await inside fetchDirectoryResults
+        await Task.yield()
+        await Task.yield()
+
+        // Change searchText — makes the first search stale
+        vm.searchText = "podcast"
+
+        // Start a second search (simulates what the debouncer fires after the edit)
+        let secondSearchTask = Task { @MainActor in await vm.search() }
+        await Task.yield()
+        await Task.yield()
+
+        // Unblock BOTH directory calls so both searches can finish
+        gatedDirectory.unblockAll()
+
+        // Wait for both searches to complete
+        await firstSearchTask.value
+        await secondSearchTask.value
+
+        // Then: isSearching must be false — the second search completed cleanly and
+        // the stale first search must NOT have clobbered the loading flag
+        XCTAssertFalse(vm.isSearching,
+            "isSearching should be false after both searches complete; stale guard must not reset it mid-flight")
+    }
 }
 
 // MARK: - Mock Implementations
+
+/// Directory service that blocks each search() call until the test calls unblockAll().
+/// Used to deterministically reproduce stale-search race conditions.
+private final class GatedMockDirectoryService: PodcastDirectorySearching, @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+    private var shouldUnblock = false
+
+    func search(query: String, limit: Int) async throws -> [DirectorySearchResult] {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            defer { lock.unlock() }
+            if shouldUnblock {
+                continuation.resume()
+            } else {
+                continuations.append(continuation)
+            }
+        }
+        return []
+    }
+
+    /// Unblocks all currently pending and future search() calls.
+    func unblockAll() {
+        lock.lock()
+        let pending = continuations
+        continuations = []
+        shouldUnblock = true
+        lock.unlock()
+        for cont in pending { cont.resume() }
+    }
+}
 
 private final class MockDirectoryService: PodcastDirectorySearching, @unchecked Sendable {
     var mockResults: [DirectorySearchResult] = []
