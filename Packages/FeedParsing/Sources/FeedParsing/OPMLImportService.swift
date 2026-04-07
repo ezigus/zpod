@@ -2,7 +2,7 @@ import Foundation
 import CoreModels
 
 /// Service for importing podcast subscriptions from OPML format
-public final class OPMLImportService {
+public final class OPMLImportService: @unchecked Sendable {
     
     /// Errors that can occur during OPML import
     public enum Error: Swift.Error, Equatable {

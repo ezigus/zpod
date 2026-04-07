@@ -59,6 +59,26 @@
     "Packages/DiscoverFeature/Sources/DiscoverFeature/SearchViewModel.swift": [
       "Packages",
       "zpodUITests/ContentDiscoveryUITests"
+    ],
+    "Packages/FeedParsing/Sources/FeedParsing/OPMLImportService.swift": [
+      "Packages",
+      "zpodUITests/OPMLImportUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/OPMLImportViewModel.swift": [
+      "Packages",
+      "zpodUITests/OPMLImportUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/OPMLImportSettingsView.swift": [
+      "Packages",
+      "zpodUITests/OPMLImportUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/OPMLImportResultView.swift": [
+      "Packages",
+      "zpodUITests/OPMLImportUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/OPMLSubscriptionAdapter.swift": [
+      "Packages",
+      "zpodUITests/OPMLImportUITests"
     ]
   }
 }

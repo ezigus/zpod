@@ -1,6 +1,8 @@
+import FeedParsing
+import Networking
 import SettingsDomain
-import SwiftUI
 import SharedUtilities
+import SwiftUI
 
 struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
@@ -32,6 +34,38 @@ struct SettingsHomeView: View {
               .badge(orphanedCount)
           }
           .accessibilityIdentifier("Settings.Orphaned")
+        }
+
+        Section("Data & Subscriptions") {
+          NavigationLink {
+            // Capture podcastManager on the MainActor (view body) before the async closure.
+            let podcastManager = PlaybackEnvironment.podcastManager
+            OPMLImportSettingsView(
+              viewModel: OPMLImportViewModel(
+                importService: OPMLImportService(
+                  opmlParser: XMLOPMLParser(),
+                  subscriptionService: OPMLSubscriptionAdapter { urlString in
+                    // Build the Networking stack here to avoid a naming conflict between the
+                    // `FeedParsing` module and the `Networking.FeedParsing` protocol in
+                    // OPMLSubscriptionAdapter.swift.
+                    let service = Networking.SubscriptionService(
+                      dataLoader: Networking.PassthroughFeedDataLoader { url in
+                        let (data, _) = try await URLSession.shared.data(from: url)
+                        return data
+                      },
+                      parser: NetworkingRSSBridge(),
+                      podcastManager: podcastManager
+                    )
+                    _ = try await service.subscribe(urlString: urlString)
+                  }
+                )
+              )
+            )
+          } label: {
+            Label("OPML Import", systemImage: "square.and.arrow.down")
+              .accessibilityIdentifier("Settings.DataSubscriptions.OPMLImport.Label")
+          }
+          .accessibilityIdentifier("Settings.DataSubscriptions.OPMLImport")
         }
 
         ForEach(sections) { section in
@@ -181,5 +215,19 @@ private struct SettingsFeatureDetailView: View {
     } else {
       fallbackUnavailable
     }
+  }
+}
+
+// MARK: - Networking bridge
+
+/// Bridges FeedParsing.RSSFeedParser to the Networking.FeedParsing protocol.
+///
+/// Lives in this file (which imports both `FeedParsing` and `Networking`) so that
+/// OPMLSubscriptionAdapter.swift can remain free of the `Networking` import, avoiding
+/// the naming conflict between the `FeedParsing` module and `Networking.FeedParsing` protocol.
+private struct NetworkingRSSBridge: Networking.FeedParsing, Sendable {
+  func parse(data: Data, sourceURL: URL) throws -> Networking.ParsedFeed {
+    let podcast = try RSSFeedParser.parseFeed(from: data, feedURL: sourceURL)
+    return Networking.ParsedFeed(podcast: podcast)
   }
 }

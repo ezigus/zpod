@@ -110,6 +110,11 @@
 - **When:** Selects "Export OPML" in settings.
 - **Then:** App generates and saves an OPML file containing all subscriptions.
 
+### OPML Import
+- **Given:** User wants to migrate subscriptions from another podcast app.
+- **When:** Selects "Import OPML" in settings and picks an .opml file.
+- **Then:** App imports all valid podcast feeds and reports how many succeeded and failed.
+
 ### Apple Watch Support
 - **Given:** User has an Apple Watch paired with their iPhone.
 - **When:** Opens the Podcast Addict app on Apple Watch.
