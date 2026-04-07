@@ -86,3 +86,7 @@ templates/
 dev-log/
 Issues/
 .claude/worktrees/
+
+# ruflo
+.swarm
+.claude-flow
