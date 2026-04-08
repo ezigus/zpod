@@ -35,15 +35,12 @@ final class OPMLImportViewModel: ObservableObject {
                 errorMessage = "No file was selected."
                 return
             }
-            // .fileImporter returns a security-scoped URL. We must start access before
-            // reading the file and stop it when we are done (even if an error is thrown).
+            // .fileImporter returns a security-scoped URL. Start access before reading;
+            // startAccessingSecurityScopedResource() returns false for non-security-scoped
+            // URLs (e.g. in tests), which is fine — the resource is still readable.
             let accessed = url.startAccessingSecurityScopedResource()
             defer {
                 if accessed { url.stopAccessingSecurityScopedResource() }
-            }
-            guard accessed else {
-                errorMessage = "Unable to access the selected file. Please try again."
-                return
             }
             isImporting = true
             defer { isImporting = false }
