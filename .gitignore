@@ -90,3 +90,8 @@ Issues/
 # ruflo
 .swarm
 .claude-flow
+
+# AgentDB / Ruflo vector database files
+agentdb.rvf
+agentdb.rvf.lock
+ruvector.db
