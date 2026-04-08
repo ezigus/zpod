@@ -41,6 +41,10 @@ final class OPMLImportViewModel: ObservableObject {
             defer {
                 if accessed { url.stopAccessingSecurityScopedResource() }
             }
+            guard accessed else {
+                errorMessage = "Unable to access the selected file. Please try again."
+                return
+            }
             isImporting = true
             defer { isImporting = false }
             do {
@@ -50,8 +54,6 @@ final class OPMLImportViewModel: ObservableObject {
                 errorMessage = "The selected file is not a valid OPML file."
             } catch OPMLImportService.Error.noFeedsFound {
                 errorMessage = "No podcast feeds were found in the selected file."
-            } catch OPMLImportService.Error.allFeedsFailed {
-                errorMessage = "All feeds in the OPML file failed to import."
             } catch {
                 errorMessage = "Import failed: \(error.localizedDescription)"
             }
