@@ -56,6 +56,7 @@ let package = Package(
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
         .product(name: "CombineSupport", package: "CombineSupport"),
+        .product(name: "FeedParsing", package: "FeedParsing"),
       ]
     ),
   ]
