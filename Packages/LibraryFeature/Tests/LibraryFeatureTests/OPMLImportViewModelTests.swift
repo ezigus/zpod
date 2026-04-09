@@ -1,4 +1,3 @@
-#if os(iOS)
 //
 //  OPMLImportViewModelTests.swift
 //  LibraryFeatureTests
@@ -63,18 +62,19 @@ final class OPMLImportViewModelTests: XCTestCase {
     private var mockParser: MockOPMLParser!
     private var mockSubscriptionService: MockSubscriptionService!
     private var importService: OPMLImportService!
-    private var viewModel: OPMLImportViewModel!
+    nonisolated(unsafe) private var viewModel: OPMLImportViewModel!
 
-    @MainActor
     override func setUpWithError() throws {
         continueAfterFailure = false
-        mockParser = MockOPMLParser(behavior: .returnDocument(emptyDocument()))
-        mockSubscriptionService = MockSubscriptionService()
-        importService = OPMLImportService(opmlParser: mockParser, subscriptionService: mockSubscriptionService)
-        viewModel = OPMLImportViewModel(importService: importService)
+        let parser = MockOPMLParser(behavior: .returnDocument(emptyDocument()))
+        let subscriptionService = MockSubscriptionService()
+        let service = OPMLImportService(opmlParser: parser, subscriptionService: subscriptionService)
+        mockParser = parser
+        mockSubscriptionService = subscriptionService
+        importService = service
+        viewModel = MainActor.assumeIsolated { OPMLImportViewModel(importService: service) }
     }
 
-    @MainActor
     override func tearDownWithError() throws {
         viewModel = nil
         importService = nil
@@ -223,4 +223,3 @@ final class OPMLImportViewModelTests: XCTestCase {
         return url
     }
 }
-#endif
