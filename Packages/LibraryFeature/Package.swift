@@ -25,6 +25,7 @@ let package = Package(
     .package(path: "../Persistence"),
     .package(path: "../PlaybackEngine"),
     .package(path: "../Networking"),
+    .package(path: "../FeedParsing"),
   ],
   targets: [
     .target(
@@ -41,6 +42,7 @@ let package = Package(
         .product(name: "Persistence", package: "Persistence"),
         .product(name: "PlaybackEngine", package: "PlaybackEngine"),
         .product(name: "Networking", package: "Networking"),
+        .product(name: "FeedParsing", package: "FeedParsing"),
       ],
       path: "Sources",
       exclude: [
@@ -54,6 +56,7 @@ let package = Package(
         .product(name: "CoreModels", package: "CoreModels"),
         .product(name: "SharedUtilities", package: "SharedUtilities"),
         .product(name: "CombineSupport", package: "CombineSupport"),
+        .product(name: "FeedParsing", package: "FeedParsing"),
       ]
     ),
   ]

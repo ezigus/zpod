@@ -2,7 +2,7 @@ import Foundation
 import CoreModels
 
 /// Service for importing podcast subscriptions from OPML format
-public final class OPMLImportService {
+public final class OPMLImportService: @unchecked Sendable {
     
     /// Errors that can occur during OPML import
     public enum Error: Swift.Error, Equatable {
@@ -44,9 +44,18 @@ public final class OPMLImportService {
         var failedFeeds: [(url: String, error: String)] = []
         
         for feedUrl in feedUrls {
+            // Reject non-http/https schemes to prevent file://, javascript:, data: injection.
+            guard let parsedURL = URL(string: feedUrl),
+                  parsedURL.scheme == "http" || parsedURL.scheme == "https" else {
+                failedFeeds.append((url: feedUrl, error: "Invalid or unsafe URL scheme"))
+                continue
+            }
             do {
-                _ = try await subscriptionService.subscribe(urlString: feedUrl)
-                successfulFeeds.append(feedUrl)
+                // Use parsedURL.absoluteString (the validated, canonical form) rather than
+                // the raw feedUrl string so the subscription service receives exactly the
+                // URL that passed scheme validation.
+                try await subscriptionService.subscribe(urlString: parsedURL.absoluteString)
+                successfulFeeds.append(parsedURL.absoluteString)
             } catch {
                 let errorDescription = describeSubscriptionError(error)
                 failedFeeds.append((url: feedUrl, error: errorDescription))
@@ -68,13 +77,35 @@ public final class OPMLImportService {
     /// - Returns: Import result with success/failure details
     /// - Throws: Error.invalidOPML if file cannot be read or parsed
     public func importSubscriptions(from fileURL: URL) async throws -> OPMLImportResult {
+        // Guard against file-size DoS: reject files larger than 50 MB before reading.
+        // Use `try` (not `try?`) so that inaccessible files (permission denied, broken
+        // symlinks) throw immediately rather than silently bypassing the size check.
+        let maxBytes = 50_000_000
+        do {
+            let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
+            // Treat nil fileSize (network filesystems, certain file types) as unknown —
+            // reject rather than proceed with an unbounded read.
+            guard let fileSize = resourceValues.fileSize else {
+                throw Error.invalidOPML
+            }
+            guard fileSize <= maxBytes else {
+                throw Error.invalidOPML
+            }
+        } catch let opmlError as OPMLImportService.Error {
+            throw opmlError
+        } catch {
+            // File cannot be stat'd (permission denied, broken symlink, etc.) — treat as
+            // invalid to avoid proceeding with an inaccessible file.
+            throw Error.invalidOPML
+        }
+
         let data: Data
         do {
             data = try Data(contentsOf: fileURL)
         } catch {
             throw Error.invalidOPML
         }
-        
+
         return try await importSubscriptions(from: data)
     }
     

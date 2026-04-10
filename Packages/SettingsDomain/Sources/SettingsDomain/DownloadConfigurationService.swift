@@ -22,6 +22,9 @@ public actor DownloadConfigurationService: DownloadConfigurationServicing {
 
   public func save(_ settings: DownloadSettings) async {
     await repository.saveGlobalDownloadSettings(settings)
+    // Yield to allow any pending continuation-registration tasks (created by
+    // updatesStream's nonisolated init) to run before we broadcast.
+    await Task.yield()
     broadcast(settings)
   }
 
