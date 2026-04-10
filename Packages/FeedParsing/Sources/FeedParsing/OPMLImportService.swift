@@ -83,7 +83,12 @@ public final class OPMLImportService: @unchecked Sendable {
         let maxBytes = 50_000_000
         do {
             let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
-            if let fileSize = resourceValues.fileSize, fileSize > maxBytes {
+            // Treat nil fileSize (network filesystems, certain file types) as unknown —
+            // reject rather than proceed with an unbounded read.
+            guard let fileSize = resourceValues.fileSize else {
+                throw Error.invalidOPML
+            }
+            guard fileSize <= maxBytes else {
                 throw Error.invalidOPML
             }
         } catch let opmlError as OPMLImportService.Error {

@@ -36,6 +36,7 @@ struct OPMLImportSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
 #endif
         .onAppear {
+#if DEBUG
             // Launch-environment hook for UI testing only.
             // UITEST_OPML_MOCK=success  → immediately show a mock success result sheet.
             // UITEST_OPML_MOCK=error_invalid → immediately show the invalid-OPML error alert.
@@ -64,6 +65,7 @@ struct OPMLImportSettingsView: View {
             default:
                 break
             }
+#endif
         }
         .fileImporter(
             isPresented: $isPickerPresented,
