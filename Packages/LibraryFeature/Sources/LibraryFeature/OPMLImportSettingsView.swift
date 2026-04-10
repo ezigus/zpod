@@ -27,6 +27,12 @@ struct OPMLImportSettingsView: View {
                             .padding(.trailing, 8)
                         Text("Importing…")
                             .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Cancel") {
+                            viewModel.cancelImport()
+                        }
+                        .foregroundStyle(.red)
+                        .accessibilityIdentifier("Settings.ImportOPML.Cancel")
                     }
                 }
             }
@@ -73,10 +79,9 @@ struct OPMLImportSettingsView: View {
         ) { result in
             // .fileImporter with single-file selection returns Result<URL, Error>.
             // Lift it to Result<[URL], Error> to match the view model's API.
+            // handleFileSelection is synchronous — it creates its own internal Task.
             let lifted: Result<[URL], Error> = result.map { [$0] }
-            Task {
-                await viewModel.handleFileSelection(lifted)
-            }
+            viewModel.handleFileSelection(lifted)
         }
         .sheet(item: $viewModel.importResultItem) { item in
             OPMLImportResultView(result: item)

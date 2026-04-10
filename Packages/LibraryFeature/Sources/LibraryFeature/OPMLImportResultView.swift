@@ -18,8 +18,10 @@ struct OPMLImportResultView: View {
                 }
 
                 if !result.result.failedFeeds.isEmpty {
+                    let displayed = Array(result.result.failedFeeds.prefix(50))
+                    let overflow = result.result.failedFeeds.count - displayed.count
                     Section("Failed Feeds") {
-                        ForEach(result.result.failedFeeds, id: \.url) { failed in
+                        ForEach(displayed, id: \.url) { failed in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(failed.url)
                                     .font(.caption)
@@ -30,6 +32,11 @@ struct OPMLImportResultView: View {
                                     .foregroundStyle(.red)
                             }
                             .padding(.vertical, 2)
+                        }
+                        if overflow > 0 {
+                            Text("…and \(overflow) more")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }

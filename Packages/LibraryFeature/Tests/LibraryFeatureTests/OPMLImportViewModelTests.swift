@@ -95,13 +95,14 @@ final class OPMLImportViewModelTests: XCTestCase {
     ///
     /// **AC4**
     @MainActor
-    func testHandleFileSelectionPickerFailureSetsErrorMessage() async {
+    func testHandleFileSelectionPickerFailureSetsErrorMessage() {
         let pickerError = URLError(.cancelled)
 
-        await viewModel.handleFileSelection(.failure(pickerError))
+        // Failure is handled synchronously — no need to await a task.
+        viewModel.handleFileSelection(.failure(pickerError))
 
         XCTAssertNotNil(viewModel.errorMessage, "errorMessage should be set on picker failure")
-        XCTAssertFalse(viewModel.isImporting, "isImporting should reset to false after failure")
+        XCTAssertFalse(viewModel.isImporting, "isImporting should remain false on picker failure")
         XCTAssertNil(viewModel.importResultItem, "importResultItem should remain nil on failure")
     }
 
@@ -116,7 +117,8 @@ final class OPMLImportViewModelTests: XCTestCase {
     func testHandleFileSelectionUnreadableFileSetsInvalidOPMLMessage() async {
         let badURL = URL(fileURLWithPath: "/tmp/does_not_exist_\(UUID().uuidString).opml")
 
-        await viewModel.handleFileSelection(.success([badURL]))
+        let task = viewModel.handleFileSelection(.success([badURL]))
+        await task?.value
 
         XCTAssertEqual(
             viewModel.errorMessage,
@@ -139,7 +141,8 @@ final class OPMLImportViewModelTests: XCTestCase {
         let tempURL = try createTempOPMLFile()
         mockParser.behavior = .returnDocument(emptyDocument())
 
-        await viewModel.handleFileSelection(.success([tempURL]))
+        let task = viewModel.handleFileSelection(.success([tempURL]))
+        await task?.value
 
         XCTAssertEqual(
             viewModel.errorMessage,
@@ -164,7 +167,8 @@ final class OPMLImportViewModelTests: XCTestCase {
         mockParser.behavior = .returnDocument(doc)
         mockSubscriptionService.shouldThrow = false
 
-        await viewModel.handleFileSelection(.success([tempURL]))
+        let task = viewModel.handleFileSelection(.success([tempURL]))
+        await task?.value
 
         XCTAssertNil(viewModel.errorMessage, "No error on complete success")
         XCTAssertFalse(viewModel.isImporting)
@@ -190,7 +194,8 @@ final class OPMLImportViewModelTests: XCTestCase {
         mockParser.behavior = .returnDocument(doc)
         mockSubscriptionService.shouldThrow = true
 
-        await viewModel.handleFileSelection(.success([tempURL]))
+        let task = viewModel.handleFileSelection(.success([tempURL]))
+        await task?.value
 
         XCTAssertNil(viewModel.errorMessage, "Service returns result (not error) when all feeds fail")
         XCTAssertFalse(viewModel.isImporting)
@@ -199,6 +204,47 @@ final class OPMLImportViewModelTests: XCTestCase {
         XCTAssertEqual(item.result.successfulFeeds.count, 0)
         XCTAssertEqual(item.result.failedFeeds.count, 2)
         XCTAssertFalse(item.result.isCompleteSuccess)
+    }
+
+    // MARK: - Reentrancy guard
+
+    /// Given: An import is already in flight
+    /// When: handleFileSelection is called a second time
+    /// Then: The second call is a no-op (no crash, isImporting stays true until first finishes)
+    ///
+    /// **Concurrency safety**
+    @MainActor
+    func testHandleFileSelectionRejectsReentrantCall() async throws {
+        let tempURL = try createTempOPMLFile()
+        let doc = documentWithFeeds(urls: ["https://feed1.example.com/rss"])
+        mockParser.behavior = .returnDocument(doc)
+        mockSubscriptionService.shouldThrow = false
+
+        let firstTask = viewModel.handleFileSelection(.success([tempURL]))
+        // isImporting is now true; a second call should be ignored.
+        let secondTask = viewModel.handleFileSelection(.success([tempURL]))
+
+        XCTAssertNil(secondTask, "Second call while importing should return nil (no-op)")
+        await firstTask?.value
+        XCTAssertFalse(viewModel.isImporting)
+    }
+
+    // MARK: - Cancellation
+
+    /// Given: An import is in flight
+    /// When: cancelImport() is called
+    /// Then: isImporting is reset to false and no result is set
+    ///
+    /// **Cancellation**
+    @MainActor
+    func testCancelImportResetsState() {
+        // Put view model into importing state manually.
+        viewModel.isImporting = true
+
+        viewModel.cancelImport()
+
+        XCTAssertFalse(viewModel.isImporting, "cancelImport should reset isImporting to false")
+        XCTAssertNil(viewModel.importTask, "cancelImport should clear the stored task reference")
     }
 
     // MARK: - Helpers
