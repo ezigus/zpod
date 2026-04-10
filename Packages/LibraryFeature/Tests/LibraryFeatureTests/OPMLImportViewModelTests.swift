@@ -63,6 +63,7 @@ final class OPMLImportViewModelTests: XCTestCase {
     private var mockSubscriptionService: MockSubscriptionService!
     private var importService: OPMLImportService!
     nonisolated(unsafe) private var viewModel: OPMLImportViewModel!
+    private var tempFiles: [URL] = []
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -80,6 +81,10 @@ final class OPMLImportViewModelTests: XCTestCase {
         importService = nil
         mockParser = nil
         mockSubscriptionService = nil
+        for url in tempFiles {
+            try? FileManager.default.removeItem(at: url)
+        }
+        tempFiles = []
     }
 
     // MARK: - AC4: Picker-level failure
@@ -216,10 +221,12 @@ final class OPMLImportViewModelTests: XCTestCase {
     }
 
     /// Creates a temporary file with placeholder content so `Data(contentsOf:)` succeeds.
+    /// The file is tracked in `tempFiles` and removed in `tearDownWithError()`.
     private func createTempOPMLFile() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString + ".opml")
         try "placeholder".write(to: url, atomically: true, encoding: .utf8)
+        tempFiles.append(url)
         return url
     }
 }

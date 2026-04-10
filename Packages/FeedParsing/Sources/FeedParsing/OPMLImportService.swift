@@ -44,8 +44,14 @@ public final class OPMLImportService: @unchecked Sendable {
         var failedFeeds: [(url: String, error: String)] = []
         
         for feedUrl in feedUrls {
+            // Reject non-http/https schemes to prevent file://, javascript:, data: injection.
+            guard let parsedURL = URL(string: feedUrl),
+                  parsedURL.scheme == "http" || parsedURL.scheme == "https" else {
+                failedFeeds.append((url: feedUrl, error: "Invalid or unsafe URL scheme"))
+                continue
+            }
             do {
-                _ = try await subscriptionService.subscribe(urlString: feedUrl)
+                try await subscriptionService.subscribe(urlString: feedUrl)
                 successfulFeeds.append(feedUrl)
             } catch {
                 let errorDescription = describeSubscriptionError(error)
@@ -68,13 +74,20 @@ public final class OPMLImportService: @unchecked Sendable {
     /// - Returns: Import result with success/failure details
     /// - Throws: Error.invalidOPML if file cannot be read or parsed
     public func importSubscriptions(from fileURL: URL) async throws -> OPMLImportResult {
+        // Guard against file-size DoS: reject files larger than 50 MB before reading.
+        let maxBytes = 50_000_000
+        if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+           fileSize > maxBytes {
+            throw Error.invalidOPML
+        }
+
         let data: Data
         do {
             data = try Data(contentsOf: fileURL)
         } catch {
             throw Error.invalidOPML
         }
-        
+
         return try await importSubscriptions(from: data)
     }
     

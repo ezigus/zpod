@@ -41,6 +41,9 @@ public final class XMLOPMLParser: NSObject, OPMLParsing, @unchecked Sendable {
         resetState()
         
         let parser = XMLParser(data: data)
+        // Explicitly disable external entity resolution to prevent XXE attacks
+        // (entity injection, billion-laughs expansion, local file disclosure).
+        parser.shouldResolveExternalEntities = false
         parser.delegate = self
         
         guard parser.parse() else {
