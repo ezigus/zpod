@@ -8,8 +8,8 @@
 //  Spec coverage (Given/When/Then):
 //    AC1 - Settings → "Data & Subscriptions" → "Import Subscriptions (OPML)" button is reachable
 //    AC2 - Tapping the button presents a file picker (UIDocumentPickerViewController)
-//    AC3 - Result sheet renders with correct root identifier (requires mock injection — noted inline)
-//    AC4/AC5 - Error alert states require mock injection — noted inline
+//    AC3 - Result sheet appears and is dismissible (UITEST_OPML_MOCK=success injection)
+//    AC4/AC5 - "Import Error" alert surfaces with correct message (UITEST_OPML_MOCK=error_invalid)
 //
 
 import XCTest
@@ -24,8 +24,8 @@ import XCTest
 /// - `testOPMLImportScreenShowsImportButton`: AC1 — verifies the import button exists on the screen.
 /// - `testTapImportButtonPresentsFilePicker`: AC2 — verifies a document picker is shown after tap.
 /// - `testImportButtonIsAccessible`: AC1 — verifies accessibility properties of the button.
-/// - `testResultViewHasCorrectIdentifier`: AC3 — structural assertion (mock injection required for
-///   full state; this test is marked with TODO).
+/// - `testResultViewIdentifierIsReachableAfterSuccessfulImport`: AC3 — result sheet via UITEST_OPML_MOCK=success.
+/// - `testErrorAlertAppearsOnInvalidFile`: AC4/AC5 — error alert via UITEST_OPML_MOCK=error_invalid.
 ///
 /// **Issue**: #451 - OPML Import
 final class OPMLImportUITests: IsolatedUITestCase {
@@ -162,73 +162,79 @@ final class OPMLImportUITests: IsolatedUITestCase {
         )
     }
 
-    // MARK: - AC3: Result view identifier (structural)
+    // MARK: - AC3: Result sheet appears after a successful import
 
-    /// Verifies the result view carries the correct accessibility identifier.
+    /// Given: The OPML Import screen is seeded with a successful mock result via UITEST_OPML_MOCK
+    /// When: The screen appears
+    /// Then: The result sheet is presented, shows "Settings.ImportOPML.Result", and can be dismissed
     ///
-    /// **Note**: Fully exercising this view requires a mock OPML import service that returns
-    /// a known `OPMLImportResult`. The app does not currently expose an injection hook via
-    /// launch arguments for this service, so this test only verifies the identifier constant
-    /// is correct and that the sheet is dismissed cleanly when no import has run.
-    ///
-    /// **AC3** — structural identifier check
-    ///
-    /// TODO: requires mock injection via launch args/environment to drive the result sheet
+    /// **AC3** — result sheet via launch-environment mock injection
     @MainActor
     func testResultViewIdentifierIsReachableAfterSuccessfulImport() {
-        // TODO: requires mock injection — OPMLImportService does not have a launch-arg seeding
-        // hook. When such a hook is added, this test should:
-        //   1. Set a launch environment key that seeds a pre-parsed OPMLImportResult
-        //   2. Navigate to the OPML Import screen
-        //   3. Tap the import button (or trigger the result via the launch arg)
-        //   4. Wait for the sheet to appear:
-        //        let result = opml.resultView
-        //        XCTAssertTrue(result.waitForExistence(timeout: 8))
-        //   5. Verify the "Done" dismiss button exists inside the sheet
-        //   6. Tap "Done" and verify the sheet dismisses
+        app = launchConfiguredApp(environmentOverrides: ["UITEST_OPML_MOCK": "success"])
 
-        // For now, assert the identifier string value is what the implementation declares,
-        // which prevents silent regressions if the identifier changes in the source.
-        let expectedIdentifier = "Settings.ImportOPML.Result"
-        XCTAssertEqual(
-            expectedIdentifier,
-            "Settings.ImportOPML.Result",
-            "Result view identifier must match 'Settings.ImportOPML.Result' as declared in OPMLImportResultView"
+        let tabs = TabBarNavigation(app: app)
+        let opml = OPMLImportScreen(app: app)
+
+        XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+        XCTAssertTrue(opml.navigateToOPMLImport(), "Should navigate to OPML Import screen")
+
+        // The mock seeds the result immediately on appear — wait for the result sheet.
+        let resultView = app.otherElements.matching(identifier: "Settings.ImportOPML.Result").firstMatch
+        XCTAssertTrue(
+            resultView.waitForExistence(timeout: 8),
+            "Result sheet should appear automatically when UITEST_OPML_MOCK=success"
+        )
+
+        // The Done button should be present in the sheet.
+        let doneButton = app.buttons.matching(identifier: "Done").firstMatch
+        XCTAssertTrue(doneButton.waitForExistence(timeout: 5), "Done button should exist in result sheet")
+        doneButton.tap()
+
+        // After dismissal the sheet should no longer be visible.
+        XCTAssertFalse(
+            resultView.waitForExistence(timeout: 3),
+            "Result sheet should dismiss after tapping Done"
         )
     }
 
-    // MARK: - AC4/AC5: Error alert states
+    // MARK: - AC4/AC5: Error alert appears for an invalid file
 
-    /// Verifies that error conditions surface an alert on the OPML Import screen.
+    /// Given: The OPML Import screen is seeded with an invalid-OPML error via UITEST_OPML_MOCK
+    /// When: The screen appears
+    /// Then: The "Import Error" alert is shown with the correct message; OK dismisses it
     ///
-    /// **Note**: Driving actual error states (invalid OPML, no feeds, all feeds failed) requires
-    /// either a real OPML file injection or a mock service hook. Neither is currently available
-    /// via launch arguments. This test documents the expected behavior and will be activated
-    /// once injection support is added.
-    ///
-    /// **AC4/AC5** — error alert structural documentation
-    ///
-    /// TODO: requires mock injection — add a launch environment key that makes OPMLImportService
-    /// throw a specific error, then verify the "Import Error" alert appears with the correct message.
+    /// **AC4/AC5** — error alert via launch-environment mock injection
     @MainActor
     func testErrorAlertAppearsOnInvalidFile() {
-        // TODO: requires mock injection for OPMLImportService error cases:
-        //   - OPMLImportService.Error.invalidOPML   → "The selected file is not a valid OPML file."
-        //   - OPMLImportService.Error.noFeedsFound  → "No podcast feeds were found in the selected file."
-        //   - OPMLImportService.Error.allFeedsFailed→ "All feeds in the OPML file failed to import."
-        //
-        // Once injection is available:
-        //   1. Set launch env key to trigger specific error
-        //   2. Navigate to OPML Import screen and tap Import
-        //   3. Select (or simulate selecting) a file
-        //   4. Wait for the alert:
-        //        let alert = app.alerts["Import Error"]
-        //        XCTAssertTrue(alert.waitForExistence(timeout: 8))
-        //        XCTAssertTrue(alert.buttons["OK"].exists)
-        //   5. Dismiss and verify error state cleared
+        app = launchConfiguredApp(environmentOverrides: ["UITEST_OPML_MOCK": "error_invalid"])
 
-        // Placeholder assertion to keep the test selectable in the test plan.
-        XCTAssertTrue(true, "Placeholder — see TODO above for full error-state test implementation")
+        let tabs = TabBarNavigation(app: app)
+        let opml = OPMLImportScreen(app: app)
+
+        XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+        XCTAssertTrue(opml.navigateToOPMLImport(), "Should navigate to OPML Import screen")
+
+        // The mock seeds errorMessage immediately on appear — wait for the "Import Error" alert.
+        let alert = app.alerts["Import Error"]
+        XCTAssertTrue(
+            alert.waitForExistence(timeout: 8),
+            "'Import Error' alert should appear when UITEST_OPML_MOCK=error_invalid"
+        )
+
+        // The alert body should describe the error.
+        XCTAssertTrue(
+            alert.staticTexts["The selected file is not a valid OPML file."].exists,
+            "Alert should show the invalid-OPML error message"
+        )
+
+        // Tap OK to dismiss.
+        let okButton = alert.buttons["OK"]
+        XCTAssertTrue(okButton.exists, "OK button should exist in the error alert")
+        okButton.tap()
+
+        // After dismissal the alert should no longer be present.
+        XCTAssertFalse(alert.waitForExistence(timeout: 3), "Alert should dismiss after tapping OK")
     }
 
     // MARK: - Navigation: back from OPML Import screen
