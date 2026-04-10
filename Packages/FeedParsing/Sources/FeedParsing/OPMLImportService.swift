@@ -51,8 +51,11 @@ public final class OPMLImportService: @unchecked Sendable {
                 continue
             }
             do {
-                try await subscriptionService.subscribe(urlString: feedUrl)
-                successfulFeeds.append(feedUrl)
+                // Use parsedURL.absoluteString (the validated, canonical form) rather than
+                // the raw feedUrl string so the subscription service receives exactly the
+                // URL that passed scheme validation.
+                try await subscriptionService.subscribe(urlString: parsedURL.absoluteString)
+                successfulFeeds.append(parsedURL.absoluteString)
             } catch {
                 let errorDescription = describeSubscriptionError(error)
                 failedFeeds.append((url: feedUrl, error: errorDescription))
@@ -75,9 +78,19 @@ public final class OPMLImportService: @unchecked Sendable {
     /// - Throws: Error.invalidOPML if file cannot be read or parsed
     public func importSubscriptions(from fileURL: URL) async throws -> OPMLImportResult {
         // Guard against file-size DoS: reject files larger than 50 MB before reading.
+        // Use `try` (not `try?`) so that inaccessible files (permission denied, broken
+        // symlinks) throw immediately rather than silently bypassing the size check.
         let maxBytes = 50_000_000
-        if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-           fileSize > maxBytes {
+        do {
+            let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
+            if let fileSize = resourceValues.fileSize, fileSize > maxBytes {
+                throw Error.invalidOPML
+            }
+        } catch let opmlError as OPMLImportService.Error {
+            throw opmlError
+        } catch {
+            // File cannot be stat'd (permission denied, broken symlink, etc.) — treat as
+            // invalid to avoid proceeding with an inaccessible file.
             throw Error.invalidOPML
         }
 
