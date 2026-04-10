@@ -44,13 +44,19 @@ struct OPMLImportSettingsView: View {
             let mock = ProcessInfo.processInfo.environment["UITEST_OPML_MOCK"]
             switch mock {
             case "success":
-                viewModel.importResultItem = OPMLImportResultItem(
-                    result: OPMLImportResult(
-                        successfulFeeds: ["https://example.com/feed1.rss", "https://example.com/feed2.rss"],
-                        failedFeeds: [],
-                        totalFeeds: 2
+                // Defer to the next run-loop tick so the NavigationLink push animation has
+                // fully settled before SwiftUI is asked to present the sheet.  Presenting a
+                // sheet(item:) directly inside onAppear can race with the incoming navigation
+                // animation and silently skip the presentation.
+                Task { @MainActor in
+                    viewModel.importResultItem = OPMLImportResultItem(
+                        result: OPMLImportResult(
+                            successfulFeeds: ["https://example.com/feed1.rss", "https://example.com/feed2.rss"],
+                            failedFeeds: [],
+                            totalFeeds: 2
+                        )
                     )
-                )
+                }
             case "error_invalid":
                 viewModel.errorMessage = "The selected file is not a valid OPML file."
             case "error_no_feeds":

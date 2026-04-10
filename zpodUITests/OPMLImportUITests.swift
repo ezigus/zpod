@@ -180,9 +180,16 @@ final class OPMLImportUITests: IsolatedUITestCase {
         XCTAssertTrue(opml.navigateToOPMLImport(), "Should navigate to OPML Import screen")
 
         // The mock seeds the result immediately on appear — wait for the result sheet.
-        let resultView = app.otherElements.matching(identifier: "Settings.ImportOPML.Result").firstMatch
-        XCTAssertTrue(
-            resultView.waitForExistence(timeout: 8),
+        // SwiftUI List (iOS 16+) is backed by UICollectionView, which XCUITest exposes as
+        // .collectionView — not .other.  Search multiple element types to be robust across
+        // iOS versions and future SwiftUI List backing changes.
+        let resultSheet = waitForAnyElement([
+            app.collectionViews.matching(identifier: "Settings.ImportOPML.Result").firstMatch,
+            app.tables.matching(identifier: "Settings.ImportOPML.Result").firstMatch,
+            app.otherElements.matching(identifier: "Settings.ImportOPML.Result").firstMatch
+        ], timeout: 8, description: "Result sheet after UITEST_OPML_MOCK=success")
+        XCTAssertNotNil(
+            resultSheet,
             "Result sheet should appear automatically when UITEST_OPML_MOCK=success"
         )
 
@@ -192,10 +199,12 @@ final class OPMLImportUITests: IsolatedUITestCase {
         doneButton.tap()
 
         // After dismissal the sheet should no longer be visible.
-        XCTAssertFalse(
-            resultView.waitForExistence(timeout: 3),
-            "Result sheet should dismiss after tapping Done"
-        )
+        let stillPresent = waitForAnyElement([
+            app.collectionViews.matching(identifier: "Settings.ImportOPML.Result").firstMatch,
+            app.tables.matching(identifier: "Settings.ImportOPML.Result").firstMatch,
+            app.otherElements.matching(identifier: "Settings.ImportOPML.Result").firstMatch
+        ], timeout: 3, description: "Result sheet after dismissal", failOnTimeout: false)
+        XCTAssertNil(stillPresent, "Result sheet should dismiss after tapping Done")
     }
 
     // MARK: - AC4/AC5: Error alert appears for an invalid file
