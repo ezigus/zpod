@@ -46,18 +46,13 @@ final class OPMLImportUITests: IsolatedUITestCase {
 
         XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to the Settings tab")
 
-        // The OPML Import nav row lives in the "Data & Subscriptions" section.
-        // scrollToOPMLNavRow() handles scrolling if the section is below the viewport.
+        // opmlImportNavRow scrolls the Settings list as needed before returning the element.
         guard let row = opml.opmlImportNavRow else {
             XCTFail("OPML Import nav row not found in Settings list")
             return
         }
 
-        // Scroll it into the hittable viewport before asserting.
-        XCTAssertTrue(
-            row.waitForExistence(timeout: 5),
-            "OPML Import nav row should exist in Settings"
-        )
+        XCTAssertTrue(row.isHittable, "OPML Import nav row should be visible and hittable in Settings")
     }
 
     // MARK: - AC1: Import screen contains the action button

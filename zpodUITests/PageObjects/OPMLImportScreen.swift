@@ -33,8 +33,9 @@ public struct OPMLImportScreen: BaseScreen {
     /// The "Data & Subscriptions" navigation link that leads to the OPML Import sub-screen.
     ///
     /// SwiftUI wraps NavigationLinks in extra elements, so we try multiple types.
+    /// Scrolls the Settings list as needed to bring the row into the hittable viewport.
     var opmlImportNavRow: XCUIElement? {
-        findOPMLNavRow()
+        scrollToOPMLNavRow()
     }
 
     /// The "Import Subscriptions (OPML)" action button inside the OPML Import screen.
