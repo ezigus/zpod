@@ -64,17 +64,19 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
     let settings = SettingsScreen(app: app)
     XCTAssertTrue(settings.tapExportOPML(), "Should tap the Export Subscriptions (OPML) button")
 
-    // The .fileExporter modifier presents a UIDocumentPickerViewController sheet.
-    // On iOS Simulator this appears as a navigation-based file picker.
-    // We verify a new modal context appeared (sheet or nav bar count increased).
+    // The .fileExporter modifier presents a UIDocumentPickerViewController.
+    // Depending on iOS version: presents as a sheet (device/some simulators)
+    // or as a navigation-based file browser (other simulators), which pushes
+    // an extra navigation bar rather than a sheet. Both constitute a successful
+    // file exporter presentation — the OR handles both iOS rendering paths.
     let pickerSheet = app.sheets.firstMatch
     let navigationBars = app.navigationBars
-    let appeared = pickerSheet.waitForExistence(timeout: adaptiveTimeout)
-      || navigationBars.count > 1
+    let sheetOrNav = pickerSheet.waitForExistence(timeout: adaptiveTimeout)
+      || navigationBars.count > 1  // fallback: nav-based file picker on some iOS versions
 
     XCTAssertTrue(
-      appeared,
-      "A file exporter sheet should appear after tapping Export when subscriptions exist"
+      sheetOrNav,
+      "File exporter UI should appear (sheet or nav-based picker) after tapping Export when subscriptions exist"
     )
   }
 

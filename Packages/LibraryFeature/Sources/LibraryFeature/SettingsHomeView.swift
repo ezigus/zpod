@@ -115,9 +115,10 @@ struct SettingsHomeView: View {
       .fileExporter(
         isPresented: $isExportPresented,
         document: exportDocument,
-        contentType: .xml,
+        contentType: UTType(filenameExtension: "opml") ?? .xml,
         defaultFilename: "subscriptions.opml"
       ) { result in
+        defer { exportDocument = nil }
         if case .failure(let error) = result {
           exportErrorMessage = error.localizedDescription
           showExportError = true
@@ -271,7 +272,13 @@ private struct SettingsFeatureDetailView: View {
 // MARK: - OPML File Document
 
 struct OPMLFileDocument: FileDocument {
-  static var readableContentTypes: [UTType] { [.xml] }
+  static var readableContentTypes: [UTType] {
+    // Include the opml-specific UTType when the system knows it; fall back to xml.
+    if let opmlType = UTType(filenameExtension: "opml") {
+      return [opmlType, .xml]
+    }
+    return [.xml]
+  }
 
   let data: Data
 
