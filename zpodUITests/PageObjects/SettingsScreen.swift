@@ -104,6 +104,17 @@ public struct SettingsScreen: BaseScreen {
     )
   }
 
+  /// Export Subscriptions (OPML) button in "Data & Subscriptions" section.
+  private var exportOPMLButton: XCUIElement? {
+    findSettingsRow(
+      identifiers: [
+        "Settings.ExportOPML",
+        "Settings.ExportOPML.Label",
+        "Export Subscriptions (OPML)"
+      ]
+    )
+  }
+
   /// Manage Storage settings row.
   ///
   /// **Fallback chain**: Tries 4 element types to handle SwiftUI hierarchy variations.
@@ -229,6 +240,19 @@ public struct SettingsScreen: BaseScreen {
       .firstMatch
 
     return waitForAny(listCandidates + [empty, title, titleLabel]) != nil
+  }
+
+  /// Tap the Export Subscriptions (OPML) button.
+  ///
+  /// The "Data & Subscriptions" section sits near the top of Settings so no
+  /// scrolling is required in the common case; `findSettingsRow` still handles
+  /// any SwiftUI element-type variation.
+  ///
+  /// - Returns: True if the button was found and tapped
+  @discardableResult
+  public func tapExportOPML() -> Bool {
+    guard let button = exportOPMLButton else { return false }
+    return tap(button)
   }
 
   /// Navigate to Storage Management screen.
