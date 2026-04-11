@@ -161,10 +161,16 @@ struct SettingsHomeView: View {
     orphanedCount = PlaybackEnvironment.podcastManager.fetchOrphanedEpisodes().count
   }
 
+  @MainActor
   private func exportOPML() {
     let service = OPMLExportService(podcastManager: PlaybackEnvironment.podcastManager)
     do {
       let data = try service.exportSubscriptionsAsXML()
+      guard !data.isEmpty else {
+        exportErrorMessage = "Export produced an empty file. Please try again."
+        showExportError = true
+        return
+      }
       exportDocument = OPMLFileDocument(data: data)
       isExportPresented = true
     } catch OPMLExportService.Error.noSubscriptions {
