@@ -164,6 +164,9 @@ struct SettingsHomeView: View {
 
   @MainActor
   private func exportOPML() {
+    // PlaybackEnvironment.podcastManager is always non-nil: CarPlayDependencyRegistry falls
+    // back to EmptyPodcastManager() when unconfigured, so early-init calls will produce a
+    // .noSubscriptions error rather than crashing.
     let service = OPMLExportService(podcastManager: PlaybackEnvironment.podcastManager)
     do {
       let data = try service.exportSubscriptionsAsXML()
