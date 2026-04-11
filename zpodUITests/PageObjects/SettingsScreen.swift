@@ -183,14 +183,22 @@ public struct SettingsScreen: BaseScreen {
   /// Navigate to Playback Preferences configuration.
   ///
   /// **Steps**:
-  /// 1. Find Playback Preferences row
+  /// 1. Scroll Settings list to find Playback Preferences row (requires scroll)
   /// 2. Tap row
   /// 3. Verify Playback toggle appeared
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToPlaybackPreferences() -> Bool {
-    guard let row = playbackPreferencesRow else {
+    // Playback Preferences is below the initial viewport — use scrollToFindSettingsRow
+    // so the element is hittable before tapping (same pattern as swipeActions/downloadPolicies).
+    guard let row = scrollToFindSettingsRow(
+      identifiers: [
+        "Settings.Feature.playbackPreferences",
+        "Settings.Feature.Label.playbackPreferences",
+        "Playback Preferences"
+      ]
+    ) else {
       return false
     }
 
