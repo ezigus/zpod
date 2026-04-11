@@ -270,7 +270,7 @@ private struct SettingsFeatureDetailView: View {
 
 // MARK: - OPML File Document
 
-private struct OPMLFileDocument: FileDocument {
+struct OPMLFileDocument: FileDocument {
   static var readableContentTypes: [UTType] { [.xml] }
 
   let data: Data
