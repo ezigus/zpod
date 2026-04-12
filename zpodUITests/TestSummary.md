@@ -331,7 +331,7 @@ Each test phase time excludes the initial build (handled once by preflight). The
 
 - Unit-layer coverage lives in `Packages/FeedParsing/Tests/FeedParsingTests/OPMLExportServiceTests.swift` (7 tests covering XML generation, escaping, error paths).
 - `OPMLFileDocument` unit coverage lives in `Packages/LibraryFeature/Tests/LibraryFeatureTests/OPMLFileDocumentTests.swift`.
-- Test 2 uses an OR condition (`sheet || navigationBars.count > 1`) to handle both iOS rendering paths for `UIDocumentPickerViewController` (sheet on device/some simulators, navigation-based on others).
+- Test 2 uses an OR condition (`sheet || cancelButton.waitForExistence`) to handle both iOS rendering paths for `UIDocumentPickerViewController` (sheet on device/some simulators, navigation-based on others). The Cancel button is used as the fallback because it is always present in `UIDocumentPickerViewController` regardless of presentation style, making it a more specific indicator than a navigation-bar count.
 
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 

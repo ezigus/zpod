@@ -65,14 +65,15 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
     XCTAssertTrue(settings.tapExportOPML(), "Should tap the Export Subscriptions (OPML) button")
 
     // The .fileExporter modifier presents a UIDocumentPickerViewController.
-    // Depending on iOS version: presents as a sheet (device/some simulators)
-    // or as a navigation-based file browser (other simulators), which pushes
-    // an extra navigation bar rather than a sheet. Both constitute a successful
-    // file exporter presentation — the OR handles both iOS rendering paths.
+    // Depending on iOS version: presents as a UISheetPresentationController (device/some
+    // simulators) or as a navigation-based file browser (other simulators). Both constitute
+    // a successful file exporter presentation. UIDocumentPickerViewController always renders
+    // a "Cancel" button regardless of presentation style, so it serves as a reliable
+    // fallback when no system sheet is detected.
     let pickerSheet = app.sheets.firstMatch
-    let navigationBars = app.navigationBars
+    let cancelButton = app.buttons.matching(identifier: "Cancel").firstMatch
     let sheetOrNav = pickerSheet.waitForExistence(timeout: adaptiveTimeout)
-      || navigationBars.count > 1  // fallback: nav-based file picker on some iOS versions
+      || cancelButton.waitForExistence(timeout: adaptiveShortTimeout)
 
     XCTAssertTrue(
       sheetOrNav,
