@@ -97,8 +97,13 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
   /// **AC2** — no-subscriptions error surface
   @MainActor
   func testExportOPMLButton_emptyLibrary_showsExportFailedAlert() throws {
-    // Suppress default podcast seeding so the library is empty
-    app = launchConfiguredApp(environmentOverrides: ["UITEST_SEED_PODCASTS": "0"])
+    // Suppress default podcast seeding so the library is empty.
+    // Launch directly on the Settings tab to avoid the Library's empty-state rendering,
+    // which can keep the app non-idle and block tab-bar interaction.
+    app = launchConfiguredApp(environmentOverrides: [
+      "UITEST_SEED_PODCASTS": "0",
+      "UITEST_INITIAL_TAB": "settings",
+    ])
 
     let tabs = TabBarNavigation(app: app)
     XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
