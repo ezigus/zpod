@@ -62,6 +62,8 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
     XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
 
     let settings = SettingsScreen(app: app)
+    // Capture baseline BEFORE the tap so strategy 3 reflects the pre-tap nav-bar count.
+    let navBarsBefore = app.navigationBars.count
     XCTAssertTrue(settings.tapExportOPML(), "Should tap the Export Subscriptions (OPML) button")
 
     // The .fileExporter modifier presents a UIDocumentPickerViewController.
@@ -77,7 +79,6 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
     // the file picker navigation controller always adds a second.
     let pickerSheet = app.sheets.firstMatch
     let cancelButton = app.buttons["Cancel"].firstMatch
-    let navBarsBefore = app.navigationBars.count
     let sheetOrNav = pickerSheet.waitForExistence(timeout: adaptiveTimeout)
       || cancelButton.waitForExistence(timeout: adaptiveShortTimeout)
       || app.navigationBars.count > navBarsBefore
