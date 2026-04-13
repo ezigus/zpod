@@ -79,6 +79,15 @@
     "Packages/LibraryFeature/Sources/LibraryFeature/OPMLSubscriptionAdapter.swift": [
       "Packages",
       "zpodUITests/OPMLImportUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/SettingsHomeView.swift": [
+      "Packages",
+      "zpodUITests/SettingsExportOPMLUITests",
+      "zpodUITests/CoreUINavigationTests"
+    ],
+    "Packages/FeedParsing/Sources/FeedParsing/OPMLExportService.swift": [
+      "Packages",
+      "zpodUITests/SettingsExportOPMLUITests"
     ]
   }
 }

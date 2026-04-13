@@ -291,6 +291,48 @@ Each test phase time excludes the initial build (handled once by preflight). The
 - Target total swipe time: ≤6 minutes in parallel (vs ≥20 minutes before the decomposition). Latest Actions runs 
   (recorded 2025‑11‑19) keep individual swipe jobs under 70s after the preflight artifact is restored.
 
+### OPML Import UI Tests (`OPMLImportUITests.swift`)
+
+**Purpose**: Verify the OPML Import flow in Settings (Issue #451).
+
+**Specifications Covered**:
+
+- `Issues/451-opml-import.md` — Acceptance criteria AC1–AC5
+
+**Test Areas (7 tests)**:
+
+| # | Test Method | Validates |
+| --- | --- | --- |
+| 1 | `testOPMLImportRowExistsInSettings` | AC1 — "OPML Import" row present and hittable in Settings "Data & Subscriptions" section |
+| 2 | `testOPMLImportScreenShowsImportButton` | AC1 — Import button exists on OPML Import screen |
+| 3 | `testTapImportButtonPresentsFilePicker` | AC2 — Tapping Import shows a UIDocumentPickerViewController |
+| 4 | `testImportButtonIsAccessible` | AC1 — Import button has correct accessibility properties |
+| 5 | `testResultViewIdentifierIsReachableAfterSuccessfulImport` | AC3 — Result sheet appears via `UITEST_OPML_MOCK=success` |
+| 6 | `testErrorAlertAppearsOnInvalidFile` | AC4/AC5 — Error alert surfaces via `UITEST_OPML_MOCK=error_invalid` |
+| 7 | *(additional coverage)* | AC coverage for edge paths |
+
+### Export Subscriptions (OPML) UI Tests (`SettingsExportOPMLUITests.swift`)
+
+**Purpose**: Verify the Export Subscriptions (OPML) button in Settings (Issue #450).
+
+**Specifications Covered**:
+
+- `Issues/450-export-opml.md` — Acceptance criteria AC1–AC2
+
+**Test Areas (3 tests)**:
+
+| # | Test Method | Validates |
+| --- | --- | --- |
+| 1 | `testExportOPMLButton_isVisibleInSettings` | AC1 — Button present and hittable in Settings "Data & Subscriptions" section |
+| 2 | `testExportOPMLButton_withSubscriptions_presentsFileSaverSheet` | AC1 — Tapping Export with seeded subscriptions triggers `.fileExporter` (sheet or nav-based picker) |
+| 3 | `testExportOPMLButton_emptyLibrary_showsExportFailedAlert` | AC2 — Tapping Export with empty library shows "Export Failed" alert; alert is dismissible |
+
+**Notes**:
+
+- Unit-layer coverage lives in `Packages/FeedParsing/Tests/FeedParsingTests/OPMLExportServiceTests.swift` (7 tests covering XML generation, escaping, error paths).
+- `OPMLFileDocument` unit coverage lives in `Packages/LibraryFeature/Tests/LibraryFeatureTests/OPMLFileDocumentTests.swift`.
+- Test 2 uses an OR condition (`sheet || cancelButton.waitForExistence`) to handle both iOS rendering paths for `UIDocumentPickerViewController` (sheet on device/some simulators, navigation-based on others). The Cancel button is used as the fallback because it is always present in `UIDocumentPickerViewController` regardless of presentation style, making it a more specific indicator than a navigation-bar count.
+
 ### Widget and Extension Tests (`WidgetExtensionTests.swift`)
 
 **Purpose**: Verify home screen widgets and app extensions

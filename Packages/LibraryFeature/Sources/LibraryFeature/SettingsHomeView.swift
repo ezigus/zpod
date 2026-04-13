@@ -3,12 +3,17 @@ import Networking
 import SettingsDomain
 import SharedUtilities
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsHomeView: View {
   @ObservedObject var settingsManager: SettingsManager
   @State private var sections: [FeatureConfigurationSection] = []
   @State private var isLoading = true
   @State private var orphanedCount: Int = 0
+  @State private var isExportPresented = false
+  @State private var exportDocument: OPMLFileDocument?
+  @State private var showExportError = false
+  @State private var exportErrorMessage = ""
 
   var body: some View {
     NavigationStack {
@@ -66,6 +71,14 @@ struct SettingsHomeView: View {
               .accessibilityIdentifier("Settings.DataSubscriptions.OPMLImport.Label")
           }
           .accessibilityIdentifier("Settings.DataSubscriptions.OPMLImport")
+
+          Button {
+            exportOPML()
+          } label: {
+            Label("Export Subscriptions (OPML)", systemImage: "square.and.arrow.up")
+              .accessibilityIdentifier("Settings.ExportOPML.Label")
+          }
+          .accessibilityIdentifier("Settings.ExportOPML")
         }
 
         ForEach(sections) { section in
@@ -99,6 +112,23 @@ struct SettingsHomeView: View {
         await loadDescriptors()
         await refreshOrphanedCount()
       }
+      .fileExporter(
+        isPresented: $isExportPresented,
+        document: exportDocument,
+        contentType: UTType(filenameExtension: "opml") ?? .xml,
+        defaultFilename: "subscriptions.opml"
+      ) { result in
+        defer { exportDocument = nil }
+        if case .failure(let error) = result {
+          exportErrorMessage = error.localizedDescription
+          showExportError = true
+        }
+      }
+      .alert("Export Failed", isPresented: $showExportError) {
+        Button("OK", role: .cancel) {}
+      } message: {
+        Text(exportErrorMessage)
+      }
     }
   }
 
@@ -130,6 +160,30 @@ struct SettingsHomeView: View {
   @MainActor
   private func refreshOrphanedCount() async {
     orphanedCount = PlaybackEnvironment.podcastManager.fetchOrphanedEpisodes().count
+  }
+
+  @MainActor
+  private func exportOPML() {
+    // PlaybackEnvironment.podcastManager is always non-nil: CarPlayDependencyRegistry falls
+    // back to EmptyPodcastManager() when unconfigured, so early-init calls will produce a
+    // .noSubscriptions error rather than crashing.
+    let service = OPMLExportService(podcastManager: PlaybackEnvironment.podcastManager)
+    do {
+      let data = try service.exportSubscriptionsAsXML()
+      guard !data.isEmpty else {
+        exportErrorMessage = "Export produced an empty file. Please try again."
+        showExportError = true
+        return
+      }
+      exportDocument = OPMLFileDocument(data: data)
+      isExportPresented = true
+    } catch OPMLExportService.Error.noSubscriptions {
+      exportErrorMessage = "You have no subscriptions to export."
+      showExportError = true
+    } catch {
+      exportErrorMessage = error.localizedDescription
+      showExportError = true
+    }
   }
 
 }
@@ -215,6 +269,35 @@ private struct SettingsFeatureDetailView: View {
     } else {
       fallbackUnavailable
     }
+  }
+}
+
+// MARK: - OPML File Document
+
+struct OPMLFileDocument: FileDocument {
+  static var readableContentTypes: [UTType] {
+    // Include the opml-specific UTType when the system knows it; fall back to xml.
+    if let opmlType = UTType(filenameExtension: "opml") {
+      return [opmlType, .xml]
+    }
+    return [.xml]
+  }
+
+  let data: Data
+
+  init(data: Data) {
+    self.data = data
+  }
+
+  init(configuration: ReadConfiguration) throws {
+    guard let data = configuration.file.regularFileContents else {
+      throw CocoaError(.fileReadCorruptFile)
+    }
+    self.data = data
+  }
+
+  func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+    FileWrapper(regularFileWithContents: data)
   }
 }
 

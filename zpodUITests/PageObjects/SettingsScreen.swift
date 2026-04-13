@@ -104,6 +104,17 @@ public struct SettingsScreen: BaseScreen {
     )
   }
 
+  /// Export Subscriptions (OPML) button in "Data & Subscriptions" section.
+  private var exportOPMLButton: XCUIElement? {
+    findSettingsRow(
+      identifiers: [
+        "Settings.ExportOPML",
+        "Settings.ExportOPML.Label",
+        "Export Subscriptions (OPML)"
+      ]
+    )
+  }
+
   /// Manage Storage settings row.
   ///
   /// **Fallback chain**: Tries 4 element types to handle SwiftUI hierarchy variations.
@@ -183,14 +194,22 @@ public struct SettingsScreen: BaseScreen {
   /// Navigate to Playback Preferences configuration.
   ///
   /// **Steps**:
-  /// 1. Find Playback Preferences row
+  /// 1. Scroll Settings list to find Playback Preferences row (requires scroll)
   /// 2. Tap row
   /// 3. Verify Playback toggle appeared
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToPlaybackPreferences() -> Bool {
-    guard let row = playbackPreferencesRow else {
+    // Playback Preferences is below the initial viewport — use scrollToFindSettingsRow
+    // so the element is hittable before tapping (same pattern as swipeActions/downloadPolicies).
+    guard let row = scrollToFindSettingsRow(
+      identifiers: [
+        "Settings.Feature.playbackPreferences",
+        "Settings.Feature.Label.playbackPreferences",
+        "Playback Preferences"
+      ]
+    ) else {
       return false
     }
 
@@ -221,6 +240,19 @@ public struct SettingsScreen: BaseScreen {
       .firstMatch
 
     return waitForAny(listCandidates + [empty, title, titleLabel]) != nil
+  }
+
+  /// Tap the Export Subscriptions (OPML) button.
+  ///
+  /// The "Data & Subscriptions" section sits near the top of Settings so no
+  /// scrolling is required in the common case; `findSettingsRow` still handles
+  /// any SwiftUI element-type variation.
+  ///
+  /// - Returns: True if the button was found and tapped
+  @discardableResult
+  public func tapExportOPML() -> Bool {
+    guard let button = exportOPMLButton else { return false }
+    return tap(button)
   }
 
   /// Navigate to Storage Management screen.
