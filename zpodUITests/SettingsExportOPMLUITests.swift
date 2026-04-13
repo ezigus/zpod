@@ -71,16 +71,19 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
     // a navigation-based file browser (iOS 16-17 simulators), or a full-screen navigation
     // controller (iOS 18+ simulators). Three detection strategies cover all cases:
     //
-    //   1. `app.sheets.firstMatch`        — sheet-style presentation
-    //   2. `app.buttons["Cancel"]`        — system Cancel button (label-based, not identifier)
-    //   3. `app.navigationBars.count > 1` — nav-based browser adds a second navigation bar
-    //
-    // Strategy 3 is reliable here because the Settings view has exactly one NavigationBar;
-    // the file picker navigation controller always adds a second.
+    //   1. `app.sheets.firstMatch`                   — sheet-style presentation
+    //   2. `app.navigationBars.buttons["Cancel"]`    — Cancel button scoped to a nav bar;
+    //      narrower than `app.buttons["Cancel"]` to avoid matching unrelated Cancel buttons
+    //      elsewhere in the app (e.g. modal alerts).
+    //   3. `app.navigationBars.count > navBarsBefore` — nav-based browser adds a second
+    //      navigation bar. Settings always has exactly one NavigationBar; the file picker
+    //      navigation controller always adds a second.
     let pickerSheet = app.sheets.firstMatch
-    let cancelButton = app.buttons["Cancel"].firstMatch
+    // Scope Cancel to a navigation bar so an unrelated alert's Cancel button cannot
+    // satisfy this check — the file picker's Cancel is always in its navigation bar.
+    let navBarCancelButton = app.navigationBars.buttons["Cancel"].firstMatch
     let sheetOrNav = pickerSheet.waitForExistence(timeout: adaptiveTimeout)
-      || cancelButton.waitForExistence(timeout: adaptiveShortTimeout)
+      || navBarCancelButton.waitForExistence(timeout: adaptiveShortTimeout)
       || app.navigationBars.count > navBarsBefore
 
     XCTAssertTrue(
