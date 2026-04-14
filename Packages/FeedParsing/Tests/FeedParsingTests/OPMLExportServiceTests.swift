@@ -64,7 +64,7 @@ private func makePodcast(
 /// - 0 integration / E2E tests (file-picker system sheet is outside unit scope)
 ///
 /// **Coverage Targets**:
-/// - Unit layer: 100% branch coverage of exportSubscriptions() and exportSubscriptionsAsXML()
+/// - Unit layer: 100% branch coverage of exportSubscriptions(), exportSubscriptionsAsXML(), and exportSubscriptionsAsXMLString()
 ///
 /// **Critical Paths**:
 /// - Happy path: subscribed podcasts → valid OPML document and XML data
@@ -153,19 +153,21 @@ final class OPMLExportServiceTests: XCTestCase {
     // MARK: - AC3: Output contains correct URLs
 
     /// Given: Subscribed podcasts with known feed URLs
-    /// When: exportSubscriptionsAsXMLString() is called
-    /// Then: Each feed URL appears in the XML output
+    /// When: exportSubscriptionsAsXML() is called (the method used by SettingsHomeView)
+    /// Then: The returned Data contains each feed URL and podcast title
     ///
-    /// **AC3** — feed URL correctness
-    func testExportSubscriptionsAsXMLString_containsFeedURLs() throws {
+    /// **AC3** — feed URL correctness; directly exercises the production code path
+    func testExportSubscriptionsAsXML_containsFeedURLs() throws {
         let feedURL = "https://podcast.example.com/rss"
         let manager = MockPodcastManager(podcasts: [
             makePodcast(title: "My Show", feedURL: feedURL),
         ])
         let service = OPMLExportService(podcastManager: manager)
 
-        let xml = try service.exportSubscriptionsAsXMLString()
+        let data = try service.exportSubscriptionsAsXML()
+        let xml = String(data: data, encoding: .utf8) ?? ""
 
+        XCTAssertFalse(data.isEmpty, "exportSubscriptionsAsXML() should return non-empty Data")
         XCTAssertTrue(xml.contains(feedURL), "XML output should contain the podcast feed URL")
         XCTAssertTrue(xml.contains("My Show"), "XML output should contain the podcast title")
     }

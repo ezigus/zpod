@@ -309,7 +309,7 @@ Each test phase time excludes the initial build (handled once by preflight). The
 | 4 | `testImportButtonIsAccessible` | AC1 — Import button has correct accessibility properties |
 | 5 | `testResultViewIdentifierIsReachableAfterSuccessfulImport` | AC3 — Result sheet appears via `UITEST_OPML_MOCK=success` |
 | 6 | `testErrorAlertAppearsOnInvalidFile` | AC4/AC5 — Error alert surfaces via `UITEST_OPML_MOCK=error_invalid` |
-| 7 | *(additional coverage)* | AC coverage for edge paths |
+| 7 | `testBackNavigationFromOPMLImportReturnsToSettings` | AC5 — back navigation returns to Settings screen |
 
 ### Export Subscriptions (OPML) UI Tests (`SettingsExportOPMLUITests.swift`)
 

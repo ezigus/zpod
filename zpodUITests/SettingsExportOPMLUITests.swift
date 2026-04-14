@@ -123,6 +123,18 @@ final class SettingsExportOPMLUITests: IsolatedUITestCase {
       "Export Failed alert should appear when there are no subscriptions"
     )
 
+    let alertTitle = alert.staticTexts["Export Failed"].firstMatch
+    XCTAssertTrue(
+      alertTitle.waitForExistence(timeout: adaptiveShortTimeout),
+      "Alert title should be 'Export Failed' for the no-subscriptions error"
+    )
+
+    let alertMessage = alert.staticTexts["You have no subscriptions to export."].firstMatch
+    XCTAssertTrue(
+      alertMessage.waitForExistence(timeout: adaptiveShortTimeout),
+      "Alert message should confirm there are no subscriptions to export"
+    )
+
     // Dismiss the alert
     let okButton = alert.buttons["OK"].firstMatch
     XCTAssertTrue(okButton.waitForExistence(timeout: adaptiveShortTimeout), "OK button should be present")
