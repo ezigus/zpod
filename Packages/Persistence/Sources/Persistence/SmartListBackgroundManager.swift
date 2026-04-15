@@ -58,6 +58,7 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
     private var _configuration: SmartListRefreshConfiguration
     nonisolated(unsafe) private var foregroundObserver: NSObjectProtocol?
     nonisolated(unsafe) private var backgroundObserver: NSObjectProtocol?
+    nonisolated(unsafe) private var smartListObserver: NSObjectProtocol?
     
     // MARK: - Initialization
     
@@ -194,7 +195,8 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
     }
     
     private func setupSmartListNotifications() {
-        NotificationCenter.default.addObserver(
+        guard smartListObserver == nil else { return }
+        smartListObserver = NotificationCenter.default.addObserver(
             forName: .smartListDidUpdate,
             object: nil,
             queue: .main
@@ -207,13 +209,12 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
             }
         }
     }
-    
+
     private func removeSmartListNotifications() {
-        NotificationCenter.default.removeObserver(
-            self,
-            name: .smartListDidUpdate,
-            object: nil
-        )
+        if let observer = smartListObserver {
+            NotificationCenter.default.removeObserver(observer)
+            smartListObserver = nil
+        }
     }
     
     private func handleSmartListUpdate() async {
