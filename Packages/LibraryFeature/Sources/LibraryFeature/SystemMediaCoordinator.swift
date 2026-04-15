@@ -123,7 +123,7 @@ public final class SystemMediaCoordinator {
       try audioSession.setCategory(
         .playback,
         mode: .spokenAudio,
-        options: [.allowAirPlay, .allowBluetooth, .allowBluetoothA2DP]
+        options: [.allowAirPlay, .allowBluetoothA2DP]
       )
     } catch {
       Logger.warning("Failed to configure audio session: \(error)")
