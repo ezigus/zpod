@@ -88,6 +88,9 @@ public final class DefaultSmartListBackgroundManager: SmartListBackgroundManager
         if let backgroundObserver = backgroundObserver {
             NotificationCenter.default.removeObserver(backgroundObserver)
         }
+        if let smartListObserver = smartListObserver {
+            NotificationCenter.default.removeObserver(smartListObserver)
+        }
     }
     
     // MARK: - Background Manager Implementation
