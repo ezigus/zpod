@@ -26,7 +26,7 @@ import UniformTypeIdentifiers
 /// Unit tests for OPMLFileDocument.
 ///
 /// **Test Pyramid Breakdown**:
-/// - 3 unit tests covering the constructable surface of OPMLFileDocument
+/// - 4 unit tests covering the constructable surface of OPMLFileDocument
 /// - 0 integration / E2E tests (FileDocument is a SwiftUI protocol bridge; the file-exporter
 ///   pipeline is exercised by SettingsExportOPMLUITests)
 ///
@@ -68,6 +68,30 @@ final class OPMLFileDocumentTests: XCTestCase {
 
         XCTAssertTrue(document.data.isEmpty,
             "OPMLFileDocument must accept and preserve empty Data without substitution")
+    }
+
+    // MARK: - AC1: Data preservation — large payload
+
+    /// Given: An OPMLFileDocument initialised with a large Data payload (representative of a
+    ///        library with thousands of subscriptions)
+    /// When: The document's data property is accessed
+    /// Then: Every byte is preserved without truncation
+    ///
+    /// **AC1** — large-data preservation edge case
+    func testInit_largeData_storesDataUnchanged() {
+        // ~500 KB of repeating OPML-like content; large enough to catch any buffer/truncation
+        // issue without making the test suite meaningfully slower.
+        let repeatingUnit = Data("<outline text=\"Podcast\" xmlUrl=\"https://example.com/feed\"/>".utf8)
+        var largeData = Data()
+        largeData.reserveCapacity(repeatingUnit.count * 10_000)
+        for _ in 0..<10_000 { largeData.append(repeatingUnit) }
+
+        let document = OPMLFileDocument(data: largeData)
+
+        XCTAssertEqual(document.data.count, largeData.count,
+            "OPMLFileDocument must preserve large payloads without truncation")
+        XCTAssertEqual(document.data, largeData,
+            "OPMLFileDocument must store large payloads byte-for-byte")
     }
 
     // MARK: - AC1: Readable content types

@@ -120,12 +120,14 @@ struct SettingsHomeView: View {
       ) { result in
         defer { exportDocument = nil }
         if case .failure(let error) = result {
+          // Ignore user-cancel — no error to surface when the user dismisses the picker
+          guard (error as? CocoaError)?.code != .userCancelled else { return }
           exportErrorMessage = error.localizedDescription
           showExportError = true
         }
       }
       .alert("Export Failed", isPresented: $showExportError) {
-        Button("OK", role: .cancel) {}
+        Button("OK") {}
       } message: {
         Text(exportErrorMessage)
       }
@@ -162,27 +164,40 @@ struct SettingsHomeView: View {
     orphanedCount = PlaybackEnvironment.podcastManager.fetchOrphanedEpisodes().count
   }
 
+  private enum OPMLExportOutcome: Sendable {
+    case success(Data)
+    case failure(String)
+  }
+
   @MainActor
   private func exportOPML() {
     // PlaybackEnvironment.podcastManager is always non-nil: CarPlayDependencyRegistry falls
     // back to EmptyPodcastManager() when unconfigured, so early-init calls will produce a
     // .noSubscriptions error rather than crashing.
-    let service = OPMLExportService(podcastManager: PlaybackEnvironment.podcastManager)
-    do {
-      let data = try service.exportSubscriptionsAsXML()
-      guard !data.isEmpty else {
-        exportErrorMessage = "Export produced an empty file. Please try again."
-        showExportError = true
-        return
+    let podcastManager = PlaybackEnvironment.podcastManager
+    Task.detached(priority: .userInitiated) {
+      let outcome: OPMLExportOutcome
+      do {
+        let service = OPMLExportService(podcastManager: podcastManager)
+        let data = try service.exportSubscriptionsAsXML()
+        outcome = data.isEmpty
+          ? .failure("Export produced an empty file. Please try again.")
+          : .success(data)
+      } catch OPMLExportService.Error.noSubscriptions {
+        outcome = .failure("You have no subscriptions to export.")
+      } catch {
+        outcome = .failure(error.localizedDescription)
       }
-      exportDocument = OPMLFileDocument(data: data)
-      isExportPresented = true
-    } catch OPMLExportService.Error.noSubscriptions {
-      exportErrorMessage = "You have no subscriptions to export."
-      showExportError = true
-    } catch {
-      exportErrorMessage = error.localizedDescription
-      showExportError = true
+      await MainActor.run {
+        switch outcome {
+        case .success(let data):
+          self.exportDocument = OPMLFileDocument(data: data)
+          self.isExportPresented = true
+        case .failure(let message):
+          self.exportErrorMessage = message
+          self.showExportError = true
+        }
+      }
     }
   }
 

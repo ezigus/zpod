@@ -7,7 +7,7 @@ fi
 __ZPOD_LOGGING_SH=1
 
 # ANSI colour codes (fall back to no colour when not a TTY)
-if [[ -t 1 ]]; then
+if [[ -t 1 && -t 2 ]]; then
   __LOG_RESET="\033[0m"
   __LOG_BLUE="\033[0;34m"
   __LOG_GREEN="\033[0;32m"
@@ -35,7 +35,7 @@ log_success() {
 }
 
 log_warn() {
-  printf "%b\n" "${__LOG_YELLOW}⚠️  ${*}${__LOG_RESET}"
+  printf "%b\n" "${__LOG_YELLOW}⚠️  ${*}${__LOG_RESET}" >&2
 }
 
 log_error() {
