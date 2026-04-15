@@ -600,21 +600,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           libraryRefreshTrigger += 1
         }
       }
-      // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
-      // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
-      // TabBarHeightObserver.contentBottomPadding returns: tabBarHeight + 8pt margin
-      // This ensures proper spacing regardless of device size, orientation, or iOS version.
+      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the tab bar
+      // with no extra padding. The MiniPlayerView itself uses .background(.bar) to
+      // visually blend with the tab bar material.
       .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
           if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
-            #if canImport(UIKit)
-              .padding(.bottom, tabBarHeight.contentBottomPadding)
-            #else
-              .padding(.bottom, 60)  // Fallback for non-UIKit platforms
-            #endif
             .transition(
               ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
                 ? .identity

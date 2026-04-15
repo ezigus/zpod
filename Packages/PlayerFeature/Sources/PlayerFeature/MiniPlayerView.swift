@@ -42,44 +42,44 @@ public struct MiniPlayerView: View {
 
   // MARK: - Subviews ---------------------------------------------------------
 
-  /// Issue 03.3.4.2: Unified mini-player card with conditional content
+  /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar)
   @ViewBuilder
   private func miniPlayerCard(for episode: Episode, state: MiniPlayerDisplayState) -> some View {
-    HStack(spacing: 12) {
-      artwork(for: episode)
+    VStack(spacing: 0) {
+      Divider()
 
-      VStack(alignment: .leading, spacing: 4) {
-        Text(episode.title)
-          .font(.subheadline)
-          .fontWeight(.semibold)
-          .lineLimit(1)
-          .accessibilityIdentifier("Mini Player Episode Title")
+      HStack(spacing: 12) {
+        artwork(for: episode)
 
-        // Show error overlay if present, otherwise show podcast subtitle
-        if let error = state.error {
-          errorContent(for: error)
-        } else if !episode.podcastTitle.isEmpty {
-          Text(episode.podcastTitle)
-            .font(.caption)
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+          Text(episode.title)
+            .font(.subheadline)
+            .fontWeight(.semibold)
             .lineLimit(1)
-            .accessibilityIdentifier("Mini Player Podcast Title")
+            .accessibilityIdentifier("Mini Player Episode Title")
+
+          // Show error overlay if present, otherwise show podcast subtitle
+          if let error = state.error {
+            errorContent(for: error)
+          } else if !episode.podcastTitle.isEmpty {
+            Text(episode.podcastTitle)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+              .accessibilityIdentifier("Mini Player Podcast Title")
+          }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+
+        // Show transport controls only when no error
+        if state.error == nil {
+          transportControls(state: state)
         }
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
-
-      // Show transport controls only when no error
-      if state.error == nil {
-        transportControls(state: state)
-      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 10)
-    .background(.regularMaterial)
-    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    .shadow(radius: 4, y: 2)
-    .padding(.horizontal, 12)
-    .padding(.bottom, 4)
+    .background(.bar)
     .contentShape(Rectangle())
     .onTapGesture {
       onTapExpand()
