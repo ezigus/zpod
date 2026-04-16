@@ -55,6 +55,7 @@ public struct MiniPlayerView: View {
     } label: {
       VStack(spacing: 0) {
         Divider()
+          .frame(height: 1)
 
         HStack(spacing: 12) {
           artwork(for: episode)
