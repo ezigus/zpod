@@ -558,22 +558,17 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
           .background(TabBarIdentifierSetter())
         #endif
       }
-      // Refresh Library when user navigates back to tab 0 — covers the case where
-      // .onAppear doesn't re-fire (e.g., podcast added in Discover without leaving Library tab stack).
-      .onChange(of: selectedTab) { _, newTab in
-        if newTab == 0 {
-          libraryRefreshTrigger += 1
-        }
-      }
-      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the tab bar
-      // with no extra padding. The MiniPlayerView itself uses .background(.bar) to
-      // visually blend with the tab bar material.
+      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the
+      // tab bar. The padding pushes the mini player above the tab bar (49pt standard
+      // height) so it doesn't block tab bar interaction. MiniPlayerView uses
+      // .background(.bar) to visually blend with the tab bar material.
       .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
           if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
+            .padding(.bottom, Self.tabBarBottomPadding)
             .transition(
               ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
                 ? .identity
@@ -581,6 +576,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             )
           }
         #endif
+      }
+      // Refresh Library when user navigates back to tab 0 — covers the case where
+      // .onAppear doesn't re-fire (e.g., podcast added in Discover without leaving Library tab stack).
+      .onChange(of: selectedTab) { _, newTab in
+        if newTab == 0 {
+          libraryRefreshTrigger += 1
+        }
       }
       #if canImport(PlayerFeature)
         .sheet(isPresented: $showFullPlayer) {
@@ -628,6 +630,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         return nil
       #endif
     }
+
+    /// Standard tab bar height (49pt) used to position the mini player above the tab bar.
+    /// UITabBar.frame.height is 49pt on all current iPhone models regardless of home
+    /// indicator. The safeAreaInset places content at the screen bottom; this offset
+    /// pushes the mini player up so it sits flush above the tab bar.
+    private static let tabBarBottomPadding: CGFloat = 49
 
     private static func initialTabSelection() -> Int {
       UITestTabSelection.resolve(

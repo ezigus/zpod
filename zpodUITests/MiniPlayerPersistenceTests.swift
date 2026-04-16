@@ -127,30 +127,36 @@ final class MiniPlayerPersistenceTests: IsolatedUITestCase {
       "Tab bar should be visible with mini player active"
     )
 
-    func assertTabSelectable(_ tabName: String) {
-      let tab = tabBar.buttons.matching(identifier: tabName).firstMatch
-      XCTAssertTrue(
-        waitForElementToBeHittable(tab, timeout: adaptiveShortTimeout, description: "\(tabName) tab"),
-        "\(tabName) tab should exist"
-      )
-      XCTAssertTrue(tab.isHittable, "\(tabName) tab should remain tappable with mini player visible")
-      tab.tap()
+    // Verify each tab can be selected while the mini player is active.
+    // Uses the TabBarNavigation page object for reliable cross-version tab switching.
+    let tabs = TabBarNavigation(app: app)
 
-      let selectedExpectation = XCTNSPredicateExpectation(
-        predicate: NSPredicate(format: "isSelected == true"),
-        object: tab
-      )
-      selectedExpectation.expectationDescription = "Wait for \(tabName) tab selection"
-      XCTAssertEqual(
-        XCTWaiter.wait(for: [selectedExpectation], timeout: adaptiveShortTimeout),
-        .completed,
-        "\(tabName) tab should be selectable while mini player is active"
-      )
-    }
+    XCTAssertTrue(
+      tabs.navigateToDiscover(),
+      "Discover tab should be selectable while mini player is active"
+    )
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      "Mini player should persist on Discover tab"
+    )
 
-    assertTabSelectable("Discover")
-    assertTabSelectable("Player")
-    assertTabSelectable("Settings")
+    XCTAssertTrue(
+      tabs.navigateToPlayer(),
+      "Player tab should be selectable while mini player is active"
+    )
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      "Mini player should persist on Player tab"
+    )
+
+    XCTAssertTrue(
+      tabs.navigateToSettings(),
+      "Settings tab should be selectable while mini player is active"
+    )
+    XCTAssertTrue(
+      miniPlayer.waitForExistence(timeout: adaptiveShortTimeout),
+      "Mini player should persist on Settings tab"
+    )
   }
 
   @MainActor

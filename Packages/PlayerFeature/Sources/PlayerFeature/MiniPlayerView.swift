@@ -43,47 +43,54 @@ public struct MiniPlayerView: View {
   // MARK: - Subviews ---------------------------------------------------------
 
   /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar)
+  /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar).
+  ///
+  /// Uses a Button for the expand action instead of `.onTapGesture` +
+  /// `.contentShape(Rectangle())`. The gesture-based approach creates a
+  /// UITapGestureRecognizer that, when placed via `.safeAreaInset(edge: .bottom)`,
+  /// intercepts tab bar taps and prevents tab switching.
   @ViewBuilder
   private func miniPlayerCard(for episode: Episode, state: MiniPlayerDisplayState) -> some View {
-    VStack(spacing: 0) {
-      Divider()
+    Button {
+      onTapExpand()
+    } label: {
+      VStack(spacing: 0) {
+        Divider()
 
-      HStack(spacing: 12) {
-        artwork(for: episode)
+        HStack(spacing: 12) {
+          artwork(for: episode)
 
-        VStack(alignment: .leading, spacing: 4) {
-          Text(episode.title)
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .lineLimit(1)
-            .accessibilityIdentifier("Mini Player Episode Title")
-
-          // Show error overlay if present, otherwise show podcast subtitle
-          if let error = state.error {
-            errorContent(for: error)
-          } else if !episode.podcastTitle.isEmpty {
-            Text(episode.podcastTitle)
-              .font(.caption)
-              .foregroundStyle(.secondary)
+          VStack(alignment: .leading, spacing: 4) {
+            Text(episode.title)
+              .font(.subheadline)
+              .fontWeight(.semibold)
               .lineLimit(1)
-              .accessibilityIdentifier("Mini Player Podcast Title")
+              .accessibilityIdentifier("Mini Player Episode Title")
+
+            // Show error overlay if present, otherwise show podcast subtitle
+            if let error = state.error {
+              errorContent(for: error)
+            } else if !episode.podcastTitle.isEmpty {
+              Text(episode.podcastTitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .accessibilityIdentifier("Mini Player Podcast Title")
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+
+          // Show transport controls only when no error
+          if state.error == nil {
+            transportControls(state: state)
           }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-
-        // Show transport controls only when no error
-        if state.error == nil {
-          transportControls(state: state)
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
       }
-      .padding(.horizontal, 16)
-      .padding(.vertical, 10)
+      .background(.bar)
     }
-    .background(.bar)
-    .contentShape(Rectangle())
-    .onTapGesture {
-      onTapExpand()
-    }
+    .buttonStyle(.plain)
     .accessibilityElement(children: .ignore)
     .accessibilityIdentifier("Mini Player")
     .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
