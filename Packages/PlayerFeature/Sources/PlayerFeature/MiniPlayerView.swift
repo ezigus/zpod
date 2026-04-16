@@ -94,7 +94,7 @@ public struct MiniPlayerView: View {
     .accessibilityElement(children: .ignore)
     .accessibilityIdentifier("Mini Player")
     .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
-    .accessibilityHint("Double-tap to open the full player")
+    .accessibilityHint("Opens the full player")
     .transition(
       ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
         ? .identity
@@ -107,11 +107,11 @@ public struct MiniPlayerView: View {
     error: PlaybackError?
   ) -> String {
     guard let error = error else {
-      return "Mini player showing \(episode.title). Double-tap to open the full player."
+      return "Mini player: \(episode.title)"
     }
 
-    let recoverableHint = error.isRecoverable ? " Retry playback is available." : ""
-    return "Mini player showing \(episode.title) with error: \(error.userMessage).\(recoverableHint)"
+    let recoverableHint = error.isRecoverable ? " Retry available." : ""
+    return "Mini player: \(episode.title). Error: \(error.userMessage).\(recoverableHint)"
   }
 
   /// Issue 03.3.4.2: Error content for failed playback
