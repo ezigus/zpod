@@ -225,6 +225,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #if canImport(UIKit)
   // MARK: - UIKit Introspection Helper for Tab Bar Identifier
   private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
+    /// Written once when the UITabBar is first found. Reports intrinsicContentSize.height (49pt
+    /// on standard iPhones), which is the value needed to offset the mini-player above the tab bar
+    /// via .safeAreaInset — separate from the home-indicator safe area that SwiftUI already handles.
+    @Binding var tabBarHeight: CGFloat
+
     private let maxAttempts = 50
     private let retryInterval: TimeInterval = 0.1
 
@@ -313,6 +318,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       if tabBar.accessibilityIdentifier != "Main Tab Bar" {
         tabBar.accessibilityIdentifier = "Main Tab Bar"
         tabBar.accessibilityLabel = "Main Tab Bar"
+      }
+
+      // Publish the tab bar's intrinsic content height (excludes home-indicator safe area
+      // extension) so the mini-player offset stays correct across device types.
+      let intrinsicHeight = tabBar.intrinsicContentSize.height
+      if intrinsicHeight > 0 {
+        tabBarHeight = intrinsicHeight
       }
 
       guard let items = tabBar.items, !items.isEmpty else { return }
@@ -459,6 +471,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
+    /// Dynamic tab bar height measured from the live UITabBar instance by TabBarIdentifierSetter.
+    /// Defaults to 49pt (standard UITabBar intrinsicContentSize.height) before measurement completes.
+    @State private var tabBarHeight: CGFloat = 49
     // Incremented each time the Library tab (tag 0) is selected, causing LibraryView to reload.
     // This covers the case where the user adds a podcast in Discover and returns to Library
     // without .onAppear re-firing (e.g., back-navigation within the tab stack).
@@ -555,20 +570,21 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .tag(4)
         }
         #if canImport(UIKit)
-          .background(TabBarIdentifierSetter())
+          .background(TabBarIdentifierSetter(tabBarHeight: $tabBarHeight))
         #endif
       }
-      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the
-      // tab bar. The padding pushes the mini player above the tab bar (49pt standard
-      // height) so it doesn't block tab bar interaction. MiniPlayerView uses
-      // .background(.bar) to visually blend with the tab bar material.
+      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the tab bar.
+      // .safeAreaInset anchors the mini-player at the home-indicator safe area edge (not
+      // the tab bar top). The tabBarHeight offset lifts it to the tab bar's top edge so
+      // it doesn't block tab bar interaction. tabBarHeight is measured dynamically from
+      // the live UITabBar via TabBarIdentifierSetter (defaults to 49pt before measurement).
       .safeAreaInset(edge: .bottom) {
         #if canImport(PlayerFeature)
           if miniPlayerViewModel.displayState.isVisible {
             MiniPlayerView(viewModel: miniPlayerViewModel) {
               showFullPlayer = true
             }
-            .padding(.bottom, Self.tabBarBottomPadding)
+            .padding(.bottom, tabBarHeight)
             .transition(
               ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
                 ? .identity
@@ -630,12 +646,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         return nil
       #endif
     }
-
-    /// Standard tab bar height (49pt) used to position the mini player above the tab bar.
-    /// UITabBar.frame.height is 49pt on all current iPhone models regardless of home
-    /// indicator. The safeAreaInset places content at the screen bottom; this offset
-    /// pushes the mini player up so it sits flush above the tab bar.
-    private static let tabBarBottomPadding: CGFloat = 49
 
     private static func initialTabSelection() -> Int {
       UITestTabSelection.resolve(

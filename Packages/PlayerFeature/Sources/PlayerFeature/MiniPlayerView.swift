@@ -42,7 +42,6 @@ public struct MiniPlayerView: View {
 
   // MARK: - Subviews ---------------------------------------------------------
 
-  /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar)
   /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar).
   ///
   /// Uses a Button for the expand action instead of `.onTapGesture` +
