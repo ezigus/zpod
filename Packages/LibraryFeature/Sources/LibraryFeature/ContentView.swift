@@ -223,33 +223,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #endif
 
 #if canImport(UIKit)
-  // MARK: - Tab Bar Height Observer
-
-  /// Shared observable that publishes the actual tab bar height for dynamic mini-player positioning.
-  /// Updated by TabBarIdentifierSetter when it locates the UITabBar.
-  @MainActor
-  final class TabBarHeightObserver: ObservableObject {
-    static let shared = TabBarHeightObserver()
-
-    /// The measured tab bar height (includes the full visual height)
-    @Published private(set) var height: CGFloat = 0
-
-    /// Safe bottom padding for content that should appear above the tab bar.
-    /// Returns 0 when height hasn't been measured yet (content will be positioned by safeAreaInset).
-    /// Once measured, returns the tab bar height plus a small margin for visual separation.
-    var contentBottomPadding: CGFloat {
-      guard height > 0 else { return 0 }
-      return height + 8  // Tab bar height + 8pt margin for visual separation
-    }
-
-    private init() {}
-
-    func update(height: CGFloat) {
-      guard height > 0, height != self.height else { return }
-      self.height = height
-    }
-  }
-
   // MARK: - UIKit Introspection Helper for Tab Bar Identifier
   private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     private let maxAttempts = 50
@@ -341,9 +314,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         tabBar.accessibilityIdentifier = "Main Tab Bar"
         tabBar.accessibilityLabel = "Main Tab Bar"
       }
-
-      // Publish the tab bar height for dynamic mini-player positioning
-      TabBarHeightObserver.shared.update(height: tabBar.frame.height)
 
       guard let items = tabBar.items, !items.isEmpty else { return }
 
@@ -484,11 +454,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       @StateObject private var expandedPlayerViewModel: ExpandedPlayerViewModel
     #endif
     @State private var showFullPlayer: Bool
-
-    // Tab bar height for dynamic mini-player positioning
-    #if canImport(UIKit)
-      @StateObject private var tabBarHeight = TabBarHeightObserver.shared
-    #endif
 
     // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests.
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
