@@ -110,9 +110,9 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> TabBarConfigViewController {
         let controller = TabBarConfigViewController()
-        controller.onViewDidAppear = { [coordinator = context.coordinator] in
+        controller.onViewDidAppear = { [coordinator = context.coordinator, weak controller] in
             guard !coordinator.isConfigured else { return }
-            if let tabBar = controller.locateTabBar() {
+            if let tabBar = controller?.locateTabBar() {
                 coordinator.isConfigured = true
                 configure(tabBar: tabBar)
             }

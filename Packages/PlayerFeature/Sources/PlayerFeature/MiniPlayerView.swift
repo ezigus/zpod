@@ -70,10 +70,7 @@ public struct MiniPlayerView: View {
                 .lineLimit(1)
                 .accessibilityIdentifier("Mini Player Episode Title")
 
-              // Show error overlay if present, otherwise show podcast subtitle
-              if let error = state.error {
-                errorContent(for: error)
-              } else if !episode.podcastTitle.isEmpty {
+              if state.error == nil, !episode.podcastTitle.isEmpty {
                 Text(episode.podcastTitle)
                   .font(.caption)
                   .foregroundStyle(.secondary)
@@ -90,8 +87,11 @@ public struct MiniPlayerView: View {
         .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
         .accessibilityHint("Opens the full player")
 
-        // Transport controls are siblings, NOT inside the expand button
-        if state.error == nil {
+        // Interactive controls are siblings so their taps are never swallowed
+        // by the expand button's gesture recognizer.
+        if let error = state.error {
+          errorContent(for: error)
+        } else {
           transportControls(state: state)
         }
       }
