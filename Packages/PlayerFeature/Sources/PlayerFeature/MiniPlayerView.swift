@@ -43,64 +43,64 @@ public struct MiniPlayerView: View {
   // MARK: - Subviews ---------------------------------------------------------
 
   /// Issue 03.1.1.7: Tab bar extension mini-player (full-width, flush against tab bar).
-  ///
-  /// Uses a Button for the expand action instead of `.onTapGesture` +
-  /// `.contentShape(Rectangle())`. The gesture-based approach creates a
-  /// UITapGestureRecognizer that, when placed via `.safeAreaInset(edge: .bottom)`,
-  /// intercepts tab bar taps and prevents tab switching.
   @ViewBuilder
   private func miniPlayerCard(for episode: Episode, state: MiniPlayerDisplayState) -> some View {
-    Button {
-      onTapExpand()
-    } label: {
-      VStack(spacing: 0) {
-        Divider()
-          .frame(height: 1)
-          .padding(.top, 8)
+    VStack(spacing: 0) {
+      Divider()
+        .frame(height: 1)
+        .padding(.top, 8)
 
-        HStack(spacing: 12) {
-          artwork(for: episode)
+      HStack(spacing: 12) {
+        // Uses a Button for the expand action instead of `.onTapGesture` +
+        // `.contentShape(Rectangle())`. The gesture-based approach creates a
+        // UITapGestureRecognizer that, when placed via `.safeAreaInset(edge: .bottom)`,
+        // intercepts tab bar taps and prevents tab switching.
+        // The expand button wraps only artwork + title/subtitle so that transport
+        // controls remain independently tappable as siblings in the HStack.
+        Button {
+          onTapExpand()
+        } label: {
+          HStack(spacing: 12) {
+            artwork(for: episode)
 
-          VStack(alignment: .leading, spacing: 4) {
-            Text(episode.title)
-              .font(.subheadline)
-              .fontWeight(.semibold)
-              .lineLimit(1)
-              .accessibilityIdentifier("Mini Player Episode Title")
-
-            // Show error overlay if present, otherwise show podcast subtitle
-            if let error = state.error {
-              errorContent(for: error)
-            } else if !episode.podcastTitle.isEmpty {
-              Text(episode.podcastTitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+              Text(episode.title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
                 .lineLimit(1)
-                .accessibilityIdentifier("Mini Player Podcast Title")
-            }
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("Mini Player Episode Title")
 
-          // Show transport controls only when no error
-          if state.error == nil {
-            transportControls(state: state)
+              // Show error overlay if present, otherwise show podcast subtitle
+              if let error = state.error {
+                errorContent(for: error)
+              } else if !episode.podcastTitle.isEmpty {
+                Text(episode.podcastTitle)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .lineLimit(1)
+                  .accessibilityIdentifier("Mini Player Podcast Title")
+              }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("Mini Player")
+        .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
+        .accessibilityHint("Opens the full player")
+
+        // Transport controls are siblings, NOT inside the expand button
+        if state.error == nil {
+          transportControls(state: state)
+        }
       }
-      .background(.bar)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
     }
-    .buttonStyle(.plain)
-    .accessibilityElement(children: .ignore)
-    .accessibilityIdentifier("Mini Player")
-    .accessibilityLabel(miniPlayerAccessibilityLabel(for: episode, error: state.error))
-    .accessibilityHint("Opens the full player")
-    .transition(
-      ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
-        ? .identity
-        : .move(edge: .bottom).combined(with: .opacity)
-    )
+    .background(.bar)
+    // Transition is owned by the ContentView call site (.safeAreaInset conditional);
+    // do not add a second transition here or it will compose with the outer one.
   }
 
   private func miniPlayerAccessibilityLabel(

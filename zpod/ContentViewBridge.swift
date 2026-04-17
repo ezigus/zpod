@@ -112,10 +112,11 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
         let controller = TabBarConfigViewController()
         controller.onViewDidAppear = { [coordinator = context.coordinator] in
             guard !coordinator.isConfigured else { return }
-            coordinator.isConfigured = true
             if let tabBar = controller.locateTabBar() {
+                coordinator.isConfigured = true
                 configure(tabBar: tabBar)
             }
+            // If locateTabBar() returns nil, don't set isConfigured — viewDidAppear can retry
         }
         return controller
     }
@@ -164,7 +165,8 @@ final class TabBarConfigViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         onViewDidAppear?()
-        onViewDidAppear = nil  // fire once, then release
+        // Don't nil here — the closure guards with isConfigured,
+        // and we may need to retry if tab bar wasn't available yet
     }
 
     func locateTabBar() -> UITabBar? {
