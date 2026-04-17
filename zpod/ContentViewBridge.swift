@@ -94,78 +94,35 @@ private final class PlaceholderPodcastManager: PodcastManaging, @unchecked Senda
 
 
 #if canImport(UIKit)
+/// Sets accessibility identifiers on the UIKit tab bar once, from `viewDidAppear`.
+///
+/// Using `viewDidAppear` instead of `DispatchQueue.main.asyncAfter` is critical for
+/// XCUITest quiescence: `asyncAfter` keeps posting work items on the main run loop
+/// (especially when called from `updateUIViewController` on every SwiftUI re-render),
+/// preventing XCUITest's idle detector from ever seeing the app as idle.
 private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
-    private let maxAttempts = 40
-    private let retryInterval: TimeInterval = 0.1
 
-    func makeUIViewController(context: Context) -> UIViewController {
-        let controller = UIViewController()
-        scheduleIdentifierUpdate(from: controller, attempt: 0)
+    final class Coordinator {
+        var isConfigured = false
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIViewController(context: Context) -> TabBarConfigViewController {
+        let controller = TabBarConfigViewController()
+        controller.onViewDidAppear = { [coordinator = context.coordinator] in
+            guard !coordinator.isConfigured else { return }
+            coordinator.isConfigured = true
+            if let tabBar = controller.locateTabBar() {
+                configure(tabBar: tabBar)
+            }
+        }
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-        scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
-    }
-
-    private func scheduleIdentifierUpdate(from uiViewController: UIViewController, attempt: Int) {
-        let delay = attempt == 0 ? 0 : retryInterval
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            guard
-                let tabBar = self.locateTabBar(startingFrom: uiViewController)
-                    ?? self.locateTabBarAcrossScenes()
-            else {
-                self.retryIfNeeded(from: uiViewController, attempt: attempt)
-                return
-            }
-            self.configure(tabBar: tabBar)
-        }
-    }
-
-    private func retryIfNeeded(from uiViewController: UIViewController, attempt: Int) {
-        guard attempt < maxAttempts else { return }
-        scheduleIdentifierUpdate(from: uiViewController, attempt: attempt + 1)
-    }
-
-    @MainActor
-    private func locateTabBar(startingFrom uiViewController: UIViewController) -> UITabBar? {
-        if let tabBarController = findTabBarController(from: uiViewController) {
-            return tabBarController.tabBar
-        }
-
-        if let parent = uiViewController.parent,
-           let tabBarController = findTabBarController(from: parent)
-        {
-            return tabBarController.tabBar
-        }
-
-        if let window = uiViewController.view.window,
-           let rootController = window.rootViewController,
-           let tabBarController = findTabBarController(from: rootController)
-        {
-            return tabBarController.tabBar
-        }
-
-        return nil
-    }
-
-    @MainActor
-    private func locateTabBarAcrossScenes() -> UITabBar? {
-        let scenes = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter {
-                $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
-            }
-
-        for scene in scenes {
-            for window in scene.windows where !window.isHidden {
-                if let controller = findTabBarController(from: window.rootViewController) {
-                    return controller.tabBar
-                }
-            }
-        }
-
-        return nil
+    func updateUIViewController(_ uiViewController: TabBarConfigViewController, context: Context) {
+        // Intentionally empty — configuration is one-shot from viewDidAppear.
+        // Doing work here would re-run on every SwiftUI re-render.
     }
 
     @MainActor
@@ -190,45 +147,51 @@ private struct UITestTabBarIdentifierSetter: UIViewControllerRepresentable {
                 return "Tab \(index + 1)"
             }()
 
-            if (item.title ?? "").isEmpty {
-                item.title = resolvedTitle
-            }
-
-            if (item.accessibilityLabel ?? "").isEmpty {
-                item.accessibilityLabel = resolvedTitle
-            }
-
-            if (item.accessibilityIdentifier ?? "").isEmpty {
-                item.accessibilityIdentifier = resolvedTitle
-            }
-
-            if (item.accessibilityHint ?? "").isEmpty {
-                item.accessibilityHint = "Opens \(resolvedTitle)"
-            }
-
-            if !item.accessibilityTraits.contains(.button) {
-                item.accessibilityTraits.insert(.button)
-            }
+            if (item.title ?? "").isEmpty { item.title = resolvedTitle }
+            if (item.accessibilityLabel ?? "").isEmpty { item.accessibilityLabel = resolvedTitle }
+            if (item.accessibilityIdentifier ?? "").isEmpty { item.accessibilityIdentifier = resolvedTitle }
+            if (item.accessibilityHint ?? "").isEmpty { item.accessibilityHint = "Opens \(resolvedTitle)" }
+            if !item.accessibilityTraits.contains(.button) { item.accessibilityTraits.insert(.button) }
         }
+    }
+}
+
+/// UIViewController subclass used by `UITestTabBarIdentifierSetter` to obtain a
+/// synchronous `viewDidAppear` callback without scheduling async main-queue work.
+final class TabBarConfigViewController: UIViewController {
+    var onViewDidAppear: (() -> Void)?
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        onViewDidAppear?()
+        onViewDidAppear = nil  // fire once, then release
+    }
+
+    func locateTabBar() -> UITabBar? {
+        if let tbc = findTabBarController(from: self) { return tbc.tabBar }
+        if let parent, let tbc = findTabBarController(from: parent) { return tbc.tabBar }
+        if let root = view.window?.rootViewController,
+           let tbc = findTabBarController(from: root) { return tbc.tabBar }
+
+        // Fall back to scanning all foreground scenes
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+            .flatMap { $0.windows }
+            .filter { !$0.isHidden }
+            .compactMap { findTabBarController(from: $0.rootViewController)?.tabBar }
+            .first
     }
 
     private func findTabBarController(from vc: UIViewController?) -> UITabBarController? {
         guard let vc else { return nil }
-
-        if let tabBarController = vc as? UITabBarController {
-            return tabBarController
-        }
-
+        if let tbc = vc as? UITabBarController { return tbc }
         for child in vc.children {
-            if let controller = findTabBarController(from: child) {
-                return controller
-            }
+            if let tbc = findTabBarController(from: child) { return tbc }
         }
-
         if let presented = vc.presentedViewController {
             return findTabBarController(from: presented)
         }
-
         return nil
     }
 }
