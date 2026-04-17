@@ -223,6 +223,20 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #endif
 
 #if canImport(UIKit)
+  // MARK: - Tab Bar Measurement View Controller
+  /// Fires onViewDidAppear once after the view hierarchy is fully set up.
+  /// This avoids any DispatchQueue.main.asyncAfter retry loops that would keep
+  /// pending async work on the main queue and prevent XCUITest quiescence detection.
+  private final class TabBarMeasurementViewController: UIViewController {
+    var onViewDidAppear: (() -> Void)?
+
+    override func viewDidAppear(_ animated: Bool) {
+      super.viewDidAppear(animated)
+      onViewDidAppear?()
+      onViewDidAppear = nil
+    }
+  }
+
   // MARK: - UIKit Introspection Helper for Tab Bar Identifier
   private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
     /// Written once when the UITabBar is first found. Reports intrinsicContentSize.height (49pt
@@ -230,46 +244,43 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     /// via .safeAreaInset — separate from the home-indicator safe area that SwiftUI already handles.
     @Binding var tabBarHeight: CGFloat
 
-    private let maxAttempts = 50
-    private let retryInterval: TimeInterval = 0.1
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
-    func makeUIViewController(context: Context) -> UIViewController {
-      let controller = UIViewController()
-      scheduleIdentifierUpdate(from: controller, attempt: 0)
-      return controller
+    /// Tracks whether tab bar measurement has already completed so that SwiftUI
+    /// re-renders (which call updateUIViewController repeatedly) never schedule
+    /// redundant work.
+    final class Coordinator {
+      var isConfigured = false
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-      // Only retry if the tab bar hasn't been configured yet.
-      // Restarting the full retry loop on every SwiftUI re-render creates
-      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
-      // app non-idle for XCUITest's quiescence detector.
-      if let tabBar = locateTabBar(startingFrom: uiViewController)
-        ?? locateTabBarAcrossScenes(),
-        tabBar.accessibilityIdentifier == "Main Tab Bar"
-      {
-        return
-      }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
-    }
-
-    private func scheduleIdentifierUpdate(from uiViewController: UIViewController, attempt: Int) {
-      let delay = attempt == 0 ? 0 : retryInterval
-      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-        guard
-          let tabBar = self.locateTabBar(startingFrom: uiViewController)
-            ?? self.locateTabBarAcrossScenes()
-        else {
-          self.retryIfNeeded(from: uiViewController, attempt: attempt)
-          return
+    func makeUIViewController(context: Context) -> TabBarMeasurementViewController {
+      let vc = TabBarMeasurementViewController()
+      // viewDidAppear fires after the full UIKit view hierarchy is assembled —
+      // the tab bar is guaranteed to be present at that point, so no retry loop needed.
+      vc.onViewDidAppear = {
+        guard !context.coordinator.isConfigured else { return }
+        if let tabBar = self.locateTabBar(startingFrom: vc)
+          ?? self.locateTabBarAcrossScenes()
+        {
+          context.coordinator.isConfigured = true
+          self.configure(tabBar: tabBar)
         }
-        self.configure(tabBar: tabBar)
       }
+      return vc
     }
 
-    private func retryIfNeeded(from uiViewController: UIViewController, attempt: Int) {
-      guard attempt < maxAttempts else { return }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: attempt + 1)
+    func updateUIViewController(_ uiViewController: TabBarMeasurementViewController, context: Context) {
+      // Once configured, nothing to do on any subsequent re-render.
+      guard !context.coordinator.isConfigured else { return }
+      // If viewDidAppear has already fired (callback cleared) but measurement hasn't completed
+      // (tab bar wasn't in hierarchy yet — rare), try once synchronously. No asyncAfter needed.
+      guard uiViewController.onViewDidAppear == nil else { return }
+      if let tabBar = locateTabBar(startingFrom: uiViewController)
+        ?? locateTabBarAcrossScenes()
+      {
+        context.coordinator.isConfigured = true
+        configure(tabBar: tabBar)
+      }
     }
 
     @MainActor
