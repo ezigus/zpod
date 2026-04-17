@@ -223,75 +223,64 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 #endif
 
 #if canImport(UIKit)
-  // MARK: - Tab Bar Height Observer
+  // MARK: - Tab Bar Measurement View Controller
+  /// Fires onViewDidAppear once after the view hierarchy is fully set up.
+  /// This avoids any DispatchQueue.main.asyncAfter retry loops that would keep
+  /// pending async work on the main queue and prevent XCUITest quiescence detection.
+  private final class TabBarMeasurementViewController: UIViewController {
+    var onViewDidAppear: (() -> Void)?
 
-  /// Shared observable that publishes the actual tab bar height for dynamic mini-player positioning.
-  /// Updated by TabBarIdentifierSetter when it locates the UITabBar.
-  @MainActor
-  final class TabBarHeightObserver: ObservableObject {
-    static let shared = TabBarHeightObserver()
-
-    /// The measured tab bar height (includes the full visual height)
-    @Published private(set) var height: CGFloat = 0
-
-    /// Safe bottom padding for content that should appear above the tab bar.
-    /// Returns 0 when height hasn't been measured yet (content will be positioned by safeAreaInset).
-    /// Once measured, returns the tab bar height plus a small margin for visual separation.
-    var contentBottomPadding: CGFloat {
-      guard height > 0 else { return 0 }
-      return height + 8  // Tab bar height + 8pt margin for visual separation
-    }
-
-    private init() {}
-
-    func update(height: CGFloat) {
-      guard height > 0, height != self.height else { return }
-      self.height = height
+    override func viewDidAppear(_ animated: Bool) {
+      super.viewDidAppear(animated)
+      onViewDidAppear?()
+      onViewDidAppear = nil
     }
   }
 
   // MARK: - UIKit Introspection Helper for Tab Bar Identifier
   private struct TabBarIdentifierSetter: UIViewControllerRepresentable {
-    private let maxAttempts = 50
-    private let retryInterval: TimeInterval = 0.1
+    /// Written once when the UITabBar is first found. Reports intrinsicContentSize.height (49pt
+    /// on standard iPhones), which is the value needed to offset the mini-player above the tab bar
+    /// via .safeAreaInset — separate from the home-indicator safe area that SwiftUI already handles.
+    @Binding var tabBarHeight: CGFloat
 
-    func makeUIViewController(context: Context) -> UIViewController {
-      let controller = UIViewController()
-      scheduleIdentifierUpdate(from: controller, attempt: 0)
-      return controller
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    /// Tracks whether tab bar measurement has already completed so that SwiftUI
+    /// re-renders (which call updateUIViewController repeatedly) never schedule
+    /// redundant work.
+    final class Coordinator {
+      var isConfigured = false
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
-      // Only retry if the tab bar hasn't been configured yet.
-      // Restarting the full retry loop on every SwiftUI re-render creates
-      // cascading DispatchQueue.main.asyncAfter dispatches that keep the
-      // app non-idle for XCUITest's quiescence detector.
-      if let tabBar = locateTabBar(startingFrom: uiViewController)
-        ?? locateTabBarAcrossScenes(),
-        tabBar.accessibilityIdentifier == "Main Tab Bar"
-      {
-        return
-      }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: 0)
-    }
-
-    private func scheduleIdentifierUpdate(from uiViewController: UIViewController, attempt: Int) {
-      let delay = attempt == 0 ? 0 : retryInterval
-      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-        guard
-          let tabBar = self.locateTabBar(startingFrom: uiViewController)
-            ?? self.locateTabBarAcrossScenes()
-        else {
-          self.retryIfNeeded(from: uiViewController, attempt: attempt)
-          return
+    func makeUIViewController(context: Context) -> TabBarMeasurementViewController {
+      let vc = TabBarMeasurementViewController()
+      // viewDidAppear fires after the full UIKit view hierarchy is assembled —
+      // the tab bar is guaranteed to be present at that point, so no retry loop needed.
+      vc.onViewDidAppear = {
+        guard !context.coordinator.isConfigured else { return }
+        if let tabBar = self.locateTabBar(startingFrom: vc)
+          ?? self.locateTabBarAcrossScenes()
+        {
+          context.coordinator.isConfigured = true
+          self.configure(tabBar: tabBar)
         }
-        self.configure(tabBar: tabBar)
       }
+      return vc
     }
 
-    private func retryIfNeeded(from uiViewController: UIViewController, attempt: Int) {
-      guard attempt < maxAttempts else { return }
-      scheduleIdentifierUpdate(from: uiViewController, attempt: attempt + 1)
+    func updateUIViewController(_ uiViewController: TabBarMeasurementViewController, context: Context) {
+      // Once configured, nothing to do on any subsequent re-render.
+      guard !context.coordinator.isConfigured else { return }
+      // If viewDidAppear has already fired (callback cleared) but measurement hasn't completed
+      // (tab bar wasn't in hierarchy yet — rare), try once synchronously. No asyncAfter needed.
+      guard uiViewController.onViewDidAppear == nil else { return }
+      if let tabBar = locateTabBar(startingFrom: uiViewController)
+        ?? locateTabBarAcrossScenes()
+      {
+        context.coordinator.isConfigured = true
+        configure(tabBar: tabBar)
+      }
     }
 
     @MainActor
@@ -342,8 +331,12 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         tabBar.accessibilityLabel = "Main Tab Bar"
       }
 
-      // Publish the tab bar height for dynamic mini-player positioning
-      TabBarHeightObserver.shared.update(height: tabBar.frame.height)
+      // Publish the tab bar's intrinsic content height (excludes home-indicator safe area
+      // extension) so the mini-player offset stays correct across device types.
+      let intrinsicHeight = tabBar.intrinsicContentSize.height
+      if intrinsicHeight > 0 {
+        tabBarHeight = intrinsicHeight
+      }
 
       guard let items = tabBar.items, !items.isEmpty else { return }
 
@@ -485,15 +478,13 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     #endif
     @State private var showFullPlayer: Bool
 
-    // Tab bar height for dynamic mini-player positioning
-    #if canImport(UIKit)
-      @StateObject private var tabBarHeight = TabBarHeightObserver.shared
-    #endif
-
     // CRITICAL: Explicit tab selection binding fixes tab switching when animations disabled in UI tests.
     // Without this, SwiftUI's internal tab mechanism fails when UIView.setAnimationsEnabled(false).
     // TODO: Revisit on newer iOS releases to confirm SwiftUI tab selection no longer requires this workaround.
     @State private var selectedTab: Int = 0
+    /// Dynamic tab bar height measured from the live UITabBar instance by TabBarIdentifierSetter.
+    /// Defaults to 49pt (standard UITabBar intrinsicContentSize.height) before measurement completes.
+    @State private var tabBarHeight: CGFloat = 49
     // Incremented each time the Library tab (tag 0) is selected, causing LibraryView to reload.
     // This covers the case where the user adds a podcast in Discover and returns to Library
     // without .onAppear re-firing (e.g., back-navigation within the tab stack).
@@ -590,7 +581,27 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             .tag(4)
         }
         #if canImport(UIKit)
-          .background(TabBarIdentifierSetter())
+          .background(TabBarIdentifierSetter(tabBarHeight: $tabBarHeight))
+        #endif
+      }
+      // Issue 03.1.1.7: Mini-player as tab bar extension — sits flush above the tab bar.
+      // .safeAreaInset anchors the mini-player at the home-indicator safe area edge (not
+      // the tab bar top). The tabBarHeight offset lifts it to the tab bar's top edge so
+      // it doesn't block tab bar interaction. tabBarHeight is measured dynamically from
+      // the live UITabBar via TabBarIdentifierSetter (defaults to 49pt before measurement).
+      .safeAreaInset(edge: .bottom) {
+        #if canImport(PlayerFeature)
+          if miniPlayerViewModel.displayState.isVisible {
+            MiniPlayerView(viewModel: miniPlayerViewModel) {
+              showFullPlayer = true
+            }
+            .padding(.bottom, tabBarHeight)
+            .transition(
+              ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
+                ? .identity
+                : .move(edge: .bottom).combined(with: .opacity)
+            )
+          }
         #endif
       }
       // Refresh Library when user navigates back to tab 0 — covers the case where
@@ -599,29 +610,6 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         if newTab == 0 {
           libraryRefreshTrigger += 1
         }
-      }
-      // Mini-player positioned above tab bar using safeAreaInset (Issue 03.2 fix)
-      // The padding is dynamically calculated from the actual tab bar height measured via UIKit.
-      // TabBarHeightObserver.contentBottomPadding returns: tabBarHeight + 8pt margin
-      // This ensures proper spacing regardless of device size, orientation, or iOS version.
-      .safeAreaInset(edge: .bottom) {
-        #if canImport(PlayerFeature)
-          if miniPlayerViewModel.displayState.isVisible {
-            MiniPlayerView(viewModel: miniPlayerViewModel) {
-              showFullPlayer = true
-            }
-            #if canImport(UIKit)
-              .padding(.bottom, tabBarHeight.contentBottomPadding)
-            #else
-              .padding(.bottom, 60)  // Fallback for non-UIKit platforms
-            #endif
-            .transition(
-              ProcessInfo.processInfo.environment["UITEST_DISABLE_ANIMATIONS"] == "1"
-                ? .identity
-                : .move(edge: .bottom).combined(with: .opacity)
-            )
-          }
-        #endif
       }
       #if canImport(PlayerFeature)
         .sheet(isPresented: $showFullPlayer) {

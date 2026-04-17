@@ -104,14 +104,27 @@ public struct TabBarNavigation: BaseScreen {
 
   // MARK: - Navigation Actions
 
+  /// Tap a tab bar button using existence check (not hittability).
+  ///
+  /// Tab bar buttons may report `isHittable == false` when an overlay (e.g. mini-player)
+  /// occupies the same screen region in XCUITest's accessibility tree, even though UIKit
+  /// still routes taps correctly through the responder chain. Using `.waitForExistence`
+  /// then direct `.tap()` matches the pattern that works in production tests.
+  @discardableResult
+  private func tapTabBarButton(_ element: XCUIElement, timeout: TimeInterval = 8.0) -> Bool {
+    guard element.waitForExistence(timeout: timeout) else { return false }
+    element.tap()
+    return true
+  }
+
   /// Navigate to Library tab.
   ///
-  /// Waits for tab to be hittable, taps it, then verifies Library content appeared.
+  /// Waits for tab to exist, taps it, then verifies Library content appeared.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToLibrary() -> Bool {
-    guard tap(libraryTab) else { return false }
+    guard tapTabBarButton(libraryTab) else { return false }
 
     // Verify Library content appeared (table or Library label)
     let libraryContent = [
@@ -124,12 +137,12 @@ public struct TabBarNavigation: BaseScreen {
 
   /// Navigate to Discover tab.
   ///
-  /// Waits for tab to be hittable, taps it, then verifies Discover search field appeared.
+  /// Waits for tab to exist, taps it, then verifies Discover search field appeared.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToDiscover() -> Bool {
-    guard tap(discoverTab) else { return false }
+    guard tapTabBarButton(discoverTab) else { return false }
 
     // Primary: wait for the search field (concrete TextField element) — more reliably
     // exposed in the accessibility tree than the Discover.Root container on cold launches.
@@ -156,12 +169,12 @@ public struct TabBarNavigation: BaseScreen {
 
   /// Navigate to Player tab.
   ///
-  /// Waits for tab to be hittable, taps it, then verifies Player interface appeared.
+  /// Waits for tab to exist, taps it, then verifies Player interface appeared.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToPlayer() -> Bool {
-    guard tap(playerTab) else { return false }
+    guard tapTabBarButton(playerTab) else { return false }
 
     let playerInterface = app.otherElements.matching(identifier: "Player Interface").firstMatch
     if playerInterface.waitForExistence(timeout: 10.0) { return true }
@@ -175,12 +188,12 @@ public struct TabBarNavigation: BaseScreen {
 
   /// Navigate to Settings tab.
   ///
-  /// Waits for tab to be hittable, taps it, then verifies Settings content appeared.
+  /// Waits for tab to exist, taps it, then verifies Settings content appeared.
   ///
   /// - Returns: True if navigation succeeded
   @discardableResult
   public func navigateToSettings() -> Bool {
-    guard tap(settingsTab) else { return false }
+    guard tapTabBarButton(settingsTab) else { return false }
 
     // Wait for Settings to load (feature rows or loading indicator)
     guard waitForSettingsLoad() else { return false }
