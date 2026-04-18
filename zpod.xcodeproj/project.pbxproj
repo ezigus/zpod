@@ -500,7 +500,7 @@
 				786D3A032E57355D005A436B /* XCLocalSwiftPackageReference "Packages/Persistence" */,
 				786D3A042E57356F005A436B /* XCLocalSwiftPackageReference "Packages/SettingsDomain" */,
 				786D3A052E57357C005A436B /* XCLocalSwiftPackageReference "Packages/SharedUtilities" */,
-				786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */,
+				786D3A062E573717005A436B /* XCLocalSwiftPackageReference "." */,
 				78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */,
 				78BF3E672E577C40001DB480 /* XCLocalSwiftPackageReference "Packages/SearchDomain" */,
 				78BF3E682E577C45001DB480 /* XCLocalSwiftPackageReference "Packages/DiscoverFeature" */,
@@ -1048,9 +1048,9 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/SharedUtilities;
 		};
-		786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */ = {
+		786D3A062E573717005A436B /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../zpod;
+			relativePath = .;
 		};
 		78BF3E662E577C3A001DB480 /* XCLocalSwiftPackageReference "Packages/PlaybackEngine" */ = {
 			isa = XCLocalSwiftPackageReference;
