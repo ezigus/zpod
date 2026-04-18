@@ -403,7 +403,7 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
         logBreadcrumb("expandPlayer: retrying mini-player tap (expanded player not yet visible)")
         miniPlayer.tap()
       }
-      Thread.sleep(forTimeInterval: 0.1)
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     }
 
     XCTFail("Expanded player did not appear (neither normal view nor error view)")
