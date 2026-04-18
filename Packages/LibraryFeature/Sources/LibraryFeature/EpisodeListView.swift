@@ -44,6 +44,7 @@ public struct EpisodeListView: View {
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
   @State private var addToPlaylistEpisode: Episode? = nil
+  @State private var showingCustomSettings = false
 
   @MainActor
   public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
@@ -115,6 +116,15 @@ public struct EpisodeListView: View {
             viewModel.enterMultiSelectMode()
           }
           Button {
+            showingCustomSettings = true
+          } label: {
+            Image(systemName: "gearshape")
+          }
+          .accessibilityRepresentation {
+            Button("Custom Settings") {}
+              .accessibilityIdentifier("PodcastCustomSettingsButton")
+          }
+          Button {
             viewModel.showingSwipeConfiguration = true
           } label: {
             Image(systemName: "slider.horizontal.3")
@@ -128,6 +138,12 @@ public struct EpisodeListView: View {
     }
     .refreshable {
       await refreshEpisodes()
+    }
+    .sheet(isPresented: $showingCustomSettings) {
+      PodcastCustomSettingsView(
+        podcast: podcast,
+        settingsManager: EpisodeListDependencyProvider.shared.settingsManager
+      )
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(
