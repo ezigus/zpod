@@ -1121,7 +1121,7 @@
 		};
 		786D3A082E57371F005A436B /* zpodLib */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "../zpod" */;
+			package = 786D3A062E573717005A436B /* XCLocalSwiftPackageReference "." */;
 			productName = zpodLib;
 		};
 		78AB4F592EF74DEB00A4E648 /* SwiftLens */ = {
