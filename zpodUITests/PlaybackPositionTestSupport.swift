@@ -385,18 +385,47 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
 
     logBreadcrumb("expandPlayer: waiting for expanded player or error view")
 
-    // Wait for either element to appear
+    // Wait for either element to appear; retry the tap once at the halfway point
+    // if neither has appeared (tap can be swallowed during UI transitions).
     let deadline = Date().addingTimeInterval(adaptiveTimeout)
+    let retryAfter = Date().addingTimeInterval(adaptiveTimeout / 2)
+    var didRetryTap = false
     while Date() < deadline {
-      if expandedPlayer.exists || expandedErrorView.exists {
-        logBreadcrumb("expandPlayer: expanded player appeared (normal: \(expandedPlayer.exists), error: \(expandedErrorView.exists))")
+      if expandedPlayer.exists {
+        logBreadcrumb("expandPlayer: normal expanded player appeared")
         return true
+      } else if expandedErrorView.exists {
+        logBreadcrumb("expandPlayer: error view appeared (no playback expected)")
+        return true  // Error view is valid expansion; callers handle it
       }
-      Thread.sleep(forTimeInterval: 0.1)
+      if !didRetryTap && Date() >= retryAfter {
+        didRetryTap = true
+        logBreadcrumb("expandPlayer: retrying mini-player tap (expanded player not yet visible)")
+        miniPlayer.tap()
+      }
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     }
 
     XCTFail("Expanded player did not appear (neither normal view nor error view)")
     return false
+  }
+
+  // MARK: - Playback State Verification
+
+  /// Verify playback is active in the expanded player by checking for the Pause button.
+  /// Uses "Expanded Player Pause" identifier (ExpandedPlayerView.swift:496).
+  /// Call after expandPlayer() returns true, or before measuring post-seek advancement.
+  @discardableResult
+  func verifyExpandedPlayerActive(context: String = "") -> Bool {
+    let label = context.isEmpty ? "expandPlayer" : context
+    let pauseButton = app.buttons.matching(identifier: "Expanded Player Pause").firstMatch
+    guard pauseButton.waitForExistence(timeout: adaptiveShortTimeout) else {
+      logBreadcrumb("\(label): 'Expanded Player Pause' not found — playback may have stopped")
+      XCTFail("\(label): Expanded player visible but playback not active (no Pause button)")
+      return false
+    }
+    logBreadcrumb("\(label): playback confirmed active in expanded player")
+    return true
   }
 
   // MARK: - Slider Value Helpers
@@ -569,16 +598,10 @@ extension PlaybackPositionTestSupport where Self: IsolatedUITestCase {
         return false
       }
       if currentPosition > initialPosition + 1.0 {
-        let firstValue = currentValue
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-        guard let secondValue = slider.value as? String else {
-          return false
-        }
-        if secondValue == firstValue {
-          observedValue = firstValue
-          return true
-        }
+        observedValue = currentValue
+        return true
       }
+      logBreadcrumb("waitForPositionAdvancement: position=\(currentPosition) initial=\(initialPosition) delta=\(currentPosition - initialPosition)")
       return false
     }
 

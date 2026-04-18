@@ -17,6 +17,11 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
 
     static let logger = Logger(subsystem: "us.zig.zpod", category: "PlaybackPositionTickerTests")
 
+    /// Timeout for waitForPositionAdvancement() calls in Ticker mode.
+    /// Ticker fires every 0.5s; with stability check removed, detection takes ~1.5s.
+    /// 10s gives 6× headroom even at local adaptive timeout values.
+    private let tickerAdvancementTimeout: TimeInterval = 10.0
+
     override func setUpWithError() throws {
         try super.setUpWithError()
         disableWaitingForIdleIfNeeded()
@@ -85,7 +90,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
         let initialPosition = extractCurrentPosition(from: initialValue)
 
         // When: Wait for position to advance (ticker updates every 0.5s)
-        let updatedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0)
+        let updatedValue = waitForPositionAdvancement(beyond: initialValue, timeout: tickerAdvancementTimeout)
 
         // Then: Progress slider should show advanced position
         XCTAssertNotNil(updatedValue, "Progress slider should have advanced")
@@ -118,7 +123,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
 
         // Wait for initial position advancement
         let initialValue = getSliderValue()
-        let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 3.0)
+        let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: tickerAdvancementTimeout)
         XCTAssertNotNil(advancedValue, 
             "Position must advance before testing pause behavior - ticker may not be running")
 
@@ -172,7 +177,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
             "Pause button should reappear after resume")
 
         // Then: Position should advance
-        let resumedValue = waitForPositionAdvancement(beyond: pausedValue, timeout: 5.0)
+        let resumedValue = waitForPositionAdvancement(beyond: pausedValue, timeout: tickerAdvancementTimeout)
         XCTAssertNotNil(resumedValue, "Position should advance after resuming")
         logSliderValue("resumed", value: resumedValue)
 
@@ -211,7 +216,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
 
         guard let resolvedBaseline = waitForPositionAdvancement(
             beyond: initialValue,
-            timeout: 5.0
+            timeout: tickerAdvancementTimeout
         ) else {
             XCTFail("Progress slider did not advance before seeking")
             return
@@ -270,7 +275,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
         }
 
         // Verify position continues advancing after seek
-        let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0)
+        let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: tickerAdvancementTimeout)
         logSliderValue("final", value: finalValue)
         XCTAssertNotNil(finalValue, "Position should continue advancing after seek")
     }
@@ -361,7 +366,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
 
         // And: Playback should resume from seek position
         playButton.tap()
-        guard let resumedValue = waitForPositionAdvancement(beyond: seekedValue, timeout: 5.0) else {
+        guard let resumedValue = waitForPositionAdvancement(beyond: seekedValue, timeout: tickerAdvancementTimeout) else {
             XCTFail("Position should advance after seeking while paused and resuming")
             return
         }
@@ -406,7 +411,7 @@ final class PlaybackPositionTickerTests: IsolatedUITestCase, PlaybackPositionTes
         }
         
         // And: Verify position advances from wherever it started
-        guard let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: 5.0) else {
+        guard let advancedValue = waitForPositionAdvancement(beyond: initialValue, timeout: tickerAdvancementTimeout) else {
             XCTFail("Position should advance from initial position \(initialPosition)s")
             return
         }

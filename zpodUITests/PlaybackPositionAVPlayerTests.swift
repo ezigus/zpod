@@ -26,7 +26,25 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     // MARK: - AVPlayer-Specific Timeouts
 
     /// Longer timeout for AVPlayer operations (buffering, network latency)
-    private let avplayerTimeout: TimeInterval = 10.0
+    private let avplayerTimeout: TimeInterval = 15.0
+
+    // MARK: - CI Detection
+
+    /// Detect CI environment for skip guards and timeout selection.
+    /// Env var propagation to xcodebuild test runners is unreliable —
+    /// confirmed by run #24577102749: GITHUB_ACTIONS/CI not visible to ProcessInfo
+    /// despite being set in the CI workflow env: block.
+    /// Path-based fallback provides reliable detection on GitHub-hosted macOS runners.
+    private var isRunningInCI: Bool {
+        let env = ProcessInfo.processInfo.environment
+        if env["GITHUB_ACTIONS"] != nil
+            || env["CI"] != nil
+            || env["ZPOD_TEST_WITHOUT_BUILDING"] != nil {
+            return true
+        }
+        // Fallback: GitHub-hosted macOS runners always use /Users/runner as home directory
+        return NSHomeDirectory().hasPrefix("/Users/runner")
+    }
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -228,12 +246,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     /// **CI Note**: AVPlayer seek accuracy requires real audio hardware - skipped in CI. See `_CI` variant for UI verification.
     @MainActor
     func testSeekingUpdatesPositionImmediately() throws {
-        try XCTSkipIf(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "AVPlayer seek accuracy requires real audio hardware - CI tests UI only"
-        )
+        try XCTSkipIf(isRunningInCI, "AVPlayer seek accuracy requires real audio hardware - CI tests UI only")
         logBreadcrumb("testSeekingUpdatesPositionImmediately (AVPlayer): launch app")
         launchApp()
         guard startPlaybackFromPlayerTab(), expandPlayer() else {
@@ -295,6 +308,12 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
             return
         }
 
+        // Verify playback is still active before measuring advancement
+        guard verifyExpandedPlayerActive(context: "post-seek") else {
+            recordAudioDebugOverlay("avplayer-paused-after-seek")
+            return
+        }
+
         // Verify position continues advancing after seek
         guard let finalValue = waitForPositionAdvancement(beyond: seekedValue, timeout: avplayerTimeout) else {
             recordAudioDebugOverlay("post-seek advancement timeout")
@@ -314,12 +333,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     /// **Then**: Slider exists, is enabled, and value changes after adjustment
     @MainActor
     func testSeekingUpdatesPositionImmediately_CI() throws {
-        try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "CI-only test for UI interaction verification"
-        )
+        try XCTSkipUnless(isRunningInCI, "CI-only test for UI interaction verification")
 
         launchApp()
         guard startPlaybackFromPlayerTab(), expandPlayer() else {
@@ -627,12 +641,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     /// **CI Note**: AVPlayer interruption requires real audio hardware - skipped in CI. See `_CI` variant for UI verification.
     @MainActor
     func testInterruptionPausesAndResumesPlayback() throws {
-        try XCTSkipIf(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "AVPlayer interruption requires real audio hardware - CI tests UI only"
-        )
+        try XCTSkipIf(isRunningInCI, "AVPlayer interruption requires real audio hardware - CI tests UI only")
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
         guard startPlaybackFromPlayerTab() else {
@@ -689,12 +698,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     /// **Then**: Interruption debug controls exist and respond to taps
     @MainActor
     func testInterruptionPausesAndResumesPlayback_CI() throws {
-        try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "CI-only test for UI interaction verification"
-        )
+        try XCTSkipUnless(isRunningInCI, "CI-only test for UI interaction verification")
 
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
@@ -739,12 +743,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     @MainActor
     // swiftlint:disable:next function_body_length
     func testPlaybackSpeedChangesPositionRate() throws {
-        try XCTSkipIf(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "AVPlayer rate-based position measurement requires real audio hardware - CI uses UI-only variant"
-        )
+        try XCTSkipIf(isRunningInCI, "AVPlayer rate-based position measurement requires real audio hardware - CI uses UI-only variant")
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 
         guard startPlaybackFromPlayerTab() else {
@@ -1059,12 +1058,7 @@ final class PlaybackPositionAVPlayerTests: IsolatedUITestCase, PlaybackPositionT
     /// **Then**: Speed Control button label updates to reflect the new speed
     @MainActor
     func testPlaybackSpeedChangesPositionRate_CI() throws {
-        try XCTSkipUnless(
-            ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] != nil
-            || ProcessInfo.processInfo.environment["CI"] != nil
-            || ProcessInfo.processInfo.environment["ZPOD_TEST_WITHOUT_BUILDING"] != nil,
-            "CI-only test for UI interaction verification"
-        )
+        try XCTSkipUnless(isRunningInCI, "CI-only test for UI interaction verification")
 
         launchApp(environmentOverrides: ["UITEST_PLAYBACK_DEBUG": "1"])
 

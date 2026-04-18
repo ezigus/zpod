@@ -163,14 +163,25 @@ final class ContentDiscoveryUITests: IsolatedUITestCase {
     let desiredQuery = "Swift Talk"
     searchField.typeText(desiredQuery)
 
-    // Then: Entered text should remain in the field even when results lag
+    // Retry once if CI dropped characters during typeText
+    let receivedText = searchField.value as? String ?? ""
+    if !receivedText.contains(desiredQuery) {
+      searchField.tap()
+      _ = waitForKeyboardFocus(on: searchField, timeout: adaptiveShortTimeout, description: "Search field re-focus")
+      searchField.tap(withNumberOfTaps: 3, numberOfTouches: 1)  // select-all
+      searchField.typeText(desiredQuery)                        // replaces selection
+    }
+
+    // Then: Entered text should remain in the field even when results lag.
+    // Use adaptiveTimeout (12s CI) — wider than adaptiveShortTimeout (6s CI) to cover
+    // SwiftUI binding propagation lag after the ContentViewBridge warm-up cascade was removed.
     let valuePredicate = NSPredicate { _, _ in
       let fieldValue = searchField.value as? String ?? ""
       return fieldValue.contains(desiredQuery)
     }
     let expectation = XCTNSPredicateExpectation(predicate: valuePredicate, object: nil)
     expectation.expectationDescription = "Search field should echo query"
-    let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveShortTimeout)
+    let result = XCTWaiter.wait(for: [expectation], timeout: adaptiveTimeout)
     XCTAssertEqual(
       result,
       .completed,
