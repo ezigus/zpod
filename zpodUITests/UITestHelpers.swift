@@ -316,7 +316,7 @@ extension ElementWaiting {
   }
 
   func miniPlayerElement(in app: XCUIApplication) -> XCUIElement {
-    app.otherElements.matching(identifier: "Mini Player").firstMatch
+    app.descendants(matching: .any).matching(identifier: "Mini Player").firstMatch
   }
 
   func hasNonEmptyLabel(_ element: XCUIElement) -> Bool {

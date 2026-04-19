@@ -19,8 +19,8 @@ import SettingsDomain
 ///
 /// - Note: Per-podcast filter/sort preferences (stored in `GlobalFilterPreferences
 ///   .perPodcastPreferences`) will also need to be cleared here once those overrides
-///   are implemented in 06.3.4 / 06.5.2. TODO: [#06.5.2] extend reset to clear
-///   `perPodcastPreferences[podcastId]` when that field is wired.
+///   are implemented in 06.3.4 / 06.5.2.
+// TODO: [Issue #06.5.2] Extend reset to clear `perPodcastPreferences[podcastId]` when that field is wired.
 @MainActor
 final class PodcastCustomSettingsViewModel: ObservableObject {
     @Published private(set) var isResetting: Bool = false

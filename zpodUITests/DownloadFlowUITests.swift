@@ -523,24 +523,28 @@ final class DownloadFlowUITests: IsolatedUITestCase {
     )
     libraryTab.tap()
 
-    // Wait for loading to complete
-    guard waitForLoadingToComplete(in: app, timeout: adaptiveTimeout) else {
-      XCTFail("Library content failed to load")
-      return
-    }
-
-    // Find and tap first podcast
+    // Wait directly for a podcast — its appearance confirms loading is complete.
+    // Uses full adaptiveTimeout since library + seeding init can take >10s on loaded CI
+    // runners. Eliminates the two-step timeout-budget problem where
+    // waitForLoadingToComplete consumed the full budget before the podcast search began
+    // (waitForLoadingToComplete already checks for Podcast-swift-talk internally).
     let podcast = waitForAnyElement(
       [
         app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
-        app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'Podcast'")).firstMatch,
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'Podcast-'")).firstMatch,
       ],
-      timeout: adaptiveShortTimeout,
-      description: "podcast button"
+      timeout: adaptiveTimeout,
+      description: "podcast in library",
+      failOnTimeout: false
     )
 
-    guard let podcast = podcast else {
-      XCTFail("No podcast found to navigate to")
+    guard let podcast else {
+      // Lightweight diagnostics: distinguish "tab didn't load" from "seeded data missing"
+      let navBarExists = app.navigationBars.firstMatch.exists
+      let libraryTabHittable = libraryTab.isHittable
+      XCTFail(
+        "No podcast found in library within \(adaptiveTimeout)s (navBar=\(navBarExists), libraryTab=\(libraryTabHittable))"
+      )
       return
     }
 
