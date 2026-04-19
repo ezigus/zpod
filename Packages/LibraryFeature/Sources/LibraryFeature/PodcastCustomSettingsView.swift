@@ -122,7 +122,7 @@ public struct PodcastCustomSettingsView: View {
                 }
             }
             .accessibilityIdentifier("PodcastCustomSettings.ResetConfirmButton")
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel") { showResetConfirmation = false }
                 .accessibilityIdentifier("PodcastCustomSettings.ResetCancelButton")
         } message: {
             Text(
