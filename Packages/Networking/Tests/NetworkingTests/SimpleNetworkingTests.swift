@@ -246,16 +246,23 @@ final class SimpleNetworkingTests: XCTestCase {
         // When: New episode detected (priority not yet in memory cache)
         service.onNewEpisodeDetected(episode: episode, podcast: podcast)
 
-        // Poll until the async repository load Task completes (two actor hops: main → repo → main).
-        // Uses Task.yield() in a bounded loop rather than a fixed sleep.
-        // NOTE: `service` must remain referenced after this loop — Swift's ARC optimizer can release
-        // a `let` after its last syntactic use, which would nil out the spawned Task's [weak self]
-        // before it runs. The assertion on `service` below keeps it alive throughout this loop.
+        // Wait for the async repository load Task to complete (actor hop: main → repo → main).
+        // Task.yield() is insufficient here: it only runs tasks already queued on the main actor,
+        // but the continuation from the actor hop may not be queued yet when yield() runs.
+        // Task.sleep forces real elapsed time, allowing the cooperative thread pool to complete
+        // the repo actor method and schedule the continuation back on the main actor.
+        // 50ms per iteration × up to 100 iterations = 5s max. Last resort per testing guidelines;
+        // justified because onNewEpisodeDetected returns void and there is no observable hook to
+        // await the internal Task directly.
+        // Keep `service` referenced so ARC does not release it before the spawned Task's [weak self]
+        // guard runs.
         var queue = queueManager.getCurrentQueue()
-        let deadline = Date().addingTimeInterval(5)
-        while queue.isEmpty && Date() < deadline {
-            await Task.yield()
+        var pollCount = 0
+        while queue.isEmpty && pollCount < 100 {
+            _ = service  // prevent ARC from releasing service at the await suspension point
+            try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
             queue = queueManager.getCurrentQueue()
+            pollCount += 1
         }
 
         // Then: Episode queued with high priority from storage
