@@ -44,6 +44,7 @@ public struct EpisodeListView: View {
   @StateObject private var viewModel: EpisodeListViewModel
   @State private var isRefreshing = false
   @State private var addToPlaylistEpisode: Episode? = nil
+  @State private var showingCustomSettings = false
 
   @MainActor
   public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
@@ -115,19 +116,35 @@ public struct EpisodeListView: View {
             viewModel.enterMultiSelectMode()
           }
           Button {
+            showingCustomSettings = true
+          } label: {
+            Image(systemName: "gearshape")
+          }
+          .accessibilityIdentifier("PodcastCustomSettingsButton")
+          .accessibilityLabel("Custom Settings")
+          Button {
             viewModel.showingSwipeConfiguration = true
           } label: {
             Image(systemName: "slider.horizontal.3")
           }
-          .accessibilityRepresentation {
-            Button("Configure Swipe Actions") {}
-              .accessibilityIdentifier("ConfigureSwipeActions")
-          }
+          .accessibilityIdentifier("ConfigureSwipeActions")
+          .accessibilityLabel("Configure Swipe Actions")
         }
       }
     }
     .refreshable {
       await refreshEpisodes()
+    }
+    // TODO: [#06.5.2] EpisodeListView gets settingsManager from EpisodeListDependencyProvider
+    // (test-suite-aware), while the Library context-menu entry point gets it from ContentView
+    // (UserDefaults.standard). In production both resolve to standard UserDefaults; in tests
+    // with UITEST_USER_DEFAULTS_SUITE set they diverge. Unify by threading settingsManager
+    // through EpisodeListView.init() when 06.5.2 wires more settings controls.
+    .sheet(isPresented: $showingCustomSettings) {
+      PodcastCustomSettingsView(
+        podcast: podcast,
+        settingsManager: EpisodeListDependencyProvider.shared.settingsManager
+      )
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(

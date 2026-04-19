@@ -528,7 +528,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       ZStack(alignment: .bottom) {
         TabView(selection: $selectedTab) {
           // Library Tab (existing functionality)
-          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager, refreshTrigger: libraryRefreshTrigger)
+          LibraryView(podcastManager: podcastManager, playlistManager: playlistManager, refreshTrigger: libraryRefreshTrigger, settingsManager: settingsManager)
             .tabItem {
               Label("Library", systemImage: "books.vertical")
             }
@@ -678,6 +678,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     let podcastManager: PodcastManaging
     let playlistManager: (any PlaylistManaging)?
     let refreshTrigger: Int
+    let settingsManager: SettingsManager
 
     @State private var podcasts: [Podcast] = []
     @State private var isLoading = true
@@ -687,10 +688,11 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       category: "LibraryView"
     )
 
-    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil, refreshTrigger: Int = 0) {
+    init(podcastManager: PodcastManaging, playlistManager: (any PlaylistManaging)? = nil, refreshTrigger: Int = 0, settingsManager: SettingsManager) {
       self.podcastManager = podcastManager
       self.playlistManager = playlistManager
       self.refreshTrigger = refreshTrigger
+      self.settingsManager = settingsManager
     }
 
     var body: some View {
@@ -726,7 +728,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
 
               // Card-based podcast layout (no table structure)
               ForEach(podcasts, id: \.id) { podcast in
-                PodcastCardView(podcast: podcast, playlistManager: playlistManager)
+                PodcastCardView(podcast: podcast, playlistManager: playlistManager, settingsManager: settingsManager)
                   .padding(.horizontal)
               }
             }
@@ -777,6 +779,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
   private struct PodcastCardView: View {
     let podcast: Podcast
     let playlistManager: (any PlaylistManaging)?
+    let settingsManager: SettingsManager
+
+    @State private var showingCustomSettings = false
 
     var body: some View {
       NavigationLink(
@@ -823,6 +828,17 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       .accessibilityLabel(podcast.title)
       .accessibilityHint("Opens episode list for \(podcast.title)")
       .accessibilityAddTraits(.isButton)
+      .contextMenu {
+        Button {
+          showingCustomSettings = true
+        } label: {
+          Label("Custom Settings\u{2026}", systemImage: "gearshape")
+        }
+        .accessibilityIdentifier("Podcast-\(podcast.id).CustomSettings")
+      }
+      .sheet(isPresented: $showingCustomSettings) {
+        PodcastCustomSettingsView(podcast: podcast, settingsManager: settingsManager)
+      }
     }
   }
 
