@@ -57,6 +57,8 @@ let package = Package(
         .product(name: "SharedUtilities", package: "SharedUtilities"),
         .product(name: "CombineSupport", package: "CombineSupport"),
         .product(name: "FeedParsing", package: "FeedParsing"),
+        .product(name: "SettingsDomain", package: "SettingsDomain"),
+        .product(name: "Persistence", package: "Persistence"),
       ]
     ),
   ]

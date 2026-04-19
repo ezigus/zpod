@@ -130,4 +130,18 @@ public struct PodcastPlaybackSettings: Codable, Equatable, Sendable {
     public var outroSkipDuration: Int?
     public var skipForwardInterval: Int?
     public var skipBackwardInterval: Int?
+
+    public init(
+        speed: Double? = nil,
+        introSkipDuration: Int? = nil,
+        outroSkipDuration: Int? = nil,
+        skipForwardInterval: Int? = nil,
+        skipBackwardInterval: Int? = nil
+    ) {
+        self.speed = speed
+        self.introSkipDuration = introSkipDuration
+        self.outroSkipDuration = outroSkipDuration
+        self.skipForwardInterval = skipForwardInterval
+        self.skipBackwardInterval = skipBackwardInterval
+    }
 }
