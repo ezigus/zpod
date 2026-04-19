@@ -248,8 +248,11 @@ final class SimpleNetworkingTests: XCTestCase {
 
         // Poll until the async repository load Task completes (two actor hops: main → repo → main).
         // Uses Task.yield() in a bounded loop rather than a fixed sleep.
+        // NOTE: `service` must remain referenced after this loop — Swift's ARC optimizer can release
+        // a `let` after its last syntactic use, which would nil out the spawned Task's [weak self]
+        // before it runs. The assertion on `service` below keeps it alive throughout this loop.
         var queue = queueManager.getCurrentQueue()
-        let deadline = Date().addingTimeInterval(3)
+        let deadline = Date().addingTimeInterval(5)
         while queue.isEmpty && Date() < deadline {
             await Task.yield()
             queue = queueManager.getCurrentQueue()
@@ -259,5 +262,8 @@ final class SimpleNetworkingTests: XCTestCase {
         XCTAssertEqual(queue.count, 1)
         XCTAssertEqual(queue.first?.episodeId, episode.id)
         XCTAssertEqual(queue.first?.priority, .high)
+        // Verify the priority was cached in service memory (prevents ARC from releasing service
+        // before the spawned task completes, and validates the caching contract).
+        XCTAssertEqual(service.getPriority(for: podcastId), 7)
     }
 }
