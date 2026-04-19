@@ -46,7 +46,7 @@ final class ContentDiscoveryUITests: IsolatedUITestCase {
   private func logDiscoverDiagnostics(_ message: String, app: XCUIApplication, discoverTab: XCUIElement?) {
     guard discoverDiagnosticsEnabled else { return }
     let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
-    let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
+    let miniPlayer = app.descendants(matching: .any).matching(identifier: "Mini Player").firstMatch
     let discoverRootOther = app.otherElements.matching(identifier: "Discover.Root").firstMatch
     let discoverRootAny = app.descendants(matching: .any)
       .matching(identifier: "Discover.Root")

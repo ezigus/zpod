@@ -852,7 +852,7 @@ extension PlaybackUITests {
   func testMiniPlayerVisibilityAndExpansion() throws {
     startPlaybackFromLibraryQuickPlay()
 
-    let miniPlayer = app.otherElements.matching(identifier: "Mini Player").firstMatch
+    let miniPlayer = app.descendants(matching: .any).matching(identifier: "Mini Player").firstMatch
     XCTAssertTrue(
       miniPlayer.waitForExistence(timeout: adaptiveTimeout),
       "Mini player should appear after playback starts"
