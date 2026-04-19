@@ -2,6 +2,7 @@ import CombineSupport
 import CoreModels
 import Foundation
 import Networking
+import Persistence
 import SharedUtilities
 
 @MainActor
@@ -11,7 +12,10 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
     private let coordinator: DownloadCoordinator
 
     private init() {
-        self.coordinator = DownloadCoordinator(autoProcessingEnabled: true)
+        self.coordinator = DownloadCoordinator(
+            autoProcessingEnabled: true,
+            settingsRepository: UserDefaultsSettingsRepository()
+        )
     }
 
     public var progressPublisher: AnyPublisher<EpisodeDownloadProgressUpdate, Never> {

@@ -32,7 +32,8 @@ public class DownloadCoordinator {
   public init(
     queueManager: DownloadQueueManaging? = nil,
     fileManagerService: FileManagerServicing? = nil,
-    autoProcessingEnabled: Bool = false
+    autoProcessingEnabled: Bool = false,
+    settingsRepository: SettingsRepository? = nil
   ) {
     self.queueManager = queueManager ?? InMemoryDownloadQueueManager()
     if let fileManagerService {
@@ -43,7 +44,7 @@ public class DownloadCoordinator {
       self.fileManagerService = DummyFileManagerService()
     }
     self.storagePolicyEvaluator = StoragePolicyEvaluator()
-    self.autoDownloadService = AutoDownloadService(queueManager: self.queueManager)
+    self.autoDownloadService = AutoDownloadService(queueManager: self.queueManager, settingsRepository: settingsRepository)
     self.autoProcessingEnabled = autoProcessingEnabled
 
     if autoProcessingEnabled {

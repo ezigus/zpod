@@ -5,6 +5,7 @@ import Foundation
 #endif
 @testable import Networking
 import CoreModels
+import Persistence
 import SharedUtilities
 import TestSupport
 
@@ -202,18 +203,61 @@ final class SimpleNetworkingTests: XCTestCase {
     func testDownloadQueue_priorityOrdering() {
         // Given: Download queue manager
         let queueManager = InMemoryDownloadQueueManager()
-        
+
         // When: Adding tasks with different priorities
         let lowPriorityTask = MockDownloadTask.createSample(id: "low", title: "Low Priority", priority: .low)
         let highPriorityTask = MockDownloadTask.createSample(id: "high", title: "High Priority", priority: .high)
-        
+
         queueManager.addToQueue(lowPriorityTask)
         queueManager.addToQueue(highPriorityTask)
-        
+
         // Then: Queue should maintain priority order
         let queue = queueManager.getCurrentQueue()
         XCTAssertEqual(queue.count, 2)
         // High priority should come first
         XCTAssertEqual(queue.first?.id, "high")
+    }
+
+    @MainActor
+    func testAutoDownloadService_loadsPriorityFromRepository() async {
+        // Given: An isolated settings repository with a stored high priority
+        let suiteName = "test-priority-\(UUID().uuidString)"
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        let repo = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+
+        let podcastId = "priority-podcast"
+        let settings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            autoDownloadEnabled: nil,
+            wifiOnly: nil,
+            retentionPolicy: nil,
+            priority: 7
+        )
+        await repo.savePodcastDownloadSettings(settings)
+
+        let queueManager = InMemoryDownloadQueueManager()
+        let service = AutoDownloadService(queueManager: queueManager, settingsRepository: repo)
+        service.setAutoDownload(enabled: true, for: podcastId)
+
+        let episode = Episode(id: "ep-priority", title: "Priority Episode")
+        let podcast = Podcast(id: podcastId, title: "Priority Podcast", feedURL: URL(string: "https://example.com")!)
+
+        // When: New episode detected (priority not yet in memory cache)
+        service.onNewEpisodeDetected(episode: episode, podcast: podcast)
+
+        // Poll until the async repository load Task completes (two actor hops: main → repo → main).
+        // Uses Task.yield() in a bounded loop rather than a fixed sleep.
+        var queue = queueManager.getCurrentQueue()
+        let deadline = Date().addingTimeInterval(3)
+        while queue.isEmpty && Date() < deadline {
+            await Task.yield()
+            queue = queueManager.getCurrentQueue()
+        }
+
+        // Then: Episode queued with high priority from storage
+        XCTAssertEqual(queue.count, 1)
+        XCTAssertEqual(queue.first?.episodeId, episode.id)
+        XCTAssertEqual(queue.first?.priority, .high)
     }
 }
