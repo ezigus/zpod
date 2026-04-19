@@ -55,14 +55,6 @@ public struct PodcastCustomSettingsView: View {
                     .accessibilityIdentifier("PodcastCustomSettings.ResetButton")
                 }
 
-                if let error = viewModel.resetError {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .accessibilityIdentifier("PodcastCustomSettings.ErrorMessage")
-                    }
-                }
-
                 Section(header: Text("Download Settings")) {
                     Text("Custom download settings coming in a future update.")
                         .foregroundColor(.secondary)

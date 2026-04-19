@@ -14,12 +14,16 @@ import SettingsDomain
 
 /// View model for per-podcast custom settings.
 ///
-/// Owns the "Reset to Global Defaults" logic: nilifying both the download and
+/// Owns the "Reset to Global Defaults" logic: nullifying both the download and
 /// playback overrides for the given podcast in `SettingsManager`.
+///
+/// - Note: Per-podcast filter/sort preferences (stored in `GlobalFilterPreferences
+///   .perPodcastPreferences`) will also need to be cleared here once those overrides
+///   are implemented in 06.3.4 / 06.5.2. TODO: [#06.5.2] extend reset to clear
+///   `perPodcastPreferences[podcastId]` when that field is wired.
 @MainActor
 final class PodcastCustomSettingsViewModel: ObservableObject {
     @Published private(set) var isResetting: Bool = false
-    @Published private(set) var resetError: String? = nil
 
     let podcast: Podcast
     private let settingsManager: SettingsManager
@@ -45,7 +49,6 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
     func resetSettings() -> Task<Void, Never>? {
         guard !isResetting else { return nil }
         isResetting = true
-        resetError = nil
         let task = Task { [weak self] in
             guard let self else { return }
             await self.performReset()
