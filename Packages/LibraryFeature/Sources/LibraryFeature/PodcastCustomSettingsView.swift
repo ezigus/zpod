@@ -24,6 +24,9 @@ public struct PodcastCustomSettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showResetConfirmation = false
+    /// Set to `true` only after the initial `loadPriority()` completes so that
+    /// the `onChange` handler does not fire a spurious save during first load.
+    @State private var priorityLoaded = false
 
     public init(podcast: Podcast, settingsManager: SettingsManager) {
         _viewModel = StateObject(
@@ -103,12 +106,6 @@ public struct PodcastCustomSettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    .task {
-                        await viewModel.loadPriority()
-                    }
-                    .onChange(of: viewModel.priority) { _ in
-                        Task { await viewModel.savePriority() }
-                    }
                 }
 
                 Section(header: Text("Notification Settings")) {
@@ -116,6 +113,15 @@ public struct PodcastCustomSettingsView: View {
                         .foregroundColor(.secondary)
                         .accessibilityIdentifier("PodcastCustomSettings.NotificationPlaceholder")
                 }
+            }
+            .task {
+                priorityLoaded = false
+                await viewModel.loadPriority()
+                priorityLoaded = true
+            }
+            .onChange(of: viewModel.priority) { _ in
+                guard priorityLoaded else { return }
+                viewModel.scheduleSave()
             }
             .navigationTitle(viewModel.podcast.title)
             .platformNavigationBarTitleDisplayMode(.inline)

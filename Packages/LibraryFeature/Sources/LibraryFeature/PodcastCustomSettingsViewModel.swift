@@ -30,6 +30,7 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
     let podcast: Podcast
     private let settingsManager: SettingsManager
     private(set) var resetTask: Task<Void, Never>?
+    private var pendingSaveTask: Task<Void, Never>?
 
     private static let logger = Logger(
         subsystem: "us.zig.zpod.library",
@@ -45,6 +46,15 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
     func loadPriority() async {
         let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
         priority = settings?.priority ?? 0
+    }
+
+    /// Cancel any pending save and schedule a new one.
+    ///
+    /// Calling this on rapid slider changes ensures only the final settled value
+    /// is written to storage, avoiding a queue of racing save tasks.
+    func scheduleSave() {
+        pendingSaveTask?.cancel()
+        pendingSaveTask = Task { await savePriority() }
     }
 
     /// Persist the current priority immediately.
