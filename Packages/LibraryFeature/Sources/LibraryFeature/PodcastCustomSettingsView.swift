@@ -110,11 +110,12 @@ public struct PodcastCustomSettingsView: View {
                 }
             }
         }
-        .confirmationDialog(
+        .alert(
             "Reset Settings",
-            isPresented: $showResetConfirmation,
-            titleVisibility: .visible
+            isPresented: $showResetConfirmation
         ) {
+            Button("Cancel", role: .cancel) { showResetConfirmation = false }
+                .accessibilityIdentifier("PodcastCustomSettings.ResetCancelButton")
             Button("Reset", role: .destructive) {
                 Task {
                     await viewModel.resetSettings()?.value
@@ -122,8 +123,6 @@ public struct PodcastCustomSettingsView: View {
                 }
             }
             .accessibilityIdentifier("PodcastCustomSettings.ResetConfirmButton")
-            Button("Cancel") { showResetConfirmation = false }
-                .accessibilityIdentifier("PodcastCustomSettings.ResetCancelButton")
         } message: {
             Text(
                 "Reset all custom settings for \(viewModel.podcast.title)? This cannot be undone."

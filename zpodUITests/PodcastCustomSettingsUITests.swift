@@ -159,12 +159,12 @@ final class PodcastCustomSettingsUITests: IsolatedUITestCase {
             .firstMatch
         resetButton.tap()
 
-        let cancelButton = app.buttons
+        let cancelButton = app.alerts.buttons
             .matching(identifier: "PodcastCustomSettings.ResetCancelButton")
             .firstMatch
         XCTAssertTrue(
             cancelButton.waitForExistence(timeout: adaptiveTimeout),
-            "Cancel button must appear in reset confirmation dialog"
+            "Cancel button must appear in reset confirmation alert"
         )
         cancelButton.tap()
 
@@ -195,12 +195,12 @@ final class PodcastCustomSettingsUITests: IsolatedUITestCase {
             .firstMatch
         resetButton.tap()
 
-        let confirmButton = app.buttons
+        let confirmButton = app.alerts.buttons
             .matching(identifier: "PodcastCustomSettings.ResetConfirmButton")
             .firstMatch
         XCTAssertTrue(
             confirmButton.waitForExistence(timeout: adaptiveTimeout),
-            "Reset confirm button must appear in confirmation dialog"
+            "Reset confirm button must appear in confirmation alert"
         )
         confirmButton.tap()
 
@@ -208,9 +208,11 @@ final class PodcastCustomSettingsUITests: IsolatedUITestCase {
         let resetButtonAfterConfirm = app.buttons
             .matching(identifier: "PodcastCustomSettings.ResetButton")
             .firstMatch
-        let dismissed = resetButtonAfterConfirm.waitForNonExistence(timeout: adaptiveTimeout)
-        XCTAssertTrue(
-            dismissed,
+        let notExists = NSPredicate(format: "exists == false")
+        let disappears = XCTNSPredicateExpectation(predicate: notExists, object: resetButtonAfterConfirm)
+        wait(for: [disappears], timeout: adaptiveTimeout)
+        XCTAssertFalse(
+            resetButtonAfterConfirm.exists,
             "Custom settings sheet must dismiss after confirming reset"
         )
     }
