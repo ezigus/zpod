@@ -135,7 +135,7 @@ public struct EpisodeListView: View {
     .refreshable {
       await refreshEpisodes()
     }
-    // TODO: [#06.5.2] EpisodeListView gets settingsManager from EpisodeListDependencyProvider
+    // TODO: [Issue #06.5.2] EpisodeListView gets settingsManager from EpisodeListDependencyProvider
     // (test-suite-aware), while the Library context-menu entry point gets it from ContentView
     // (UserDefaults.standard). In production both resolve to standard UserDefaults; in tests
     // with UITEST_USER_DEFAULTS_SUITE set they diverge. Unify by threading settingsManager

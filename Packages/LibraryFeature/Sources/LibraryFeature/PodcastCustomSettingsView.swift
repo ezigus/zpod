@@ -109,7 +109,7 @@ public struct PodcastCustomSettingsView: View {
             Button("Cancel", role: .cancel) { showResetConfirmation = false }
                 .accessibilityIdentifier("PodcastCustomSettings.ResetCancelButton")
             Button("Reset", role: .destructive) {
-                Task {
+                Task { @MainActor in
                     await viewModel.resetSettings()?.value
                     dismiss()
                 }
