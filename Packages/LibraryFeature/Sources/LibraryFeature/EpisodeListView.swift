@@ -120,19 +120,15 @@ public struct EpisodeListView: View {
           } label: {
             Image(systemName: "gearshape")
           }
-          .accessibilityRepresentation {
-            Button("Custom Settings") {}
-              .accessibilityIdentifier("PodcastCustomSettingsButton")
-          }
+          .accessibilityIdentifier("PodcastCustomSettingsButton")
+          .accessibilityLabel("Custom Settings")
           Button {
             viewModel.showingSwipeConfiguration = true
           } label: {
             Image(systemName: "slider.horizontal.3")
           }
-          .accessibilityRepresentation {
-            Button("Configure Swipe Actions") {}
-              .accessibilityIdentifier("ConfigureSwipeActions")
-          }
+          .accessibilityIdentifier("ConfigureSwipeActions")
+          .accessibilityLabel("Configure Swipe Actions")
         }
       }
     }

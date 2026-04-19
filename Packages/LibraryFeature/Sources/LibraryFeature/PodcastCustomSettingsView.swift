@@ -37,6 +37,32 @@ public struct PodcastCustomSettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Button(role: .destructive) {
+                        showResetConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if viewModel.isResetting {
+                                ProgressView()
+                                    .padding(.trailing, 8)
+                            }
+                            Text("Reset to Global Defaults")
+                            Spacer()
+                        }
+                    }
+                    .disabled(viewModel.isResetting)
+                    .accessibilityIdentifier("PodcastCustomSettings.ResetButton")
+                }
+
+                if let error = viewModel.resetError {
+                    Section {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .accessibilityIdentifier("PodcastCustomSettings.ErrorMessage")
+                    }
+                }
+
                 Section(header: Text("Download Settings")) {
                     Text("Custom download settings coming in a future update.")
                         .foregroundColor(.secondary)
@@ -71,32 +97,6 @@ public struct PodcastCustomSettingsView: View {
                     Text("Custom notification settings coming in a future update.")
                         .foregroundColor(.secondary)
                         .accessibilityIdentifier("PodcastCustomSettings.NotificationPlaceholder")
-                }
-
-                if let error = viewModel.resetError {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .accessibilityIdentifier("PodcastCustomSettings.ErrorMessage")
-                    }
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showResetConfirmation = true
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if viewModel.isResetting {
-                                ProgressView()
-                                    .padding(.trailing, 8)
-                            }
-                            Text("Reset to Global Defaults")
-                            Spacer()
-                        }
-                    }
-                    .disabled(viewModel.isResetting)
-                    .accessibilityIdentifier("PodcastCustomSettings.ResetButton")
                 }
             }
             .navigationTitle(viewModel.podcast.title)
