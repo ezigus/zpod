@@ -153,18 +153,38 @@ public struct PodcastDownloadSettings: Codable, Equatable, Sendable {
     public let wifiOnly: Bool?
     public let retentionPolicy: RetentionPolicy?
     public let updateFrequency: UpdateFrequency?
+    /// Download priority offset for this podcast, relative to others.
+    /// Range: -10 (lowest) to +10 (highest). Default is 0 (normal).
+    /// Negative values de-prioritize; positive values boost in the download queue.
+    public let priority: Int
+
     public init(
         podcastId: String,
         autoDownloadEnabled: Bool?,
         wifiOnly: Bool?,
         retentionPolicy: RetentionPolicy?,
-        updateFrequency: UpdateFrequency? = nil
+        updateFrequency: UpdateFrequency? = nil,
+        priority: Int = 0
     ) {
         self.podcastId = podcastId
         self.autoDownloadEnabled = autoDownloadEnabled
         self.wifiOnly = wifiOnly
         self.retentionPolicy = retentionPolicy
         self.updateFrequency = updateFrequency
+        self.priority = max(-10, min(10, priority))
+    }
+
+    // Custom decoder: older persisted data may not have a `priority` key.
+    // Decoding as optional and defaulting to 0 ensures forward/backward compatibility.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        podcastId = try container.decode(String.self, forKey: .podcastId)
+        autoDownloadEnabled = try container.decodeIfPresent(Bool.self, forKey: .autoDownloadEnabled)
+        wifiOnly = try container.decodeIfPresent(Bool.self, forKey: .wifiOnly)
+        retentionPolicy = try container.decodeIfPresent(RetentionPolicy.self, forKey: .retentionPolicy)
+        updateFrequency = try container.decodeIfPresent(UpdateFrequency.self, forKey: .updateFrequency)
+        let raw = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+        priority = max(-10, min(10, raw))
     }
 }
 

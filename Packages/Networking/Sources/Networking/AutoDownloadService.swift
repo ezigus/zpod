@@ -11,23 +11,27 @@ public protocol NewEpisodeDelegate: AnyObject {
 @MainActor
 public class AutoDownloadService: NewEpisodeDelegate {
     private let queueManager: DownloadQueueManaging
-    private var autoDownloadSettings: [String: Bool] = [:] // podcastId -> enabled
-    
+    private var autoDownloadSettings: [String: Bool] = [:]   // podcastId -> enabled
+    private var podcastPriorities: [String: Int] = [:]        // podcastId -> -10..+10
+
     public init(queueManager: DownloadQueueManaging) {
         self.queueManager = queueManager
     }
-    
+
     /// Enable or disable auto-download for a specific podcast
     public func setAutoDownload(enabled: Bool, for podcastId: String) {
         autoDownloadSettings[podcastId] = enabled
     }
-    
+
+    /// Set the download priority for a specific podcast (-10..+10, default 0)
+    public func setPriority(_ priority: Int, for podcastId: String) {
+        podcastPriorities[podcastId] = max(-10, min(10, priority))
+    }
+
     /// Called when a new episode is detected for a subscribed podcast
     public func onNewEpisodeDetected(episode: Episode, podcast: Podcast) {
-        // Check if auto-download is enabled for this podcast
         guard shouldAutoDownload(for: podcast) else { return }
-        
-        // Create download task with appropriate priority
+
         let priority = calculateAutoPriority(for: podcast)
         let priorityEnum = convertPriorityToEnum(priority)
         let task = DownloadTask(
@@ -36,48 +40,50 @@ public class AutoDownloadService: NewEpisodeDelegate {
             podcastId: podcast.id,
             audioURL: episode.audioURL ?? URL(string: "https://example.com/default.mp3")!,
             title: episode.title,
-            estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) }, // Rough estimate
+            estimatedSize: episode.duration.map { Int64($0 * 1024 * 1024) },
             priority: priorityEnum
         )
-        
+
         queueManager.addToQueue(task)
     }
-    
+
     // MARK: - Public Configuration
-    
+
     public func getAutoDownloadSetting(for podcastId: String) -> Bool {
         return autoDownloadSettings[podcastId] ?? false
     }
-    
+
+    public func getPriority(for podcastId: String) -> Int {
+        return podcastPriorities[podcastId] ?? 0
+    }
+
     // MARK: - Private Methods
-    
+
     private func shouldAutoDownload(for podcast: Podcast) -> Bool {
-        // Check explicit auto-download setting first
         if let explicitSetting = autoDownloadSettings[podcast.id] {
             return explicitSetting
         }
-        
-        // Fallback to subscription status
         return podcast.isSubscribed
     }
-    
+
+    /// Returns the stored per-podcast priority (-10..+10), defaulting to 0.
     private func calculateAutoPriority(for podcast: Podcast) -> Int {
-        // Default auto-download priority (medium)
-        // Future: could be configured per podcast based on user preferences
-        return 3
+        return podcastPriorities[podcast.id] ?? 0
     }
-    
+
+    /// Maps a -10..+10 priority integer to a DownloadPriority enum.
+    /// Negative values → .low, zero → .normal, positive → .high.
+    static func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
+        if priority < 0 { return .low }
+        if priority > 0 { return .high }
+        return .normal
+    }
+
+    // Keep private instance wrapper for internal call sites
     private func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
-        switch priority {
-        case 1...2:
-            return .low
-        case 4...5:
-            return .high
-        default:
-            return .normal
-        }
+        AutoDownloadService.convertPriorityToEnum(priority)
     }
-    
+
     private func generateTaskId(for episode: Episode) -> String {
         return "auto_\(episode.id)_\(Date().timeIntervalSince1970)"
     }

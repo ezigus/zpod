@@ -80,9 +80,35 @@ public struct PodcastCustomSettingsView: View {
                 }
 
                 Section(header: Text("Priority Settings")) {
-                    Text("Custom priority settings coming in a future update.")
-                        .foregroundColor(.secondary)
-                        .accessibilityIdentifier("PodcastCustomSettings.PriorityPlaceholder")
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Download Priority")
+                            Spacer()
+                            Text(priorityLabel(viewModel.priority))
+                                .foregroundColor(priorityColor(viewModel.priority))
+                                .monospacedDigit()
+                                .accessibilityIdentifier("PodcastCustomSettings.PriorityValueLabel")
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(viewModel.priority) },
+                                set: { viewModel.priority = Int($0.rounded()) }
+                            ),
+                            in: -10...10,
+                            step: 1
+                        )
+                        .accessibilityIdentifier("PodcastCustomSettings.PrioritySlider")
+                        .accessibilityValue("\(viewModel.priority)")
+                        Text("Negative values delay downloads; positive values boost them ahead of others.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .task {
+                        await viewModel.loadPriority()
+                    }
+                    .onChange(of: viewModel.priority) { _ in
+                        Task { await viewModel.savePriority() }
+                    }
                 }
 
                 Section(header: Text("Notification Settings")) {
@@ -120,5 +146,21 @@ public struct PodcastCustomSettingsView: View {
                 "Reset all custom settings for \(viewModel.podcast.title)? This cannot be undone."
             )
         }
+    }
+
+    // MARK: - Priority helpers
+
+    private func priorityLabel(_ value: Int) -> String {
+        switch value {
+        case ..<0: return "\(value)  Deprioritized"
+        case 1...: return "+\(value)  Prioritized"
+        default:   return "0  Normal"
+        }
+    }
+
+    private func priorityColor(_ value: Int) -> Color {
+        if value < 0 { return .orange }
+        if value > 0 { return .blue }
+        return .secondary
     }
 }

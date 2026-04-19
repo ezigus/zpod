@@ -391,6 +391,11 @@ public class SettingsManager {
     return settings
   }
 
+  /// Load per-podcast download settings overrides (nil if not yet customised)
+  public func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings? {
+    await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+  }
+
   /// Update podcast-specific download settings (nil removes override)
   public func updatePodcastDownloadSettings(podcastId: String, _ settings: PodcastDownloadSettings?)
     async

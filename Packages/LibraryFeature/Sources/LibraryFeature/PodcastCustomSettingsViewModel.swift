@@ -24,6 +24,8 @@ import SettingsDomain
 @MainActor
 final class PodcastCustomSettingsViewModel: ObservableObject {
     @Published private(set) var isResetting: Bool = false
+    /// Download priority offset (-10..+10). Loaded from storage; saved immediately on change.
+    @Published var priority: Int = 0
 
     let podcast: Podcast
     private let settingsManager: SettingsManager
@@ -37,6 +39,28 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
     init(podcast: Podcast, settingsManager: SettingsManager) {
         self.podcast = podcast
         self.settingsManager = settingsManager
+    }
+
+    /// Load persisted priority from storage. Call on view appear.
+    func loadPriority() async {
+        let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+        priority = settings?.priority ?? 0
+    }
+
+    /// Persist the current priority immediately.
+    func savePriority() async {
+        let existing = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+        // Preserve all other override fields; only update priority.
+        let updated = PodcastDownloadSettings(
+            podcastId: podcast.id,
+            autoDownloadEnabled: existing?.autoDownloadEnabled,
+            wifiOnly: existing?.wifiOnly,
+            retentionPolicy: existing?.retentionPolicy,
+            updateFrequency: existing?.updateFrequency,
+            priority: priority
+        )
+        await settingsManager.updatePodcastDownloadSettings(podcastId: podcast.id, updated)
+        Self.logger.debug("Saved priority \(self.priority) for podcast \(self.podcast.id)")
     }
 
     /// Resets all per-podcast overrides to global defaults.
@@ -64,6 +88,7 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
         Self.logger.debug("Resetting all settings for podcast \(podcastId)")
         await settingsManager.updatePodcastDownloadSettings(podcastId: podcastId, nil)
         await settingsManager.updatePodcastPlaybackSettings(podcastId: podcastId, nil)
+        priority = 0
         Self.logger.debug("Reset complete for podcast \(podcastId)")
         isResetting = false
     }
