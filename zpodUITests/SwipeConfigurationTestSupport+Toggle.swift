@@ -31,7 +31,7 @@ extension SwipeConfigurationTestCase {
     }
 
     if enabled {
-      let segmentedControl = app.segmentedControls["SwipeActions.Haptics.StylePicker"]
+      let segmentedControl = app.segmentedControls.matching(identifier: "SwipeActions.Haptics.StylePicker").firstMatch
       if segmentedControl.exists {
         let button = segmentedControl.buttons[styleLabel]
         if button.exists {
@@ -123,7 +123,7 @@ extension SwipeConfigurationTestCase {
       ) {
         return
       }
-      let debugSummary = app.staticTexts["SwipeActions.Debug.StateSummary"].value as? String
+      let debugSummary = app.staticTexts.matching(identifier: "SwipeActions.Debug.StateSummary").firstMatch.value as? String
       let message: String
       if let debugSummary {
         message = "Toggle \(identifier) state mismatch. Debug: \(debugSummary)"
