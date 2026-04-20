@@ -16,6 +16,10 @@ public class AutoDownloadService: NewEpisodeDelegate {
     private var autoDownloadSettings: [String: Bool] = [:]   // podcastId -> enabled
     private var podcastPriorities: [String: Int] = [:]        // podcastId -> -10..+10
 
+    /// Invoked on the main actor immediately after a task is added to the queue.
+    /// Use this in tests to observe enqueue completion without polling or sleep.
+    public var onEpisodeEnqueued: ((DownloadTask) -> Void)?
+
     public init(queueManager: DownloadQueueManaging, settingsRepository: SettingsRepository? = nil) {
         self.queueManager = queueManager
         self.settingsRepository = settingsRepository
@@ -63,6 +67,7 @@ public class AutoDownloadService: NewEpisodeDelegate {
             priority: priorityEnum
         )
         queueManager.addToQueue(task)
+        onEpisodeEnqueued?(task)
     }
 
     // MARK: - Public Configuration

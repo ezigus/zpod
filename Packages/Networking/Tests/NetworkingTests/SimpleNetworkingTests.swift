@@ -250,8 +250,8 @@ final class SimpleNetworkingTests: XCTestCase {
     func testAutoDownloadService_loadsPriorityFromRepository() async {
         // Given: An isolated settings repository with a stored high priority
         let suiteName = "test-priority-\(UUID().uuidString)"
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
         let userDefaults = UserDefaults(suiteName: suiteName)!
-        userDefaults.removePersistentDomain(forName: suiteName)
         let repo = UserDefaultsSettingsRepository(userDefaults: userDefaults)
 
         let podcastId = "priority-podcast"
@@ -272,33 +272,17 @@ final class SimpleNetworkingTests: XCTestCase {
         let podcast = Podcast(id: podcastId, title: "Priority Podcast", feedURL: URL(string: "https://example.com")!)
 
         // When: New episode detected (priority not yet in memory cache)
+        let enqueueExpectation = expectation(description: "Episode enqueued after async priority load")
+        service.onEpisodeEnqueued = { _ in enqueueExpectation.fulfill() }
         service.onNewEpisodeDetected(episode: episode, podcast: podcast)
-
-        // Wait for the async repository load Task to complete (actor hop: main → repo → main).
-        // Task.yield() is insufficient here: it only runs tasks already queued on the main actor,
-        // but the continuation from the actor hop may not be queued yet when yield() runs.
-        // Task.sleep forces real elapsed time, allowing the cooperative thread pool to complete
-        // the repo actor method and schedule the continuation back on the main actor.
-        // 50ms per iteration × up to 100 iterations = 5s max. Last resort per testing guidelines;
-        // justified because onNewEpisodeDetected returns void and there is no observable hook to
-        // await the internal Task directly.
-        // Keep `service` referenced so ARC does not release it before the spawned Task's [weak self]
-        // guard runs.
-        var queue = queueManager.getCurrentQueue()
-        var pollCount = 0
-        while queue.isEmpty && pollCount < 100 {
-            _ = service  // prevent ARC from releasing service at the await suspension point
-            try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
-            queue = queueManager.getCurrentQueue()
-            pollCount += 1
-        }
+        await fulfillment(of: [enqueueExpectation], timeout: 2)
 
         // Then: Episode queued with high priority from storage
+        let queue = queueManager.getCurrentQueue()
         XCTAssertEqual(queue.count, 1)
         XCTAssertEqual(queue.first?.episodeId, episode.id)
         XCTAssertEqual(queue.first?.priority, .high)
-        // Verify the priority was cached in service memory (prevents ARC from releasing service
-        // before the spawned task completes, and validates the caching contract).
+        // Verify the priority was cached in service memory
         XCTAssertEqual(service.getPriority(for: podcastId), 7)
     }
 
