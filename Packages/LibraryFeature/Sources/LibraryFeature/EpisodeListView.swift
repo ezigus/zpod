@@ -45,6 +45,7 @@ public struct EpisodeListView: View {
   @State private var isRefreshing = false
   @State private var addToPlaylistEpisode: Episode? = nil
   @State private var showingCustomSettings = false
+  @State private var podcastPriority: Int = 0
 
   @MainActor
   public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
@@ -106,6 +107,22 @@ public struct EpisodeListView: View {
     .navigationTitle(podcast.title)
     .platformNavigationBarTitleDisplayMode(.large)
     .toolbar {
+      if podcastPriority != 0 {
+        ToolbarItem(placement: PlatformToolbarPlacement.topBarLeading) {
+          let color: Color = podcastPriority > 0 ? .green : .orange
+          let label = podcastPriority > 0 ? "↑\(podcastPriority)" : "↓\(abs(podcastPriority))"
+          Text(label)
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .foregroundColor(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15))
+            .cornerRadius(4)
+            .accessibilityIdentifier("EpisodeList.PriorityBadge")
+            .accessibilityLabel("Download priority \(podcastPriority > 0 ? "up" : "down") \(abs(podcastPriority))")
+        }
+      }
       ToolbarItemGroup(placement: PlatformToolbarPlacement.primaryAction) {
         if viewModel.isInMultiSelectMode {
           Button("Done") {
@@ -140,11 +157,22 @@ public struct EpisodeListView: View {
     // (UserDefaults.standard). In production both resolve to standard UserDefaults; in tests
     // with UITEST_USER_DEFAULTS_SUITE set they diverge. Unify by threading settingsManager
     // through EpisodeListView.init() when 06.5.2 wires more settings controls.
-    .sheet(isPresented: $showingCustomSettings) {
+    .sheet(isPresented: $showingCustomSettings, onDismiss: {
+      Task {
+        let settings = await EpisodeListDependencyProvider.shared.settingsManager
+          .loadPodcastDownloadSettings(podcastId: podcast.id)
+        podcastPriority = settings?.priority ?? 0
+      }
+    }) {
       PodcastCustomSettingsView(
         podcast: podcast,
         settingsManager: EpisodeListDependencyProvider.shared.settingsManager
       )
+    }
+    .task(id: podcast.id) {
+      let settings = await EpisodeListDependencyProvider.shared.settingsManager
+        .loadPodcastDownloadSettings(podcastId: podcast.id)
+      podcastPriority = settings?.priority ?? 0
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(
