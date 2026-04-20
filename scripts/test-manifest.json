@@ -5,17 +5,20 @@
       "Packages",
       "zpodUITests/LibraryViewUITests",
       "zpodUITests/ContentDiscoveryUITests",
-      "zpodUITests/PodcastCustomSettingsUITests"
+      "zpodUITests/PodcastCustomSettingsUITests",
+      "zpodUITests/PodcastPriorityUITests"
     ],
     "Packages/LibraryFeature/Sources/LibraryFeature/EpisodeListView.swift": [
       "EpisodeListUITests",
       "PlayerOrientationSnapshotTests",
       "SwipeExecutionTests",
-      "zpodUITests/PodcastCustomSettingsUITests"
+      "zpodUITests/PodcastCustomSettingsUITests",
+      "zpodUITests/PodcastPriorityUITests"
     ],
     "Packages/LibraryFeature/Sources/LibraryFeature/PodcastCustomSettingsView.swift": [
       "Packages",
-      "zpodUITests/PodcastCustomSettingsUITests"
+      "zpodUITests/PodcastCustomSettingsUITests",
+      "zpodUITests/PodcastPriorityUITests"
     ],
     "Packages/LibraryFeature/Sources/LibraryFeature/PodcastCustomSettingsViewModel.swift": [
       "Packages",
