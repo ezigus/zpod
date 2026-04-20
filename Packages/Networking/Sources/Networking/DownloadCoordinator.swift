@@ -60,7 +60,7 @@ public class DownloadCoordinator {
 
   /// Add manual download task
   /// - Parameter priority: Download priority on the -10..+10 scale (negative=low, 0=normal, positive=high)
-  public func addDownload(for episode: Episode, priority: Int = 0) {
+  public func addDownload(for episode: Episode, priority: Int = 5) {
     let priorityEnum = AutoDownloadService.convertPriorityToEnum(priority)
     let podcastId = episode.podcastID ?? episode.id
     let task = DownloadTask(

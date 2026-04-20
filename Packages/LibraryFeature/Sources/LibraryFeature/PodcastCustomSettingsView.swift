@@ -128,7 +128,7 @@ public struct PodcastCustomSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
-                        Task {
+                        Task { @MainActor in
                             await viewModel.waitForPendingSave()
                             dismiss()
                         }

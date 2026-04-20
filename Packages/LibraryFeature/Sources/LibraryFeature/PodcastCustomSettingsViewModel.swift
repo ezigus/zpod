@@ -67,7 +67,11 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
 
     /// Persist the current priority immediately.
     func savePriority() async {
+        // Snapshot priority before any suspension so a later scheduled save can't overwrite
+        // this task's value with a stale one if the task was cancelled mid-flight.
+        let capturedPriority = priority
         let existing = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+        guard !Task.isCancelled else { return }
         // Preserve all other override fields; only update priority.
         let updated = PodcastDownloadSettings(
             podcastId: podcast.id,
@@ -75,10 +79,11 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
             wifiOnly: existing?.wifiOnly,
             retentionPolicy: existing?.retentionPolicy,
             updateFrequency: existing?.updateFrequency,
-            priority: priority
+            priority: capturedPriority
         )
         await settingsManager.updatePodcastDownloadSettings(podcastId: podcast.id, updated)
-        Self.logger.debug("Saved priority \(self.priority) for podcast \(self.podcast.id)")
+        guard !Task.isCancelled else { return }
+        Self.logger.debug("Saved priority \(capturedPriority) for podcast \(self.podcast.id)")
     }
 
     /// Resets all per-podcast overrides to global defaults.

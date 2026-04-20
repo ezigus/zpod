@@ -90,22 +90,12 @@ public class AutoDownloadService: NewEpisodeDelegate {
         return podcast.isSubscribed
     }
 
-    /// Returns the stored per-podcast priority (-10..+10), defaulting to 0.
-    private func calculateAutoPriority(for podcast: Podcast) -> Int {
-        return podcastPriorities[podcast.id] ?? 0
-    }
-
     /// Maps a -10..+10 priority integer to a DownloadPriority enum.
     /// Negative values → .low, zero → .normal, positive → .high.
     public static func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
         if priority < 0 { return .low }
         if priority > 0 { return .high }
         return .normal
-    }
-
-    // Keep private instance wrapper for internal call sites
-    private func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
-        AutoDownloadService.convertPriorityToEnum(priority)
     }
 
     private func generateTaskId(for episode: Episode) -> String {

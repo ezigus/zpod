@@ -148,7 +148,7 @@ public struct EpisodeListView: View {
     // with UITEST_USER_DEFAULTS_SUITE set they diverge. Unify by threading settingsManager
     // through EpisodeListView.init() when 06.5.2 wires more settings controls.
     .sheet(isPresented: $showingCustomSettings, onDismiss: {
-      Task {
+      Task { @MainActor in
         let settings = await EpisodeListDependencyProvider.shared.settingsManager
           .loadPodcastDownloadSettings(podcastId: podcast.id)
         podcastPriority = settings?.priority ?? 0
@@ -162,7 +162,9 @@ public struct EpisodeListView: View {
     .task(id: podcast.id) {
       let settings = await EpisodeListDependencyProvider.shared.settingsManager
         .loadPodcastDownloadSettings(podcastId: podcast.id)
-      podcastPriority = settings?.priority ?? 0
+      await MainActor.run {
+        podcastPriority = settings?.priority ?? 0
+      }
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(

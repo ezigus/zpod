@@ -845,7 +845,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         .accessibilityIdentifier("Podcast-\(podcast.id).CustomSettings")
       }
       .sheet(isPresented: $showingCustomSettings, onDismiss: {
-        Task {
+        Task { @MainActor in
           let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
           downloadPriority = settings?.priority ?? 0
         }
@@ -854,7 +854,9 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
       .task(id: podcast.id) {
         let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
-        downloadPriority = settings?.priority ?? 0
+        await MainActor.run {
+          downloadPriority = settings?.priority ?? 0
+        }
       }
     }
 
