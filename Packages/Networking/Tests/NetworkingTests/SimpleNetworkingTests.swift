@@ -301,4 +301,25 @@ final class SimpleNetworkingTests: XCTestCase {
         // before the spawned task completes, and validates the caching contract).
         XCTAssertEqual(service.getPriority(for: podcastId), 7)
     }
+
+    // MARK: - convertPriorityToEnum Boundary Tests
+
+    @MainActor
+    func testConvertPriorityToEnum_negativeMapsToLow() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-10), .low)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-5), .low)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-1), .low)
+    }
+
+    @MainActor
+    func testConvertPriorityToEnum_zeroMapsToNormal() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(0), .normal)
+    }
+
+    @MainActor
+    func testConvertPriorityToEnum_positiveMapsToHigh() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(1), .high)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(5), .high)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(10), .high)
+    }
 }
