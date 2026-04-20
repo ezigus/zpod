@@ -2,13 +2,16 @@
 //  PodcastCustomSettingsViewModelTests.swift
 //  LibraryFeatureTests
 //
-//  Unit tests for PodcastCustomSettingsViewModel (Issue #478: [06.5.1]).
+//  Unit tests for PodcastCustomSettingsViewModel (Issue #478: [06.5.1], #468: [06.2.1]).
 //
 //  Spec coverage (Given/When/Then):
 //    AC-Reset-1 — Happy path: Reset confirmed removes download + playback overrides
 //    AC-Reset-2 — Re-entrant: A second reset call while one is in-flight is a no-op
 //    AC-Reset-3 — No-op safety: Reset on a podcast with no overrides does not crash
 //    AC-Reset-4 — isResetting is false after reset completes
+//    AC-Priority-1 — loadPriority reads the stored priority value
+//    AC-Priority-2 — savePriority persists the current priority to storage
+//    AC-Priority-3 — resetSettings sets priority back to 0
 //
 
 import XCTest
@@ -123,5 +126,73 @@ final class PodcastCustomSettingsViewModelTests: XCTestCase {
 
         // Then: isResetting is false
         XCTAssertFalse(vm.isResetting, "isResetting should be false after reset completes")
+    }
+
+    // MARK: - AC-Priority-1: loadPriority reads stored value
+
+    func testLoadPriority_loadsFromStorage() async {
+        // Given: a podcast with priority 7 already saved in storage
+        let podcastId = "priority-load-test-468"
+        let (vm, manager, _) = makeSUT(podcastId: podcastId)
+
+        let settingsWithPriority = PodcastDownloadSettings(
+            podcastId: podcastId,
+            autoDownloadEnabled: nil,
+            wifiOnly: nil,
+            retentionPolicy: nil,
+            updateFrequency: nil,
+            priority: 7
+        )
+        await manager.updatePodcastDownloadSettings(podcastId: podcastId, settingsWithPriority)
+        XCTAssertEqual(vm.priority, 0, "Precondition: priority starts at 0 before load")
+
+        // When: loadPriority is called
+        await vm.loadPriority()
+
+        // Then: priority reflects the stored value
+        XCTAssertEqual(vm.priority, 7, "loadPriority should read the stored priority (7)")
+    }
+
+    // MARK: - AC-Priority-2: savePriority persists the current priority
+
+    func testSavePriority_persistsValue() async {
+        // Given: a view model with priority set to -3
+        let podcastId = "priority-save-test-468"
+        let (vm, _, repository) = makeSUT(podcastId: podcastId)
+        vm.priority = -3
+
+        // When: savePriority is called
+        await vm.savePriority()
+
+        // Then: storage reflects the saved priority
+        let stored = await repository.loadPodcastDownloadSettings(podcastId: podcastId)
+        XCTAssertNotNil(stored, "savePriority should create a download settings entry")
+        XCTAssertEqual(stored?.priority, -3, "Stored priority should be -3")
+    }
+
+    // MARK: - AC-Priority-3: resetSettings resets priority to 0
+
+    func testResetSettings_setsPriorityToZero() async {
+        // Given: a view model with priority set to 5
+        let podcastId = "priority-reset-test-468"
+        let (vm, manager, _) = makeSUT(podcastId: podcastId)
+
+        let settingsWithPriority = PodcastDownloadSettings(
+            podcastId: podcastId,
+            autoDownloadEnabled: nil,
+            wifiOnly: nil,
+            retentionPolicy: nil,
+            updateFrequency: nil,
+            priority: 5
+        )
+        await manager.updatePodcastDownloadSettings(podcastId: podcastId, settingsWithPriority)
+        await vm.loadPriority()
+        XCTAssertEqual(vm.priority, 5, "Precondition: priority should be 5 after load")
+
+        // When: reset is called
+        await vm.resetSettings()?.value
+
+        // Then: priority returns to 0
+        XCTAssertEqual(vm.priority, 0, "resetSettings should set priority back to 0")
     }
 }

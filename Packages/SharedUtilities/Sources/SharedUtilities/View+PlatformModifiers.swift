@@ -62,5 +62,14 @@ public enum PlatformToolbarPlacement {
     .cancellationAction
 #endif
   }
+
+  @MainActor
+  public static var leading: ToolbarItemPlacement {
+#if os(iOS)
+    .navigationBarLeading
+#else
+    .navigation
+#endif
+  }
 }
 #endif
