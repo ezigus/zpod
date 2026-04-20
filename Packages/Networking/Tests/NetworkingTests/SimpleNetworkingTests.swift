@@ -240,10 +240,10 @@ final class SimpleNetworkingTests: XCTestCase {
         coordinator.addDownload(for: episode, priority: 5)
         XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .high)
 
-        // When: Adding with default priority (0 → normal)
+        // When: Adding with default priority (5 → high — manual downloads are elevated by default)
         queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
         coordinator.addDownload(for: episode)
-        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .normal)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .high)
     }
 
     @MainActor
