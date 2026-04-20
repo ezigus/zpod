@@ -128,7 +128,10 @@ public struct PodcastCustomSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {
-                        dismiss()
+                        Task {
+                            await viewModel.waitForPendingSave()
+                            dismiss()
+                        }
                     }
                     .accessibilityIdentifier("PodcastCustomSettings.DoneButton")
                 }

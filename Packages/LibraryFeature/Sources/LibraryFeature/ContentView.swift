@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  ContentView.swift
 //  zpodcastaddict
@@ -805,7 +806,8 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
                 .font(.headline)
                 .foregroundColor(.primary)
               if downloadPriority != 0 {
-                priorityBadgeView(downloadPriority)
+                PriorityBadgeView(value: downloadPriority)
+                  .accessibilityIdentifier("Library.PriorityBadge")
               }
             }
             if let description = podcast.description {
@@ -856,26 +858,24 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
       }
     }
 
-    private func priorityBadgeText(_ value: Int) -> String {
-      value > 0 ? "↑\(value)" : "↓\(abs(value))"
-    }
-
-    @ViewBuilder
-    private func priorityBadgeView(_ value: Int) -> some View {
-      let color: Color = value > 0 ? .green : .orange
-      let direction = value > 0 ? "up" : "down"
-      Text(priorityBadgeText(value))
-        .font(.caption2)
-        .fontWeight(.semibold)
-        .foregroundColor(color)
-        .padding(.horizontal, 5)
-        .padding(.vertical, 2)
-        .background(color.opacity(0.15))
-        .cornerRadius(4)
-        .accessibilityIdentifier("Library.PriorityBadge")
-        .accessibilityLabel("Priority \(direction) \(abs(value))")
-    }
   }
+
+struct PriorityBadgeView: View {
+  let value: Int
+  var body: some View {
+    let color: Color = value > 0 ? .green : .orange
+    let text = value > 0 ? "↑\(value)" : "↓\(abs(value))"
+    Text(text)
+      .font(.caption2)
+      .fontWeight(.semibold)
+      .foregroundColor(color)
+      .padding(.horizontal, 5)
+      .padding(.vertical, 2)
+      .background(color.opacity(0.15))
+      .cornerRadius(4)
+      .accessibilityLabel("Priority \(value > 0 ? "up" : "down") \(abs(value))")
+  }
+}
 
   // MARK: - Episode List View Wrapper with Real Batch Operations
     struct EpisodeListViewWrapper: View {

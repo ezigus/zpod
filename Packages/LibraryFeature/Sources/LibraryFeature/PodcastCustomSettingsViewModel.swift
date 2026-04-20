@@ -20,9 +20,9 @@ import SettingsDomain
 /// - Note: Per-podcast filter/sort preferences (stored in `GlobalFilterPreferences
 ///   .perPodcastPreferences`) will also need to be cleared here once those overrides
 ///   are implemented in 06.3.4 / 06.5.2.
-// TODO: [Issue #06.5.2] Extend reset to clear `perPodcastPreferences[podcastId]` when that field is wired.
 @MainActor
 final class PodcastCustomSettingsViewModel: ObservableObject {
+    // TODO: [Issue #06.5.2] Extend reset to clear `perPodcastPreferences[podcastId]` when that field is wired.
     @Published private(set) var isResetting: Bool = false
     /// Download priority offset (-10..+10). Loaded from storage; saved immediately on change.
     @Published var priority: Int = 0
@@ -55,6 +55,14 @@ final class PodcastCustomSettingsViewModel: ObservableObject {
     func scheduleSave() {
         pendingSaveTask?.cancel()
         pendingSaveTask = Task { await savePriority() }
+    }
+
+    /// Wait for any in-flight save to complete before proceeding.
+    ///
+    /// Call this before dismissing the sheet so that the parent's `onDismiss`
+    /// reload always reads the value the user last set, not the stale pre-save value.
+    func waitForPendingSave() async {
+        await pendingSaveTask?.value
     }
 
     /// Persist the current priority immediately.

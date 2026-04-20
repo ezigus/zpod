@@ -12,6 +12,10 @@ public final class DownloadCoordinatorBridge: DownloadProgressProviding, Episode
     private let coordinator: DownloadCoordinator
 
     private init() {
+        // Note: Creates its own repository instance since there is no app-level DI to
+        // inject one here. Both this and the main app's repository use UserDefaults.standard
+        // as their backing store, so they read/write the same data. Proper DI injection
+        // is tracked under #06.5.2 when EpisodeListDependencyProvider is refactored.
         self.coordinator = DownloadCoordinator(
             autoProcessingEnabled: true,
             settingsRepository: UserDefaultsSettingsRepository()

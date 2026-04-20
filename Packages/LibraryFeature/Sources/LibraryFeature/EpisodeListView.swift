@@ -109,18 +109,8 @@ public struct EpisodeListView: View {
     .toolbar {
       if podcastPriority != 0 {
         ToolbarItem(placement: PlatformToolbarPlacement.leading) {
-          let color: Color = podcastPriority > 0 ? .green : .orange
-          let label = podcastPriority > 0 ? "↑\(podcastPriority)" : "↓\(abs(podcastPriority))"
-          Text(label)
-            .font(.caption2)
-            .fontWeight(.semibold)
-            .foregroundColor(color)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.15))
-            .cornerRadius(4)
+          PriorityBadgeView(value: podcastPriority)
             .accessibilityIdentifier("EpisodeList.PriorityBadge")
-            .accessibilityLabel("Download priority \(podcastPriority > 0 ? "up" : "down") \(abs(podcastPriority))")
         }
       }
       ToolbarItemGroup(placement: PlatformToolbarPlacement.primaryAction) {
@@ -1013,7 +1003,6 @@ public struct EpisodeListView: View {
     }
   }
 #endif
-
 
 @MainActor
 @ViewBuilder
