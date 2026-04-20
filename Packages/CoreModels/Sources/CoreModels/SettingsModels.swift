@@ -186,6 +186,25 @@ public struct PodcastDownloadSettings: Codable, Equatable, Sendable {
         let raw = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
         priority = max(-10, min(10, raw))
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(podcastId, forKey: .podcastId)
+        try container.encodeIfPresent(autoDownloadEnabled, forKey: .autoDownloadEnabled)
+        try container.encodeIfPresent(wifiOnly, forKey: .wifiOnly)
+        try container.encodeIfPresent(retentionPolicy, forKey: .retentionPolicy)
+        try container.encodeIfPresent(updateFrequency, forKey: .updateFrequency)
+        try container.encode(priority, forKey: .priority)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case podcastId
+        case autoDownloadEnabled
+        case wifiOnly
+        case retentionPolicy
+        case updateFrequency
+        case priority
+    }
 }
 
 /// Global UI configuration settings (swipe gestures, haptics, etc.)
