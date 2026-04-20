@@ -782,6 +782,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     let settingsManager: SettingsManager
 
     @State private var showingCustomSettings = false
+    @State private var downloadPriority: Int = 0
 
     var body: some View {
       NavigationLink(
@@ -799,9 +800,14 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             )
 
           VStack(alignment: .leading, spacing: 6) {
-            Text(podcast.title)
-              .font(.headline)
-              .foregroundColor(.primary)
+            HStack(spacing: 6) {
+              Text(podcast.title)
+                .font(.headline)
+                .foregroundColor(.primary)
+              if downloadPriority != 0 {
+                priorityBadgeView(downloadPriority)
+              }
+            }
             if let description = podcast.description {
               Text(description)
                 .font(.subheadline)
@@ -836,9 +842,38 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
         .accessibilityIdentifier("Podcast-\(podcast.id).CustomSettings")
       }
-      .sheet(isPresented: $showingCustomSettings) {
+      .sheet(isPresented: $showingCustomSettings, onDismiss: {
+        Task {
+          let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+          downloadPriority = settings?.priority ?? 0
+        }
+      }) {
         PodcastCustomSettingsView(podcast: podcast, settingsManager: settingsManager)
       }
+      .task(id: podcast.id) {
+        let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+        downloadPriority = settings?.priority ?? 0
+      }
+    }
+
+    private func priorityBadgeText(_ value: Int) -> String {
+      value > 0 ? "↑\(value)" : "↓\(abs(value))"
+    }
+
+    @ViewBuilder
+    private func priorityBadgeView(_ value: Int) -> some View {
+      let color: Color = value > 0 ? .green : .orange
+      let direction = value > 0 ? "up" : "down"
+      Text(priorityBadgeText(value))
+        .font(.caption2)
+        .fontWeight(.semibold)
+        .foregroundColor(color)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.15))
+        .cornerRadius(4)
+        .accessibilityIdentifier("Library.PriorityBadge")
+        .accessibilityLabel("Priority \(direction) \(abs(value))")
     }
   }
 
