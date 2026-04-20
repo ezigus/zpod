@@ -108,7 +108,7 @@ public struct EpisodeListView: View {
     .platformNavigationBarTitleDisplayMode(.large)
     .toolbar {
       if podcastPriority != 0 {
-        ToolbarItem(placement: PlatformToolbarPlacement.topBarLeading) {
+        ToolbarItem(placement: .navigationBarLeading) {
           let color: Color = podcastPriority > 0 ? .green : .orange
           let label = podcastPriority > 0 ? "↑\(podcastPriority)" : "↓\(abs(podcastPriority))"
           Text(label)
