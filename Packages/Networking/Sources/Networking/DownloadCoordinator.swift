@@ -59,8 +59,9 @@ public class DownloadCoordinator {
   // MARK: - Public API
 
   /// Add manual download task
-  public func addDownload(for episode: Episode, priority: Int = 5) {
-    let priorityEnum: DownloadPriority = priority <= 2 ? .low : priority >= 4 ? .high : .normal
+  /// - Parameter priority: Download priority on the -10..+10 scale (negative=low, 0=normal, positive=high)
+  public func addDownload(for episode: Episode, priority: Int = 0) {
+    let priorityEnum = AutoDownloadService.convertPriorityToEnum(priority)
     let podcastId = episode.podcastID ?? episode.id
     let task = DownloadTask(
       id: "manual_\(episode.id)_\(Date().timeIntervalSince1970)",

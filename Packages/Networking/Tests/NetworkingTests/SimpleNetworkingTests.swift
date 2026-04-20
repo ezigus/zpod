@@ -219,6 +219,34 @@ final class SimpleNetworkingTests: XCTestCase {
     }
 
     @MainActor
+    func testDownloadCoordinator_addDownload_priorityMapping() {
+        // Given: Download coordinator
+        let queueManager = InMemoryDownloadQueueManager()
+        let coordinator = DownloadCoordinator(queueManager: queueManager)
+
+        let episode = Episode(id: "ep-manual", title: "Manual Episode")
+
+        // When: Adding with negative priority (low)
+        coordinator.addDownload(for: episode, priority: -5)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .low)
+
+        // When: Adding with zero priority (normal)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode, priority: 0)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .normal)
+
+        // When: Adding with positive priority (high)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode, priority: 5)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .high)
+
+        // When: Adding with default priority (0 → normal)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .normal)
+    }
+
+    @MainActor
     func testAutoDownloadService_loadsPriorityFromRepository() async {
         // Given: An isolated settings repository with a stored high priority
         let suiteName = "test-priority-\(UUID().uuidString)"

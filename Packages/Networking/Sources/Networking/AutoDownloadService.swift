@@ -91,7 +91,7 @@ public class AutoDownloadService: NewEpisodeDelegate {
 
     /// Maps a -10..+10 priority integer to a DownloadPriority enum.
     /// Negative values → .low, zero → .normal, positive → .high.
-    static func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
+    public static func convertPriorityToEnum(_ priority: Int) -> DownloadPriority {
         if priority < 0 { return .low }
         if priority > 0 { return .high }
         return .normal
