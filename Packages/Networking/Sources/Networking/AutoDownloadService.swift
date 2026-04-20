@@ -5,7 +5,8 @@ import Persistence
 /// Protocol for new episode detection notifications
 @MainActor
 public protocol NewEpisodeDelegate: AnyObject {
-    func onNewEpisodeDetected(episode: Episode, podcast: Podcast)
+    @discardableResult
+    func onNewEpisodeDetected(episode: Episode, podcast: Podcast) -> Task<Void, Never>?
 }
 
 /// Service for handling automatic downloads when new episodes are detected
@@ -15,10 +16,6 @@ public class AutoDownloadService: NewEpisodeDelegate {
     private let settingsRepository: SettingsRepository?
     private var autoDownloadSettings: [String: Bool] = [:]   // podcastId -> enabled
     private var podcastPriorities: [String: Int] = [:]        // podcastId -> -10..+10
-
-    /// Invoked on the main actor immediately after a task is added to the queue.
-    /// Use this in tests to observe enqueue completion without polling or sleep.
-    public var onEpisodeEnqueued: ((DownloadTask) -> Void)?
 
     public init(queueManager: DownloadQueueManaging, settingsRepository: SettingsRepository? = nil) {
         self.queueManager = queueManager
@@ -35,18 +32,23 @@ public class AutoDownloadService: NewEpisodeDelegate {
         podcastPriorities[podcastId] = max(-10, min(10, priority))
     }
 
-    /// Called when a new episode is detected for a subscribed podcast
-    public func onNewEpisodeDetected(episode: Episode, podcast: Podcast) {
-        guard shouldAutoDownload(for: podcast) else { return }
+    /// Called when a new episode is detected for a subscribed podcast.
+    ///
+    /// Returns the async Task spawned to load priority from storage, or `nil` when priority
+    /// is already cached or no repository is configured. Tests can `await task?.value` to
+    /// synchronize with the async enqueue without polling or blocking the main actor.
+    @discardableResult
+    public func onNewEpisodeDetected(episode: Episode, podcast: Podcast) -> Task<Void, Never>? {
+        guard shouldAutoDownload(for: podcast) else { return nil }
 
         // Use cached priority synchronously when available or no repository is configured.
         guard let repo = settingsRepository, podcastPriorities[podcast.id] == nil else {
             enqueueDownload(episode: episode, podcast: podcast, priority: podcastPriorities[podcast.id] ?? 0)
-            return
+            return nil
         }
 
         // Priority not yet cached — load from storage, then enqueue.
-        Task { @MainActor [weak self] in
+        return Task { @MainActor [weak self] in
             guard let self else { return }
             let stored = await repo.loadPodcastDownloadSettings(podcastId: podcast.id)
             let priority = stored?.priority ?? 0
@@ -67,7 +69,6 @@ public class AutoDownloadService: NewEpisodeDelegate {
             priority: priorityEnum
         )
         queueManager.addToQueue(task)
-        onEpisodeEnqueued?(task)
     }
 
     // MARK: - Public Configuration

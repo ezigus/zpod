@@ -271,11 +271,12 @@ final class SimpleNetworkingTests: XCTestCase {
         let episode = Episode(id: "ep-priority", title: "Priority Episode")
         let podcast = Podcast(id: podcastId, title: "Priority Podcast", feedURL: URL(string: "https://example.com")!)
 
-        // When: New episode detected (priority not yet in memory cache)
-        let enqueueExpectation = expectation(description: "Episode enqueued after async priority load")
-        service.onEpisodeEnqueued = { _ in enqueueExpectation.fulfill() }
-        service.onNewEpisodeDetected(episode: episode, podcast: podcast)
-        await fulfillment(of: [enqueueExpectation], timeout: 2)
+        // When: New episode detected (priority not yet in memory cache).
+        // onNewEpisodeDetected returns the async Task it spawns; awaiting .value suspends
+        // the test cooperatively, allowing the @MainActor task to run without blocking
+        // the main thread (which would deadlock with run-loop-based expectation waiting).
+        let enqueueTask = service.onNewEpisodeDetected(episode: episode, podcast: podcast)
+        await enqueueTask?.value
 
         // Then: Episode queued with high priority from storage
         let queue = queueManager.getCurrentQueue()
