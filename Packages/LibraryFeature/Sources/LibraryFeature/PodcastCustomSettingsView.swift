@@ -119,7 +119,7 @@ public struct PodcastCustomSettingsView: View {
                 await viewModel.loadPriority()
                 priorityLoaded = true
             }
-            .onChange(of: viewModel.priority) { _ in
+            .onChange(of: viewModel.priority) { _, _ in
                 guard priorityLoaded else { return }
                 viewModel.scheduleSave()
             }
