@@ -151,13 +151,13 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func navigateToEpisodeList() throws {
-    let tabBar = app.tabBars["Main Tab Bar"]
+    let tabBar = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
     guard tabBar.exists else {
       XCTFail("Main tab bar not available")
       return
     }
 
-    let libraryTab = tabBar.buttons["Library"]
+    let libraryTab = tabBar.buttons.matching(identifier: "Library").firstMatch
     guard libraryTab.exists else {
       XCTFail("Library tab unavailable")
       return
@@ -182,7 +182,7 @@ extension SwipeConfigurationTestCase {
     let navigationSucceeded = navigateAndWaitForResult(
       triggerAction: { libraryTab.tap() },
       expectedElements: [
-        app.buttons["Podcast-swift-talk"],
+        app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch,
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Library'")).firstMatch,
       ],
       timeout: adaptiveTimeout,
@@ -201,7 +201,7 @@ extension SwipeConfigurationTestCase {
       return
     }
 
-    let podcastButton = app.buttons["Podcast-swift-talk"]
+    let podcastButton = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
     guard podcastButton.exists else {
       XCTFail("Test podcast unavailable")
       return
@@ -215,7 +215,7 @@ extension SwipeConfigurationTestCase {
     let episodeNavSucceeded = navigateAndWaitForResult(
       triggerAction: { podcastButton.tap() },
       expectedElements: [
-        app.buttons["ConfigureSwipeActions"],
+        app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch,
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Episodes'")).firstMatch,
       ],
       timeout: adaptiveTimeout,
@@ -231,7 +231,7 @@ extension SwipeConfigurationTestCase {
       containerIdentifier: "Episode Cards Container",
       timeout: adaptiveTimeout
     ) {
-      let configureButton = app.buttons["ConfigureSwipeActions"]
+      let configureButton = app.buttons.matching(identifier: "ConfigureSwipeActions").firstMatch
       guard
         waitForElement(
           configureButton,
@@ -248,11 +248,11 @@ extension SwipeConfigurationTestCase {
   @MainActor
   func openSwipeConfigurationSheet() {
     let existingIndicators: [XCUIElement] = [
-      app.navigationBars["Swipe Actions"],
-      app.otherElements["Swipe Actions"],
-      app.staticTexts["Swipe Actions"],
-      app.buttons["SwipeActions.Save"],
-      app.buttons["SwipeActions.Cancel"],
+      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
+      app.otherElements.matching(identifier: "Swipe Actions").firstMatch,
+      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
     ]
 
     if existingIndicators.contains(where: { $0.exists }) {
@@ -281,11 +281,11 @@ extension SwipeConfigurationTestCase {
     tapElement(configureButton, description: "configure swipe actions button")
 
     let refreshedIndicators: [XCUIElement] = [
-      app.navigationBars["Swipe Actions"],
-      app.otherElements["Swipe Actions"],
-      app.staticTexts["Swipe Actions"],
-      app.buttons["SwipeActions.Save"],
-      app.buttons["SwipeActions.Cancel"],
+      app.navigationBars.matching(identifier: "Swipe Actions").firstMatch,
+      app.otherElements.matching(identifier: "Swipe Actions").firstMatch,
+      app.staticTexts.matching(identifier: "Swipe Actions").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
+      app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch,
     ]
 
     _ = waitForAnyElement(
@@ -310,8 +310,8 @@ extension SwipeConfigurationTestCase {
 
   @MainActor
   func waitForSheetDismissal() {
-    let navBar = app.navigationBars["Swipe Actions"]
-    let saveButton = app.buttons["SwipeActions.Save"]
+    let navBar = app.navigationBars.matching(identifier: "Swipe Actions").firstMatch
+    let saveButton = app.buttons.matching(identifier: "SwipeActions.Save").firstMatch
     _ = waitForElementToDisappear(saveButton, timeout: adaptiveTimeout)
     _ = waitForElementToDisappear(navBar, timeout: adaptiveTimeout)
   }
@@ -329,10 +329,13 @@ extension SwipeConfigurationTestCase {
   }
 
   func dismissConfigurationSheetIfNeeded() {
-    let cancelButton = app.buttons["SwipeActions.Cancel"]
+    let cancelButton = app.buttons.matching(identifier: "SwipeActions.Cancel").firstMatch
     guard cancelButton.exists else { return }
     tapElement(cancelButton, description: "SwipeActions.Cancel")
-    _ = waitForElementToDisappear(app.buttons["SwipeActions.Save"], timeout: adaptiveTimeout)
+    _ = waitForElementToDisappear(
+      app.buttons.matching(identifier: "SwipeActions.Save").firstMatch,
+      timeout: adaptiveTimeout
+    )
   }
 
   @MainActor

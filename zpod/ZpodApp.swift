@@ -40,6 +40,7 @@ struct ZpodApp: App {
 
       // Reset playback state for UI tests to ensure clean state between tests
       resetPlaybackStateForUITests()
+      resetPodcastDownloadSettingsForUITests()
       seedOrphanedEpisodesForUITests()
       seedPodcastsForUITests()
     #endif
@@ -187,6 +188,26 @@ struct ZpodApp: App {
 
       print("🧪 UI Test: Reset all episode playback positions and cleared persisted state")
     #endif
+  }
+
+  private func resetPodcastDownloadSettingsForUITests() {
+    let isUITesting =
+      ProcessInfo.processInfo.environment["UITEST_DISABLE_DOWNLOAD_COORDINATOR"] == "1"
+    guard isUITesting else { return }
+
+    // Remove all podcast_download_* keys so priority state does not leak across tests.
+    // The test runner clears its own UserDefaults container but cannot touch the app's
+    // container — this in-app reset bridges that gap.
+    let prefix = "podcast_download_"
+    let keysToRemove = UserDefaults.standard.dictionaryRepresentation().keys.filter {
+      $0.hasPrefix(prefix)
+    }
+    for key in keysToRemove {
+      UserDefaults.standard.removeObject(forKey: key)
+    }
+    if !keysToRemove.isEmpty {
+      print("🧪 UI Test: Cleared \(keysToRemove.count) podcast download settings key(s)")
+    }
   }
 
   private func seedOrphanedEpisodesForUITests() {

@@ -32,7 +32,8 @@ public class DownloadCoordinator {
   public init(
     queueManager: DownloadQueueManaging? = nil,
     fileManagerService: FileManagerServicing? = nil,
-    autoProcessingEnabled: Bool = false
+    autoProcessingEnabled: Bool = false,
+    settingsRepository: SettingsRepository? = nil
   ) {
     self.queueManager = queueManager ?? InMemoryDownloadQueueManager()
     if let fileManagerService {
@@ -43,7 +44,7 @@ public class DownloadCoordinator {
       self.fileManagerService = DummyFileManagerService()
     }
     self.storagePolicyEvaluator = StoragePolicyEvaluator()
-    self.autoDownloadService = AutoDownloadService(queueManager: self.queueManager)
+    self.autoDownloadService = AutoDownloadService(queueManager: self.queueManager, settingsRepository: settingsRepository)
     self.autoProcessingEnabled = autoProcessingEnabled
 
     if autoProcessingEnabled {
@@ -58,8 +59,9 @@ public class DownloadCoordinator {
   // MARK: - Public API
 
   /// Add manual download task
+  /// - Parameter priority: Download priority on the -10..+10 scale (negative=low, 0=normal, positive=high)
   public func addDownload(for episode: Episode, priority: Int = 5) {
-    let priorityEnum: DownloadPriority = priority <= 2 ? .low : priority >= 4 ? .high : .normal
+    let priorityEnum = AutoDownloadService.convertPriorityToEnum(priority)
     let podcastId = episode.podcastID ?? episode.id
     let task = DownloadTask(
       id: "manual_\(episode.id)_\(Date().timeIntervalSince1970)",

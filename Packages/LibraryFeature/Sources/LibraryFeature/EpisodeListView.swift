@@ -45,6 +45,7 @@ public struct EpisodeListView: View {
   @State private var isRefreshing = false
   @State private var addToPlaylistEpisode: Episode? = nil
   @State private var showingCustomSettings = false
+  @State private var podcastPriority: Int = 0
 
   @MainActor
   public init(podcast: Podcast, filterManager: EpisodeFilterManager? = nil, playlistManager: (any PlaylistManaging)? = nil) {
@@ -106,6 +107,12 @@ public struct EpisodeListView: View {
     .navigationTitle(podcast.title)
     .platformNavigationBarTitleDisplayMode(.large)
     .toolbar {
+      if podcastPriority != 0 {
+        ToolbarItem(placement: PlatformToolbarPlacement.leading) {
+          PriorityBadgeView(value: podcastPriority)
+            .accessibilityIdentifier("EpisodeList.PriorityBadge")
+        }
+      }
       ToolbarItemGroup(placement: PlatformToolbarPlacement.primaryAction) {
         if viewModel.isInMultiSelectMode {
           Button("Done") {
@@ -140,11 +147,24 @@ public struct EpisodeListView: View {
     // (UserDefaults.standard). In production both resolve to standard UserDefaults; in tests
     // with UITEST_USER_DEFAULTS_SUITE set they diverge. Unify by threading settingsManager
     // through EpisodeListView.init() when 06.5.2 wires more settings controls.
-    .sheet(isPresented: $showingCustomSettings) {
+    .sheet(isPresented: $showingCustomSettings, onDismiss: {
+      Task { @MainActor in
+        let settings = await EpisodeListDependencyProvider.shared.settingsManager
+          .loadPodcastDownloadSettings(podcastId: podcast.id)
+        podcastPriority = settings?.priority ?? 0
+      }
+    }) {
       PodcastCustomSettingsView(
         podcast: podcast,
         settingsManager: EpisodeListDependencyProvider.shared.settingsManager
       )
+    }
+    .task(id: podcast.id) {
+      let settings = await EpisodeListDependencyProvider.shared.settingsManager
+        .loadPodcastDownloadSettings(podcastId: podcast.id)
+      await MainActor.run {
+        podcastPriority = settings?.priority ?? 0
+      }
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
       EpisodeFilterSheet(
@@ -985,7 +1005,6 @@ public struct EpisodeListView: View {
     }
   }
 #endif
-
 
 @MainActor
 @ViewBuilder

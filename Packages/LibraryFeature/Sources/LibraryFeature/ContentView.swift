@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  ContentView.swift
 //  zpodcastaddict
@@ -782,6 +783,7 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
     let settingsManager: SettingsManager
 
     @State private var showingCustomSettings = false
+    @State private var downloadPriority: Int = 0
 
     var body: some View {
       NavigationLink(
@@ -799,9 +801,15 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
             )
 
           VStack(alignment: .leading, spacing: 6) {
-            Text(podcast.title)
-              .font(.headline)
-              .foregroundColor(.primary)
+            HStack(spacing: 6) {
+              Text(podcast.title)
+                .font(.headline)
+                .foregroundColor(.primary)
+              if downloadPriority != 0 {
+                PriorityBadgeView(value: downloadPriority)
+                  .accessibilityIdentifier("Library.PriorityBadge")
+              }
+            }
             if let description = podcast.description {
               Text(description)
                 .font(.subheadline)
@@ -836,11 +844,40 @@ private let logger = Logger(subsystem: "us.zig.zpod.library", category: "TestAud
         }
         .accessibilityIdentifier("Podcast-\(podcast.id).CustomSettings")
       }
-      .sheet(isPresented: $showingCustomSettings) {
+      .sheet(isPresented: $showingCustomSettings, onDismiss: {
+        Task { @MainActor in
+          let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+          downloadPriority = settings?.priority ?? 0
+        }
+      }) {
         PodcastCustomSettingsView(podcast: podcast, settingsManager: settingsManager)
       }
+      .task(id: podcast.id) {
+        let settings = await settingsManager.loadPodcastDownloadSettings(podcastId: podcast.id)
+        await MainActor.run {
+          downloadPriority = settings?.priority ?? 0
+        }
+      }
     }
+
   }
+
+struct PriorityBadgeView: View {
+  let value: Int
+  var body: some View {
+    let color: Color = value > 0 ? .green : .orange
+    let text = value > 0 ? "↑\(value)" : "↓\(abs(value))"
+    Text(text)
+      .font(.caption2)
+      .fontWeight(.semibold)
+      .foregroundColor(color)
+      .padding(.horizontal, 5)
+      .padding(.vertical, 2)
+      .background(color.opacity(0.15))
+      .cornerRadius(4)
+      .accessibilityLabel("Priority \(value > 0 ? "up" : "down") \(abs(value))")
+  }
+}
 
   // MARK: - Episode List View Wrapper with Real Batch Operations
     struct EpisodeListViewWrapper: View {

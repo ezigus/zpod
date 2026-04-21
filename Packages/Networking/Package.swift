@@ -42,6 +42,7 @@ let package = Package(
                 "CoreModels",
                 "SharedUtilities",
                 "CombineSupport",
+                "Persistence",
                 "TestSupport"
             ]
         )

@@ -5,6 +5,7 @@ import Foundation
 #endif
 @testable import Networking
 import CoreModels
+import Persistence
 import SharedUtilities
 import TestSupport
 
@@ -202,18 +203,108 @@ final class SimpleNetworkingTests: XCTestCase {
     func testDownloadQueue_priorityOrdering() {
         // Given: Download queue manager
         let queueManager = InMemoryDownloadQueueManager()
-        
+
         // When: Adding tasks with different priorities
         let lowPriorityTask = MockDownloadTask.createSample(id: "low", title: "Low Priority", priority: .low)
         let highPriorityTask = MockDownloadTask.createSample(id: "high", title: "High Priority", priority: .high)
-        
+
         queueManager.addToQueue(lowPriorityTask)
         queueManager.addToQueue(highPriorityTask)
-        
+
         // Then: Queue should maintain priority order
         let queue = queueManager.getCurrentQueue()
         XCTAssertEqual(queue.count, 2)
         // High priority should come first
         XCTAssertEqual(queue.first?.id, "high")
+    }
+
+    @MainActor
+    func testDownloadCoordinator_addDownload_priorityMapping() {
+        // Given: Download coordinator
+        let queueManager = InMemoryDownloadQueueManager()
+        let coordinator = DownloadCoordinator(queueManager: queueManager)
+
+        let episode = Episode(id: "ep-manual", title: "Manual Episode")
+
+        // When: Adding with negative priority (low)
+        coordinator.addDownload(for: episode, priority: -5)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .low)
+
+        // When: Adding with zero priority (normal)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode, priority: 0)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .normal)
+
+        // When: Adding with positive priority (high)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode, priority: 5)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .high)
+
+        // When: Adding with default priority (5 → high — manual downloads are elevated by default)
+        queueManager.removeFromQueue(taskId: queueManager.getCurrentQueue().first!.id)
+        coordinator.addDownload(for: episode)
+        XCTAssertEqual(queueManager.getCurrentQueue().first?.priority, .high)
+    }
+
+    @MainActor
+    func testAutoDownloadService_loadsPriorityFromRepository() async {
+        // Given: An isolated settings repository with a stored high priority
+        let suiteName = "test-priority-\(UUID().uuidString)"
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        let repo = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+
+        let podcastId = "priority-podcast"
+        let settings = PodcastDownloadSettings(
+            podcastId: podcastId,
+            autoDownloadEnabled: nil,
+            wifiOnly: nil,
+            retentionPolicy: nil,
+            priority: 7
+        )
+        await repo.savePodcastDownloadSettings(settings)
+
+        let queueManager = InMemoryDownloadQueueManager()
+        let service = AutoDownloadService(queueManager: queueManager, settingsRepository: repo)
+        service.setAutoDownload(enabled: true, for: podcastId)
+
+        let episode = Episode(id: "ep-priority", title: "Priority Episode")
+        let podcast = Podcast(id: podcastId, title: "Priority Podcast", feedURL: URL(string: "https://example.com")!)
+
+        // When: New episode detected (priority not yet in memory cache).
+        // onNewEpisodeDetected returns the async Task it spawns; awaiting .value suspends
+        // the test cooperatively, allowing the @MainActor task to run without blocking
+        // the main thread (which would deadlock with run-loop-based expectation waiting).
+        let enqueueTask = service.onNewEpisodeDetected(episode: episode, podcast: podcast)
+        await enqueueTask?.value
+
+        // Then: Episode queued with high priority from storage
+        let queue = queueManager.getCurrentQueue()
+        XCTAssertEqual(queue.count, 1)
+        XCTAssertEqual(queue.first?.episodeId, episode.id)
+        XCTAssertEqual(queue.first?.priority, .high)
+        // Verify the priority was cached in service memory
+        XCTAssertEqual(service.getPriority(for: podcastId), 7)
+    }
+
+    // MARK: - convertPriorityToEnum Boundary Tests
+
+    @MainActor
+    func testConvertPriorityToEnum_negativeMapsToLow() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-10), .low)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-5), .low)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(-1), .low)
+    }
+
+    @MainActor
+    func testConvertPriorityToEnum_zeroMapsToNormal() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(0), .normal)
+    }
+
+    @MainActor
+    func testConvertPriorityToEnum_positiveMapsToHigh() {
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(1), .high)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(5), .high)
+        XCTAssertEqual(AutoDownloadService.convertPriorityToEnum(10), .high)
     }
 }
