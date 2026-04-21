@@ -195,8 +195,8 @@ final class EpisodeSortServiceTests: XCTestCase {
         let sorted = sortService.sortEpisodes(numericEpisodes, by: .title, ascending: true)
 
         // Then: Natural numeric order (1, 2, 10, 11), not lexicographic (1, 10, 11, 2)
-        XCTAssertEqual(sorted[0].id, "e1",  "Episode 1 should be first")
-        XCTAssertEqual(sorted[1].id, "e2",  "Episode 2 should be second")
+        XCTAssertEqual(sorted[0].id, "e1", "Episode 1 should be first")
+        XCTAssertEqual(sorted[1].id, "e2", "Episode 2 should be second")
         XCTAssertEqual(sorted[2].id, "e10", "Episode 10 should be third")
         XCTAssertEqual(sorted[3].id, "e11", "Episode 11 should be fourth")
     }
@@ -208,11 +208,11 @@ final class EpisodeSortServiceTests: XCTestCase {
         let numericEpisodes = [
             Episode(id: "e10", title: "Episode 10", podcastID: "p1", playbackPosition: 0, isPlayed: false,
                     pubDate: nil, audioURL: nil, dateAdded: now),
-            Episode(id: "e2",  title: "Episode 2",  podcastID: "p1", playbackPosition: 0, isPlayed: false,
+            Episode(id: "e2", title: "Episode 2", podcastID: "p1", playbackPosition: 0, isPlayed: false,
                     pubDate: nil, audioURL: nil, dateAdded: calendar.date(byAdding: .second, value: -1, to: now)!),
             Episode(id: "e11", title: "Episode 11", podcastID: "p1", playbackPosition: 0, isPlayed: false,
                     pubDate: nil, audioURL: nil, dateAdded: calendar.date(byAdding: .second, value: -2, to: now)!),
-            Episode(id: "e1",  title: "Episode 1",  podcastID: "p1", playbackPosition: 0, isPlayed: false,
+            Episode(id: "e1", title: "Episode 1", podcastID: "p1", playbackPosition: 0, isPlayed: false,
                     pubDate: nil, audioURL: nil, dateAdded: calendar.date(byAdding: .second, value: -3, to: now)!)
         ]
 
@@ -222,8 +222,8 @@ final class EpisodeSortServiceTests: XCTestCase {
         // Then: Reverse natural order (11, 10, 2, 1)
         XCTAssertEqual(sorted[0].id, "e11", "Episode 11 should be first")
         XCTAssertEqual(sorted[1].id, "e10", "Episode 10 should be second")
-        XCTAssertEqual(sorted[2].id, "e2",  "Episode 2 should be third")
-        XCTAssertEqual(sorted[3].id, "e1",  "Episode 1 should be fourth")
+        XCTAssertEqual(sorted[2].id, "e2", "Episode 2 should be third")
+        XCTAssertEqual(sorted[3].id, "e1", "Episode 1 should be fourth")
     }
 
     func testSortByDurationAscending() async {
