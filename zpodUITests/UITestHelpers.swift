@@ -635,7 +635,11 @@ extension XCTestCase {
     return anyMatch.exists ? anyMatch : nil
   }
 
-  /// Wait for loading completion using predicate-based waiting (no async dispatching)
+  /// Wait for loading completion using direct polling (quiescence-independent).
+  ///
+  /// Uses a polling loop rather than `XCTNSPredicateExpectation` so that ongoing
+  /// async Tasks in the app (e.g. `PlaybackStateCoordinator` state emissions) do not
+  /// prevent the check from completing while the app is non-quiescent.
   @MainActor
   func waitForLoadingToComplete(
     in app: XCUIApplication,
@@ -650,10 +654,9 @@ extension XCTestCase {
       "Podcast List Container",
     ]
 
-    // Use predicate for synchronous polling (avoids DispatchQueue.main deadlocks)
-    let predicate = NSPredicate { [weak self] _, _ in
-      guard let self else { return false }
+    let deadline = Date().addingTimeInterval(timeout)
 
+    func checkLoaded() -> Bool {
       // Presence of the batch operations overlay indicates the view finished loading
       if app.otherElements.matching(identifier: "Batch Operation Progress").firstMatch.exists {
         return true
@@ -661,7 +664,7 @@ extension XCTestCase {
 
       // Check if any common container appears
       for containerIdentifier in commonContainers {
-        if let container = self.findContainerElement(in: app, identifier: containerIdentifier),
+        if let container = findContainerElement(in: app, identifier: containerIdentifier),
           container.exists
         {
           return true
@@ -669,7 +672,8 @@ extension XCTestCase {
       }
 
       // Fallback: check if main navigation elements are present
-      let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch.buttons.matching(identifier: "Library").firstMatch
+      let libraryTab = app.tabBars.matching(identifier: "Main Tab Bar").firstMatch
+        .buttons.matching(identifier: "Library").firstMatch
       let navigationBar = app.navigationBars.firstMatch
       let swiftPodcast = app.buttons.matching(identifier: "Podcast-swift-talk").firstMatch
 
@@ -683,15 +687,19 @@ extension XCTestCase {
       return false
     }
 
-    let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-    expectation.expectationDescription = "App loading completes"
+    // Fast path: already loaded
+    if checkLoaded() { return true }
 
-    let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
-    if result != .completed && ProcessInfo.processInfo.environment["CI"] != nil {
-      // Note: Commented out app.debugDescription as it can cause "Lost connection" errors when app crashes
+    // Poll until timeout
+    while Date() < deadline {
+      RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+      if checkLoaded() { return true }
+    }
+
+    if ProcessInfo.processInfo.environment["CI"] != nil {
       launchLogger.warning("Loading did not complete within \(timeout, privacy: .public)s.")
     }
-    return result == .completed
+    return false
   }
 }
 
