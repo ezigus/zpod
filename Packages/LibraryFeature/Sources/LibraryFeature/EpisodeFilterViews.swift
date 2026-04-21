@@ -41,31 +41,46 @@ public struct EpisodeFilterButton: View {
 
 // MARK: - Sort Picker
 
-/// Picker for selecting episode sort order
+/// Picker for selecting episode sort order with a direction toggle.
 public struct EpisodeSortPicker: View {
     @Binding var selectedSort: EpisodeSortBy
-    
-    public init(selectedSort: Binding<EpisodeSortBy>) {
+    @Binding var ascending: Bool
+
+    public init(selectedSort: Binding<EpisodeSortBy>, ascending: Binding<Bool>) {
         self._selectedSort = selectedSort
+        self._ascending = ascending
     }
-    
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sort By")
                 .font(.headline)
                 .foregroundStyle(.primary)
-            
-            Picker("Sort By", selection: $selectedSort) {
-                ForEach(EpisodeSortBy.allCases, id: \.self) { sortOption in
-                    HStack {
-                        Image(systemName: sortOption.systemImage)
-                        Text(sortOption.displayName)
+
+            HStack(spacing: 12) {
+                Picker("Sort By", selection: $selectedSort) {
+                    ForEach(EpisodeSortBy.allCases, id: \.self) { sortOption in
+                        HStack {
+                            Image(systemName: sortOption.systemImage)
+                            Text(sortOption.displayName)
+                        }
+                        .tag(sortOption)
                     }
-                    .tag(sortOption)
                 }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("Episode Sort Picker")
+
+                Button {
+                    ascending.toggle()
+                } label: {
+                    Image(systemName: ascending ? "chevron.up" : "chevron.down")
+                        .font(.body)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityIdentifier("Sort Direction Toggle")
+                .accessibilityLabel(ascending ? "Sort ascending" : "Sort descending")
+                .foregroundStyle(.blue)
             }
-            .pickerStyle(.menu)
-            .accessibilityIdentifier("Episode Sort Picker")
         }
     }
 }
@@ -250,12 +265,13 @@ public struct ActiveFilterChip: View {
 public struct EpisodeFilterSheet: View {
     @State private var selectedCriteria: [EpisodeFilterCriteria]
     @State private var selectedSort: EpisodeSortBy
+    @State private var sortAscending: Bool
     @State private var filterLogic: FilterLogic
-    
+
     let initialFilter: EpisodeFilter
     let onApply: (EpisodeFilter) -> Void
     let onDismiss: () -> Void
-    
+
     public init(
         initialFilter: EpisodeFilter,
         onApply: @escaping (EpisodeFilter) -> Void,
@@ -264,27 +280,32 @@ public struct EpisodeFilterSheet: View {
         self.initialFilter = initialFilter
         self.onApply = onApply
         self.onDismiss = onDismiss
-        
+
         self._selectedCriteria = State(initialValue: initialFilter.conditions.map { $0.criteria })
         self._selectedSort = State(initialValue: initialFilter.sortBy)
+        self._sortAscending = State(initialValue: initialFilter.effectiveAscending)
         self._filterLogic = State(initialValue: initialFilter.logic)
     }
-    
+
     public var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    EpisodeSortPicker(selectedSort: $selectedSort)
-                    
+                    EpisodeSortPicker(selectedSort: $selectedSort, ascending: $sortAscending)
+                        .onChange(of: selectedSort) { _, newSort in
+                            // Reset direction to the new sort type's default when sort type changes.
+                            sortAscending = newSort.defaultAscending
+                        }
+
                     Divider()
-                    
+
                     EpisodeFilterCriteriaGrid(selectedCriteria: $selectedCriteria)
-                    
+
                     if selectedCriteria.count > 1 {
                         Divider()
                         filterLogicPicker
                     }
-                    
+
                     Spacer(minLength: 20)
                 }
                 .padding()
@@ -296,14 +317,15 @@ public struct EpisodeFilterSheet: View {
                     Button("Cancel", action: onDismiss)
                         .accessibilityIdentifier("Cancel Filter")
                 }
-                
+
                 ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Apply") {
                         let conditions = selectedCriteria.map { EpisodeFilterCondition(criteria: $0) }
                         let filter = EpisodeFilter(
                             conditions: conditions,
                             logic: filterLogic,
-                            sortBy: selectedSort
+                            sortBy: selectedSort,
+                            sortAscending: sortAscending
                         )
                         onApply(filter)
                     }

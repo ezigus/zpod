@@ -11,9 +11,12 @@ public protocol EpisodeFilterService: Sendable {
     /// Check if episode matches filter condition
     func episodeMatches(_ episode: Episode, condition: EpisodeFilterCondition) -> Bool
     
-    /// Sort episodes by criteria
+    /// Sort episodes by criteria using the sort type's default direction
     func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode]
-    
+
+    /// Sort episodes by criteria with an explicit direction
+    func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode]
+
     /// Search episodes by text query
     func searchEpisodes(_ episodes: [Episode], query: String, filter: EpisodeFilter?, includeArchived: Bool) -> [Episode]
     
@@ -31,6 +34,17 @@ public protocol EpisodeFilterService: Sendable {
     
     /// Check if smart list needs updating based on refresh interval
     func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool
+}
+
+// MARK: - Protocol Default Implementations
+
+public extension EpisodeFilterService {
+    /// Default implementation delegates to the existing single-parameter overload.
+    /// Concrete types (e.g. DefaultEpisodeFilterService) override with a real implementation.
+    func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
+        // Fall back to default-direction sort; callers that need direction should use a concrete type.
+        return sortEpisodes(episodes, by: sortBy)
+    }
 }
 
 // MARK: - Default Implementation
@@ -80,15 +94,19 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
     
     nonisolated public func filterAndSort(episodes: [Episode], using filter: EpisodeFilter) -> [Episode] {
         let filteredEpisodes = filterEvaluator.applyFilter(episodes, filter: filter)
-        return sortService.sortEpisodes(filteredEpisodes, by: filter.sortBy)
+        return sortService.sortEpisodes(filteredEpisodes, by: filter.sortBy, ascending: filter.effectiveAscending)
     }
-    
+
     nonisolated public func episodeMatches(_ episode: Episode, condition: EpisodeFilterCondition) -> Bool {
         return filterEvaluator.episodeMatches(episode, condition: condition)
     }
-    
+
     nonisolated public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode] {
         return sortService.sortEpisodes(episodes, by: sortBy)
+    }
+
+    nonisolated public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
+        return sortService.sortEpisodes(episodes, by: sortBy, ascending: ascending)
     }
     
     /// Search episodes by text query
@@ -156,7 +174,7 @@ public actor DefaultEpisodeFilterService: EpisodeFilterService {
             smartListRuleEvaluator.evaluateSmartListRules(episode: episode, rules: smartList.rules)
         }
         
-        let sortedEpisodes = sortService.sortEpisodes(filteredEpisodes, by: smartList.sortBy)
+        let sortedEpisodes = sortService.sortEpisodes(filteredEpisodes, by: smartList.sortBy, ascending: smartList.sortBy.defaultAscending)
         
         if let maxEpisodes = smartList.maxEpisodes {
             return Array(sortedEpisodes.prefix(maxEpisodes))

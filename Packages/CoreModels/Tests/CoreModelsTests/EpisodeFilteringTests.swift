@@ -132,12 +132,12 @@ final class EpisodeFilteringTests: XCTestCase {
         // When: Sorting by title
         let sortedEpisodes = filterService.sortEpisodes(testEpisodes, by: .title)
         
-        // Then: Should be sorted alphabetically
+        // Then: Should be sorted using natural (Finder-style) sort order
         for i in 0..<sortedEpisodes.count-1 {
             let currentTitle = sortedEpisodes[i].title
             let nextTitle = sortedEpisodes[i+1].title
-            XCTAssertTrue(currentTitle.localizedCaseInsensitiveCompare(nextTitle) != .orderedDescending, 
-                         "Episodes should be sorted alphabetically by title")
+            XCTAssertTrue(currentTitle.localizedStandardCompare(nextTitle) != .orderedDescending,
+                         "Episodes should be sorted by title using natural sort order")
         }
     }
     
