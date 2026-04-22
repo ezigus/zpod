@@ -192,18 +192,21 @@ public struct PlaybackConfigurationView: View {
       )
 
       if controller.autoMarkAsPlayedEnabled {
-        SettingsSliderRow(
-          "Played threshold",
-          value: Binding(
-            get: { controller.playedThreshold },
-            set: { controller.setPlayedThreshold($0) }
-          ),
-          in: 0.5...0.99,
-          step: 0.01,
-          valueAccessibilityIdentifier: "Playback.PlayedThresholdValue",
-          footer: "Episodes will auto-mark as played once the threshold is reached.",
-          formatValue: { value in String(format: "%.0f%% of episode", value * 100) }
-        )
+        Picker("Completion threshold", selection: Binding(
+          get: {
+            // Snap stored value to the nearest valid option
+            let stored = controller.playedThreshold
+            if stored <= 0.91 { return 0.90 }
+            if stored <= 0.97 { return 0.95 }
+            return 0.99
+          },
+          set: { controller.setPlayedThreshold($0) }
+        )) {
+          Text("90%").tag(0.90)
+          Text("95%").tag(0.95)
+          Text("99%").tag(0.99)
+        }
+        .accessibilityIdentifier("Playback.CompletionThresholdPicker")
       }
     }
   }
