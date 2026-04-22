@@ -64,7 +64,7 @@ extension SettingsManager {
     
     /// Get the auto-mark as played threshold
     public var playedThreshold: TimeInterval {
-        return globalPlaybackSettings.playedThreshold ?? 0.9
+        return globalPlaybackSettings.playedThreshold ?? 0.95
     }
     
     /// Check if auto-mark as played is enabled globally
