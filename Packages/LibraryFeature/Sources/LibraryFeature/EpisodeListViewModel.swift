@@ -197,7 +197,7 @@ public final class EpisodeListViewModel: ObservableObject {
     )
   }()
   private let swipeActionHandler: SwipeActionHandling
-  private let playbackThreshold: Double
+  private var playbackThreshold: Double
   private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
     EpisodePlaybackCoordinator(
       playbackService: self.playbackService,
@@ -581,5 +581,11 @@ public final class EpisodeListViewModel: ObservableObject {
   /// Quick play an episode that's in progress
   public func quickPlayEpisode(_ episode: Episode) {
     playbackCoordinator.quickPlayEpisode(episode)
+  }
+
+  /// Apply a persisted playback threshold, updating the coordinator if already initialized
+  public func applyPlaybackThreshold(_ threshold: Double) {
+    playbackThreshold = threshold
+    playbackCoordinator.updatePlaybackThreshold(threshold)
   }
 }

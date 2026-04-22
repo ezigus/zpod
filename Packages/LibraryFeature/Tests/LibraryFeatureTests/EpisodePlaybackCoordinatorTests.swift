@@ -245,6 +245,21 @@ final class EpisodePlaybackCoordinatorTests: XCTestCase {
   }
 
   @MainActor
+  func testUpdatePlaybackThresholdRespected() async throws {
+    // Given: Coordinator started with default 95% threshold
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    // When: Threshold is updated to 80% and position is at 80% (1440s of 1800s)
+    coordinator.updatePlaybackThreshold(0.80)
+    mockPlaybackService.sendState(.playing(testEpisode, position: 1440, duration: 1800))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Episode should be auto-marked using the updated threshold
+    XCTAssertFalse(updatedEpisodes.isEmpty)
+    XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false, "Updated threshold should be used")
+  }
+
+  @MainActor
   func testSeekBackDoesNotUnmarkPlayed() async throws {
     // Given: Coordinator where lookup tracks the updated episode state (simulating real persistence)
     var storedEpisode = testEpisode!

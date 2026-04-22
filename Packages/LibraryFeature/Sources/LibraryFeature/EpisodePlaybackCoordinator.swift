@@ -22,6 +22,9 @@ public protocol EpisodePlaybackCoordinating: AnyObject {
 
   /// Stop monitoring playback state
   func stopMonitoring()
+
+  /// Update the completion threshold used to auto-mark episodes as played
+  func updatePlaybackThreshold(_ threshold: Double)
 }
 
 // MARK: - Implementation
@@ -32,7 +35,7 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
   private let playbackService: EpisodePlaybackService?
   private let episodeLookup: (String) -> Episode?
   private let episodeUpdateHandler: (Episode) -> Void
-  private let playbackThreshold: Double
+  private var playbackThreshold: Double
   private var playbackStateCancellable: AnyCancellable?
 
   public init(
@@ -74,6 +77,10 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
   public func stopMonitoring() {
     playbackStateCancellable?.cancel()
     playbackStateCancellable = nil
+  }
+
+  public func updatePlaybackThreshold(_ threshold: Double) {
+    playbackThreshold = threshold
   }
 
   // MARK: - Private Methods

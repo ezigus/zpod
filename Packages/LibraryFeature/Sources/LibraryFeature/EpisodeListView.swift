@@ -160,10 +160,14 @@ public struct EpisodeListView: View {
       )
     }
     .task(id: podcast.id) {
-      let settings = await EpisodeListDependencyProvider.shared.settingsManager
+      let settingsManager = EpisodeListDependencyProvider.shared.settingsManager
+      let downloadSettings = await settingsManager
         .loadPodcastDownloadSettings(podcastId: podcast.id)
+      await settingsManager.waitForInitialLoad()
+      let threshold = settingsManager.globalPlaybackSettings.playedThreshold ?? 0.95
       await MainActor.run {
-        podcastPriority = settings?.priority ?? 0
+        podcastPriority = downloadSettings?.priority ?? 0
+        viewModel.applyPlaybackThreshold(threshold)
       }
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
