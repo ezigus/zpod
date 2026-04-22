@@ -996,7 +996,16 @@ resolve_ui_parallel_derived_root() {
     printf "%s/ui-shards-%s" "$ZPOD_DERIVED_DATA_PATH" "$RUN_INVOCATION_ID"
     return 0
   fi
-  printf "%s/zpod-ui-derived-%s" "${TMPDIR:-/tmp}" "$RUN_INVOCATION_ID"
+  # Auto-detect low disk space on TMPDIR volume and redirect to external drive.
+  # Xcode writes large DerivedData artifacts; ENOSPC causes silent build failure.
+  local _tmp_base="${TMPDIR:-/tmp}"
+  local _avail_kb
+  _avail_kb=$(df -k "${_tmp_base}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
+    _tmp_base="/Volumes/zHardDrive/tmp"
+    mkdir -p "${_tmp_base}" 2>/dev/null || true
+  fi
+  printf "%s/zpod-ui-derived-%s" "${_tmp_base}" "$RUN_INVOCATION_ID"
 }
 
 append_ui_worker_report_entries() {
