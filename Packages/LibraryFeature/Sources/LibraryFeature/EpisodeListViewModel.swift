@@ -197,11 +197,13 @@ public final class EpisodeListViewModel: ObservableObject {
     )
   }()
   private let swipeActionHandler: SwipeActionHandling
+  private let playbackThreshold: Double
   private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
     EpisodePlaybackCoordinator(
       playbackService: self.playbackService,
       episodeLookup: { [weak self] id in self?.episodeForID(id) },
-      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
+      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) },
+      playbackThreshold: self.playbackThreshold
     )
   }()
 
@@ -217,7 +219,8 @@ public final class EpisodeListViewModel: ObservableObject {
     swipeConfigurationService: SwipeConfigurationServicing =
       EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
     hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared,
-    annotationRepository: EpisodeAnnotationRepository? = nil
+    annotationRepository: EpisodeAnnotationRepository? = nil,
+    playbackThreshold: Double = 0.95
   ) {
     self.podcast = podcast
     self.filterService = filterService
@@ -232,6 +235,7 @@ public final class EpisodeListViewModel: ObservableObject {
     self.allEpisodes = podcast.episodes
     self.swipeConfiguration = .default
 
+    self.playbackThreshold = playbackThreshold
     self.swipeActionHandler = SwipeActionHandler(
       hapticFeedbackService: hapticFeedbackService
     )

@@ -21,7 +21,7 @@ public final class PlaybackConfigurationController: ObservableObject, FeatureCon
   public var volumeBoostEnabled: Bool { draft.volumeBoostEnabled }
   public var smartSpeedEnabled: Bool { draft.smartSpeedEnabled }
   public var autoMarkAsPlayedEnabled: Bool { draft.autoMarkAsPlayed ?? false }
-  public var playedThreshold: Double { draft.playedThreshold ?? 0.9 }
+  public var playedThreshold: Double { draft.playedThreshold ?? 0.95 }
   public var currentSettings: PlaybackSettings { draft }
 
   private let service: PlaybackConfigurationServicing
