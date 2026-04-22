@@ -36,17 +36,6 @@ public protocol EpisodeFilterService: Sendable {
     func smartListNeedsUpdate(_ smartList: SmartEpisodeList) -> Bool
 }
 
-// MARK: - Protocol Default Implementations
-
-public extension EpisodeFilterService {
-    /// Default implementation delegates to the existing single-parameter overload.
-    /// Concrete types (e.g. DefaultEpisodeFilterService) override with a real implementation.
-    func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
-        // Fall back to default-direction sort; callers that need direction should use a concrete type.
-        return sortEpisodes(episodes, by: sortBy)
-    }
-}
-
 // MARK: - Default Implementation
 
 /// Default implementation using composable helper services.

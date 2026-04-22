@@ -692,7 +692,7 @@ extension XCTestCase {
 
     // Poll until timeout
     while Date() < deadline {
-      RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+      RunLoop.current.run(until: Date().addingTimeInterval(0.1))
       if checkLoaded() { return true }
     }
 

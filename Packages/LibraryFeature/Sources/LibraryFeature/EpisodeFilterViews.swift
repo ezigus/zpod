@@ -321,11 +321,14 @@ public struct EpisodeFilterSheet: View {
                 ToolbarItem(placement: PlatformToolbarPlacement.primaryAction) {
                     Button("Apply") {
                         let conditions = selectedCriteria.map { EpisodeFilterCondition(criteria: $0) }
+                        // Only persist an explicit direction when the user deviates from the default;
+                        // nil preserves "use default" semantics for legacy/unchanged filters.
+                        let explicitAscending: Bool? = sortAscending == selectedSort.defaultAscending ? nil : sortAscending
                         let filter = EpisodeFilter(
                             conditions: conditions,
                             logic: filterLogic,
                             sortBy: selectedSort,
-                            sortAscending: sortAscending
+                            sortAscending: explicitAscending
                         )
                         onApply(filter)
                     }

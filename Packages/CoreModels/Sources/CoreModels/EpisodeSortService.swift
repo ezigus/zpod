@@ -14,45 +14,55 @@ public struct EpisodeSortService: Sendable {
     }
 
     /// Sort episodes by criteria with an explicit direction.
-    /// Each case sorts in canonical ascending order; `ascending: false` reverses the result.
     /// Nil pubDate/duration values are pushed to the end regardless of direction.
     public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
-        let sorted: [Episode]
         switch sortBy {
         case .pubDateNewest, .pubDateOldest:
-            // Both cases sort on pubDate; ascending = oldest first, descending = newest first.
-            sorted = episodes.sorted { (lhs, rhs) in
-                guard let lhsDate = lhs.pubDate else { return false } // nil = pushed to end in ascending
+            return episodes.sorted { (lhs, rhs) in
+                // Nil values always sort to the end regardless of direction
+                guard let lhsDate = lhs.pubDate else { return false }
                 guard let rhsDate = rhs.pubDate else { return true }
-                return lhsDate < rhsDate
+                return ascending ? lhsDate < rhsDate : lhsDate > rhsDate
             }
 
         case .duration:
-            sorted = episodes.sorted { (lhs, rhs) in
+            return episodes.sorted { (lhs, rhs) in
                 guard let lhsDuration = lhs.duration else { return false }
                 guard let rhsDuration = rhs.duration else { return true }
-                return lhsDuration < rhsDuration
+                return ascending ? lhsDuration < rhsDuration : lhsDuration > rhsDuration
             }
 
         case .title:
             // localizedStandardCompare provides Finder-style natural sort ("Episode 2" before "Episode 10")
-            sorted = episodes.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return episodes.sorted {
+                let result = $0.title.localizedStandardCompare($1.title)
+                return ascending ? result == .orderedAscending : result == .orderedDescending
+            }
 
         case .playStatus:
-            sorted = episodes.sorted { playStatusValue($0) < playStatusValue($1) }
+            return episodes.sorted {
+                let lv = playStatusValue($0), rv = playStatusValue($1)
+                return ascending ? lv < rv : lv > rv
+            }
 
         case .downloadStatus:
-            sorted = episodes.sorted { downloadStatusValue($0.downloadStatus) < downloadStatusValue($1.downloadStatus) }
+            return episodes.sorted {
+                let lv = downloadStatusValue($0.downloadStatus), rv = downloadStatusValue($1.downloadStatus)
+                return ascending ? lv < rv : lv > rv
+            }
 
         case .rating:
-            // ascending = lowest rating first; descending (default) = highest first
-            sorted = episodes.sorted { ($0.rating ?? 0) < ($1.rating ?? 0) }
+            // nil rating treated as 0 (unrated = lowest) in both directions
+            return episodes.sorted {
+                let lr = $0.rating ?? 0, rr = $1.rating ?? 0
+                return ascending ? lr < rr : lr > rr
+            }
 
         case .dateAdded:
-            // ascending = oldest added first; descending (default) = newest added first
-            sorted = episodes.sorted { $0.dateAdded < $1.dateAdded }
+            return episodes.sorted {
+                ascending ? $0.dateAdded < $1.dateAdded : $0.dateAdded > $1.dateAdded
+            }
         }
-        return ascending ? sorted : sorted.reversed()
     }
     
     // MARK: - Private Helpers
