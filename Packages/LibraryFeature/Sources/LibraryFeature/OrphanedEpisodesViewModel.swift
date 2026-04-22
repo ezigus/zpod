@@ -10,6 +10,7 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
   @Published public var showDeleteAllConfirmation = false
   private let podcastManager: any PodcastManaging
   private let injectedPlaybackCoordinator: EpisodePlaybackCoordinating?
+  private var playbackThreshold: Double
   private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
     if let injectedPlaybackCoordinator {
       return injectedPlaybackCoordinator
@@ -25,16 +26,19 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
         if let index = self.episodes.firstIndex(where: { $0.id == updated.id }) {
           self.episodes[index] = updated
         }
-      }
+      },
+      playbackThreshold: self.playbackThreshold
     )
   }()
 
   public init(
     podcastManager: any PodcastManaging,
-    playbackCoordinator: EpisodePlaybackCoordinating? = nil
+    playbackCoordinator: EpisodePlaybackCoordinating? = nil,
+    playbackThreshold: Double = 0.95
   ) {
     self.podcastManager = podcastManager
     self.injectedPlaybackCoordinator = playbackCoordinator
+    self.playbackThreshold = playbackThreshold
   }
 
   public func load() async {
