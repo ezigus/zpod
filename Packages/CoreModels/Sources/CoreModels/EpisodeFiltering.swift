@@ -25,6 +25,21 @@ public enum EpisodeSortBy: String, Codable, Sendable, CaseIterable {
         case .dateAdded: return "Date Added"
         }
     }
+
+    /// Default sort direction for this sort type (true = ascending, false = descending).
+    /// Matches the natural expected ordering per sort type.
+    public var defaultAscending: Bool {
+        switch self {
+        case .pubDateNewest:   return false // newest first = date descending
+        case .pubDateOldest:   return true  // oldest first = date ascending
+        case .duration:        return true  // shortest first
+        case .title:           return true  // A→Z
+        case .playStatus:      return true  // unplayed first
+        case .downloadStatus:  return true  // downloaded first
+        case .rating:          return false // highest first
+        case .dateAdded:       return false // newest added first
+        }
+    }
 }
 
 /// Filter criteria for episodes
@@ -101,17 +116,27 @@ public struct EpisodeFilter: Codable, Equatable, Sendable {
     public let conditions: [EpisodeFilterCondition]
     public let logic: FilterLogic
     public let sortBy: EpisodeSortBy
-    
+    /// Explicit sort direction. `nil` means use `sortBy.defaultAscending`.
+    /// Persisted as an optional JSON key — missing key decodes as `nil` for backward compatibility.
+    public let sortAscending: Bool?
+
     public init(
         conditions: [EpisodeFilterCondition] = [],
         logic: FilterLogic = .and,
-        sortBy: EpisodeSortBy = .pubDateNewest
+        sortBy: EpisodeSortBy = .pubDateNewest,
+        sortAscending: Bool? = nil
     ) {
         self.conditions = conditions
         self.logic = logic
         self.sortBy = sortBy
+        self.sortAscending = sortAscending
     }
-    
+
+    /// Resolved sort direction: uses explicit override if set, otherwise the sort type's default.
+    public var effectiveAscending: Bool {
+        sortAscending ?? sortBy.defaultAscending
+    }
+
     public var isEmpty: Bool {
         return conditions.isEmpty
     }

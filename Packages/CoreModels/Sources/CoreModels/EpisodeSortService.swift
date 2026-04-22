@@ -8,57 +8,60 @@ public struct EpisodeSortService: Sendable {
     
     public init() {}
     
-    /// Sort episodes by criteria
+    /// Sort episodes by criteria using the sort type's default direction.
     public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy) -> [Episode] {
+        return sortEpisodes(episodes, by: sortBy, ascending: sortBy.defaultAscending)
+    }
+
+    /// Sort episodes by criteria with an explicit direction.
+    /// Nil pubDate/duration values are pushed to the end regardless of direction.
+    public func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
         switch sortBy {
-        case .pubDateNewest:
+        case .pubDateNewest, .pubDateOldest:
             return episodes.sorted { (lhs, rhs) in
+                // Nil values always sort to the end regardless of direction
                 guard let lhsDate = lhs.pubDate else { return false }
                 guard let rhsDate = rhs.pubDate else { return true }
-                return lhsDate > rhsDate
+                return ascending ? lhsDate < rhsDate : lhsDate > rhsDate
             }
-            
-        case .pubDateOldest:
-            return episodes.sorted { (lhs, rhs) in
-                guard let lhsDate = lhs.pubDate else { return true }
-                guard let rhsDate = rhs.pubDate else { return false }
-                return lhsDate < rhsDate
-            }
-            
+
         case .duration:
             return episodes.sorted { (lhs, rhs) in
                 guard let lhsDuration = lhs.duration else { return false }
                 guard let rhsDuration = rhs.duration else { return true }
-                return lhsDuration < rhsDuration
+                return ascending ? lhsDuration < rhsDuration : lhsDuration > rhsDuration
             }
-            
+
         case .title:
-            return episodes.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            
+            // localizedStandardCompare provides Finder-style natural sort ("Episode 2" before "Episode 10")
+            return episodes.sorted {
+                let result = $0.title.localizedStandardCompare($1.title)
+                return ascending ? result == .orderedAscending : result == .orderedDescending
+            }
+
         case .playStatus:
-            return episodes.sorted { (lhs, rhs) in
-                // Order: unplayed, in-progress, played
-                let lhsStatus = playStatusValue(lhs)
-                let rhsStatus = playStatusValue(rhs)
-                return lhsStatus < rhsStatus
+            return episodes.sorted {
+                let lv = playStatusValue($0), rv = playStatusValue($1)
+                return ascending ? lv < rv : lv > rv
             }
-            
+
         case .downloadStatus:
-            return episodes.sorted { (lhs, rhs) in
-                let lhsValue = downloadStatusValue(lhs.downloadStatus)
-                let rhsValue = downloadStatusValue(rhs.downloadStatus)
-                return lhsValue < rhsValue
+            return episodes.sorted {
+                let lv = downloadStatusValue($0.downloadStatus), rv = downloadStatusValue($1.downloadStatus)
+                return ascending ? lv < rv : lv > rv
             }
-            
+
         case .rating:
-            return episodes.sorted { (lhs, rhs) in
-                let lhsRating = lhs.rating ?? 0
-                let rhsRating = rhs.rating ?? 0
-                return lhsRating > rhsRating // Higher ratings first
+            // nil rating treated as 0 (unrated = lowest) in both directions
+            return episodes.sorted {
+                let lr = $0.rating ?? 0, rr = $1.rating ?? 0
+                return ascending ? lr < rr : lr > rr
             }
-            
+
         case .dateAdded:
-            return episodes.sorted { $0.dateAdded > $1.dateAdded }
+            return episodes.sorted {
+                ascending ? $0.dateAdded < $1.dateAdded : $0.dateAdded > $1.dateAdded
+            }
         }
     }
     

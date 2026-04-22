@@ -646,6 +646,11 @@ final class MockEpisodeFilterService: EpisodeFilterService, @unchecked Sendable 
     return episodes  // Return unchanged for testing
   }
 
+  func sortEpisodes(_ episodes: [Episode], by sortBy: EpisodeSortBy, ascending: Bool) -> [Episode] {
+    sortEpisodesCalled = true
+    return episodes  // Return unchanged for testing
+  }
+
   func searchEpisodes(_ episodes: [Episode], query: String, filter: EpisodeFilter? = nil)
     -> [Episode]
   {

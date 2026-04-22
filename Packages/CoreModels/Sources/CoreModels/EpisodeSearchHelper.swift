@@ -26,7 +26,7 @@ public struct EpisodeSearchHelper: Sendable {
         
         if let filter = filter {
             let filtered = filterEvaluator.applyFilter(searchResults, filter: filter)
-            return sortService.sortEpisodes(filtered, by: filter.sortBy)
+            return sortService.sortEpisodes(filtered, by: filter.sortBy, ascending: filter.effectiveAscending)
         } else {
             // Default sort by relevance (we could implement scoring here)
             return searchResults
