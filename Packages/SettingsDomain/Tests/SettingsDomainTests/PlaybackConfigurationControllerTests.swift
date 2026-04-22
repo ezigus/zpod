@@ -55,6 +55,31 @@ final class PlaybackConfigurationControllerTests: XCTestCase {
     XCTAssertTrue(saved.volumeBoostEnabled)
   }
 
+  /// Verifies that when no threshold is persisted, the controller returns 0.95 (spec default).
+  func testDefaultPlayedThresholdIs95Percent() async {
+    let service = InMemoryPlaybackConfigurationService(initial: PlaybackSettings())
+    let controller = PlaybackConfigurationController(service: service)
+    await controller.loadBaseline()
+
+    XCTAssertEqual(controller.playedThreshold, 0.95,
+      "Default played threshold must be 0.95 per spec [06.4.1]")
+  }
+
+  /// Verifies that setPlayedThreshold persists the chosen threshold and it survives a round-trip.
+  func testSetPlayedThresholdPersistsViaCommit() async {
+    let service = InMemoryPlaybackConfigurationService(initial: PlaybackSettings())
+    let controller = PlaybackConfigurationController(service: service)
+    await controller.loadBaseline()
+
+    controller.setPlayedThreshold(0.90)
+    XCTAssertEqual(controller.playedThreshold, 0.90)
+
+    await controller.commitChanges()
+    let saved = await service.load()
+    XCTAssertEqual(saved.playedThreshold, 0.90,
+      "Committed threshold of 90% should be persisted in settings")
+  }
+
   func testResetToBaselineClearsDraft() async {
     let service = InMemoryPlaybackConfigurationService(initial: PlaybackSettings(playbackSpeed: 1.3))
     let controller = PlaybackConfigurationController(service: service)
