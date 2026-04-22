@@ -6,6 +6,18 @@ if [[ -n "${__ZPOD_SPM_SH:-}" ]]; then
 fi
 __ZPOD_SPM_SH=1
 
+# Auto-detect low disk space on TMPDIR volume and redirect to zHardDrive if available.
+# Swift compiler uses TMPDIR for intermediate files; ENOSPC causes "error: other(28)".
+if [[ -z "${ZPOD_TMPDIR:-}" ]]; then
+  _tmpdir_avail_kb=$(df -k "${TMPDIR}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  _fallback_tmp="/Volumes/zHardDrive/tmp"
+  if [[ "${_tmpdir_avail_kb}" -lt 1048576 && -d "$(dirname "${_fallback_tmp}")" ]]; then
+    mkdir -p "${_fallback_tmp}"
+    export ZPOD_TMPDIR="${_fallback_tmp}"
+  fi
+  unset _tmpdir_avail_kb _fallback_tmp
+fi
+
 run_swift_package_tests() {
   log_info "Running Swift Package tests for all packages (fallback)"
   local found=0
@@ -16,7 +28,7 @@ run_swift_package_tests() {
       pkg_name="$(basename "$pkg")"
       log_info "→ swift test (package: ${pkg_name})"
       pushd "$pkg" >/dev/null
-      if ! MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"; then
+      if ! TMPDIR="${ZPOD_TMPDIR:-${TMPDIR}}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"; then
         popd >/dev/null
         return 1
       fi
@@ -41,7 +53,7 @@ build_swift_package() {
     swift package clean || true
   fi
   set +e
-  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
+  TMPDIR="${ZPOD_TMPDIR:-${TMPDIR}}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
   local build_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
@@ -61,7 +73,7 @@ run_swift_package_target_tests() {
     swift package clean || true
   fi
   set +e
-  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
+  TMPDIR="${ZPOD_TMPDIR:-${TMPDIR}}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
   local test_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
