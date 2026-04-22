@@ -164,7 +164,16 @@ resolve_ui_test_lock_dir() {
   fi
   local repo_slug
   repo_slug=$(printf "%s" "$REPO_ROOT" | tr '/ :' '____')
-  printf "%s/zpod-ui-test-lock-%s" "${TMPDIR:-/tmp}" "$repo_slug"
+  local lock_base
+  local _avail_kb
+  _avail_kb=$(df -k "${TMPDIR:-/tmp}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
+    lock_base="/Volumes/zHardDrive/tmp"
+    mkdir -p "${lock_base}" 2>/dev/null || true
+  else
+    lock_base="${TMPDIR:-/tmp}"
+  fi
+  printf "%s/zpod-ui-test-lock-%s" "${lock_base}" "$repo_slug"
 }
 
 read_ui_lock_metadata_field() {
