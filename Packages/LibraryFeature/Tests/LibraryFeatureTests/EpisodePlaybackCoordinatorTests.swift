@@ -286,6 +286,76 @@ final class EpisodePlaybackCoordinatorTests: XCTestCase {
     // Then: Episode should still be marked as played (irreversible)
     XCTAssertTrue(storedEpisode.isPlayed, "Seeking back should not unmark played status")
   }
+
+  @MainActor
+  func testZeroDurationDoesNotMarkPlayed() async throws {
+    // Given: Coordinator monitoring playback
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    // When: Playing state is received with zero duration (e.g., live stream or unknown)
+    mockPlaybackService.sendState(.playing(testEpisode, position: 0, duration: 0))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Episode should NOT be marked as played (duration guard prevents divide-by-zero)
+    XCTAssertFalse(updatedEpisodes.isEmpty)
+    XCTAssertFalse(updatedEpisodes.last?.isPlayed ?? true, "Zero duration should not trigger auto-mark")
+  }
+
+  @MainActor
+  func testShortEpisodeThresholdRespected() async throws {
+    // Given: A short episode (60s) with default 95% threshold; 95% of 60s = 57s
+    let shortEpisode = Episode(
+      id: "short-ep",
+      title: "Short Episode",
+      podcastID: "test-podcast",
+      pubDate: Date(),
+      duration: 60,
+      description: ""
+    )
+    let shortCoordinator = EpisodePlaybackCoordinator(
+      playbackService: mockPlaybackService,
+      episodeLookup: { id in id == "short-ep" ? shortEpisode : nil },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) }
+    )
+    defer { shortCoordinator.stopMonitoring() }
+
+    await shortCoordinator.quickPlayEpisode(shortEpisode)
+
+    // When: Playing at exactly 57s (95% of 60s)
+    mockPlaybackService.sendState(.playing(shortEpisode, position: 57, duration: 60))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Short episode should be auto-marked at the same relative threshold
+    XCTAssertFalse(updatedEpisodes.isEmpty)
+    XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false, "Short episode should mark at threshold")
+  }
+
+  @MainActor
+  func testNinetyNinePercentThreshold() async throws {
+    // Given: A coordinator with 99% threshold; 99% of 1800s = 1782s
+    let ninetyNineCoordinator = EpisodePlaybackCoordinator(
+      playbackService: mockPlaybackService,
+      episodeLookup: { [weak self] id in
+        guard let self else { return nil }
+        return id == self.testEpisode.id ? self.testEpisode : nil
+      },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) },
+      playbackThreshold: 0.99
+    )
+    defer { ninetyNineCoordinator.stopMonitoring() }
+
+    await ninetyNineCoordinator.quickPlayEpisode(testEpisode)
+
+    // When: Playing at 98% (below threshold) — 1764s
+    mockPlaybackService.sendState(.playing(testEpisode, position: 1764, duration: 1800))
+    try await Task.sleep(nanoseconds: 100_000_000)
+    XCTAssertFalse(updatedEpisodes.last?.isPlayed ?? true, "98% should not trigger 99% threshold")
+
+    // And: Playing at exactly 99% — 1782s
+    mockPlaybackService.sendState(.playing(testEpisode, position: 1782, duration: 1800))
+    try await Task.sleep(nanoseconds: 100_000_000)
+    XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false, "99% position should trigger 99% threshold")
+  }
 }
 
 // MARK: - Mock Playback Service
