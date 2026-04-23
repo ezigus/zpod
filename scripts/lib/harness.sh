@@ -3046,15 +3046,25 @@ record_test_suite_timings() {
   if [[ -d "$bundle" ]] && command_exists python3 && command_exists xcrun; then
     if ! output=$(python3 - "$bundle" "$target_label" <<'PY'
 import json
+import os
+import re
 import subprocess
 import sys
 
 bundle = sys.argv[1]
 target_label = sys.argv[2]
 
+# Validate inputs before passing to subprocess (defense-in-depth).
+if not os.path.isdir(bundle) or not bundle.endswith('.xcresult'):
+  sys.exit(0)
+if not re.match(r'^[\w .()-]+$', target_label):
+  sys.exit(0)
+
 def run_xcresult(identifier=None):
-  args = ['xcrun', 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', bundle]
+  args = ['xcrun', 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', os.path.realpath(bundle)]
   if identifier:
+    if not re.match(r'^[\w-]+$', identifier):
+      raise ValueError("invalid xcresult identifier")
     args.extend(['--id', identifier])
   result = subprocess.run(args, capture_output=True, text=True)
   if result.returncode != 0:

@@ -307,6 +307,10 @@ extension CoreUINavigationTests {
       }
     }
 
+    // Verify toggle is now enabled — fail loudly if neither tap strategy worked.
+    let toggleEnabled = (toggleToTap.value as? String == "1")
+    XCTAssertTrue(toggleEnabled, "Auto Mark toggle must be ON after tap; value=\(toggleToTap.value ?? "nil")")
+
     // Spec 06.4.1: "Completion threshold" row must appear once Auto Mark is enabled.
     // Use staticTexts label match — avoids element-type ambiguity for Picker rows in Forms.
     let thresholdLabel = app.staticTexts
