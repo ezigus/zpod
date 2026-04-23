@@ -227,8 +227,12 @@ final class PodcastPriorityUITests: IsolatedUITestCase {
             "Priority slider must be visible before adjusting"
         )
 
-        // Move slider toward the low end (avoid exact 0.0 edge which can clip in XCUITest)
-        prioritySlider.adjust(toNormalizedSliderPosition: 0.05)
+        // Use press-then-drag to guarantee the slider claims the gesture over the sheet's
+        // scroll view, which would otherwise intercept a plain leftward swipe.
+        // Drag from center (value=0, normalized=0.5) to ~20% (value≈-6, clearly negative).
+        let sliderCenter = prioritySlider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let sliderLeft   = prioritySlider.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+        sliderCenter.press(forDuration: 0.05, thenDragTo: sliderLeft)
 
         let priorityLabel = app.staticTexts
             .matching(identifier: "PodcastCustomSettings.PriorityValueLabel")
