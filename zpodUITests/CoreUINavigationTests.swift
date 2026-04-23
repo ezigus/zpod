@@ -272,6 +272,52 @@ extension CoreUINavigationTests {
     XCTAssertTrue(settings.navigateToPlaybackPreferences(), "Should navigate to Playback Preferences configuration")
   }
 
+  /// Spec 06.4.1 / Scenario 5: Completion Threshold picker visibility.
+  ///
+  /// Given I navigate to Settings > Playback
+  /// When I enable Auto Mark as Played
+  /// Then the Completion Threshold picker row appears
+  @MainActor
+  func testPlaybackAutoMarkEnableRevealThresholdPicker() throws {
+    app = launchConfiguredApp()
+
+    let tabs = TabBarNavigation(app: app)
+    let settings = SettingsScreen(app: app)
+
+    XCTAssertTrue(tabs.navigateToSettings(), "Should navigate to Settings tab")
+    XCTAssertTrue(settings.navigateToPlaybackPreferences(), "Should reach Playback Preferences")
+
+    // Auto Mark toggle is in the Enhancements section — scroll to make it hittable
+    let outerToggle = app.switches.matching(identifier: "Playback.AutoMarkToggle").firstMatch
+    for _ in 0..<3 where !outerToggle.isHittable {
+      app.swipeUp()
+    }
+    XCTAssertTrue(outerToggle.waitForExistence(timeout: 5), "Auto Mark toggle must exist in Playback settings")
+
+    // SwiftUI Toggle: outer element carries the identifier, inner child is the interactive knob.
+    // Tap the child switch if present (matches tapToggle() pattern in SwipeConfigurationTestSupport).
+    let innerSwitch = outerToggle.switches.element(boundBy: 0)
+    let toggleToTap = innerSwitch.exists ? innerSwitch : outerToggle
+
+    if toggleToTap.value as? String != "1" {
+      toggleToTap.tap()
+      // Fallback: coordinate tap on the ON side if direct tap didn't register
+      if toggleToTap.value as? String != "1" {
+        outerToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).tap()
+      }
+    }
+
+    // Spec 06.4.1: "Completion threshold" row must appear once Auto Mark is enabled.
+    // Use staticTexts label match — avoids element-type ambiguity for Picker rows in Forms.
+    let thresholdLabel = app.staticTexts
+      .matching(NSPredicate(format: "label == %@", "Completion threshold"))
+      .firstMatch
+    XCTAssertTrue(
+      thresholdLabel.waitForExistence(timeout: 5),
+      "Completion threshold row must appear when Auto Mark as Played is enabled"
+    )
+  }
+
   @MainActor
   func testSettingsTabPresentsDownloadPolicies() throws {
     app = launchConfiguredApp()
