@@ -227,8 +227,8 @@ final class PodcastPriorityUITests: IsolatedUITestCase {
             "Priority slider must be visible before adjusting"
         )
 
-        // Move slider to the low end (normalized 0.0 = -10)
-        prioritySlider.adjust(toNormalizedSliderPosition: 0.0)
+        // Move slider toward the low end (avoid exact 0.0 edge which can clip in XCUITest)
+        prioritySlider.adjust(toNormalizedSliderPosition: 0.05)
 
         let priorityLabel = app.staticTexts
             .matching(identifier: "PodcastCustomSettings.PriorityValueLabel")
