@@ -241,9 +241,12 @@ final class PodcastPriorityUITests: IsolatedUITestCase {
             priorityLabel.waitForExistence(timeout: adaptiveShortTimeout),
             "Priority value label must remain visible after slider adjustment"
         )
-        // Label should show a negative priority (not "0  Normal")
-        XCTAssertTrue(
-            priorityLabel.label.hasPrefix("-"),
+        // Wait for SwiftUI to re-render with the new negative value before asserting.
+        let negativeValuePredicate = NSPredicate(format: "label BEGINSWITH '-'")
+        let labelUpdated = XCTNSPredicateExpectation(predicate: negativeValuePredicate, object: priorityLabel)
+        let result = XCTWaiter.wait(for: [labelUpdated], timeout: adaptiveTimeout)
+        XCTAssertEqual(
+            result, .completed,
             "Priority label must show a negative value (e.g. '-10  Deprioritized') after moving slider to low end; got: '\(priorityLabel.label)'"
         )
     }
