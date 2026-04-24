@@ -3886,6 +3886,19 @@ test_app_target() {
       log_failed="${BASH_REMATCH[2]}"
       log_passed=$((log_total - log_failed))
     fi
+    # Fallback: when xcodebuild is killed mid-run the "Executed X tests" summary line is
+    # absent. Count individual "Test Case ... passed/failed" lines so that partial results
+    # are treated as partial success rather than a hard inspection failure.
+    if (( log_total == 0 )); then
+      local partial_passed partial_failed
+      partial_passed=$(grep -cE "Test Case '.*' passed" "$RESULT_LOG" 2>/dev/null || echo 0)
+      partial_failed=$(grep -cE "Test Case '.*' failed" "$RESULT_LOG" 2>/dev/null || echo 0)
+      if (( partial_passed > 0 || partial_failed > 0 )); then
+        log_total=$(( partial_passed + partial_failed ))
+        log_passed=$partial_passed
+        log_failed=$partial_failed
+      fi
+    fi
   fi
 
   if (( xc_status == 124 )); then
