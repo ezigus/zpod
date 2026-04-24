@@ -101,6 +101,17 @@
     "Packages/FeedParsing/Sources/FeedParsing/OPMLExportService.swift": [
       "Packages",
       "zpodUITests/SettingsExportOPMLUITests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/PlaybackConfigurationView.swift": [
+      "Packages",
+      "zpodUITests/CoreUINavigationTests"
+    ],
+    "Packages/LibraryFeature/Sources/LibraryFeature/EpisodePlaybackCoordinator.swift": [
+      "Packages",
+      "zpodUITests/CoreUINavigationTests"
+    ],
+    "Packages/SettingsDomain/Sources/SettingsDomain/PlaybackConfigurationController.swift": [
+      "Packages"
     ]
   }
 }
