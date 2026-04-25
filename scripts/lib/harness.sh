@@ -3066,7 +3066,7 @@ def run_xcresult(identifier=None):
     if not re.match(r'^[\w-]+$', identifier):
       raise ValueError("invalid xcresult identifier")
     args.extend(['--id', identifier])
-  result = subprocess.run(args, capture_output=True, text=True)
+  result = subprocess.run(args, capture_output=True, text=True, shell=False)  # nosec B603
   if result.returncode != 0:
     raise RuntimeError("xcresulttool failed")
   return json.loads(result.stdout or "{}")
