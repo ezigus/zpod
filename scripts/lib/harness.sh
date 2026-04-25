@@ -1287,7 +1287,21 @@ run_ui_test_suites_serial() {
     fi
     if [[ -n "$shutdown_udid" ]]; then
       log_info "Shutting down simulator ${shutdown_udid} between suites to reclaim CoreSimulator processes"
+      # Terminate app and test runner inside the sim first so it isn't "Busy"
+      # when the next suite tries to launch. Without this, simctl shutdown
+      # returns immediately while the sim is still processing, causing the next
+      # xcodebuild to get FBSOpenApplicationErrorDomain "Application failed
+      # preflight checks" (Busy).
+      xcrun simctl terminate "$shutdown_udid" us.zig.zpod 2>/dev/null || true
+      xcrun simctl terminate "$shutdown_udid" us.zig.zpodUITests.xctrunner 2>/dev/null || true
       xcrun simctl shutdown "$shutdown_udid" 2>/dev/null || true
+      # Poll until the simulator reaches Shutdown state (max 30s failsafe bound).
+      local _sim_wait=0
+      while (( _sim_wait < 30 )); do
+        xcrun simctl list devices 2>/dev/null | grep -q "${shutdown_udid}.*Shutdown" && break
+        sleep 1
+        (( _sim_wait++ )) || true
+      done
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
