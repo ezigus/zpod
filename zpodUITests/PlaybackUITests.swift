@@ -852,9 +852,12 @@ extension PlaybackUITests {
   func testMiniPlayerVisibilityAndExpansion() throws {
     startPlaybackFromLibraryQuickPlay()
 
+    // This test does multi-screen navigation before reaching quick play, so it needs a
+    // larger timeout than a test that starts from a pre-loaded player context.
+    let miniPlayerTimeout = max(adaptiveTimeout, 15.0)
     let miniPlayer = app.descendants(matching: .any).matching(identifier: "Mini Player").firstMatch
     XCTAssertTrue(
-      miniPlayer.waitForExistence(timeout: adaptiveTimeout),
+      miniPlayer.waitForExistence(timeout: miniPlayerTimeout),
       "Mini player should appear after playback starts"
     )
 

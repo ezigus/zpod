@@ -108,7 +108,8 @@
     ],
     "Packages/LibraryFeature/Sources/LibraryFeature/EpisodePlaybackCoordinator.swift": [
       "Packages",
-      "zpodUITests/CoreUINavigationTests"
+      "zpodUITests/CoreUINavigationTests",
+      "IntegrationTests/CompletionThresholdIntegrationTests"
     ],
     "Packages/SettingsDomain/Sources/SettingsDomain/PlaybackConfigurationController.swift": [
       "Packages"
