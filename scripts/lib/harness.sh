@@ -1002,8 +1002,13 @@ resolve_ui_parallel_derived_root() {
   local _avail_kb
   _avail_kb=$(df -k "${_tmp_base}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
   if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
-    _tmp_base="/Volumes/zHardDrive/tmp"
-    mkdir -p "${_tmp_base}" 2>/dev/null || true
+    local _fallback="/Volumes/zHardDrive/tmp"
+    local _probe="${_fallback}/.zpod_probe_$$"
+    if mkdir -p "${_fallback}" && touch "${_probe}" && rm "${_probe}" 2>/dev/null; then
+      _tmp_base="${_fallback}"
+    else
+      log_warn "External drive fallback not writable (${_fallback}); staying on ${_tmp_base}"
+    fi
   fi
   printf "%s/zpod-ui-derived-%s" "${_tmp_base}" "$RUN_INVOCATION_ID"
 }

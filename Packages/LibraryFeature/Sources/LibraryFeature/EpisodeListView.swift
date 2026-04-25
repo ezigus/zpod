@@ -161,9 +161,9 @@ public struct EpisodeListView: View {
     }
     .task(id: podcast.id) {
       let settingsManager = EpisodeListDependencyProvider.shared.settingsManager
+      await settingsManager.waitForInitialLoad()
       let downloadSettings = await settingsManager
         .loadPodcastDownloadSettings(podcastId: podcast.id)
-      await settingsManager.waitForInitialLoad()
       let threshold = settingsManager.globalPlaybackSettings.playedThreshold ?? 0.95
       await MainActor.run {
         podcastPriority = downloadSettings?.priority ?? 0
