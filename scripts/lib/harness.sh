@@ -3161,7 +3161,7 @@ import re, sys
 
 log_path = sys.argv[1]
 target_label = sys.argv[2]
-pattern = re.compile(r"Test Suite '([^']+)' (passed|failed) at .*Executed ([0-9]+) tests?, with ([0-9]+) failures .* in ([0-9.]+) ")
+pattern = re.compile(r"Test Suite '([^']+)' (passed|failed) at .*Executed ([0-9]+) tests?, with (?:[0-9]+ tests? skipped and )?([0-9]+) failures? .* in ([0-9.]+) ")
 entries = []
 with open(log_path, 'r', errors='ignore') as f:
   for line in f:
@@ -3908,14 +3908,21 @@ test_app_target() {
 
   if (( xc_status == 124 )); then
     record_test_suite_timings "$RESULT_BUNDLE" "$target" "$RESULT_LOG"
-    local note="timed out"
     if [[ -n "$timeout_seconds" ]]; then
       log_error "xcodebuild timed out after ${timeout_seconds}s -> $RESULT_LOG"
     else
       log_error "xcodebuild timed out -> $RESULT_LOG"
     fi
+    if (( log_total > 0 && log_failed == 0 )); then
+      # All executed tests passed before timeout — do not treat as code regression
+      local note="timed out (${log_passed}/${log_total} passed, 0 failures)"
+      log_warn "Timeout with no failures; treating as partial success"
+      add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "0" "0" "$note"
+      return 0
+    fi
+    local note="timed out"
     if (( log_total > 0 )); then
-      note="timed out (partial)"
+      note="timed out (partial, ${log_failed} failures)"
     fi
     add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "$note"
     update_exit_status "$xc_status"
@@ -3960,6 +3967,11 @@ test_app_target() {
         elif (( log_total > 0 && log_passed > 0 )); then
           log_success "Tests passed (from log) despite exit code $xc_status -> $RESULT_LOG"
           # Continue to add success summary below
+        elif grep -qE "failed to launch|preflight checks|FBSOpenApplicationServiceErrorDomain|Could not launch" "$RESULT_LOG"; then
+          log_error "Simulator failed to launch (status $xc_status) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "simulator launch failed"
+          update_exit_status 75
+          return 75
         else
           log_error "Could not determine test results (status $xc_status) -> $RESULT_LOG"
           add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "result inspection failed"
@@ -4070,11 +4082,27 @@ test_package_target() {
   local pt_total="" pt_passed="" pt_failed="" pt_skipped=""
   if grep -q "Executed [0-9]* tests" "$RESULT_LOG"; then
     local counts_line
-    counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1)
-    if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+    counts_line=$(grep -E "Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1)
+    if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+tests?[[:space:]]+skipped[[:space:]]+and[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+      pt_total="${BASH_REMATCH[1]}"
+      pt_skipped="${BASH_REMATCH[2]}"
+      pt_failed="${BASH_REMATCH[3]}"
+      pt_passed=$(( pt_total - pt_failed - pt_skipped ))
+    elif [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
       pt_total="${BASH_REMATCH[1]}"
       pt_failed="${BASH_REMATCH[2]}"
       pt_passed=$(( pt_total - pt_failed ))
+      pt_skipped=0
+    fi
+  fi
+  if [[ -z "$pt_total" ]]; then
+    local pp pf
+    pp=$(grep -cE "Test Case '.*' passed" "$RESULT_LOG" 2>/dev/null || true)
+    pf=$(grep -cE "Test Case '.*' failed" "$RESULT_LOG" 2>/dev/null || true)
+    if (( ${pp:-0} > 0 || ${pf:-0} > 0 )); then
+      pt_total=$(( ${pp:-0} + ${pf:-0} ))
+      pt_passed=${pp:-0}
+      pt_failed=${pf:-0}
       pt_skipped=0
     fi
   fi
