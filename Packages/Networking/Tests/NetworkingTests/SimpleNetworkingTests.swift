@@ -94,7 +94,16 @@ final class SimplePodcastManager: PodcastManaging {
 extension SimplePodcastManager: @unchecked Sendable {}
 
 final class SimpleNetworkingTests: XCTestCase {
-    
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // All tests in this class use pure in-memory mocks and should complete in
+        // milliseconds. A 30-second limit prevents actor-isolation deadlocks from
+        // silently blocking the entire Networking package test run (~39 min hang
+        // observed without this bound).
+        executionTimeAllowance = 30
+    }
+
     @MainActor
     func testSubscriptionService_validURL_success() async throws {
         // Given: Mock dependencies and subscription service
