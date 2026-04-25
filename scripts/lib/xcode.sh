@@ -338,6 +338,12 @@ is_sim_boot_failure_log() {
   if grep -qi "Failed to prepare device" "$log_path"; then
     return 0
   fi
+  # "Application failed preflight checks" / BSErrorCodeDescription=Busy means
+  # SpringBoard rejected the xctrunner launch because the simulator was busy.
+  # A fresh simulator will be idle and should accept the launch.
+  if grep -qE "Application failed preflight checks|Simulator device failed to launch.*xctrunner" "$log_path"; then
+    return 0
+  fi
   return 1
 }
 
