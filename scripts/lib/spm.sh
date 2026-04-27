@@ -39,7 +39,7 @@ run_swift_package_tests() {
       pushd "$pkg" >/dev/null
       local _eff_tmpdir
       _eff_tmpdir="$(_resolve_swift_tmpdir)"
-      if ! TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"; then
+      if ! TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"; then
         popd >/dev/null
         return 1
       fi
@@ -66,7 +66,7 @@ build_swift_package() {
   local _eff_tmpdir
   _eff_tmpdir="$(_resolve_swift_tmpdir)"
   set +e
-  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
+  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"
   local build_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
@@ -88,7 +88,7 @@ run_swift_package_target_tests() {
   local _eff_tmpdir
   _eff_tmpdir="$(_resolve_swift_tmpdir)"
   set +e
-  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
+  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"
   local test_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
