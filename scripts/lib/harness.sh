@@ -3902,10 +3902,15 @@ test_app_target() {
       counts_line=$(grep -E "Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1 || true)
     fi
     if [[ -n "$counts_line" ]]; then
-      # Handle "with N tests skipped and N failures" (group 2 = optional skipped clause, group 3 = failures)
-      if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+[[:space:]]+tests?[[:space:]]+skipped[[:space:]]+and[[:space:]]+)?([0-9]+)[[:space:]]+failures? ]]; then
+      # Two-pattern match (mirrors test_package_target): try skipped variant first
+      if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+tests?[[:space:]]+skipped[[:space:]]+and[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
         log_total="${BASH_REMATCH[1]}"
+        local log_skipped="${BASH_REMATCH[2]}"
         log_failed="${BASH_REMATCH[3]}"
+        log_passed=$((log_total - log_failed - log_skipped))
+      elif [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+        log_total="${BASH_REMATCH[1]}"
+        log_failed="${BASH_REMATCH[2]}"
         log_passed=$((log_total - log_failed))
       fi
     fi
