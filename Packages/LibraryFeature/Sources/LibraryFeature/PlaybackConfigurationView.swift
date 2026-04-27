@@ -196,7 +196,7 @@ public struct PlaybackConfigurationView: View {
           get: {
             // Snap stored value to the nearest valid option
             let stored = controller.playedThreshold
-            if stored <= 0.91 { return 0.90 }
+            if stored <= 0.925 { return 0.90 }
             if stored <= 0.97 { return 0.95 }
             return 0.99
           },
