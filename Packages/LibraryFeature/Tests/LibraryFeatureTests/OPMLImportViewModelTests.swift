@@ -266,31 +266,40 @@ final class OPMLImportViewModelTests: XCTestCase {
         )
     }
 
-    /// Creates a temporary file with placeholder content so `Data(contentsOf:)` succeeds.
-    /// The file is tracked in `tempFiles` and removed in `tearDownWithError()`.
-    /// Falls back to the external drive temp directory when the system volume is full.
-    private func createTempOPMLFile() throws -> URL {
-        let url = Self.resolvedTempDirectory()
-            .appendingPathComponent(UUID().uuidString + ".opml")
-        try "placeholder".write(to: url, atomically: true, encoding: .utf8)
-        tempFiles.append(url)
-        return url
+    /// Returns the fallback temp directory, creating it if needed.
+    private static func fallbackTempDirectory() -> URL {
+        // Honour CI/developer override first, then the external drive, then a UUID subdir of system temp.
+        if let envPath = ProcessInfo.processInfo.environment["ZPOD_TMPDIR"] {
+            let url = URL(fileURLWithPath: envPath)
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            return url
+        }
+        let externalDrive = URL(fileURLWithPath: "/Volumes/zHardDrive/tmp/zpod-tests")
+        if FileManager.default.fileExists(atPath: "/Volumes/zHardDrive") {
+            try? FileManager.default.createDirectory(at: externalDrive, withIntermediateDirectories: true)
+            return externalDrive
+        }
+        // Last resort: a fresh UUID subdirectory inside system temp (guaranteed non-full at creation time).
+        let uuid = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: uuid, withIntermediateDirectories: true)
+        return uuid
     }
 
-    /// Returns a writable temp directory. Falls back to the external drive when
-    /// the system volume's /tmp is full (NSPOSIXErrorDomain Code=28).
-    private static func resolvedTempDirectory() -> URL {
-        let system = FileManager.default.temporaryDirectory
-        // Quick probe: can we write a small sentinel?
-        let probe = system.appendingPathComponent(".zpod_probe_\(ProcessInfo.processInfo.processIdentifier)")
+    /// Creates a temporary OPML file. Retries in the fallback directory when the initial
+    /// write fails (guards against disk-full races between the probe and the actual write).
+    private func createTempOPMLFile() throws -> URL {
+        let primaryDir = FileManager.default.temporaryDirectory
+        let url = primaryDir.appendingPathComponent(UUID().uuidString + ".opml")
         do {
-            try Data().write(to: probe)
-            try? FileManager.default.removeItem(at: probe)
-            return system
+            try "placeholder".write(to: url, atomically: true, encoding: .utf8)
+            tempFiles.append(url)
+            return url
         } catch {
-            // System volume is full — use external drive as fallback
-            let fallback = URL(fileURLWithPath: "/Volumes/zHardDrive/tmp/zpod-tests")
-            try? FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+            // Disk filled between probe and write — use the fallback path.
+            let fallback = Self.fallbackTempDirectory()
+                .appendingPathComponent(UUID().uuidString + ".opml")
+            try "placeholder".write(to: fallback, atomically: true, encoding: .utf8)
+            tempFiles.append(fallback)
             return fallback
         }
     }
