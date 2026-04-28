@@ -638,6 +638,14 @@ try:
 except Exception:
   sys.exit(1)
 
+def _parts(v):
+  out = []
+  for chunk in v.split("."):
+    if not chunk.isdigit():
+      return None
+    out.append(int(chunk))
+  return tuple(out)
+
 for runtime, devices in data.get("devices", {}).items():
   if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
     continue
@@ -645,7 +653,12 @@ for runtime, devices in data.get("devices", {}).items():
   if runtime_suffix.startswith("iOS-"):
     runtime_suffix = runtime_suffix.split("iOS-", 1)[1]
   runtime_os = runtime_suffix.replace("-", ".")
-  if runtime_os != os_version:
+  rt = _parts(runtime_os)
+  ov = _parts(os_version)
+  if rt is None or ov is None:
+    continue
+  n = min(len(rt), len(ov))
+  if not n or rt[:n] != ov[:n]:
     continue
   for dev in devices:
     if dev.get("isAvailable") and dev.get("name") == name:
@@ -688,8 +701,13 @@ boot_simulator_destination() {
   fi
 
   local udid
+  local available_runtimes
   if ! udid="$(_udid_for_destination "$destination")"; then
-    log_warn "Could not resolve simulator UDID for destination '${destination}'; skipping preboot"
+    available_runtimes="$(xcrun simctl list runtimes -j 2>/dev/null \
+      | python3 -c "import json,sys; rs=json.load(sys.stdin).get('runtimes',[]); \
+        print(', '.join(r.get('version','?') for r in rs if 'iOS' in r.get('name','')))" \
+      || true)"
+    log_warn "Could not resolve simulator UDID for destination '${destination}'; skipping preboot (visible iOS runtimes: ${available_runtimes:-none})"
     return 0
   fi
 
