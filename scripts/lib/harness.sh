@@ -3103,13 +3103,21 @@ if not _XCRUN:
   sys.exit(0)
 
 def run_xcresult(identifier=None):
+  # SECURITY: All inputs are validated above (bundle is an .xcresult dir,
+  # target_label matches a strict charset, _XCRUN is resolved via PATH).
+  # The identifier (when present) is re-validated below. Args are passed as
+  # a list with shell=False, so no shell expansion or injection is possible.
   args = [_XCRUN, 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', os.path.realpath(bundle)]
   if identifier:
     if not re.match(r'^[\w-]+$', identifier):
       raise ValueError("invalid xcresult identifier")
     args.extend(['--id', identifier])
   # bandit:B603 reviewed — list-form args, no shell, validated inputs above.
-  result = _safe_exec(args, capture_output=True, text=True, shell=False)
+  # Timeout bounds resource use if xcresulttool hangs.
+  try:
+    result = _safe_exec(args, capture_output=True, text=True, shell=False, timeout=120)
+  except Exception:
+    raise RuntimeError("xcresulttool failed")
   if result.returncode != 0:
     raise RuntimeError("xcresulttool failed")
   return json.loads(result.stdout or "{}")
