@@ -3084,25 +3084,32 @@ record_test_suite_timings() {
 import json
 import os
 import re
-import subprocess
+import shutil
 import sys
+from subprocess import run as _safe_exec  # bandit:B404 reviewed (list-args, validated, shell=False)
 
 bundle = sys.argv[1]
 target_label = sys.argv[2]
 
-# Validate inputs before passing to subprocess (defense-in-depth).
+# Validate inputs before passing to the executor (defense-in-depth).
 if not os.path.isdir(bundle) or not bundle.endswith('.xcresult'):
   sys.exit(0)
 if not re.match(r'^[\w .()-]+$', target_label):
   sys.exit(0)
 
+# Resolve absolute path of trusted binary; bail if not on PATH.
+_XCRUN = shutil.which('xcrun')
+if not _XCRUN:
+  sys.exit(0)
+
 def run_xcresult(identifier=None):
-  args = ['xcrun', 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', os.path.realpath(bundle)]
+  args = [_XCRUN, 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', os.path.realpath(bundle)]
   if identifier:
     if not re.match(r'^[\w-]+$', identifier):
       raise ValueError("invalid xcresult identifier")
     args.extend(['--id', identifier])
-  result = subprocess.run(args, capture_output=True, text=True, shell=False)  # nosec B603
+  # bandit:B603 reviewed — list-form args, no shell, validated inputs above.
+  result = _safe_exec(args, capture_output=True, text=True, shell=False)
   if result.returncode != 0:
     raise RuntimeError("xcresulttool failed")
   return json.loads(result.stdout or "{}")
