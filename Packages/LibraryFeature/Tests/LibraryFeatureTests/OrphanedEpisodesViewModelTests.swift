@@ -89,6 +89,8 @@ private final class MockPlaybackCoordinator: EpisodePlaybackCoordinating {
   func stopMonitoring() {}
 
   func updatePlaybackThreshold(_ threshold: Double) {}
+
+  func updateAutoMarkAsPlayed(_ enabled: Bool) {}
 }
 
 private final class PlaceholderManager: PodcastManaging, @unchecked Sendable {

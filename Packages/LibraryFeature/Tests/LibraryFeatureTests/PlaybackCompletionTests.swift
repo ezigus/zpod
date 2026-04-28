@@ -244,6 +244,58 @@ final class PlaybackCompletionTests: XCTestCase {
     XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false,
       "Pausing at the threshold position should also auto-mark as played")
   }
+
+  // MARK: - Auto-Mark Enabled/Disabled
+
+  /// Spec: When autoMarkAsPlayed is disabled, reaching the threshold does NOT mark the episode.
+  func testAutoMarkDisabledDoesNotMarkAtThreshold() async throws {
+    let coordinator = EpisodePlaybackCoordinator(
+      playbackService: mockService,
+      episodeLookup: { [testEpisode] id in id == testEpisode.id ? testEpisode : nil },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) },
+      playbackThreshold: 0.95,
+      autoMarkAsPlayedEnabled: false
+    )
+    defer { coordinator.stopMonitoring() }
+
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    // When: Episode plays past the 95% threshold
+    mockService.sendState(.playing(testEpisode, position: 3420, duration: 3600))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Episode is NOT marked as played because autoMarkAsPlayed is disabled
+    XCTAssertFalse(updatedEpisodes.last?.isPlayed ?? true,
+      "Auto-mark disabled — reaching threshold should not mark episode as played")
+  }
+
+  /// Spec: Toggling autoMarkAsPlayed on after it was off enables threshold-based auto-mark.
+  func testEnablingAutoMarkAfterDisabledResumesMarking() async throws {
+    let coordinator = EpisodePlaybackCoordinator(
+      playbackService: mockService,
+      episodeLookup: { [testEpisode] id in id == testEpisode.id ? testEpisode : nil },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) },
+      playbackThreshold: 0.95,
+      autoMarkAsPlayedEnabled: false
+    )
+    defer { coordinator.stopMonitoring() }
+
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    // Given: Threshold crossed while disabled — no mark
+    mockService.sendState(.playing(testEpisode, position: 3420, duration: 3600))
+    try await Task.sleep(nanoseconds: 100_000_000)
+    XCTAssertFalse(updatedEpisodes.last?.isPlayed ?? true)
+
+    // When: Auto-mark is enabled and threshold is crossed again
+    coordinator.updateAutoMarkAsPlayed(true)
+    mockService.sendState(.playing(testEpisode, position: 3421, duration: 3600))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Episode is marked as played
+    XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false,
+      "Enabling auto-mark should resume threshold-based played marking")
+  }
 }
 
 // MARK: - Mock

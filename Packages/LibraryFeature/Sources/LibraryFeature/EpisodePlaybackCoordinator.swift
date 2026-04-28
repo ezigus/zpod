@@ -25,6 +25,9 @@ public protocol EpisodePlaybackCoordinating: AnyObject {
 
   /// Update the completion threshold used to auto-mark episodes as played
   func updatePlaybackThreshold(_ threshold: Double)
+
+  /// Enable or disable the auto-mark-as-played behavior
+  func updateAutoMarkAsPlayed(_ enabled: Bool)
 }
 
 // MARK: - Implementation
@@ -36,18 +39,21 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
   private let episodeLookup: (String) -> Episode?
   private let episodeUpdateHandler: (Episode) -> Void
   private var playbackThreshold: Double
+  private var autoMarkAsPlayedEnabled: Bool
   private var playbackStateCancellable: AnyCancellable?
 
   public init(
     playbackService: EpisodePlaybackService?,
     episodeLookup: @escaping (String) -> Episode?,
     episodeUpdateHandler: @escaping (Episode) -> Void,
-    playbackThreshold: Double = 0.95
+    playbackThreshold: Double = 0.95,
+    autoMarkAsPlayedEnabled: Bool = true
   ) {
     self.playbackService = playbackService
     self.episodeLookup = episodeLookup
     self.episodeUpdateHandler = episodeUpdateHandler
     self.playbackThreshold = playbackThreshold
+    self.autoMarkAsPlayedEnabled = autoMarkAsPlayedEnabled
   }
 
   public func quickPlayEpisode(_ episode: Episode) {
@@ -83,6 +89,10 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
     playbackThreshold = threshold
   }
 
+  public func updateAutoMarkAsPlayed(_ enabled: Bool) {
+    autoMarkAsPlayedEnabled = enabled
+  }
+
   // MARK: - Private Methods
 
   private func handlePlaybackState(_ state: EpisodePlaybackState) {
@@ -90,10 +100,10 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
     case .idle(let episode):
       updateEpisodePlayback(for: episode, position: 0, markPlayed: false)
     case .playing(let episode, let position, let duration):
-      let markPlayed = duration > 0 && position >= playbackThreshold * duration
+      let markPlayed = autoMarkAsPlayedEnabled && duration > 0 && position >= playbackThreshold * duration
       updateEpisodePlayback(for: episode, position: position, markPlayed: markPlayed)
     case .paused(let episode, let position, let duration):
-      let markPlayed = duration > 0 && position >= playbackThreshold * duration
+      let markPlayed = autoMarkAsPlayedEnabled && duration > 0 && position >= playbackThreshold * duration
       updateEpisodePlayback(for: episode, position: position, markPlayed: markPlayed)
     case .finished(let episode, let duration):
       updateEpisodePlayback(for: episode, position: duration, markPlayed: true)
