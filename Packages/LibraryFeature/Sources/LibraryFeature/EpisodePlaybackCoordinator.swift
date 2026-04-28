@@ -106,7 +106,7 @@ public final class EpisodePlaybackCoordinator: EpisodePlaybackCoordinating {
       let markPlayed = autoMarkAsPlayedEnabled && duration > 0 && position >= playbackThreshold * duration
       updateEpisodePlayback(for: episode, position: position, markPlayed: markPlayed)
     case .finished(let episode, let duration):
-      updateEpisodePlayback(for: episode, position: duration, markPlayed: true)
+      updateEpisodePlayback(for: episode, position: duration, markPlayed: autoMarkAsPlayedEnabled)
     case .failed(let episode, let position, duration: _, error: _):
       updateEpisodePlayback(for: episode, position: position, markPlayed: false)
     }

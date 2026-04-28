@@ -269,6 +269,50 @@ final class PlaybackCompletionTests: XCTestCase {
       "Auto-mark disabled — reaching threshold should not mark episode as played")
   }
 
+  /// Spec: When autoMarkAsPlayed is disabled, even a `.finished` (natural end-of-stream)
+  /// state must NOT auto-mark the episode. The toggle gates ALL auto-mark paths,
+  /// not only threshold crossings during `.playing`/`.paused`.
+  func testAutoMarkDisabledDoesNotMarkOnFinished() async throws {
+    let coordinator = EpisodePlaybackCoordinator(
+      playbackService: mockService,
+      episodeLookup: { [testEpisode] id in id == testEpisode.id ? testEpisode : nil },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) },
+      playbackThreshold: 0.95,
+      autoMarkAsPlayedEnabled: false
+    )
+    defer { coordinator.stopMonitoring() }
+
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    // When: Player reaches natural end-of-stream
+    mockService.sendState(.finished(testEpisode, duration: 3600))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    // Then: Episode is NOT marked played because autoMarkAsPlayed is disabled
+    XCTAssertFalse(updatedEpisodes.last?.isPlayed ?? true,
+      "Auto-mark disabled — even .finished (natural end) must not auto-mark the episode")
+  }
+
+  /// Spec: When autoMarkAsPlayed is enabled, `.finished` continues to mark the episode.
+  func testAutoMarkEnabledMarksOnFinished() async throws {
+    let coordinator = EpisodePlaybackCoordinator(
+      playbackService: mockService,
+      episodeLookup: { [testEpisode] id in id == testEpisode.id ? testEpisode : nil },
+      episodeUpdateHandler: { [weak self] episode in self?.updatedEpisodes.append(episode) },
+      playbackThreshold: 0.95,
+      autoMarkAsPlayedEnabled: true
+    )
+    defer { coordinator.stopMonitoring() }
+
+    await coordinator.quickPlayEpisode(testEpisode)
+
+    mockService.sendState(.finished(testEpisode, duration: 3600))
+    try await Task.sleep(nanoseconds: 100_000_000)
+
+    XCTAssertTrue(updatedEpisodes.last?.isPlayed ?? false,
+      "Auto-mark enabled — .finished should mark the episode as played")
+  }
+
   /// Spec: Toggling autoMarkAsPlayed on after it was off enables threshold-based auto-mark.
   func testEnablingAutoMarkAfterDisabledResumesMarking() async throws {
     let coordinator = EpisodePlaybackCoordinator(
