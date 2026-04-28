@@ -74,7 +74,7 @@ public enum DownloadStateSeeding {
             print("🔍 [DownloadStateSeeding] Parsed \(states.count) states: \(states.keys.sorted())")
             return states
         } catch {
-            print("⚠️ Failed to decode UITEST_DOWNLOAD_STATES: \(error)")
+            print("ℹ️ [DownloadStateSeeding] Handled invalid UITEST_DOWNLOAD_STATES (returning empty): \(error)")
             return [:]
         }
     }
