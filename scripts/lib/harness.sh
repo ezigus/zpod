@@ -548,6 +548,23 @@ release_ui_test_lock() {
   UI_TEST_LOCK_METADATA=""
 }
 
+# Terminate leftover test-runner processes inside the active simulator so the
+# next test's `xcodebuild test` does not race the previous run's xctrunner
+# teardown. Without this, the next launch hits FBSOpenApplicationErrorDomain
+# "Application failed preflight checks" (Busy) and only recovers via a 5+ minute
+# fresh-sim retry. Lighter than a full simctl shutdown: keeps the sim booted for
+# reuse and is effectively instant when nothing is running.
+terminate_test_runners_in_simulator() {
+  command_exists xcrun || return 0
+  local udid="${ZPOD_SIMULATOR_UDID:-}"
+  if [[ -z "$udid" ]]; then
+    udid=$(_udid_for_destination "${SELECTED_DESTINATION:-}" 2>/dev/null) || true
+  fi
+  [[ -z "$udid" ]] && return 0
+  xcrun simctl terminate "$udid" us.zig.zpod 2>/dev/null || true
+  xcrun simctl terminate "$udid" us.zig.zpodUITests.xctrunner 2>/dev/null || true
+}
+
 clear_ui_test_lock() {
   local lock_dir
   lock_dir=$(resolve_ui_test_lock_dir)
@@ -5143,6 +5160,7 @@ if (( REQUESTED_CHANGED == 1 )); then
         finalize_and_exit "$_changed_test_status"
       fi
     fi
+    terminate_test_runners_in_simulator
   done
   release_ui_test_lock
   finalize_and_exit "$EXIT_STATUS"
