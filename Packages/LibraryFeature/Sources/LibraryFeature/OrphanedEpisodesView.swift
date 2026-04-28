@@ -75,8 +75,20 @@ struct OrphanedEpisodesView: View {
         .accessibilityIdentifier("Orphaned.DeleteAllCancel")
     }
     .task {
+      await applyGlobalPlaybackSettings()
       await viewModel.load()
     }
+  }
+
+  @MainActor
+  private func applyGlobalPlaybackSettings() async {
+    let settingsManager = EpisodeListDependencyProvider.shared.settingsManager
+    await settingsManager.waitForInitialLoad()
+    let playbackSettings = settingsManager.globalPlaybackSettings
+    let threshold = playbackSettings.playedThreshold ?? 0.95
+    let autoMark = playbackSettings.autoMarkAsPlayed ?? true
+    viewModel.applyPlaybackThreshold(threshold)
+    viewModel.applyAutoMarkAsPlayed(autoMark)
   }
 
   @ViewBuilder

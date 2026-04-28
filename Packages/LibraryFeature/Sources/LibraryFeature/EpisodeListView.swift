@@ -1656,7 +1656,7 @@ struct EpisodeListBannerView: View {
 // MARK: - Dependency Provider
 
 @MainActor
-private final class EpisodeListDependencyProvider {
+final class EpisodeListDependencyProvider {
   static let shared = EpisodeListDependencyProvider()
 
   let playbackService: EpisodePlaybackService

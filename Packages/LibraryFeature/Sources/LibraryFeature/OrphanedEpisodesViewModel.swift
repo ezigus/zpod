@@ -11,6 +11,7 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
   private let podcastManager: any PodcastManaging
   private let injectedPlaybackCoordinator: EpisodePlaybackCoordinating?
   private var playbackThreshold: Double
+  private var autoMarkAsPlayedEnabled: Bool
   private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
     if let injectedPlaybackCoordinator {
       return injectedPlaybackCoordinator
@@ -27,18 +28,31 @@ public final class OrphanedEpisodesViewModel: ObservableObject {
           self.episodes[index] = updated
         }
       },
-      playbackThreshold: self.playbackThreshold
+      playbackThreshold: self.playbackThreshold,
+      autoMarkAsPlayedEnabled: self.autoMarkAsPlayedEnabled
     )
   }()
 
   public init(
     podcastManager: any PodcastManaging,
     playbackCoordinator: EpisodePlaybackCoordinating? = nil,
-    playbackThreshold: Double = 0.95
+    playbackThreshold: Double = 0.95,
+    autoMarkAsPlayedEnabled: Bool = true
   ) {
     self.podcastManager = podcastManager
     self.injectedPlaybackCoordinator = playbackCoordinator
     self.playbackThreshold = playbackThreshold
+    self.autoMarkAsPlayedEnabled = autoMarkAsPlayedEnabled
+  }
+
+  public func applyPlaybackThreshold(_ threshold: Double) {
+    playbackThreshold = threshold
+    playbackCoordinator.updatePlaybackThreshold(threshold)
+  }
+
+  public func applyAutoMarkAsPlayed(_ enabled: Bool) {
+    autoMarkAsPlayedEnabled = enabled
+    playbackCoordinator.updateAutoMarkAsPlayed(enabled)
   }
 
   public func load() async {

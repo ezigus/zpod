@@ -48,6 +48,20 @@ final class OrphanedEpisodesViewModelTests: XCTestCase {
     XCTAssertTrue(playback.playedEpisodes.isEmpty, "Should not attempt playback without audioURL")
   }
 
+  func testApplyPlaybackSettingsForwardsToInjectedCoordinator() async {
+    let playback = MockPlaybackCoordinator()
+    let viewModel = OrphanedEpisodesViewModel(
+      podcastManager: PlaceholderManager(),
+      playbackCoordinator: playback
+    )
+
+    viewModel.applyPlaybackThreshold(0.85)
+    viewModel.applyAutoMarkAsPlayed(false)
+
+    XCTAssertEqual(playback.lastThreshold, 0.85)
+    XCTAssertEqual(playback.lastAutoMarkAsPlayed, false)
+  }
+
   func testDeleteRemovesEpisodeAndReloads() async {
     let ep1 = Episode(
       id: "ep-1",
@@ -81,6 +95,8 @@ final class OrphanedEpisodesViewModelTests: XCTestCase {
 
 private final class MockPlaybackCoordinator: EpisodePlaybackCoordinating {
   var playedEpisodes: [Episode] = []
+  var lastThreshold: Double?
+  var lastAutoMarkAsPlayed: Bool?
 
   func quickPlayEpisode(_ episode: Episode) {
     playedEpisodes.append(episode)
@@ -88,9 +104,13 @@ private final class MockPlaybackCoordinator: EpisodePlaybackCoordinating {
 
   func stopMonitoring() {}
 
-  func updatePlaybackThreshold(_ threshold: Double) {}
+  func updatePlaybackThreshold(_ threshold: Double) {
+    lastThreshold = threshold
+  }
 
-  func updateAutoMarkAsPlayed(_ enabled: Bool) {}
+  func updateAutoMarkAsPlayed(_ enabled: Bool) {
+    lastAutoMarkAsPlayed = enabled
+  }
 }
 
 private final class PlaceholderManager: PodcastManaging, @unchecked Sendable {
