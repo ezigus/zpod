@@ -327,6 +327,18 @@ reset_core_simulator_service() {
   xcrun simctl shutdown all >/dev/null 2>&1
   killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1
   set -e
+  # Bounded wait: allow OS to reclaim process slots after simulator teardown.
+  # This is a one-time pause (not polling) justified by the process lifecycle —
+  # killed simulator processes need ~8s to fully exit before new ones can be spawned.
+  sleep 8
+}
+
+is_resource_exhaustion_log() {
+  local log_path="$1"
+  [[ -f "$log_path" ]] || return 1
+  grep -qi "insufficient system resources" "$log_path" && return 0
+  grep -qi "maxUserProcs" "$log_path" && return 0
+  return 1
 }
 
 is_sim_boot_failure_log() {
