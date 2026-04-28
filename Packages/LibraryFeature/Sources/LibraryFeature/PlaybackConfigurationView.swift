@@ -194,7 +194,9 @@ public struct PlaybackConfigurationView: View {
       if controller.autoMarkAsPlayedEnabled {
         Picker("Completion threshold", selection: Binding(
           get: {
-            // Snap stored value to the nearest valid option
+            // Map any stored value onto the nearest valid picker option.
+            // Midpoints: 0.925 = (0.90+0.95)/2, 0.97 = (0.95+0.99)/2.
+            // Handles legacy freeform-slider values that may fall between options.
             let stored = controller.playedThreshold
             if stored <= 0.925 { return 0.90 }
             if stored <= 0.97 { return 0.95 }

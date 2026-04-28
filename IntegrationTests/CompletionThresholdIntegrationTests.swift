@@ -70,15 +70,16 @@
         "Threshold saved to settings should survive a manager reload")
     }
 
-    /// Default threshold from settings is 0.95 when none has been saved.
+    /// Default threshold from settings is nil (unset) when none has been saved.
+    /// Callers apply the 0.95 fallback via `?? 0.95`; this test verifies the
+    /// raw property so a bug returning an unexpected non-nil value is caught.
     @MainActor
     func testDefaultThresholdFromSettingsIs95() async throws {
       let manager = SettingsManager(repository: repository)
       await manager.waitForInitialLoad()
 
-      let threshold = manager.globalPlaybackSettings.playedThreshold ?? 0.95
-      XCTAssertEqual(threshold, 0.95,
-        "Default threshold should be 0.95 when no custom threshold is persisted")
+      XCTAssertNil(manager.globalPlaybackSettings.playedThreshold,
+        "playedThreshold should be nil (unset) when no custom threshold has been persisted")
     }
 
     // MARK: - Settings → Coordinator → downstream
