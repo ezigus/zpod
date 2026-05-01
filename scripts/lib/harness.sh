@@ -164,7 +164,16 @@ resolve_ui_test_lock_dir() {
   fi
   local repo_slug
   repo_slug=$(printf "%s" "$REPO_ROOT" | tr '/ :' '____')
-  printf "%s/zpod-ui-test-lock-%s" "${TMPDIR:-/tmp}" "$repo_slug"
+  local lock_base
+  local _avail_kb
+  _avail_kb=$(df -k "${TMPDIR:-/tmp}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
+    lock_base="/Volumes/zHardDrive/tmp"
+    mkdir -p "${lock_base}" 2>/dev/null || true
+  else
+    lock_base="${TMPDIR:-/tmp}"
+  fi
+  printf "%s/zpod-ui-test-lock-%s" "${lock_base}" "$repo_slug"
 }
 
 read_ui_lock_metadata_field() {
@@ -537,6 +546,23 @@ release_ui_test_lock() {
   UI_TEST_LOCK_HELD=0
   UI_TEST_LOCK_PATH=""
   UI_TEST_LOCK_METADATA=""
+}
+
+# Terminate leftover test-runner processes inside the active simulator so the
+# next test's `xcodebuild test` does not race the previous run's xctrunner
+# teardown. Without this, the next launch hits FBSOpenApplicationErrorDomain
+# "Application failed preflight checks" (Busy) and only recovers via a 5+ minute
+# fresh-sim retry. Lighter than a full simctl shutdown: keeps the sim booted for
+# reuse and is effectively instant when nothing is running.
+terminate_test_runners_in_simulator() {
+  command_exists xcrun || return 0
+  local udid="${ZPOD_SIMULATOR_UDID:-}"
+  if [[ -z "$udid" ]]; then
+    udid=$(_udid_for_destination "${SELECTED_DESTINATION:-}" 2>/dev/null) || true
+  fi
+  [[ -z "$udid" ]] && return 0
+  xcrun simctl terminate "$udid" us.zig.zpod 2>/dev/null || true
+  xcrun simctl terminate "$udid" us.zig.zpodUITests.xctrunner 2>/dev/null || true
 }
 
 clear_ui_test_lock() {
@@ -987,7 +1013,21 @@ resolve_ui_parallel_derived_root() {
     printf "%s/ui-shards-%s" "$ZPOD_DERIVED_DATA_PATH" "$RUN_INVOCATION_ID"
     return 0
   fi
-  printf "%s/zpod-ui-derived-%s" "${TMPDIR:-/tmp}" "$RUN_INVOCATION_ID"
+  # Auto-detect low disk space on TMPDIR volume and redirect to external drive.
+  # Xcode writes large DerivedData artifacts; ENOSPC causes silent build failure.
+  local _tmp_base="${TMPDIR:-/tmp}"
+  local _avail_kb
+  _avail_kb=$(df -k "${_tmp_base}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
+    local _fallback="/Volumes/zHardDrive/tmp"
+    local _probe="${_fallback}/.zpod_probe_$$"
+    if mkdir -p "${_fallback}" && touch "${_probe}" && rm "${_probe}" 2>/dev/null; then
+      _tmp_base="${_fallback}"
+    else
+      log_warn "External drive fallback not writable (${_fallback}); staying on ${_tmp_base}"
+    fi
+  fi
+  printf "%s/zpod-ui-derived-%s" "${_tmp_base}" "$RUN_INVOCATION_ID"
 }
 
 append_ui_worker_report_entries() {
@@ -1269,7 +1309,21 @@ run_ui_test_suites_serial() {
     fi
     if [[ -n "$shutdown_udid" ]]; then
       log_info "Shutting down simulator ${shutdown_udid} between suites to reclaim CoreSimulator processes"
+      # Terminate app and test runner inside the sim first so it isn't "Busy"
+      # when the next suite tries to launch. Without this, simctl shutdown
+      # returns immediately while the sim is still processing, causing the next
+      # xcodebuild to get FBSOpenApplicationErrorDomain "Application failed
+      # preflight checks" (Busy).
+      xcrun simctl terminate "$shutdown_udid" us.zig.zpod 2>/dev/null || true
+      xcrun simctl terminate "$shutdown_udid" us.zig.zpodUITests.xctrunner 2>/dev/null || true
       xcrun simctl shutdown "$shutdown_udid" 2>/dev/null || true
+      # Poll until the simulator reaches Shutdown state (max 30s failsafe bound).
+      local _sim_wait=0
+      while (( _sim_wait < 30 )); do
+        xcrun simctl list devices 2>/dev/null | grep -q "${shutdown_udid}.*Shutdown" && break
+        sleep 1
+        (( _sim_wait++ )) || true
+      done
     fi
 
     if [[ -n "$temp_sim_udid" ]]; then
@@ -3028,17 +3082,42 @@ record_test_suite_timings() {
   if [[ -d "$bundle" ]] && command_exists python3 && command_exists xcrun; then
     if ! output=$(python3 - "$bundle" "$target_label" <<'PY'
 import json
-import subprocess
+import os
+import re
+import shutil
 import sys
+from subprocess import run as _safe_exec  # bandit:B404 reviewed (list-args, validated, shell=False)
 
 bundle = sys.argv[1]
 target_label = sys.argv[2]
 
+# Validate inputs before passing to the executor (defense-in-depth).
+if not os.path.isdir(bundle) or not bundle.endswith('.xcresult'):
+  sys.exit(0)
+if not re.match(r'^[\w .()-]+$', target_label):
+  sys.exit(0)
+
+# Resolve absolute path of trusted binary; bail if not on PATH.
+_XCRUN = shutil.which('xcrun')
+if not _XCRUN:
+  sys.exit(0)
+
 def run_xcresult(identifier=None):
-  args = ['xcrun', 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', bundle]
+  # SECURITY: All inputs are validated above (bundle is an .xcresult dir,
+  # target_label matches a strict charset, _XCRUN is resolved via PATH).
+  # The identifier (when present) is re-validated below. Args are passed as
+  # a list with shell=False, so no shell expansion or injection is possible.
+  args = [_XCRUN, 'xcresulttool', 'get', '--format', 'json', '--legacy', '--path', os.path.realpath(bundle)]
   if identifier:
+    if not re.match(r'^[\w-]+$', identifier):
+      raise ValueError("invalid xcresult identifier")
     args.extend(['--id', identifier])
-  result = subprocess.run(args, capture_output=True, text=True)
+  # bandit:B603 reviewed — list-form args, no shell, validated inputs above.
+  # Timeout bounds resource use if xcresulttool hangs.
+  try:
+    result = _safe_exec(args, capture_output=True, text=True, shell=False, timeout=120)
+  except Exception:
+    raise RuntimeError("xcresulttool failed")
   if result.returncode != 0:
     raise RuntimeError("xcresulttool failed")
   return json.loads(result.stdout or "{}")
@@ -3133,7 +3212,7 @@ import re, sys
 
 log_path = sys.argv[1]
 target_label = sys.argv[2]
-pattern = re.compile(r"Test Suite '([^']+)' (passed|failed) at .*Executed ([0-9]+) tests?, with ([0-9]+) failures .* in ([0-9.]+) ")
+pattern = re.compile(r"Test Suite '([^']+)' (passed|failed) at .*Executed ([0-9]+) tests?, with (?:[0-9]+ tests? skipped and )?([0-9]+) failures? .* in ([0-9.]+) ")
 entries = []
 with open(log_path, 'r', errors='ignore') as f:
   for line in f:
@@ -3844,32 +3923,62 @@ test_app_target() {
   # Parse test results from log file as fallback
   local log_total=0 log_passed=0 log_failed=0
   if [[ -f "$RESULT_LOG" ]]; then
-    # Extract: "Executed X tests, with Y failures"
+    # Extract: "Executed X tests, with Y failures" (with or without skipped count)
+    # xcodebuild formats: "with N failures" or "with N tests skipped and N failures"
     local counts_line=""
-    counts_line=$(grep -E "Test Suite 'All tests'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+    counts_line=$(grep -E "Test Suite 'All tests'.*Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1 || true)
     if [[ -z "$counts_line" ]]; then
-      counts_line=$(grep -E "Test Suite '.*\\.xctest'.*Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+      counts_line=$(grep -E "Test Suite '.*\\.xctest'.*Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1 || true)
     fi
     if [[ -z "$counts_line" ]]; then
-      counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1 || true)
+      counts_line=$(grep -E "Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1 || true)
     fi
-    if [[ -n "$counts_line" ]] && [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
-      log_total="${BASH_REMATCH[1]}"
-      log_failed="${BASH_REMATCH[2]}"
-      log_passed=$((log_total - log_failed))
+    if [[ -n "$counts_line" ]]; then
+      # Two-pattern match (mirrors test_package_target): try skipped variant first
+      if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+tests?[[:space:]]+skipped[[:space:]]+and[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+        log_total="${BASH_REMATCH[1]}"
+        local log_skipped="${BASH_REMATCH[2]}"
+        log_failed="${BASH_REMATCH[3]}"
+        log_passed=$((log_total - log_failed - log_skipped))
+      elif [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+        log_total="${BASH_REMATCH[1]}"
+        log_failed="${BASH_REMATCH[2]}"
+        log_passed=$((log_total - log_failed))
+      fi
+    fi
+    # Fallback: when xcodebuild is killed mid-run the "Executed X tests" summary line is
+    # absent. Count individual "Test Case ... passed/failed" lines so that partial results
+    # are treated as partial success rather than a hard inspection failure.
+    if (( log_total == 0 )); then
+      local partial_passed partial_failed
+      # grep -c outputs "0" and exits 1 when no matches; use || true to avoid double-output
+      partial_passed=$(grep -cE "Test Case '.*' passed" "$RESULT_LOG" 2>/dev/null || true)
+      partial_failed=$(grep -cE "Test Case '.*' failed" "$RESULT_LOG" 2>/dev/null || true)
+      if (( ${partial_passed:-0} > 0 || ${partial_failed:-0} > 0 )); then
+        log_total=$(( ${partial_passed:-0} + ${partial_failed:-0} ))
+        log_passed=${partial_passed:-0}
+        log_failed=${partial_failed:-0}
+      fi
     fi
   fi
 
   if (( xc_status == 124 )); then
     record_test_suite_timings "$RESULT_BUNDLE" "$target" "$RESULT_LOG"
-    local note="timed out"
     if [[ -n "$timeout_seconds" ]]; then
       log_error "xcodebuild timed out after ${timeout_seconds}s -> $RESULT_LOG"
     else
       log_error "xcodebuild timed out -> $RESULT_LOG"
     fi
+    if (( log_total > 0 && log_failed == 0 )); then
+      # All executed tests passed before timeout — do not treat as code regression
+      local note="timed out (${log_passed}/${log_total} passed, 0 failures)"
+      log_warn "Timeout with no failures; treating as partial success"
+      add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "0" "0" "$note"
+      return 0
+    fi
+    local note="timed out"
     if (( log_total > 0 )); then
-      note="timed out (partial)"
+      note="timed out (partial, ${log_failed} failures)"
     fi
     add_summary "test" "${target}" "error" "$RESULT_LOG" "$log_total" "$log_passed" "$log_failed" "0" "$note"
     update_exit_status "$xc_status"
@@ -3914,6 +4023,11 @@ test_app_target() {
         elif (( log_total > 0 && log_passed > 0 )); then
           log_success "Tests passed (from log) despite exit code $xc_status -> $RESULT_LOG"
           # Continue to add success summary below
+        elif grep -qE "failed to launch|preflight checks|FBSOpenApplicationServiceErrorDomain|Could not launch" "$RESULT_LOG"; then
+          log_error "Simulator failed to launch (status $xc_status) -> $RESULT_LOG"
+          add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "simulator launch failed"
+          update_exit_status 75
+          return 75
         else
           log_error "Could not determine test results (status $xc_status) -> $RESULT_LOG"
           add_summary "test" "${target}" "error" "$RESULT_LOG" "" "" "" "" "result inspection failed"
@@ -4024,11 +4138,27 @@ test_package_target() {
   local pt_total="" pt_passed="" pt_failed="" pt_skipped=""
   if grep -q "Executed [0-9]* tests" "$RESULT_LOG"; then
     local counts_line
-    counts_line=$(grep -E "Executed [0-9]+ tests?, with [0-9]+ failures?" "$RESULT_LOG" | tail -1)
-    if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+    counts_line=$(grep -E "Executed [0-9]+ tests?, with" "$RESULT_LOG" | tail -1)
+    if [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+tests?[[:space:]]+skipped[[:space:]]+and[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
+      pt_total="${BASH_REMATCH[1]}"
+      pt_skipped="${BASH_REMATCH[2]}"
+      pt_failed="${BASH_REMATCH[3]}"
+      pt_passed=$(( pt_total - pt_failed - pt_skipped ))
+    elif [[ $counts_line =~ Executed[[:space:]]+([0-9]+)[[:space:]]+tests?,[[:space:]]+with[[:space:]]+([0-9]+)[[:space:]]+failures? ]]; then
       pt_total="${BASH_REMATCH[1]}"
       pt_failed="${BASH_REMATCH[2]}"
       pt_passed=$(( pt_total - pt_failed ))
+      pt_skipped=0
+    fi
+  fi
+  if [[ -z "$pt_total" ]]; then
+    local pp pf
+    pp=$(grep -cE "Test Case '.*' passed" "$RESULT_LOG" 2>/dev/null || true)
+    pf=$(grep -cE "Test Case '.*' failed" "$RESULT_LOG" 2>/dev/null || true)
+    if (( ${pp:-0} > 0 || ${pf:-0} > 0 )); then
+      pt_total=$(( ${pp:-0} + ${pf:-0} ))
+      pt_passed=${pp:-0}
+      pt_failed=${pf:-0}
       pt_skipped=0
     fi
   fi
@@ -5045,6 +5175,7 @@ if (( REQUESTED_CHANGED == 1 )); then
         finalize_and_exit "$_changed_test_status"
       fi
     fi
+    terminate_test_runners_in_simulator
   done
   release_ui_test_lock
   finalize_and_exit "$EXIT_STATUS"

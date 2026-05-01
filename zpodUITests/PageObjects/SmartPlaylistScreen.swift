@@ -26,7 +26,11 @@ public struct SmartPlaylistScreen: BaseScreen {
     }
 
     private var playlistsTab: XCUIElement {
-        tabBar.buttons.matching(identifier: "Playlists").firstMatch
+        // TabBarIdentifierSetter sets accessibility identifiers in viewDidAppear, which can
+        // lag slightly behind the view appearing in the accessibility tree. Match by either
+        // identifier or label so navigation succeeds regardless of timing.
+        let predicate = NSPredicate(format: "identifier == 'Playlists' OR label == 'Playlists'")
+        return tabBar.buttons.matching(predicate).firstMatch
     }
 
     // MARK: - List-Level Elements

@@ -160,10 +160,17 @@ public struct EpisodeListView: View {
       )
     }
     .task(id: podcast.id) {
-      let settings = await EpisodeListDependencyProvider.shared.settingsManager
+      let settingsManager = EpisodeListDependencyProvider.shared.settingsManager
+      await settingsManager.waitForInitialLoad()
+      let downloadSettings = await settingsManager
         .loadPodcastDownloadSettings(podcastId: podcast.id)
+      let playbackSettings = settingsManager.globalPlaybackSettings
+      let threshold = playbackSettings.playedThreshold ?? 0.95
+      let autoMark = playbackSettings.autoMarkAsPlayed ?? false
       await MainActor.run {
-        podcastPriority = settings?.priority ?? 0
+        podcastPriority = downloadSettings?.priority ?? 0
+        viewModel.applyPlaybackThreshold(threshold)
+        viewModel.applyAutoMarkAsPlayed(autoMark)
       }
     }
     .sheet(isPresented: $viewModel.showingFilterSheet) {
@@ -1649,7 +1656,7 @@ struct EpisodeListBannerView: View {
 // MARK: - Dependency Provider
 
 @MainActor
-private final class EpisodeListDependencyProvider {
+final class EpisodeListDependencyProvider {
   static let shared = EpisodeListDependencyProvider()
 
   let playbackService: EpisodePlaybackService

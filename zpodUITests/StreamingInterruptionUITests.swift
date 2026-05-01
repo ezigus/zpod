@@ -1159,6 +1159,11 @@ final class StreamingInterruptionUITests: IsolatedUITestCase {
             "Player content not reachable in simulation mode"
         )
 
+        // Wait for the play button to become hittable, which confirms EpisodeDetailView's
+        // .onAppear has fired and loadEpisode() has set viewModel.episode (enabling the button).
+        // The content check above only tests existence — a disabled button still "exists".
+        _ = playButton.waitUntil(.hittable, timeout: adaptiveTimeout)
+
         return playerView
     }
 

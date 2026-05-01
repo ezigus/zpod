@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		186B4D3092654891B23838B6 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 517390C5CD214EF2939E0057 /* Persistence */; };
+		24FFD7A443DA4337BDC4C2B6 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
 		40885B3866DC45C9902A735B /* test-episode-medium.aiff in Resources */ = {isa = PBXBuildFile; fileRef = A0E3D10F437E44D4857C4080 /* test-episode-medium.aiff */; };
 		4221E8D131E945E99256E701 /* test-episode-short.m4a in Resources */ = {isa = PBXBuildFile; fileRef = F0C61AFCBEFC4D609BB908F6 /* test-episode-short.m4a */; };
 		584B9727A4194E9599C1B7ED /* test-episode-short.aiff in Resources */ = {isa = PBXBuildFile; fileRef = E0935397F4E843D8BC948B92 /* test-episode-short.aiff */; };
@@ -38,7 +39,6 @@
 		78C0C2272EBC2F6D000CB820 /* PlaybackEngine in Frameworks */ = {isa = PBXBuildFile; productRef = F2345678901BCD23456EFGHI /* PlaybackEngine */; };
 		78C0C2292EBC2F6D000CB820 /* Persistence in Frameworks */ = {isa = PBXBuildFile; productRef = 517390C5CD214EF2939E0057 /* Persistence */; };
 		94C91989044B4E8EBBF8D03A /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
-		24FFD7A443DA4337BDC4C2B6 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 6CB69C377B6742A8A827FE01 /* TestSupport */; };
 		A1B2C3D4E5F60718293A4B5C /* LibraryFeature in Frameworks */ = {isa = PBXBuildFile; productRef = F1234567890ABC12345DEFGH /* LibraryFeature */; };
 		AB2173FD2D074DFDABDB2815 /* DiscoverFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 885611E8E8644D078AC31FA4 /* DiscoverFeature */; };
 		B9BD6498D29E4BAC80C22BAF /* test-episode-long.m4a in Resources */ = {isa = PBXBuildFile; fileRef = D2CFBB9A25B54ABA88C1E80E /* test-episode-long.m4a */; };
@@ -713,7 +713,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = zpod/zpodRelease.entitlements;
+				CODE_SIGN_ENTITLEMENTS = zpod/zpodRelease.NoCarPlay.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -867,6 +867,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = NO;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 6.0;

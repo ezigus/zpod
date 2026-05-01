@@ -28,7 +28,7 @@ public struct PlaybackPreset: Codable, Equatable, Identifiable, Sendable {
         crossFadeEnabled: Bool = false,
         crossFadeDuration: Double = 2.0,
         autoMarkAsPlayed: Bool = false,
-        playedThreshold: Double = 0.9
+        playedThreshold: Double = 0.95
     ) {
         self.id = id
         self.name = name
@@ -81,7 +81,7 @@ public struct PlaybackPresetLibrary: Codable, Equatable, Sendable {
             crossFadeEnabled: false,
             crossFadeDuration: 1.5,
             autoMarkAsPlayed: true,
-            playedThreshold: 0.9
+            playedThreshold: 0.95
         ),
         PlaybackPreset(
             id: "speed-listener",

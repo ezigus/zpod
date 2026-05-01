@@ -227,8 +227,12 @@ final class PodcastPriorityUITests: IsolatedUITestCase {
             "Priority slider must be visible before adjusting"
         )
 
-        // Move slider to the low end (normalized 0.0 = -10)
-        prioritySlider.adjust(toNormalizedSliderPosition: 0.0)
+        // Use press-then-drag to guarantee the slider claims the gesture over the sheet's
+        // scroll view, which would otherwise intercept a plain leftward swipe.
+        // Drag from center (value=0, normalized=0.5) to ~20% (value≈-6, clearly negative).
+        let sliderCenter = prioritySlider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let sliderLeft   = prioritySlider.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+        sliderCenter.press(forDuration: 0.05, thenDragTo: sliderLeft)
 
         let priorityLabel = app.staticTexts
             .matching(identifier: "PodcastCustomSettings.PriorityValueLabel")
@@ -237,9 +241,12 @@ final class PodcastPriorityUITests: IsolatedUITestCase {
             priorityLabel.waitForExistence(timeout: adaptiveShortTimeout),
             "Priority value label must remain visible after slider adjustment"
         )
-        // Label should show a negative priority (not "0  Normal")
-        XCTAssertTrue(
-            priorityLabel.label.hasPrefix("-"),
+        // Wait for SwiftUI to re-render with the new negative value before asserting.
+        let negativeValuePredicate = NSPredicate(format: "label BEGINSWITH '-'")
+        let labelUpdated = XCTNSPredicateExpectation(predicate: negativeValuePredicate, object: priorityLabel)
+        let result = XCTWaiter.wait(for: [labelUpdated], timeout: adaptiveTimeout)
+        XCTAssertEqual(
+            result, .completed,
             "Priority label must show a negative value (e.g. '-10  Deprioritized') after moving slider to low end; got: '\(priorityLabel.label)'"
         )
     }

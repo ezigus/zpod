@@ -197,11 +197,15 @@ public final class EpisodeListViewModel: ObservableObject {
     )
   }()
   private let swipeActionHandler: SwipeActionHandling
+  private var playbackThreshold: Double
+  private var autoMarkAsPlayedEnabled: Bool
   private lazy var playbackCoordinator: EpisodePlaybackCoordinating = {
     EpisodePlaybackCoordinator(
       playbackService: self.playbackService,
       episodeLookup: { [weak self] id in self?.episodeForID(id) },
-      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) }
+      episodeUpdateHandler: { [weak self] episode in self?.updateEpisode(episode) },
+      playbackThreshold: self.playbackThreshold,
+      autoMarkAsPlayedEnabled: self.autoMarkAsPlayedEnabled
     )
   }()
 
@@ -217,7 +221,9 @@ public final class EpisodeListViewModel: ObservableObject {
     swipeConfigurationService: SwipeConfigurationServicing =
       EpisodeListViewModel.makeDefaultSwipeConfigurationService(),
     hapticFeedbackService: HapticFeedbackServicing = HapticFeedbackService.shared,
-    annotationRepository: EpisodeAnnotationRepository? = nil
+    annotationRepository: EpisodeAnnotationRepository? = nil,
+    playbackThreshold: Double = 0.95,
+    autoMarkAsPlayedEnabled: Bool = true
   ) {
     self.podcast = podcast
     self.filterService = filterService
@@ -232,6 +238,8 @@ public final class EpisodeListViewModel: ObservableObject {
     self.allEpisodes = podcast.episodes
     self.swipeConfiguration = .default
 
+    self.playbackThreshold = playbackThreshold
+    self.autoMarkAsPlayedEnabled = autoMarkAsPlayedEnabled
     self.swipeActionHandler = SwipeActionHandler(
       hapticFeedbackService: hapticFeedbackService
     )
@@ -577,5 +585,17 @@ public final class EpisodeListViewModel: ObservableObject {
   /// Quick play an episode that's in progress
   public func quickPlayEpisode(_ episode: Episode) {
     playbackCoordinator.quickPlayEpisode(episode)
+  }
+
+  /// Apply persisted playback settings, updating the coordinator if already initialized
+  public func applyPlaybackThreshold(_ threshold: Double) {
+    playbackThreshold = threshold
+    playbackCoordinator.updatePlaybackThreshold(threshold)
+  }
+
+  /// Apply the auto-mark-as-played flag, updating the coordinator if already initialized
+  public func applyAutoMarkAsPlayed(_ enabled: Bool) {
+    autoMarkAsPlayedEnabled = enabled
+    playbackCoordinator.updateAutoMarkAsPlayed(enabled)
   }
 }

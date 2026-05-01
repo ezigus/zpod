@@ -6,6 +6,27 @@ if [[ -n "${__ZPOD_SPM_SH:-}" ]]; then
 fi
 __ZPOD_SPM_SH=1
 
+# Resolve the effective TMPDIR to use for Swift compiler and test processes.
+# Checks disk space at call time (not just at source time) so that packages
+# tested later in a run still get redirected if the system volume fills up
+# mid-run. ZPOD_TMPDIR can be set externally to pin the value permanently.
+_resolve_swift_tmpdir() {
+  # If externally pinned, use it directly.
+  if [[ -n "${ZPOD_TMPDIR:-}" ]]; then
+    printf '%s' "${ZPOD_TMPDIR}"
+    return
+  fi
+  local _fallback="/Volumes/zHardDrive/tmp"
+  local _avail_kb
+  _avail_kb=$(df -k "${TMPDIR:-/tmp}" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+  if [[ "${_avail_kb}" -lt 1048576 && -d "/Volumes/zHardDrive" ]]; then
+    mkdir -p "${_fallback}" 2>/dev/null || true
+    printf '%s' "${_fallback}"
+    return
+  fi
+  printf '%s' "${TMPDIR:-/tmp}"
+}
+
 run_swift_package_tests() {
   log_info "Running Swift Package tests for all packages (fallback)"
   local found=0
@@ -16,7 +37,9 @@ run_swift_package_tests() {
       pkg_name="$(basename "$pkg")"
       log_info "→ swift test (package: ${pkg_name})"
       pushd "$pkg" >/dev/null
-      if ! MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"; then
+      local _eff_tmpdir
+      _eff_tmpdir="$(_resolve_swift_tmpdir)"
+      if ! TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"; then
         popd >/dev/null
         return 1
       fi
@@ -40,8 +63,10 @@ build_swift_package() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
+  local _eff_tmpdir
+  _eff_tmpdir="$(_resolve_swift_tmpdir)"
   set +e
-  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build | tee "${RESULT_LOG}"
+  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift build -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"
   local build_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
@@ -60,8 +85,10 @@ run_swift_package_target_tests() {
   if [[ "$clean_requested" -eq 1 ]]; then
     swift package clean || true
   fi
+  local _eff_tmpdir
+  _eff_tmpdir="$(_resolve_swift_tmpdir)"
   set +e
-  MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test | tee "${RESULT_LOG}"
+  TMPDIR="${_eff_tmpdir}" MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}" swift test -j "${ZPOD_SWIFT_JOBS:-4}" | tee "${RESULT_LOG}"
   local test_status=${PIPESTATUS[0]}
   set -e
   popd >/dev/null
