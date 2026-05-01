@@ -14,12 +14,10 @@
   ///   1. `PlaybackSettings.playedThreshold` is persisted to / loaded from `SettingsManager`
   ///   2. The threshold is forwarded to `EpisodePlaybackCoordinator`
   ///   3. Reaching the threshold triggers the episode-update handler with `isPlayed = true`
-  @MainActor
   final class CompletionThresholdIntegrationTests: XCTestCase {
 
     private var suiteName: String!
     private var repository: UserDefaultsSettingsRepository!
-    private var mockPlaybackService: MockCompletionPlaybackService!
     private var updatedEpisodes: [Episode] = []
     private let testEpisode = Episode(
       id: "int-episode-1",
@@ -40,7 +38,6 @@
       }
       defaults.removePersistentDomain(forName: suiteName)
       repository = UserDefaultsSettingsRepository(suiteName: suiteName)
-      mockPlaybackService = MockCompletionPlaybackService()
       updatedEpisodes = []
     }
 
@@ -49,7 +46,6 @@
         UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
       }
       repository = nil
-      mockPlaybackService = nil
       updatedEpisodes = []
       suiteName = nil
       try super.tearDownWithError()
@@ -88,6 +84,8 @@
     /// coordinator correctly triggers auto-mark-as-played at that threshold.
     @MainActor
     func testSettingsThresholdFlowsWith90PercentToCoordinator() async throws {
+      let mockPlaybackService = MockCompletionPlaybackService()
+
       // 1. Save 90% threshold to settings
       let manager = SettingsManager(repository: repository)
       await manager.updateGlobalPlaybackSettings(PlaybackSettings(playedThreshold: 0.90))
@@ -120,6 +118,7 @@
     /// A threshold saved as 99% flows correctly end-to-end and does NOT fire at 98%.
     @MainActor
     func testSettingsThresholdFlowsWith99PercentToCoordinator() async throws {
+      let mockPlaybackService = MockCompletionPlaybackService()
       let manager = SettingsManager(repository: repository)
       await manager.updateGlobalPlaybackSettings(PlaybackSettings(playedThreshold: 0.99))
       await manager.waitForInitialLoad()
@@ -152,6 +151,7 @@
     /// immediately for subsequent playback events.
     @MainActor
     func testRuntimeThresholdUpdateIsRespected() async throws {
+      let mockPlaybackService = MockCompletionPlaybackService()
       let coordinator = EpisodePlaybackCoordinator(
         playbackService: mockPlaybackService,
         episodeLookup: { [testEpisode] id in id == testEpisode.id ? testEpisode : nil },
