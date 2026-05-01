@@ -166,7 +166,7 @@ public struct EpisodeListView: View {
         .loadPodcastDownloadSettings(podcastId: podcast.id)
       let playbackSettings = settingsManager.globalPlaybackSettings
       let threshold = playbackSettings.playedThreshold ?? 0.95
-      let autoMark = playbackSettings.autoMarkAsPlayed ?? true
+      let autoMark = playbackSettings.autoMarkAsPlayed ?? false
       await MainActor.run {
         podcastPriority = downloadSettings?.priority ?? 0
         viewModel.applyPlaybackThreshold(threshold)

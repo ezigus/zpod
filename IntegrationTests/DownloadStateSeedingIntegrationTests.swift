@@ -369,8 +369,8 @@
     }
 
     /// Negative-path test: invalid JSON in the env var must yield an empty dict
-    /// (and not crash). The implementation logs a `⚠️ Failed to decode` warning
-    /// for diagnostics; that line is expected and benign in this test's output —
+    /// (and not crash). The implementation logs an informational message for
+    /// diagnostics; that line is expected and benign in this test's output —
     /// downstream log scanners should not flag it as a regression.
     func testParseSeededStatesReturnsEmptyOnInvalidEnvironmentJSON() {
       setenv(DownloadStateSeeding.environmentKey, "{invalid-json", 1)

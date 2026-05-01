@@ -93,6 +93,35 @@ final class SimplePodcastManager: PodcastManaging {
 
 extension SimplePodcastManager: @unchecked Sendable {}
 
+private actor MockPodcastSettingsRepository: SettingsRepository {
+    private var stored: [String: PodcastDownloadSettings] = [:]
+
+    func loadPodcastDownloadSettings(podcastId: String) async -> PodcastDownloadSettings? { stored[podcastId] }
+    func savePodcastDownloadSettings(_ settings: PodcastDownloadSettings) async { stored[settings.podcastId] = settings }
+    func removePodcastDownloadSettings(podcastId: String) async { stored.removeValue(forKey: podcastId) }
+    func loadGlobalDownloadSettings() async -> DownloadSettings { .default }
+    func saveGlobalDownloadSettings(_ settings: DownloadSettings) async {}
+    func loadGlobalNotificationSettings() async -> NotificationSettings { .default }
+    func saveGlobalNotificationSettings(_ settings: NotificationSettings) async {}
+    func loadGlobalPlaybackSettings() async -> PlaybackSettings { PlaybackSettings() }
+    func saveGlobalPlaybackSettings(_ settings: PlaybackSettings) async {}
+    func loadGlobalUISettings() async -> UISettings { .default }
+    func saveGlobalUISettings(_ settings: UISettings) async {}
+    func loadGlobalAppearanceSettings() async -> AppearanceSettings { .default }
+    func saveGlobalAppearanceSettings(_ settings: AppearanceSettings) async {}
+    func loadSmartListAutomationSettings() async -> SmartListRefreshConfiguration { SmartListRefreshConfiguration() }
+    func saveSmartListAutomationSettings(_ settings: SmartListRefreshConfiguration) async {}
+    func loadPlaybackPresetLibrary() async -> PlaybackPresetLibrary { .default }
+    func savePlaybackPresetLibrary(_ library: PlaybackPresetLibrary) async {}
+    func loadPodcastPlaybackSettings(podcastId: String) async -> PodcastPlaybackSettings? { nil }
+    func savePodcastPlaybackSettings(podcastId: String, _ settings: PodcastPlaybackSettings) async {}
+    func removePodcastPlaybackSettings(podcastId: String) async {}
+    func loadPlaybackResumeState() async -> PlaybackResumeState? { nil }
+    func savePlaybackResumeState(_ state: PlaybackResumeState) async {}
+    func clearPlaybackResumeState() async {}
+    func settingsChangeStream() async -> AsyncStream<SettingsChange> { AsyncStream { _ in } }
+}
+
 final class SimpleNetworkingTests: XCTestCase {
 
     override func setUpWithError() throws {
@@ -104,7 +133,6 @@ final class SimpleNetworkingTests: XCTestCase {
         executionTimeAllowance = 30
     }
 
-    @MainActor
     func testSubscriptionService_validURL_success() async throws {
         // Given: Mock dependencies and subscription service
         let mockDataLoader = SimpleFeedDataLoader()
@@ -134,7 +162,6 @@ final class SimpleNetworkingTests: XCTestCase {
         XCTAssertTrue(mockPodcastManager.addPodcastCalled)
     }
     
-    @MainActor
     func testSubscriptionService_invalidURL_throwsError() async {
         // Given: Subscription service with invalid URL
         let mockDataLoader = SimpleFeedDataLoader()
@@ -257,11 +284,8 @@ final class SimpleNetworkingTests: XCTestCase {
 
     @MainActor
     func testAutoDownloadService_loadsPriorityFromRepository() async {
-        // Given: An isolated settings repository with a stored high priority
-        let suiteName = "test-priority-\(UUID().uuidString)"
-        UserDefaults.standard.removePersistentDomain(forName: suiteName)
-        let userDefaults = UserDefaults(suiteName: suiteName)!
-        let repo = UserDefaultsSettingsRepository(userDefaults: userDefaults)
+        // Given: In-memory mock repository with a stored high priority (avoids real UserDefaults I/O)
+        let repo = MockPodcastSettingsRepository()
 
         let podcastId = "priority-podcast"
         let settings = PodcastDownloadSettings(

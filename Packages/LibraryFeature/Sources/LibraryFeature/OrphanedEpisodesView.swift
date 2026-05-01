@@ -86,7 +86,7 @@ struct OrphanedEpisodesView: View {
     await settingsManager.waitForInitialLoad()
     let playbackSettings = settingsManager.globalPlaybackSettings
     let threshold = playbackSettings.playedThreshold ?? 0.95
-    let autoMark = playbackSettings.autoMarkAsPlayed ?? true
+    let autoMark = playbackSettings.autoMarkAsPlayed ?? false
     viewModel.applyPlaybackThreshold(threshold)
     viewModel.applyAutoMarkAsPlayed(autoMark)
   }

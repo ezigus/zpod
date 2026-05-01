@@ -3,5 +3,6 @@ data/
 logs/
 sessions/
 neural/
+metrics/
 *.log
 *.tmp

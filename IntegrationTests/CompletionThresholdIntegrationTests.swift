@@ -70,7 +70,7 @@
     /// Callers apply the 0.95 fallback via `?? 0.95`; this test verifies the
     /// raw property so a bug returning an unexpected non-nil value is caught.
     @MainActor
-    func testDefaultThresholdFromSettingsIs95() async throws {
+    func testDefaultThresholdFromSettingsIsNil() async throws {
       let manager = SettingsManager(repository: repository)
       await manager.waitForInitialLoad()
 
