@@ -155,6 +155,14 @@ struct ZpodApp: App {
             .onContinueUserActivity("us.zig.zpod.playEpisode") { userActivity in
               handlePlayEpisodeActivity(userActivity)
             }
+            // App Intents playback requests reuse the same handler as the legacy
+            // SiriKit activity, so there is only ever one way playback starts.
+            .onReceive(NotificationCenter.default.publisher(for: .zpodPlayEpisodeRequested)) { note in
+              guard let episodeId = note.userInfo?[PlayEpisodeRequest.episodeIDKey] as? String else { return }
+              let activity = NSUserActivity(activityType: "us.zig.zpod.playEpisode")
+              activity.userInfo = ["episodeId": episodeId]
+              handlePlayEpisodeActivity(activity)
+            }
         }
       #else
         ContentView()
